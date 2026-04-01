@@ -1,0 +1,5 @@
+{
+  "name": "StockFlow Pro",
+  "description": "A high-end editorial inventory management system for modern warehouses, integrated with Supabase for real-time data persistence.",
+  "requestFramePermissions": []
+}
