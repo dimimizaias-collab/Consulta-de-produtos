@@ -64,6 +64,14 @@ export default function Page() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validação de tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      setNotification({ type: 'error', message: 'Por favor, selecione apenas arquivos de imagem (JPG, PNG, etc).' });
+      if (e.target) e.target.value = '';
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
     setUploading(true);
     const formData = new FormData();
     formData.append('file', file);
@@ -74,7 +82,10 @@ export default function Page() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Falha no upload');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha no upload');
+      }
 
       const data = await response.json();
       console.log('Upload bem-sucedido:', data.url);
@@ -85,13 +96,13 @@ export default function Page() {
         setNewProduct((prev: any) => ({ ...prev, image: data.url }));
       }
       setNotification({ type: 'success', message: 'Imagem carregada com sucesso!' });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro no upload:', err);
-      setNotification({ type: 'error', message: 'Erro ao carregar imagem.' });
+      setNotification({ type: 'error', message: `Erro ao carregar imagem: ${err.message}` });
     } finally {
       setUploading(false);
       if (e.target) e.target.value = '';
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -100,6 +111,13 @@ export default function Page() {
   const handleStockUpdate = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isConfigured) {
+      setNotification({ type: 'error', message: 'O banco de dados não está configurado. Por favor, adicione as chaves no menu Settings.' });
+      if (stockFileInputRef.current) stockFileInputRef.current.value = '';
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
 
     const fileName = file.name.toLowerCase();
     setImporting(true);
@@ -199,10 +217,19 @@ export default function Page() {
       }
     };
 
-    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.readAsText(file);
+    try {
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        reader.readAsArrayBuffer(file);
+      } else if (fileName.endsWith('.csv') || fileName.endsWith('.xml')) {
+        reader.readAsText(file);
+      } else {
+        throw new Error('Formato de arquivo não suportado. Use .xlsx, .xls, .csv ou .xml');
+      }
+    } catch (err: any) {
+      console.error('Error starting file read:', err);
+      setImporting(false);
+      setNotification({ type: 'error', message: `Erro ao ler o arquivo: ${err.message}` });
+      if (stockFileInputRef.current) stockFileInputRef.current.value = '';
     }
   };
 
@@ -480,6 +507,14 @@ export default function Page() {
       return;
     }
 
+    // Validação de tipo de arquivo para evitar upload de imagens no botão de importar planilha
+    if (file.type.startsWith('image/')) {
+      setNotification({ type: 'error', message: 'Este botão é para importar planilhas (.csv, .xlsx, .xml). Para carregar uma imagem de produto, use o botão de imagem dentro do cadastro do produto.' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
     setImporting(true);
     const reader = new FileReader();
     const fileName = file.name.toLowerCase();
@@ -612,13 +647,16 @@ export default function Page() {
     try {
       if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
         reader.readAsArrayBuffer(file);
-      } else {
+      } else if (fileName.endsWith('.csv') || fileName.endsWith('.xml')) {
         reader.readAsText(file);
+      } else {
+        throw new Error('Formato de arquivo não suportado. Use .xlsx, .xls, .csv ou .xml');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error starting file read:', err);
       setImporting(false);
-      alert('ERRO: Não foi possível iniciar a leitura do arquivo.');
+      setNotification({ type: 'error', message: `Erro ao ler o arquivo: ${err.message}` });
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -676,7 +714,7 @@ export default function Page() {
                 {notification.type === 'success' ? <CheckCircle2 size={20} /> : <X size={20} />}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold">{notification.type === 'success' ? 'Sucesso!' : 'Erro na Importação'}</p>
+                <p className="text-sm font-bold">{notification.type === 'success' ? 'Sucesso!' : 'Erro'}</p>
                 <p className="text-xs opacity-80">{notification.message}</p>
               </div>
               <button onClick={() => setNotification(null)} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
@@ -777,7 +815,7 @@ export default function Page() {
                   ) : (
                     <>
                       <FileUp size={14} />
-                      Importar
+                      Importar Planilha
                     </>
                   )}
                 </button>
@@ -866,10 +904,13 @@ export default function Page() {
                     </div>
                     <div className="col-span-full flex justify-end">
                       <button 
-                        onClick={() => setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' })}
+                        onClick={() => {
+                          setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
+                          setSearchQuery('');
+                        }}
                         className="text-[10px] font-bold text-primary uppercase hover:underline"
                       >
-                        Clear All Filters
+                        Limpar tudo
                       </button>
                     </div>
                   </div>
