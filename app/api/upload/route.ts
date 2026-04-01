@@ -12,25 +12,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
+    console.log('Iniciando upload de arquivo:', file.name, file.type, file.size);
+    
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
     // Ensure uploads directory exists
     const uploadDir = join(process.cwd(), 'public', 'uploads');
+    console.log('Diretório de upload:', uploadDir);
     try {
       await mkdir(uploadDir, { recursive: true });
     } catch (err) {
-      // Directory might already exist
+      console.error('Erro ao criar diretório:', err);
     }
 
     const fileExtension = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
     const path = join(uploadDir, fileName);
 
+    console.log('Salvando arquivo em:', path);
     await writeFile(path, buffer);
     
     const url = `/uploads/${fileName}`;
-
+    console.log('Upload concluído com sucesso. URL:', url);
     return NextResponse.json({ url });
   } catch (error) {
     console.error('Error uploading file:', error);

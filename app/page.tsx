@@ -77,10 +77,12 @@ export default function Page() {
       if (!response.ok) throw new Error('Falha no upload');
 
       const data = await response.json();
+      console.log('Upload bem-sucedido:', data.url);
+      
       if (isEdit) {
-        setEditingProduct({ ...editingProduct, image: data.url });
+        setEditingProduct((prev: any) => ({ ...prev, image: data.url }));
       } else {
-        setNewProduct({ ...newProduct, image: data.url });
+        setNewProduct((prev: any) => ({ ...prev, image: data.url }));
       }
       setNotification({ type: 'success', message: 'Imagem carregada com sucesso!' });
     } catch (err) {
@@ -465,14 +467,16 @@ export default function Page() {
     if (!file) return;
 
     if (!isConfigured) {
-      alert('O banco de dados não está configurado. Por favor, adicione as chaves no menu Settings.');
+      setNotification({ type: 'error', message: 'O banco de dados não está configurado. Por favor, adicione as chaves no menu Settings.' });
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setNotification(null), 5000);
       return;
     }
 
     if (file.size === 0) {
-      alert('O arquivo selecionado está vazio.');
+      setNotification({ type: 'error', message: 'O arquivo selecionado está vazio.' });
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setNotification(null), 5000);
       return;
     }
 
@@ -482,9 +486,10 @@ export default function Page() {
     
     reader.onerror = () => {
       console.error('FileReader error:', reader.error);
-      alert('Erro ao ler o arquivo do seu computador.');
+      setNotification({ type: 'error', message: 'Erro ao ler o arquivo do seu computador.' });
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setNotification(null), 5000);
     };
 
     reader.onload = async (e) => {
@@ -715,6 +720,13 @@ export default function Page() {
                   type="file" 
                   ref={stockFileInputRef} 
                   onChange={handleStockUpdate} 
+                  accept=".xml,.csv,.xlsx,.xls" 
+                  className="hidden" 
+                />
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileImport} 
                   accept=".xml,.csv,.xlsx,.xls" 
                   className="hidden" 
                 />

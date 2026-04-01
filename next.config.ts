@@ -47,6 +47,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'superkoch.com.br',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.pinimg.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   output: 'standalone',
