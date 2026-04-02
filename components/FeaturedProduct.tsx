@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2, MapPin, Barcode, Tag, Eye, Edit2 } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, MapPin, Barcode, Tag, Eye, Edit2, ImageOff } from 'lucide-react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 
@@ -23,6 +24,8 @@ interface FeaturedProductProps {
 }
 
 export function FeaturedProduct({ product, onEdit }: FeaturedProductProps) {
+  const [imgError, setImgError] = useState(false);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -38,19 +41,21 @@ export function FeaturedProduct({ product, onEdit }: FeaturedProductProps) {
         </button>
       )}
       <div className="w-2/5 relative bg-[#f5f5f5] flex items-center justify-center">
-        {product.image ? (
+        {product.image && !imgError ? (
           <Image 
             className="object-cover" 
             alt={product.name} 
             src={product.image}
             fill
             referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center text-slate-300">
             <div className="w-24 h-24 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest">Sem Foto</span>
+              <ImageOff size={32} className="opacity-20" />
             </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest">Sem Foto</span>
           </div>
         )}
         <div className="absolute top-4 left-4 bg-primary text-white text-[10px] font-extrabold px-2 py-1 rounded tracking-widest uppercase shadow-lg">

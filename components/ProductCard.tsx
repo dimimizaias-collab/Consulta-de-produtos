@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { Edit2, Tag, Layers, Package, MapPin, Hash, Barcode } from 'lucide-react';
+import { Edit2, Tag, Layers, Package, MapPin, Hash, Barcode, ImageOff } from 'lucide-react';
 
 interface ProductCardProps {
   id?: string;
@@ -23,6 +24,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, onEdit }: ProductCardProps) {
+  const [imgError, setImgError] = useState(false);
   const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
 
   return (
@@ -40,16 +42,18 @@ export function ProductCard({ id, sku, name, image, status, count, location, pri
       )}
       
       <div className="w-32 h-32 bg-slate-50 rounded-xl overflow-hidden relative flex items-center justify-center shrink-0 border border-slate-100 shadow-inner">
-        {image ? (
+        {image && !imgError ? (
           <Image 
             className="object-cover" 
             alt={name} 
             src={image}
             fill
             referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center text-slate-300">
+            <ImageOff size={24} className="mb-1 opacity-20" />
             <span className="text-[10px] font-bold uppercase">Sem Foto</span>
           </div>
         )}
