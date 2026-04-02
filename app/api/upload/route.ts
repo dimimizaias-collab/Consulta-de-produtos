@@ -3,6 +3,12 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -36,8 +42,12 @@ export async function POST(request: NextRequest) {
     const url = `/uploads/${fileName}`;
     console.log('Upload concluído com sucesso. URL:', url);
     return NextResponse.json({ url });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading file:', error);
-    return NextResponse.json({ error: 'Error uploading file' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error uploading file', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 });
   }
 }

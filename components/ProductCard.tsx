@@ -23,8 +23,36 @@ interface ProductCardProps {
   onEdit?: (product: any) => void;
 }
 
+function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
+  const [error, setError] = useState(false);
+
+  // Reset error state when src changes by using it as a key in the parent or here
+  // But wait, if we use key={src} on the Image component, it will re-mount.
+  // However, the 'error' state is here.
+  
+  return (
+    <div className={cn("relative w-full h-full flex items-center justify-center", className)}>
+      {src && !error ? (
+        <Image 
+          key={src}
+          className="object-cover" 
+          alt={alt} 
+          src={src}
+          fill
+          referrerPolicy="no-referrer"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-slate-300">
+          <ImageOff size={24} className="mb-1 opacity-20" />
+          <span className="text-[10px] font-bold uppercase">Sem Foto</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductCard({ id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, onEdit }: ProductCardProps) {
-  const [imgError, setImgError] = useState(false);
   const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
 
   return (
@@ -42,21 +70,7 @@ export function ProductCard({ id, sku, name, image, status, count, location, pri
       )}
       
       <div className="w-32 h-32 bg-slate-50 rounded-xl overflow-hidden relative flex items-center justify-center shrink-0 border border-slate-100 shadow-inner">
-        {image && !imgError ? (
-          <Image 
-            className="object-cover" 
-            alt={name} 
-            src={image}
-            fill
-            referrerPolicy="no-referrer"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-slate-300">
-            <ImageOff size={24} className="mb-1 opacity-20" />
-            <span className="text-[10px] font-bold uppercase">Sem Foto</span>
-          </div>
-        )}
+        <ProductImage key={image} src={image} alt={name} />
       </div>
 
       <div className="flex-1 min-w-0 w-full flex flex-col">

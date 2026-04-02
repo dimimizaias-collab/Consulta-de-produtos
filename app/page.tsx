@@ -16,6 +16,31 @@ import Papa from 'papaparse';
 
 const staticProducts: any[] = [];
 
+function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
+  const [error, setError] = useState(false);
+
+  return (
+    <div className={cn("relative w-full h-full flex items-center justify-center", className)}>
+      {src && !error ? (
+        <Image 
+          key={src}
+          className="object-cover" 
+          alt={alt} 
+          src={src}
+          fill
+          referrerPolicy="no-referrer"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-slate-300">
+          <ImageIcon size={24} className="mb-1 opacity-20" />
+          <span className="text-[10px] font-bold uppercase">Sem Foto</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Page() {
   const [products, setProducts] = useState<any[]>(staticProducts);
   const [loading, setLoading] = useState(true);
@@ -84,7 +109,8 @@ export default function Page() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha no upload');
+        const errorMessage = errorData.details ? `${errorData.error}: ${errorData.details}` : (errorData.error || 'Falha no upload');
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -939,14 +965,8 @@ export default function Page() {
                     >
                       <Edit2 size={14} />
                     </button>
-                    <div className="h-32 w-full bg-slate-50 rounded-lg mb-4 overflow-hidden relative">
-                      <Image 
-                        className="object-cover" 
-                        alt={sideProduct.name} 
-                        src={sideProduct.image}
-                        fill
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="h-32 w-full bg-slate-50 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center">
+                      <ProductImage key={sideProduct.image} src={sideProduct.image} alt={sideProduct.name} />
                     </div>
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-bold text-white bg-primary px-2 py-0.5 rounded">{sideProduct.status}</span>
