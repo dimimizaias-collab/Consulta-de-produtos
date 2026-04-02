@@ -8,7 +8,7 @@ import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image a
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
@@ -18,15 +18,16 @@ const staticProducts: any[] = [];
 
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const [error, setError] = useState(false);
+  const directSrc = useMemo(() => getDirectImageUrl(src), [src]);
 
   return (
     <div className={cn("relative w-full h-full flex items-center justify-center", className)}>
-      {src && !error ? (
+      {directSrc && !error ? (
         <Image 
-          key={src}
+          key={directSrc}
           className="object-cover" 
           alt={alt} 
-          src={src}
+          src={directSrc}
           fill
           referrerPolicy="no-referrer"
           onError={() => setError(true)}

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, MapPin, Barcode, Tag, Eye, Edit2, ImageOff } from 'lucide-react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn, getDirectImageUrl } from '@/lib/utils';
 
 interface FeaturedProductProps {
   product: {
@@ -26,15 +26,16 @@ interface FeaturedProductProps {
 
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const [error, setError] = useState(false);
+  const directSrc = useMemo(() => getDirectImageUrl(src), [src]);
 
   return (
     <div className={cn("relative w-full h-full flex items-center justify-center", className)}>
-      {src && !error ? (
+      {directSrc && !error ? (
         <Image 
-          key={src}
+          key={directSrc}
           className="object-cover" 
           alt={alt} 
-          src={src}
+          src={directSrc}
           fill
           referrerPolicy="no-referrer"
           onError={() => setError(true)}
