@@ -49,7 +49,18 @@ export async function POST(request: NextRequest) {
       if (error.message.includes('bucket not found')) {
         return NextResponse.json({ 
           error: 'Bucket "images" não encontrado no Supabase', 
-          details: 'Por favor, crie um bucket chamado "images" no console do Supabase e defina-o como público.' 
+          details: 'Por favor, crie um bucket chamado "images" no console do Supabase (Storage) e defina-o como público.' 
+        }, { status: 500 });
+      }
+
+      // If RLS error, it's likely the service role key is missing or RLS is not configured
+      if (error.message.includes('row-level security')) {
+        const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+        return NextResponse.json({ 
+          error: 'Erro de permissão (RLS) no Supabase', 
+          details: hasServiceKey 
+            ? 'A política de segurança (RLS) do seu bucket "images" está bloqueando o upload. Verifique as políticas no console do Supabase.'
+            : 'A chave SUPABASE_SERVICE_ROLE_KEY não foi configurada no menu Settings. Sem ela, você precisa configurar políticas de RLS no Supabase para permitir uploads públicos no bucket "images".' 
         }, { status: 500 });
       }
 
