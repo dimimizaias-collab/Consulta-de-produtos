@@ -26,6 +26,7 @@ export function TopNav({ searchQuery, onSearchChange }: TopNavProps) {
                   fill
                   className="object-contain"
                   referrerPolicy="no-referrer"
+                  unoptimized
                   onError={() => setLogoError(true)}
                 />
               ) : (

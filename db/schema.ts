@@ -7,6 +7,7 @@ export const products = pgTable('products', {
   image: text('image'),
   status: text('status'),
   count: integer('count').default(0),
+  price: integer('price').default(0),
   location: text('location'),
   isFeatured: boolean('is_featured').default(false),
   isSide: boolean('is_side').default(false),
@@ -15,6 +16,15 @@ export const products = pgTable('products', {
   internalCode: text('internal_code'),
   category: text('category'),
   subcategory: text('subcategory'),
+  brand: text('brand'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const requests = pgTable('requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  productId: uuid('product_id').references(() => products.id),
+  requestedChanges: text('requested_changes'), // JSON string
+  status: text('status').default('pending'), // 'pending', 'approved', 'rejected'
+  createdAt: timestamp('created_at').defaultNow(),
 });

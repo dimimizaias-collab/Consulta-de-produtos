@@ -38,6 +38,7 @@ function ProductImage({ src, alt, className }: { src: string, alt: string, class
           src={directSrc}
           fill
           referrerPolicy="no-referrer"
+          unoptimized={directSrc.includes('googleusercontent.com')}
           onError={() => setError(true)}
         />
       ) : (
