@@ -208,6 +208,13 @@ export default function Page() {
     is_mother: false,
     units_per_mother: 1
   });
+  const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
+  const [showManualStockModal, setShowManualStockModal] = useState(false);
+  const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
+  const [manualStockSearchResults, setManualStockSearchResults] = useState<any[]>([]);
+  const [selectedManualProduct, setSelectedManualProduct] = useState<any>(null);
+  const [manualStockChange, setManualStockChange] = useState(0);
+  const [isUpdatingManualStock, setIsUpdatingManualStock] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
   const [isNewRequest, setIsNewRequest] = useState(false);
@@ -426,8 +433,28 @@ export default function Page() {
               })
               .eq('id', product.id);
             
-            if (!updateError) updatedCount++;
-            else errors++;
+            if (!updateError) {
+              updatedCount++;
+              
+              // Handle Mother/Child relationship for file import
+              if (product.is_mother && product.linked_product_id) {
+                const childUnitsToSubtract = qtyToSubtract * (product.units_per_mother || 1);
+                const childProduct = currentProducts.find(p => p.id === product.linked_product_id);
+                if (childProduct) {
+                  const newChildCount = Math.max(0, (childProduct.count || 0) - childUnitsToSubtract);
+                  await supabase
+                    .from('products')
+                    .update({ 
+                      count: newChildCount,
+                      is_low: newChildCount < 5,
+                      status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+                    })
+                    .eq('id', childProduct.id);
+                }
+              }
+            } else {
+              errors++;
+            }
           }
         }
 
@@ -897,6 +924,83 @@ export default function Page() {
       setNotification({ type: 'error', message: err.message || 'Erro ao atualizar produto.' });
       setEditStatus('error');
       setEditError(err.message || 'Erro ao atualizar produto.');
+    }
+  };
+
+  const handleManualStockSearch = async () => {
+    if (!manualStockSearchQuery.name) {
+      setManualStockSearchResults([]);
+      return;
+    }
+
+    let query = supabase.from('products').select('*');
+    
+    // Search by name, SKU or EAN using OR
+    query = query.or(`name.ilike.%${manualStockSearchQuery.name}%,sku.ilike.%${manualStockSearchQuery.name}%,ean.ilike.%${manualStockSearchQuery.name}%`);
+    
+    const { data, error } = await query.limit(10);
+    if (error) {
+      console.error('Erro na busca manual de estoque:', error);
+      return;
+    }
+    setManualStockSearchResults(data || []);
+  };
+
+  const handleManualStockUpdate = async () => {
+    if (!selectedManualProduct || manualStockChange === 0) return;
+    
+    setIsUpdatingManualStock(true);
+    try {
+      const newCount = Math.max(0, (selectedManualProduct.count || 0) + manualStockChange);
+      
+      // Update the selected product
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ 
+          count: newCount,
+          is_low: newCount < 5,
+          status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+        })
+        .eq('id', selectedManualProduct.id);
+        
+      if (updateError) throw updateError;
+      
+      // If it's a mother product, update the child product
+      if (selectedManualProduct.is_mother && selectedManualProduct.linked_product_id) {
+        const unitsToAdd = manualStockChange * (selectedManualProduct.units_per_mother || 1);
+        
+        // Fetch child product current count
+        const { data: childData } = await supabase
+          .from('products')
+          .select('count')
+          .eq('id', selectedManualProduct.linked_product_id)
+          .single();
+          
+        if (childData) {
+          const newChildCount = Math.max(0, (childData.count || 0) + unitsToAdd);
+          await supabase
+            .from('products')
+            .update({ 
+              count: newChildCount,
+              is_low: newChildCount < 5,
+              status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+            })
+            .eq('id', selectedManualProduct.linked_product_id);
+        }
+      }
+      
+      setNotification({ type: 'success', message: 'Estoque atualizado com sucesso!' });
+      setShowManualStockModal(false);
+      setSelectedManualProduct(null);
+      setManualStockChange(0);
+      setManualStockSearchQuery({ ean: '', sku: '', name: '' });
+      setManualStockSearchResults([]);
+      fetchProducts();
+    } catch (err: any) {
+      console.error('Erro ao atualizar estoque manualmente:', err);
+      setNotification({ type: 'error', message: err.message || 'Erro ao atualizar estoque.' });
+    } finally {
+      setIsUpdatingManualStock(false);
     }
   };
 
@@ -1379,7 +1483,7 @@ export default function Page() {
                       className="hidden" 
                     />
                     <button 
-                      onClick={() => stockFileInputRef.current?.click()}
+                      onClick={() => setShowStockUpdateChoiceModal(true)}
                       disabled={importing}
                       className="bg-amber-50 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-amber-100 transition-all flex items-center gap-2 border border-amber-100 disabled:opacity-50"
                     >
@@ -2918,6 +3022,257 @@ export default function Page() {
                 >
                   Fechar
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Stock Update Choice Modal */}
+      <AnimatePresence>
+        {showStockUpdateChoiceModal && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowStockUpdateChoiceModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                    <RefreshCw size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Atualizar Estoque</h3>
+                    <p className="text-xs text-slate-500 font-medium">Escolha como deseja atualizar</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowStockUpdateChoiceModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-secondary" />
+                </button>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 gap-4">
+                <button
+                  onClick={() => {
+                    setShowStockUpdateChoiceModal(false);
+                    stockFileInputRef.current?.click();
+                  }}
+                  className="flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
+                    <FileUp size={24} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 group-hover:text-primary">Importar Arquivo</p>
+                    <p className="text-xs text-slate-500">XML, CSV ou Excel</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowStockUpdateChoiceModal(false);
+                    setShowManualStockModal(true);
+                  }}
+                  className="flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-500 group-hover:bg-green-100 transition-colors">
+                    <Edit2 size={24} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 group-hover:text-primary">Atualizar Manualmente</p>
+                    <p className="text-xs text-slate-500">Pesquise e altere o estoque</p>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Manual Stock Update Modal */}
+      <AnimatePresence>
+        {showManualStockModal && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowManualStockModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-600 flex items-center justify-center text-white shadow-lg shadow-green-600/20">
+                    <Edit2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Atualização Manual</h3>
+                    <p className="text-xs text-slate-500 font-medium">Pesquise o produto e informe a alteração</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowManualStockModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-secondary" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {!selectedManualProduct ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-secondary uppercase">Pesquisar Produto</label>
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            value={manualStockSearchQuery.name}
+                            onChange={(e) => setManualStockSearchQuery({...manualStockSearchQuery, name: e.target.value})}
+                            onKeyUp={(e) => e.key === 'Enter' && handleManualStockSearch()}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="Nome, SKU ou EAN..."
+                          />
+                          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={handleManualStockSearch}
+                      className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                    >
+                      <Search size={18} />
+                      Pesquisar
+                    </button>
+
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                      {manualStockSearchResults.length > 0 ? (
+                        manualStockSearchResults.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => setSelectedManualProduct(p)}
+                            className="w-full flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                          >
+                            <div className="w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100">
+                              <ProductImage src={p.image} alt={p.name} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
+                              <p className="text-[10px] text-slate-500 font-medium">SKU: {p.sku} | Estoque: {p.count}</p>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-all">
+                              <ChevronDown size={16} className="-rotate-90" />
+                            </div>
+                          </button>
+                        ))
+                      ) : manualStockSearchQuery.name ? (
+                        <div className="py-8 text-center text-slate-400">
+                          <Search size={32} className="mx-auto mb-2 opacity-20" />
+                          <p className="text-xs font-bold">Nenhum produto encontrado</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="w-16 h-16 bg-white rounded-xl overflow-hidden border border-slate-200 shrink-0">
+                        <ProductImage src={selectedManualProduct.image} alt={selectedManualProduct.name} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{selectedManualProduct.name}</h4>
+                        <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">SKU: {selectedManualProduct.sku}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-500">Estoque Atual:</span>
+                          <span className="text-xs font-black text-slate-900">{selectedManualProduct.count} un.</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedManualProduct(null)}
+                        className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-secondary uppercase">Quantidade a Alterar</label>
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => setManualStockChange(prev => prev - 1)}
+                            className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors border border-red-100"
+                          >
+                            -
+                          </button>
+                          <input 
+                            type="number" 
+                            value={manualStockChange}
+                            onChange={(e) => setManualStockChange(parseInt(e.target.value) || 0)}
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-black focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          <button 
+                            onClick={() => setManualStockChange(prev => prev + 1)}
+                            className="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex items-center justify-center hover:bg-green-100 transition-colors border border-green-100"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 text-center mt-2">
+                          Use valores positivos para entrada e negativos para saída
+                        </p>
+                      </div>
+
+                      {selectedManualProduct.is_mother && (
+                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <LinkIcon size={14} className="text-purple-500" />
+                            <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Produto Mãe Detectado</span>
+                          </div>
+                          <p className="text-xs text-purple-600 leading-relaxed">
+                            Esta alteração afetará o produto filho vinculado. 
+                            Cada unidade alterada aqui resultará em <span className="font-bold">{selectedManualProduct.units_per_mother} unidades</span> no produto filho.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button 
+                        onClick={() => setSelectedManualProduct(null)}
+                        className="flex-1 py-3 bg-white border border-slate-200 text-secondary font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                      >
+                        Voltar
+                      </button>
+                      <button 
+                        onClick={handleManualStockUpdate}
+                        disabled={isUpdatingManualStock || manualStockChange === 0}
+                        className="flex-[2] bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                      >
+                        {isUpdatingManualStock ? 'Atualizando...' : 'Confirmar Alteração'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
