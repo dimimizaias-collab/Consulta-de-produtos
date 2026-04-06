@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync-saidas",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
