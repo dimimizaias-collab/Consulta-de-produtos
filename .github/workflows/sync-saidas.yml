@@ -1,0 +1,19 @@
+name: Sincronizar Saídas do Retaguarda
+
+on:
+  schedule:
+    # Roda a cada 15 minutos
+    - cron: '0,15,30,45 * * * *'
+  # Permite rodar manualmente pelo GitHub para testar
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de sincronização
+        run: |
+          curl -f -X GET \
+            "${{ secrets.APP_URL }}/api/sync-saidas" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 30
