@@ -20,6 +20,8 @@ interface FeaturedProductProps {
     internalCode?: string;
     category?: string;
     subcategory?: string;
+    is_mother?: boolean;
+    units_per_mother?: number;
   };
   onEdit?: (product: any) => void;
 }
@@ -76,7 +78,14 @@ export function FeaturedProduct({ product, onEdit }: FeaturedProductProps) {
       </div>
       <div className="w-3/5 p-8 flex flex-col">
         <div className="flex justify-between items-start mb-2">
-          <span className="bg-slate-100 text-secondary text-[10px] font-bold px-2 py-1 rounded-full uppercase">{product.category || 'Sem Categoria'}</span>
+          <div className="flex flex-col gap-2">
+            <span className="bg-slate-100 text-secondary text-[10px] font-bold px-2 py-1 rounded-full uppercase w-fit">{product.category || 'Sem Categoria'}</span>
+            {product.is_mother && (
+              <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider w-fit">
+                Produto Mãe ({product.units_per_mother}un)
+              </span>
+            )}
+          </div>
           <span className="text-primary font-manrope font-extrabold text-3xl tracking-tight">
             R$ {(product.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>

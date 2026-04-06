@@ -17,6 +17,9 @@ export const products = pgTable('products', {
   category: text('category'),
   subcategory: text('subcategory'),
   brand: text('brand'),
+  linkedProductId: uuid('linked_product_id').references((): any => products.id),
+  isMother: boolean('is_mother').default(false),
+  unitsPerMother: integer('units_per_mother').default(1),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

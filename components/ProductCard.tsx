@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
-import { Edit2, Tag, Layers, Package, MapPin, Hash, Barcode, ImageOff } from 'lucide-react';
+import { Edit2, Tag, Layers, Package, MapPin, Hash, Barcode, ImageOff, Link as LinkIcon } from 'lucide-react';
 
 interface ProductCardProps {
   id?: string;
@@ -20,7 +20,12 @@ interface ProductCardProps {
   subcategory?: string;
   brand?: string;
   isLow?: boolean;
+  is_mother?: boolean;
+  units_per_mother?: number;
+  linkedProductId?: string | null;
+  linked_product_id?: string | null;
   onEdit?: (product: any) => void;
+  onViewLink?: (product: any) => void;
 }
 
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
@@ -50,14 +55,30 @@ function ProductImage({ src, alt, className }: { src: string, alt: string, class
   );
 }
 
-export function ProductCard({ id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, onEdit }: ProductCardProps) {
-  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
+export function ProductCard({ id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, is_mother, units_per_mother, linkedProductId, linked_product_id, onEdit, onViewLink }: ProductCardProps) {
+  const isLinked = !!(linkedProductId || linked_product_id);
+  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, is_mother, units_per_mother, linkedProductId, linked_product_id };
 
   return (
     <motion.div 
       whileHover={{ scale: 1.01 }}
       className="bg-white rounded-xl p-5 shadow-[0_10px_40px_rgb(0,0,0,0.08)] hover:shadow-2xl transition-all border border-transparent hover:border-primary/10 group relative flex flex-col md:flex-row gap-6 items-start"
     >
+      {isLinked && (
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewLink?.(product);
+          }}
+          className={cn(
+            "absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg z-20 border-2 border-white hover:scale-110 transition-transform",
+            is_mother ? "bg-purple-600" : "bg-red-500"
+          )}
+          title="Ver vínculo"
+        >
+          <LinkIcon size={14} />
+        </button>
+      )}
       {onEdit && (
         <button 
           onClick={() => onEdit?.(product)}
@@ -73,8 +94,13 @@ export function ProductCard({ id, sku, name, image, status, count, location, pri
 
       <div className="flex-1 min-w-0 w-full flex flex-col">
         {/* 1. Nome no topo */}
-        <h4 className="font-manrope font-extrabold text-xl mb-1 text-on-surface group-hover:text-primary transition-colors truncate">
+        <h4 className="font-manrope font-extrabold text-xl mb-1 text-on-surface group-hover:text-primary transition-colors truncate flex items-center gap-2">
           {name}
+          {is_mother && (
+            <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Mãe ({units_per_mother}un)
+            </span>
+          )}
         </h4>
 
         {/* 2. SKU e EAN abaixo do nome */}
