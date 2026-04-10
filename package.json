@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start",h
     "lint": "eslint .",
     "clean": "next clean",
     "db:generate": "drizzle-kit generate",
@@ -28,6 +28,7 @@
     "papaparse": "^5.5.3",
     "postcss": "^8.5.6",
     "postgres": "^3.4.8",
+        "qrcode.react": "^3.1.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwind-merge": "^3.3.1",
