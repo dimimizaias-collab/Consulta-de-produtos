@@ -61,8 +61,8 @@ export function ProductCard({ id, sku, name, image, status, count, location, pri
 
   return (
     <motion.div 
-      whileHover={{ scale: 1.01 }}
-      className="bg-white rounded-xl p-5 shadow-[0_10px_40px_rgb(0,0,0,0.08)] hover:shadow-2xl transition-all border border-transparent hover:border-primary/10 group relative flex flex-col md:flex-row gap-6 items-start"
+      whileHover={{ y: -4 }}
+      className="bg-surface-container-lowest rounded-[2rem] p-6 shadow-2xl shadow-on-surface/[0.03] hover:shadow-primary/5 transition-all group relative flex flex-col md:flex-row gap-8 items-start ring-1 ring-on-surface/[0.02]"
     >
       {isLinked && (
         <button 
@@ -71,114 +71,98 @@ export function ProductCard({ id, sku, name, image, status, count, location, pri
             onViewLink?.(product);
           }}
           className={cn(
-            "absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg z-20 border-2 border-white hover:scale-110 transition-transform",
-            is_mother ? "bg-purple-600" : "bg-red-500"
+            "absolute -top-3 -left-3 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-xl z-20 border-4 border-background hover:scale-110 transition-transform",
+            is_mother ? "bg-purple-600" : "bg-primary"
           )}
           title="Ver vínculo"
         >
-          <LinkIcon size={14} />
+          <LinkIcon size={16} />
         </button>
       )}
       {onEdit && (
         <button 
           onClick={() => onEdit?.(product)}
-          className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-primary hover:text-white text-secondary"
+          className="absolute top-6 right-6 p-3 bg-surface-container-low/80 backdrop-blur-sm rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-primary hover:text-white text-on-surface/40"
         >
-          <Edit2 size={16} />
+          <Edit2 size={18} />
         </button>
       )}
       
-      <div className="w-32 h-32 bg-slate-50 rounded-xl overflow-hidden relative flex items-center justify-center shrink-0 border border-slate-100 shadow-inner">
+      <div className="w-40 h-40 bg-background rounded-3xl overflow-hidden relative flex items-center justify-center shrink-0 border-4 border-surface-container-low shadow-inner">
         <ProductImage key={image} src={image} alt={name} />
       </div>
 
-      <div className="flex-1 min-w-0 w-full flex flex-col">
+      <div className="flex-1 min-w-0 w-full flex flex-col pt-2">
         {/* 1. Nome no topo */}
-        <h4 className="font-manrope font-extrabold text-xl mb-1 text-on-surface group-hover:text-primary transition-colors truncate flex items-center gap-2">
-          {name}
+        <div className="flex items-start justify-between mb-2">
+          <h4 className="font-manrope font-black text-2xl text-on-surface group-hover:text-primary transition-colors leading-tight">
+            {name}
+          </h4>
           {is_mother && (
-            <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              Mãe ({units_per_mother}un)
+            <span className="bg-purple-50 text-purple-700 text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider shrink-0 mt-1">
+              Mother ({units_per_mother} Units)
             </span>
           )}
-        </h4>
+        </div>
 
         {/* 2. SKU e EAN abaixo do nome */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
-          <p className="text-[11px] font-bold text-secondary uppercase tracking-wider flex items-center gap-1.5">
-            <Hash size={12} className="text-slate-400" /> SKU: <span className="text-on-surface">{sku}</span>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-4">
+          <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest flex items-center gap-2">
+            <Hash size={14} className="text-primary/40" /> <span className="text-on-surface/60">{sku}</span>
           </p>
           {ean && (
-            <p className="text-[11px] text-secondary font-mono flex items-center gap-1.5">
-              <Barcode size={12} className="text-slate-400" /> EAN: <span className="text-on-surface">{ean}</span>
+            <p className="text-[10px] text-on-surface/30 font-black tracking-widest flex items-center gap-2">
+              <Barcode size={14} className="text-primary/40" /> <span className="text-on-surface/60">{ean}</span>
             </p>
           )}
         </div>
 
-        {/* 3. Preço abaixo dos códigos */}
-        {price !== undefined && (
-          <p className="text-2xl font-manrope font-black text-primary mb-5">
-            R$ {price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
-        )}
-
-        {/* 4. Outros detalhes abaixo */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t border-slate-100">
-          <div className="flex items-center gap-2.5 text-secondary">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-              <Tag size={14} className="text-primary/70" />
+        {/* 3. Preço e Inventário rápido */}
+        <div className="flex items-end justify-between mt-auto">
+          {price !== undefined && (
+            <div>
+               <p className="text-[10px] font-black uppercase text-on-surface/20 tracking-tighter mb-1">MSRP / Market Value</p>
+               <p className="text-4xl font-manrope font-black text-on-surface">
+                <span className="text-primary text-xl mr-1">R$</span>
+                {price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">Marca</p>
-              <p className="text-xs font-bold truncate text-on-surface">{brand || 'Geral'}</p>
+          )}
+
+          <div className="flex items-center gap-4">
+            {/* Tonal detail tags instead of grid */}
+            <div className="bg-surface-container-low px-4 py-3 rounded-2xl flex items-center gap-3 border border-on-surface/[0.02]">
+              <Package size={20} className={cn(isLow ? "text-primary" : "text-on-surface/20")} />
+              <div>
+                <p className="text-[9px] font-black uppercase text-on-surface/30 leading-none mb-1">Stock</p>
+                <p className={cn("text-sm font-black", isLow ? "text-primary" : "text-on-surface")}>{count} <span className="text-[10px] opacity-40">units</span></p>
+              </div>
+            </div>
+
+            <div className="bg-surface-container-low px-4 py-3 rounded-2xl flex items-center gap-3 border border-on-surface/[0.02]">
+              <MapPin size={20} className="text-on-surface/20" />
+              <div>
+                <p className="text-[9px] font-black uppercase text-on-surface/30 leading-none mb-1">Aisle/Bay</p>
+                <p className="text-sm font-black text-on-surface">{location}</p>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2.5 text-secondary">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-              <Layers size={14} className="text-primary/70" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">Categoria</p>
-              <p className="text-xs font-bold truncate text-on-surface">{category || 'Geral'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 text-secondary">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-              <Layers size={14} className="text-primary/70 opacity-50" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">Subcategoria</p>
-              <p className="text-xs font-bold truncate text-on-surface">{subcategory || 'Geral'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 text-secondary">
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-              isLow ? "bg-red-50 text-red-500" : "bg-slate-50 text-primary/70"
-            )}>
-              <Package size={14} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">Estoque</p>
-              <p className={cn(
-                "text-xs font-bold truncate",
-                isLow ? "text-red-600" : "text-on-surface"
-              )}>{count} un.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 text-secondary">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-              <MapPin size={14} className="text-primary/70" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase text-slate-400 leading-none mb-1">Local</p>
-              <p className="text-xs font-bold truncate text-on-surface">{location}</p>
-            </div>
-          </div>
+        {/* 4. Categorization Bar */}
+        <div className="flex gap-4 mt-6 pt-6 border-t border-on-surface/[0.05]">
+           <div className="flex items-center gap-2">
+              <Tag size={12} className="text-primary/30" />
+              <span className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">{brand || 'Generic'}</span>
+           </div>
+           <div className="w-1 h-1 rounded-full bg-on-surface/10 mt-1.5" />
+           <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">{category || 'Misc'}</span>
+           </div>
+           <div className="w-1 h-1 rounded-full bg-on-surface/10 mt-1.5" />
+           <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">{subcategory || 'General'}</span>
+           </div>
         </div>
       </div>
     </motion.div>

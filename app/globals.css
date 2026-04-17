@@ -4,14 +4,14 @@
   --font-manrope: var(--font-manrope);
   --font-inter: var(--font-inter);
 
-  --color-primary: #e30613;
-  --color-background: #94a3b8;
+  --color-primary: #b5000b; /* Authoritative red */
+  --color-background: #fcfae4; /* Warm buttery yellow */
   --color-surface: #ffffff;
-  --color-surface-container: #cbd5e1;
-  --color-surface-container-low: #94a3b8;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #0f172a;
-  --color-secondary: #1e293b;
+  --color-surface-container: #f0eded;
+  --color-surface-container-low: #f6f5df; /* Low-light sectioning */
+  --color-surface-container-lowest: #ffffff; /* Floating cards */
+  --color-on-surface: #1c1c0f; /* High-contrast off-black */
+  --color-secondary: #5f5e5e;
 }
 
 @layer base {

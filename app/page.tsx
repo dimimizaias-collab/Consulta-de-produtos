@@ -1128,7 +1128,7 @@ export default function Page() {
       startY: 30,
       head: [['SKU', 'Produto Interno', 'Descrição Fornecedor', 'Qtd', 'Status']],
       body: tableData,
-      headStyles: { fillStyle: 'f', fillColor: [0, 84, 204] },
+      headStyles: { fillColor: [0, 84, 204] },
       styles: { fontSize: 8 }
     });
 
