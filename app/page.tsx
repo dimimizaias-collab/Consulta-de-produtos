@@ -1119,47 +1119,36 @@ export default function Page() {
     doc.save("nota_traduzida.pdf");
   };
 
-  const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setImporting(true);
-    setNotification({ type: 'success', message: 'Processando arquivo de nota...' });
+    reader.readAsArrayBuffer(file);
+  };
+  
+  const downloadNoteTemplate = () => {
+    const templateData = [
+      {
+        'Descrição': 'Exemplo de Produto',
+        'Cód. EAN': '7891234567890',
+        'SKU/Ref': 'REF-001',
+        'Quantidade': 12
+      },
+      {
+        'Descrição': 'Outro Item',
+        'Cód. EAN': '1234567890123',
+        'SKU/Ref': 'REF-002',
+        'Quantidade': 5
+      }
+    ];
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-
-        if (rawData.length === 0) throw new Error('O arquivo está vazio.');
-
-        const normalize = (s: string) => s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, "").trim() : "";
-        const getVal = (p: any, keys: string[], defaultVal: string = "") => {
-          const foundKey = Object.keys(p).find(k => keys.some(target => normalize(k) === normalize(target)));
-          const val = foundKey ? p[foundKey] : undefined;
-          return val !== undefined && val !== null && val !== "" ? String(val).trim() : defaultVal;
-        };
-
-        const { data: currentProducts } = await supabase.from('products').select('*');
-        
-        // Filter mappings by supplier if selected
-        let mappingQuery = supabase.from('supplier_mappings').select('*');
-        if (selectedImportSupplierId) {
-          mappingQuery = mappingQuery.eq('supplier_id', selectedImportSupplierId);
-        }
-        const { data: filterMappings } = await mappingQuery;
-        
-        let updatedCount = 0;
-        const processedItems: any[] = [];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo de Nota");
+    XLSX.writeFile(wb, "modelo_entrada_mercadoria.xlsx");
+  };
 
         for (const row of (rawData as any[])) {
-          const sku = getVal(row, ['sku', 'codigo', 'cod']);
-          const ean = getVal(row, ['ean', 'barras', 'barcode']);
-          const description = getVal(row, ['desc', 'descricao', 'nome', 'produto']);
-          const qty = parseInt(getVal(row, ['qty', 'qtd', 'quantidade', 'entry'], '0'));
+          const sku = getVal(row, ['sku', 'codigo', 'cod', 'referencia', 'ref', 'código interno', 'codigo interno', 'id']);
+          const ean = getVal(row, ['ean', 'barras', 'barcode', 'codigo barras', 'gtin']);
+          const description = getVal(row, ['desc', 'descricao', 'nome', 'produto', 'item', 'servico', 'descricao produto', 'descrição']);
+          const qty = parseInt(getVal(row, ['qty', 'qtd', 'quantidade', 'entry', 'quant', 'movimento', 'entrada', 'unidades', 'qtde'], '0'));
 
           if (isNaN(qty) || qty <= 0) continue;
 
@@ -3577,16 +3566,25 @@ export default function Page() {
                     ))}
                   </select>
                 </div>
-                <button 
-                  onClick={() => {
-                    setShowImportSupplierModal(false);
-                    noteFileInputRef.current?.click();
-                  }}
-                  className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
-                >
-                  <FileUp size={20} />
-                  Prosseguir para Upload
-                </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={downloadNoteTemplate}
+                    className="w-full bg-slate-100 text-slate-600 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download size={20} />
+                    Baixar Modelo
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowImportSupplierModal(false);
+                      noteFileInputRef.current?.click();
+                    }}
+                    className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                  >
+                    <FileUp size={20} />
+                    Prosseguir
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
