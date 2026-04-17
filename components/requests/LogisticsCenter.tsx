@@ -23,7 +23,7 @@ export function LogisticsCenter({
   importing, 
   onImportClick, 
   onManualNoteClick, 
-  onSuppliersClick 
+  onSuppliersClick
 }: LogisticsCenterProps) {
   return (
     <div className="space-y-12">

@@ -1166,28 +1166,35 @@ export default function Page() {
           // Try to find product by SKU, EAN or mapping
           let product = currentProducts?.find(p => (sku && p.sku === sku) || (ean && p.ean === ean));
           let statusTranslation = 'Identificado (SKU/EAN)';
+          let verified = !!product;
           
           if (!product && description) {
             const mapping = filterMappings?.find(m => normalize(m.supplier_description) === normalize(description));
             if (mapping) {
               product = currentProducts?.find(p => p.id === mapping.internal_product_id);
-              statusTranslation = 'Traduzido';
-            } else {
-              statusTranslation = 'Não Encontrado';
+              if (product) {
+                statusTranslation = 'Traduzido';
+                verified = true;
+              }
             }
           }
 
+          if (!verified) {
+             statusTranslation = 'Não Encontrado';
+          }
+
           processedItems.push({
-            sku: product?.sku || sku,
-            ean: product?.ean || ean,
-            name: product?.name || 'Não Identificado',
+            sku: verified ? (product?.sku || sku) : '',
+            ean: verified ? (product?.ean || ean) : '',
+            name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
             original_description: description,
             qty,
             status_translation: statusTranslation,
-            product_id: product?.id
+            product_id: product?.id,
+            verified: verified
           });
 
-          if (product) {
+          if (product && verified) {
             const newCount = (product.count || 0) + qty;
             await supabase.from('products').update({ 
               count: newCount,
@@ -3644,6 +3651,7 @@ export default function Page() {
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -3654,7 +3662,7 @@ export default function Page() {
                         </td>
                         <td className="py-4 pl-4">
                           <div className="flex items-center gap-3">
-                            {item.name !== 'Não Identificado' ? (
+                            {item.verified ? (
                               <>
                                 <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
                                   <ArrowRight size={14} />
@@ -3678,12 +3686,23 @@ export default function Page() {
                         <td className="py-4 pl-4">
                           <span className={cn(
                             "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
-                            item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
-                            item.status_translation === 'Identificado (SKU/EAN)' ? "bg-blue-100 text-blue-700" :
+                            item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                            item.verified ? "bg-blue-100 text-blue-700" :
                             "bg-red-100 text-red-700"
                           )}>
                             {item.status_translation}
                           </span>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          {item.verified ? (
+                            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-green-500/20">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                              <X size={16} />
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -3712,6 +3731,15 @@ export default function Page() {
         isOpen={showSuppliersModal} 
         onClose={() => setShowSuppliersModal(false)} 
         setNotification={setNotification} 
+      />
+
+      {/* Hidden File Inputs */}
+      <input 
+        type="file" 
+        ref={noteFileInputRef} 
+        onChange={handleNoteImportExcel} 
+        accept=".xml,.csv,.xlsx,.xls" 
+        className="hidden" 
       />
     </div>
   );
