@@ -4,6 +4,10 @@ import { Sidebar } from '@/components/Sidebar';
 import { TopNav } from '@/components/TopNav';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
+import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
+import { InventoryManager } from '@/components/inventory/InventoryManager';
+import { RequestCenter } from '@/components/requests/RequestCenter';
+import { LogisticsCenter } from '@/components/requests/LogisticsCenter';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -228,19 +232,8 @@ export default function Page() {
 
   // Supplier Dictionary states
   const [showSuppliersModal, setShowSuppliersModal] = useState(false);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [supplierNames, setSupplierNames] = useState<any[]>([]);
-  const [supplierMappings, setSupplierMappings] = useState<any[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
-  const [supplierMappingDescription, setSupplierMappingDescription] = useState('');
-  const [selectedSupplierMappingProduct, setSelectedSupplierMappingProduct] = useState<any>(null);
-  const [supplierMappingSearchQuery, setSupplierMappingSearchQuery] = useState('');
-  const [supplierMappingSearchResults, setSupplierMappingSearchResults] = useState<any[]>([]);
-  const [isAddingMapping, setIsAddingMapping] = useState(false);
-  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
+  const [supplierNames, setSupplierNames] = useState<any[]>([]);
   
   const [showImportSupplierModal, setShowImportSupplierModal] = useState(false);
   const [selectedImportSupplierId, setSelectedImportSupplierId] = useState('');
@@ -287,15 +280,6 @@ export default function Page() {
     linked_product_id: null as string | null
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [filters, setFilters] = useState({
-    ean: '',
-    internalCode: '',
-    category: '',
-    subcategory: '',
-    brand: '',
-    name: '',
-    location: ''
-  });
 
   // Unique values for dropdowns
   const uniqueLocations = useMemo(() => Array.from(new Set(products.map(p => p.location).filter(Boolean))).sort(), [products]);
@@ -1259,106 +1243,6 @@ export default function Page() {
     }
   };
 
-  const fetchSupplierMappings = async (supplierId: string) => {
-    if (!supplierId) {
-      setSupplierMappings([]);
-      return;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('supplier_mappings')
-        .select('*, products(name, sku, ean)')
-        .eq('supplier_id', supplierId);
-      if (error) throw error;
-      setSupplierMappings(data || []);
-    } catch (err: any) {
-      console.error('Erro ao buscar mapeamentos:', err);
-      if (err.message) console.error('Mensagem de erro:', err.message);
-    }
-  };
-
-  const handleAddSupplier = async () => {
-    if (!newSupplierName.trim()) return;
-    setIsAddingSupplier(true);
-    try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .insert([{ name: newSupplierName.trim() }])
-        .select();
-      if (error) throw error;
-      setSupplierNames(prev => [...prev, ...(data || [])].sort((a,b) => a.name.localeCompare(b.name)));
-      setSelectedSupplierId(data?.[0]?.id || '');
-      setNewSupplierName('');
-      setShowAddSupplierModal(false);
-      setNotification({ type: 'success', message: 'Fornecedor adicionado com sucesso!' });
-    } catch (err: any) {
-      console.error('Erro ao adicionar fornecedor:', err);
-      const errorMessage = err.message || 'Erro desconhecido';
-      const errorDetails = err.details || '';
-      console.error(`Detalhes do erro: ${errorMessage} ${errorDetails}`);
-      setNotification({ type: 'error', message: `Erro ao adicionar fornecedor: ${errorMessage}` });
-    } finally {
-      setIsAddingSupplier(false);
-    }
-  };
-
-  const handleSupplierMappingSearch = async () => {
-    if (!supplierMappingSearchQuery) {
-      setSupplierMappingSearchResults([]);
-      return;
-    }
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .or(`name.ilike.%${supplierMappingSearchQuery}%,sku.ilike.%${supplierMappingSearchQuery}%,ean.ilike.%${supplierMappingSearchQuery}%`)
-      .limit(10);
-    
-    if (error) {
-      console.error('Erro na busca de produtos para mapeamento:', error);
-      return;
-    }
-    setSupplierMappingSearchResults(data || []);
-  };
-
-  const handleAddMapping = async () => {
-    if (!selectedSupplierId || !supplierMappingDescription || !selectedSupplierMappingProduct) {
-      setNotification({ type: 'error', message: 'Preencha todos os campos do mapeamento.' });
-      return;
-    }
-    setIsAddingMapping(true);
-    try {
-      const { error } = await supabase
-        .from('supplier_mappings')
-        .insert([{
-          supplier_id: selectedSupplierId,
-          supplier_description: supplierMappingDescription.trim(),
-          internal_product_id: selectedSupplierMappingProduct.id
-        }]);
-      if (error) throw error;
-      
-      setNotification({ type: 'success', message: 'Mapeamento adicionado com sucesso!' });
-      setSupplierMappingDescription('');
-      setSelectedSupplierMappingProduct(null);
-      fetchSupplierMappings(selectedSupplierId);
-    } catch (err) {
-      console.error('Erro ao adicionar mapeamento:', err);
-      setNotification({ type: 'error', message: 'Erro ao adicionar mapeamento.' });
-    } finally {
-      setIsAddingMapping(false);
-    }
-  };
-
-  const handleDeleteMapping = async (id: string) => {
-    try {
-      const { error } = await supabase.from('supplier_mappings').delete().eq('id', id);
-      if (error) throw error;
-      setSupplierMappings(prev => prev.filter(m => m.id !== id));
-      setNotification({ type: 'success', message: 'Mapeamento removido.' });
-    } catch (err) {
-      console.error('Erro ao remover mapeamento:', err);
-      setNotification({ type: 'error', message: 'Erro ao remover mapeamento.' });
-    }
-  };
 
   const handleManualStockUpdate = async () => {
     if (!selectedManualProduct || manualStockChange === 0) return;
@@ -1792,22 +1676,9 @@ export default function Page() {
         (p.subcategory && p.subcategory.toLowerCase().includes(query)) ||
         (p.brand && p.brand.toLowerCase().includes(query));
 
-      // Specific filters
-      const matchesEan = !filters.ean || (p.ean && p.ean.includes(filters.ean));
-      const matchesInternal = !filters.internalCode || (p.internalCode && p.internalCode.toLowerCase().includes(filters.internalCode.toLowerCase()));
-      const matchesCategory = !filters.category || (p.category && p.category.toLowerCase().includes(filters.category.toLowerCase()));
-      const matchesSubcategory = !filters.subcategory || (p.subcategory && p.subcategory.toLowerCase().includes(filters.subcategory.toLowerCase()));
-      const matchesBrand = !filters.brand || (p.brand && p.brand.toLowerCase().includes(filters.brand.toLowerCase()));
-      const matchesName = !filters.name || p.name.toLowerCase().includes(filters.name.toLowerCase());
-      const matchesLocation = !filters.location || p.location.toLowerCase().includes(filters.location.toLowerCase());
-
-      return matchesGlobal && matchesEan && matchesInternal && matchesCategory && matchesSubcategory && matchesBrand && matchesName && matchesLocation;
+      return matchesGlobal;
     });
-  }, [searchQuery, filters, products]);
-
-  const featuredProduct = filteredProducts.find(p => p.isFeatured);
-  const sideProduct = filteredProducts.find(p => p.isSide);
-  const gridProducts = filteredProducts.filter(p => !p.isFeatured && !p.isSide);
+  }, [searchQuery, products]);
 
   return (
     <div className="min-h-screen brand-texture">
@@ -1857,503 +1728,66 @@ export default function Page() {
           <TopNav searchQuery={searchQuery} onSearchChange={setSearchQuery} />
           <div className="p-8 max-w-7xl mx-auto space-y-8">
             {activeTab === 'Inventory' ? (
-              <>
-                {!isConfigured && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-4 text-amber-800"
-                  >
-                    <div className="p-2 bg-amber-100 rounded-full">
-                      <Plus className="rotate-45 text-amber-600" size={20} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Supabase não configurado</p>
-                      <p className="text-xs opacity-80">Por favor, adicione as chaves `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` no menu **Settings** para ativar o banco de dados.</p>
-                    </div>
-                  </motion.div>
-                )}
-                
-                {/* Page Header & Actions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 bg-white/50 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 shadow-sm">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1">Total de Itens</span>
-                      <span className="text-2xl font-black text-slate-900 leading-none">{products.length}</span>
-                    </div>
-                    <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
-                    <input 
-                      type="file" 
-                      ref={stockFileInputRef} 
-                      onChange={handleStockUpdate} 
-                      accept=".xml,.csv,.xlsx,.xls" 
-                      className="hidden" 
-                    />
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleFileImport} 
-                      accept=".xml,.csv,.xlsx,.xls" 
-                      className="hidden" 
-                    />
-                    <button 
-                      onClick={() => setShowStockUpdateChoiceModal(true)}
-                      disabled={importing}
-                      className="bg-amber-50 text-amber-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-amber-100 transition-all flex items-center gap-2 border border-amber-100 disabled:opacity-50"
-                    >
-                      <RefreshCw size={14} className={importing ? "animate-spin" : ""} />
-                      Atualizar Estoque
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={downloadTemplate}
-                      className="bg-white border border-slate-200 px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
-                    >
-                      <Download size={14} className="text-slate-500" />
-                      Modelo
-                    </button>
-                    <button 
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={cn(
-                        "px-4 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center gap-2 shadow-sm border",
-                        showFilters 
-                          ? "bg-primary/5 border-primary text-primary" 
-                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      <Filter size={14} className={showFilters ? "text-primary" : "text-slate-500"} />
-                      Filtrar
-                    </button>
-                    <button 
-                      onClick={() => setShowAddModal(true)}
-                      className="bg-white border border-slate-200 px-4 py-2.5 rounded-lg font-bold text-xs text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
-                    >
-                      <Plus size={14} className="text-slate-500" />
-                      Adicionar
-                    </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={importing}
-                      className="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-xs hover:opacity-90 transition-all flex items-center gap-2 shadow-md shadow-primary/20 disabled:opacity-50"
-                    >
-                      {importing ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent mx-auto" />
-                      ) : (
-                        <>
-                          <FileUp size={14} />
-                          Importar Planilha
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Advanced Filters Panel */}
-                <AnimatePresence>
-                  {showFilters && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">EAN Code</label>
-                          <input 
-                            type="text" 
-                            value={filters.ean}
-                            onChange={(e) => setFilters({...filters, ean: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="789..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Internal Code</label>
-                          <input 
-                            type="text" 
-                            value={filters.internalCode}
-                            onChange={(e) => setFilters({...filters, internalCode: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="BM-500..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Category</label>
-                          <input 
-                            type="text" 
-                            value={filters.category}
-                            onChange={(e) => setFilters({...filters, category: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="Domestic..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Subcategory</label>
-                          <input 
-                            type="text" 
-                            value={filters.subcategory}
-                            onChange={(e) => setFilters({...filters, subcategory: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="Kitchen..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Marca</label>
-                          <input 
-                            type="text" 
-                            value={filters.brand}
-                            onChange={(e) => setFilters({...filters, brand: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="Mizumoto..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Name</label>
-                          <input 
-                            type="text" 
-                            value={filters.name}
-                            onChange={(e) => setFilters({...filters, name: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="Batedeira..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-secondary uppercase">Location</label>
-                          <input 
-                            type="text" 
-                            value={filters.location}
-                            onChange={(e) => setFilters({...filters, location: e.target.value})}
-                            className="w-full h-10 px-3 bg-slate-50 border-none rounded text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-                            placeholder="Aisle A..."
-                          />
-                        </div>
-                        <div className="col-span-full flex justify-end">
-                          <button 
-                            onClick={() => {
-                              setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
-                              setSearchQuery('');
-                            }}
-                            className="text-[10px] font-bold text-primary uppercase hover:underline"
-                          >
-                            Limpar tudo
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Bento Grid Layout */}
-                <div className="grid grid-cols-12 gap-6">
-                  <AnimatePresence mode="popLayout">
-                    {featuredProduct && (
-                      <FeaturedProduct key="featured" product={featuredProduct} onEdit={openEditModal} />
-                    )}
-
-                    {sideProduct && (
-                      <motion.div 
-                        key="side"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="col-span-12 lg:col-span-4 bg-white rounded-xl p-6 flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 group relative"
-                      >
-                        <button 
-                          onClick={() => openEditModal(sideProduct)}
-                          className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-primary hover:text-white text-secondary"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <div className="h-32 w-full bg-slate-50 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center">
-                          <ProductImage key={sideProduct.image} src={sideProduct.image} alt={sideProduct.name} />
-                        </div>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-[10px] font-bold text-white bg-primary px-2 py-0.5 rounded">{sideProduct.status}</span>
-                          <span className="text-lg font-manrope font-extrabold text-primary">
-                            R$ {(sideProduct.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <h3 className="font-manrope font-extrabold text-on-surface mb-4">{sideProduct.name}</h3>
-                        <div className="space-y-3 mb-6">
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-secondary font-medium">Estoque</span>
-                            <span className="font-bold text-on-surface">{sideProduct.count} Unidades</span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-secondary font-medium">Localização</span>
-                            <span className="font-bold text-on-surface">{sideProduct.location}</span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-secondary font-medium">EAN</span>
-                            <span className="font-medium text-on-surface">{sideProduct.ean}</span>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => openEditModal(sideProduct)}
-                          className="mt-auto w-full bg-slate-50 border border-primary/20 text-primary text-[11px] font-bold py-2 rounded uppercase tracking-wider hover:bg-primary/5 transition-colors"
-                        >
-                          Gerenciar Estoque
-                        </button>
-                      </motion.div>
-                    )}
-
-                    {/* List View */}
-                    <div key="grid-row" className="col-span-12 flex flex-col gap-4">
-                      {gridProducts.map((product, index) => (
-                        <ProductCard 
-                          key={product.id || product.sku || `product-${index}`} 
-                          {...product} 
-                          onEdit={openEditModal}
-                          onViewLink={handleViewLink}
-                        />
-                      ))}
-                    </div>
-
-                    {loading && (
-                      <div key="loading-spinner" className="col-span-12 py-20 text-center">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-                          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!loading && filteredProducts.length === 0 && (
-                      <motion.div 
-                        key="empty-state"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="col-span-12 py-20 text-center"
-                      >
-                        <p className="text-secondary font-medium">Nenhum produto encontrado correspondente a &quot;{searchQuery}&quot;</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </>
+                <InventoryManager 
+                  products={products}
+                  loading={loading}
+                  isConfigured={isConfigured}
+                  importing={importing}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onAdd={() => setShowAddModal(true)}
+                  onEdit={openEditModal}
+                  onViewLink={handleViewLink}
+                  onStockUpdate={handleStockUpdate}
+                  onFileImport={handleFileImport}
+                  onDownloadTemplate={downloadTemplate}
+                  stockFileInputRef={stockFileInputRef}
+                  fileInputRef={fileInputRef}
+                  setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
+                />
             ) : activeTab === 'Requisições' ? (
-              <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <h1 className="text-3xl font-black text-slate-900">Requisições</h1>
-                    <p className="text-sm text-slate-500 font-medium">Gerencie solicitações de alteração de produtos</p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setShowAddRequestModal(true);
-                      setFoundProductForRequest(null);
-                      setRequestSearchQuery({ sku: '', ean: '' });
-                      setRequestDraftChanges({});
-                      setEditingField(null);
-                    }}
-                    className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
-                  >
-                    <Plus size={18} />
-                    Adicionar Requisição
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {requests.filter(r => r.status === 'pending').map((request) => {
-                    const requestedChanges = JSON.parse(request.requested_changes);
-                    const isNewProduct = requestedChanges.is_new_product;
-                    const productData = isNewProduct ? requestedChanges : request.products;
-
-                    return (
-                      <div key={request.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group">
-                        <div className="p-5 flex-1 space-y-4">
-                          <div className="flex gap-4">
-                            <div className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0">
-                              <ProductImage src={productData?.image} alt={productData?.name} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={cn(
-                                  "text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider",
-                                  isNewProduct ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600"
-                                )}>
-                                  {isNewProduct ? "Novo Produto" : productData?.sku}
-                                </span>
-                                {isNewProduct && productData?.sku && (
-                                  <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wider">
-                                    {productData.sku}
-                                  </span>
-                                )}
-                              </div>
-                              <h3 className="text-sm font-bold text-slate-900 truncate leading-tight mb-1">
-                                {productData?.name}
-                              </h3>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {productData?.brand}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2 pt-2 border-t border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              {isNewProduct ? "Dados do Novo Produto:" : "Alterações Solicitadas:"}
-                            </p>
-                            <div className="space-y-1">
-                              {Object.entries(requestedChanges)
-                                .filter(([key]) => key !== 'is_new_product')
-                                .map(([key, value]: [string, any]) => (
-                                <div key={key} className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-500 font-medium capitalize">{key}:</span>
-                                  <span className={cn(
-                                    "font-bold",
-                                    isNewProduct ? "text-primary" : "text-red-500"
-                                  )}>{String(value)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                      <div className="px-5 py-4 bg-slate-50 border-t border-slate-100 flex gap-2">
-                        <button 
-                          onClick={() => {
-                            const changes = JSON.parse(request.requested_changes);
-                            if (changes.is_new_product) {
-                              setIsRequestingNewProduct(true);
-                              setNewProductRequest(changes);
-                            } else {
-                              setIsRequestingNewProduct(false);
-                              setFoundProductForRequest(request.products);
-                              setRequestDraftChanges(changes);
-                            }
-                            setShowAddRequestModal(true);
-                          }}
-                          className="flex-1 bg-white border border-slate-200 text-slate-600 py-2 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Edit2 size={14} />
-                          Editar
-                        </button>
-                        <button 
-                          onClick={() => setShowRequestConfirmModal({ show: true, requestId: request.id })}
-                          className="flex-1 bg-green-500 text-white py-2 rounded-lg text-xs font-bold hover:bg-green-600 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <Check size={14} />
-                          Aprovar
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteRequest(request.id)}
-                          className="w-10 bg-red-50 text-red-500 py-2 rounded-lg flex items-center justify-center hover:bg-red-100 transition-colors border border-red-100"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                </div>
-
-                {requests.filter(r => r.status === 'pending').length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                    <ArrowLeftRight size={48} className="mb-4 opacity-20" />
-                    <p className="text-sm font-bold">Nenhuma requisição pendente</p>
-                  </div>
-                )}
-              </div>
+                <RequestCenter 
+                  requests={requests}
+                  onAddRequest={() => {
+                    setShowAddRequestModal(true);
+                    setFoundProductForRequest(null);
+                    setRequestSearchQuery({ sku: '', ean: '' });
+                    setRequestDraftChanges({});
+                    setEditingField(null);
+                  }}
+                  onEditRequest={(request) => {
+                    const changes = JSON.parse(request.requested_changes);
+                    if (changes.is_new_product) {
+                      setIsRequestingNewProduct(true);
+                      setNewProductRequest(changes);
+                    } else {
+                      setIsRequestingNewProduct(false);
+                      setFoundProductForRequest(request.products);
+                      setRequestDraftChanges(changes);
+                    }
+                    setShowAddRequestModal(true);
+                  }}
+                  onApproveRequest={(id) => setShowRequestConfirmModal({ show: true, requestId: id })}
+                  onDeleteRequest={handleDeleteRequest}
+                />
             ) : activeTab === 'Entrada de Mercadoria' ? (
-              <div className="space-y-8">
-                <div className="flex flex-col">
-                  <h1 className="text-3xl font-black text-slate-900">Entrada de Mercadoria</h1>
-                  <p className="text-sm text-slate-500 font-medium">Gerencie a entrada de novos produtos no estoque</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
-                  >
-                    <div className="w-20 h-20 rounded-2xl bg-primary/5 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-all transform group-hover:rotate-3">
-                      <FileUp size={40} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Importar Nota</h3>
-                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Importe um arquivo Excel com SKU/EAN e quantidades para atualizar o estoque</p>
-                    <button 
-                      onClick={() => {
-                        setShowImportSupplierModal(true);
-                        fetchSuppliers();
-                      }}
-                      disabled={importing}
-                      className="bg-primary text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 w-full justify-center"
-                    >
-                      {importing ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-                      ) : (
-                        <>
-                          <Download size={18} />
-                          Selecionar Arquivo
-                        </>
-                      )}
-                    </button>
-                    <input 
-                      type="file" 
-                      ref={noteFileInputRef} 
-                      onChange={handleNoteImportExcel} 
-                      className="hidden" 
-                      accept=".xlsx,.xls"
-                    />
-                  </motion.div>
-
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
-                  >
-                    <div className="w-20 h-20 rounded-2xl bg-slate-950 text-white flex items-center justify-center mb-6 group-hover:bg-primary transition-all transform group-hover:-rotate-3">
-                      <FileText size={40} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Adicionar Nota</h3>
-                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Adicione itens manualmente à nota de entrada pesquisando por SKU, EAN ou Nome</p>
-                    <button 
-                      onClick={() => {
-                        setShowManualNoteModal(true);
-                        setNoteItems([]);
-                        setNoteSearchQuery('');
-                        fetchSuppliers();
-                      }}
-                      className="bg-slate-900 text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg w-full justify-center flex items-center gap-2"
-                    >
-                      <Plus size={18} />
-                      Criar Nota Manual
-                    </button>
-                  </motion.div>
-
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
-                  >
-                    <div className="w-20 h-20 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all transform group-hover:rotate-3">
-                      <Users size={40} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Fornecedores</h3>
-                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Mapeie as descrições dos produtos dos fornecedores para os seus produtos internos</p>
-                    <button 
-                      onClick={() => {
-                        setShowSuppliersModal(true);
-                        fetchSuppliers();
-                      }}
-                      className="bg-amber-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-amber-700 transition-all shadow-lg w-full justify-center flex items-center gap-2 shadow-amber-600/20"
-                    >
-                      <BookText size={18} />
-                      Dicionário
-                    </button>
-                  </motion.div>
-                </div>
-
-                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex items-center gap-6">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm shadow-amber-600/10">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 leading-tight">Dica de Importação</h4>
-                    <p className="text-sm text-slate-500 font-medium">Use colunas chamadas &quot;SKU&quot;, &quot;EAN&quot; e &quot;Quantidade&quot; para melhor compatibilidade.</p>
-                  </div>
-                </div>
-              </div>
+                <LogisticsCenter 
+                  importing={importing}
+                  onImportClick={() => {
+                    setShowImportSupplierModal(true);
+                    fetchSuppliers();
+                  }}
+                  onManualNoteClick={() => {
+                    setShowManualNoteModal(true);
+                    setNoteItems([]);
+                    setNoteSearchQuery('');
+                    fetchSuppliers();
+                  }}
+                  onSuppliersClick={() => {
+                    setShowSuppliersModal(true);
+                    fetchSuppliers();
+                  }}
+                />
             ) : (
               <div className="flex flex-col items-center justify-center py-40 text-slate-400">
                 <BarChart3 size={64} className="mb-4 opacity-20" />
@@ -4274,278 +3708,11 @@ export default function Page() {
       </AnimatePresence>
 
       {/* Suppliers Dictionary Modal */}
-      <AnimatePresence>
-        {showSuppliersModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSuppliersModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-600/20">
-                    <BookText size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900">Dicionário de Fornecedores</h3>
-                    <p className="text-xs text-slate-500 font-medium">Vincule codificações de fornecedores aos seus produtos internos</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowSuppliersModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-secondary" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                {/* Form Panel */}
-                <div className="w-full md:w-1/2 p-8 overflow-y-auto space-y-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Selecionar Fornecedor</label>
-                      <button 
-                        onClick={() => setShowAddSupplierModal(true)}
-                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
-                      >
-                        <Plus size={12} />
-                        Novo Fornecedor
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <select 
-                        value={selectedSupplierId}
-                        onChange={(e) => {
-                          setSelectedSupplierId(e.target.value);
-                          fetchSupplierMappings(e.target.value);
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-bold text-slate-900"
-                      >
-                        <option value="">Selecione um fornecedor...</option>
-                        {supplierNames.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {selectedSupplierId && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-6 pt-6 border-t border-slate-100"
-                    >
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Descrição no Fornecedor (Nota Fiscal)</label>
-                        <input 
-                          type="text" 
-                          value={supplierMappingDescription}
-                          onChange={(e) => setSupplierMappingDescription(e.target.value)}
-                          placeholder="Ex: CHOCOLATE OURO BRANCO LACTA 1KG..."
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Produto Interno Correspondente</label>
-                        {!selectedSupplierMappingProduct ? (
-                          <div className="space-y-4">
-                            <div className="relative">
-                              <input 
-                                type="text" 
-                                value={supplierMappingSearchQuery}
-                                onChange={(e) => setSupplierMappingSearchQuery(e.target.value)}
-                                onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()}
-                                placeholder="Buscar nos seus produtos..."
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                              />
-                              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                              <button 
-                                onClick={handleSupplierMappingSearch}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-2 rounded-lg transition-colors"
-                              >
-                                <Search size={16} className="text-slate-600" />
-                              </button>
-                            </div>
-
-                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                              {supplierMappingSearchResults.map(p => (
-                                <button 
-                                  key={p.id}
-                                  onClick={() => {
-                                    setSelectedSupplierMappingProduct(p);
-                                    setSupplierMappingSearchResults([]);
-                                    setSupplierMappingSearchQuery('');
-                                  }}
-                                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/20 hover:bg-primary/5 transition-all text-left group"
-                                >
-                                  <div className="w-10 h-10 bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
-                                    <ProductImage src={p.image} alt={p.name} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
-                                    <p className="text-[10px] text-slate-500">EAN: {p.ean}</p>
-                                  </div>
-                                  <Plus size={14} className="text-slate-300 group-hover:text-primary" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl relative group">
-                            <div className="w-14 h-14 bg-white rounded-xl overflow-hidden border border-primary/10">
-                              <ProductImage src={selectedSupplierMappingProduct.image} alt={selectedSupplierMappingProduct.name} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-primary">{selectedSupplierMappingProduct.name}</p>
-                              <p className="text-[10px] font-bold text-primary/60 uppercase">EAN: {selectedSupplierMappingProduct.ean}</p>
-                            </div>
-                            <button 
-                              onClick={() => setSelectedSupplierMappingProduct(null)}
-                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <button 
-                        disabled={!selectedSupplierMappingProduct || !supplierMappingDescription || isAddingMapping}
-                        onClick={handleAddMapping}
-                        className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/30 disabled:opacity-50"
-                      >
-                        {isAddingMapping ? (
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-                        ) : (
-                          <>
-                            <CheckCircle2 size={20} />
-                            Criar Vínculo
-                          </>
-                        )}
-                      </button>
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* List Panel */}
-                <div className="w-full md:w-1/2 bg-slate-50/50 flex flex-col overflow-hidden">
-                  <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white/50 shrink-0">
-                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                       Dicionário Ativo
-                       {selectedSupplierId && supplierMappings.length > 0 && (
-                         <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-black">{supplierMappings.length}</span>
-                       )}
-                    </h4>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
-                    {!selectedSupplierId ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
-                        <Users size={48} className="mb-4" />
-                        <p className="text-sm font-bold">Selecione um fornecedor</p>
-                        <p className="text-xs">Para visualizar seus mapeamentos</p>
-                      </div>
-                    ) : supplierMappings.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
-                        <BookText size={48} className="mb-4" />
-                        <p className="text-sm font-bold">Nenhum vínculo cadastrado</p>
-                        <p className="text-xs text-center">Use o formulário ao lado para adicionar o primeiro mapeamento</p>
-                      </div>
-                    ) : (
-                      supplierMappings.map(mapping => (
-                        <div key={mapping.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 group hover:border-primary/30 transition-all">
-                          <div>
-                            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Como vem na nota:</p>
-                            <p className="text-sm font-bold text-slate-900">{mapping.supplier_description}</p>
-                          </div>
-                          <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
-                            <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
-                              <ArrowRight size={14} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                               <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">Produto Interno:</p>
-                               <p className="text-xs font-bold text-slate-700 truncate">{mapping.products?.name || 'Produto Removido'}</p>
-                            </div>
-                            <button 
-                              onClick={() => handleDeleteMapping(mapping.id)}
-                              className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Add Supplier Modal */}
-      <AnimatePresence>
-        {showAddSupplierModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAddSupplierModal(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h3 className="text-lg font-black text-slate-900">Novo Fornecedor</h3>
-                <button onClick={() => setShowAddSupplierModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                  <X size={18} className="text-slate-500" />
-                </button>
-              </div>
-              <div className="p-6 space-y-6">
-                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Nome do Fornecedor</label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={newSupplierName}
-                      onChange={(e) => setNewSupplierName(e.target.value)}
-                      onKeyUp={(e) => e.key === 'Enter' && handleAddSupplier()}
-                      placeholder="Ex: LACTA / MONDELEZ BRASIL..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                 </div>
-                 <button 
-                  disabled={!newSupplierName.trim() || isAddingSupplier}
-                  onClick={handleAddSupplier}
-                  className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-950/20 disabled:opacity-50"
-                 >
-                   {isAddingSupplier ? (
-                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent mx-auto" />
-                   ) : 'Cadastrar Fornecedor'}
-                 </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <SupplierDictionary 
+        isOpen={showSuppliersModal} 
+        onClose={() => setShowSuppliersModal(false)} 
+        setNotification={setNotification} 
+      />
     </div>
   );
 }
