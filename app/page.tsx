@@ -1122,22 +1122,28 @@ export default function Page() {
   const downloadNoteTemplate = () => {
     const templateData = [
       {
-        'Descrição': 'Exemplo de Produto',
-        'Cód. EAN': '7891234567890',
-        'SKU/Ref': 'REF-001',
-        'Quantidade': 12
+        'Item': 1,
+        'Código': '7891234567890',
+        'Descrição': 'EXEMPLO PRODUTO A',
+        'Unidade': 'UN',
+        'Quantidade': 10,
+        'Preço Unitário': 15.50,
+        'Valor Total': 155.00
       },
       {
-        'Descrição': 'Outro Item',
-        'Cód. EAN': '1234567890123',
-        'SKU/Ref': 'REF-002',
-        'Quantidade': 5
+        'Item': 2,
+        'Código': 'SKU-999',
+        'Descrição': 'EXEMPLO PRODUTO B (CAIXA)',
+        'Unidade': 'CX',
+        'Quantidade': 2,
+        'Preço Unitário': 100.00,
+        'Valor Total': 200.00
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Modelo de Nota");
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo de Entrada");
     XLSX.writeFile(wb, "modelo_entrada_mercadoria.xlsx");
   };
 
@@ -1154,11 +1160,28 @@ export default function Page() {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
-        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        const sheet = workbook.Sheets[sheetName];
 
-        if (rawData.length === 0) throw new Error('O arquivo está vazio.');
+        // Robust Header Discovery (Scan first 20 rows for typical headers)
+        const range = XLSX.utils.decode_range(sheet['!ref'] || "A1");
+        let headerRow = 0;
+        for (let R = range.s.r; R <= Math.min(range.e.r, 20); ++R) {
+          const rowValues: string[] = [];
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell = sheet[XLSX.utils.encode_cell({c: C, r: R})];
+            if (cell && cell.v) rowValues.push(String(cell.v).toLowerCase());
+          }
+          const rowStr = rowValues.join(" ");
+          if (rowStr.includes("desc") || rowStr.includes("prod") || rowStr.includes("sku") || rowStr.includes("codigo") || rowStr.includes("ean")) {
+            headerRow = R;
+            break;
+          }
+        }
 
-        const normalize = (s: string) => s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, "").trim() : "";
+        const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRow });
+        if (rawData.length === 0) throw new Error('O arquivo está vazio ou não possui dados processáveis.');
+
+        const normalize = (s: string) => s ? String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim() : "";
         const getVal = (p: any, keys: string[], defaultVal: string = "") => {
           const foundKey = Object.keys(p).find(k => keys.some(target => normalize(k) === normalize(target)));
           const val = foundKey ? p[foundKey] : undefined;
@@ -1166,6 +1189,7 @@ export default function Page() {
         };
 
         const { data: currentProducts } = await supabase.from('products').select('*');
+        const { data: unitConversions } = await supabase.from('supplier_units').select('*');
         
         // Filter mappings by supplier if selected
         let mappingQuery = supabase.from('supplier_mappings').select('*');
@@ -1180,8 +1204,10 @@ export default function Page() {
         for (const row of (rawData as any[])) {
           const sku = getVal(row, ['sku', 'codigo', 'cod', 'referencia', 'ref', 'código interno', 'codigo interno', 'id']);
           const ean = getVal(row, ['ean', 'barras', 'barcode', 'codigo barras', 'gtin']);
-          const description = getVal(row, ['desc', 'descricao', 'nome', 'produto', 'item', 'servico', 'descricao produto', 'descrição']);
+          const description = getVal(row, ['desc', 'descricao', 'nome', 'produto', 'servico', 'descricao produto', 'descrição']);
+          const unit = getVal(row, ['unidade', 'un', 'unid', 'emb', 'medida']);
           const qty = parseInt(getVal(row, ['qty', 'qtd', 'quantidade', 'entry', 'quant', 'movimento', 'entrada', 'unidades', 'qtde'], '0'));
+          const price = parseFloat(getVal(row, ['preco', 'valor', 'unit', 'preco unitario', 'unitario', 'punit'], '0'));
 
           if (isNaN(qty) || qty <= 0) continue;
 
@@ -1191,7 +1217,18 @@ export default function Page() {
           let verified = !!product;
           
           if (!product && description) {
-            const mapping = filterMappings?.find(m => normalize(m.supplier_description) === normalize(description));
+            const normDesc = normalize(description);
+            // 1. Exact match in mapping
+            let mapping = filterMappings?.find(m => normalize(m.supplier_description) === normDesc);
+            
+            // 2. Partial match (if mapping description is contained in invoice description)
+            if (!mapping) {
+              mapping = filterMappings?.find(m => {
+                const normMap = normalize(m.supplier_description);
+                return normMap.length > 5 && normDesc.includes(normMap);
+              });
+            }
+
             if (mapping) {
               product = currentProducts?.find(p => p.id === mapping.internal_product_id);
               if (product) {
@@ -1205,19 +1242,36 @@ export default function Page() {
              statusTranslation = 'Não Encontrado';
           }
 
+          // Apply Unit Conversion
+          let multiplier = 1;
+          if (product && unit) {
+            const conversion = unitConversions?.find(c => 
+              c.product_id === product?.id && normalize(c.unit_name) === normalize(unit)
+            );
+            if (conversion) {
+              multiplier = Number(conversion.multiplier);
+            }
+          }
+
+          const finalQty = qty * multiplier;
+
           processedItems.push({
             sku: verified ? (product?.sku || sku) : '',
             ean: verified ? (product?.ean || ean) : '',
             name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
             original_description: description,
-            qty,
+            unit: unit || 'UN',
+            multiplier,
+            qty: finalQty,
+            original_qty: qty,
+            price: isNaN(price) ? 0 : price,
             status_translation: statusTranslation,
             product_id: product?.id,
             verified: verified
           });
 
           if (product && verified) {
-            const newCount = (product.count || 0) + qty;
+            const newCount = (product.count || 0) + finalQty;
             await supabase.from('products').update({ 
               count: newCount,
               is_low: newCount < 5,
