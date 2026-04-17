@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { TopNav } from '@/components/TopNav';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -13,6 +13,8 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const staticProducts: any[] = [];
 
@@ -215,6 +217,37 @@ export default function Page() {
   const [selectedManualProduct, setSelectedManualProduct] = useState<any>(null);
   const [manualStockChange, setManualStockChange] = useState(0);
   const [isUpdatingManualStock, setIsUpdatingManualStock] = useState(false);
+  
+  // Entrada de Mercadoria states
+  const [showManualNoteModal, setShowManualNoteModal] = useState(false);
+  const [noteItems, setNoteItems] = useState<any[]>([]);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [noteSearchResults, setNoteSearchResults] = useState<any[]>([]);
+  const [isProcessingNote, setIsProcessingNote] = useState(false);
+  const noteFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Supplier Dictionary states
+  const [showSuppliersModal, setShowSuppliersModal] = useState(false);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [supplierNames, setSupplierNames] = useState<any[]>([]);
+  const [supplierMappings, setSupplierMappings] = useState<any[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [supplierMappingDescription, setSupplierMappingDescription] = useState('');
+  const [selectedSupplierMappingProduct, setSelectedSupplierMappingProduct] = useState<any>(null);
+  const [supplierMappingSearchQuery, setSupplierMappingSearchQuery] = useState('');
+  const [supplierMappingSearchResults, setSupplierMappingSearchResults] = useState<any[]>([]);
+  const [isAddingMapping, setIsAddingMapping] = useState(false);
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
+  
+  const [showImportSupplierModal, setShowImportSupplierModal] = useState(false);
+  const [selectedImportSupplierId, setSelectedImportSupplierId] = useState('');
+  const [translatedNoteItems, setTranslatedNoteItems] = useState<any[]>([]);
+  const [showTranslationResultModal, setShowTranslationResultModal] = useState(false);
+  const [manualNoteSupplierId, setManualNoteSupplierId] = useState('');
+
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
   const [isNewRequest, setIsNewRequest] = useState(false);
@@ -944,6 +977,387 @@ export default function Page() {
       return;
     }
     setManualStockSearchResults(data || []);
+  };
+
+  // Entrada de Mercadoria Functions
+  const handleNoteSearch = async () => {
+    if (!noteSearchQuery) {
+      setNoteSearchResults([]);
+      return;
+    }
+
+    let searchIds: string[] = [];
+
+    // If a supplier is selected, try to find in dictionary first
+    if (manualNoteSupplierId) {
+      const { data: mappings } = await supabase
+        .from('supplier_mappings')
+        .select('internal_product_id')
+        .eq('supplier_id', manualNoteSupplierId)
+        .ilike('supplier_description', `%${noteSearchQuery}%`);
+      
+      if (mappings && mappings.length > 0) {
+        searchIds = mappings.map(m => m.internal_product_id);
+      }
+    }
+
+    let query = supabase.from('products').select('*');
+    
+    if (searchIds.length > 0) {
+      // If found in dictionary, prioritize these IDs but also search globally
+      query = query.or(`id.in.(${searchIds.join(',')}),name.ilike.%${noteSearchQuery}%,sku.ilike.%${noteSearchQuery}%,ean.ilike.%${noteSearchQuery}%`);
+    } else {
+      query = query.or(`name.ilike.%${noteSearchQuery}%,sku.ilike.%${noteSearchQuery}%,ean.ilike.%${noteSearchQuery}%`);
+    }
+
+    const { data, error } = await query.limit(10);
+    
+    if (error) {
+      console.error('Erro na busca de produtos para nota:', error);
+      return;
+    }
+    setNoteSearchResults(data || []);
+  };
+
+  const handleAddProductToNote = (product: any) => {
+    // Check if already in note
+    if (noteItems.some(item => item.id === product.id)) {
+      setNotification({ type: 'error', message: 'Produto já está na nota.' });
+      return;
+    }
+    setNoteItems([...noteItems, { ...product, noteQuantity: 1 }]);
+    setNoteSearchQuery('');
+    setNoteSearchResults([]);
+  };
+
+  const handleRemoveProductFromNote = (id: string) => {
+    setNoteItems(noteItems.filter(item => item.id !== id));
+  };
+
+  const handleUpdateNoteQuantity = (id: string, qty: number) => {
+    setNoteItems(noteItems.map(item => item.id === id ? { ...item, noteQuantity: Math.max(0, qty) } : item));
+  };
+
+  const handleProcessManualNote = async () => {
+    if (noteItems.length === 0) return;
+    setIsProcessingNote(true);
+    try {
+      for (const item of noteItems) {
+        if (item.noteQuantity <= 0) continue;
+        
+        const newCount = (item.count || 0) + item.noteQuantity;
+        
+        // Update product stock
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ 
+            count: newCount,
+            is_low: newCount < 5,
+            status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+          })
+          .eq('id', item.id);
+          
+        if (updateError) throw updateError;
+        
+        // Mother/Child Logic
+        if (item.is_mother && item.linked_product_id) {
+          const unitsToAdd = item.noteQuantity * (item.units_per_mother || 1);
+          const { data: childData } = await supabase
+            .from('products')
+            .select('count')
+            .eq('id', item.linked_product_id)
+            .single();
+            
+          if (childData) {
+            const newChildCount = (childData.count || 0) + unitsToAdd;
+            await supabase
+              .from('products')
+              .update({ 
+                count: newChildCount,
+                is_low: newChildCount < 5,
+                status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+              })
+              .eq('id', item.linked_product_id);
+          }
+        }
+      }
+      
+      setNotification({ type: 'success', message: 'Entrada de mercadoria processada com sucesso!' });
+      setNoteItems([]);
+      setShowManualNoteModal(false);
+      fetchProducts();
+    } catch (err: any) {
+      console.error('Erro ao processar nota manual:', err);
+      setNotification({ type: 'error', message: 'Erro ao processar entrada de mercadoria.' });
+    } finally {
+      setIsProcessingNote(false);
+    }
+  };
+
+  const exportTranslatedToExcel = (items: any[]) => {
+    const ws = XLSX.utils.json_to_sheet(items.map(item => ({
+      'Código (SKU)': item.sku || '-',
+      'EAN': item.ean || '-',
+      'Produto Interno': item.name || 'NÃO MAPEADO',
+      'Descrição Fornecedor': item.original_description,
+      'Quantidade': item.qty,
+      'Status': item.status_translation
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Traduzidos");
+    XLSX.writeFile(wb, "nota_traduzida.xlsx");
+  };
+
+  const exportTranslatedToPDF = (items: any[]) => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.text("Relatório de Tradução de Nota", 14, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+    
+    const tableData = items.map(item => [
+      item.sku || '-',
+      item.name || 'NÃO MAPEADO',
+      item.original_description || '-',
+      item.qty.toString(),
+      item.status_translation
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['SKU', 'Produto Interno', 'Descrição Fornecedor', 'Qtd', 'Status']],
+      body: tableData,
+      headStyles: { fillStyle: 'f', fillColor: [0, 84, 204] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save("nota_traduzida.pdf");
+  };
+
+  const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImporting(true);
+    setNotification({ type: 'success', message: 'Processando arquivo de nota...' });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (rawData.length === 0) throw new Error('O arquivo está vazio.');
+
+        const normalize = (s: string) => s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, "").trim() : "";
+        const getVal = (p: any, keys: string[], defaultVal: string = "") => {
+          const foundKey = Object.keys(p).find(k => keys.some(target => normalize(k) === normalize(target)));
+          const val = foundKey ? p[foundKey] : undefined;
+          return val !== undefined && val !== null && val !== "" ? String(val).trim() : defaultVal;
+        };
+
+        const { data: currentProducts } = await supabase.from('products').select('*');
+        
+        // Filter mappings by supplier if selected
+        let mappingQuery = supabase.from('supplier_mappings').select('*');
+        if (selectedImportSupplierId) {
+          mappingQuery = mappingQuery.eq('supplier_id', selectedImportSupplierId);
+        }
+        const { data: filterMappings } = await mappingQuery;
+        
+        let updatedCount = 0;
+        const processedItems: any[] = [];
+
+        for (const row of (rawData as any[])) {
+          const sku = getVal(row, ['sku', 'codigo', 'cod']);
+          const ean = getVal(row, ['ean', 'barras', 'barcode']);
+          const description = getVal(row, ['desc', 'descricao', 'nome', 'produto']);
+          const qty = parseInt(getVal(row, ['qty', 'qtd', 'quantidade', 'entry'], '0'));
+
+          if (isNaN(qty) || qty <= 0) continue;
+
+          // Try to find product by SKU, EAN or mapping
+          let product = currentProducts?.find(p => (sku && p.sku === sku) || (ean && p.ean === ean));
+          let statusTranslation = 'Identificado (SKU/EAN)';
+          
+          if (!product && description) {
+            const mapping = filterMappings?.find(m => normalize(m.supplier_description) === normalize(description));
+            if (mapping) {
+              product = currentProducts?.find(p => p.id === mapping.internal_product_id);
+              statusTranslation = 'Traduzido';
+            } else {
+              statusTranslation = 'Não Encontrado';
+            }
+          }
+
+          processedItems.push({
+            sku: product?.sku || sku,
+            ean: product?.ean || ean,
+            name: product?.name || 'Não Identificado',
+            original_description: description,
+            qty,
+            status_translation: statusTranslation,
+            product_id: product?.id
+          });
+
+          if (product) {
+            const newCount = (product.count || 0) + qty;
+            await supabase.from('products').update({ 
+              count: newCount,
+              is_low: newCount < 5,
+              status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+            }).eq('id', product.id);
+
+            // Mother/Child Logic
+            if (product.is_mother && product.linked_product_id) {
+              const childUnits = qty * (product.units_per_mother || 1);
+              const childProduct = currentProducts?.find(p => p.id === product.linked_product_id);
+              if (childProduct) {
+                const newChildCount = (childProduct.count || 0) + childUnits;
+                await supabase.from('products').update({ 
+                  count: newChildCount,
+                  is_low: newChildCount < 5,
+                  status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+                }).eq('id', childProduct.id);
+              }
+            }
+            updatedCount++;
+          }
+        }
+
+        setTranslatedNoteItems(processedItems);
+        setShowTranslationResultModal(true);
+        setNotification({ type: 'success', message: `Importação concluída: ${updatedCount} itens atualizados.` });
+        fetchProducts();
+      } catch (err: any) {
+        console.error('Erro na importação de nota:', err);
+        setNotification({ type: 'error', message: 'Erro ao importar nota.' });
+      } finally {
+        setImporting(false);
+        if (noteFileInputRef.current) noteFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Supplier Management Functions
+  const fetchSuppliers = async () => {
+    setIsLoadingSuppliers(true);
+    try {
+      const { data, error } = await supabase.from('suppliers').select('*').order('name');
+      if (error) throw error;
+      setSupplierNames(data || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar fornecedores:', err);
+      if (err.message) console.error('Mensagem de erro:', err.message);
+      if (err.details) console.error('Detalhes:', err.details);
+    } finally {
+      setIsLoadingSuppliers(false);
+    }
+  };
+
+  const fetchSupplierMappings = async (supplierId: string) => {
+    if (!supplierId) {
+      setSupplierMappings([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('supplier_mappings')
+        .select('*, products(name, sku, ean)')
+        .eq('supplier_id', supplierId);
+      if (error) throw error;
+      setSupplierMappings(data || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar mapeamentos:', err);
+      if (err.message) console.error('Mensagem de erro:', err.message);
+    }
+  };
+
+  const handleAddSupplier = async () => {
+    if (!newSupplierName.trim()) return;
+    setIsAddingSupplier(true);
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .insert([{ name: newSupplierName.trim() }])
+        .select();
+      if (error) throw error;
+      setSupplierNames(prev => [...prev, ...(data || [])].sort((a,b) => a.name.localeCompare(b.name)));
+      setSelectedSupplierId(data?.[0]?.id || '');
+      setNewSupplierName('');
+      setShowAddSupplierModal(false);
+      setNotification({ type: 'success', message: 'Fornecedor adicionado com sucesso!' });
+    } catch (err: any) {
+      console.error('Erro ao adicionar fornecedor:', err);
+      const errorMessage = err.message || 'Erro desconhecido';
+      const errorDetails = err.details || '';
+      console.error(`Detalhes do erro: ${errorMessage} ${errorDetails}`);
+      setNotification({ type: 'error', message: `Erro ao adicionar fornecedor: ${errorMessage}` });
+    } finally {
+      setIsAddingSupplier(false);
+    }
+  };
+
+  const handleSupplierMappingSearch = async () => {
+    if (!supplierMappingSearchQuery) {
+      setSupplierMappingSearchResults([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .or(`name.ilike.%${supplierMappingSearchQuery}%,sku.ilike.%${supplierMappingSearchQuery}%,ean.ilike.%${supplierMappingSearchQuery}%`)
+      .limit(10);
+    
+    if (error) {
+      console.error('Erro na busca de produtos para mapeamento:', error);
+      return;
+    }
+    setSupplierMappingSearchResults(data || []);
+  };
+
+  const handleAddMapping = async () => {
+    if (!selectedSupplierId || !supplierMappingDescription || !selectedSupplierMappingProduct) {
+      setNotification({ type: 'error', message: 'Preencha todos os campos do mapeamento.' });
+      return;
+    }
+    setIsAddingMapping(true);
+    try {
+      const { error } = await supabase
+        .from('supplier_mappings')
+        .insert([{
+          supplier_id: selectedSupplierId,
+          supplier_description: supplierMappingDescription.trim(),
+          internal_product_id: selectedSupplierMappingProduct.id
+        }]);
+      if (error) throw error;
+      
+      setNotification({ type: 'success', message: 'Mapeamento adicionado com sucesso!' });
+      setSupplierMappingDescription('');
+      setSelectedSupplierMappingProduct(null);
+      fetchSupplierMappings(selectedSupplierId);
+    } catch (err) {
+      console.error('Erro ao adicionar mapeamento:', err);
+      setNotification({ type: 'error', message: 'Erro ao adicionar mapeamento.' });
+    } finally {
+      setIsAddingMapping(false);
+    }
+  };
+
+  const handleDeleteMapping = async (id: string) => {
+    try {
+      const { error } = await supabase.from('supplier_mappings').delete().eq('id', id);
+      if (error) throw error;
+      setSupplierMappings(prev => prev.filter(m => m.id !== id));
+      setNotification({ type: 'success', message: 'Mapeamento removido.' });
+    } catch (err) {
+      console.error('Erro ao remover mapeamento:', err);
+      setNotification({ type: 'error', message: 'Erro ao remover mapeamento.' });
+    }
   };
 
   const handleManualStockUpdate = async () => {
@@ -1841,6 +2255,104 @@ export default function Page() {
                     <p className="text-sm font-bold">Nenhuma requisição pendente</p>
                   </div>
                 )}
+              </div>
+            ) : activeTab === 'Entrada de Mercadoria' ? (
+              <div className="space-y-8">
+                <div className="flex flex-col">
+                  <h1 className="text-3xl font-black text-slate-900">Entrada de Mercadoria</h1>
+                  <p className="text-sm text-slate-500 font-medium">Gerencie a entrada de novos produtos no estoque</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
+                  >
+                    <div className="w-20 h-20 rounded-2xl bg-primary/5 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-all transform group-hover:rotate-3">
+                      <FileUp size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">Importar Nota</h3>
+                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Importe um arquivo Excel com SKU/EAN e quantidades para atualizar o estoque</p>
+                    <button 
+                      onClick={() => {
+                        setShowImportSupplierModal(true);
+                        fetchSuppliers();
+                      }}
+                      disabled={importing}
+                      className="bg-primary text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 w-full justify-center"
+                    >
+                      {importing ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                      ) : (
+                        <>
+                          <Download size={18} />
+                          Selecionar Arquivo
+                        </>
+                      )}
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={noteFileInputRef} 
+                      onChange={handleNoteImportExcel} 
+                      className="hidden" 
+                      accept=".xlsx,.xls"
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
+                  >
+                    <div className="w-20 h-20 rounded-2xl bg-slate-950 text-white flex items-center justify-center mb-6 group-hover:bg-primary transition-all transform group-hover:-rotate-3">
+                      <FileText size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">Adicionar Nota</h3>
+                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Adicione itens manualmente à nota de entrada pesquisando por SKU, EAN ou Nome</p>
+                    <button 
+                      onClick={() => {
+                        setShowManualNoteModal(true);
+                        setNoteItems([]);
+                        setNoteSearchQuery('');
+                        fetchSuppliers();
+                      }}
+                      className="bg-slate-900 text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg w-full justify-center flex items-center gap-2"
+                    >
+                      <Plus size={18} />
+                      Criar Nota Manual
+                    </button>
+                  </motion.div>
+
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center group"
+                  >
+                    <div className="w-20 h-20 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all transform group-hover:rotate-3">
+                      <Users size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">Fornecedores</h3>
+                    <p className="text-sm text-slate-500 mb-8 max-w-xs">Mapeie as descrições dos produtos dos fornecedores para os seus produtos internos</p>
+                    <button 
+                      onClick={() => {
+                        setShowSuppliersModal(true);
+                        fetchSuppliers();
+                      }}
+                      className="bg-amber-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-amber-700 transition-all shadow-lg w-full justify-center flex items-center gap-2 shadow-amber-600/20"
+                    >
+                      <BookText size={18} />
+                      Dicionário
+                    </button>
+                  </motion.div>
+                </div>
+
+                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex items-center gap-6">
+                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm shadow-amber-600/10">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 leading-tight">Dica de Importação</h4>
+                    <p className="text-sm text-slate-500 font-medium">Use colunas chamadas &quot;SKU&quot;, &quot;EAN&quot; e &quot;Quantidade&quot; para melhor compatibilidade.</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-40 text-slate-400">
@@ -3387,6 +3899,648 @@ export default function Page() {
                     </div>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Manual Note Modal */}
+      <AnimatePresence>
+        {showManualNoteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowManualNoteModal(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white">
+                    <LogIn size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Nota de Entrada Manual</h3>
+                    <p className="text-xs text-slate-500 font-medium">Adicione itens e quantidades para processar a entrada</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 flex-1 justify-end mr-4">
+                  <div className="w-full max-w-xs space-y-1">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Fornecedor da Nota</label>
+                    <select 
+                      value={manualNoteSupplierId}
+                      onChange={(e) => setManualNoteSupplierId(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold"
+                    >
+                      <option value="">Selecione um fornecedor...</option>
+                      {supplierNames.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowManualNoteModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-secondary" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                {/* Search Panel */}
+                <div className="w-full md:w-1/2 p-6 overflow-y-auto">
+                  <div className="space-y-4 mb-6 sticky top-0 bg-white pb-4 z-10 border-b border-slate-50">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Pesquisar Produto</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={noteSearchQuery}
+                        onChange={(e) => setNoteSearchQuery(e.target.value)}
+                        onKeyUp={(e) => e.key === 'Enter' && handleNoteSearch()}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        placeholder="Nome, SKU ou EAN..."
+                      />
+                      <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <button 
+                        onClick={handleNoteSearch}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-2 rounded-lg transition-colors"
+                      >
+                        <Search size={16} className="text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {noteSearchResults.length > 0 ? (
+                      noteSearchResults.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => handleAddProductToNote(p)}
+                          className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                        >
+                          <div className="w-14 h-14 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+                            <ProductImage src={p.image} alt={p.name} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{p.sku}</span>
+                              <span className="text-xs font-medium text-slate-500">Estoque: {p.count}</span>
+                            </div>
+                          </div>
+                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                            <Plus size={16} />
+                          </div>
+                        </button>
+                      ))
+                    ) : noteSearchQuery ? (
+                      <div className="py-12 text-center text-slate-400">
+                        <ShoppingCart size={40} className="mx-auto mb-3 opacity-10" />
+                        <p className="text-sm font-bold">Nenhum produto encontrado</p>
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-slate-400">
+                        <Search size={40} className="mx-auto mb-3 opacity-10" />
+                        <p className="text-sm font-bold">Pesquise para começar</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Note List Panel */}
+                <div className="w-full md:w-1/2 p-6 flex flex-col bg-slate-50/50">
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Itens da Nota ({noteItems.length})</h4>
+                    {noteItems.length > 0 && (
+                      <button 
+                        onClick={() => setNoteItems([])}
+                        className="text-[10px] font-bold text-red-500 uppercase hover:underline"
+                      >
+                        Limpar Tudo
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 min-h-[300px]">
+                    {noteItems.length > 0 ? (
+                      noteItems.map((item) => (
+                        <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group">
+                          <div className="w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0">
+                            <ProductImage src={item.image} alt={item.name} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                            <p className="text-[10px] font-medium text-slate-500">SKU: {item.sku}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              value={item.noteQuantity}
+                              onChange={(e) => handleUpdateNoteQuantity(item.id, parseInt(e.target.value) || 0)}
+                              className="w-16 h-10 bg-slate-100 border-none rounded-lg text-center font-bold text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                            />
+                            <button 
+                              onClick={() => handleRemoveProductFromNote(item.id)}
+                              className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                        <FileText size={48} className="mb-4 opacity-10" />
+                        <p className="text-sm font-bold">Nenhum item adicionado</p>
+                        <p className="text-xs">Busque produtos ao lado para incluir na nota</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-6 mt-6 border-t border-slate-200 space-y-4 shrink-0">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500 font-bold">Total de Itens</span>
+                      <span className="text-slate-900 font-black">{noteItems.reduce((acc, curr) => acc + curr.noteQuantity, 0)} unidades</span>
+                    </div>
+                    <button 
+                      disabled={noteItems.length === 0 || isProcessingNote}
+                      onClick={handleProcessManualNote}
+                      className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/30 disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {isProcessingNote ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                      ) : (
+                        <>
+                          <CheckCircle2 size={20} />
+                          Confirmar Entrada de Mercadoria
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Import Supplier Selection Modal */}
+      <AnimatePresence>
+        {showImportSupplierModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowImportSupplierModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white">
+                    <Truck size={20} />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900">Selecionar Fornecedor</h3>
+                </div>
+                <button onClick={() => setShowImportSupplierModal(false)} className="p-2 hover:bg-slate-200 rounded-full">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="p-8 space-y-6">
+                <p className="text-sm text-slate-500 font-medium">Selecione o fornecedor da nota para que o sistema possa traduzir as descrições dos produtos automaticamente.</p>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Fornecedor</label>
+                  <select 
+                    value={selectedImportSupplierId}
+                    onChange={(e) => setSelectedImportSupplierId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold"
+                  >
+                    <option value="">Nenhum (Usar apenas SKU/EAN)</option>
+                    {supplierNames.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowImportSupplierModal(false);
+                    noteFileInputRef.current?.click();
+                  }}
+                  className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                >
+                  <FileUp size={20} />
+                  Prosseguir para Upload
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Translation Result Modal */}
+      <AnimatePresence>
+        {showTranslationResultModal && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTranslationResultModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center text-white shadow-lg shadow-green-500/20">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Resultado da Tradução</h3>
+                    <p className="text-xs text-slate-500 font-medium">Confira como os produtos da nota foram identificados no seu sistema</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => exportTranslatedToExcel(translatedNoteItems)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
+                  >
+                    <Download size={16} />
+                    Excel
+                  </button>
+                  <button 
+                    onClick={() => exportTranslatedToPDF(translatedNoteItems)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
+                  >
+                    <Download size={16} />
+                    PDF
+                  </button>
+                  <div className="w-px h-8 bg-slate-100 mx-2" />
+                  <button onClick={() => setShowTranslationResultModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                    <X size={24} className="text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna (Traduzido)</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {translatedNoteItems.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 pl-4">
+                          <p className="text-sm font-bold text-slate-700">{item.original_description}</p>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="flex items-center gap-3">
+                            {item.name !== 'Não Identificado' ? (
+                              <>
+                                <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
+                                  <ArrowRight size={14} />
+                                </div>
+                                <p className="text-sm font-black text-primary">{item.name}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm font-medium text-red-400 italic">Preceder cadastro manual</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
+                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                            item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                            item.status_translation === 'Identificado (SKU/EAN)' ? "bg-blue-100 text-blue-700" :
+                            "bg-red-100 text-red-700"
+                          )}>
+                            {item.status_translation}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <div className="text-sm text-slate-500">
+                   Total Processado: <span className="font-bold text-slate-900">{translatedNoteItems.length} itens</span>
+                </div>
+                <button 
+                  onClick={() => setShowTranslationResultModal(false)}
+                  className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
+                >
+                  Concluir e Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Suppliers Dictionary Modal */}
+      <AnimatePresence>
+        {showSuppliersModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSuppliersModal(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-600/20">
+                    <BookText size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Dicionário de Fornecedores</h3>
+                    <p className="text-xs text-slate-500 font-medium">Vincule codificações de fornecedores aos seus produtos internos</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowSuppliersModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-secondary" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                {/* Form Panel */}
+                <div className="w-full md:w-1/2 p-8 overflow-y-auto space-y-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Selecionar Fornecedor</label>
+                      <button 
+                        onClick={() => setShowAddSupplierModal(true)}
+                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <Plus size={12} />
+                        Novo Fornecedor
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <select 
+                        value={selectedSupplierId}
+                        onChange={(e) => {
+                          setSelectedSupplierId(e.target.value);
+                          fetchSupplierMappings(e.target.value);
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-bold text-slate-900"
+                      >
+                        <option value="">Selecione um fornecedor...</option>
+                        {supplierNames.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {selectedSupplierId && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-6 pt-6 border-t border-slate-100"
+                    >
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Descrição no Fornecedor (Nota Fiscal)</label>
+                        <input 
+                          type="text" 
+                          value={supplierMappingDescription}
+                          onChange={(e) => setSupplierMappingDescription(e.target.value)}
+                          placeholder="Ex: CHOCOLATE OURO BRANCO LACTA 1KG..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Produto Interno Correspondente</label>
+                        {!selectedSupplierMappingProduct ? (
+                          <div className="space-y-4">
+                            <div className="relative">
+                              <input 
+                                type="text" 
+                                value={supplierMappingSearchQuery}
+                                onChange={(e) => setSupplierMappingSearchQuery(e.target.value)}
+                                onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()}
+                                placeholder="Buscar nos seus produtos..."
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              />
+                              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <button 
+                                onClick={handleSupplierMappingSearch}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-2 rounded-lg transition-colors"
+                              >
+                                <Search size={16} className="text-slate-600" />
+                              </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                              {supplierMappingSearchResults.map(p => (
+                                <button 
+                                  key={p.id}
+                                  onClick={() => {
+                                    setSelectedSupplierMappingProduct(p);
+                                    setSupplierMappingSearchResults([]);
+                                    setSupplierMappingSearchQuery('');
+                                  }}
+                                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/20 hover:bg-primary/5 transition-all text-left group"
+                                >
+                                  <div className="w-10 h-10 bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
+                                    <ProductImage src={p.image} alt={p.name} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
+                                    <p className="text-[10px] text-slate-500">EAN: {p.ean}</p>
+                                  </div>
+                                  <Plus size={14} className="text-slate-300 group-hover:text-primary" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl relative group">
+                            <div className="w-14 h-14 bg-white rounded-xl overflow-hidden border border-primary/10">
+                              <ProductImage src={selectedSupplierMappingProduct.image} alt={selectedSupplierMappingProduct.name} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-primary">{selectedSupplierMappingProduct.name}</p>
+                              <p className="text-[10px] font-bold text-primary/60 uppercase">EAN: {selectedSupplierMappingProduct.ean}</p>
+                            </div>
+                            <button 
+                              onClick={() => setSelectedSupplierMappingProduct(null)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <button 
+                        disabled={!selectedSupplierMappingProduct || !supplierMappingDescription || isAddingMapping}
+                        onClick={handleAddMapping}
+                        className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/30 disabled:opacity-50"
+                      >
+                        {isAddingMapping ? (
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                        ) : (
+                          <>
+                            <CheckCircle2 size={20} />
+                            Criar Vínculo
+                          </>
+                        )}
+                      </button>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* List Panel */}
+                <div className="w-full md:w-1/2 bg-slate-50/50 flex flex-col overflow-hidden">
+                  <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white/50 shrink-0">
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                       Dicionário Ativo
+                       {selectedSupplierId && supplierMappings.length > 0 && (
+                         <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-black">{supplierMappings.length}</span>
+                       )}
+                    </h4>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
+                    {!selectedSupplierId ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
+                        <Users size={48} className="mb-4" />
+                        <p className="text-sm font-bold">Selecione um fornecedor</p>
+                        <p className="text-xs">Para visualizar seus mapeamentos</p>
+                      </div>
+                    ) : supplierMappings.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
+                        <BookText size={48} className="mb-4" />
+                        <p className="text-sm font-bold">Nenhum vínculo cadastrado</p>
+                        <p className="text-xs text-center">Use o formulário ao lado para adicionar o primeiro mapeamento</p>
+                      </div>
+                    ) : (
+                      supplierMappings.map(mapping => (
+                        <div key={mapping.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 group hover:border-primary/30 transition-all">
+                          <div>
+                            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Como vem na nota:</p>
+                            <p className="text-sm font-bold text-slate-900">{mapping.supplier_description}</p>
+                          </div>
+                          <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
+                            <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
+                              <ArrowRight size={14} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                               <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">Produto Interno:</p>
+                               <p className="text-xs font-bold text-slate-700 truncate">{mapping.products?.name || 'Produto Removido'}</p>
+                            </div>
+                            <button 
+                              onClick={() => handleDeleteMapping(mapping.id)}
+                              className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Supplier Modal */}
+      <AnimatePresence>
+        {showAddSupplierModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddSupplierModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 className="text-lg font-black text-slate-900">Novo Fornecedor</h3>
+                <button onClick={() => setShowAddSupplierModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                  <X size={18} className="text-slate-500" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                 <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Nome do Fornecedor</label>
+                    <input 
+                      autoFocus
+                      type="text" 
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      onKeyUp={(e) => e.key === 'Enter' && handleAddSupplier()}
+                      placeholder="Ex: LACTA / MONDELEZ BRASIL..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                 </div>
+                 <button 
+                  disabled={!newSupplierName.trim() || isAddingSupplier}
+                  onClick={handleAddSupplier}
+                  className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-950/20 disabled:opacity-50"
+                 >
+                   {isAddingSupplier ? (
+                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent mx-auto" />
+                   ) : 'Cadastrar Fornecedor'}
+                 </button>
               </div>
             </motion.div>
           </div>
