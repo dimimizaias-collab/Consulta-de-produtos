@@ -1119,9 +1119,6 @@ export default function Page() {
     doc.save("nota_traduzida.pdf");
   };
 
-    reader.readAsArrayBuffer(file);
-  };
-  
   const downloadNoteTemplate = () => {
     const templateData = [
       {
@@ -1143,6 +1140,42 @@ export default function Page() {
     XLSX.utils.book_append_sheet(wb, ws, "Modelo de Nota");
     XLSX.writeFile(wb, "modelo_entrada_mercadoria.xlsx");
   };
+
+  const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImporting(true);
+    setNotification({ type: 'success', message: 'Processando arquivo de nota...' });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (rawData.length === 0) throw new Error('O arquivo está vazio.');
+
+        const normalize = (s: string) => s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, "").trim() : "";
+        const getVal = (p: any, keys: string[], defaultVal: string = "") => {
+          const foundKey = Object.keys(p).find(k => keys.some(target => normalize(k) === normalize(target)));
+          const val = foundKey ? p[foundKey] : undefined;
+          return val !== undefined && val !== null && val !== "" ? String(val).trim() : defaultVal;
+        };
+
+        const { data: currentProducts } = await supabase.from('products').select('*');
+        
+        // Filter mappings by supplier if selected
+        let mappingQuery = supabase.from('supplier_mappings').select('*');
+        if (selectedImportSupplierId) {
+          mappingQuery = mappingQuery.eq('supplier_id', selectedImportSupplierId);
+        }
+        const { data: filterMappings } = await mappingQuery;
+        
+        let updatedCount = 0;
+        const processedItems: any[] = [];
 
         for (const row of (rawData as any[])) {
           const sku = getVal(row, ['sku', 'codigo', 'cod', 'referencia', 'ref', 'código interno', 'codigo interno', 'id']);
