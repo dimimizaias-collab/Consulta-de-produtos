@@ -1079,14 +1079,22 @@ export default function Page() {
   };
 
   const exportTranslatedToExcel = (items: any[]) => {
-    const ws = XLSX.utils.json_to_sheet(items.map(item => ({
-      'Código (SKU)': item.sku || '-',
-      'EAN': item.ean || '-',
-      'Produto Interno': item.name || 'NÃO MAPEADO',
-      'Descrição Fornecedor': item.original_description,
-      'Quantidade': item.qty,
-      'Status': item.status_translation
-    })));
+    const ws = XLSX.utils.json_to_sheet(items.map(item => {
+      const isTranslated = item.verified;
+      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
+      const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      const displayPriceTotal = item.price * (item.original_qty || 1);
+
+      return {
+        'Código (SKU)': item.sku || '-',
+        'EAN': item.ean || '-',
+        'Produto Interno': item.name || 'NÃO MAPEADO',
+        'Descrição Fornecedor': item.original_description || '-',
+        'Quantidade': displayQty,
+        'Preço Un.': displayPriceUn,
+        'Preço Total': displayPriceTotal
+      };
+    }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Traduzidos");
     XLSX.writeFile(wb, "nota_traduzida.xlsx");
@@ -1094,26 +1102,47 @@ export default function Page() {
 
   const exportTranslatedToPDF = (items: any[]) => {
     const doc = new jsPDF();
+    const formatCurrency = (val: number) => 
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
     doc.setFont("helvetica", "bold");
     doc.text("Relatório de Tradução de Nota", 14, 15);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
     
-    const tableData = items.map(item => [
-      item.sku || '-',
-      item.name || 'NÃO MAPEADO',
-      item.original_description || '-',
-      item.qty.toString(),
-      item.status_translation
-    ]);
+    const tableData = items.map(item => {
+      const isTranslated = item.verified;
+      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
+      const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      const displayPriceTotal = item.price * (item.original_qty || 1);
+
+      return [
+        item.sku || '-',
+        item.ean || '-',
+        item.name || 'NÃO MAPEADO',
+        item.original_description || '-',
+        displayQty.toString(),
+        formatCurrency(displayPriceUn),
+        formatCurrency(displayPriceTotal)
+      ];
+    });
 
     autoTable(doc, {
       startY: 30,
-      head: [['SKU', 'Produto Interno', 'Descrição Fornecedor', 'Qtd', 'Status']],
+      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total']],
       body: tableData,
       headStyles: { fillColor: [0, 84, 204] },
-      styles: { fontSize: 8 }
+      styles: { fontSize: 7, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 20 }, // SKU
+        1: { cellWidth: 25 }, // EAN
+        2: { cellWidth: 35 }, // Produto Interno
+        3: { cellWidth: 45 }, // Descrição Fornecedor
+        4: { halign: 'center' }, // Qtde
+        5: { halign: 'right' }, // Preço Un.
+        6: { halign: 'right' }  // Total
+      }
     });
 
     doc.save("nota_traduzida.pdf");
