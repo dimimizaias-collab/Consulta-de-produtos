@@ -1905,6 +1905,8 @@ export default function Page() {
                     fetchSuppliers();
                   }}
                 />
+            ) : activeTab === 'Pedidos de Compra' ? (
+                <PurchaseOrderManager />
             ) : (
               <div className="flex flex-col items-center justify-center py-40 text-slate-400">
                 <BarChart3 size={64} className="mb-4 opacity-20" />
