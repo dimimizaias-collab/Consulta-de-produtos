@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import { Manrope, Inter } from 'next/font/google';
 import './globals.css';
 
@@ -12,9 +12,22 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
+export const viewport: Viewport = {
+  themeColor: '#B5000B',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: 'StockFlow Pro | Inventory Matrix',
-  description: 'Managing active SKUs with precision and style.',
+  title: 'Controle de estoque',
+  description: 'Controle de estoque de produtos',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Controle de estoque',
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#B5000B"/>
+  <g transform="translate(256,256)">
+    <!-- Warehouse roof -->
+    <polygon points="0,-90 -96,-24 96,-24" fill="white" opacity="0.95"/>
+    <!-- Warehouse body -->
+    <rect x="-88" y="-24" width="176" height="118" rx="6" fill="white"/>
+    <!-- Door -->
+    <rect x="-29" y="34" width="58" height="60" rx="5" fill="#B5000B"/>
+    <!-- Windows left -->
+    <rect x="-74" y="-8" width="29" height="29" rx="3" fill="#B5000B"/>
+    <!-- Windows right -->
+    <rect x="45" y="-8" width="29" height="29" rx="3" fill="#B5000B"/>
+  </g>
+</svg>

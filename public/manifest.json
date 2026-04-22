@@ -1,0 +1,24 @@
+{
+  "name": "Controle de estoque",
+  "short_name": "Estoque",
+  "description": "Controle de estoque de produtos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFEF0",
+  "theme_color": "#B5000B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
