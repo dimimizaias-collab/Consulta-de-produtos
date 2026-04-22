@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   BookText, 
@@ -11,12 +11,14 @@ import {
   ArrowRight, 
   Trash2, 
   Users,
-  ImageOff
+  ImageOff,
+  FileUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
+import * as XLSX from 'xlsx';
 
 interface Product {
   id: string;
@@ -109,6 +111,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [unitName, setUnitName] = useState('');
   const [unitMultiplier, setUnitMultiplier] = useState('1');
   const [isAddingUnit, setIsAddingUnit] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -212,6 +216,126 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     } finally {
       setIsAddingMapping(false);
     }
+  };
+
+  const handleImportDictionary = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedSupplierId) return;
+    
+    setIsImporting(true);
+    setNotification({ type: 'success', message: 'Processando planilha de dicionário...' });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        const range = XLSX.utils.decode_range(sheet['!ref'] || "A1");
+        let headerRow = -1;
+        
+        // Scan first 20 rows for headers
+        for (let R = range.s.r; R <= Math.min(range.e.r, 20); ++R) {
+          const rowValues: string[] = [];
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell = sheet[XLSX.utils.encode_cell({c: C, r: R})];
+            if (cell && cell.v) rowValues.push(String(cell.v).toLowerCase());
+          }
+          const rowStr = rowValues.join(" ");
+          if (rowStr.includes("desc") || rowStr.includes("ean sistema")) {
+            headerRow = R;
+            break;
+          }
+        }
+
+        if (headerRow === -1) throw new Error('Não foi possível encontrar o cabeçalho da planilha.');
+
+        const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRow });
+        if (rawData.length === 0) throw new Error('A planilha está vazia.');
+
+        const normalize = (s: string) => s ? String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim() : "";
+        
+        // Get all products to map EAN sistema to internal ID
+        const { data: allProducts } = await supabase.from('products').select('id, ean, sku');
+        
+        let importedCount = 0;
+        let skipCount = 0;
+
+        for (const row of (rawData as any[])) {
+          const keys = Object.keys(row);
+          if (keys.length === 0) continue;
+
+          // Supplier Description: Using common names for description
+          const supplierDescKey = keys.find(k => {
+            const nk = normalize(k);
+            return nk.includes('desc') || nk.includes('prod') || nk.includes('nome');
+          });
+          const supplierDescription = supplierDescKey ? String(row[supplierDescKey]).trim() : "";
+
+          // EAN Sistema: MUST BE THE LAST COLUMN
+          const eanSistemaKey = keys[keys.length - 1]; 
+          const eanSistema = eanSistemaKey ? String(row[eanSistemaKey]).trim() : "";
+
+          if (!supplierDescription || !eanSistema) {
+            skipCount++;
+            continue;
+          }
+
+          // Find internal product
+          const product = allProducts?.find(p => {
+             if (!p.ean && !p.sku) return false;
+             const eans = p.ean ? p.ean.split(',').map(e => e.trim()) : [];
+             return eans.includes(eanSistema) || p.sku === eanSistema;
+          });
+
+          if (product) {
+            // Check if mapping exists to update or insert
+            const { data: existing } = await supabase
+              .from('supplier_mappings')
+              .select('id')
+              .eq('supplier_id', selectedSupplierId)
+              .eq('supplier_description', supplierDescription)
+              .maybeSingle();
+
+            if (existing) {
+              const { error: updateError } = await supabase
+                .from('supplier_mappings')
+                .update({ internal_product_id: product.id })
+                .eq('id', existing.id);
+              if (!updateError) importedCount++;
+              else skipCount++;
+            } else {
+              const { error: insertError } = await supabase
+                .from('supplier_mappings')
+                .insert([{
+                  supplier_id: selectedSupplierId,
+                  supplier_description: supplierDescription,
+                  internal_product_id: product.id
+                }]);
+              if (!insertError) importedCount++;
+              else skipCount++;
+            }
+          } else {
+            skipCount++;
+          }
+        }
+
+        setNotification({ 
+          type: 'success', 
+          message: `Importação concluída: ${importedCount} mapeamentos processados. ${skipCount > 0 ? `(${skipCount} ignorados/não encontrados)` : ''}` 
+        });
+        fetchSupplierMappings(selectedSupplierId);
+      } catch (err: any) {
+        console.error('Erro na importação do dicionário:', err);
+        setNotification({ type: 'error', message: `Erro ao importar: ${err.message}` });
+      } finally {
+        setIsImporting(false);
+        if (dictionaryFileInputRef.current) dictionaryFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const handleDeleteMapping = async (id: string) => {
@@ -347,22 +471,48 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                             New Partner
                           </button>
                         </div>
-                        <div className="relative group">
-                          <select 
-                            value={selectedSupplierId}
-                            onChange={(e) => {
-                              setSelectedSupplierId(e.target.value);
-                              fetchSupplierMappings(e.target.value);
-                            }}
-                            className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 appearance-none font-bold text-on-surface transition-all shadow-sm"
-                          >
-                            <option value="">Select a supplier protocol...</option>
-                            {supplierNames.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface/20 pointer-events-none group-focus-within:text-primary transition-colors" />
-                        </div>
+                          <div className="relative group">
+                            <select 
+                              value={selectedSupplierId}
+                              onChange={(e) => {
+                                setSelectedSupplierId(e.target.value);
+                                fetchSupplierMappings(e.target.value);
+                              }}
+                              className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 appearance-none font-bold text-on-surface transition-all shadow-sm"
+                            >
+                              <option value="">Select a supplier protocol...</option>
+                              {supplierNames.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface/20 pointer-events-none group-focus-within:text-primary transition-colors" />
+                          </div>
+
+                          {selectedSupplierId && (
+                            <div className="flex gap-4">
+                              <input 
+                                type="file" 
+                                ref={dictionaryFileInputRef} 
+                                onChange={handleImportDictionary} 
+                                accept=".xlsx,.xls" 
+                                className="hidden" 
+                              />
+                              <button 
+                                onClick={() => dictionaryFileInputRef.current?.click()}
+                                disabled={isImporting}
+                                className="flex-1 bg-surface-container-low border border-on-surface/[0.03] px-6 py-4 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 shadow-sm uppercase tracking-widest active:scale-95 disabled:opacity-50"
+                              >
+                                {isImporting ? (
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent" />
+                                ) : (
+                                  <>
+                                    <FileUp size={16} />
+                                    Importar Planilha
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
                       </div>
 
                       {selectedSupplierId && (
