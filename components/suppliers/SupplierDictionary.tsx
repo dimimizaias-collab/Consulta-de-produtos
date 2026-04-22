@@ -286,7 +286,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
           // Find internal product
           const product = allProducts?.find(p => {
              if (!p.ean && !p.sku) return false;
-             const eans = p.ean ? p.ean.split(',').map(e => e.trim()) : [];
+             const eans = p.ean ? p.ean.split(',').map((e: string) => e.trim()) : [];
              return eans.includes(eanSistema) || p.sku === eanSistema;
           });
 
