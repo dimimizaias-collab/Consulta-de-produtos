@@ -35,7 +35,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
 
   return (
     <aside className={cn(
-      "fixed left-0 top-0 h-full bg-surface-container-low/80 backdrop-blur-xl flex flex-col pt-6 z-40 transition-all duration-300",
+      "hidden md:flex fixed left-0 top-0 h-full bg-surface-container-low/80 backdrop-blur-xl flex-col pt-6 z-40 transition-all duration-300",
       isCollapsed ? "w-20" : "w-64"
     )}>
       <div className={cn("px-4 mb-8 flex flex-col", isCollapsed ? "items-center" : "")}>

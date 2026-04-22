@@ -1,6 +1,7 @@
 'use client';
 
 import { Sidebar } from '@/components/Sidebar';
+import { BottomNav } from '@/components/BottomNav';
 import { TopNav } from '@/components/TopNav';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
@@ -1832,18 +1833,19 @@ export default function Page() {
       </AnimatePresence>
 
       <div className="flex">
-        <Sidebar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
         <main className={cn(
           "flex-1 transition-all duration-300",
-          isSidebarCollapsed ? "ml-20" : "ml-64"
+          "ml-0 md:transition-all",
+          isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
         )}>
           <TopNav searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-          <div className="p-8 max-w-7xl mx-auto space-y-8">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-8 pb-24 md:pb-8">
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
                   products={products}
@@ -1917,6 +1919,9 @@ export default function Page() {
           </div>
         </main>
       </div>
+
+      {/* Bottom navigation — mobile only */}
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Edit Product Modal */}
       <AnimatePresence>
