@@ -10,7 +10,6 @@ import {
   Pin,
   ChevronLeft,
   ChevronRight,
-  ChevronRight,
   LogIn,
   ShoppingCart
 } from 'lucide-react';
