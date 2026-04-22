@@ -24,7 +24,7 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
     } else {
       stopScanner();
     }
-    return () => stopScanner();
+    return () => { stopScanner(); };
   }, [isOpen]);
 
   const startScanner = async () => {
