@@ -1216,17 +1216,21 @@ export default function Page() {
           let statusTranslation = 'Identificado (SKU/EAN)';
           let verified = !!product;
           
-          if (!product && description) {
-            const normDesc = normalize(description);
-            // 1. Exact match in mapping
-            let mapping = filterMappings?.find(m => normalize(m.supplier_description) === normDesc);
-            
-            // 2. Partial match (if mapping description is contained in invoice description)
-            if (!mapping) {
-              mapping = filterMappings?.find(m => {
-                const normMap = normalize(m.supplier_description);
-                return normMap.length > 5 && normDesc.includes(normMap);
-              });
+          if (!product) {
+            // 1. Try to find a mapping by supplier SKU first
+            let mapping = filterMappings?.find(m => sku && m.supplier_sku === sku);
+
+            // 2. Fallback to description matching
+            if (!mapping && description) {
+              const normDesc = normalize(description);
+              mapping = filterMappings?.find(m => normalize(m.supplier_description || "") === normDesc);
+              
+              if (!mapping) {
+                mapping = filterMappings?.find(m => {
+                  const normMap = normalize(m.supplier_description || "");
+                  return normMap.length > 5 && normDesc.includes(normMap);
+                });
+              }
             }
 
             if (mapping) {

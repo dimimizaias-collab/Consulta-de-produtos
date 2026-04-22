@@ -36,6 +36,7 @@ interface Supplier {
 interface Mapping {
   id: string;
   supplier_id: string;
+  supplier_sku?: string;
   supplier_description: string;
   internal_product_id: string;
   products?: {
@@ -95,6 +96,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [supplierMappings, setSupplierMappings] = useState<Mapping[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [supplierMappingDescription, setSupplierMappingDescription] = useState('');
+  const [supplierMappingCode, setSupplierMappingCode] = useState('');
   const [selectedSupplierMappingProduct, setSelectedSupplierMappingProduct] = useState<Product | null>(null);
   const [supplierMappingSearchQuery, setSupplierMappingSearchQuery] = useState('');
   const [supplierMappingSearchResults, setSupplierMappingSearchResults] = useState<Product[]>([]);
@@ -198,17 +200,20 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     }
     setIsAddingMapping(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('supplier_mappings')
         .insert([{
           supplier_id: selectedSupplierId,
+          supplier_sku: supplierMappingCode.trim() || null,
           supplier_description: supplierMappingDescription.trim(),
           internal_product_id: selectedSupplierMappingProduct.id
         }]);
+
       if (error) throw error;
-      
-      setNotification({ type: 'success', message: 'Mapeamento adicionado com sucesso!' });
+
+      setNotification({ type: 'success', message: 'Mapping added successfully!' });
       setSupplierMappingDescription('');
+      setSupplierMappingCode('');
       setSelectedSupplierMappingProduct(null);
       fetchSupplierMappings(selectedSupplierId);
     } catch (err) {
@@ -267,18 +272,25 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
           const keys = Object.keys(row);
           if (keys.length === 0) continue;
 
-          // Supplier Description: Using common names for description
+          // Supplier Code
+          const supplierCodeKey = keys.find(k => {
+            const nk = normalize(k);
+            return nk === 'codigo' || nk === 'sku' || nk === 'ref' || nk === 'referencia';
+          });
+          const supplierCode = supplierCodeKey ? String(row[supplierCodeKey]).trim() : "";
+
+          // Supplier Description
           const supplierDescKey = keys.find(k => {
             const nk = normalize(k);
             return nk.includes('desc') || nk.includes('prod') || nk.includes('nome');
           });
           const supplierDescription = supplierDescKey ? String(row[supplierDescKey]).trim() : "";
 
-          // EAN Sistema: MUST BE THE LAST COLUMN
-          const eanSistemaKey = keys[keys.length - 1]; 
+          // EAN Sistema: MUST BE THE LAST COLUMN (fallback) or by name
+          const eanSistemaKey = keys.find(k => normalize(k) === 'eansistema') || keys[keys.length - 1]; 
           const eanSistema = eanSistemaKey ? String(row[eanSistemaKey]).trim() : "";
 
-          if (!supplierDescription || !eanSistema) {
+          if ((!supplierDescription && !supplierCode) || !eanSistema) {
             skipCount++;
             continue;
           }
@@ -292,17 +304,24 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
 
           if (product) {
             // Check if mapping exists to update or insert
-            const { data: existing } = await supabase
-              .from('supplier_mappings')
-              .select('id')
-              .eq('supplier_id', selectedSupplierId)
-              .eq('supplier_description', supplierDescription)
-              .maybeSingle();
+            let existingQuery = supabase.from('supplier_mappings').select('id').eq('supplier_id', selectedSupplierId);
+            
+            if (supplierCode) {
+              existingQuery = existingQuery.eq('supplier_sku', supplierCode);
+            } else {
+              existingQuery = existingQuery.eq('supplier_description', supplierDescription);
+            }
+
+            const { data: existing } = await existingQuery.maybeSingle();
 
             if (existing) {
               const { error: updateError } = await supabase
                 .from('supplier_mappings')
-                .update({ internal_product_id: product.id })
+                .update({ 
+                  internal_product_id: product.id,
+                  supplier_description: supplierDescription || undefined,
+                  supplier_sku: supplierCode || undefined
+                })
                 .eq('id', existing.id);
               if (!updateError) importedCount++;
               else skipCount++;
@@ -311,7 +330,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                 .from('supplier_mappings')
                 .insert([{
                   supplier_id: selectedSupplierId,
-                  supplier_description: supplierDescription,
+                  supplier_sku: supplierCode || null,
+                  supplier_description: supplierDescription || "",
                   internal_product_id: product.id
                 }]);
               if (!insertError) importedCount++;
@@ -521,15 +541,27 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           animate={{ opacity: 1, y: 0 }}
                           className="space-y-8 pt-8 border-t border-on-surface/[0.03]"
                         >
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Supplier Description (Invoice text)</label>
-                            <input 
-                              type="text" 
-                              value={supplierMappingDescription}
-                              onChange={(e) => setSupplierMappingDescription(e.target.value)}
-                              placeholder="e.g. CHOCOLATE OURO BRANCO LACTA 1KG..."
-                              className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
-                            />
+                          <div className="flex gap-4">
+                            <div className="flex-1 space-y-2">
+                              <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Supplier Code (Optional)</label>
+                              <input 
+                                type="text" 
+                                value={supplierMappingCode}
+                                onChange={(e) => setSupplierMappingCode(e.target.value)}
+                                placeholder="Ref/SKU"
+                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
+                              />
+                            </div>
+                            <div className="flex-[2] space-y-2">
+                              <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Supplier Description (Invoice text)</label>
+                              <input 
+                                type="text" 
+                                value={supplierMappingDescription}
+                                onChange={(e) => setSupplierMappingDescription(e.target.value)}
+                                placeholder="e.g. CHOCOLATE OURO BRANCO LACTA 1KG..."
+                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
+                              />
+                            </div>
                           </div>
 
                           <div className="space-y-4">
@@ -738,7 +770,14 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           <div key={mapping.id} className="bg-surface-container-lowest p-6 rounded-[2rem] border border-on-surface/[0.03] shadow-sm space-y-4 group hover:border-primary/30 transition-all relative">
                             <div>
                               <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Partner Input:</p>
-                              <p className="text-base font-black text-on-surface leading-tight">{mapping.supplier_description}</p>
+                              <div className="flex items-center gap-2">
+                                {mapping.supplier_sku && (
+                                  <span className="text-[11px] font-black bg-on-surface/5 text-on-surface/50 px-2.5 py-1 rounded-lg shrink-0 uppercase tracking-tight">
+                                    {mapping.supplier_sku}
+                                  </span>
+                                )}
+                                <p className="text-base font-black text-on-surface leading-tight">{mapping.supplier_description}</p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-4 pt-4 border-t border-on-surface/[0.03]">
                               <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
