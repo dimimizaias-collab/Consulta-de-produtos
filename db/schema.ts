@@ -31,3 +31,28 @@ export const requests = pgTable('requests', {
   status: text('status').default('pending'), // 'pending', 'approved', 'rejected'
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const suppliers = pgTable('suppliers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const purchaseOrders = pgTable('purchase_orders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  supplierId: uuid('supplier_id').references(() => suppliers.id),
+  status: text('status').default('draft'), // 'draft', 'finalized', 'canceled'
+  totalItems: integer('total_items').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const purchaseOrderItems = pgTable('purchase_order_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').references(() => purchaseOrders.id).notNull(),
+  productId: uuid('product_id').references(() => products.id).notNull(),
+  quantity: integer('quantity').notNull(),
+  supplierSku: text('supplier_sku'),
+  supplierDescription: text('supplier_description'),
+  createdAt: timestamp('created_at').defaultNow(),
+});

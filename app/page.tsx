@@ -8,6 +8,7 @@ import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { LogisticsCenter } from '@/components/requests/LogisticsCenter';
+import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';

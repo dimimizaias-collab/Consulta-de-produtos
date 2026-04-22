@@ -10,7 +10,9 @@ import {
   Pin,
   ChevronLeft,
   ChevronRight,
-  LogIn
+  ChevronRight,
+  LogIn,
+  ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
@@ -26,7 +28,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
     { icon: Package2, label: 'Inventory' },
-    { icon: MapPin, label: 'Stock Locations' },
+    { icon: ShoppingCart, label: 'Pedidos de Compra' },
     { icon: BarChart3, label: 'Requisições' },
     { icon: LogIn, label: 'Entrada de Mercadoria' },
     { icon: Settings, label: 'Settings' },
