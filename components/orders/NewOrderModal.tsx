@@ -11,7 +11,8 @@ import {
   UserPlus,
   ArrowRight,
   Package,
-  AlertCircle
+  AlertCircle,
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useMemo } from 'react';
@@ -21,6 +22,7 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Image from 'next/image';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 interface Product {
   id: string;
@@ -62,6 +64,7 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
   const [loading, setLoading] = useState(false);
   const [showConfirmFinalize, setShowConfirmFinalize] = useState(false);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -330,13 +333,23 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">EAN</label>
-                        <input 
-                            type="text" 
-                            value={searchQuery.ean}
-                            onChange={(e) => setSearchQuery({...searchQuery, ean: e.target.value})}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold"
-                            placeholder="789..."
-                        />
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                value={searchQuery.ean}
+                                onChange={(e) => setSearchQuery({...searchQuery, ean: e.target.value})}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-12 text-xs font-bold"
+                                placeholder="789..."
+                            />
+                            <button 
+                                onClick={() => setIsScannerOpen(true)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all group/cam"
+                                title="Escanear Código"
+                                type="button"
+                            >
+                                <Camera size={16} className="group-hover/cam:scale-110 transition-transform" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -521,6 +534,20 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isScannerOpen && (
+          <BarcodeScanner 
+            isOpen={isScannerOpen}
+            onClose={() => setIsScannerOpen(false)}
+            onScan={(code) => {
+              setSearchQuery(prev => ({ ...prev, ean: code }));
+              setNotification({ type: 'success', message: 'Código escaneado com sucesso!' });
+              setTimeout(() => setNotification(null), 3000);
+            }}
+          />
         )}
       </AnimatePresence>
     </div>
