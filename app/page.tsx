@@ -8,9 +8,9 @@ import { ProductCard } from '@/components/ProductCard';
 import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { RequestCenter } from '@/components/requests/RequestCenter';
-import { LogisticsCenter } from '@/components/requests/LogisticsCenter';
+import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -242,6 +242,17 @@ export default function Page() {
   const [translatedNoteItems, setTranslatedNoteItems] = useState<any[]>([]);
   const [showTranslationResultModal, setShowTranslationResultModal] = useState(false);
   const [manualNoteSupplierId, setManualNoteSupplierId] = useState('');
+
+  // NF Digitalizada review flow
+  const [pendingNfItems, setPendingNfItems] = useState<any[]>([]);
+  const [showNfDigitalizadaModal, setShowNfDigitalizadaModal] = useState(false);
+  const [showApproveNfConfirm, setShowApproveNfConfirm] = useState(false);
+  const [showCancelNfConfirm, setShowCancelNfConfirm] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>([]);
+  const [currentNfTimestamp, setCurrentNfTimestamp] = useState('');
+  const [currentNfFileName, setCurrentNfFileName] = useState('');
+  const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
+  const [isApprovingNf, setIsApprovingNf] = useState(false);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -1178,11 +1189,69 @@ export default function Page() {
     XLSX.writeFile(wb, "modelo_entrada_mercadoria.xlsx");
   };
 
+  const handleApproveNf = async () => {
+    setIsApprovingNf(true);
+    try {
+      const { data: currentProducts } = await supabase.from('products').select('*');
+      let updatedCount = 0;
+
+      for (const item of pendingNfItems) {
+        if (!item.verified || !item.product_id) continue;
+
+        const product = currentProducts?.find((p: any) => p.id === item.product_id);
+        if (!product) continue;
+
+        const newCount = (product.count || 0) + item.qty;
+        await supabase.from('products').update({
+          count: newCount,
+          is_low: newCount < 5,
+          status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+        }).eq('id', product.id);
+
+        if (product.is_mother && product.linked_product_id) {
+          const childUnits = item.original_qty * (product.units_per_mother || 1);
+          const childProduct = currentProducts?.find((p: any) => p.id === product.linked_product_id);
+          if (childProduct) {
+            const newChildCount = (childProduct.count || 0) + childUnits;
+            await supabase.from('products').update({
+              count: newChildCount,
+              is_low: newChildCount < 5,
+              status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
+            }).eq('id', childProduct.id);
+          }
+        }
+        updatedCount++;
+      }
+
+      const newNote: ReviewNote = {
+        id: Date.now().toString(),
+        timestamp: currentNfTimestamp,
+        fileName: currentNfFileName,
+        items: pendingNfItems,
+        itemCount: pendingNfItems.length,
+        verifiedCount: pendingNfItems.filter((i: any) => i.verified).length
+      };
+      setReviewNotes(prev => [newNote, ...prev]);
+      setShowApproveNfConfirm(false);
+      setShowNfDigitalizadaModal(false);
+      setPendingNfItems([]);
+      setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
+      fetchProducts();
+    } catch (err: any) {
+      console.error('Erro ao aprovar nota:', err);
+      setNotification({ type: 'error', message: 'Erro ao processar aprovação.' });
+    } finally {
+      setIsApprovingNf(false);
+    }
+  };
+
   const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setImporting(true);
+    setCurrentNfFileName(file.name);
+    setCurrentNfTimestamp(new Date().toLocaleString('pt-BR'));
     setNotification({ type: 'success', message: 'Processando arquivo de nota...' });
 
     const reader = new FileReader();
@@ -1229,7 +1298,6 @@ export default function Page() {
         }
         const { data: filterMappings } = await mappingQuery;
         
-        let updatedCount = 0;
         const processedItems: any[] = [];
 
         for (const row of (rawData as any[])) {
@@ -1305,35 +1373,11 @@ export default function Page() {
             verified: verified
           });
 
-          if (product && verified) {
-            const newCount = (product.count || 0) + finalQty;
-            await supabase.from('products').update({ 
-              count: newCount,
-              is_low: newCount < 5,
-              status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-            }).eq('id', product.id);
-
-            // Mother/Child Logic
-            if (product.is_mother && product.linked_product_id) {
-              const childUnits = qty * (product.units_per_mother || 1);
-              const childProduct = currentProducts?.find(p => p.id === product.linked_product_id);
-              if (childProduct) {
-                const newChildCount = (childProduct.count || 0) + childUnits;
-                await supabase.from('products').update({ 
-                  count: newChildCount,
-                  is_low: newChildCount < 5,
-                  status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-                }).eq('id', childProduct.id);
-              }
-            }
-            updatedCount++;
-          }
         }
 
-        setTranslatedNoteItems(processedItems);
-        setShowTranslationResultModal(true);
-        setNotification({ type: 'success', message: `Importação concluída: ${updatedCount} itens atualizados.` });
-        fetchProducts();
+        setPendingNfItems(processedItems);
+        setShowNfDigitalizadaModal(true);
+        setNotification({ type: 'success', message: `Nota digitalizada: ${processedItems.length} itens processados.` });
       } catch (err: any) {
         console.error('Erro na importação de nota:', err);
         setNotification({ type: 'error', message: 'Erro ao importar nota.' });
@@ -1890,7 +1934,7 @@ export default function Page() {
                   onDeleteRequest={handleDeleteRequest}
                 />
             ) : activeTab === 'Entrada de Mercadoria' ? (
-                <LogisticsCenter 
+                <LogisticsCenter
                   importing={importing}
                   onImportClick={() => {
                     setShowImportSupplierModal(true);
@@ -1906,6 +1950,8 @@ export default function Page() {
                     setShowSuppliersModal(true);
                     fetchSuppliers();
                   }}
+                  reviewNotes={reviewNotes}
+                  onViewReviewNote={(note) => setViewingReviewNote(note)}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
@@ -3680,7 +3726,7 @@ export default function Page() {
                 </button>
               </div>
               <div className="p-8 space-y-6">
-                <p className="text-sm text-slate-500 font-medium">Selecione o fornecedor da nota para que o sistema possa traduzir as descrições dos produtos automaticamente.</p>
+                <p className="text-sm text-slate-500 font-medium">Selecione o fornecedor da nota para tradução automática de descrições. O fornecedor é <span className="font-bold text-slate-700">opcional</span> — sem ele, o sistema identificará produtos via SKU ou EAN.</p>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Fornecedor</label>
                   <select 
@@ -3852,11 +3898,387 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* NF Digitalizada Modal */}
+      <AnimatePresence>
+        {showNfDigitalizadaModal && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                    <FileUp size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
+                    <p className="text-xs text-slate-500 font-medium truncate max-w-xs">{currentNfFileName} · {currentNfTimestamp}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => exportTranslatedToExcel(pendingNfItems)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
+                  >
+                    <Download size={16} />
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => exportTranslatedToPDF(pendingNfItems)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
+                  >
+                    <Download size={16} />
+                    PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {pendingNfItems.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 pl-4">
+                          <p className="text-sm font-bold text-slate-700">{item.original_description}</p>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="flex items-center gap-3">
+                            {item.verified ? (
+                              <>
+                                <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
+                                  <ArrowRight size={14} />
+                                </div>
+                                <p className="text-sm font-black text-primary">{item.name}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm font-medium text-red-400 italic">Preceder cadastro manual</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
+                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                            item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                            item.verified ? "bg-blue-100 text-blue-700" :
+                            "bg-red-100 text-red-700"
+                          )}>
+                            {item.status_translation}
+                          </span>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          {item.verified ? (
+                            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-green-500/20">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                              <X size={16} />
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0 gap-4">
+                <div className="text-sm text-slate-500 shrink-0">
+                  Total: <span className="font-bold text-slate-900">{pendingNfItems.length} itens</span>
+                  <span className="mx-2 text-slate-300">·</span>
+                  <span className="font-bold text-green-700">{pendingNfItems.filter(i => i.verified).length} verificados</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowCancelNfConfirm(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-red-50 hover:text-red-600 transition-all text-sm"
+                  >
+                    <Ban size={16} />
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => setShowApproveNfConfirm(true)}
+                    className="flex items-center gap-2 px-8 py-3 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 text-sm"
+                  >
+                    <SendHorizonal size={16} />
+                    Enviar para Aprovação
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmação: Enviar para Aprovação */}
+      <AnimatePresence>
+        {showApproveNfConfirm && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowApproveNfConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 flex flex-col gap-6"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <SendHorizonal size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Enviar para Aprovação?</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {pendingNfItems.filter(i => i.verified).length} item(s) verificado(s) serão lançados no estoque e a nota será salva em Revisões.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowApproveNfConfirm(false)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-all"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={handleApproveNf}
+                  disabled={isApprovingNf}
+                  className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isApprovingNf ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                  ) : (
+                    'Confirmar'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmação: Cancelar NF */}
+      <AnimatePresence>
+        {showCancelNfConfirm && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCancelNfConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 flex flex-col gap-6"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                  <Ban size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Cancelar Importação?</h3>
+                  <p className="text-sm text-slate-500 mt-1">A nota digitalizada será descartada e nenhuma alteração será salva.</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCancelNfConfirm(false)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-all"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCancelNfConfirm(false);
+                    setShowNfDigitalizadaModal(false);
+                    setPendingNfItems([]);
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                >
+                  Confirmar Cancelamento
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Ver Nota de Revisão (leitura) */}
+      <AnimatePresence>
+        {viewingReviewNote && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingReviewNote(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-inner">
+                    <FileText size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
+                    <p className="text-xs text-slate-500 font-medium">{viewingReviewNote.fileName} · {viewingReviewNote.timestamp}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
+                  >
+                    <Download size={16} />
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
+                  >
+                    <Download size={16} />
+                    PDF
+                  </button>
+                  <div className="w-px h-8 bg-slate-100 mx-2" />
+                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-slate-100 rounded-full">
+                    <X size={24} className="text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {viewingReviewNote.items.map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 pl-4">
+                          <p className="text-sm font-bold text-slate-700">{item.original_description}</p>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="flex items-center gap-3">
+                            {item.verified ? (
+                              <>
+                                <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
+                                  <ArrowRight size={14} />
+                                </div>
+                                <p className="text-sm font-black text-primary">{item.name}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm font-medium text-red-400 italic">Preceder cadastro manual</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
+                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
+                          </div>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                            item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                            item.verified ? "bg-blue-100 text-blue-700" :
+                            "bg-red-100 text-red-700"
+                          )}>
+                            {item.status_translation}
+                          </span>
+                        </td>
+                        <td className="py-4 pl-4 text-center">
+                          {item.verified ? (
+                            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-green-500/20">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                              <X size={16} />
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <div className="text-sm text-slate-500">
+                  Total: <span className="font-bold text-slate-900">{viewingReviewNote.itemCount} itens</span>
+                  <span className="mx-2 text-slate-300">·</span>
+                  <span className="font-bold text-green-700">{viewingReviewNote.verifiedCount} verificados</span>
+                </div>
+                <button
+                  onClick={() => setViewingReviewNote(null)}
+                  className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Suppliers Dictionary Modal */}
-      <SupplierDictionary 
-        isOpen={showSuppliersModal} 
-        onClose={() => setShowSuppliersModal(false)} 
-        setNotification={setNotification} 
+      <SupplierDictionary
+        isOpen={showSuppliersModal}
+        onClose={() => setShowSuppliersModal(false)}
+        setNotification={setNotification}
       />
 
       {/* Hidden File Inputs */}
