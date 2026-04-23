@@ -262,6 +262,8 @@ export default function Page() {
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
+  const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
+  const [nfItemVerified, setNfItemVerified] = useState<boolean[]>([]);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -1240,7 +1242,9 @@ export default function Page() {
 
       const itemsWithFinalPrices = pendingNfItems.map((item: any, idx: number) => ({
         ...item,
-        price: nfItemPrices[idx] ?? item.price
+        price: nfItemPrices[idx] ?? item.price,
+        product_price: nfItemSellPrices[idx] ?? item.product_price,
+        verified: nfItemVerified[idx] ?? item.verified
       }));
       const newNote: ReviewNote = {
         id: Date.now().toString(),
@@ -1255,6 +1259,8 @@ export default function Page() {
       setShowNfDigitalizadaModal(false);
       setPendingNfItems([]);
       setNfItemPrices([]);
+      setNfItemSellPrices([]);
+      setNfItemVerified([]);
       setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
       fetchProducts();
     } catch (err: any) {
@@ -1398,6 +1404,8 @@ export default function Page() {
 
         setPendingNfItems(processedItems);
         setNfItemPrices(processedItems.map((i: any) => i.price || 0));
+        setNfItemSellPrices(processedItems.map((i: any) => i.product_price || 0));
+        setNfItemVerified(processedItems.map((i: any) => !!i.verified));
         setShowNfDigitalizadaModal(true);
         setNotification({ type: 'success', message: `Nota digitalizada: ${processedItems.length} itens processados.` });
       } catch (err: any) {
@@ -3973,6 +3981,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
@@ -3981,10 +3990,9 @@ export default function Page() {
                   <tbody>
                     {pendingNfItems.map((item, idx) => {
                       const cost = nfItemPrices[idx] ?? item.price;
-                      const sellPrice = item.product_price || 0;
-                      const markup = cost > 0 && sellPrice > 0
-                        ? ((sellPrice - cost) / cost * 100)
-                        : null;
+                      const sell = nfItemSellPrices[idx] ?? item.product_price ?? 0;
+                      const markup = cost > 0 && sell > 0 ? ((sell - cost) / cost * 100) : null;
+                      const isVerified = nfItemVerified[idx] ?? item.verified;
                       const isEven = idx % 2 === 0;
                       return (
                         <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
@@ -4009,8 +4017,8 @@ export default function Page() {
                             <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end">
-                              <span className="text-xs text-slate-400 font-semibold mr-1">R$</span>
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-xs text-slate-400 font-semibold">R$</span>
                               <input
                                 type="number"
                                 min="0"
@@ -4020,6 +4028,23 @@ export default function Page() {
                                   const updated = [...nfItemPrices];
                                   updated[idx] = parseFloat(e.target.value) || 0;
                                   setNfItemPrices(updated);
+                                }}
+                                className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-xs text-slate-400 font-semibold">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={nfItemSellPrices[idx] ?? item.product_price ?? 0}
+                                onChange={e => {
+                                  const updated = [...nfItemSellPrices];
+                                  updated[idx] = parseFloat(e.target.value) || 0;
+                                  setNfItemSellPrices(updated);
                                 }}
                                 className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                               />
@@ -4036,9 +4061,6 @@ export default function Page() {
                             ) : (
                               <span className="text-xs text-slate-300 font-bold">—</span>
                             )}
-                            {sellPrice > 0 && (
-                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">venda R$ {sellPrice.toFixed(2)}</p>
-                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className={cn(
@@ -4051,15 +4073,22 @@ export default function Page() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            {item.verified ? (
-                              <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30">
-                                <CheckCircle2 size={14} />
-                              </div>
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
-                                <X size={14} />
-                              </div>
-                            )}
+                            <button
+                              onClick={() => {
+                                const updated = [...nfItemVerified];
+                                updated[idx] = !isVerified;
+                                setNfItemVerified(updated);
+                              }}
+                              title={isVerified ? 'Clique para desmarcar' : 'Clique para verificar'}
+                              className={cn(
+                                "w-7 h-7 rounded-full flex items-center justify-center mx-auto transition-all active:scale-90",
+                                isVerified
+                                  ? "bg-green-500 text-white shadow shadow-green-500/30 hover:bg-green-600"
+                                  : "bg-slate-100 text-slate-400 hover:bg-primary/10 hover:text-primary cursor-pointer"
+                              )}
+                            >
+                              {isVerified ? <CheckCircle2 size={14} /> : <X size={14} />}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -4186,6 +4215,9 @@ export default function Page() {
                     setShowCancelNfConfirm(false);
                     setShowNfDigitalizadaModal(false);
                     setPendingNfItems([]);
+                    setNfItemPrices([]);
+                    setNfItemSellPrices([]);
+                    setNfItemVerified([]);
                   }}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                 >
