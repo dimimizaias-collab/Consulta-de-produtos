@@ -248,7 +248,15 @@ export default function Page() {
   const [showNfDigitalizadaModal, setShowNfDigitalizadaModal] = useState(false);
   const [showApproveNfConfirm, setShowApproveNfConfirm] = useState(false);
   const [showCancelNfConfirm, setShowCancelNfConfirm] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>([]);
+  const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('nf_review_notes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [currentNfTimestamp, setCurrentNfTimestamp] = useState('');
   const [currentNfFileName, setCurrentNfFileName] = useState('');
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
@@ -561,6 +569,12 @@ export default function Page() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nf_review_notes', JSON.stringify(reviewNotes));
+    } catch {}
+  }, [reviewNotes]);
 
   useEffect(() => {
     // Check if Supabase is configured
