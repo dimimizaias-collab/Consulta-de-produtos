@@ -261,6 +261,7 @@ export default function Page() {
   const [currentNfFileName, setCurrentNfFileName] = useState('');
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
   const [isApprovingNf, setIsApprovingNf] = useState(false);
+  const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -1237,11 +1238,15 @@ export default function Page() {
         updatedCount++;
       }
 
+      const itemsWithFinalPrices = pendingNfItems.map((item: any, idx: number) => ({
+        ...item,
+        price: nfItemPrices[idx] ?? item.price
+      }));
       const newNote: ReviewNote = {
         id: Date.now().toString(),
         timestamp: currentNfTimestamp,
         fileName: currentNfFileName,
-        items: pendingNfItems,
+        items: itemsWithFinalPrices,
         itemCount: pendingNfItems.length,
         verifiedCount: pendingNfItems.filter((i: any) => i.verified).length
       };
@@ -1249,6 +1254,7 @@ export default function Page() {
       setShowApproveNfConfirm(false);
       setShowNfDigitalizadaModal(false);
       setPendingNfItems([]);
+      setNfItemPrices([]);
       setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
       fetchProducts();
     } catch (err: any) {
@@ -1382,6 +1388,7 @@ export default function Page() {
             qty: finalQty,
             original_qty: qty,
             price: isNaN(price) ? 0 : price,
+            product_price: product?.price || 0,
             status_translation: statusTranslation,
             product_id: product?.id,
             verified: verified
@@ -1390,6 +1397,7 @@ export default function Page() {
         }
 
         setPendingNfItems(processedItems);
+        setNfItemPrices(processedItems.map((i: any) => i.price || 0));
         setShowNfDigitalizadaModal(true);
         setNotification({ type: 'success', message: `Nota digitalizada: ${processedItems.length} itens processados.` });
       } catch (err: any) {
@@ -3926,7 +3934,7 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                 <div className="flex items-center gap-4">
@@ -3940,14 +3948,14 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(pendingNfItems)}
+                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })))}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(pendingNfItems)}
+                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })))}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
@@ -3956,70 +3964,106 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto p-6">
+              <div className="flex-1 overflow-auto">
                 <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="text-left border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-900 text-left">
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {pendingNfItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 pl-4">
-                          <p className="text-sm font-bold text-slate-700">{item.original_description}</p>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <div className="flex items-center gap-3">
+                  <tbody>
+                    {pendingNfItems.map((item, idx) => {
+                      const cost = nfItemPrices[idx] ?? item.price;
+                      const sellPrice = item.product_price || 0;
+                      const markup = cost > 0 && sellPrice > 0
+                        ? ((sellPrice - cost) / cost * 100)
+                        : null;
+                      const isEven = idx % 2 === 0;
+                      return (
+                        <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
+                          <td className="py-3 px-4">
+                            <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4">
                             {item.verified ? (
-                              <>
-                                <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
-                                  <ArrowRight size={14} />
-                                </div>
+                              <div className="flex items-center gap-2">
+                                <ArrowRight size={13} className="text-primary shrink-0" />
                                 <p className="text-sm font-black text-primary">{item.name}</p>
-                              </>
+                              </div>
                             ) : (
-                              <p className="text-sm font-medium text-red-400 italic">Preceder cadastro manual</p>
+                              <p className="text-xs font-medium text-red-400 italic">Cadastro pendente</p>
                             )}
-                          </div>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
-                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 pl-4 text-center">
-                          <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <span className={cn(
-                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
-                            item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
-                            item.verified ? "bg-blue-100 text-blue-700" :
-                            "bg-red-100 text-red-700"
-                          )}>
-                            {item.status_translation}
-                          </span>
-                        </td>
-                        <td className="py-4 pl-4 text-center">
-                          {item.verified ? (
-                            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-green-500/20">
-                              <CheckCircle2 size={16} />
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">SKU: {item.sku || '-'}</p>
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">EAN: {item.ean || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end">
+                              <span className="text-xs text-slate-400 font-semibold mr-1">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={nfItemPrices[idx] ?? item.price}
+                                onChange={e => {
+                                  const updated = [...nfItemPrices];
+                                  updated[idx] = parseFloat(e.target.value) || 0;
+                                  setNfItemPrices(updated);
+                                }}
+                                className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              />
                             </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
-                              <X size={16} />
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {markup !== null ? (
+                              <span className={cn(
+                                "inline-block px-2 py-1 rounded-lg text-xs font-black",
+                                markup >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              )}>
+                                {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-300 font-bold">—</span>
+                            )}
+                            {sellPrice > 0 && (
+                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">venda R$ {sellPrice.toFixed(2)}</p>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={cn(
+                              "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                              item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                              item.verified ? "bg-blue-100 text-blue-700" :
+                              "bg-red-100 text-red-700"
+                            )}>
+                              {item.status_translation}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {item.verified ? (
+                              <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30">
+                                <CheckCircle2 size={14} />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                                <X size={14} />
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -4168,7 +4212,7 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                 <div className="flex items-center gap-4">
@@ -4202,70 +4246,94 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto p-6">
+              <div className="flex-1 overflow-auto">
                 <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="text-left border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-900 text-left">
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {viewingReviewNote.items.map((item: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 pl-4">
-                          <p className="text-sm font-bold text-slate-700">{item.original_description}</p>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <div className="flex items-center gap-3">
+                  <tbody>
+                    {viewingReviewNote.items.map((item: any, idx: number) => {
+                      const cost = item.price || 0;
+                      const sellPrice = item.product_price || 0;
+                      const markup = cost > 0 && sellPrice > 0
+                        ? ((sellPrice - cost) / cost * 100)
+                        : null;
+                      const isEven = idx % 2 === 0;
+                      return (
+                        <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
+                          <td className="py-3 px-4">
+                            <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4">
                             {item.verified ? (
-                              <>
-                                <div className="w-8 h-8 rounded bg-primary/5 flex items-center justify-center text-primary">
-                                  <ArrowRight size={14} />
-                                </div>
+                              <div className="flex items-center gap-2">
+                                <ArrowRight size={13} className="text-primary shrink-0" />
                                 <p className="text-sm font-black text-primary">{item.name}</p>
-                              </>
+                              </div>
                             ) : (
-                              <p className="text-sm font-medium text-red-400 italic">Preceder cadastro manual</p>
+                              <p className="text-xs font-medium text-red-400 italic">Cadastro pendente</p>
                             )}
-                          </div>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
-                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 pl-4 text-center">
-                          <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
-                        </td>
-                        <td className="py-4 pl-4">
-                          <span className={cn(
-                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
-                            item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
-                            item.verified ? "bg-blue-100 text-blue-700" :
-                            "bg-red-100 text-red-700"
-                          )}>
-                            {item.status_translation}
-                          </span>
-                        </td>
-                        <td className="py-4 pl-4 text-center">
-                          {item.verified ? (
-                            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-green-500/20">
-                              <CheckCircle2 size={16} />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
-                              <X size={16} />
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">SKU: {item.sku || '-'}</p>
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">EAN: {item.ean || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="text-sm font-bold text-slate-800">
+                              {cost > 0 ? `R$ ${cost.toFixed(2)}` : <span className="text-slate-300">—</span>}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {markup !== null ? (
+                              <span className={cn(
+                                "inline-block px-2 py-1 rounded-lg text-xs font-black",
+                                markup >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              )}>
+                                {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-300 font-bold">—</span>
+                            )}
+                            {sellPrice > 0 && (
+                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">venda R$ {sellPrice.toFixed(2)}</p>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={cn(
+                              "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                              item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
+                              item.verified ? "bg-blue-100 text-blue-700" :
+                              "bg-red-100 text-red-700"
+                            )}>
+                              {item.status_translation}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {item.verified ? (
+                              <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30">
+                                <CheckCircle2 size={14} />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                                <X size={14} />
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
