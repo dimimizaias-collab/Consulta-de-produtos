@@ -10,6 +10,7 @@ import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
+import { SettingsPage } from '@/components/settings/SettingsPage';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -2019,6 +2020,8 @@ export default function Page() {
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
+            ) : activeTab === 'Configurações' ? (
+                <SettingsPage />
             ) : (
               <div className="flex flex-col items-center justify-center py-40 text-slate-400">
                 <BarChart3 size={64} className="mb-4 opacity-20" />

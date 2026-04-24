@@ -32,8 +32,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" className={`${manrope.variable} ${inter.variable}`}>
-      <body suppressHydrationWarning className="font-inter bg-[#fffef0] text-[#1c1c0f]">
+    <html lang="pt-BR" className={`${manrope.variable} ${inter.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();` }} />
+      </head>
+      <body suppressHydrationWarning className="font-inter">
         {children}
       </body>
     </html>

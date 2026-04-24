@@ -4,19 +4,29 @@
   --font-manrope: var(--font-manrope);
   --font-inter: var(--font-inter);
 
-  --color-primary: #b5000b; /* Authoritative red */
-  --color-background: #fcfae4; /* Warm buttery yellow */
+  --color-primary: #b5000b;
+  --color-background: #fcfae4;
   --color-surface: #ffffff;
   --color-surface-container: #f0eded;
-  --color-surface-container-low: #f6f5df; /* Low-light sectioning */
-  --color-surface-container-lowest: #ffffff; /* Floating cards */
-  --color-on-surface: #1c1c0f; /* High-contrast off-black */
+  --color-surface-container-low: #f6f5df;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #1c1c0f;
   --color-secondary: #5f5e5e;
+}
+
+.dark {
+  --color-background: #141410;
+  --color-surface: #1c1c16;
+  --color-surface-container: #252519;
+  --color-surface-container-low: #1e1e15;
+  --color-surface-container-lowest: #1a1a12;
+  --color-on-surface: #e6e4cc;
+  --color-secondary: #9a9890;
 }
 
 @layer base {
   body {
-    @apply font-inter bg-background text-on-surface;
+    @apply font-inter bg-background text-on-surface transition-colors duration-200;
   }
   
   h1, h2, h3, h4, h5, h6 {

@@ -30,7 +30,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
     { icon: ShoppingCart, label: 'Pedidos de Compra' },
     { icon: BarChart3, label: 'Requisições' },
     { icon: LogIn, label: 'Entrada de Mercadoria' },
-    { icon: Settings, label: 'Settings' },
+    { icon: Settings, label: 'Configurações' },
   ];
 
   return (
