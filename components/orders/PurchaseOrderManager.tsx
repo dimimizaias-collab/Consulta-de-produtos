@@ -42,6 +42,7 @@ export function PurchaseOrderManager() {
   const [viewingOrder, setViewingOrder] = useState<PurchaseOrder | null>(null);
   const [viewingItems, setViewingItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -414,9 +415,12 @@ export function PurchaseOrderManager() {
                       {viewingItems.map((item: any, idx: number) => (
                         <tr key={item.id} className={cn('border-b border-slate-100 hover:bg-blue-50/40 transition-colors', idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60')}>
                           <td className="py-3 px-4">
-                            <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
+                            <div
+                              className="w-11 h-11 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center"
+                              onClick={item.products?.image ? () => setLightboxSrc(item.products.image) : undefined}
+                            >
                               {item.products?.image ? (
-                                <img src={item.products.image} alt={item.products.name} className="w-full h-full object-cover" />
+                                <img src={item.products.image} alt={item.products.name} className="w-full h-full object-cover cursor-zoom-in" />
                               ) : (
                                 <Package size={18} className="text-slate-300" />
                               )}
@@ -465,6 +469,26 @@ export function PurchaseOrderManager() {
           </div>
         )}
       </AnimatePresence>
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[88vw] max-h-[88vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <AnimatePresence>
         {showNewOrderModal && (

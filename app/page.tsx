@@ -26,28 +26,54 @@ const staticProducts: any[] = [];
 
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const [error, setError] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const directSrc = useMemo(() => getDirectImageUrl(src), [src]);
+  const canZoom = !!directSrc && !error;
 
   return (
-    <div className={cn("relative w-full h-full flex items-center justify-center", className)}>
-      {directSrc && !error ? (
-        <Image 
-          key={directSrc}
-          className="object-cover" 
-          alt={alt} 
-          src={directSrc}
-          fill
-          referrerPolicy="no-referrer"
-          unoptimized={directSrc.includes('googleusercontent.com')}
-          onError={() => setError(true)}
-        />
-      ) : (
-        <div className="flex flex-col items-center justify-center text-slate-300">
-          <ImageIcon size={24} className="mb-1 opacity-20" />
-          <span className="text-[10px] font-bold uppercase">Sem Foto</span>
+    <>
+      <div
+        className={cn("relative w-full h-full flex items-center justify-center", canZoom && "cursor-zoom-in", className)}
+        onClick={canZoom ? (e) => { e.stopPropagation(); setLightboxOpen(true); } : undefined}
+      >
+        {directSrc && !error ? (
+          <Image
+            key={directSrc}
+            className="object-cover"
+            alt={alt}
+            src={directSrc}
+            fill
+            referrerPolicy="no-referrer"
+            unoptimized={directSrc.includes('googleusercontent.com')}
+            onError={() => setError(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-slate-300">
+            <ImageIcon size={24} className="mb-1 opacity-20" />
+            <span className="text-[10px] font-bold uppercase">Sem Foto</span>
+          </div>
+        )}
+      </div>
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={directSrc!}
+            alt={alt}
+            className="max-w-[88vw] max-h-[88vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
-    </div>
+    </>
   );
 }
 

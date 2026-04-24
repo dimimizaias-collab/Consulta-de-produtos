@@ -62,6 +62,7 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
   const [showConfirmFinalize, setShowConfirmFinalize] = useState(false);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSuppliers();
@@ -312,9 +313,12 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
                         onClick={() => handleAddItem(p)}
                         className="w-full p-4 rounded-2xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all flex items-center gap-4 text-left group"
                     >
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+                        <div
+                            className="w-12 h-12 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100"
+                            onClick={p.image ? (e) => { e.stopPropagation(); setLightboxSrc(p.image); } : undefined}
+                        >
                             {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                <img src={p.image} alt={p.name} className="w-full h-full object-cover cursor-zoom-in" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-300">
                                     <Package size={20} />
@@ -360,9 +364,12 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
                     key={item.id}
                     className="bg-white p-4 rounded-[1.5rem] border border-slate-200/60 shadow-sm flex items-center gap-4 group hover:shadow-md transition-all"
                   >
-                    <div className="w-14 h-14 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+                    <div
+                        className="w-14 h-14 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100"
+                        onClick={item.image ? () => setLightboxSrc(item.image!) : undefined}
+                    >
                         {item.image ? (
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover cursor-zoom-in" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-300 font-black text-[10px]">T1</div>
                         )}
@@ -462,6 +469,26 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
           </div>
         )}
       </AnimatePresence>
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[88vw] max-h-[88vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <AnimatePresence>
         {isScannerOpen && (
