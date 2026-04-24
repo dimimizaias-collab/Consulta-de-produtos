@@ -4287,7 +4287,7 @@ export default function Page() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-[960px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
@@ -4342,14 +4342,14 @@ export default function Page() {
                               type="number"
                               min="0"
                               step="0.01"
-                              value={viewingNoteSellPrices[idx] ?? ''}
+                              value={viewingNoteSellPrices[idx] || ''}
                               onChange={(e) => {
                                 const updated = [...viewingNoteSellPrices];
                                 updated[idx] = parseFloat(e.target.value) || 0;
                                 setViewingNoteSellPrices(updated);
                               }}
                               placeholder="0,00"
-                              className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                              className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
                           <td className="py-3 px-4 text-right">
