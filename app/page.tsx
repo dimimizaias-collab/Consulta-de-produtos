@@ -260,6 +260,7 @@ export default function Page() {
   const [currentNfTimestamp, setCurrentNfTimestamp] = useState('');
   const [currentNfFileName, setCurrentNfFileName] = useState('');
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
+  const [viewingNoteSellPrices, setViewingNoteSellPrices] = useState<number[]>([]);
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
@@ -1981,7 +1982,10 @@ export default function Page() {
                     fetchSuppliers();
                   }}
                   reviewNotes={reviewNotes}
-                  onViewReviewNote={(note) => setViewingReviewNote(note)}
+                  onViewReviewNote={(note) => {
+                    setViewingReviewNote(note);
+                    setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
+                  }}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
@@ -4287,6 +4291,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
@@ -4295,7 +4300,7 @@ export default function Page() {
                   <tbody>
                     {viewingReviewNote.items.map((item: any, idx: number) => {
                       const cost = item.price || 0;
-                      const sellPrice = item.product_price || 0;
+                      const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
                       const markup = cost > 0 && sellPrice > 0
                         ? ((sellPrice - cost) / cost * 100)
                         : null;
@@ -4328,6 +4333,21 @@ export default function Page() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={viewingNoteSellPrices[idx] ?? ''}
+                              onChange={(e) => {
+                                const updated = [...viewingNoteSellPrices];
+                                updated[idx] = parseFloat(e.target.value) || 0;
+                                setViewingNoteSellPrices(updated);
+                              }}
+                              placeholder="0,00"
+                              className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                            />
+                          </td>
+                          <td className="py-3 px-4 text-right">
                             {markup !== null ? (
                               <span className={cn(
                                 "inline-block px-2 py-1 rounded-lg text-xs font-black",
@@ -4337,9 +4357,6 @@ export default function Page() {
                               </span>
                             ) : (
                               <span className="text-xs text-slate-300 font-bold">—</span>
-                            )}
-                            {sellPrice > 0 && (
-                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">venda R$ {sellPrice.toFixed(2)}</p>
                             )}
                           </td>
                           <td className="py-3 px-4">
@@ -4377,7 +4394,19 @@ export default function Page() {
                   <span className="font-bold text-green-700">{viewingReviewNote.verifiedCount} verificados</span>
                 </div>
                 <button
-                  onClick={() => setViewingReviewNote(null)}
+                  onClick={() => {
+                    setReviewNotes(prev => prev.map(n => {
+                      if (n.id !== viewingReviewNote.id) return n;
+                      return {
+                        ...n,
+                        items: n.items.map((item: any, idx: number) => ({
+                          ...item,
+                          product_price: viewingNoteSellPrices[idx] ?? item.product_price
+                        }))
+                      };
+                    }));
+                    setViewingReviewNote(null);
+                  }}
                   className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
                 >
                   Fechar
