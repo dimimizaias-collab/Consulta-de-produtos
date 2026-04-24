@@ -10,7 +10,7 @@ import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -261,6 +261,8 @@ export default function Page() {
   const [currentNfFileName, setCurrentNfFileName] = useState('');
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
   const [viewingNoteSellPrices, setViewingNoteSellPrices] = useState<number[]>([]);
+  const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
+  const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
@@ -1985,6 +1987,8 @@ export default function Page() {
                   onViewReviewNote={(note) => {
                     setViewingReviewNote(note);
                     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
+                    setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
+                    setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                   }}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
@@ -4295,6 +4299,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Revisão</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4370,14 +4375,40 @@ export default function Page() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            {item.verified ? (
-                              <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30">
+                            {viewingNoteVerified[idx] ? (
+                              <button
+                                onClick={() => {
+                                  const updated = [...viewingNoteVerified];
+                                  updated[idx] = false;
+                                  setViewingNoteVerified(updated);
+                                }}
+                                className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
+                              >
                                 <CheckCircle2 size={14} />
-                              </div>
+                              </button>
                             ) : (
-                              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mx-auto">
+                              <button
+                                onClick={() => {
+                                  const updatedVerified = [...viewingNoteVerified];
+                                  updatedVerified[idx] = true;
+                                  setViewingNoteVerified(updatedVerified);
+                                  const updatedTs = [...viewingNoteReviewTimestamps];
+                                  updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                  setViewingNoteReviewTimestamps(updatedTs);
+                                }}
+                                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
+                              >
                                 <X size={14} />
-                              </div>
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {viewingNoteReviewTimestamps[idx] ? (
+                              <span className="inline-block px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
+                                {viewingNoteReviewTimestamps[idx]}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 text-xs font-bold">—</span>
                             )}
                           </td>
                         </tr>
@@ -4391,26 +4422,37 @@ export default function Page() {
                 <div className="text-sm text-slate-500">
                   Total: <span className="font-bold text-slate-900">{viewingReviewNote.itemCount} itens</span>
                   <span className="mx-2 text-slate-300">·</span>
-                  <span className="font-bold text-green-700">{viewingReviewNote.verifiedCount} verificados</span>
+                  <span className="font-bold text-green-700">{viewingNoteVerified.filter(Boolean).length} verificados</span>
                 </div>
-                <button
-                  onClick={() => {
-                    setReviewNotes(prev => prev.map(n => {
-                      if (n.id !== viewingReviewNote.id) return n;
-                      return {
-                        ...n,
-                        items: n.items.map((item: any, idx: number) => ({
-                          ...item,
-                          product_price: viewingNoteSellPrices[idx] ?? item.product_price
-                        }))
-                      };
-                    }));
-                    setViewingReviewNote(null);
-                  }}
-                  className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
-                >
-                  Fechar
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setReviewNotes(prev => prev.map(n => {
+                        if (n.id !== viewingReviewNote.id) return n;
+                        return {
+                          ...n,
+                          verifiedCount: viewingNoteVerified.filter(Boolean).length,
+                          items: n.items.map((item: any, idx: number) => ({
+                            ...item,
+                            product_price: viewingNoteSellPrices[idx] ?? item.product_price,
+                            verified: viewingNoteVerified[idx] ?? item.verified,
+                            review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+                          }))
+                        };
+                      }));
+                    }}
+                    className="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2"
+                  >
+                    <Save size={16} />
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => setViewingReviewNote(null)}
+                    className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
