@@ -1388,8 +1388,8 @@ export default function Page() {
           const finalQty = qty * multiplier;
 
           processedItems.push({
-            sku: verified ? (product?.sku || sku) : '',
-            ean: verified ? (product?.ean || ean) : '',
+            sku: product?.sku || sku || '',
+            ean: ean || product?.ean || '',
             name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
             original_description: description,
             unit: unit || 'UN',
