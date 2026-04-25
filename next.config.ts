@@ -55,31 +55,13 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'superkoch.com.br',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
         hostname: 'i.pinimg.com',
         port: '',
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'i.pinimg.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
-        hostname: 'http2.mlstatic.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
         hostname: 'http2.mlstatic.com',
         port: '',
         pathname: '/**',
@@ -97,12 +79,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: '**.gstatic.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
         hostname: '**.googleusercontent.com',
         port: '',
@@ -115,19 +91,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: '**.mlstatic.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
-        hostname: '**.tcdn.com.br',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
         hostname: '**.tcdn.com.br',
         port: '',
         pathname: '/**',
@@ -199,31 +163,13 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: '**.fbitsstatic.net',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
         hostname: '**.vteximg.com.br',
         port: '',
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: '**.vteximg.com.br',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
-        hostname: '**.shoppub.com.br',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
         hostname: '**.shoppub.com.br',
         port: '',
         pathname: '/**',
@@ -241,6 +187,19 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains'},
+          {key: 'X-Content-Type-Options', value: 'nosniff'},
+          {key: 'X-Frame-Options', value: 'SAMEORIGIN'},
+          {key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin'},
+        ],
+      },
+    ];
   },
   output: 'standalone',
   transpilePackages: ['motion'],

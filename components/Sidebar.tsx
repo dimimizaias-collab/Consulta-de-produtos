@@ -1,17 +1,18 @@
 'use client';
 
-import { 
-  LayoutDashboard, 
-  Package2, 
-  MapPin, 
-  BarChart3, 
-  ArrowLeftRight, 
+import {
+  LayoutDashboard,
+  Package2,
+  MapPin,
+  BarChart3,
+  ArrowLeftRight,
   Settings,
   Pin,
   ChevronLeft,
   ChevronRight,
   LogIn,
-  ShoppingCart
+  ShoppingCart,
+  Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
@@ -30,6 +31,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
     { icon: ShoppingCart, label: 'Pedidos de Compra' },
     { icon: BarChart3, label: 'Requisições' },
     { icon: LogIn, label: 'Entrada de Mercadoria' },
+    { icon: Wallet, label: 'Controle Financeiro' },
     { icon: Settings, label: 'Configurações' },
   ];
 

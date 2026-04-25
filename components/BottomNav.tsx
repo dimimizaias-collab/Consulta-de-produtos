@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, Package2, ShoppingCart, BarChart3, LogIn } from 'lucide-react';
+import { LayoutDashboard, Package2, ShoppingCart, BarChart3, LogIn, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 
@@ -15,6 +15,7 @@ const navItems = [
   { icon: ShoppingCart,    label: 'Pedidos',   key: 'Pedidos de Compra' },
   { icon: BarChart3,       label: 'Requisições', key: 'Requisições' },
   { icon: LogIn,           label: 'Entrada',   key: 'Entrada de Mercadoria' },
+  { icon: Wallet,          label: 'Finanças',  key: 'Controle Financeiro' },
 ];
 
 export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
