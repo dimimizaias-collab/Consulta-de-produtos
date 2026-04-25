@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown, Wallet, Search } from 'lucide-react';
+import {
+  Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
+  Wallet, Search, ChevronDown, Building2, CreditCard, Upload, ImageIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
@@ -21,11 +24,21 @@ interface Transaction {
   pago: boolean;
 }
 
+interface BankAccount {
+  id: string;
+  nome: string;
+  banco: string;
+  agencia: string;
+  numeroConta: string;
+  imagemBase64: string;
+}
+
 const STORAGE_KEY = 'finance_transactions';
+const ACCOUNTS_KEY = 'finance_accounts';
 const PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'Débito', 'PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 
-const emptyForm = (): Omit<Transaction, 'id'> => ({
+const emptyTxForm = (): Omit<Transaction, 'id'> => ({
   data: new Date().toISOString().split('T')[0],
   tipo: 'Despesa',
   tipoPagamento: 'PIX',
@@ -37,20 +50,40 @@ const emptyForm = (): Omit<Transaction, 'id'> => ({
   pago: false,
 });
 
-const fmt = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const emptyAccountForm = (): Omit<BankAccount, 'id'> => ({
+  nome: '',
+  banco: '',
+  agencia: '',
+  numeroConta: '',
+  imagemBase64: '',
+});
 
-const fmtDate = (iso: string) =>
-  iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtDate = (iso: string) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 
 const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
 
+const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
+
 export function FinanceManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [showModal, setShowModal] = useState(false);
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+
+  // transaction modal
+  const [showTxModal, setShowTxModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm());
+  const [txForm, setTxForm] = useState(emptyTxForm());
+
+  // bank account modal
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountForm, setAccountForm] = useState(emptyAccountForm());
+
+  // dropdown
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // filters
   const [filterTipo, setFilterTipo] = useState<TransactionType | 'Todos'>('Todos');
   const [filterEstab, setFilterEstab] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -59,40 +92,83 @@ export function FinanceManager() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) setTransactions(JSON.parse(stored));
+      const storedAcc = localStorage.getItem(ACCOUNTS_KEY);
+      if (storedAcc) setAccounts(JSON.parse(storedAcc));
     } catch {}
   }, []);
 
-  const persist = (data: Transaction[]) => {
+  // close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const persistTx = (data: Transaction[]) => {
     setTransactions(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
-  const openAdd = () => {
+  const persistAccounts = (data: BankAccount[]) => {
+    setAccounts(data);
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(data));
+  };
+
+  // ── Transactions ──────────────────────────────────────────────────────────
+
+  const openAddTx = () => {
     setEditingId(null);
-    setForm(emptyForm());
-    setShowModal(true);
+    setTxForm(emptyTxForm());
+    setShowTxModal(true);
   };
 
-  const openEdit = (t: Transaction) => {
+  const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
-    setForm({ data: t.data, tipo: t.tipo, tipoPagamento: t.tipoPagamento, favorecido: t.favorecido, estabelecimento: t.estabelecimento, vencimento: t.vencimento, valorFinal: t.valorFinal, totalPago: t.totalPago, pago: t.pago });
-    setShowModal(true);
+    setTxForm({ data: t.data, tipo: t.tipo, tipoPagamento: t.tipoPagamento, favorecido: t.favorecido, estabelecimento: t.estabelecimento, vencimento: t.vencimento, valorFinal: t.valorFinal, totalPago: t.totalPago, pago: t.pago });
+    setShowTxModal(true);
   };
 
-  const handleSubmit = () => {
-    if (!form.favorecido.trim() || form.valorFinal <= 0) return;
+  const handleTxSubmit = () => {
+    if (!txForm.favorecido.trim() || txForm.valorFinal <= 0) return;
     if (editingId) {
-      persist(transactions.map(t => t.id === editingId ? { ...form, id: editingId } : t));
+      persistTx(transactions.map(t => t.id === editingId ? { ...txForm, id: editingId } : t));
     } else {
-      persist([...transactions, { ...form, id: crypto.randomUUID() }]);
+      persistTx([...transactions, { ...txForm, id: crypto.randomUUID() }]);
     }
-    setShowModal(false);
+    setShowTxModal(false);
   };
 
-  const handleDelete = (id: string) => persist(transactions.filter(t => t.id !== id));
-
+  const handleDeleteTx = (id: string) => persistTx(transactions.filter(t => t.id !== id));
   const togglePago = (id: string) =>
-    persist(transactions.map(t => t.id === id ? { ...t, pago: !t.pago } : t));
+    persistTx(transactions.map(t => t.id === id ? { ...t, pago: !t.pago } : t));
+
+  // ── Bank Accounts ─────────────────────────────────────────────────────────
+
+  const openAddAccount = () => {
+    setAccountForm(emptyAccountForm());
+    setShowDropdown(false);
+    setShowAccountModal(true);
+  };
+
+  const handleAccountImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAccountForm(f => ({ ...f, imagemBase64: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleAccountSubmit = () => {
+    if (!accountForm.nome.trim()) return;
+    persistAccounts([...accounts, { ...accountForm, id: crypto.randomUUID() }]);
+    setShowAccountModal(false);
+  };
+
+  // ── Filters & Totals ──────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     return transactions
@@ -114,6 +190,8 @@ export function FinanceManager() {
     return { receitas, despesas, saldo: receitas - despesas };
   }, [transactions]);
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -122,13 +200,57 @@ export function FinanceManager() {
           <h1 className="text-2xl font-manrope font-extrabold text-on-surface">Controle Financeiro</h1>
           <p className="text-sm text-on-surface/50 mt-0.5">Receitas, despesas e fluxo de caixa</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
-        >
-          <Plus size={16} />
-          Nova Movimentação
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Dropdown Adicionar */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowDropdown(v => !v)}
+              className="flex items-center gap-2 bg-surface-container-low border border-on-surface/10 text-on-surface px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-on-surface/5 transition-colors"
+            >
+              <Plus size={16} />
+              Adicionar
+              <ChevronDown size={14} className={cn('transition-transform duration-200', showDropdown && 'rotate-180')} />
+            </button>
+
+            <AnimatePresence>
+              {showDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-2 w-52 bg-surface-container-low border border-on-surface/10 rounded-2xl shadow-xl z-30 overflow-hidden"
+                >
+                  <button
+                    onClick={openAddAccount}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-on-surface/5 transition-colors text-left"
+                  >
+                    <Building2 size={16} className="text-primary shrink-0" />
+                    Adicionar Contas
+                  </button>
+                  <div className="h-px bg-on-surface/5 mx-3" />
+                  <button
+                    disabled
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface/30 cursor-not-allowed text-left"
+                  >
+                    <CreditCard size={16} className="shrink-0" />
+                    Adicionar Pagamentos
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Nova Movimentação */}
+          <button
+            onClick={openAddTx}
+            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
+          >
+            <Plus size={16} />
+            Nova Movimentação
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -251,10 +373,10 @@ export function FinanceManager() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
+                          <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
                             <Edit2 size={14} />
                           </button>
-                          <button onClick={() => handleDelete(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
+                          <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -268,16 +390,13 @@ export function FinanceManager() {
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* ── Transaction Modal ─────────────────────────────────────────────── */}
       <AnimatePresence>
-        {showModal && (
+        {showTxModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowModal(false)}
+              onClick={() => setShowTxModal(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -289,70 +408,156 @@ export function FinanceManager() {
                 <h2 className="text-lg font-manrope font-extrabold text-on-surface">
                   {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
                 </h2>
-                <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                <button onClick={() => setShowTxModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
                   <X size={16} />
                 </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Data</label>
-                  <input type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
+                  <label className={labelCls}>Data</label>
+                  <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Vencimento</label>
-                  <input type="date" value={form.vencimento} onChange={e => setForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
+                  <label className={labelCls}>Vencimento</label>
+                  <input type="date" value={txForm.vencimento} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Tipo</label>
-                  <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TransactionType }))} className={inputCls}>
+                  <label className={labelCls}>Tipo</label>
+                  <select value={txForm.tipo} onChange={e => setTxForm(f => ({ ...f, tipo: e.target.value as TransactionType }))} className={inputCls}>
                     <option value="Despesa">Despesa</option>
                     <option value="Receita">Receita</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Tipo de Pagamento</label>
-                  <select value={form.tipoPagamento} onChange={e => setForm(f => ({ ...f, tipoPagamento: e.target.value as PaymentType }))} className={inputCls}>
+                  <label className={labelCls}>Tipo de Pagamento</label>
+                  <select value={txForm.tipoPagamento} onChange={e => setTxForm(f => ({ ...f, tipoPagamento: e.target.value as PaymentType }))} className={inputCls}>
                     {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Favorecido</label>
-                  <input type="text" value={form.favorecido} onChange={e => setForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
+                  <label className={labelCls}>Favorecido</label>
+                  <input type="text" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
                 </div>
                 <div className="col-span-2 flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Estabelecimento</label>
-                  <select value={form.estabelecimento} onChange={e => setForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
+                  <label className={labelCls}>Estabelecimento</label>
+                  <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
                     {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Valor Final (R$)</label>
-                  <input type="number" step="0.01" min="0" value={form.valorFinal || ''} onChange={e => setForm(f => ({ ...f, valorFinal: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                  <label className={labelCls}>Valor Final (R$)</label>
+                  <input type="number" step="0.01" min="0" value={txForm.valorFinal || ''} onChange={e => setTxForm(f => ({ ...f, valorFinal: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40">Total Pago (R$)</label>
-                  <input type="number" step="0.01" min="0" value={form.totalPago || ''} onChange={e => setForm(f => ({ ...f, totalPago: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                  <label className={labelCls}>Total Pago (R$)</label>
+                  <input type="number" step="0.01" min="0" value={txForm.totalPago || ''} onChange={e => setTxForm(f => ({ ...f, totalPago: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
                 </div>
                 <div className="col-span-2 flex items-center gap-3">
                   <button
-                    onClick={() => setForm(f => ({ ...f, pago: !f.pago }))}
+                    onClick={() => setTxForm(f => ({ ...f, pago: !f.pago }))}
                     className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0',
-                      form.pago ? 'bg-primary border-primary' : 'border-on-surface/20'
+                      txForm.pago ? 'bg-primary border-primary' : 'border-on-surface/20'
                     )}
                   >
-                    {form.pago && <Check size={12} className="text-on-primary" />}
+                    {txForm.pago && <Check size={12} className="text-on-primary" />}
                   </button>
                   <span className="text-sm text-on-surface/70 font-medium">Marcar como pago</span>
                 </div>
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                   Cancelar
                 </button>
-                <button onClick={handleSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+                <button onClick={handleTxSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
                   {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Bank Account Modal ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showAccountModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowAccountModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Building2 size={18} className="text-primary" />
+                  </div>
+                  <h2 className="text-lg font-manrope font-extrabold text-on-surface">Cadastrar Conta</h2>
+                </div>
+                <button onClick={() => setShowAccountModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {/* Image upload */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Imagem da Conta</label>
+                  <label className="cursor-pointer group">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAccountImageChange}
+                    />
+                    {accountForm.imagemBase64 ? (
+                      <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
+                        <img src={accountForm.imagemBase64} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Upload size={20} className="text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 rounded-2xl border-2 border-dashed border-on-surface/10 flex flex-col items-center justify-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
+                        <ImageIcon size={28} />
+                        <span className="text-xs font-semibold">Clique para adicionar imagem</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Nome da Conta</label>
+                  <input type="text" value={accountForm.nome} onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Conta Corrente PF" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Banco</label>
+                  <input type="text" value={accountForm.banco} onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))} placeholder="Ex: Banco do Brasil" className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Agência</label>
+                    <input type="text" value={accountForm.agencia} onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))} placeholder="0000-0" className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Número da Conta</label>
+                    <input type="text" value={accountForm.numeroConta} onChange={e => setAccountForm(f => ({ ...f, numeroConta: e.target.value }))} placeholder="00000-0" className={inputCls} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowAccountModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={handleAccountSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+                  Cadastrar Conta
                 </button>
               </div>
             </motion.div>
