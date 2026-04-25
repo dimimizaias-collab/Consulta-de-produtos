@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   FileUp,
   FileText,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { AddSupplierModal } from '@/components/suppliers/AddSupplierModal';
 
 export interface ReviewNote {
   id: string;
@@ -39,6 +41,8 @@ export function LogisticsCenter({
   reviewNotes,
   onViewReviewNote
 }: LogisticsCenterProps) {
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+
   return (
     <div className="space-y-12">
       <div className="flex flex-col gap-2">
@@ -104,14 +108,23 @@ export function LogisticsCenter({
             <Users size={48} />
           </div>
           <h3 className="text-2xl font-black text-on-surface mb-3 tracking-tight">Suppliers Lab</h3>
-          <p className="text-sm text-on-surface/40 mb-10 max-w-[240px] leading-relaxed">Configure the dictionary to synchronize external identifiers with internal SKU.</p>
-          <button
-            onClick={onSuppliersClick}
-            className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-amber-600/20 w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
-          >
-            <BookText size={20} />
-            Open Dictionary
-          </button>
+          <p className="text-sm text-on-surface/40 mb-8 max-w-[240px] leading-relaxed">Configure the dictionary to synchronize external identifiers with internal SKU.</p>
+          <div className="w-full flex flex-col gap-3">
+            <button
+              onClick={onSuppliersClick}
+              className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-amber-600/20 w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
+            >
+              <BookText size={20} />
+              Open Dictionary
+            </button>
+            <button
+              onClick={() => setShowAddSupplier(true)}
+              className="border-2 border-amber-500/40 text-amber-600 px-8 py-4 rounded-2xl font-black text-sm hover:bg-amber-500/10 transition-all w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
+            >
+              <Plus size={20} />
+              Adicionar Fornecedor
+            </button>
+          </div>
         </motion.div>
       </div>
 
@@ -172,6 +185,11 @@ export function LogisticsCenter({
           </div>
         )}
       </div>
+
+      <AddSupplierModal
+        isOpen={showAddSupplier}
+        onClose={() => setShowAddSupplier(false)}
+      />
     </div>
   );
 }

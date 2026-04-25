@@ -19,6 +19,7 @@ import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import * as XLSX from 'xlsx';
+import { AddSupplierModal, type NewSupplier } from './AddSupplierModal';
 
 interface Product {
   id: string;
@@ -103,8 +104,6 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [isAddingMapping, setIsAddingMapping] = useState(false);
   
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
 
   // Unit Conversion State
   const [activeTab, setActiveTab] = useState<'mappings' | 'units'>('mappings');
@@ -154,25 +153,11 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     }
   };
 
-  const handleAddSupplier = async () => {
-    if (!newSupplierName.trim()) return;
-    setIsAddingSupplier(true);
-    try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .insert([{ name: newSupplierName.trim() }])
-        .select();
-      if (error) throw error;
-      setSupplierNames(prev => [...prev, ...(data || [])].sort((a,b) => a.name.localeCompare(b.name)));
-      setSelectedSupplierId(data?.[0]?.id || '');
-      setNewSupplierName('');
-      setShowAddSupplierModal(false);
-      setNotification({ type: 'success', message: 'Fornecedor adicionado com sucesso!' });
-    } catch (err: any) {
-      setNotification({ type: 'error', message: `Erro ao adicionar fornecedor: ${err.message}` });
-    } finally {
-      setIsAddingSupplier(false);
-    }
+  const handleSupplierAdded = (supplier: NewSupplier) => {
+    setSupplierNames(prev => [...prev, { id: supplier.id, name: supplier.name }].sort((a, b) => a.name.localeCompare(b.name)));
+    setSelectedSupplierId(supplier.id);
+    fetchSupplierMappings(supplier.id);
+    setNotification({ type: 'success', message: 'Fornecedor cadastrado com sucesso!' });
   };
 
   const handleSupplierMappingSearch = async () => {
@@ -835,71 +820,11 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
         )}
       </AnimatePresence>
 
-      {/* Add Supplier Modal */}
-      <AnimatePresence>
-        {showAddSupplierModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAddSupplierModal(false)}
-              className="absolute inset-0 bg-on-surface/60 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-surface-container-lowest rounded-[2rem] p-10 max-w-md w-full shadow-3xl ring-1 ring-on-surface/5"
-            >
-              <div className="flex items-center gap-6 mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
-                  <Plus size={28} />
-                </div>
-                <div>
-                  <h4 className="text-xl font-black text-on-surface tracking-tight">New Partner Entity</h4>
-                  <p className="text-xs text-on-surface/40 font-medium">Initialize a new supplier stream</p>
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Entity Identity Name</label>
-                  <input 
-                    type="text" 
-                    value={newSupplierName}
-                    onChange={(e) => setNewSupplierName(e.target.value)}
-                    onKeyUp={(e) => e.key === 'Enter' && handleAddSupplier()}
-                    placeholder="e.g. MONDELEZ INTERNATIONAL BRAZIL"
-                    className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-bold transition-all shadow-sm"
-                    autoFocus
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setShowAddSupplierModal(false)}
-                    className="flex-1 px-6 py-4 rounded-2xl font-black text-on-surface/40 hover:bg-on-surface/5 transition-all text-sm uppercase tracking-widest"
-                  >
-                    Discard
-                  </button>
-                  <button 
-                    onClick={handleAddSupplier}
-                    disabled={isAddingSupplier || !newSupplierName.trim()}
-                    className="flex-[2] bg-primary text-white font-black py-4 rounded-2xl hover:bg-on-surface transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-30 uppercase tracking-[0.2em] text-sm"
-                  >
-                    {isAddingSupplier ? (
-                      <div className="h-5 w-5 animate-spin rounded-full border-4 border-solid border-white border-r-transparent" />
-                    ) : (
-                      'Auth & Save'
-                    )}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <AddSupplierModal
+        isOpen={showAddSupplierModal}
+        onClose={() => setShowAddSupplierModal(false)}
+        onSuccess={handleSupplierAdded}
+      />
     </>
   );
 }
