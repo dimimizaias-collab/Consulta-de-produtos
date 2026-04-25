@@ -87,14 +87,62 @@ const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
 
+// ── Import parsing utilities ───────────────────────────────────────────────
+
+// Normalise: strip accents + lowercase — used for all string comparisons in the parser
+function normalizeStr(s: string): string {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// Lançamento strings that indicate a balance / info row — not real transactions
+const IGNORE_LANCAMENTOS = [
+  'saldo total disponivel dia',
+  'saldo em conta corrente',
+  'saldo do dia',
+  'saldo anterior',
+  'saldo final',
+];
+function isLinhaIgnorada(lancamento: string): boolean {
+  const n = normalizeStr(lancamento);
+  return IGNORE_LANCAMENTOS.some(ig => n.includes(ig));
+}
+
+function parseDateExtrato(raw: any): string | null {
+  if (raw instanceof Date) {
+    const offset = raw.getTimezoneOffset() * 60000;
+    return new Date(raw.getTime() - offset).toISOString().split('T')[0];
+  }
+  const s = String(raw ?? '').trim();
+  if (s.includes('/')) {
+    const [d, m, y] = s.split('/');
+    if (d && m && y) {
+      const fullYear = y.length === 2 ? '20' + y : y;
+      return `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+function parseValorExtrato(raw: any): number | null {
+  if (typeof raw === 'number') return raw;
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const cleaned = s.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
+  const v = parseFloat(cleaned);
+  return isNaN(v) ? null : v;
+}
+
 function mapLancamentoToTipoPagamento(lancamento: string): PaymentType {
-  const l = lancamento.toLowerCase();
+  const l = normalizeStr(lancamento);
   if (l.includes('pix')) return 'PIX';
-  if (l.includes('cred') || l.includes('créd')) return 'Crédito';
-  if (l.includes('deb') || l.includes('déb')) return 'Débito';
+  if (l.includes('ted') || l.includes('doc')) return 'Transferência';
+  if (l.includes('transf')) return 'Transferência';
+  if (l.includes('deb') && l.includes('auto')) return 'Débito';
+  if (l.includes('debito') || l.includes('deb ')) return 'Débito';
+  if (l.includes('credito') || l.includes('cred ')) return 'Crédito';
   if (l.includes('boleto') || l.includes('cobr')) return 'Boleto';
-  if (l.includes('ted') || l.includes('doc') || l.includes('transf')) return 'Transferência';
   if (l.includes('cheque')) return 'Cheque';
+  if (l.includes('saque') || l.includes('deposito') || l.includes('especie')) return 'Dinheiro';
   return 'Outro';
 }
 
@@ -319,111 +367,115 @@ export function FinanceManager() {
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
 
-      // Read entire sheet as array-of-arrays to detect header position dynamically
+      // Read entire sheet as array-of-arrays; detect header row dynamically
       const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-      // Find the header row by searching for a cell containing "data" (case-insensitive)
+      // Locate the header row by finding a cell whose normalised text is exactly "data"
       let headerIdx = -1;
       let colData = 0, colLancamento = 1, colRazao = 2, colValor = 4;
 
       for (let i = 0; i < Math.min(allRows.length, 25); i++) {
         const row = allRows[i];
-        let hasData = false;
+        let foundData = false;
         for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] ?? '').toLowerCase().trim();
-          if (cell === 'data') { colData = j; hasData = true; }
-          else if (cell === 'lançamento' || cell === 'lancamento') colLancamento = j;
-          else if (cell.startsWith('razão social') || cell.startsWith('razao social')) colRazao = j;
-          else if (cell.startsWith('valor')) colValor = j;
+          const cell = normalizeStr(String(row[j] ?? ''));
+          if (cell === 'data')                      { colData = j;       foundData = true; }
+          else if (cell === 'lancamento')            { colLancamento = j; }
+          else if (cell.startsWith('razao social')) { colRazao = j;      }
+          else if (cell.startsWith('valor'))        { colValor = j;      }
         }
-        if (hasData) { headerIdx = i; break; }
+        if (foundData) { headerIdx = i; break; }
       }
 
       if (headerIdx === -1) {
-        setImportError('Cabeçalho "Data" não encontrado nas primeiras 25 linhas. Verifique se é um extrato Itaú no formato correto.');
+        setImportError('Cabeçalho "Data" não encontrado nas primeiras 25 linhas. Verifique se o arquivo é um extrato Itaú.');
         return;
       }
 
-      // Build translation map: nome_banco (lowercase) → nome_fiscal
+      // Translation dictionary: normalised nome_banco → nome_fiscal
       const dict: Record<string, string> = {};
       favorecidos.forEach(f => {
-        if (f.nome_banco) dict[f.nome_banco.toLowerCase()] = f.nome_fiscal;
+        if (f.nome_banco) dict[normalizeStr(f.nome_banco)] = f.nome_fiscal;
       });
 
+      // Dedup set built from already-existing transactions to avoid double import
+      const existingKeys = new Set(
+        transactions.map(t => `${t.data}|${t.tipo}|${t.valor_final}|${normalizeStr(t.favorecido)}`)
+      );
+
       const toInsert: Omit<Transaction, 'id'>[] = [];
+      let skippedSaldo = 0;
+      let skippedDuplicate = 0;
 
       for (let i = headerIdx + 1; i < allRows.length; i++) {
         const row = allRows[i];
-        const rawDate = row[colData];
-        const lancamento = String(row[colLancamento] ?? '');
-        const razaoSocial = String(row[colRazao] ?? '').trim();
-        const valorRaw = row[colValor];
 
-        if (rawDate === undefined || rawDate === null || rawDate === '') continue;
+        // Skip completely empty rows
+        if (!row || row.every((c: any) => c === undefined || c === null || String(c).trim() === '')) continue;
 
-        // Parse value — handles JS number, "1.234,56", or "-1.234,56"
-        let valor = 0;
-        if (typeof valorRaw === 'number') {
-          valor = valorRaw;
-        } else if (valorRaw != null && String(valorRaw).trim() !== '') {
-          const cleaned = String(valorRaw)
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.');
-          valor = parseFloat(cleaned) || 0;
-        }
-        if (valor === 0) continue;
+        const rawDate      = row[colData];
+        const lancamentoRaw = String(row[colLancamento] ?? '').trim();
+        const razaoSocial  = String(row[colRazao] ?? '').trim();
+        const valorRaw     = row[colValor];
 
-        // Parse date — cellDates:true yields JS Date; fallback handles "DD/MM/YYYY" strings
-        let dataStr = '';
-        if (rawDate instanceof Date) {
-          const offset = rawDate.getTimezoneOffset() * 60000;
-          dataStr = new Date(rawDate.getTime() - offset).toISOString().split('T')[0];
-        } else {
-          const s = String(rawDate).trim();
-          if (s.includes('/')) {
-            const parts = s.split('/');
-            if (parts.length === 3) {
-              const [d, m, y] = parts;
-              const fullYear = y.length === 2 ? '20' + y : y;
-              dataStr = `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-            }
-          }
-        }
+        // Skip balance / informational lines
+        if (isLinhaIgnorada(lancamentoRaw)) { skippedSaldo++; continue; }
+
+        // Must parse to a valid date
+        const dataStr = parseDateExtrato(rawDate);
         if (!dataStr) continue;
 
-        const tipo: TransactionType = valor >= 0 ? 'Receita' : 'Despesa';
-        const valorAbs = Math.abs(valor);
-        const nomeFinal = razaoSocial ? (dict[razaoSocial.toLowerCase()] ?? razaoSocial) : 'Desconhecido';
+        // Must have a non-zero value
+        const valor = parseValorExtrato(valorRaw);
+        if (valor === null || valor === 0) continue;
 
+        const tipo: TransactionType  = valor > 0 ? 'Receita' : 'Despesa';
+        const valorAbs               = Math.abs(valor);
+        const tipoPagamento          = mapLancamentoToTipoPagamento(lancamentoRaw);
+
+        // Use Razão Social as favorecido; fall back to lançamento if empty
+        const rawNome  = razaoSocial || lancamentoRaw || 'Desconhecido';
+        const nomeFinal = dict[normalizeStr(rawNome)] ?? rawNome;
+
+        // Skip duplicates (same date + tipo + valor + favorecido)
+        const dedupeKey = `${dataStr}|${tipo}|${valorAbs}|${normalizeStr(nomeFinal)}`;
+        if (existingKeys.has(dedupeKey)) { skippedDuplicate++; continue; }
+        existingKeys.add(dedupeKey); // also dedup within the file itself
+
+        // All bank statement rows are already settled
         toInsert.push({
           data: dataStr,
           tipo,
-          tipo_pagamento: mapLancamentoToTipoPagamento(lancamento),
+          tipo_pagamento: tipoPagamento,
           favorecido: nomeFinal,
           estabelecimento: importEstab,
           vencimento: null,
           valor_final: valorAbs,
-          total_pago: tipo === 'Receita' ? valorAbs : 0,
-          pago: tipo === 'Receita',
+          total_pago: valorAbs,
+          pago: true,
         });
       }
 
-      if (toInsert.length === 0) {
-        setImportError(
-          'Nenhuma linha válida encontrada após o cabeçalho. ' +
-          'Verifique se a coluna "Valor (R$)" possui valores e se as datas estão no formato DD/MM/AAAA.'
-        );
+      if (toInsert.length === 0 && skippedDuplicate === 0) {
+        const extra = skippedSaldo > 0 ? ` (${skippedSaldo} linha(s) de saldo ignoradas)` : '';
+        setImportError('Nenhuma movimentação válida encontrada.' + extra);
         return;
       }
 
-      const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
-      if (dbError) throw new Error(dbError.message);
+      if (toInsert.length > 0) {
+        const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
+        if (dbError) throw new Error(dbError.message);
+        await fetchAll();
+      }
 
-      await fetchAll();
       setShowImportModal(false);
       setImportFile(null);
-      setImportSuccess(`${toInsert.length} movimentações importadas com sucesso.`);
+
+      const parts: string[] = [];
+      if (toInsert.length > 0)      parts.push(`${toInsert.length} movimentações importadas`);
+      if (skippedDuplicate > 0)     parts.push(`${skippedDuplicate} duplicadas ignoradas`);
+      if (skippedSaldo > 0)         parts.push(`${skippedSaldo} linhas de saldo ignoradas`);
+      setImportSuccess(parts.join(' · '));
     } catch (err: any) {
       setImportError(err.message || 'Erro ao processar o arquivo.');
     } finally {
