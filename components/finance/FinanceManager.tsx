@@ -4,9 +4,13 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
-  Wallet, Search, ChevronDown, Building2, CreditCard, Upload, ImageIcon,
+  Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
+  ImageIcon, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
 type TransactionType = 'Receita' | 'Despesa';
@@ -15,12 +19,12 @@ interface Transaction {
   id: string;
   data: string;
   tipo: TransactionType;
-  tipoPagamento: PaymentType;
+  tipo_pagamento: PaymentType;
   favorecido: string;
   estabelecimento: string;
-  vencimento: string;
-  valorFinal: number;
-  totalPago: number;
+  vencimento: string | null;
+  valor_final: number;
+  total_pago: number;
   pago: boolean;
 }
 
@@ -29,55 +33,69 @@ interface BankAccount {
   nome: string;
   banco: string;
   agencia: string;
-  numeroConta: string;
-  imagemBase64: string;
+  numero_conta: string;
+  imagem_url: string;
 }
 
-const STORAGE_KEY = 'finance_transactions';
-const ACCOUNTS_KEY = 'finance_accounts';
+type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
+
+interface AccountForm {
+  nome: string;
+  banco: string;
+  agencia: string;
+  numero_conta: string;
+  imagemPreview: string;
+  imagemFile: File | null;
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
+
 const PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'Débito', 'PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
+const BUCKET = 'finance-images';
 
-const emptyTxForm = (): Omit<Transaction, 'id'> => ({
+const emptyTxForm = (): TxForm => ({
   data: new Date().toISOString().split('T')[0],
   tipo: 'Despesa',
-  tipoPagamento: 'PIX',
+  tipo_pagamento: 'PIX',
   favorecido: '',
   estabelecimento: 'Castelo Real',
   vencimento: '',
-  valorFinal: 0,
-  totalPago: 0,
+  valor_final: 0,
+  total_pago: 0,
   pago: false,
 });
 
-const emptyAccountForm = (): Omit<BankAccount, 'id'> => ({
-  nome: '',
-  banco: '',
-  agencia: '',
-  numeroConta: '',
-  imagemBase64: '',
+const emptyAccountForm = (): AccountForm => ({
+  nome: '', banco: '', agencia: '', numero_conta: '',
+  imagemPreview: '', imagemFile: null,
 });
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtDate = (iso: string) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const fmtDate = (iso: string | null) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 
 const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
-
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export function FinanceManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // transaction modal
   const [showTxModal, setShowTxModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [txForm, setTxForm] = useState(emptyTxForm());
+  const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
 
   // bank account modal
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [accountForm, setAccountForm] = useState(emptyAccountForm());
+  const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
 
   // dropdown
   const [showDropdown, setShowDropdown] = useState(false);
@@ -88,37 +106,32 @@ export function FinanceManager() {
   const [filterEstab, setFilterEstab] = useState('Todos');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setTransactions(JSON.parse(stored));
-      const storedAcc = localStorage.getItem(ACCOUNTS_KEY);
-      if (storedAcc) setAccounts(JSON.parse(storedAcc));
-    } catch {}
-  }, []);
+  // ── Data fetching ────────────────────────────────────────────────────────
+
+  const fetchAll = async () => {
+    setLoadingData(true);
+    const [txRes, accRes] = await Promise.all([
+      supabase.from('finance_transactions').select('*').order('data', { ascending: false }),
+      supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
+    ]);
+    if (txRes.data)  setTransactions(txRes.data as Transaction[]);
+    if (accRes.data) setAccounts(accRes.data as BankAccount[]);
+    setLoadingData(false);
+  };
+
+  useEffect(() => { fetchAll(); }, []);
 
   // close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setShowDropdown(false);
-      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const persistTx = (data: Transaction[]) => {
-    setTransactions(data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  };
-
-  const persistAccounts = (data: BankAccount[]) => {
-    setAccounts(data);
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(data));
-  };
-
-  // ── Transactions ──────────────────────────────────────────────────────────
+  // ── Transactions CRUD ────────────────────────────────────────────────────
 
   const openAddTx = () => {
     setEditingId(null);
@@ -128,25 +141,41 @@ export function FinanceManager() {
 
   const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
-    setTxForm({ data: t.data, tipo: t.tipo, tipoPagamento: t.tipoPagamento, favorecido: t.favorecido, estabelecimento: t.estabelecimento, vencimento: t.vencimento, valorFinal: t.valorFinal, totalPago: t.totalPago, pago: t.pago });
+    setTxForm({ ...t, vencimento: t.vencimento ?? '' });
     setShowTxModal(true);
   };
 
-  const handleTxSubmit = () => {
-    if (!txForm.favorecido.trim() || txForm.valorFinal <= 0) return;
-    if (editingId) {
-      persistTx(transactions.map(t => t.id === editingId ? { ...txForm, id: editingId } : t));
-    } else {
-      persistTx([...transactions, { ...txForm, id: crypto.randomUUID() }]);
+  const handleTxSubmit = async () => {
+    if (!txForm.favorecido.trim() || txForm.valor_final <= 0) return;
+    setSubmitting(true);
+    const payload = { ...txForm, vencimento: txForm.vencimento || null };
+    try {
+      if (editingId) {
+        await supabase.from('finance_transactions').update(payload).eq('id', editingId);
+      } else {
+        await supabase.from('finance_transactions').insert(payload);
+      }
+      await fetchAll();
+      setShowTxModal(false);
+    } finally {
+      setSubmitting(false);
     }
-    setShowTxModal(false);
   };
 
-  const handleDeleteTx = (id: string) => persistTx(transactions.filter(t => t.id !== id));
-  const togglePago = (id: string) =>
-    persistTx(transactions.map(t => t.id === id ? { ...t, pago: !t.pago } : t));
+  const handleDeleteTx = async (id: string) => {
+    await supabase.from('finance_transactions').delete().eq('id', id);
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
 
-  // ── Bank Accounts ─────────────────────────────────────────────────────────
+  const togglePago = async (id: string) => {
+    const t = transactions.find(t => t.id === id);
+    if (!t) return;
+    const next = !t.pago;
+    await supabase.from('finance_transactions').update({ pago: next }).eq('id', id);
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, pago: next } : t));
+  };
+
+  // ── Bank Accounts ────────────────────────────────────────────────────────
 
   const openAddAccount = () => {
     setAccountForm(emptyAccountForm());
@@ -157,36 +186,54 @@ export function FinanceManager() {
   const handleAccountImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setAccountForm(f => ({ ...f, imagemBase64: ev.target?.result as string }));
-    reader.readAsDataURL(file);
+    setAccountForm(f => ({ ...f, imagemFile: file, imagemPreview: URL.createObjectURL(file) }));
   };
 
-  const handleAccountSubmit = () => {
+  const uploadImage = async (file: File): Promise<string> => {
+    const ext = file.name.split('.').pop() ?? 'jpg';
+    const path = `accounts/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+    if (error) throw error;
+    return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  };
+
+  const handleAccountSubmit = async () => {
     if (!accountForm.nome.trim()) return;
-    persistAccounts([...accounts, { ...accountForm, id: crypto.randomUUID() }]);
-    setShowAccountModal(false);
+    setSubmitting(true);
+    try {
+      let imagem_url = '';
+      if (accountForm.imagemFile) imagem_url = await uploadImage(accountForm.imagemFile);
+      await supabase.from('finance_accounts').insert({
+        nome: accountForm.nome,
+        banco: accountForm.banco,
+        agencia: accountForm.agencia,
+        numero_conta: accountForm.numero_conta,
+        imagem_url,
+      });
+      await fetchAll();
+      setShowAccountModal(false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // ── Filters & Totals ──────────────────────────────────────────────────────
+  // ── Derived data ─────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
-    return transactions
-      .filter(t => {
-        if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
-        if (filterEstab !== 'Todos' && t.estabelecimento !== filterEstab) return false;
-        if (search) {
-          const q = search.toLowerCase();
-          if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => b.data.localeCompare(a.data));
+    return transactions.filter(t => {
+      if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
+      if (filterEstab !== 'Todos' && t.estabelecimento !== filterEstab) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
   }, [transactions, filterTipo, filterEstab, search]);
 
   const totals = useMemo(() => {
-    const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valorFinal, 0);
-    const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valorFinal, 0);
+    const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
+    const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
     return { receitas, despesas, saldo: receitas - despesas };
   }, [transactions]);
 
@@ -255,35 +302,21 @@ export function FinanceManager() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <TrendingUp size={18} className="text-emerald-500" />
+        {[
+          { label: 'Receitas', value: totals.receitas, color: 'emerald', icon: TrendingUp },
+          { label: 'Despesas', value: totals.despesas, color: 'rose',    icon: TrendingDown },
+          { label: 'Saldo',    value: totals.saldo,    color: totals.saldo >= 0 ? 'emerald' : 'rose', icon: Wallet },
+        ].map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-9 h-9 rounded-xl bg-${color}-500/10 flex items-center justify-center`}>
+                <Icon size={18} className={`text-${color}-500`} />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">{label}</p>
             </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">Receitas</p>
+            <p className={`text-2xl font-extrabold font-manrope text-${color}-500`}>{fmt(value)}</p>
           </div>
-          <p className="text-2xl font-extrabold font-manrope text-emerald-500">{fmt(totals.receitas)}</p>
-        </div>
-        <div className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center">
-              <TrendingDown size={18} className="text-rose-500" />
-            </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">Despesas</p>
-          </div>
-          <p className="text-2xl font-extrabold font-manrope text-rose-500">{fmt(totals.despesas)}</p>
-        </div>
-        <div className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Wallet size={18} className="text-primary" />
-            </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">Saldo</p>
-          </div>
-          <p className={cn('text-2xl font-extrabold font-manrope', totals.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-            {fmt(totals.saldo)}
-          </p>
-        </div>
+        ))}
       </div>
 
       {/* Filters */}
@@ -297,20 +330,14 @@ export function FinanceManager() {
             className="pl-8 pr-4 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-on-surface/30 border border-on-surface/5 focus:outline-none focus:border-primary/50 w-48"
           />
         </div>
-        <select
-          value={filterTipo}
-          onChange={e => setFilterTipo(e.target.value as TransactionType | 'Todos')}
-          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50"
-        >
+        <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as TransactionType | 'Todos')}
+          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50">
           <option value="Todos">Todos os tipos</option>
           <option value="Receita">Receitas</option>
           <option value="Despesa">Despesas</option>
         </select>
-        <select
-          value={filterEstab}
-          onChange={e => setFilterEstab(e.target.value)}
-          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50"
-        >
+        <select value={filterEstab} onChange={e => setFilterEstab(e.target.value)}
+          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50">
           <option value="Todos">Todos os estabelecimentos</option>
           {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
@@ -318,86 +345,91 @@ export function FinanceManager() {
 
       {/* Table */}
       <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-on-surface/5">
-                {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="px-4 py-16 text-center">
-                    <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
-                    <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
-                  </td>
+        {loadingData ? (
+          <div className="flex items-center justify-center py-20 gap-3 text-on-surface/30">
+            <Loader2 size={24} className="animate-spin" />
+            <span className="text-sm font-semibold">Carregando...</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-on-surface/5">
+                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                filtered.map(t => {
-                  const restante = t.valorFinal - t.totalPago;
-                  return (
-                    <tr key={t.id} className={cn('border-b border-on-surface/5 hover:bg-on-surface/[0.02] transition-colors', t.pago && 'opacity-60')}>
-                      <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
-                          t.tipo === 'Receita'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        )}>
-                          {t.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-on-surface/70">{t.tipoPagamento}</td>
-                      <td className="px-4 py-3 font-semibold text-on-surface">{t.favorecido}</td>
-                      <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">{fmt(t.valorFinal)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">{fmt(t.totalPago)}</td>
-                      <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
-                        {fmt(restante)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => togglePago(t.id)}
-                          className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
-                            t.pago ? 'bg-primary border-primary' : 'border-on-surface/20 hover:border-primary/50'
-                          )}
-                        >
-                          {t.pago && <Check size={12} className="text-on-primary" />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
-                            <Edit2 size={14} />
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="px-4 py-16 text-center">
+                      <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
+                      <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map(t => {
+                    const restante = t.valor_final - t.total_pago;
+                    return (
+                      <tr key={t.id} className={cn('border-b border-on-surface/5 hover:bg-on-surface/[0.02] transition-colors', t.pago && 'opacity-60')}>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+                            t.tipo === 'Receita'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          )}>
+                            {t.tipo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-on-surface/70">{t.tipo_pagamento}</td>
+                        <td className="px-4 py-3 font-semibold text-on-surface">{t.favorecido}</td>
+                        <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">{fmt(t.valor_final)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">{fmt(t.total_pago)}</td>
+                        <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
+                          {fmt(restante)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => togglePago(t.id)}
+                            className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                              t.pago ? 'bg-primary border-primary' : 'border-on-surface/20 hover:border-primary/50'
+                            )}
+                          >
+                            {t.pago && <Check size={12} className="text-on-primary" />}
                           </button>
-                          <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* ── Transaction Modal ─────────────────────────────────────────────── */}
+      {/* ── Transaction Modal ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {showTxModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowTxModal(false)}
-            />
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowTxModal(false)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -420,7 +452,7 @@ export function FinanceManager() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Vencimento</label>
-                  <input type="date" value={txForm.vencimento} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
+                  <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Tipo</label>
@@ -431,7 +463,7 @@ export function FinanceManager() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Tipo de Pagamento</label>
-                  <select value={txForm.tipoPagamento} onChange={e => setTxForm(f => ({ ...f, tipoPagamento: e.target.value as PaymentType }))} className={inputCls}>
+                  <select value={txForm.tipo_pagamento} onChange={e => setTxForm(f => ({ ...f, tipo_pagamento: e.target.value as PaymentType }))} className={inputCls}>
                     {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
@@ -447,11 +479,11 @@ export function FinanceManager() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Valor Final (R$)</label>
-                  <input type="number" step="0.01" min="0" value={txForm.valorFinal || ''} onChange={e => setTxForm(f => ({ ...f, valorFinal: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                  <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Total Pago (R$)</label>
-                  <input type="number" step="0.01" min="0" value={txForm.totalPago || ''} onChange={e => setTxForm(f => ({ ...f, totalPago: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                  <input type="number" step="0.01" min="0" value={txForm.total_pago || ''} onChange={e => setTxForm(f => ({ ...f, total_pago: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
                 </div>
                 <div className="col-span-2 flex items-center gap-3">
                   <button
@@ -470,7 +502,8 @@ export function FinanceManager() {
                 <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                   Cancelar
                 </button>
-                <button onClick={handleTxSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+                <button onClick={handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
                   {editingId ? 'Salvar Alterações' : 'Adicionar'}
                 </button>
               </div>
@@ -479,14 +512,12 @@ export function FinanceManager() {
         )}
       </AnimatePresence>
 
-      {/* ── Bank Account Modal ────────────────────────────────────────────── */}
+      {/* ── Bank Account Modal ─────────────────────────────────────────────── */}
       <AnimatePresence>
         {showAccountModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowAccountModal(false)}
-            />
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAccountModal(false)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -510,15 +541,10 @@ export function FinanceManager() {
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Imagem da Conta</label>
                   <label className="cursor-pointer group">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAccountImageChange}
-                    />
-                    {accountForm.imagemBase64 ? (
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
+                    {accountForm.imagemPreview ? (
                       <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
-                        <img src={accountForm.imagemBase64} alt="Preview" className="w-full h-full object-cover" />
+                        <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Upload size={20} className="text-white" />
                         </div>
@@ -547,7 +573,7 @@ export function FinanceManager() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Número da Conta</label>
-                    <input type="text" value={accountForm.numeroConta} onChange={e => setAccountForm(f => ({ ...f, numeroConta: e.target.value }))} placeholder="00000-0" className={inputCls} />
+                    <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
                   </div>
                 </div>
               </div>
@@ -556,7 +582,8 @@ export function FinanceManager() {
                 <button onClick={() => setShowAccountModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                   Cancelar
                 </button>
-                <button onClick={handleAccountSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+                <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
                   Cadastrar Conta
                 </button>
               </div>
