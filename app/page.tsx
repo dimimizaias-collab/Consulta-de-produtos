@@ -276,15 +276,7 @@ export default function Page() {
   const [showNfDigitalizadaModal, setShowNfDigitalizadaModal] = useState(false);
   const [showApproveNfConfirm, setShowApproveNfConfirm] = useState(false);
   const [showCancelNfConfirm, setShowCancelNfConfirm] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const saved = localStorage.getItem('nf_review_notes');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>([]);
   const [currentNfTimestamp, setCurrentNfTimestamp] = useState('');
   const [currentNfFileName, setCurrentNfFileName] = useState('');
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
@@ -292,6 +284,7 @@ export default function Page() {
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
   const [isApprovingNf, setIsApprovingNf] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
   const [nfItemVerified, setNfItemVerified] = useState<boolean[]>([]);
@@ -605,12 +598,6 @@ export default function Page() {
   };
 
   useEffect(() => {
-    try {
-      localStorage.setItem('nf_review_notes', JSON.stringify(reviewNotes));
-    } catch {}
-  }, [reviewNotes]);
-
-  useEffect(() => {
     // Check if Supabase is configured
     const isPlaceholder = 
       process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || 
@@ -625,8 +612,26 @@ export default function Page() {
     } else {
       fetchProducts();
       fetchRequests();
+      fetchReviewNotes();
     }
   }, []);
+
+  const fetchReviewNotes = async () => {
+    const { data } = await supabase
+      .from('review_notes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) {
+      setReviewNotes(data.map((n: any) => ({
+        id: n.id,
+        timestamp: n.timestamp_label,
+        fileName: n.file_name,
+        items: n.items,
+        itemCount: n.item_count,
+        verifiedCount: n.verified_count,
+      })));
+    }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -1153,7 +1158,8 @@ export default function Page() {
         'Descrição Fornecedor': item.original_description || '-',
         'Quantidade': displayQty,
         'Preço Un.': displayPriceUn,
-        'Preço Total': displayPriceTotal
+        'Preço Total': displayPriceTotal,
+        'Preço de Venda': item.product_price ?? 0,
       };
     }));
     const wb = XLSX.utils.book_new();
@@ -1185,24 +1191,26 @@ export default function Page() {
         item.original_description || '-',
         displayQty.toString(),
         formatCurrency(displayPriceUn),
-        formatCurrency(displayPriceTotal)
+        formatCurrency(displayPriceTotal),
+        formatCurrency(item.product_price ?? 0),
       ];
     });
 
     autoTable(doc, {
       startY: 30,
-      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total']],
+      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total', 'Preço Venda']],
       body: tableData,
       headStyles: { fillColor: [0, 84, 204] },
       styles: { fontSize: 7, cellPadding: 2 },
       columnStyles: {
-        0: { cellWidth: 20 }, // SKU
-        1: { cellWidth: 25 }, // EAN
-        2: { cellWidth: 35 }, // Produto Interno
-        3: { cellWidth: 45 }, // Descrição Fornecedor
-        4: { halign: 'center' }, // Qtde
-        5: { halign: 'right' }, // Preço Un.
-        6: { halign: 'right' }  // Total
+        0: { cellWidth: 18 }, // SKU
+        1: { cellWidth: 22 }, // EAN
+        2: { cellWidth: 30 }, // Produto Interno
+        3: { cellWidth: 38 }, // Descrição Fornecedor
+        4: { halign: 'center', cellWidth: 12 }, // Qtde
+        5: { halign: 'right', cellWidth: 20 },  // Preço Un.
+        6: { halign: 'right', cellWidth: 20 },  // Total
+        7: { halign: 'right', cellWidth: 20 },  // Preço Venda
       }
     });
 
@@ -1285,6 +1293,14 @@ export default function Page() {
         itemCount: pendingNfItems.length,
         verifiedCount: pendingNfItems.filter((i: any) => i.verified).length
       };
+      await supabase.from('review_notes').insert({
+        id: newNote.id,
+        timestamp_label: newNote.timestamp,
+        file_name: newNote.fileName,
+        item_count: newNote.itemCount,
+        verified_count: newNote.verifiedCount,
+        items: newNote.items,
+      });
       setReviewNotes(prev => [newNote, ...prev]);
       setShowApproveNfConfirm(false);
       setShowNfDigitalizadaModal(false);
@@ -4458,25 +4474,37 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => {
-                      setReviewNotes(prev => prev.map(n => {
-                        if (n.id !== viewingReviewNote.id) return n;
-                        return {
-                          ...n,
-                          verifiedCount: viewingNoteVerified.filter(Boolean).length,
-                          items: n.items.map((item: any, idx: number) => ({
-                            ...item,
-                            product_price: viewingNoteSellPrices[idx] ?? item.product_price,
-                            verified: viewingNoteVerified[idx] ?? item.verified,
-                            review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
-                          }))
-                        };
-                      }));
+                    disabled={savingNote}
+                    onClick={async () => {
+                      setSavingNote(true);
+                      try {
+                        const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
+                          ...item,
+                          product_price: viewingNoteSellPrices[idx] ?? item.product_price,
+                          verified: viewingNoteVerified[idx] ?? item.verified,
+                          review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+                        }));
+                        const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
+                        await supabase.from('review_notes').update({
+                          verified_count: updatedVerifiedCount,
+                          items: updatedItems,
+                          updated_at: new Date().toISOString(),
+                        }).eq('id', viewingReviewNote.id);
+                        setReviewNotes(prev => prev.map(n => {
+                          if (n.id !== viewingReviewNote.id) return n;
+                          return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems };
+                        }));
+                        setViewingReviewNote(null);
+                      } finally {
+                        setSavingNote(false);
+                      }
                     }}
-                    className="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2"
+                    className="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
                   >
-                    <Save size={16} />
-                    Salvar
+                    {savingNote
+                      ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
+                      : <><Save size={16} />Salvar</>
+                    }
                   </button>
                   <button
                     onClick={() => setViewingReviewNote(null)}
