@@ -129,6 +129,8 @@ export function FinanceManager() {
   const [importEstab, setImportEstab] = useState('Castelo Real');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
 
   // dropdown
   const [showDropdown, setShowDropdown] = useState(false);
@@ -204,6 +206,8 @@ export function FinanceManager() {
   const openImportModal = () => {
     fetchFavorecidos();
     setImportFile(null);
+    setImportError('');
+    setImportSuccess('');
     setShowImportModal(true);
   };
 
@@ -308,13 +312,16 @@ export function FinanceManager() {
   const handleImportExtrato = async () => {
     if (!importFile) return;
     setImportLoading(true);
+    setImportError('');
+    setImportSuccess('');
     try {
       const buffer = await importFile.arrayBuffer();
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      // Header at row 10 in Excel = index 9 (range: 9 starts reading from there)
-      // Columns: Data, Lançamento, Razão Social, CPF/CNPJ, Valor (R$), Saldo(R$)
-      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, range: 9 });
+
+      // Header at row 10 in Excel = index 9. With range:9 and header:1,
+      // rows[0] = header row, rows[1+] = data rows.
+      const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, range: 9 });
 
       // Build translation map: nome_banco (lowercase) → nome_fiscal
       const dict: Record<string, string> = {};
@@ -324,39 +331,59 @@ export function FinanceManager() {
 
       const toInsert: Omit<Transaction, 'id'>[] = [];
 
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
+      for (let i = 1; i < allRows.length; i++) {
+        const row = allRows[i];
         const rawDate = row[0];
         const lancamento = String(row[1] ?? '');
         const razaoSocial = String(row[2] ?? '').trim();
         const valorRaw = row[4];
 
-        if (!rawDate || !razaoSocial) continue;
-        const valor = typeof valorRaw === 'number'
-          ? valorRaw
-          : parseFloat(String(valorRaw).replace(/\./g, '').replace(',', '.')) || 0;
+        // Skip completely empty rows
+        if (rawDate === undefined && valorRaw === undefined) continue;
+        if (!rawDate) continue;
+
+        // Parse value — handles number, "1.234,56" or "-1234.56" formats
+        let valor = 0;
+        if (typeof valorRaw === 'number') {
+          valor = valorRaw;
+        } else if (valorRaw !== undefined && valorRaw !== null && String(valorRaw).trim() !== '') {
+          const cleaned = String(valorRaw)
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+          valor = parseFloat(cleaned) || 0;
+        }
         if (valor === 0) continue;
 
-        // Parse date
+        // Parse date — JS Date from cellDates:true, or string "DD/MM/YYYY"
         let dataStr = '';
         if (rawDate instanceof Date) {
-          dataStr = rawDate.toISOString().split('T')[0];
-        } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
-          const [d, m, y] = rawDate.split('/');
-          dataStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          // Compensate timezone offset so the local date matches the Excel date
+          const offset = rawDate.getTimezoneOffset() * 60000;
+          dataStr = new Date(rawDate.getTime() - offset).toISOString().split('T')[0];
         } else {
-          dataStr = String(rawDate);
+          const s = String(rawDate).trim();
+          if (s.includes('/')) {
+            const parts = s.split('/');
+            if (parts.length === 3) {
+              const [d, m, y] = parts;
+              dataStr = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            }
+          } else {
+            dataStr = s;
+          }
         }
+        if (!dataStr) continue;
 
         const tipo: TransactionType = valor >= 0 ? 'Receita' : 'Despesa';
         const valorAbs = Math.abs(valor);
-        const favorecido = dict[razaoSocial.toLowerCase()] ?? razaoSocial;
+        const nomeFinal = razaoSocial ? (dict[razaoSocial.toLowerCase()] ?? razaoSocial) : 'Desconhecido';
 
         toInsert.push({
           data: dataStr,
           tipo,
           tipo_pagamento: mapLancamentoToTipoPagamento(lancamento),
-          favorecido,
+          favorecido: nomeFinal,
           estabelecimento: importEstab,
           vencimento: null,
           valor_final: valorAbs,
@@ -365,12 +392,23 @@ export function FinanceManager() {
         });
       }
 
-      if (toInsert.length > 0) {
-        await supabase.from('finance_transactions').insert(toInsert);
-        await fetchAll();
+      if (toInsert.length === 0) {
+        setImportError(
+          'Nenhuma linha válida encontrada. Verifique se o arquivo é o extrato Itaú correto ' +
+          '(cabeçalho na linha 10) e se a coluna "Valor (R$)" possui valores diferentes de zero.'
+        );
+        return;
       }
+
+      const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
+      if (dbError) throw new Error(dbError.message);
+
+      await fetchAll();
       setShowImportModal(false);
       setImportFile(null);
+      setImportSuccess(`${toInsert.length} movimentações importadas com sucesso.`);
+    } catch (err: any) {
+      setImportError(err.message || 'Erro ao processar o arquivo.');
     } finally {
       setImportLoading(false);
     }
@@ -864,6 +902,24 @@ export function FinanceManager() {
         )}
       </AnimatePresence>
 
+      {/* ── Import Success Toast ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {importSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl text-sm font-bold flex items-center gap-3"
+          >
+            <Check size={16} />
+            {importSuccess}
+            <button onClick={() => setImportSuccess('')} className="ml-2 opacity-70 hover:opacity-100">
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
       <AnimatePresence>
         {showImportModal && (
@@ -918,7 +974,7 @@ export function FinanceManager() {
                       type="file"
                       accept=".xlsx,.xls"
                       className="hidden"
-                      onChange={e => setImportFile(e.target.files?.[0] ?? null)}
+                      onChange={e => { setImportFile(e.target.files?.[0] ?? null); setImportError(''); }}
                     />
                     {importFile ? (
                       <div className="w-full px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 flex items-center gap-3">
@@ -937,6 +993,12 @@ export function FinanceManager() {
                 <p className="text-[10px] text-on-surface/30 font-medium leading-relaxed">
                   Estrutura Itaú: cabeçalho na linha 10 — Data, Lançamento, Razão Social, CPF/CNPJ, Valor (R$), Saldo(R$)
                 </p>
+
+                {importError && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+                    <p className="text-xs text-rose-600 font-semibold leading-relaxed">{importError}</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">
