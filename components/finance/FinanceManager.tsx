@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
-  ImageIcon, Loader2,
+  ImageIcon, Loader2, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +35,11 @@ interface BankAccount {
   agencia: string;
   numero_conta: string;
   imagem_url: string;
+}
+
+interface Favorecido {
+  id: string;
+  nome_fiscal: string;
 }
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
@@ -97,6 +102,13 @@ export function FinanceManager() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
 
+  // favorecidos dictionary
+  const [showFavorecidoModal, setShowFavorecidoModal] = useState(false);
+  const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
+  const [novoFavorecido, setNovoFavorecido] = useState('');
+  const [savingFavorecido, setSavingFavorecido] = useState(false);
+  const [loadingFavorecidos, setLoadingFavorecidos] = useState(false);
+
   // dropdown
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -120,6 +132,40 @@ export function FinanceManager() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  const fetchFavorecidos = async () => {
+    setLoadingFavorecidos(true);
+    const { data } = await supabase
+      .from('finance_favorecidos')
+      .select('*')
+      .order('nome_fiscal');
+    if (data) setFavorecidos(data as Favorecido[]);
+    setLoadingFavorecidos(false);
+  };
+
+  const handleAddFavorecido = async () => {
+    if (!novoFavorecido.trim()) return;
+    setSavingFavorecido(true);
+    const { data } = await supabase
+      .from('finance_favorecidos')
+      .insert([{ nome_fiscal: novoFavorecido.trim() }])
+      .select()
+      .single();
+    if (data) setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+    setNovoFavorecido('');
+    setSavingFavorecido(false);
+  };
+
+  const handleDeleteFavorecido = async (id: string) => {
+    await supabase.from('finance_favorecidos').delete().eq('id', id);
+    setFavorecidos(prev => prev.filter(f => f.id !== id));
+  };
+
+  const openFavorecidoModal = () => {
+    setShowDropdown(false);
+    fetchFavorecidos();
+    setShowFavorecidoModal(true);
+  };
 
   // close dropdown on outside click
   useEffect(() => {
@@ -278,11 +324,11 @@ export function FinanceManager() {
                   </button>
                   <div className="h-px bg-on-surface/5 mx-3" />
                   <button
-                    disabled
-                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface/30 cursor-not-allowed text-left"
+                    onClick={openFavorecidoModal}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-on-surface/5 transition-colors text-left"
                   >
-                    <CreditCard size={16} className="shrink-0" />
-                    Adicionar Pagamentos
+                    <Users size={16} className="text-primary shrink-0" />
+                    Adicionar Favorecido
                   </button>
                 </motion.div>
               )}
@@ -587,6 +633,93 @@ export function FinanceManager() {
                   Cadastrar Conta
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Favorecidos Dictionary Modal ───────────────────────────────────── */}
+      <AnimatePresence>
+        {showFavorecidoModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowFavorecidoModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Users size={18} className="text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-manrope font-extrabold text-on-surface leading-tight">Dicionário de Favorecidos</h2>
+                    <p className="text-[11px] text-on-surface/40 font-medium">Nomes fiscais para controle de movimentações</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowFavorecidoModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Add new */}
+              <div className="flex gap-2 mb-5 shrink-0">
+                <input
+                  type="text"
+                  value={novoFavorecido}
+                  onChange={e => setNovoFavorecido(e.target.value)}
+                  onKeyUp={e => e.key === 'Enter' && handleAddFavorecido()}
+                  placeholder="Nome fiscal do favorecido..."
+                  className={inputCls}
+                />
+                <button
+                  onClick={handleAddFavorecido}
+                  disabled={savingFavorecido || !novoFavorecido.trim()}
+                  className="shrink-0 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40"
+                >
+                  {savingFavorecido
+                    ? <Loader2 size={16} className="animate-spin" />
+                    : <Plus size={16} />
+                  }
+                </button>
+              </div>
+
+              {/* List */}
+              <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+                {loadingFavorecidos ? (
+                  <div className="flex items-center justify-center py-10 gap-2 text-on-surface/30">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span className="text-sm font-semibold">Carregando...</span>
+                  </div>
+                ) : favorecidos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-on-surface/25">
+                    <Users size={36} className="mb-2" />
+                    <p className="text-sm font-bold">Nenhum favorecido cadastrado</p>
+                  </div>
+                ) : (
+                  favorecidos.map(f => (
+                    <div key={f.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors">
+                      <span className="text-sm font-semibold text-on-surface">{f.nome_fiscal}</span>
+                      <button
+                        onClick={() => handleDeleteFavorecido(f.id)}
+                        className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/20 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <p className="text-[10px] text-on-surface/25 font-medium mt-4 shrink-0">
+                {favorecidos.length} {favorecidos.length === 1 ? 'favorecido cadastrado' : 'favorecidos cadastrados'}
+              </p>
             </motion.div>
           </div>
         )}
