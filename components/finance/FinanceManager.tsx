@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users,
+  ImageIcon, Loader2, Users, FileUp,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
@@ -40,6 +41,7 @@ interface BankAccount {
 interface Favorecido {
   id: string;
   nome_fiscal: string;
+  nome_banco: string;
 }
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
@@ -85,6 +87,17 @@ const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
 
+function mapLancamentoToTipoPagamento(lancamento: string): PaymentType {
+  const l = lancamento.toLowerCase();
+  if (l.includes('pix')) return 'PIX';
+  if (l.includes('cred') || l.includes('créd')) return 'Crédito';
+  if (l.includes('deb') || l.includes('déb')) return 'Débito';
+  if (l.includes('boleto') || l.includes('cobr')) return 'Boleto';
+  if (l.includes('ted') || l.includes('doc') || l.includes('transf')) return 'Transferência';
+  if (l.includes('cheque')) return 'Cheque';
+  return 'Outro';
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function FinanceManager() {
@@ -106,8 +119,16 @@ export function FinanceManager() {
   const [showFavorecidoModal, setShowFavorecidoModal] = useState(false);
   const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
   const [novoFavorecido, setNovoFavorecido] = useState('');
+  const [novoNomeBanco, setNovoNomeBanco] = useState('');
   const [savingFavorecido, setSavingFavorecido] = useState(false);
   const [loadingFavorecidos, setLoadingFavorecidos] = useState(false);
+
+  // import extrato modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importBanco, setImportBanco] = useState('Itaú');
+  const [importEstab, setImportEstab] = useState('Castelo Real');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
 
   // dropdown
   const [showDropdown, setShowDropdown] = useState(false);
@@ -148,11 +169,24 @@ export function FinanceManager() {
     setSavingFavorecido(true);
     const { data } = await supabase
       .from('finance_favorecidos')
-      .insert([{ nome_fiscal: novoFavorecido.trim() }])
+      .insert([{ nome_fiscal: novoFavorecido.trim(), nome_banco: novoNomeBanco.trim() }])
       .select()
       .single();
-    if (data) setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+    if (data) {
+      setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+      // Re-translate existing transactions that used the raw bank name
+      if (novoNomeBanco.trim()) {
+        await supabase
+          .from('finance_transactions')
+          .update({ favorecido: novoFavorecido.trim() })
+          .eq('favorecido', novoNomeBanco.trim());
+        setTransactions(prev => prev.map(t =>
+          t.favorecido === novoNomeBanco.trim() ? { ...t, favorecido: novoFavorecido.trim() } : t
+        ));
+      }
+    }
     setNovoFavorecido('');
+    setNovoNomeBanco('');
     setSavingFavorecido(false);
   };
 
@@ -165,6 +199,12 @@ export function FinanceManager() {
     setShowDropdown(false);
     fetchFavorecidos();
     setShowFavorecidoModal(true);
+  };
+
+  const openImportModal = () => {
+    fetchFavorecidos();
+    setImportFile(null);
+    setShowImportModal(true);
   };
 
   // close dropdown on outside click
@@ -263,6 +303,79 @@ export function FinanceManager() {
     }
   };
 
+  // ── Import Extrato ───────────────────────────────────────────────────────
+
+  const handleImportExtrato = async () => {
+    if (!importFile) return;
+    setImportLoading(true);
+    try {
+      const buffer = await importFile.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      // Header at row 10 in Excel = index 9 (range: 9 starts reading from there)
+      // Columns: Data, Lançamento, Razão Social, CPF/CNPJ, Valor (R$), Saldo(R$)
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, range: 9 });
+
+      // Build translation map: nome_banco (lowercase) → nome_fiscal
+      const dict: Record<string, string> = {};
+      favorecidos.forEach(f => {
+        if (f.nome_banco) dict[f.nome_banco.toLowerCase()] = f.nome_fiscal;
+      });
+
+      const toInsert: Omit<Transaction, 'id'>[] = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const rawDate = row[0];
+        const lancamento = String(row[1] ?? '');
+        const razaoSocial = String(row[2] ?? '').trim();
+        const valorRaw = row[4];
+
+        if (!rawDate || !razaoSocial) continue;
+        const valor = typeof valorRaw === 'number'
+          ? valorRaw
+          : parseFloat(String(valorRaw).replace(/\./g, '').replace(',', '.')) || 0;
+        if (valor === 0) continue;
+
+        // Parse date
+        let dataStr = '';
+        if (rawDate instanceof Date) {
+          dataStr = rawDate.toISOString().split('T')[0];
+        } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
+          const [d, m, y] = rawDate.split('/');
+          dataStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        } else {
+          dataStr = String(rawDate);
+        }
+
+        const tipo: TransactionType = valor >= 0 ? 'Receita' : 'Despesa';
+        const valorAbs = Math.abs(valor);
+        const favorecido = dict[razaoSocial.toLowerCase()] ?? razaoSocial;
+
+        toInsert.push({
+          data: dataStr,
+          tipo,
+          tipo_pagamento: mapLancamentoToTipoPagamento(lancamento),
+          favorecido,
+          estabelecimento: importEstab,
+          vencimento: null,
+          valor_final: valorAbs,
+          total_pago: tipo === 'Receita' ? valorAbs : 0,
+          pago: tipo === 'Receita',
+        });
+      }
+
+      if (toInsert.length > 0) {
+        await supabase.from('finance_transactions').insert(toInsert);
+        await fetchAll();
+      }
+      setShowImportModal(false);
+      setImportFile(null);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   // ── Derived data ─────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
@@ -334,6 +447,15 @@ export function FinanceManager() {
               )}
             </AnimatePresence>
           </div>
+
+          {/* Importar Extrato */}
+          <button
+            onClick={openImportModal}
+            className="flex items-center gap-2 bg-surface-container-low border border-on-surface/10 text-on-surface px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-on-surface/5 transition-colors"
+          >
+            <FileUp size={16} />
+            Importar Extrato
+          </button>
 
           {/* Nova Movimentação */}
           <button
@@ -660,7 +782,7 @@ export function FinanceManager() {
                   </div>
                   <div>
                     <h2 className="text-lg font-manrope font-extrabold text-on-surface leading-tight">Dicionário de Favorecidos</h2>
-                    <p className="text-[11px] text-on-surface/40 font-medium">Nomes fiscais para controle de movimentações</p>
+                    <p className="text-[11px] text-on-surface/40 font-medium">Mapeie nomes do extrato para nomes fiscais</p>
                   </div>
                 </div>
                 <button onClick={() => setShowFavorecidoModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
@@ -669,25 +791,37 @@ export function FinanceManager() {
               </div>
 
               {/* Add new */}
-              <div className="flex gap-2 mb-5 shrink-0">
+              <div className="flex flex-col gap-2 mb-5 shrink-0">
                 <input
                   type="text"
-                  value={novoFavorecido}
-                  onChange={e => setNovoFavorecido(e.target.value)}
-                  onKeyUp={e => e.key === 'Enter' && handleAddFavorecido()}
-                  placeholder="Nome fiscal do favorecido..."
+                  value={novoNomeBanco}
+                  onChange={e => setNovoNomeBanco(e.target.value)}
+                  placeholder="Nome no extrato bancário..."
                   className={inputCls}
                 />
-                <button
-                  onClick={handleAddFavorecido}
-                  disabled={savingFavorecido || !novoFavorecido.trim()}
-                  className="shrink-0 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40"
-                >
-                  {savingFavorecido
-                    ? <Loader2 size={16} className="animate-spin" />
-                    : <Plus size={16} />
-                  }
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={novoFavorecido}
+                    onChange={e => setNovoFavorecido(e.target.value)}
+                    onKeyUp={e => e.key === 'Enter' && handleAddFavorecido()}
+                    placeholder="Nome fiscal do favorecido..."
+                    className={inputCls}
+                  />
+                  <button
+                    onClick={handleAddFavorecido}
+                    disabled={savingFavorecido || !novoFavorecido.trim()}
+                    className="shrink-0 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40"
+                  >
+                    {savingFavorecido
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : <Plus size={16} />
+                    }
+                  </button>
+                </div>
+                <div className="flex gap-4 px-1">
+                  <p className="text-[10px] text-on-surface/30 font-medium">Nome no extrato → Nome fiscal</p>
+                </div>
               </div>
 
               {/* List */}
@@ -705,10 +839,15 @@ export function FinanceManager() {
                 ) : (
                   favorecidos.map(f => (
                     <div key={f.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors">
-                      <span className="text-sm font-semibold text-on-surface">{f.nome_fiscal}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-on-surface truncate">{f.nome_fiscal}</p>
+                        {f.nome_banco && (
+                          <p className="text-[10px] text-on-surface/40 font-medium truncate mt-0.5">{f.nome_banco}</p>
+                        )}
+                      </div>
                       <button
                         onClick={() => handleDeleteFavorecido(f.id)}
-                        className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/20 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/20 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-2"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -720,6 +859,102 @@ export function FinanceManager() {
               <p className="text-[10px] text-on-surface/25 font-medium mt-4 shrink-0">
                 {favorecidos.length} {favorecidos.length === 1 ? 'favorecido cadastrado' : 'favorecidos cadastrados'}
               </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => { setShowImportModal(false); setImportFile(null); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <FileUp size={18} className="text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-manrope font-extrabold text-on-surface leading-tight">Importar Extrato</h2>
+                    <p className="text-[11px] text-on-surface/40 font-medium">Importar movimentações via Excel</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowImportModal(false); setImportFile(null); }}
+                  className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Banco</label>
+                  <select value={importBanco} onChange={e => setImportBanco(e.target.value)} className={inputCls}>
+                    <option value="Itaú">Itaú</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Estabelecimento</label>
+                  <select value={importEstab} onChange={e => setImportEstab(e.target.value)} className={inputCls}>
+                    {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Arquivo Excel (.xlsx)</label>
+                  <label className="cursor-pointer group">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={e => setImportFile(e.target.files?.[0] ?? null)}
+                    />
+                    {importFile ? (
+                      <div className="w-full px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 flex items-center gap-3">
+                        <FileUp size={16} className="text-primary shrink-0" />
+                        <span className="text-sm font-semibold text-on-surface truncate">{importFile.name}</span>
+                      </div>
+                    ) : (
+                      <div className="w-full py-8 rounded-xl border-2 border-dashed border-on-surface/10 flex flex-col items-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
+                        <FileUp size={28} />
+                        <span className="text-xs font-semibold">Clique para selecionar o arquivo</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+
+                <p className="text-[10px] text-on-surface/30 font-medium leading-relaxed">
+                  Estrutura Itaú: cabeçalho na linha 10 — Data, Lançamento, Razão Social, CPF/CNPJ, Valor (R$), Saldo(R$)
+                </p>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => { setShowImportModal(false); setImportFile(null); }}
+                  className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleImportExtrato}
+                  disabled={importLoading || !importFile}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {importLoading && <Loader2 size={14} className="animate-spin" />}
+                  Importar
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
