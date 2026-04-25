@@ -319,9 +319,30 @@ export function FinanceManager() {
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
 
-      // Header at row 10 in Excel = index 9. With range:9 and header:1,
-      // rows[0] = header row, rows[1+] = data rows.
-      const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, range: 9 });
+      // Read entire sheet as array-of-arrays to detect header position dynamically
+      const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      // Find the header row by searching for a cell containing "data" (case-insensitive)
+      let headerIdx = -1;
+      let colData = 0, colLancamento = 1, colRazao = 2, colValor = 4;
+
+      for (let i = 0; i < Math.min(allRows.length, 25); i++) {
+        const row = allRows[i];
+        let hasData = false;
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] ?? '').toLowerCase().trim();
+          if (cell === 'data') { colData = j; hasData = true; }
+          else if (cell === 'lançamento' || cell === 'lancamento') colLancamento = j;
+          else if (cell.startsWith('razão social') || cell.startsWith('razao social')) colRazao = j;
+          else if (cell.startsWith('valor')) colValor = j;
+        }
+        if (hasData) { headerIdx = i; break; }
+      }
+
+      if (headerIdx === -1) {
+        setImportError('Cabeçalho "Data" não encontrado nas primeiras 25 linhas. Verifique se é um extrato Itaú no formato correto.');
+        return;
+      }
 
       // Build translation map: nome_banco (lowercase) → nome_fiscal
       const dict: Record<string, string> = {};
@@ -331,22 +352,20 @@ export function FinanceManager() {
 
       const toInsert: Omit<Transaction, 'id'>[] = [];
 
-      for (let i = 1; i < allRows.length; i++) {
+      for (let i = headerIdx + 1; i < allRows.length; i++) {
         const row = allRows[i];
-        const rawDate = row[0];
-        const lancamento = String(row[1] ?? '');
-        const razaoSocial = String(row[2] ?? '').trim();
-        const valorRaw = row[4];
+        const rawDate = row[colData];
+        const lancamento = String(row[colLancamento] ?? '');
+        const razaoSocial = String(row[colRazao] ?? '').trim();
+        const valorRaw = row[colValor];
 
-        // Skip completely empty rows
-        if (rawDate === undefined && valorRaw === undefined) continue;
-        if (!rawDate) continue;
+        if (rawDate === undefined || rawDate === null || rawDate === '') continue;
 
-        // Parse value — handles number, "1.234,56" or "-1234.56" formats
+        // Parse value — handles JS number, "1.234,56", or "-1.234,56"
         let valor = 0;
         if (typeof valorRaw === 'number') {
           valor = valorRaw;
-        } else if (valorRaw !== undefined && valorRaw !== null && String(valorRaw).trim() !== '') {
+        } else if (valorRaw != null && String(valorRaw).trim() !== '') {
           const cleaned = String(valorRaw)
             .replace(/[R$\s]/g, '')
             .replace(/\./g, '')
@@ -355,10 +374,9 @@ export function FinanceManager() {
         }
         if (valor === 0) continue;
 
-        // Parse date — JS Date from cellDates:true, or string "DD/MM/YYYY"
+        // Parse date — cellDates:true yields JS Date; fallback handles "DD/MM/YYYY" strings
         let dataStr = '';
         if (rawDate instanceof Date) {
-          // Compensate timezone offset so the local date matches the Excel date
           const offset = rawDate.getTimezoneOffset() * 60000;
           dataStr = new Date(rawDate.getTime() - offset).toISOString().split('T')[0];
         } else {
@@ -367,10 +385,9 @@ export function FinanceManager() {
             const parts = s.split('/');
             if (parts.length === 3) {
               const [d, m, y] = parts;
-              dataStr = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+              const fullYear = y.length === 2 ? '20' + y : y;
+              dataStr = `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
             }
-          } else {
-            dataStr = s;
           }
         }
         if (!dataStr) continue;
@@ -394,8 +411,8 @@ export function FinanceManager() {
 
       if (toInsert.length === 0) {
         setImportError(
-          'Nenhuma linha válida encontrada. Verifique se o arquivo é o extrato Itaú correto ' +
-          '(cabeçalho na linha 10) e se a coluna "Valor (R$)" possui valores diferentes de zero.'
+          'Nenhuma linha válida encontrada após o cabeçalho. ' +
+          'Verifique se a coluna "Valor (R$)" possui valores e se as datas estão no formato DD/MM/AAAA.'
         );
         return;
       }
