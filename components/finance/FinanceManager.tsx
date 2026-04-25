@@ -398,9 +398,10 @@ export function FinanceManager() {
         if (f.nome_banco) dict[normalizeStr(f.nome_banco)] = f.nome_fiscal;
       });
 
-      // Dedup set built from already-existing transactions to avoid double import
+      // Dedup set built from already-existing transactions to avoid double import.
+      // Includes estabelecimento so the same transaction in two different stores is not skipped.
       const existingKeys = new Set(
-        transactions.map(t => `${t.data}|${t.tipo}|${t.valor_final}|${normalizeStr(t.favorecido)}`)
+        transactions.map(t => `${t.data}|${t.tipo}|${t.valor_final}|${normalizeStr(t.favorecido)}|${t.estabelecimento}`)
       );
 
       const toInsert: Omit<Transaction, 'id'>[] = [];
@@ -437,8 +438,8 @@ export function FinanceManager() {
         const rawNome  = razaoSocial || lancamentoRaw || 'Desconhecido';
         const nomeFinal = dict[normalizeStr(rawNome)] ?? rawNome;
 
-        // Skip duplicates (same date + tipo + valor + favorecido)
-        const dedupeKey = `${dataStr}|${tipo}|${valorAbs}|${normalizeStr(nomeFinal)}`;
+        // Skip duplicates (same date + tipo + valor + favorecido + estabelecimento)
+        const dedupeKey = `${dataStr}|${tipo}|${valorAbs}|${normalizeStr(nomeFinal)}|${importEstab}`;
         if (existingKeys.has(dedupeKey)) { skippedDuplicate++; continue; }
         existingKeys.add(dedupeKey); // also dedup within the file itself
 
