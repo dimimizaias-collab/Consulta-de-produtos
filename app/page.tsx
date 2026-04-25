@@ -1151,6 +1151,10 @@ export default function Page() {
       const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
       const displayPriceTotal = item.price * (item.original_qty || 1);
 
+      const cost = displayPriceUn;
+      const sell = item.product_price ?? 0;
+      const markup = cost > 0 && sell > 0 ? ((sell - cost) / cost * 100) : null;
+
       return {
         'Código (SKU)': item.sku || '-',
         'EAN': item.ean || '-',
@@ -1159,7 +1163,8 @@ export default function Page() {
         'Quantidade': displayQty,
         'Preço Un.': displayPriceUn,
         'Preço Total': displayPriceTotal,
-        'Preço de Venda': item.product_price ?? 0,
+        'Preço de Venda': sell,
+        'Markup (%)': markup !== null ? parseFloat(markup.toFixed(2)) : '-',
       };
     }));
     const wb = XLSX.utils.book_new();
@@ -1184,6 +1189,11 @@ export default function Page() {
       const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
       const displayPriceTotal = item.price * (item.original_qty || 1);
 
+      const cost = displayPriceUn;
+      const sell = item.product_price ?? 0;
+      const markup = cost > 0 && sell > 0 ? ((sell - cost) / cost * 100) : null;
+      const markupStr = markup !== null ? `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%` : '-';
+
       return [
         item.sku || '-',
         item.ean || '-',
@@ -1192,25 +1202,27 @@ export default function Page() {
         displayQty.toString(),
         formatCurrency(displayPriceUn),
         formatCurrency(displayPriceTotal),
-        formatCurrency(item.product_price ?? 0),
+        formatCurrency(sell),
+        markupStr,
       ];
     });
 
     autoTable(doc, {
       startY: 30,
-      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total', 'Preço Venda']],
+      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total', 'Preço Venda', 'Markup']],
       body: tableData,
       headStyles: { fillColor: [0, 84, 204] },
       styles: { fontSize: 7, cellPadding: 2 },
       columnStyles: {
-        0: { cellWidth: 18 }, // SKU
-        1: { cellWidth: 22 }, // EAN
-        2: { cellWidth: 30 }, // Produto Interno
-        3: { cellWidth: 38 }, // Descrição Fornecedor
-        4: { halign: 'center', cellWidth: 12 }, // Qtde
-        5: { halign: 'right', cellWidth: 20 },  // Preço Un.
-        6: { halign: 'right', cellWidth: 20 },  // Total
-        7: { halign: 'right', cellWidth: 20 },  // Preço Venda
+        0: { cellWidth: 16 }, // SKU
+        1: { cellWidth: 20 }, // EAN
+        2: { cellWidth: 28 }, // Produto Interno
+        3: { cellWidth: 34 }, // Descrição Fornecedor
+        4: { halign: 'center', cellWidth: 10 }, // Qtde
+        5: { halign: 'right', cellWidth: 18 },  // Preço Un.
+        6: { halign: 'right', cellWidth: 18 },  // Total
+        7: { halign: 'right', cellWidth: 18 },  // Preço Venda
+        8: { halign: 'right', cellWidth: 16 },  // Markup
       }
     });
 
