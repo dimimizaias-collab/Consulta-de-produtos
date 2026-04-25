@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   FileUp,
   FileText,
@@ -9,9 +9,12 @@ import {
   Plus,
   BookText,
   ClipboardList,
-  Pencil
+  Pencil,
+  ChevronDown,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { AddSupplierModal } from '@/components/suppliers/AddSupplierModal';
 
@@ -22,6 +25,7 @@ export interface ReviewNote {
   items: any[];
   itemCount: number;
   verifiedCount: number;
+  approved?: boolean;
 }
 
 interface LogisticsCenterProps {
@@ -31,6 +35,7 @@ interface LogisticsCenterProps {
   onSuppliersClick: () => void;
   reviewNotes: ReviewNote[];
   onViewReviewNote: (note: ReviewNote) => void;
+  onApproveNote: (noteId: string) => void;
 }
 
 export function LogisticsCenter({
@@ -39,9 +44,30 @@ export function LogisticsCenter({
   onManualNoteClick,
   onSuppliersClick,
   reviewNotes,
-  onViewReviewNote
+  onViewReviewNote,
+  onApproveNote,
 }: LogisticsCenterProps) {
-  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [showAddSupplier, setShowAddSupplier]       = useState(false);
+  const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados'>('revisoes');
+  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
+  const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setShowSectionDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const pendingNotes   = reviewNotes.filter(n => !n.approved);
+  const approvedNotes  = reviewNotes.filter(n => n.approved);
+  const visibleNotes   = activeSection === 'revisoes' ? pendingNotes : approvedNotes;
+
+  const sectionLabel   = activeSection === 'revisoes' ? 'Revisões' : 'Aprovados';
+  const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
 
   return (
     <div className="space-y-12">
@@ -128,34 +154,101 @@ export function LogisticsCenter({
         </motion.div>
       </div>
 
-      {/* Revisões Section */}
+      {/* ── Revisões / Aprovados Section ──────────────────────────────────── */}
       <div className="space-y-6">
+
+        {/* Section header with dropdown */}
         <div className="flex items-center gap-3">
-          <h4 className="text-lg font-black text-on-surface uppercase tracking-[0.1em]">Revisões</h4>
-          {reviewNotes.length > 0 && (
-            <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-black rounded-full">
-              {reviewNotes.length}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowSectionDropdown(v => !v)}
+              className="flex items-center gap-2 text-lg font-black text-on-surface uppercase tracking-[0.1em] hover:text-primary transition-colors"
+            >
+              {sectionLabel}
+              <ChevronDown
+                size={18}
+                className={cn('transition-transform duration-200 mt-0.5', showSectionDropdown && 'rotate-180')}
+              />
+            </button>
+
+            <AnimatePresence>
+              {showSectionDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 top-full mt-2 w-48 bg-surface-container-lowest border border-on-surface/[0.06] rounded-2xl shadow-xl z-30 overflow-hidden"
+                >
+                  {([
+                    { key: 'revisoes',  label: 'Revisões',  count: pendingNotes.length },
+                    { key: 'aprovados', label: 'Aprovados', count: approvedNotes.length },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => { setActiveSection(opt.key); setShowSectionDropdown(false); }}
+                      className={cn(
+                        'flex items-center justify-between w-full px-4 py-3 text-sm font-bold transition-colors text-left',
+                        activeSection === opt.key
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-on-surface hover:bg-on-surface/5'
+                      )}
+                    >
+                      <span>{opt.label}</span>
+                      {opt.count > 0 && (
+                        <span className={cn(
+                          'text-[10px] font-black px-2 py-0.5 rounded-full',
+                          activeSection === opt.key
+                            ? 'bg-primary/20 text-primary'
+                            : 'bg-on-surface/10 text-on-surface/50'
+                        )}>
+                          {opt.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {visibleNotes.length > 0 && (
+            <span className={cn(
+              'px-2.5 py-0.5 text-xs font-black rounded-full',
+              activeSection === 'revisoes'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-emerald-500/10 text-emerald-600'
+            )}>
+              {visibleNotes.length}
             </span>
           )}
         </div>
 
-        {reviewNotes.length === 0 ? (
+        {/* Notes grid */}
+        {visibleNotes.length === 0 ? (
           <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
             <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
               <ClipboardList size={32} />
             </div>
             <div>
-              <h4 className="text-lg font-black text-on-surface leading-tight tracking-tight uppercase tracking-[0.1em]">Sem Notas para Revisão</h4>
-              <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">Notas importadas e enviadas para aprovação aparecerão aqui para consulta.</p>
+              <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
+                {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+              </h4>
+              <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
+                {activeSection === 'revisoes'
+                  ? 'Notas importadas e enviadas para aprovação aparecerão aqui.'
+                  : 'Notas aprovadas serão listadas aqui após a confirmação.'}
+              </p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reviewNotes.map((note) => (
+            {visibleNotes.map((note) => (
               <div
                 key={note.id}
-                className="relative bg-surface-container-lowest rounded-3xl p-6 border border-on-surface/[0.03] shadow-md hover:shadow-lg transition-shadow"
+                className="relative bg-surface-container-lowest rounded-3xl p-6 border border-on-surface/[0.03] shadow-md hover:shadow-lg transition-shadow flex flex-col gap-4"
               >
+                {/* View button */}
                 <button
                   onClick={() => onViewReviewNote(note)}
                   title="Ver nota digitalizada"
@@ -163,9 +256,16 @@ export function LogisticsCenter({
                 >
                   <Pencil size={15} />
                 </button>
+
+                {/* Note info */}
                 <div className="flex items-start gap-3 pr-10">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                    <FileText size={20} />
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                    note.approved
+                      ? 'bg-emerald-500/10 text-emerald-600'
+                      : 'bg-amber-500/10 text-amber-600'
+                  )}>
+                    {note.approved ? <CheckCircle2 size={20} /> : <FileText size={20} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-black text-on-surface truncate">{note.fileName}</p>
@@ -180,11 +280,81 @@ export function LogisticsCenter({
                     </div>
                   </div>
                 </div>
+
+                {/* Approve button (only in revisoes section) */}
+                {activeSection === 'revisoes' && (
+                  <button
+                    onClick={() => setConfirmApproveId(note.id)}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-700 text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all active:scale-95"
+                  >
+                    <CheckCircle2 size={14} />
+                    Aprovar
+                  </button>
+                )}
+
+                {/* Approved badge */}
+                {activeSection === 'aprovados' && (
+                  <div className="flex items-center justify-center gap-2 w-full py-2 rounded-2xl bg-emerald-500/10 text-emerald-700 text-xs font-black uppercase tracking-widest">
+                    <CheckCircle2 size={14} />
+                    Aprovado
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Confirm Approve Dialog ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {confirmNote && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-on-surface/60 backdrop-blur-md"
+              onClick={() => setConfirmApproveId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              className="relative bg-surface-container-lowest rounded-[2rem] p-8 max-w-sm w-full shadow-2xl ring-1 ring-on-surface/5"
+            >
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <AlertTriangle size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-on-surface tracking-tight">Aprovar esta nota?</h3>
+                  <p className="text-sm text-on-surface/50 font-medium mt-1 leading-relaxed">
+                    <span className="font-bold text-on-surface">{confirmNote.fileName}</span> será movida para
+                    a seção <span className="font-bold text-emerald-600">Aprovados</span>. Essa ação não pode ser desfeita.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-7">
+                <button
+                  onClick={() => setConfirmApproveId(null)}
+                  className="flex-1 py-3 rounded-2xl font-black text-on-surface/40 hover:bg-on-surface/5 transition-all text-sm uppercase tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onApproveNote(confirmNote.id);
+                    setConfirmApproveId(null);
+                  }}
+                  className="flex-[2] py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  Confirmar Aprovação
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AddSupplierModal
         isOpen={showAddSupplier}

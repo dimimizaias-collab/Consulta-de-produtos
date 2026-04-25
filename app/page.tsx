@@ -629,8 +629,14 @@ export default function Page() {
         items: n.items,
         itemCount: n.item_count,
         verifiedCount: n.verified_count,
+        approved: n.approved ?? false,
       })));
     }
+  };
+
+  const handleApproveNote = async (noteId: string) => {
+    await supabase.from('review_notes').update({ approved: true }).eq('id', noteId);
+    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true } : n));
   };
 
   const fetchRequests = async () => {
@@ -2046,6 +2052,7 @@ export default function Page() {
                     setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                   }}
+                  onApproveNote={handleApproveNote}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
