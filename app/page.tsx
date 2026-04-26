@@ -4137,7 +4137,7 @@ export default function Page() {
                                 onChange={e => { const u = [...nfItemEans]; u[idx] = e.target.value; setNfItemEans(u); }}
                                 className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{nfItemEans[idx] ?? item.ean || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(nfItemEans[idx] ?? item.ean) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4">
@@ -4146,7 +4146,7 @@ export default function Page() {
                                 onChange={e => { const u = [...nfItemSkus]; u[idx] = e.target.value; setNfItemSkus(u); }}
                                 className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{nfItemSkus[idx] ?? item.sku || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(nfItemSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -4487,7 +4487,7 @@ export default function Page() {
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
                                 className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{viewingNoteEans[idx] ?? item.ean || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4">
@@ -4496,7 +4496,7 @@ export default function Page() {
                                 onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
                                 className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{viewingNoteSkus[idx] ?? item.sku || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
