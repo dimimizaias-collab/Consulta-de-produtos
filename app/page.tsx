@@ -3925,7 +3925,8 @@ export default function Page() {
                     <tr className="text-left border-b border-slate-100">
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Produto na Nota (Fornecedor)</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Identificação Interna (Traduzido)</th>
-                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU/EAN</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">EAN</th>
+                      <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">SKU</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Quant.</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4">Status</th>
                       <th className="pb-4 text-[10px] font-bold text-secondary uppercase tracking-widest pl-4 text-center">Verificação</th>
@@ -3952,10 +3953,10 @@ export default function Page() {
                           </div>
                         </td>
                         <td className="py-4 pl-4">
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku || '-'}</p>
-                            <p className="text-[10px] font-bold text-slate-400">EAN: {item.ean || '-'}</p>
-                          </div>
+                          <p className="text-[10px] font-bold text-slate-400">{item.ean || '-'}</p>
+                        </td>
+                        <td className="py-4 pl-4">
+                          <p className="text-[10px] font-bold text-slate-400">{item.sku || '-'}</p>
                         </td>
                         <td className="py-4 pl-4 text-center">
                           <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
@@ -4053,7 +4054,8 @@ export default function Page() {
                     <tr className="bg-slate-900 text-left">
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
@@ -4085,8 +4087,10 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">SKU: {item.sku || '-'}</p>
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">EAN: {item.ean || '-'}</p>
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.ean || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.sku || '-'}</p>
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
@@ -4359,7 +4363,8 @@ export default function Page() {
                     <tr className="bg-slate-900 text-left">
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU / EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">EAN</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
@@ -4393,8 +4398,10 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">SKU: {item.sku || '-'}</p>
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">EAN: {item.ean || '-'}</p>
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.ean || '-'}</p>
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.sku || '-'}</p>
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
