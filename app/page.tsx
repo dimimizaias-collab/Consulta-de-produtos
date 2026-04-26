@@ -288,6 +288,15 @@ export default function Page() {
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
   const [nfItemVerified, setNfItemVerified] = useState<boolean[]>([]);
+  const [nfItemEans, setNfItemEans] = useState<string[]>([]);
+  const [nfItemSkus, setNfItemSkus] = useState<string[]>([]);
+  const [nfItemQtys, setNfItemQtys] = useState<number[]>([]);
+  const [nfEditableCols, setNfEditableCols] = useState<Set<string>>(new Set());
+
+  const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
+  const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
+  const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
+  const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -1299,6 +1308,9 @@ export default function Page() {
 
       const itemsWithFinalPrices = pendingNfItems.map((item: any, idx: number) => ({
         ...item,
+        ean: nfItemEans[idx] ?? item.ean,
+        sku: nfItemSkus[idx] ?? item.sku,
+        qty: nfItemQtys[idx] ?? item.qty,
         price: nfItemPrices[idx] ?? item.price,
         product_price: nfItemSellPrices[idx] ?? item.product_price,
         verified: nfItemVerified[idx] ?? item.verified
@@ -1392,8 +1404,12 @@ export default function Page() {
         const processedItems: any[] = [];
 
         for (const row of (rawData as any[])) {
-          const sku = getVal(row, ['sku', 'codigo', 'cod', 'referencia', 'ref', 'código interno', 'codigo interno', 'id']);
-          const ean = getVal(row, ['ean', 'barras', 'barcode', 'codigo barras', 'gtin']);
+          const ean = getVal(row, ['ean', 'codigo ean', 'cod ean', 'ean13', 'gtin', 'barras', 'barcode', 'codigo barras', 'cod barras', 'codigo de barras']);
+          const rawSku = getVal(row, ['sku', 'codigo interno', 'cod interno', 'referencia', 'ref', 'internal code', 'codigo sku', 'cod sku', 'codigo', 'cod', 'id']);
+          // If nothing mapped to EAN but rawSku looks like a barcode (8, 12 or 13 digits), treat it as EAN
+          const looksLikeBarcode = /^\d{8}$|^\d{12}$|^\d{13}$/.test(rawSku.replace(/\s/g, ''));
+          const sku = (!ean && looksLikeBarcode) ? '' : rawSku;
+          const finalEan = (!ean && looksLikeBarcode) ? rawSku : ean;
           const description = getVal(row, ['desc', 'descricao', 'nome', 'produto', 'servico', 'descricao produto', 'descrição']);
           const unit = getVal(row, ['unidade', 'un', 'unid', 'emb', 'medida']);
           const qty = parseInt(getVal(row, ['qty', 'qtd', 'quantidade', 'entry', 'quant', 'movimento', 'entrada', 'unidades', 'qtde'], '0'));
@@ -1402,7 +1418,7 @@ export default function Page() {
           if (isNaN(qty) || qty <= 0) continue;
 
           // Try to find product by SKU, EAN or mapping
-          let product = currentProducts?.find(p => (sku && p.sku === sku) || (ean && p.ean === ean));
+          let product = currentProducts?.find(p => (sku && p.sku === sku) || (finalEan && p.ean === finalEan));
           let statusTranslation = 'Identificado (SKU/EAN)';
           let verified = !!product;
           
@@ -1451,7 +1467,7 @@ export default function Page() {
 
           processedItems.push({
             sku: product?.sku || sku || '',
-            ean: ean || product?.ean || '',
+            ean: finalEan || product?.ean || '',
             name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
             original_description: description,
             unit: unit || 'UN',
@@ -1471,6 +1487,10 @@ export default function Page() {
         setNfItemPrices(processedItems.map((i: any) => i.price || 0));
         setNfItemSellPrices(processedItems.map((i: any) => i.product_price || 0));
         setNfItemVerified(processedItems.map((i: any) => !!i.verified));
+        setNfItemEans([]);
+        setNfItemSkus([]);
+        setNfItemQtys([]);
+        setNfEditableCols(new Set());
         setShowNfDigitalizadaModal(true);
         setNotification({ type: 'success', message: `Nota digitalizada: ${processedItems.length} itens processados.` });
       } catch (err: any) {
@@ -2050,6 +2070,10 @@ export default function Page() {
                     setViewingReviewNote(note);
                     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
                     setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
+                    setViewingNoteEans([]);
+                    setViewingNoteSkus([]);
+                    setViewingNoteQtys([]);
+                    setReviewEditableCols(new Set());
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                   }}
                   onApproveNote={handleApproveNote}
@@ -4052,11 +4076,26 @@ export default function Page() {
                 <table className="w-full border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">EAN</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
+                      {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
+                        const editable = nfEditableCols.has(col);
+                        const canEdit = col !== 'Identificação Interna';
+                        return (
+                          <th key={col} className="py-3 px-4 text-[10px] font-bold uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5">
+                              <span className={editable ? 'text-emerald-400' : 'text-white'}>{col}</span>
+                              {canEdit && (
+                                <button
+                                  onClick={() => setNfEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                                  title={editable ? 'Bloquear coluna' : 'Editar coluna'}
+                                  className={cn('w-4 h-4 rounded flex items-center justify-center transition-colors', editable ? 'text-emerald-400 hover:text-emerald-200' : 'text-white/30 hover:text-white/70')}
+                                >
+                                  <Pencil size={9} />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
@@ -4074,7 +4113,13 @@ export default function Page() {
                       return (
                         <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
                           <td className="py-3 px-4">
-                            <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                            {nfEditableCols.has('Produto na Nota') ? (
+                              <input type="text" value={item.original_description || ''}
+                                onChange={e => { const u = [...pendingNfItems]; u[idx] = { ...u[idx], original_description: e.target.value }; setPendingNfItems(u); }}
+                                className="w-full text-sm font-semibold text-slate-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             {item.verified ? (
@@ -4087,13 +4132,31 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.ean || '-'}</p>
+                            {nfEditableCols.has('EAN') ? (
+                              <input type="text" value={nfItemEans[idx] ?? item.ean ?? ''}
+                                onChange={e => { const u = [...nfItemEans]; u[idx] = e.target.value; setNfItemEans(u); }}
+                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{nfItemEans[idx] ?? item.ean || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.sku || '-'}</p>
+                            {nfEditableCols.has('SKU') ? (
+                              <input type="text" value={nfItemSkus[idx] ?? item.sku ?? ''}
+                                onChange={e => { const u = [...nfItemSkus]; u[idx] = e.target.value; setNfItemSkus(u); }}
+                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{nfItemSkus[idx] ?? item.sku || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                            {nfEditableCols.has('Qtd.') ? (
+                              <input type="number" min="0" value={nfItemQtys[idx] ?? item.qty}
+                                onChange={e => { const u = [...nfItemQtys]; u[idx] = parseInt(e.target.value) || 0; setNfItemQtys(u); }}
+                                className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{nfItemQtys[idx] ?? item.qty}</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -4361,11 +4424,26 @@ export default function Page() {
                 <table className="w-full min-w-[960px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Produto na Nota</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Identificação Interna</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">EAN</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">SKU</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Qtd.</th>
+                      {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
+                        const editable = reviewEditableCols.has(col);
+                        const canEdit = col !== 'Identificação Interna';
+                        return (
+                          <th key={col} className="py-3 px-4 text-[10px] font-bold uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5">
+                              <span className={editable ? 'text-emerald-400' : 'text-white'}>{col}</span>
+                              {canEdit && (
+                                <button
+                                  onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                                  title={editable ? 'Bloquear coluna' : 'Editar coluna'}
+                                  className={cn('w-4 h-4 rounded flex items-center justify-center transition-colors', editable ? 'text-emerald-400 hover:text-emerald-200' : 'text-white/30 hover:text-white/70')}
+                                >
+                                  <Pencil size={9} />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
@@ -4385,7 +4463,13 @@ export default function Page() {
                       return (
                         <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
                           <td className="py-3 px-4">
-                            <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                            {reviewEditableCols.has('Produto na Nota') ? (
+                              <input type="text" value={item.original_description || ''}
+                                onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                className="w-full text-sm font-semibold text-slate-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             {item.verified ? (
@@ -4398,13 +4482,31 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.ean || '-'}</p>
+                            {reviewEditableCols.has('EAN') ? (
+                              <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
+                                onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
+                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{viewingNoteEans[idx] ?? item.ean || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="text-[11px] font-bold text-slate-400 leading-tight">{item.sku || '-'}</p>
+                            {reviewEditableCols.has('SKU') ? (
+                              <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
+                                onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
+                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{viewingNoteSkus[idx] ?? item.sku || '-'}</p>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{item.qty}</span>
+                            {reviewEditableCols.has('Qtd.') ? (
+                              <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            ) : (
+                              <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{viewingNoteQtys[idx] ?? item.qty}</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <span className="text-sm font-bold text-slate-800">
@@ -4506,6 +4608,9 @@ export default function Page() {
                       try {
                         const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
                           ...item,
+                          ean: viewingNoteEans[idx] ?? item.ean,
+                          sku: viewingNoteSkus[idx] ?? item.sku,
+                          qty: viewingNoteQtys[idx] ?? item.qty,
                           product_price: viewingNoteSellPrices[idx] ?? item.product_price,
                           verified: viewingNoteVerified[idx] ?? item.verified,
                           review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
