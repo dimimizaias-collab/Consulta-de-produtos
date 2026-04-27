@@ -286,6 +286,25 @@ export default function Page() {
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
+  // Discount/surcharge column states
+  type AdjType = 'pct' | 'fixed';
+  type AdjMode = 'none' | 'geral' | 'individual';
+  const [discountDropdown, setDiscountDropdown] = useState(false);
+  const [discountDialog, setDiscountDialog] = useState<'geral' | 'individual' | null>(null);
+  const [discountMode, setDiscountMode] = useState<AdjMode>('none');
+  const [discountGeralValue, setDiscountGeralValue] = useState('');
+  const [discountGeralType, setDiscountGeralType] = useState<AdjType>('pct');
+  const [discountApplied, setDiscountApplied] = useState<{ value: number; type: AdjType } | null>(null);
+  const [discountIndividualType, setDiscountIndividualType] = useState<AdjType>('pct');
+  const [itemDiscounts, setItemDiscounts] = useState<string[]>([]);
+  const [surchargeDropdown, setSurchargeDropdown] = useState(false);
+  const [surchargeDialog, setSurchargeDialog] = useState<'geral' | 'individual' | null>(null);
+  const [surchargeMode, setSurchargeMode] = useState<AdjMode>('none');
+  const [surchargeGeralValue, setSurchargeGeralValue] = useState('');
+  const [surchargeGeralType, setSurchargeGeralType] = useState<AdjType>('pct');
+  const [surchargeApplied, setSurchargeApplied] = useState<{ value: number; type: AdjType } | null>(null);
+  const [surchargeIndividualType, setSurchargeIndividualType] = useState<AdjType>('pct');
+  const [itemSurcharges, setItemSurcharges] = useState<string[]>([]);
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
   const [nfItemVerified, setNfItemVerified] = useState<boolean[]>([]);
@@ -2076,6 +2095,8 @@ export default function Page() {
                     setViewingNoteQtys([]);
                     setReviewEditableCols(new Set());
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
+                    setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); setDiscountDropdown(false); setDiscountDialog(null);
+                    setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); setSurchargeDropdown(false); setSurchargeDialog(null);
                   }}
                   onApproveNote={handleApproveNote}
                 />
@@ -4422,7 +4443,7 @@ export default function Page() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full min-w-[1500px] border-collapse">
+                <table className="w-full min-w-[1800px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
                       {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
@@ -4447,6 +4468,42 @@ export default function Page() {
                       })}
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Valor Total</th>
+                      {/* Desconto header */}
+                      <th className="py-3 px-4 text-right relative">
+                        <button
+                          onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
+                          className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-red-300 transition-colors"
+                        >
+                          Desconto
+                          <ChevronDown size={10} className={cn("transition-transform", discountDropdown && "rotate-180")} />
+                          {discountMode !== 'none' && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
+                        </button>
+                        {discountDropdown && (
+                          <div className="absolute right-0 top-full mt-1 z-[200] bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden min-w-[150px]">
+                            <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">Geral</button>
+                            <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-50">Individual</button>
+                            {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100">Limpar</button>}
+                          </div>
+                        )}
+                      </th>
+                      {/* Acréscimo header */}
+                      <th className="py-3 px-4 text-right relative">
+                        <button
+                          onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
+                          className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-green-300 transition-colors"
+                        >
+                          Acréscimo
+                          <ChevronDown size={10} className={cn("transition-transform", surchargeDropdown && "rotate-180")} />
+                          {surchargeMode !== 'none' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
+                        </button>
+                        {surchargeDropdown && (
+                          <div className="absolute right-0 top-full mt-1 z-[200] bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden min-w-[150px]">
+                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">Geral</button>
+                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-50">Individual</button>
+                            {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100">Limpar</button>}
+                          </div>
+                        )}
+                      </th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
@@ -4521,6 +4578,44 @@ export default function Page() {
                             <span className="text-sm font-bold text-slate-700">
                               {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : <span className="text-slate-300">—</span>}
                             </span>
+                          </td>
+                          {/* Desconto cell */}
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {discountMode === 'geral' && discountApplied ? (
+                              <span className="text-red-600 font-bold text-sm">
+                                - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
+                              </span>
+                            ) : discountMode === 'individual' ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-[10px] text-slate-400 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={itemDiscounts[idx] ?? ''}
+                                  onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
+                                  placeholder="0"
+                                  className="w-16 text-right text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1 focus:outline-none focus:border-red-300 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                />
+                              </div>
+                            ) : <span className="text-slate-300 text-sm">—</span>}
+                          </td>
+                          {/* Acréscimo cell */}
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {surchargeMode === 'geral' && surchargeApplied ? (
+                              <span className="text-green-600 font-bold text-sm">
+                                + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
+                              </span>
+                            ) : surchargeMode === 'individual' ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-[10px] text-slate-400 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={itemSurcharges[idx] ?? ''}
+                                  onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
+                                  placeholder="0"
+                                  className="w-16 text-right text-sm font-bold text-green-600 bg-green-50 border border-green-100 rounded-lg px-2 py-1 focus:outline-none focus:border-green-300 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                />
+                              </div>
+                            ) : <span className="text-slate-300 text-sm">—</span>}
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <input
@@ -4695,6 +4790,99 @@ export default function Page() {
                   </button>
                 </div>
               </div>
+
+              {/* Desconto Geral dialog */}
+              {discountDialog === 'geral' && (
+                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
+                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
+                    <h4 className="text-base font-black text-slate-900 mb-1">Desconto Geral</h4>
+                    <p className="text-xs text-slate-400 mb-4">Aplicado a todos os itens da nota</p>
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input type="number" min="0" step="0.01" value={discountGeralValue} onChange={e => setDiscountGeralValue(e.target.value)} placeholder="0" autoFocus
+                          className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" />
+                        <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                          <button onClick={() => setDiscountGeralType('pct')} className={cn("px-4 text-sm font-black transition-colors", discountGeralType === 'pct' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>%</button>
+                          <button onClick={() => setDiscountGeralType('fixed')} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", discountGeralType === 'fixed' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>R$</button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                        <button onClick={() => { const v = parseFloat(discountGeralValue); if (!isNaN(v) && v > 0) { setDiscountApplied({ value: v, type: discountGeralType }); setDiscountMode('geral'); } setDiscountDialog(null); }}
+                          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Desconto Individual dialog */}
+              {discountDialog === 'individual' && (
+                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
+                  <div className="bg-white rounded-2xl p-6 w-72 shadow-2xl">
+                    <h4 className="text-base font-black text-slate-900 mb-1">Desconto Individual</h4>
+                    <p className="text-xs text-slate-400 mb-5">Escolha o tipo de valor para cada item</p>
+                    <div className="flex gap-3 mb-5">
+                      <button onClick={() => setDiscountIndividualType('pct')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                        <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
+                      </button>
+                      <button onClick={() => setDiscountIndividualType('fixed')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                        <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                      <button onClick={() => { setDiscountMode('individual'); if (viewingReviewNote) setItemDiscounts(new Array(viewingReviewNote.items.length).fill('')); setDiscountDialog(null); }}
+                        className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Confirmar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Acréscimo Geral dialog */}
+              {surchargeDialog === 'geral' && (
+                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
+                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
+                    <h4 className="text-base font-black text-slate-900 mb-1">Acréscimo Geral</h4>
+                    <p className="text-xs text-slate-400 mb-4">Aplicado a todos os itens da nota</p>
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input type="number" min="0" step="0.01" value={surchargeGeralValue} onChange={e => setSurchargeGeralValue(e.target.value)} placeholder="0" autoFocus
+                          className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" />
+                        <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                          <button onClick={() => setSurchargeGeralType('pct')} className={cn("px-4 text-sm font-black transition-colors", surchargeGeralType === 'pct' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>%</button>
+                          <button onClick={() => setSurchargeGeralType('fixed')} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", surchargeGeralType === 'fixed' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>R$</button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                        <button onClick={() => { const v = parseFloat(surchargeGeralValue); if (!isNaN(v) && v > 0) { setSurchargeApplied({ value: v, type: surchargeGeralType }); setSurchargeMode('geral'); } setSurchargeDialog(null); }}
+                          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Acréscimo Individual dialog */}
+              {surchargeDialog === 'individual' && (
+                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
+                  <div className="bg-white rounded-2xl p-6 w-72 shadow-2xl">
+                    <h4 className="text-base font-black text-slate-900 mb-1">Acréscimo Individual</h4>
+                    <p className="text-xs text-slate-400 mb-5">Escolha o tipo de valor para cada item</p>
+                    <div className="flex gap-3 mb-5">
+                      <button onClick={() => setSurchargeIndividualType('pct')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                        <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
+                      </button>
+                      <button onClick={() => setSurchargeIndividualType('fixed')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                        <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                      <button onClick={() => { setSurchargeMode('individual'); if (viewingReviewNote) setItemSurcharges(new Array(viewingReviewNote.items.length).fill('')); setSurchargeDialog(null); }}
+                        className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Confirmar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
