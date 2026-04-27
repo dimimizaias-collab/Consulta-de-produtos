@@ -50,6 +50,7 @@ interface Mapping {
 interface UnitConversion {
   id: string;
   product_id: string;
+  supplier_id?: string;
   unit_name: string;
   multiplier: number;
   products?: {
@@ -57,6 +58,9 @@ interface UnitConversion {
     sku: string;
     ean: string;
     image: string;
+  };
+  suppliers?: {
+    name: string;
   };
 }
 
@@ -109,6 +113,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [activeTab, setActiveTab] = useState<'mappings' | 'units'>('mappings');
   const [unitConversions, setUnitConversions] = useState<UnitConversion[]>([]);
   const [selectedUnitProduct, setSelectedUnitProduct] = useState<Product | null>(null);
+  const [selectedUnitSupplierId, setSelectedUnitSupplierId] = useState<string>('');
   const [unitName, setUnitName] = useState('');
   const [unitMultiplier, setUnitMultiplier] = useState('1');
   const [isAddingUnit, setIsAddingUnit] = useState(false);
@@ -358,7 +363,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     try {
       const { data, error } = await supabase
         .from('supplier_units')
-        .select('*, products(name, sku, ean, image)');
+        .select('*, products(name, sku, ean, image), suppliers(name)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setUnitConversions(data || []);
     } catch (err: any) {
@@ -377,15 +383,17 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
         .from('supplier_units')
         .insert([{
           product_id: selectedUnitProduct.id,
+          supplier_id: selectedUnitSupplierId || null,
           unit_name: unitName.trim().toUpperCase(),
           multiplier: parseFloat(unitMultiplier)
         }]);
       if (error) throw error;
-      
+
       setNotification({ type: 'success', message: 'Conversão de unidade salva!' });
       setUnitName('');
       setUnitMultiplier('1');
       setSelectedUnitProduct(null);
+      setSelectedUnitSupplierId('');
       fetchUnitConversions();
     } catch (err: any) {
       setNotification({ type: 'error', message: `Erro ao salvar unidade: ${err.message}` });
@@ -631,14 +639,14 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                       )}
                     </>
                   ) : (
-                    <div className="space-y-10">
+                    <div className="space-y-8">
                        <div className="space-y-4">
-                          <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">1. Vincular ao Produto</label>
+                          <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">1. Produto</label>
                           {!selectedUnitProduct ? (
                              <div className="space-y-4">
                                 <div className="relative group">
-                                  <input 
-                                    type="text" 
+                                  <input
+                                    type="text"
                                     value={supplierMappingSearchQuery}
                                     onChange={(e) => setSupplierMappingSearchQuery(e.target.value)}
                                     onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()}
@@ -649,7 +657,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                 </div>
                                 <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                   {supplierMappingSearchResults.map(p => (
-                                    <button 
+                                    <button
                                       key={p.id}
                                       onClick={() => {
                                         setSelectedUnitProduct(p);
@@ -677,24 +685,38 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           )}
                        </div>
 
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">2. Fornecedor</label>
+                          <div className="relative group">
+                            <select
+                              value={selectedUnitSupplierId}
+                              onChange={(e) => setSelectedUnitSupplierId(e.target.value)}
+                              className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 appearance-none font-bold text-on-surface transition-all shadow-sm"
+                            >
+                              <option value="">Todos os fornecedores</option>
+                              {supplierNames.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface/20 pointer-events-none group-focus-within:text-primary transition-colors" />
+                          </div>
+                       </div>
+
                        <div className="grid grid-cols-2 gap-6">
                           <div className="space-y-2">
-                             <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">2. Unidade (Ex: CX)</label>
-                             <div className="flex items-center gap-2">
-                               <input 
-                                 type="text" 
-                                 value={unitName}
-                                 onChange={(e) => setUnitName(e.target.value)}
-                                 placeholder="CX, PT, FD..."
-                                 className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm font-black"
-                               />
-                               <button className="p-4 bg-on-surface/5 rounded-2xl text-on-surface/40"><Plus size={20} /></button>
-                             </div>
+                             <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">3. Unidade (Ex: CX)</label>
+                             <input
+                               type="text"
+                               value={unitName}
+                               onChange={(e) => setUnitName(e.target.value)}
+                               placeholder="CX, PT, FD..."
+                               className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm font-black"
+                             />
                           </div>
                           <div className="space-y-2">
-                             <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">3. Qtd nesta Unidade</label>
-                             <input 
-                               type="number" 
+                             <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">4. Qtd Real</label>
+                             <input
+                               type="number"
                                value={unitMultiplier}
                                onChange={(e) => setUnitMultiplier(e.target.value)}
                                placeholder="Ex: 12"
@@ -703,7 +725,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           </div>
                        </div>
 
-                       <button 
+                       <button
                         disabled={!selectedUnitProduct || !unitName.trim() || isAddingUnit}
                         onClick={handleAddUnitConversion}
                         className="w-full bg-primary text-white font-black py-5 rounded-[1.5rem] hover:bg-on-surface transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-30 uppercase tracking-[0.2em] text-sm"
@@ -789,27 +811,57 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Nenhuma Conversão</p>
                         </div>
                       ) : (
-                        unitConversions.map(conversion => (
-                          <div key={conversion.id} className="bg-surface-container-lowest p-6 rounded-[2rem] border border-on-surface/[0.03] shadow-sm flex items-center gap-6 group hover:border-amber-300 transition-all relative">
-                            <div className="w-12 h-12 bg-amber-50 rounded-xl overflow-hidden border border-amber-100 flex items-center justify-center">
-                              <ProductImage src={conversion.products?.image || ''} alt={conversion.products?.name || ''} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                               <p className="text-sm font-black text-on-surface truncate">{conversion.products?.name}</p>
-                               <div className="flex items-center gap-2 mt-1">
-                                  <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-black">1 {conversion.unit_name}</span>
-                                  <ArrowRight size={10} className="text-on-surface/20" />
-                                  <span className="text-[10px] font-bold text-on-surface/40">{conversion.multiplier} UNIDADE(S)</span>
-                               </div>
-                            </div>
-                            <button 
-                              onClick={() => handleDeleteUnit(conversion.id)}
-                              className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-lg shrink-0"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        ))
+                        <div className="overflow-x-auto -mx-10 px-10">
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="border-b border-on-surface/[0.06]">
+                                <th className="text-left text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] pb-3 pr-3">Produto</th>
+                                <th className="text-left text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] pb-3 pr-3">Fornecedor</th>
+                                <th className="text-center text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] pb-3 pr-3">Unidade</th>
+                                <th className="text-center text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] pb-3 pr-3">Qtd Real</th>
+                                <th className="pb-3 w-8" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {unitConversions.map((conversion, i) => (
+                                <tr
+                                  key={conversion.id}
+                                  className={cn(
+                                    "group border-b border-on-surface/[0.03] hover:bg-amber-50/40 transition-colors",
+                                    i % 2 === 0 ? "bg-surface-container-lowest" : "bg-surface-container-low/20"
+                                  )}
+                                >
+                                  <td className="py-2.5 pr-3">
+                                    <span className="font-bold text-on-surface truncate block max-w-[140px]" title={conversion.products?.name}>
+                                      {conversion.products?.name ?? '—'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 pr-3">
+                                    <span className="text-on-surface/50 font-medium truncate block max-w-[110px]" title={conversion.suppliers?.name}>
+                                      {conversion.suppliers?.name ?? <span className="italic text-on-surface/20">Todos</span>}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 pr-3 text-center">
+                                    <span className="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-lg text-[11px] font-black inline-block">
+                                      {conversion.unit_name}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 pr-3 text-center">
+                                    <span className="font-black text-primary">{conversion.multiplier}</span>
+                                  </td>
+                                  <td className="py-2.5 text-right">
+                                    <button
+                                      onClick={() => handleDeleteUnit(conversion.id)}
+                                      className="w-7 h-7 rounded-lg bg-red-50 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white ml-auto"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       )
                     )}
                   </div>
