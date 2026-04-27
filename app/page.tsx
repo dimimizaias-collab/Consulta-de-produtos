@@ -4422,7 +4422,7 @@ export default function Page() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full min-w-[960px] border-collapse">
+                <table className="w-full min-w-[1500px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
                       {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
@@ -4466,44 +4466,44 @@ export default function Page() {
                       const isEven = idx % 2 === 0;
                       return (
                         <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 max-w-[220px]">
                             {reviewEditableCols.has('Produto na Nota') ? (
                               <input type="text" value={item.original_description || ''}
                                 onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                 className="w-full text-sm font-semibold text-slate-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-sm font-semibold text-slate-800">{item.original_description || '-'}</p>
+                              <p className="text-sm font-semibold text-slate-800 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 max-w-[220px]">
                             {item.verified ? (
                               <div className="flex items-center gap-2">
                                 <ArrowRight size={13} className="text-primary shrink-0" />
-                                <p className="text-sm font-black text-primary">{item.name}</p>
+                                <p className="text-sm font-black text-primary truncate" title={item.name}>{item.name}</p>
                               </div>
                             ) : (
-                              <p className="text-xs font-medium text-red-400 italic">Cadastro pendente</p>
+                              <p className="text-xs font-medium text-red-400 italic whitespace-nowrap">Cadastro pendente</p>
                             )}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             {reviewEditableCols.has('EAN') ? (
                               <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
-                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-36 text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             {reviewEditableCols.has('SKU') ? (
                               <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
                                 onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
-                                className="w-full text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-28 text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400 leading-tight">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
+                              <p className="text-[11px] font-bold text-slate-400">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             {reviewEditableCols.has('Qtd.') ? (
                               <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
                                 onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
@@ -4512,17 +4512,17 @@ export default function Page() {
                               <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{viewingNoteQtys[idx] ?? item.qty}</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
                             <span className="text-sm font-bold text-slate-800">
                               {cost > 0 ? `R$ ${cost.toFixed(2)}` : <span className="text-slate-300">—</span>}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
                             <span className="text-sm font-bold text-slate-700">
                               {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : <span className="text-slate-300">—</span>}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
                             <input
                               type="number"
                               min="0"
@@ -4537,7 +4537,7 @@ export default function Page() {
                               className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
                             {markup !== null ? (
                               <span className={cn(
                                 "inline-block px-2 py-1 rounded-lg text-xs font-black",
@@ -4549,7 +4549,7 @@ export default function Page() {
                               <span className="text-xs text-slate-300 font-bold">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             <span className={cn(
                               "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
                               item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
@@ -4604,10 +4604,19 @@ export default function Page() {
               </div>
 
               <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
-                <div className="text-sm text-slate-500">
+                <div className="text-sm text-slate-500 flex items-center gap-2 flex-wrap">
                   Total: <span className="font-bold text-slate-900">{viewingReviewNote.itemCount} itens</span>
-                  <span className="mx-2 text-slate-300">·</span>
+                  <span className="text-slate-300">·</span>
                   <span className="font-bold text-green-700">{viewingNoteVerified.filter(Boolean).length} verificados</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-500">Valor total da nota:</span>
+                  <span className="font-black text-slate-900">
+                    {`R$ ${viewingReviewNote.items.reduce((sum: number, item: any, idx: number) => {
+                      const unitCost = (item.price || 0) / (item.multiplier || 1);
+                      const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                      return sum + unitCost * qty;
+                    }, 0).toFixed(2)}`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
