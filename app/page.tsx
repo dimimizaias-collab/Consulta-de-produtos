@@ -4446,6 +4446,7 @@ export default function Page() {
                         );
                       })}
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Valor Total</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
@@ -4455,7 +4456,9 @@ export default function Page() {
                   </thead>
                   <tbody>
                     {viewingReviewNote.items.map((item: any, idx: number) => {
-                      const cost = item.price || 0;
+                      const cost = (item.price || 0) / (item.multiplier || 1);
+                      const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                      const totalValue = cost * displayQty;
                       const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
                       const markup = cost > 0 && sellPrice > 0
                         ? ((sellPrice - cost) / cost * 100)
@@ -4512,6 +4515,11 @@ export default function Page() {
                           <td className="py-3 px-4 text-right">
                             <span className="text-sm font-bold text-slate-800">
                               {cost > 0 ? `R$ ${cost.toFixed(2)}` : <span className="text-slate-300">—</span>}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="text-sm font-bold text-slate-700">
+                              {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : <span className="text-slate-300">—</span>}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
