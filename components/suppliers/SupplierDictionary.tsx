@@ -117,6 +117,9 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [unitName, setUnitName] = useState('');
   const [unitMultiplier, setUnitMultiplier] = useState('1');
   const [isAddingUnit, setIsAddingUnit] = useState(false);
+  const [unitSearchQuery, setUnitSearchQuery] = useState('');
+  const [unitSearchType, setUnitSearchType] = useState<'name' | 'ean' | 'sku' | 'brand'>('name');
+  const [unitSearchResults, setUnitSearchResults] = useState<Product[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -357,6 +360,21 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     } catch (err) {
       setNotification({ type: 'error', message: 'Erro ao remover mapeamento.' });
     }
+  };
+
+  const handleUnitSearch = async (query: string, type: 'name' | 'ean' | 'sku' | 'brand') => {
+    if (!query.trim()) {
+      setUnitSearchResults([]);
+      return;
+    }
+    const columnMap = { name: 'name', ean: 'ean', sku: 'sku', brand: 'brand' } as const;
+    const col = columnMap[type];
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, sku, ean, image')
+      .ilike(col, `%${query}%`)
+      .limit(10);
+    if (!error) setUnitSearchResults(data || []);
   };
 
   const fetchUnitConversions = async () => {
@@ -640,47 +658,80 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                     </>
                   ) : (
                     <div className="space-y-8">
-                       <div className="space-y-4">
+                       <div className="space-y-3">
                           <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">1. Produto</label>
                           {!selectedUnitProduct ? (
-                             <div className="space-y-4">
+                             <div className="space-y-3">
+                                {/* Search type selector */}
+                                <div className="flex gap-1.5 bg-surface-container-low rounded-2xl p-1.5">
+                                  {([
+                                    { key: 'name',  label: 'Descrição' },
+                                    { key: 'ean',   label: 'EAN' },
+                                    { key: 'sku',   label: 'SKU' },
+                                    { key: 'brand', label: 'Marca' },
+                                  ] as const).map(opt => (
+                                    <button
+                                      key={opt.key}
+                                      onClick={() => {
+                                        setUnitSearchType(opt.key);
+                                        if (unitSearchQuery.trim()) handleUnitSearch(unitSearchQuery, opt.key);
+                                      }}
+                                      className={cn(
+                                        "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
+                                        unitSearchType === opt.key
+                                          ? "bg-surface-container-lowest text-primary shadow-sm"
+                                          : "text-on-surface/30 hover:text-on-surface/60"
+                                      )}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                {/* Search input */}
                                 <div className="relative group">
                                   <input
                                     type="text"
-                                    value={supplierMappingSearchQuery}
-                                    onChange={(e) => setSupplierMappingSearchQuery(e.target.value)}
-                                    onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()}
-                                    placeholder="Buscar produto para conversão..."
+                                    value={unitSearchQuery}
+                                    onChange={(e) => {
+                                      setUnitSearchQuery(e.target.value);
+                                      handleUnitSearch(e.target.value, unitSearchType);
+                                    }}
+                                    placeholder={
+                                      unitSearchType === 'name'  ? 'Nome do produto...' :
+                                      unitSearchType === 'ean'   ? 'Código EAN...' :
+                                      unitSearchType === 'sku'   ? 'Código SKU...' :
+                                                                   'Marca do produto...'
+                                    }
                                     className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl pl-14 pr-6 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
                                   />
-                                  <Search size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface/20" />
+                                  <Search size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface/20 group-focus-within:text-primary transition-colors" />
                                 </div>
-                                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                  {supplierMappingSearchResults.map(p => (
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                  {unitSearchResults.map(p => (
                                     <button
                                       key={p.id}
                                       onClick={() => {
                                         setSelectedUnitProduct(p);
-                                        setSupplierMappingSearchResults([]);
-                                        setSupplierMappingSearchQuery('');
+                                        setUnitSearchResults([]);
+                                        setUnitSearchQuery('');
                                       }}
                                       className="w-full flex items-center gap-4 p-4 rounded-2xl border border-on-surface/[0.03] hover:border-primary/20 hover:bg-primary/5 transition-all text-left bg-surface-container-lowest shadow-sm"
                                     >
-                                      <div className="w-10 h-10 bg-surface-container-low rounded-xl overflow-hidden">
+                                      <div className="w-10 h-10 bg-surface-container-low rounded-xl overflow-hidden shrink-0">
                                         <ProductImage src={p.image} alt={p.name} />
                                       </div>
-                                      <p className="text-sm font-black text-on-surface">{p.name}</p>
+                                      <p className="text-sm font-black text-on-surface truncate">{p.name}</p>
                                     </button>
                                   ))}
                                 </div>
                              </div>
                           ) : (
                             <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl relative group">
-                                <div className="w-12 h-12 bg-background rounded-xl overflow-hidden border border-primary/10">
+                                <div className="w-12 h-12 bg-background rounded-xl overflow-hidden border border-primary/10 shrink-0">
                                   <ProductImage src={selectedUnitProduct.image} alt={selectedUnitProduct.name} />
                                 </div>
-                                <p className="text-sm font-black text-primary flex-1">{selectedUnitProduct.name}</p>
-                                <button onClick={() => setSelectedUnitProduct(null)} className="text-primary/40 hover:text-primary"><X size={16} /></button>
+                                <p className="text-sm font-black text-primary flex-1 truncate">{selectedUnitProduct.name}</p>
+                                <button onClick={() => { setSelectedUnitProduct(null); setUnitSearchQuery(''); setUnitSearchResults([]); }} className="text-primary/40 hover:text-primary shrink-0"><X size={16} /></button>
                             </div>
                           )}
                        </div>
