@@ -2095,8 +2095,39 @@ export default function Page() {
                     setViewingNoteQtys([]);
                     setReviewEditableCols(new Set());
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
-                    setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); setDiscountDropdown(false); setDiscountDialog(null);
-                    setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); setSurchargeDropdown(false); setSurchargeDialog(null);
+                    const fi = note.items[0] as any;
+                    const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
+                    setDiscountMode(savedDiscountMode);
+                    if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
+                      setDiscountApplied(fi.adj_discount_applied);
+                      setDiscountGeralValue(String(fi.adj_discount_applied.value));
+                      setDiscountGeralType(fi.adj_discount_applied.type);
+                    } else {
+                      setDiscountApplied(null);
+                    }
+                    if (savedDiscountMode === 'individual') {
+                      setDiscountIndividualType(fi?.adj_discount_individual_type ?? 'pct');
+                      setItemDiscounts(note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : ''));
+                    } else {
+                      setItemDiscounts([]);
+                    }
+                    setDiscountDropdown(false); setDiscountDialog(null);
+                    const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
+                    setSurchargeMode(savedSurchargeMode);
+                    if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
+                      setSurchargeApplied(fi.adj_surcharge_applied);
+                      setSurchargeGeralValue(String(fi.adj_surcharge_applied.value));
+                      setSurchargeGeralType(fi.adj_surcharge_applied.type);
+                    } else {
+                      setSurchargeApplied(null);
+                    }
+                    if (savedSurchargeMode === 'individual') {
+                      setSurchargeIndividualType(fi?.adj_surcharge_individual_type ?? 'pct');
+                      setItemSurcharges(note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : ''));
+                    } else {
+                      setItemSurcharges([]);
+                    }
+                    setSurchargeDropdown(false); setSurchargeDialog(null);
                   }}
                   onApproveNote={handleApproveNote}
                 />
@@ -4727,6 +4758,14 @@ export default function Page() {
                           product_price: viewingNoteSellPrices[idx] ?? item.product_price,
                           verified: viewingNoteVerified[idx] ?? item.verified,
                           review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+                          adj_discount_mode: discountMode,
+                          adj_discount_applied: discountMode === 'geral' ? discountApplied : null,
+                          adj_discount_individual_type: discountIndividualType,
+                          adj_discount_value: discountMode === 'individual' ? (parseFloat(itemDiscounts[idx] ?? '') || null) : null,
+                          adj_surcharge_mode: surchargeMode,
+                          adj_surcharge_applied: surchargeMode === 'geral' ? surchargeApplied : null,
+                          adj_surcharge_individual_type: surchargeIndividualType,
+                          adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
                         }));
                         const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
                         await supabase.from('review_notes').update({
