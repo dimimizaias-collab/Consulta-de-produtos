@@ -1179,16 +1179,46 @@ export default function Page() {
     }
   };
 
-  const exportTranslatedToExcel = (items: any[]) => {
-    const ws = XLSX.utils.json_to_sheet(items.map(item => {
+  const exportTranslatedToExcel = (items: any[], adj?: {
+    discountMode: string; discountApplied: { value: number; type: string } | null;
+    discountIndividualType: string; itemDiscounts: string[];
+    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
+    surchargeIndividualType: string; itemSurcharges: string[];
+  }) => {
+    type AdjCfg = {
+      discountMode: string; discountApplied: { value: number; type: string } | null;
+      discountIndividualType: string; itemDiscounts: string[];
+      surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
+      surchargeIndividualType: string; itemSurcharges: string[];
+    };
+    const calcAdjCost = (cost: number, idx: number, adj?: AdjCfg) => {
+      if (!adj) return cost;
+      let disc = 0;
+      if (adj.discountMode === 'geral' && adj.discountApplied) {
+        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
+      } else if (adj.discountMode === 'individual') {
+        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
+        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      let sur = 0;
+      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
+        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
+      } else if (adj.surchargeMode === 'individual') {
+        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
+        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      return cost - disc + sur;
+    };
+
+    const ws = XLSX.utils.json_to_sheet(items.map((item, idx) => {
       const isTranslated = item.verified;
       const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
-      const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
-      const displayPriceTotal = item.price * (item.original_qty || 1);
+      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      const adjCost = calcAdjCost(rawCost, idx, adj);
+      const displayPriceTotal = adjCost * displayQty;
 
-      const cost = displayPriceUn;
       const sell = item.product_price ?? 0;
-      const markup = cost > 0 && sell > 0 ? ((sell - cost) / cost * 100) : null;
+      const markup = adjCost > 0 && sell > 0 ? ((sell - adjCost) / adjCost * 100) : null;
 
       return {
         'Código (SKU)': item.sku || '-',
@@ -1196,8 +1226,8 @@ export default function Page() {
         'Produto Interno': item.name || 'NÃO MAPEADO',
         'Descrição Fornecedor': item.original_description || '-',
         'Quantidade': displayQty,
-        'Preço Un.': displayPriceUn,
-        'Preço Total': displayPriceTotal,
+        'Preço Un.': parseFloat(adjCost.toFixed(2)),
+        'Preço Total': parseFloat(displayPriceTotal.toFixed(2)),
         'Preço de Venda': sell,
         'Markup (%)': markup !== null ? parseFloat(markup.toFixed(2)) : '-',
       };
@@ -1207,26 +1237,51 @@ export default function Page() {
     XLSX.writeFile(wb, "nota_traduzida.xlsx");
   };
 
-  const exportTranslatedToPDF = (items: any[]) => {
-    const doc = new jsPDF();
-    const formatCurrency = (val: number) => 
+  const exportTranslatedToPDF = (items: any[], adj?: {
+    discountMode: string; discountApplied: { value: number; type: string } | null;
+    discountIndividualType: string; itemDiscounts: string[];
+    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
+    surchargeIndividualType: string; itemSurcharges: string[];
+  }) => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const formatCurrency = (val: number) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+    const calcCost = (cost: number, idx: number) => {
+      if (!adj) return cost;
+      let disc = 0;
+      if (adj.discountMode === 'geral' && adj.discountApplied) {
+        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
+      } else if (adj.discountMode === 'individual') {
+        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
+        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      let sur = 0;
+      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
+        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
+      } else if (adj.surchargeMode === 'individual') {
+        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
+        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      return cost - disc + sur;
+    };
+
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
     doc.text("Relatório de Tradução de Nota", 14, 15);
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
-    
-    const tableData = items.map(item => {
+
+    const tableData = items.map((item, idx) => {
       const isTranslated = item.verified;
       const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
-      const displayPriceUn = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
-      const displayPriceTotal = item.price * (item.original_qty || 1);
+      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      const adjCost = calcCost(rawCost, idx);
+      const displayPriceTotal = adjCost * displayQty;
 
-      const cost = displayPriceUn;
       const sell = item.product_price ?? 0;
-      const markup = cost > 0 && sell > 0 ? ((sell - cost) / cost * 100) : null;
+      const markup = adjCost > 0 && sell > 0 ? ((sell - adjCost) / adjCost * 100) : null;
       const markupStr = markup !== null ? `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%` : '-';
 
       return [
@@ -1235,7 +1290,7 @@ export default function Page() {
         item.name || 'NÃO MAPEADO',
         item.original_description || '-',
         displayQty.toString(),
-        formatCurrency(displayPriceUn),
+        formatCurrency(adjCost),
         formatCurrency(displayPriceTotal),
         formatCurrency(sell),
         markupStr,
@@ -1243,22 +1298,22 @@ export default function Page() {
     });
 
     autoTable(doc, {
-      startY: 30,
+      startY: 28,
       head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total', 'Preço Venda', 'Markup']],
       body: tableData,
       headStyles: { fillColor: [0, 84, 204] },
-      styles: { fontSize: 7, cellPadding: 2 },
+      styles: { fontSize: 7, cellPadding: 2, overflow: 'ellipsize', minCellHeight: 0 },
       columnStyles: {
-        0: { cellWidth: 16 }, // SKU
-        1: { cellWidth: 20 }, // EAN
-        2: { cellWidth: 28 }, // Produto Interno
-        3: { cellWidth: 34 }, // Descrição Fornecedor
-        4: { halign: 'center', cellWidth: 10 }, // Qtde
-        5: { halign: 'right', cellWidth: 18 },  // Preço Un.
-        6: { halign: 'right', cellWidth: 18 },  // Total
-        7: { halign: 'right', cellWidth: 18 },  // Preço Venda
-        8: { halign: 'right', cellWidth: 16 },  // Markup
-      }
+        0: { cellWidth: 20 },           // SKU
+        1: { cellWidth: 28 },           // EAN
+        2: { cellWidth: 45 },           // Produto Interno
+        3: { cellWidth: 55 },           // Descrição Fornecedor
+        4: { halign: 'center', cellWidth: 12 }, // Qtde
+        5: { halign: 'right', cellWidth: 26 },  // Preço Un.
+        6: { halign: 'right', cellWidth: 26 },  // Total
+        7: { halign: 'right', cellWidth: 26 },  // Preço Venda
+        8: { halign: 'right', cellWidth: 20 },  // Markup
+      },
     });
 
     doc.save("nota_traduzida.pdf");
@@ -4109,14 +4164,14 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })))}
+                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })))}
+                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
@@ -4453,14 +4508,14 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items)}
+                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items)}
+                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
