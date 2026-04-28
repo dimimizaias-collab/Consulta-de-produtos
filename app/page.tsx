@@ -4546,10 +4546,30 @@ export default function Page() {
                     {viewingReviewNote.items.map((item: any, idx: number) => {
                       const cost = (item.price || 0) / (item.multiplier || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                      const totalValue = cost * displayQty;
+
+                      let discountAmt = 0;
+                      if (discountMode === 'geral' && discountApplied) {
+                        discountAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
+                      } else if (discountMode === 'individual') {
+                        const v = parseFloat(itemDiscounts[idx] ?? '');
+                        if (!isNaN(v) && v > 0) discountAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
+                      }
+                      let surchargeAmt = 0;
+                      if (surchargeMode === 'geral' && surchargeApplied) {
+                        surchargeAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
+                      } else if (surchargeMode === 'individual') {
+                        const v = parseFloat(itemSurcharges[idx] ?? '');
+                        if (!isNaN(v) && v > 0) surchargeAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+                      }
+                      const hasDiscount = discountAmt > 0;
+                      const hasSurcharge = surchargeAmt > 0;
+                      const adjCost = cost - discountAmt + surchargeAmt;
+                      const totalValue = adjCost * displayQty;
+                      const adjColor = hasDiscount && hasSurcharge ? 'text-amber-600' : hasDiscount ? 'text-green-600' : hasSurcharge ? 'text-red-600' : 'text-slate-800';
+
                       const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
-                      const markup = cost > 0 && sellPrice > 0
-                        ? ((sellPrice - cost) / cost * 100)
+                      const markup = adjCost > 0 && sellPrice > 0
+                        ? ((sellPrice - adjCost) / adjCost * 100)
                         : null;
                       const isEven = idx % 2 === 0;
                       return (
@@ -4601,13 +4621,13 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className="text-sm font-bold text-slate-800">
-                              {cost > 0 ? `R$ ${cost.toFixed(2)}` : <span className="text-slate-300">—</span>}
+                            <span className={cn("text-sm font-bold", adjCost > 0 ? adjColor : "text-slate-300")}>
+                              {adjCost > 0 ? `R$ ${adjCost.toFixed(2)}` : '—'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className="text-sm font-bold text-slate-700">
-                              {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : <span className="text-slate-300">—</span>}
+                            <span className={cn("text-sm font-bold", totalValue > 0 ? adjColor : "text-slate-300")}>
+                              {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
                             </span>
                           </td>
                           {/* Desconto cell */}
