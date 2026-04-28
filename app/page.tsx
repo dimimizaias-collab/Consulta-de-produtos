@@ -286,6 +286,8 @@ export default function Page() {
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
+  const [linkingItemIdx, setLinkingItemIdx] = useState<number | null>(null);
+  const [noteItemLinkQuery, setNoteItemLinkQuery] = useState('');
   // Discount/surcharge column states
   type AdjType = 'pct' | 'fixed';
   type AdjMode = 'none' | 'geral' | 'individual';
@@ -4638,14 +4640,85 @@ export default function Page() {
                               <p className="text-sm font-semibold text-slate-800 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 max-w-[220px]">
+                          <td className="py-3 px-4 max-w-[220px] relative">
                             {item.verified ? (
                               <div className="flex items-center gap-2">
                                 <ArrowRight size={13} className="text-primary shrink-0" />
                                 <p className="text-sm font-black text-primary truncate" title={item.name}>{item.name}</p>
                               </div>
                             ) : (
-                              <p className="text-xs font-medium text-red-400 italic whitespace-nowrap">Cadastro pendente</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-xs font-medium text-red-400 italic whitespace-nowrap">Cadastro pendente</p>
+                                <button
+                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
+                                  title="Vincular produto interno"
+                                  className="w-5 h-5 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center shrink-0"
+                                >
+                                  <Plus size={11} />
+                                </button>
+                              </div>
+                            )}
+                            {linkingItemIdx === idx && (
+                              <>
+                                <div className="fixed inset-0 z-[190]" onClick={() => setLinkingItemIdx(null)} />
+                                <div className="absolute z-[200] top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl p-3">
+                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vincular produto interno</p>
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={noteItemLinkQuery}
+                                    onChange={e => setNoteItemLinkQuery(e.target.value)}
+                                    placeholder="Nome, SKU ou EAN..."
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-primary"
+                                  />
+                                  <div className="mt-2 max-h-52 overflow-y-auto space-y-0.5">
+                                    {(() => {
+                                      const q = noteItemLinkQuery.toLowerCase().trim();
+                                      const filtered = q.length === 0
+                                        ? []
+                                        : products.filter(p =>
+                                            p.name?.toLowerCase().includes(q) ||
+                                            p.sku?.toLowerCase().includes(q) ||
+                                            (p.ean && p.ean.toLowerCase().includes(q))
+                                          ).slice(0, 12);
+                                      if (q.length === 0) return (
+                                        <p className="text-xs text-slate-400 text-center py-4">Digite para buscar...</p>
+                                      );
+                                      if (filtered.length === 0) return (
+                                        <p className="text-xs text-slate-400 text-center py-4">Nenhum produto encontrado</p>
+                                      );
+                                      return filtered.map((p: any) => (
+                                        <button
+                                          key={p.id}
+                                          onClick={() => {
+                                            const updatedItems = [...viewingReviewNote!.items];
+                                            updatedItems[idx] = {
+                                              ...updatedItems[idx],
+                                              name: p.name,
+                                              sku: p.sku || updatedItems[idx].sku,
+                                              ean: p.ean || updatedItems[idx].ean,
+                                              product_id: p.id,
+                                              product_price: p.price || 0,
+                                              verified: true,
+                                              status_translation: 'Identificado (SKU/EAN)',
+                                            };
+                                            setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
+                                            const uVerified = [...viewingNoteVerified]; uVerified[idx] = true; setViewingNoteVerified(uVerified);
+                                            const uSkus = [...viewingNoteSkus]; uSkus[idx] = p.sku || ''; setViewingNoteSkus(uSkus);
+                                            const uEans = [...viewingNoteEans]; uEans[idx] = p.ean || ''; setViewingNoteEans(uEans);
+                                            const uSells = [...viewingNoteSellPrices]; uSells[idx] = p.price || 0; setViewingNoteSellPrices(uSells);
+                                            setLinkingItemIdx(null);
+                                          }}
+                                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors"
+                                        >
+                                          <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                                          <p className="text-[10px] text-slate-400 font-medium">{p.sku || '—'} · {p.ean || '—'}</p>
+                                        </button>
+                                      ));
+                                    })()}
+                                  </div>
+                                </div>
+                              </>
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
