@@ -1415,34 +1415,38 @@ export default function Page() {
       const adjCost = calcCost(rawCost, idx);
       const total = adjCost * displayQty;
       totalGeral += total;
-      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '';
+      const sell = item.product_price ?? 0;
+      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '—';
       return [
         item.sku || '-',
         item.ean || '-',
         item.name || 'NÃO MAPEADO',
         displayQty.toString(),
-        distrib || '—',
+        distrib,
         formatCurrency(adjCost),
         formatCurrency(total),
+        sell > 0 ? formatCurrency(sell) : '—',
       ];
     });
 
+    // Column widths sum exactly to 182mm (A4 portrait usable width: 210 - 14*2)
     autoTable(doc, {
       startY: estoqueTableStartY,
-      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Distribuição', 'Preço Un.', 'Total']],
+      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Distrib.', 'Preço Un.', 'Total', 'P. Venda']],
       body: tableData,
-      foot: [['', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
-      headStyles: { fillColor: [30, 64, 175], fontSize: 8, fontStyle: 'bold' },
-      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
-      styles: { fontSize: 7.5, cellPadding: 2.5, overflow: 'ellipsize', minCellHeight: 0 },
+      foot: [['', '', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
+      headStyles: { fillColor: [30, 64, 175], fontSize: 7, fontStyle: 'bold' },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7 },
+      styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'ellipsize', minCellHeight: 0 },
       columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 60 },
-        3: { halign: 'center', cellWidth: 13 },
-        4: { halign: 'center', cellWidth: 22 },
-        5: { halign: 'right', cellWidth: 28 },
-        6: { halign: 'right', cellWidth: 28 },
+        0: { cellWidth: 16 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 50 },
+        3: { halign: 'center', cellWidth: 9 },
+        4: { halign: 'center', cellWidth: 13 },
+        5: { halign: 'right', cellWidth: 23 },
+        6: { halign: 'right', cellWidth: 23 },
+        7: { halign: 'right', cellWidth: 24 },
       },
     });
 
