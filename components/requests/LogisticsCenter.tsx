@@ -26,6 +26,9 @@ export interface ReviewNote {
   itemCount: number;
   verifiedCount: number;
   approved?: boolean;
+  noteNumber?: string;
+  accessKey?: string;
+  supplierName?: string;
 }
 
 interface LogisticsCenterProps {

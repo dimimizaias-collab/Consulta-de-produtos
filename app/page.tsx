@@ -23,6 +23,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import JsBarcode from 'jsbarcode';
 
 const staticProducts: any[] = [];
 
@@ -315,9 +316,14 @@ export default function Page() {
   const [nfItemQtys, setNfItemQtys] = useState<number[]>([]);
   const [nfEditableCols, setNfEditableCols] = useState<Set<string>>(new Set());
 
+  const [nfNoteNumber, setNfNoteNumber] = useState('');
+  const [nfAccessKey, setNfAccessKey] = useState('');
+  const [nfItemDistribuicao, setNfItemDistribuicao] = useState<string[]>([]);
+
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
+  const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
 
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -661,6 +667,9 @@ export default function Page() {
         itemCount: n.item_count,
         verifiedCount: n.verified_count,
         approved: n.approved ?? false,
+        noteNumber: n.note_number ?? undefined,
+        accessKey: n.access_key ?? undefined,
+        supplierName: n.supplier_name ?? undefined,
       })));
     }
   };
@@ -1239,12 +1248,18 @@ export default function Page() {
     XLSX.writeFile(wb, "nota_traduzida.xlsx");
   };
 
+  const generateBarcodeDataUrl = (code: string): string => {
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, code, { format: 'CODE128', displayValue: false, width: 1.5, height: 50, margin: 0 });
+    return canvas.toDataURL('image/png');
+  };
+
   const exportTranslatedToPDF = (items: any[], adj?: {
     discountMode: string; discountApplied: { value: number; type: string } | null;
     discountIndividualType: string; itemDiscounts: string[];
     surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
     surchargeIndividualType: string; itemSurcharges: string[];
-  }) => {
+  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string }) => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const formatCurrency = (val: number) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1268,12 +1283,28 @@ export default function Page() {
       return cost - disc + sur;
     };
 
+    const titleParts = [];
+    if (meta?.supplierName) titleParts.push(meta.supplierName);
+    if (meta?.noteNumber) titleParts.push(`NF ${meta.noteNumber}`);
+    const titleText = titleParts.length > 0 ? titleParts.join(' — ') : 'Relatório de Tradução de Nota';
+
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text("Relatório de Tradução de Nota", 14, 15);
+    doc.text(titleText, 14, 15);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+
+    let tableStartY = 28;
+    if (meta?.accessKey) {
+      try {
+        const barcodeUrl = generateBarcodeDataUrl(meta.accessKey);
+        doc.addImage(barcodeUrl, 'PNG', 14, 26, 160, 12);
+        doc.setFontSize(6);
+        doc.text(meta.accessKey, 94, 40, { align: 'center' });
+        tableStartY = 44;
+      } catch { /* ignore barcode errors */ }
+    }
 
     const tableData = items.map((item, idx) => {
       const isTranslated = item.verified;
@@ -1286,12 +1317,14 @@ export default function Page() {
       const markup = adjCost > 0 && sell > 0 ? ((sell - adjCost) / adjCost * 100) : null;
       const markupStr = markup !== null ? `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%` : '-';
 
+      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '—';
       return [
         item.sku || '-',
         item.ean || '-',
         item.name || 'NÃO MAPEADO',
         item.original_description || '-',
         displayQty.toString(),
+        distrib,
         formatCurrency(adjCost),
         formatCurrency(displayPriceTotal),
         formatCurrency(sell),
@@ -1300,21 +1333,22 @@ export default function Page() {
     });
 
     autoTable(doc, {
-      startY: 28,
-      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Preço Un.', 'Total', 'Preço Venda', 'Markup']],
+      startY: tableStartY,
+      head: [['SKU', 'EAN', 'Produto Interno', 'Descrição Fornecedor', 'Qtde', 'Distrib.', 'Preço Un.', 'Total', 'Preço Venda', 'Markup']],
       body: tableData,
       headStyles: { fillColor: [0, 84, 204] },
       styles: { fontSize: 7, cellPadding: 2, overflow: 'ellipsize', minCellHeight: 0 },
       columnStyles: {
-        0: { cellWidth: 20 },           // SKU
-        1: { cellWidth: 28 },           // EAN
-        2: { cellWidth: 45 },           // Produto Interno
-        3: { cellWidth: 55 },           // Descrição Fornecedor
-        4: { halign: 'center', cellWidth: 12 }, // Qtde
-        5: { halign: 'right', cellWidth: 26 },  // Preço Un.
-        6: { halign: 'right', cellWidth: 26 },  // Total
-        7: { halign: 'right', cellWidth: 26 },  // Preço Venda
-        8: { halign: 'right', cellWidth: 20 },  // Markup
+        0: { cellWidth: 20 },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 50 },
+        4: { halign: 'center', cellWidth: 12 },
+        5: { halign: 'center', cellWidth: 15 },
+        6: { halign: 'right', cellWidth: 25 },
+        7: { halign: 'right', cellWidth: 25 },
+        8: { halign: 'right', cellWidth: 25 },
+        9: { halign: 'right', cellWidth: 18 },
       },
     });
 
@@ -1326,7 +1360,7 @@ export default function Page() {
     discountIndividualType: string; itemDiscounts: string[];
     surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
     surchargeIndividualType: string; itemSurcharges: string[];
-  }) => {
+  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string }) => {
     const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
     const formatCurrency = (val: number) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1350,12 +1384,28 @@ export default function Page() {
       return cost - disc + sur;
     };
 
+    const titlePartsE = [];
+    if (meta?.supplierName) titlePartsE.push(meta.supplierName);
+    if (meta?.noteNumber) titlePartsE.push(`NF ${meta.noteNumber}`);
+    const titleTextE = titlePartsE.length > 0 ? titlePartsE.join(' — ') : 'Nota para Estoque';
+
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Nota para Estoque", 14, 16);
+    doc.text(titleTextE, 14, 16);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 23);
+
+    let estoqueTableStartY = 28;
+    if (meta?.accessKey) {
+      try {
+        const barcodeUrl = generateBarcodeDataUrl(meta.accessKey);
+        doc.addImage(barcodeUrl, 'PNG', 14, 26, 182, 14);
+        doc.setFontSize(6);
+        doc.text(meta.accessKey, 105, 43, { align: 'center' });
+        estoqueTableStartY = 47;
+      } catch { /* ignore barcode errors */ }
+    }
 
     let totalGeral = 0;
     const tableData = items.map((item, idx) => {
@@ -1365,31 +1415,34 @@ export default function Page() {
       const adjCost = calcCost(rawCost, idx);
       const total = adjCost * displayQty;
       totalGeral += total;
+      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '';
       return [
         item.sku || '-',
         item.ean || '-',
         item.name || 'NÃO MAPEADO',
         displayQty.toString(),
+        distrib || '—',
         formatCurrency(adjCost),
         formatCurrency(total),
       ];
     });
 
     autoTable(doc, {
-      startY: 28,
-      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Preço Un.', 'Total']],
+      startY: estoqueTableStartY,
+      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Distribuição', 'Preço Un.', 'Total']],
       body: tableData,
-      foot: [['', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
+      foot: [['', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
       headStyles: { fillColor: [30, 64, 175], fontSize: 8, fontStyle: 'bold' },
       footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
       styles: { fontSize: 7.5, cellPadding: 2.5, overflow: 'ellipsize', minCellHeight: 0 },
       columnStyles: {
         0: { cellWidth: 22 },
-        1: { cellWidth: 32 },
-        2: { cellWidth: 68 },
-        3: { halign: 'center', cellWidth: 14 },
-        4: { halign: 'right', cellWidth: 28 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 60 },
+        3: { halign: 'center', cellWidth: 13 },
+        4: { halign: 'center', cellWidth: 22 },
         5: { halign: 'right', cellWidth: 28 },
+        6: { halign: 'right', cellWidth: 28 },
       },
     });
 
@@ -1458,6 +1511,7 @@ export default function Page() {
         updatedCount++;
       }
 
+      const nfSupplierName = supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '';
       const itemsWithFinalPrices = pendingNfItems.map((item: any, idx: number) => ({
         ...item,
         ean: nfItemEans[idx] ?? item.ean,
@@ -1465,7 +1519,8 @@ export default function Page() {
         qty: nfItemQtys[idx] ?? item.qty,
         price: nfItemPrices[idx] ?? item.price,
         product_price: nfItemSellPrices[idx] ?? item.product_price,
-        verified: nfItemVerified[idx] ?? item.verified
+        verified: nfItemVerified[idx] ?? item.verified,
+        distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null,
       }));
       const newNote: ReviewNote = {
         id: Date.now().toString(),
@@ -1473,7 +1528,10 @@ export default function Page() {
         fileName: currentNfFileName,
         items: itemsWithFinalPrices,
         itemCount: pendingNfItems.length,
-        verifiedCount: pendingNfItems.filter((i: any) => i.verified).length
+        verifiedCount: pendingNfItems.filter((i: any) => i.verified).length,
+        noteNumber: nfNoteNumber || undefined,
+        accessKey: nfAccessKey || undefined,
+        supplierName: nfSupplierName || undefined,
       };
       await supabase.from('review_notes').insert({
         id: newNote.id,
@@ -1482,6 +1540,9 @@ export default function Page() {
         item_count: newNote.itemCount,
         verified_count: newNote.verifiedCount,
         items: newNote.items,
+        note_number: nfNoteNumber || null,
+        access_key: nfAccessKey || null,
+        supplier_name: nfSupplierName || null,
       });
       setReviewNotes(prev => [newNote, ...prev]);
       setShowApproveNfConfirm(false);
@@ -1490,6 +1551,9 @@ export default function Page() {
       setNfItemPrices([]);
       setNfItemSellPrices([]);
       setNfItemVerified([]);
+      setNfNoteNumber('');
+      setNfAccessKey('');
+      setNfItemDistribuicao([]);
       setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
       fetchProducts();
     } catch (err: any) {
@@ -2225,6 +2289,7 @@ export default function Page() {
                     setViewingNoteEans([]);
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
+                    setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setReviewEditableCols(new Set());
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     const fi = note.items[0] as any;
@@ -4238,12 +4303,34 @@ export default function Page() {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20 shrink-0">
                     <FileUp size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
-                    <p className="text-xs text-slate-500 font-medium truncate max-w-xs">{currentNfFileName} · {currentNfTimestamp}</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Nº Nota</label>
+                        <input
+                          type="text"
+                          value={nfNoteNumber}
+                          onChange={e => setNfNoteNumber(e.target.value)}
+                          placeholder="0000"
+                          className="w-20 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Chave de Acesso</label>
+                        <input
+                          type="text"
+                          value={nfAccessKey}
+                          onChange={e => setNfAccessKey(e.target.value)}
+                          placeholder="Opcional"
+                          className="w-52 text-xs font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium truncate max-w-xs mt-0.5">{currentNfFileName} · {currentNfTimestamp}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -4255,14 +4342,14 @@ export default function Page() {
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
-                    onClick={() => exportEstoqueToA4PDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    onClick={() => exportEstoqueToA4PDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -4300,6 +4387,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Distribuição</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4431,6 +4519,21 @@ export default function Page() {
                               {isVerified ? <CheckCircle2 size={14} /> : <X size={14} />}
                             </button>
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={nfItemDistribuicao[idx] ?? ''}
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                const u = [...nfItemDistribuicao];
+                                u[idx] = val;
+                                setNfItemDistribuicao(u);
+                              }}
+                              placeholder="—"
+                              className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                            />
+                          </td>
                         </tr>
                       );
                     })}
@@ -4559,6 +4662,9 @@ export default function Page() {
                     setNfItemPrices([]);
                     setNfItemSellPrices([]);
                     setNfItemVerified([]);
+                    setNfNoteNumber('');
+                    setNfAccessKey('');
+                    setNfItemDistribuicao([]);
                   }}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                 >
@@ -4589,11 +4695,22 @@ export default function Page() {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-inner">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-inner shrink-0">
                     <FileText size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
+                      {viewingReviewNote.supplierName && (
+                        <span className="text-sm font-bold text-slate-500">{viewingReviewNote.supplierName}</span>
+                      )}
+                      {viewingReviewNote.noteNumber && (
+                        <span className="px-2 py-0.5 bg-slate-100 rounded-lg text-xs font-black text-slate-600">NF {viewingReviewNote.noteNumber}</span>
+                      )}
+                    </div>
+                    {viewingReviewNote.accessKey && (
+                      <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
+                    )}
                     <p className="text-xs text-slate-500 font-medium">{viewingReviewNote.fileName} · {viewingReviewNote.timestamp}</p>
                   </div>
                 </div>
@@ -4606,14 +4723,14 @@ export default function Page() {
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
-                    onClick={() => exportEstoqueToA4PDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    onClick={() => exportEstoqueToA4PDF(viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -4693,6 +4810,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Revisão</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Distribuição</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4966,6 +5084,21 @@ export default function Page() {
                               <span className="text-slate-300 text-xs font-bold">—</span>
                             )}
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={viewingNoteDistribuicao[idx] ?? ''}
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                const u = [...viewingNoteDistribuicao];
+                                u[idx] = val;
+                                setViewingNoteDistribuicao(u);
+                              }}
+                              placeholder="—"
+                              className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                            />
+                          </td>
                         </tr>
                       );
                     })}
@@ -5002,6 +5135,9 @@ export default function Page() {
                           product_price: viewingNoteSellPrices[idx] ?? item.product_price,
                           verified: viewingNoteVerified[idx] ?? item.verified,
                           review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+                          distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
+                            ? parseInt(viewingNoteDistribuicao[idx]) || null
+                            : (item.distribuicao ?? null),
                           adj_discount_mode: discountMode,
                           adj_discount_applied: discountMode === 'geral' ? discountApplied : null,
                           adj_discount_individual_type: discountIndividualType,
