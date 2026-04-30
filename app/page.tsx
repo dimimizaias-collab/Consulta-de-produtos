@@ -1321,6 +1321,81 @@ export default function Page() {
     doc.save("nota_traduzida.pdf");
   };
 
+  const exportEstoqueToA4PDF = (items: any[], adj?: {
+    discountMode: string; discountApplied: { value: number; type: string } | null;
+    discountIndividualType: string; itemDiscounts: string[];
+    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
+    surchargeIndividualType: string; itemSurcharges: string[];
+  }) => {
+    const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
+    const formatCurrency = (val: number) =>
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+    const calcCost = (cost: number, idx: number) => {
+      if (!adj) return cost;
+      let disc = 0;
+      if (adj.discountMode === 'geral' && adj.discountApplied) {
+        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
+      } else if (adj.discountMode === 'individual') {
+        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
+        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      let sur = 0;
+      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
+        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
+      } else if (adj.surchargeMode === 'individual') {
+        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
+        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+      }
+      return cost - disc + sur;
+    };
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Nota para Estoque", 14, 16);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 23);
+
+    let totalGeral = 0;
+    const tableData = items.map((item, idx) => {
+      const isTranslated = item.verified;
+      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
+      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      const adjCost = calcCost(rawCost, idx);
+      const total = adjCost * displayQty;
+      totalGeral += total;
+      return [
+        item.sku || '-',
+        item.ean || '-',
+        item.name || 'NÃO MAPEADO',
+        displayQty.toString(),
+        formatCurrency(adjCost),
+        formatCurrency(total),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Preço Un.', 'Total']],
+      body: tableData,
+      foot: [['', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
+      headStyles: { fillColor: [30, 64, 175], fontSize: 8, fontStyle: 'bold' },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 2.5, overflow: 'ellipsize', minCellHeight: 0 },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 68 },
+        3: { halign: 'center', cellWidth: 14 },
+        4: { halign: 'right', cellWidth: 28 },
+        5: { halign: 'right', cellWidth: 28 },
+      },
+    });
+
+    doc.save("nota_estoque.pdf");
+  };
+
   const downloadNoteTemplate = () => {
     const templateData = [
       {
@@ -4039,12 +4114,19 @@ export default function Page() {
                     <Download size={16} />
                     Excel
                   </button>
-                  <button 
+                  <button
                     onClick={() => exportTranslatedToPDF(translatedNoteItems)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
+                  </button>
+                  <button
+                    onClick={() => exportEstoqueToA4PDF(translatedNoteItems)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
+                  >
+                    <Download size={16} />
+                    Estoque
                   </button>
                   <div className="w-px h-8 bg-slate-100 mx-2" />
                   <button onClick={() => setShowTranslationResultModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
@@ -4178,6 +4260,13 @@ export default function Page() {
                   >
                     <Download size={16} />
                     PDF
+                  </button>
+                  <button
+                    onClick={() => exportEstoqueToA4PDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
+                  >
+                    <Download size={16} />
+                    Estoque
                   </button>
                 </div>
               </div>
@@ -4522,6 +4611,13 @@ export default function Page() {
                   >
                     <Download size={16} />
                     PDF
+                  </button>
+                  <button
+                    onClick={() => exportEstoqueToA4PDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
+                  >
+                    <Download size={16} />
+                    Estoque
                   </button>
                   <div className="w-px h-8 bg-slate-100 mx-2" />
                   <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-slate-100 rounded-full">
