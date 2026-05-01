@@ -28,6 +28,7 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   import_id?: string | null;
+  account_id?: string | null;
 }
 
 interface BankAccount {
@@ -188,6 +189,7 @@ export function FinanceManager() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importBanco, setImportBanco] = useState('Itaú');
   const [importEstab, setImportEstab] = useState('Castelo Real');
+  const [importAccountId, setImportAccountId] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState('');
@@ -275,6 +277,7 @@ export function FinanceManager() {
     setImportFile(null);
     setImportError('');
     setImportSuccess('');
+    setImportAccountId('');
     setShowImportModal(true);
   };
 
@@ -568,6 +571,7 @@ export function FinanceManager() {
           vencimento: null,
           valor_final: valorAbs,
           total_pago: valorAbs,
+          account_id: importAccountId || null,
           pago: true,
         });
       }
@@ -629,6 +633,15 @@ export function FinanceManager() {
     const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
     return { receitas, despesas, saldo: saldoInicial + receitas - despesas };
   }, [transactions, accounts]);
+
+  const accountBalances = useMemo(() => {
+    return accounts.map(a => {
+      const txs = transactions.filter(t => t.account_id === a.id);
+      const r = txs.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
+      const d = txs.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
+      return { ...a, saldo: (a.saldo_inicial ?? 0) + r - d };
+    });
+  }, [accounts, transactions]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -734,6 +747,26 @@ export function FinanceManager() {
           </div>
         ))}
       </div>
+
+      {/* Per-account balance cards */}
+      {accountBalances.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {accountBalances.map(a => (
+            <div key={a.id} className="bg-surface-container-low/60 rounded-2xl px-4 py-3 border border-on-surface/5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <CreditCard size={15} className="text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-on-surface truncate">{a.nome}</p>
+                <p className="text-[10px] text-on-surface/40 truncate">{a.banco}</p>
+              </div>
+              <p className={cn('text-sm font-extrabold shrink-0', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                {fmt(a.saldo)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -1288,6 +1321,17 @@ export function FinanceManager() {
                   <select value={importEstab} onChange={e => setImportEstab(e.target.value)} className={inputCls}>
                     {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Conta Bancária</label>
+                  <select value={importAccountId} onChange={e => setImportAccountId(e.target.value)} className={inputCls}>
+                    <option value="">Nenhuma (sem vínculo)</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-on-surface/30 leading-tight">Vincule o extrato a uma conta para calcular o saldo por conta.</p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
