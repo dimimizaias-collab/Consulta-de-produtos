@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users, FileUp,
+  ImageIcon, Loader2, Users, FileUp, CheckSquare,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -189,6 +189,10 @@ export function FinanceManager() {
   const [filterEstab, setFilterEstab] = useState('Todos');
   const [search, setSearch] = useState('');
 
+  // selection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchAll = async () => {
@@ -303,6 +307,29 @@ export function FinanceManager() {
   const handleDeleteTx = async (id: string) => {
     await supabase.from('finance_transactions').delete().eq('id', id);
     setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(v => !v);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
+
+  const handleDeleteSelected = async () => {
+    const ids = [...selectedIds];
+    await supabase.from('finance_transactions').delete().in('id', ids);
+    setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
+    setSelectedIds(new Set());
+    setSelectionMode(false);
   };
 
   const togglePago = async (id: string) => {
@@ -556,6 +583,20 @@ export function FinanceManager() {
             </AnimatePresence>
           </div>
 
+          {/* Selecionar */}
+          <button
+            onClick={toggleSelectionMode}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide transition-colors',
+              selectionMode
+                ? 'bg-on-surface/10 text-on-surface border border-on-surface/20 hover:bg-on-surface/15'
+                : 'bg-surface-container-low border border-on-surface/10 text-on-surface hover:bg-on-surface/5'
+            )}
+          >
+            <CheckSquare size={16} />
+            {selectionMode ? 'Cancelar' : 'Selecionar'}
+          </button>
+
           {/* Importar Extrato */}
           <button
             onClick={openImportModal}
@@ -619,6 +660,37 @@ export function FinanceManager() {
         </select>
       </div>
 
+      {/* Selection action bar */}
+      <AnimatePresence>
+        {selectionMode && selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3"
+          >
+            <span className="text-sm font-bold text-primary flex-1">
+              {selectedIds.size} {selectedIds.size === 1 ? 'movimentação selecionada' : 'movimentações selecionadas'}
+            </span>
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-surface-container border border-on-surface/10 text-on-surface hover:bg-on-surface/5 transition-colors"
+            >
+              <CheckSquare size={13} />
+              Selecionar Tudo
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-500 text-white hover:bg-rose-600 transition-colors"
+            >
+              <Trash2 size={13} />
+              Excluir ({selectedIds.size})
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Table */}
       <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
         {loadingData ? (
@@ -631,6 +703,9 @@ export function FinanceManager() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-on-surface/5">
+                  {selectionMode && (
+                    <th className="px-4 py-3 w-10" />
+                  )}
                   {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 whitespace-nowrap">
                       {h}
@@ -641,7 +716,7 @@ export function FinanceManager() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-16 text-center">
+                    <td colSpan={selectionMode ? 12 : 11} className="px-4 py-16 text-center">
                       <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
                       <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
                     </td>
@@ -649,8 +724,28 @@ export function FinanceManager() {
                 ) : (
                   filtered.map(t => {
                     const restante = t.valor_final - t.total_pago;
+                    const isSelected = selectedIds.has(t.id);
                     return (
-                      <tr key={t.id} className={cn('border-b border-on-surface/5 hover:bg-on-surface/[0.02] transition-colors', t.pago && 'opacity-60')}>
+                      <tr
+                        key={t.id}
+                        onClick={selectionMode ? () => toggleSelectRow(t.id) : undefined}
+                        className={cn(
+                          'border-b border-on-surface/5 transition-colors',
+                          selectionMode ? 'cursor-pointer' : 'hover:bg-on-surface/[0.02]',
+                          isSelected ? 'bg-primary/10 hover:bg-primary/15' : selectionMode ? 'hover:bg-on-surface/[0.03]' : '',
+                          t.pago && !isSelected && 'opacity-60'
+                        )}
+                      >
+                        {selectionMode && (
+                          <td className="px-4 py-3 w-10">
+                            <div className={cn(
+                              'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                              isSelected ? 'bg-primary border-primary' : 'border-on-surface/20'
+                            )}>
+                              {isSelected && <Check size={12} className="text-on-primary" />}
+                            </div>
+                          </td>
+                        )}
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
                         <td className="px-4 py-3">
                           <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
@@ -670,7 +765,7 @@ export function FinanceManager() {
                         <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
                           {fmt(restante)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => togglePago(t.id)}
                             className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
@@ -680,7 +775,7 @@ export function FinanceManager() {
                             {t.pago && <Check size={12} className="text-on-primary" />}
                           </button>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
                               <Edit2 size={14} />
