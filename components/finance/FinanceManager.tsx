@@ -425,15 +425,8 @@ export function FinanceManager() {
         if (f.nome_banco) dict[normalizeStr(f.nome_banco)] = f.nome_fiscal;
       });
 
-      // Dedup set built from already-existing transactions to avoid double import.
-      // Includes estabelecimento so the same transaction in two different stores is not skipped.
-      const existingKeys = new Set(
-        transactions.map(t => `${t.data}|${t.tipo}|${t.valor_final}|${normalizeStr(t.favorecido)}|${t.estabelecimento}`)
-      );
-
       const toInsert: Omit<Transaction, 'id'>[] = [];
       let skippedSaldo = 0;
-      let skippedDuplicate = 0;
 
       for (let i = headerIdx + 1; i < allRows.length; i++) {
         const row = allRows[i];
@@ -465,11 +458,6 @@ export function FinanceManager() {
         const rawNome  = razaoSocial || lancamentoRaw || 'Desconhecido';
         const nomeFinal = dict[normalizeStr(rawNome)] ?? rawNome;
 
-        // Skip duplicates (same date + tipo + valor + favorecido + estabelecimento)
-        const dedupeKey = `${dataStr}|${tipo}|${valorAbs}|${normalizeStr(nomeFinal)}|${importEstab}`;
-        if (existingKeys.has(dedupeKey)) { skippedDuplicate++; continue; }
-        existingKeys.add(dedupeKey); // also dedup within the file itself
-
         // All bank statement rows are already settled
         toInsert.push({
           data: dataStr,
@@ -484,25 +472,22 @@ export function FinanceManager() {
         });
       }
 
-      if (toInsert.length === 0 && skippedDuplicate === 0) {
+      if (toInsert.length === 0) {
         const extra = skippedSaldo > 0 ? ` (${skippedSaldo} linha(s) de saldo ignoradas)` : '';
         setImportError('Nenhuma movimentação válida encontrada.' + extra);
         return;
       }
 
-      if (toInsert.length > 0) {
-        const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
-        if (dbError) throw new Error(dbError.message);
-        await fetchAll();
-      }
+      const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
+      if (dbError) throw new Error(dbError.message);
+      await fetchAll();
 
       setShowImportModal(false);
       setImportFile(null);
 
       const parts: string[] = [];
-      if (toInsert.length > 0)      parts.push(`${toInsert.length} movimentações importadas`);
-      if (skippedDuplicate > 0)     parts.push(`${skippedDuplicate} duplicadas ignoradas`);
-      if (skippedSaldo > 0)         parts.push(`${skippedSaldo} linhas de saldo ignoradas`);
+      parts.push(`${toInsert.length} movimentações importadas`);
+      if (skippedSaldo > 0) parts.push(`${skippedSaldo} linhas de saldo ignoradas`);
       setImportSuccess(parts.join(' · '));
     } catch (err: any) {
       setImportError(err.message || 'Erro ao processar o arquivo.');
