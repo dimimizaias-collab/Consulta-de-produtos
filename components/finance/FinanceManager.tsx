@@ -100,9 +100,12 @@ function normalizeStr(s: string): string {
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
-// Lançamento strings that indicate a balance / info row — not real transactions
+// Lançamento strings that indicate a balance / info row — not real transactions.
+// Uses n.includes(ig), so each pattern matches any lancamento that CONTAINS it.
+// 'saldo total' catches both "SALDO TOTAL" and "SALDO TOTAL DISPONÍVEL DIA".
 const IGNORE_LANCAMENTOS = [
-  'saldo total disponivel dia',
+  'saldo total',        // covers "SALDO TOTAL" and "SALDO TOTAL DISPONÍVEL DIA"
+  'saldo bloqueado',    // temporarily unavailable balance — not a real transaction
   'saldo em conta corrente',
   'saldo do dia',
   'saldo anterior',
