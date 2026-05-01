@@ -201,6 +201,7 @@ export function FinanceManager() {
   // selection
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingSelected, setDeletingSelected] = useState(false);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -354,12 +355,25 @@ export function FinanceManager() {
     const importIds = transactions
       .filter(t => selectedIds.has(t.id))
       .map(t => t.import_id);
-    const { error } = await supabase.from('finance_transactions').delete().in('id', ids);
-    if (error) return;
-    setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
-    setSelectedIds(new Set());
-    setSelectionMode(false);
-    await cleanupOrphanedLogs(importIds);
+
+    setDeletingSelected(true);
+    try {
+      // Delete in batches of 200 to avoid URL length limits on large selections
+      const BATCH = 200;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const { error } = await supabase
+          .from('finance_transactions')
+          .delete()
+          .in('id', ids.slice(i, i + BATCH));
+        if (error) throw error;
+      }
+      setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      await cleanupOrphanedLogs(importIds);
+    } finally {
+      setDeletingSelected(false);
+    }
   };
 
   const togglePago = async (id: string) => {
@@ -724,10 +738,13 @@ export function FinanceManager() {
             </button>
             <button
               onClick={handleDeleteSelected}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-500 text-white hover:bg-rose-600 transition-colors"
+              disabled={deletingSelected}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Trash2 size={13} />
-              Excluir ({selectedIds.size})
+              {deletingSelected
+                ? <Loader2 size={13} className="animate-spin" />
+                : <Trash2 size={13} />}
+              {deletingSelected ? 'Excluindo...' : `Excluir (${selectedIds.size})`}
             </button>
           </motion.div>
         )}
