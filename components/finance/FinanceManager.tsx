@@ -106,10 +106,9 @@ function normalizeStr(s: string): string {
 
 // Lançamento strings that indicate a balance / info row — not real transactions.
 // Uses n.includes(ig), so each pattern matches any lancamento that CONTAINS it.
-// 'saldo total' catches both "SALDO TOTAL" and "SALDO TOTAL DISPONÍVEL DIA".
 const IGNORE_LANCAMENTOS = [
-  'saldo total',        // covers "SALDO TOTAL" and "SALDO TOTAL DISPONÍVEL DIA"
-  'saldo bloqueado',    // temporarily unavailable balance — not a real transaction
+  'saldo total disponivel dia',
+  'saldo bloqueado',
   'saldo em conta corrente',
   'saldo do dia',
   'saldo anterior',
@@ -193,6 +192,7 @@ export function FinanceManager() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState('');
+  const [importDuplicateLogId, setImportDuplicateLogId] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState('');
 
   // dropdown
@@ -278,6 +278,7 @@ export function FinanceManager() {
     setImportError('');
     setImportSuccess('');
     setImportAccountId('');
+    setImportDuplicateLogId(null);
     setShowImportModal(true);
   };
 
@@ -488,10 +489,16 @@ export function FinanceManager() {
         .select('id, imported_at')
         .eq('file_hash', hash)
         .maybeSingle();
-      if (existingLog) {
+      if (existingLog && existingLog.id !== importDuplicateLogId) {
         const when = new Date(existingLog.imported_at).toLocaleDateString('pt-BR');
-        setImportError(`Este arquivo já foi importado em ${when}. Exclua as movimentações correspondentes para importá-lo novamente.`);
+        setImportError(`Este arquivo já foi importado em ${when}.`);
+        setImportDuplicateLogId(existingLog.id);
         return;
+      }
+      // If forcing reimport, delete the old log first
+      if (importDuplicateLogId) {
+        await supabase.from('finance_import_logs').delete().eq('id', importDuplicateLogId);
+        setImportDuplicateLogId(null);
       }
 
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
@@ -1362,8 +1369,17 @@ export function FinanceManager() {
                 </p>
 
                 {importError && (
-                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3 flex flex-col gap-2">
                     <p className="text-xs text-rose-600 font-semibold leading-relaxed">{importError}</p>
+                    {importDuplicateLogId && (
+                      <button
+                        type="button"
+                        onClick={handleImportExtrato}
+                        className="self-start text-xs font-bold text-rose-600 underline underline-offset-2 hover:text-rose-700 transition-colors"
+                      >
+                        Reimportar mesmo assim
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
