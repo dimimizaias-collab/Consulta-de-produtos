@@ -27,6 +27,7 @@ interface Transaction {
   valor_final: number;
   total_pago: number;
   pago: boolean;
+  import_id?: string | null;
 }
 
 interface BankAccount {
@@ -81,6 +82,11 @@ const emptyAccountForm = (): AccountForm => ({
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+async function hashFile(buffer: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 const fmtDate = (iso: string | null) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 
 const inputCls =
@@ -304,9 +310,25 @@ export function FinanceManager() {
     }
   };
 
+  const cleanupOrphanedLogs = async (importIds: (string | null | undefined)[]) => {
+    const validIds = [...new Set(importIds.filter((id): id is string => !!id))];
+    if (validIds.length === 0) return;
+    const { data: remaining } = await supabase
+      .from('finance_transactions')
+      .select('import_id')
+      .in('import_id', validIds);
+    const stillUsed = new Set((remaining ?? []).map(r => r.import_id));
+    const orphaned = validIds.filter(id => !stillUsed.has(id));
+    if (orphaned.length > 0)
+      await supabase.from('finance_import_logs').delete().in('id', orphaned);
+  };
+
   const handleDeleteTx = async (id: string) => {
-    await supabase.from('finance_transactions').delete().eq('id', id);
+    const tx = transactions.find(t => t.id === id);
+    const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
+    if (error) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
+    await cleanupOrphanedLogs([tx?.import_id]);
   };
 
   const toggleSelectionMode = () => {
@@ -326,10 +348,15 @@ export function FinanceManager() {
 
   const handleDeleteSelected = async () => {
     const ids = [...selectedIds];
-    await supabase.from('finance_transactions').delete().in('id', ids);
+    const importIds = transactions
+      .filter(t => selectedIds.has(t.id))
+      .map(t => t.import_id);
+    const { error } = await supabase.from('finance_transactions').delete().in('id', ids);
+    if (error) return;
     setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
     setSelectedIds(new Set());
     setSelectionMode(false);
+    await cleanupOrphanedLogs(importIds);
   };
 
   const togglePago = async (id: string) => {
@@ -391,6 +418,20 @@ export function FinanceManager() {
     setImportSuccess('');
     try {
       const buffer = await importFile.arrayBuffer();
+
+      // Check if this exact file was already imported
+      const hash = await hashFile(buffer);
+      const { data: existingLog } = await supabase
+        .from('finance_import_logs')
+        .select('id, imported_at')
+        .eq('file_hash', hash)
+        .maybeSingle();
+      if (existingLog) {
+        const when = new Date(existingLog.imported_at).toLocaleDateString('pt-BR');
+        setImportError(`Este arquivo já foi importado em ${when}. Exclua as movimentações correspondentes para importá-lo novamente.`);
+        return;
+      }
+
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
 
@@ -478,8 +519,21 @@ export function FinanceManager() {
         return;
       }
 
-      const { error: dbError } = await supabase.from('finance_transactions').insert(toInsert);
-      if (dbError) throw new Error(dbError.message);
+      // Create import log and link all transactions to it
+      const { data: newLog, error: logError } = await supabase
+        .from('finance_import_logs')
+        .insert({ file_hash: hash, file_name: importFile.name })
+        .select('id')
+        .single();
+      if (logError) throw new Error(logError.message);
+
+      const withImportId = toInsert.map(t => ({ ...t, import_id: newLog.id }));
+      const { error: dbError } = await supabase.from('finance_transactions').insert(withImportId);
+      if (dbError) {
+        // Roll back the log entry if transactions failed
+        await supabase.from('finance_import_logs').delete().eq('id', newLog.id);
+        throw new Error(dbError.message);
+      }
       await fetchAll();
 
       setShowImportModal(false);
