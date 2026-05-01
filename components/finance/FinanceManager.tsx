@@ -202,6 +202,7 @@ export function FinanceManager() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingSelected, setDeletingSelected] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -357,20 +358,27 @@ export function FinanceManager() {
       .map(t => t.import_id);
 
     setDeletingSelected(true);
+    setDeleteError('');
     try {
       // Delete in batches of 200 to avoid URL length limits on large selections
       const BATCH = 200;
       for (let i = 0; i < ids.length; i += BATCH) {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from('finance_transactions')
-          .delete()
+          .delete({ count: 'exact' })
           .in('id', ids.slice(i, i + BATCH));
-        if (error) throw error;
+        if (error) throw new Error(error.message);
+        // count === 0 with no error means RLS is blocking the delete silently
+        if (count === 0 && ids.slice(i, i + BATCH).length > 0) {
+          throw new Error('Nenhum registro foi excluído. Verifique as permissões (RLS) na tabela finance_transactions no Supabase.');
+        }
       }
       setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
       setSelectedIds(new Set());
       setSelectionMode(false);
       await cleanupOrphanedLogs(importIds);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Erro ao excluir movimentações.');
     } finally {
       setDeletingSelected(false);
     }
@@ -718,6 +726,19 @@ export function FinanceManager() {
 
       {/* Selection action bar */}
       <AnimatePresence>
+        {deleteError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl px-4 py-3"
+          >
+            <span className="text-sm text-rose-600 flex-1">{deleteError}</span>
+            <button onClick={() => setDeleteError('')} className="text-rose-400 hover:text-rose-600">
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
         {selectionMode && selectedIds.size > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
