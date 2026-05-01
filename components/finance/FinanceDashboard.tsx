@@ -73,6 +73,7 @@ type Panel = 'estab' | 'data' | 'fav' | null;
 
 export function FinanceDashboard() {
   const [txs, setTxs] = useState<TxLight[]>([]);
+  const [accounts, setAccounts] = useState<{ saldo_inicial: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selEstabs, setSelEstabs] = useState<string[]>([]);
@@ -94,11 +95,17 @@ export function FinanceDashboard() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('finance_transactions')
-        .select('data, tipo, favorecido, estabelecimento, valor_final')
-        .order('data', { ascending: true });
-      if (data) setTxs(data as TxLight[]);
+      const [txRes, accRes] = await Promise.all([
+        supabase
+          .from('finance_transactions')
+          .select('data, tipo, favorecido, estabelecimento, valor_final')
+          .order('data', { ascending: true }),
+        supabase
+          .from('finance_accounts')
+          .select('saldo_inicial'),
+      ]);
+      if (txRes.data) setTxs(txRes.data as TxLight[]);
+      if (accRes.data) setAccounts(accRes.data as { saldo_inicial: number }[]);
       setLoading(false);
     })();
   }, []);
@@ -143,8 +150,9 @@ export function FinanceDashboard() {
   const totals = useMemo(() => {
     const r = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
     const d = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-    return { receitas: r, despesas: d, saldo: r - d };
-  }, [filtered]);
+    const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
+    return { receitas: r, despesas: d, saldo: saldoInicial + r - d };
+  }, [filtered, accounts]);
 
   const hasFilters = selEstabs.length > 0 || selFavs.length > 0 || !!dateFrom || !!dateTo;
 

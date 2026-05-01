@@ -37,6 +37,7 @@ interface BankAccount {
   agencia: string;
   numero_conta: string;
   imagem_url: string;
+  saldo_inicial: number;
 }
 
 interface Favorecido {
@@ -52,6 +53,7 @@ interface AccountForm {
   banco: string;
   agencia: string;
   numero_conta: string;
+  saldo_inicial: string;
   imagemPreview: string;
   imagemFile: File | null;
 }
@@ -76,6 +78,7 @@ const emptyTxForm = (): TxForm => ({
 
 const emptyAccountForm = (): AccountForm => ({
   nome: '', banco: '', agencia: '', numero_conta: '',
+  saldo_inicial: '',
   imagemPreview: '', imagemFile: null,
 });
 
@@ -426,6 +429,7 @@ export function FinanceManager() {
         agencia: accountForm.agencia,
         numero_conta: accountForm.numero_conta,
         imagem_url,
+        saldo_inicial: parseFloat(accountForm.saldo_inicial.replace(',', '.')) || 0,
       });
       await fetchAll();
       setShowAccountModal(false);
@@ -592,8 +596,9 @@ export function FinanceManager() {
   const totals = useMemo(() => {
     const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
     const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-    return { receitas, despesas, saldo: receitas - despesas };
-  }, [transactions]);
+    const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
+    return { receitas, despesas, saldo: saldoInicial + receitas - despesas };
+  }, [transactions, accounts]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1026,6 +1031,22 @@ export function FinanceManager() {
                     <label className={labelCls}>Número da Conta</label>
                     <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
                   </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={accountForm.saldo_inicial}
+                      onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
+                      placeholder="0,00"
+                      className={cn(inputCls, 'pl-9')}
+                    />
+                  </div>
+                  <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
                 </div>
               </div>
 
