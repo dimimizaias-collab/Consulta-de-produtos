@@ -173,6 +173,7 @@ export function FinanceManager() {
 
   // bank account modal
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
 
   // favorecidos dictionary
@@ -398,8 +399,23 @@ export function FinanceManager() {
   // ── Bank Accounts ────────────────────────────────────────────────────────
 
   const openAddAccount = () => {
+    setEditingAccountId(null);
     setAccountForm(emptyAccountForm());
     setShowDropdown(false);
+    setShowAccountModal(true);
+  };
+
+  const openEditAccount = (account: BankAccount) => {
+    setEditingAccountId(account.id);
+    setAccountForm({
+      nome: account.nome,
+      banco: account.banco,
+      agencia: account.agencia,
+      numero_conta: account.numero_conta,
+      saldo_inicial: String(account.saldo_inicial ?? 0),
+      imagemPreview: account.imagem_url ?? '',
+      imagemFile: null,
+    });
     setShowAccountModal(true);
   };
 
@@ -421,18 +437,32 @@ export function FinanceManager() {
     if (!accountForm.nome.trim()) return;
     setSubmitting(true);
     try {
-      let imagem_url = '';
-      if (accountForm.imagemFile) imagem_url = await uploadImage(accountForm.imagemFile);
-      await supabase.from('finance_accounts').insert({
-        nome: accountForm.nome,
-        banco: accountForm.banco,
-        agencia: accountForm.agencia,
-        numero_conta: accountForm.numero_conta,
-        imagem_url,
-        saldo_inicial: parseFloat(accountForm.saldo_inicial.replace(',', '.')) || 0,
-      });
+      const saldo_inicial = parseFloat(accountForm.saldo_inicial.replace(',', '.')) || 0;
+      if (editingAccountId) {
+        const payload: Record<string, unknown> = {
+          nome: accountForm.nome,
+          banco: accountForm.banco,
+          agencia: accountForm.agencia,
+          numero_conta: accountForm.numero_conta,
+          saldo_inicial,
+        };
+        if (accountForm.imagemFile) payload.imagem_url = await uploadImage(accountForm.imagemFile);
+        await supabase.from('finance_accounts').update(payload).eq('id', editingAccountId);
+      } else {
+        let imagem_url = '';
+        if (accountForm.imagemFile) imagem_url = await uploadImage(accountForm.imagemFile);
+        await supabase.from('finance_accounts').insert({
+          nome: accountForm.nome,
+          banco: accountForm.banco,
+          agencia: accountForm.agencia,
+          numero_conta: accountForm.numero_conta,
+          imagem_url,
+          saldo_inicial,
+        });
+      }
       await fetchAll();
       setShowAccountModal(false);
+      setEditingAccountId(null);
     } finally {
       setSubmitting(false);
     }
@@ -985,12 +1015,39 @@ export function FinanceManager() {
                   <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Building2 size={18} className="text-primary" />
                   </div>
-                  <h2 className="text-lg font-manrope font-extrabold text-on-surface">Cadastrar Conta</h2>
+                  <h2 className="text-lg font-manrope font-extrabold text-on-surface">
+                    {editingAccountId ? 'Editar Conta' : 'Cadastrar Conta'}
+                  </h2>
                 </div>
                 <button onClick={() => setShowAccountModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
                   <X size={16} />
                 </button>
               </div>
+
+              {/* Existing accounts list — shown only when adding a new account */}
+              {!editingAccountId && accounts.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Contas cadastradas</p>
+                  <div className="flex flex-col gap-1.5">
+                    {accounts.map(acc => (
+                      <div key={acc.id} className="flex items-center justify-between bg-surface-container rounded-xl px-3 py-2.5 border border-on-surface/5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-on-surface truncate">{acc.nome}</p>
+                          <p className="text-xs text-on-surface/40">{acc.banco} · Saldo inicial: <span className="font-bold text-emerald-600">{(acc.saldo_inicial ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
+                        </div>
+                        <button
+                          onClick={() => openEditAccount(acc)}
+                          className="ml-3 shrink-0 w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-px bg-on-surface/5 my-4" />
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Nova conta</p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-4">
                 {/* Image upload */}
@@ -1056,7 +1113,7 @@ export function FinanceManager() {
                 </button>
                 <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
                   {submitting && <Loader2 size={14} className="animate-spin" />}
-                  Cadastrar Conta
+                  {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
                 </button>
               </div>
             </motion.div>
