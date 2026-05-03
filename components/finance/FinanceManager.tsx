@@ -495,8 +495,10 @@ export function FinanceManager() {
         setImportDuplicateLogId(existingLog.id);
         return;
       }
-      // If forcing reimport, delete the old log first
+      // If forcing reimport, wipe all data from the old import first (transactions + snapshots + log)
       if (importDuplicateLogId) {
+        await supabase.from('finance_transactions').delete().eq('import_id', importDuplicateLogId);
+        await supabase.from('finance_account_daily_balances').delete().eq('import_id', importDuplicateLogId);
         await supabase.from('finance_import_logs').delete().eq('id', importDuplicateLogId);
         setImportDuplicateLogId(null);
       }
