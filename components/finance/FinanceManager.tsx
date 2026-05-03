@@ -509,7 +509,7 @@ export function FinanceManager() {
 
       // Locate the header row by finding a cell whose normalised text is exactly "data"
       let headerIdx = -1;
-      let colData = 0, colLancamento = 1, colRazao = 2, colValor = 4;
+      let colData = 0, colLancamento = 1, colRazao = 2, colValor = 4, colSaldo = 5;
 
       for (let i = 0; i < Math.min(allRows.length, 25); i++) {
         const row = allRows[i];
@@ -520,6 +520,7 @@ export function FinanceManager() {
           else if (cell === 'lancamento')            { colLancamento = j; }
           else if (cell.startsWith('razao social')) { colRazao = j;      }
           else if (cell.startsWith('valor'))        { colValor = j;      }
+          else if (cell.startsWith('saldo'))        { colSaldo = j;      }
         }
         if (foundData) { headerIdx = i; break; }
       }
@@ -527,6 +528,34 @@ export function FinanceManager() {
       if (headerIdx === -1) {
         setImportError('Cabeçalho "Data" não encontrado nas primeiras 25 linhas. Verifique se o arquivo é um extrato Itaú.');
         return;
+      }
+
+      // First pass: collect daily balance snapshots (SALDO TOTAL DISPONÍVEL DIA + SALDO BLOQUEADO).
+      // These rows are skipped as transactions but carry the authoritative account balance.
+      const dailySnapshots: Record<string, { saldo_disponivel?: number; saldo_bloqueado?: number }> = {};
+      {
+        let lastDate: string | null = null;
+        for (let i = headerIdx + 1; i < allRows.length; i++) {
+          const row = allRows[i];
+          if (!row || row.every((c: any) => c === undefined || c === null || String(c).trim() === '')) continue;
+          const parsedDate = parseDateExtrato(row[colData]);
+          if (parsedDate) lastDate = parsedDate;
+          if (!lastDate) continue;
+          const n = normalizeStr(String(row[colLancamento] ?? ''));
+          if (n.includes('saldo total disponivel dia')) {
+            const v = parseValorExtrato(row[colSaldo]);
+            if (v !== null) {
+              if (!dailySnapshots[lastDate]) dailySnapshots[lastDate] = {};
+              dailySnapshots[lastDate].saldo_disponivel = Math.abs(v);
+            }
+          } else if (n.includes('saldo bloqueado')) {
+            const v = parseValorExtrato(row[colSaldo]);
+            if (v !== null) {
+              if (!dailySnapshots[lastDate]) dailySnapshots[lastDate] = {};
+              dailySnapshots[lastDate].saldo_bloqueado = Math.abs(v);
+            }
+          }
+        }
       }
 
       // Translation dictionary: normalised nome_banco → nome_fiscal
@@ -604,6 +633,27 @@ export function FinanceManager() {
         await supabase.from('finance_import_logs').delete().eq('id', newLog.id);
         throw new Error(dbError.message);
       }
+
+      // Upsert daily balance snapshots when a bank account is linked
+      let snapshotCount = 0;
+      if (importAccountId) {
+        const snapshotsToUpsert = Object.entries(dailySnapshots)
+          .filter(([, v]) => v.saldo_disponivel !== undefined)
+          .map(([date, v]) => ({
+            account_id: importAccountId,
+            import_id: newLog.id,
+            data: date,
+            saldo_disponivel: v.saldo_disponivel!,
+            saldo_bloqueado: v.saldo_bloqueado ?? 0,
+          }));
+        if (snapshotsToUpsert.length > 0) {
+          const { error: snapError } = await supabase
+            .from('finance_account_daily_balances')
+            .upsert(snapshotsToUpsert, { onConflict: 'account_id,data' });
+          if (!snapError) snapshotCount = snapshotsToUpsert.length;
+        }
+      }
+
       await fetchAll();
 
       setShowImportModal(false);
@@ -611,6 +661,7 @@ export function FinanceManager() {
 
       const parts: string[] = [];
       parts.push(`${toInsert.length} movimentações importadas`);
+      if (snapshotCount > 0) parts.push(`${snapshotCount} saldo(s) diário(s) salvos`);
       if (skippedSaldo > 0) parts.push(`${skippedSaldo} linhas de saldo ignoradas`);
       setImportSuccess(parts.join(' · '));
     } catch (err: any) {

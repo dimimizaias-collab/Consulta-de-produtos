@@ -38,6 +38,13 @@ interface TxLight {
   valor_final: number;
 }
 
+interface DailyBalance {
+  account_id: string;
+  data: string;
+  saldo_disponivel: number;
+  saldo_bloqueado: number;
+}
+
 interface ChartPoint {
   date: string;
   label: string;
@@ -74,6 +81,7 @@ type Panel = 'estab' | 'data' | 'fav' | null;
 export function FinanceDashboard() {
   const [txs, setTxs] = useState<TxLight[]>([]);
   const [accounts, setAccounts] = useState<{ saldo_inicial: number }[]>([]);
+  const [dailyBalances, setDailyBalances] = useState<DailyBalance[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selEstabs, setSelEstabs] = useState<string[]>([]);
@@ -95,7 +103,7 @@ export function FinanceDashboard() {
 
   useEffect(() => {
     (async () => {
-      const [txRes, accRes] = await Promise.all([
+      const [txRes, accRes, snapRes] = await Promise.all([
         supabase
           .from('finance_transactions')
           .select('data, tipo, favorecido, estabelecimento, valor_final')
@@ -103,9 +111,13 @@ export function FinanceDashboard() {
         supabase
           .from('finance_accounts')
           .select('saldo_inicial'),
+        supabase
+          .from('finance_account_daily_balances')
+          .select('account_id, data, saldo_disponivel, saldo_bloqueado'),
       ]);
       if (txRes.data) setTxs(txRes.data as TxLight[]);
       if (accRes.data) setAccounts(accRes.data as { saldo_inicial: number }[]);
+      if (snapRes.data) setDailyBalances(snapRes.data as DailyBalance[]);
       setLoading(false);
     })();
   }, []);
@@ -147,12 +159,29 @@ export function FinanceDashboard() {
       }));
   }, [filtered]);
 
+  // Most-recent snapshot per account → sum for saldo card
+  const snapshotTotals = useMemo(() => {
+    if (dailyBalances.length === 0) return null;
+    const latest: Record<string, DailyBalance> = {};
+    for (const s of dailyBalances) {
+      if (!latest[s.account_id] || s.data > latest[s.account_id].data) latest[s.account_id] = s;
+    }
+    const snaps = Object.values(latest);
+    return {
+      disponivel: snaps.reduce((sum, s) => sum + s.saldo_disponivel, 0),
+      bloqueado: snaps.reduce((sum, s) => sum + s.saldo_bloqueado, 0),
+    };
+  }, [dailyBalances]);
+
   const totals = useMemo(() => {
     const r = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
     const d = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-    const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
-    return { receitas: r, despesas: d, saldo: saldoInicial + r - d };
-  }, [filtered, accounts]);
+    const saldo = snapshotTotals !== null
+      ? snapshotTotals.disponivel
+      : accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0) + r - d;
+    const bloqueado = snapshotTotals?.bloqueado ?? 0;
+    return { receitas: r, despesas: d, saldo, bloqueado };
+  }, [filtered, accounts, snapshotTotals]);
 
   const hasFilters = selEstabs.length > 0 || selFavs.length > 0 || !!dateFrom || !!dateTo;
 
@@ -192,16 +221,19 @@ export function FinanceDashboard() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {([
-          { label: 'Receitas', value: totals.receitas, color: 'emerald', Icon: TrendingUp },
-          { label: 'Despesas', value: totals.despesas, color: 'rose',    Icon: TrendingDown },
+        {[
+          { label: 'Receitas', value: totals.receitas, color: 'emerald', Icon: TrendingUp, subnote: null as string | null },
+          { label: 'Despesas', value: totals.despesas, color: 'rose',    Icon: TrendingDown, subnote: null as string | null },
           {
             label: 'Saldo',
             value: totals.saldo,
             color: totals.saldo >= 0 ? 'emerald' : 'rose',
             Icon: Wallet,
+            subnote: totals.bloqueado > 0
+              ? `${fmtBRL(totals.bloqueado)} bloqueado (DEP CHEQUE pendente)`
+              : null,
           },
-        ] as const).map(({ label, value, color, Icon }) => (
+        ].map(({ label, value, color, Icon, subnote }) => (
           <div key={label} className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-9 h-9 rounded-xl bg-${color}-500/10 flex items-center justify-center`}>
@@ -210,6 +242,9 @@ export function FinanceDashboard() {
               <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">{label}</p>
             </div>
             <p className={`text-2xl font-extrabold font-manrope text-${color}-500`}>{fmtBRL(value)}</p>
+            {subnote && (
+              <p className="text-xs font-semibold text-amber-500 mt-1.5">{subnote}</p>
+            )}
           </div>
         ))}
       </div>
