@@ -176,7 +176,7 @@ function SearchableSelect({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-[60] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              className="absolute z-[60] left-0 right-0 mt-1 bg-surface-container-lowest border border-on-surface/10 rounded-lg shadow-xl max-h-60 overflow-y-auto"
             >
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((opt) => (
@@ -189,15 +189,15 @@ function SearchableSelect({
                       setSearch("");
                     }}
                     className={cn(
-                      "w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors",
-                      value === opt ? "text-primary font-bold bg-primary/5" : "text-slate-700"
+                      "w-full text-left px-4 py-2 text-sm hover:bg-on-surface/5 transition-colors",
+                      value === opt ? "text-primary font-bold bg-primary/5" : "text-on-surface"
                     )}
                   >
                     {opt}
                   </button>
                 ))
               ) : (
-                <div className="px-4 py-2 text-sm text-slate-500 italic">Nenhum resultado encontrado</div>
+                <div className="px-4 py-2 text-sm text-on-surface/50 italic">Nenhum resultado encontrado</div>
               )}
             </motion.div>
           )}

@@ -24,6 +24,26 @@
   --color-secondary: #c8c6be;
 }
 
+/* Dark mode: form elements — override hardcoded bg-slate/bg-white backgrounds */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.dark select,
+.dark textarea {
+  background-color: var(--color-surface-container);
+  color: var(--color-on-surface);
+  border-color: color-mix(in srgb, var(--color-on-surface) 14%, transparent);
+  color-scheme: dark;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: color-mix(in srgb, var(--color-on-surface) 38%, transparent);
+}
+
+.dark option {
+  background-color: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
 @layer base {
   body {
     @apply font-inter bg-background text-on-surface transition-colors duration-200;
