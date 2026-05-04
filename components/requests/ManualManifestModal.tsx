@@ -60,20 +60,36 @@ export interface ManualManifestModalProps {
   onManifestSaved: (note: ReviewNote) => void;
 }
 
-// ─── Draft persistence ────────────────────────────────────────────────────────
+// ─── Draft persistence (Supabase) ────────────────────────────────────────────
 
-const DRAFTS_KEY = 'manual_manifest_drafts';
-function readDrafts(): ManifestDraft[] {
-  try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch { return []; }
+async function fetchDrafts(): Promise<ManifestDraft[]> {
+  const { data } = await supabase
+    .from('manifest_drafts')
+    .select('*')
+    .order('updated_at', { ascending: false });
+  if (!data) return [];
+  return data.map((d: any) => ({
+    id: d.id,
+    label: d.label,
+    savedAt: d.saved_at,
+    supplierId: d.supplier_id ?? '',
+    rows: d.rows,
+  }));
 }
-function writeDraft(draft: ManifestDraft) {
-  const all = readDrafts();
-  const idx = all.findIndex(d => d.id === draft.id);
-  if (idx >= 0) all[idx] = draft; else all.unshift(draft);
-  localStorage.setItem(DRAFTS_KEY, JSON.stringify(all));
+
+async function upsertDraft(draft: ManifestDraft) {
+  await supabase.from('manifest_drafts').upsert({
+    id: draft.id,
+    label: draft.label,
+    saved_at: draft.savedAt,
+    supplier_id: draft.supplierId || null,
+    rows: draft.rows,
+    updated_at: new Date().toISOString(),
+  });
 }
-function eraseDraft(id: string) {
-  localStorage.setItem(DRAFTS_KEY, JSON.stringify(readDrafts().filter(d => d.id !== id)));
+
+async function deleteDraft(id: string) {
+  await supabase.from('manifest_drafts').delete().eq('id', id);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,6 +113,7 @@ export function ManualManifestModal({
 
   const [view, setView] = useState<'list' | 'editor'>('list');
   const [drafts, setDrafts] = useState<ManifestDraft[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   // Editor state
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
@@ -141,13 +158,21 @@ export function ManualManifestModal({
     return () => document.removeEventListener('mousedown', handler);
   }, [unitMenuRowId]);
 
-  // On open: load drafts
+  // On open: load drafts from Supabase
   useEffect(() => {
     if (!isOpen) return;
-    const saved = readDrafts();
-    setDrafts(saved);
-    if (saved.length === 0) openNewEditor();
-    else setView('list');
+    let cancelled = false;
+    setLoadingDrafts(true);
+    fetchDrafts().then(saved => {
+      if (cancelled) return;
+      setDrafts(saved);
+      setLoadingDrafts(false);
+      if (saved.length === 0) openNewEditor();
+      else setView('list');
+    }).catch(() => {
+      if (!cancelled) { setLoadingDrafts(false); openNewEditor(); }
+    });
+    return () => { cancelled = true; };
   }, [isOpen]);
 
   // ── Navigation ───────────────────────────────────────────────────────────────
@@ -161,11 +186,17 @@ export function ManualManifestModal({
     setCurrentDraftId(draft.id); setSupplierId(draft.supplierId);
     setRows(draft.rows); setLinkingRowId(null); setView('editor');
   };
-  const goToList = () => { setDrafts(readDrafts()); setView('list'); };
+  const goToList = async () => {
+    setLoadingDrafts(true);
+    const saved = await fetchDrafts().catch(() => drafts);
+    setDrafts(saved);
+    setLoadingDrafts(false);
+    setView('list');
+  };
 
   // ── Draft operations ─────────────────────────────────────────────────────────
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     const valid = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (valid.length === 0) {
       setNotification({ type: 'error', message: 'Adicione ao menos um item antes de salvar.' });
@@ -174,22 +205,31 @@ export function ManualManifestModal({
     const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
     const timestamp = new Date().toLocaleString('pt-BR');
     const id = currentDraftId ?? Date.now().toString();
-    writeDraft({
+    const draft: ManifestDraft = {
       id,
       label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
       savedAt: timestamp,
       supplierId,
       rows,
-    });
-    setCurrentDraftId(id);
-    setDrafts(readDrafts());
-    setNotification({ type: 'success', message: 'Rascunho salvo! Continue editando ou envie para revisão.' });
+    };
+    try {
+      await upsertDraft(draft);
+      setCurrentDraftId(id);
+      setDrafts(prev => {
+        const idx = prev.findIndex(d => d.id === id);
+        if (idx >= 0) { const next = [...prev]; next[idx] = draft; return next; }
+        return [draft, ...prev];
+      });
+      setNotification({ type: 'success', message: 'Rascunho salvo! Continue editando ou envie para revisão.' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao salvar rascunho.' });
+    }
   };
 
-  const handleDeleteDraft = (id: string, e: React.MouseEvent) => {
+  const handleDeleteDraft = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    eraseDraft(id);
-    const remaining = readDrafts();
+    await deleteDraft(id).catch(() => {});
+    const remaining = drafts.filter(d => d.id !== id);
     setDrafts(remaining);
     if (remaining.length === 0) openNewEditor();
   };
@@ -256,9 +296,14 @@ export function ManualManifestModal({
           multiplier: mult,
         });
       }
-      // Apply to row: qty × mult, price ÷ mult, unit = internal unit
-      const newQty = row.quantity ? String(Math.round(parseFloat(row.quantity) * mult * 1000) / 1000) : '';
-      const newPrice = row.unitPrice ? String(Math.round(parseFloat(row.unitPrice) / mult * 100) / 100) : '';
+      // Apply to row: qty × mult, price ÷ (mult × qty), unit = internal unit
+      const origQty = parseFloat(row.quantity) || 0;
+      const newQty = row.quantity ? String(Math.round(origQty * mult * 1000) / 1000) : '';
+      const newPrice = row.unitPrice
+        ? origQty > 0
+          ? String(Math.round(parseFloat(row.unitPrice) / (mult * origQty) * 100) / 100)
+          : String(Math.round(parseFloat(row.unitPrice) / mult * 100) / 100)
+        : '';
       updateRow(measureRowId, {
         unit: measureInternalUnit.trim() || row.unit,
         quantity: newQty,
@@ -279,8 +324,13 @@ export function ManualManifestModal({
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
     const mult = conv.multiplier;
-    const newQty = row.quantity ? String(Math.round(parseFloat(row.quantity) * mult * 1000) / 1000) : '';
-    const newPrice = row.unitPrice ? String(Math.round(parseFloat(row.unitPrice) / mult * 100) / 100) : '';
+    const origQty = parseFloat(row.quantity) || 0;
+    const newQty = row.quantity ? String(Math.round(origQty * mult * 1000) / 1000) : '';
+    const newPrice = row.unitPrice
+      ? origQty > 0
+        ? String(Math.round(parseFloat(row.unitPrice) / (mult * origQty) * 100) / 100)
+        : String(Math.round(parseFloat(row.unitPrice) / mult * 100) / 100)
+      : '';
     updateRow(rowId, {
       unit: conv.unit_name,
       quantity: newQty,
@@ -410,7 +460,7 @@ export function ManualManifestModal({
         item_count: note.itemCount, verified_count: note.verifiedCount,
         items: note.items, supplier_name: supplierName || null,
       });
-      if (currentDraftId) eraseDraft(currentDraftId);
+      if (currentDraftId) await deleteDraft(currentDraftId).catch(() => {});
       onManifestSaved(note);
       setNotification({ type: 'success', message: `Manifesto enviado para revisão com ${items.length} item(s).` });
       onClose();
@@ -463,7 +513,12 @@ export function ManualManifestModal({
               </div>
               Nova entrada
             </button>
-            {drafts.length > 0 && (
+            {loadingDrafts && (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+              </div>
+            )}
+            {!loadingDrafts && drafts.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">
                   Rascunhos não enviados ({drafts.length})
@@ -675,8 +730,13 @@ export function ManualManifestModal({
                       {/* Preço Unitário */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
                         <input type="number" value={row.unitPrice}
-                          onChange={e => updateRow(row.id, { unitPrice: e.target.value })}
-                          className="no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
+                          onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
+                          className={cn(
+                            'no-spinner w-full border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
+                            row.unitTranslated
+                              ? 'text-emerald-600 bg-emerald-50/40'
+                              : 'text-slate-700 bg-transparent'
+                          )}
                           placeholder="0,00" step="0.01" min="0" />
                       </td>
                       {/* Valor Total */}
