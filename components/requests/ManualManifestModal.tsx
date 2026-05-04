@@ -171,8 +171,7 @@ export function ManualManifestModal({
     writeDraft(draft);
     setCurrentDraftId(id);
     setDrafts(readDrafts());
-    setNotification({ type: 'success', message: 'Rascunho salvo com sucesso!' });
-    onClose();
+    setNotification({ type: 'success', message: 'Rascunho salvo! Continue editando ou envie para revisão.' });
   };
 
   const handleDeleteDraft = (id: string, e: React.MouseEvent) => {
@@ -542,13 +541,13 @@ export function ManualManifestModal({
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
                         <input type="number" value={row.quantity}
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
-                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
+                          className="no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
                           placeholder="0" min="0" />
                       </td>
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
                         <input type="number" value={row.unitPrice}
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value })}
-                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
+                          className="no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
                           placeholder="0,00" step="0.01" min="0" />
                       </td>
                       <td className="px-3 py-1.5 border-r border-slate-100 text-right align-middle">
