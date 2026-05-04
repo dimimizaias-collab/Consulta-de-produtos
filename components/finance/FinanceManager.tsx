@@ -175,6 +175,7 @@ export function FinanceManager() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
+  const [accountError, setAccountError] = useState<string | null>(null);
 
   // favorecidos dictionary
   const [showFavorecidoModal, setShowFavorecidoModal] = useState(false);
@@ -405,6 +406,7 @@ export function FinanceManager() {
   const openAddAccount = () => {
     setEditingAccountId(null);
     setAccountForm(emptyAccountForm());
+    setAccountError(null);
     setShowDropdown(false);
     setShowAccountModal(true);
   };
@@ -420,6 +422,7 @@ export function FinanceManager() {
       imagemPreview: account.imagem_url ?? '',
       imagemFile: null,
     });
+    setAccountError(null);
     setShowAccountModal(true);
   };
 
@@ -440,6 +443,7 @@ export function FinanceManager() {
   const handleAccountSubmit = async () => {
     if (!accountForm.nome.trim()) return;
     setSubmitting(true);
+    setAccountError(null);
     try {
       const saldo_inicial = parseFloat(accountForm.saldo_inicial.replace(',', '.')) || 0;
       if (editingAccountId) {
@@ -467,6 +471,8 @@ export function FinanceManager() {
       await fetchAll();
       setShowAccountModal(false);
       setEditingAccountId(null);
+    } catch (err: any) {
+      setAccountError(err?.message || 'Erro ao salvar conta. Verifique o bucket de storage no Supabase.');
     } finally {
       setSubmitting(false);
     }
@@ -1200,8 +1206,14 @@ export function FinanceManager() {
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowAccountModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+              {accountError && (
+                <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
+                  {accountError}
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => { setShowAccountModal(false); setAccountError(null); }} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                   Cancelar
                 </button>
                 <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
