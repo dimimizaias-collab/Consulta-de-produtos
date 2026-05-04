@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Building2, Loader2, Plus } from 'lucide-react';
+import { X, Building2, Loader2, Plus, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 
@@ -14,53 +14,84 @@ export interface NewSupplier {
   documento: string;
 }
 
+export interface EditingSupplier {
+  id: string;
+  name: string;
+  razao_social: string;
+  nome_fantasia: string;
+  documento: string;
+}
+
 interface AddSupplierModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (supplier: NewSupplier) => void;
+  editingSupplier?: EditingSupplier | null;
 }
 
 const inputCls =
   'w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-bold transition-all shadow-sm placeholder:font-normal placeholder:text-on-surface/30';
 const labelCls = 'text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]';
 
-export function AddSupplierModal({ isOpen, onClose, onSuccess }: AddSupplierModalProps) {
+export function AddSupplierModal({ isOpen, onClose, onSuccess, editingSupplier }: AddSupplierModalProps) {
   const [documento, setDocumento] = useState('');
   const [razaoSocial, setRazaoSocial] = useState('');
   const [nomeFantasia, setNomeFantasia] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const reset = () => {
-    setDocumento('');
-    setRazaoSocial('');
-    setNomeFantasia('');
-    setError('');
-  };
+  const isEditing = !!editingSupplier;
 
-  const handleClose = () => { reset(); onClose(); };
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editingSupplier) {
+      setDocumento(editingSupplier.documento || '');
+      setRazaoSocial(editingSupplier.razao_social || editingSupplier.name || '');
+      setNomeFantasia(editingSupplier.nome_fantasia || '');
+    } else {
+      setDocumento('');
+      setRazaoSocial('');
+      setNomeFantasia('');
+    }
+    setError('');
+  }, [isOpen, editingSupplier]);
+
+  const handleClose = () => { setError(''); onClose(); };
 
   const handleSubmit = async () => {
     if (!razaoSocial.trim()) { setError('Razão Social é obrigatória.'); return; }
     setSaving(true);
     setError('');
     try {
-      const { data, error: dbError } = await supabase
-        .from('suppliers')
-        .insert([{
-          name: razaoSocial.trim(),
-          razao_social: razaoSocial.trim(),
-          nome_fantasia: nomeFantasia.trim(),
-          documento: documento.trim(),
-        }])
-        .select()
-        .single();
-      if (dbError) throw dbError;
-      onSuccess?.(data as NewSupplier);
-      reset();
+      const displayName = nomeFantasia.trim() || razaoSocial.trim();
+      const payload = {
+        name: displayName,
+        razao_social: razaoSocial.trim(),
+        nome_fantasia: nomeFantasia.trim(),
+        documento: documento.trim(),
+      };
+
+      if (isEditing) {
+        const { data, error: dbError } = await supabase
+          .from('suppliers')
+          .update(payload)
+          .eq('id', editingSupplier!.id)
+          .select()
+          .single();
+        if (dbError) throw dbError;
+        onSuccess?.(data as NewSupplier);
+      } else {
+        const { data, error: dbError } = await supabase
+          .from('suppliers')
+          .insert([payload])
+          .select()
+          .single();
+        if (dbError) throw dbError;
+        onSuccess?.(data as NewSupplier);
+      }
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Erro ao cadastrar fornecedor.');
+      setError(err.message || 'Erro ao salvar fornecedor.');
     } finally {
       setSaving(false);
     }
@@ -69,7 +100,7 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess }: AddSupplierModa
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={handleClose}
@@ -87,8 +118,12 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess }: AddSupplierModa
                   <Building2 size={28} />
                 </div>
                 <div>
-                  <h4 className="text-xl font-black text-on-surface tracking-tight">Novo Fornecedor</h4>
-                  <p className="text-xs text-on-surface/40 font-medium">Cadastrar parceiro comercial</p>
+                  <h4 className="text-xl font-black text-on-surface tracking-tight">
+                    {isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+                  </h4>
+                  <p className="text-xs text-on-surface/40 font-medium">
+                    {isEditing ? 'Atualizar dados cadastrais' : 'Cadastrar parceiro comercial'}
+                  </p>
                 </div>
               </div>
               <button
@@ -124,18 +159,21 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess }: AddSupplierModa
                   onKeyUp={e => e.key === 'Enter' && handleSubmit()}
                   placeholder="ex: MONDELEZ BRASIL LTDA"
                   className={cn(inputCls, error && 'ring-2 ring-rose-500/30 border-rose-500/30')}
-                  autoFocus
+                  autoFocus={!isEditing}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className={labelCls}>Nome Fantasia</label>
+                <label className={labelCls}>
+                  Nome Fantasia <span className="normal-case text-on-surface/20 tracking-normal">(usado em todos os campos)</span>
+                </label>
                 <input
                   type="text"
                   value={nomeFantasia}
                   onChange={e => setNomeFantasia(e.target.value)}
                   placeholder="ex: Mondelez"
                   className={inputCls}
+                  autoFocus={isEditing}
                 />
               </div>
 
@@ -156,7 +194,9 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess }: AddSupplierModa
               >
                 {saving
                   ? <Loader2 size={18} className="animate-spin" />
-                  : <><Plus size={18} />Cadastrar</>
+                  : isEditing
+                    ? <><Save size={18} />Salvar</>
+                    : <><Plus size={18} />Cadastrar</>
                 }
               </button>
             </div>

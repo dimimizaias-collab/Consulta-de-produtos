@@ -13,10 +13,14 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertTriangle,
+  Search,
+  X,
+  Building2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { AddSupplierModal } from '@/components/suppliers/AddSupplierModal';
+import { supabase } from '@/lib/supabase';
+import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
 
 export interface ReviewNote {
   id: string;
@@ -51,6 +55,11 @@ export function LogisticsCenter({
   onApproveNote,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
+  const [showSupplierPicker, setShowSupplierPicker] = useState(false);
+  const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
+  const [supplierSearch, setSupplierSearch]         = useState('');
+  const [loadingPicker, setLoadingPicker]           = useState(false);
+  const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
   const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados'>('revisoes');
   const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
@@ -64,6 +73,26 @@ export function LogisticsCenter({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const fetchPickerSuppliers = async () => {
+    setLoadingPicker(true);
+    const { data } = await supabase.from('suppliers').select('*').order('nome_fantasia,name');
+    setPickerSuppliers((data || []) as EditingSupplier[]);
+    setLoadingPicker(false);
+  };
+
+  const openSupplierPicker = () => {
+    setShowSupplierPicker(true);
+    setSupplierSearch('');
+    fetchPickerSuppliers();
+  };
+
+  const filteredSuppliers = pickerSuppliers.filter(s => {
+    if (!supplierSearch.trim()) return true;
+    const q = supplierSearch.toLowerCase();
+    return (s.nome_fantasia || s.name).toLowerCase().includes(q) ||
+      (s.razao_social || '').toLowerCase().includes(q);
+  });
 
   const pendingNotes   = reviewNotes.filter(n => !n.approved);
   const approvedNotes  = reviewNotes.filter(n => n.approved);
@@ -147,11 +176,11 @@ export function LogisticsCenter({
               Open Dictionary
             </button>
             <button
-              onClick={() => setShowAddSupplier(true)}
+              onClick={openSupplierPicker}
               className="border-2 border-amber-500/40 text-amber-600 px-8 py-4 rounded-2xl font-black text-sm hover:bg-amber-500/10 transition-all w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
             >
-              <Plus size={20} />
-              Adicionar Fornecedor
+              <Users size={20} />
+              Gerenciar Fornecedores
             </button>
           </div>
         </motion.div>
@@ -359,9 +388,106 @@ export function LogisticsCenter({
         )}
       </AnimatePresence>
 
+      {/* ── Supplier Picker Modal ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showSupplierPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowSupplierPicker(false)}
+              className="absolute inset-0 bg-on-surface/50 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-surface-container-lowest rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[80vh]"
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-on-surface/[0.06] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                    <Users size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-on-surface leading-none">Fornecedores</h2>
+                    <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerSuppliers.length} cadastrado{pickerSuppliers.length !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowSupplierPicker(false)}
+                  className="p-2 hover:bg-on-surface/5 rounded-xl transition-colors">
+                  <X size={18} className="text-on-surface/40" />
+                </button>
+              </div>
+
+              {/* Search + Add */}
+              <div className="px-5 pt-4 pb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={supplierSearch}
+                      onChange={e => setSupplierSearch(e.target.value)}
+                      placeholder="Buscar fornecedor..."
+                      className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
+                    className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
+                    title="Cadastrar novo fornecedor"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-1.5">
+                {loadingPicker ? (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+                  </div>
+                ) : filteredSuppliers.length === 0 ? (
+                  <p className="text-sm text-on-surface/30 text-center py-10">
+                    {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
+                  </p>
+                ) : filteredSuppliers.map(s => {
+                  const displayName = s.nome_fantasia || s.name;
+                  const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
+                  return (
+                    <div key={s.id}
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                        <Building2 size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{displayName}</p>
+                        {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
+                        {s.documento && <p className="text-[10px] text-on-surface/30 font-mono">{s.documento}</p>}
+                      </div>
+                      <button
+                        onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
+                        className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
+                        title="Editar fornecedor"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AddSupplierModal
         isOpen={showAddSupplier}
-        onClose={() => setShowAddSupplier(false)}
+        onClose={() => { setShowAddSupplier(false); setEditingSupplier(null); }}
+        editingSupplier={editingSupplier}
+        onSuccess={() => { fetchPickerSuppliers(); }}
       />
     </div>
   );

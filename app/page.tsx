@@ -1731,9 +1731,12 @@ export default function Page() {
   const fetchSuppliers = async () => {
     setIsLoadingSuppliers(true);
     try {
-      const { data, error } = await supabase.from('suppliers').select('*').order('name');
+      const { data, error } = await supabase.from('suppliers').select('*').order('nome_fantasia,name');
       if (error) throw error;
-      setSupplierNames(data || []);
+      setSupplierNames((data || []).map((s: any) => ({
+        ...s,
+        name: s.nome_fantasia?.trim() || s.name,
+      })));
     } catch (err: any) {
       console.error('Erro ao buscar fornecedores:', err);
       if (err.message) console.error('Mensagem de erro:', err.message);
