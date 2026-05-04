@@ -20,8 +20,8 @@
   --color-surface-container: #252519;
   --color-surface-container-low: #1e1e15;
   --color-surface-container-lowest: #1a1a12;
-  --color-on-surface: #e6e4cc;
-  --color-secondary: #9a9890;
+  --color-on-surface: #f2f0e3;
+  --color-secondary: #c8c6be;
 }
 
 @layer base {
