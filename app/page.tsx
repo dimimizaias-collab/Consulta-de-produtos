@@ -9,6 +9,7 @@ import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
+import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
@@ -3895,193 +3896,14 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {/* Manual Note Modal */}
-      <AnimatePresence>
-        {showManualNoteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowManualNoteModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white">
-                    <LogIn size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900">Nota de Entrada Manual</h3>
-                    <p className="text-xs text-slate-500 font-medium">Adicione itens e quantidades para processar a entrada</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 flex-1 justify-end mr-4">
-                  <div className="w-full max-w-xs space-y-1">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Fornecedor da Nota</label>
-                    <select 
-                      value={manualNoteSupplierId}
-                      onChange={(e) => setManualNoteSupplierId(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold"
-                    >
-                      <option value="">Selecione um fornecedor...</option>
-                      {supplierNames.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowManualNoteModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-secondary" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                {/* Search Panel */}
-                <div className="w-full md:w-1/2 p-6 overflow-y-auto">
-                  <div className="space-y-4 mb-6 sticky top-0 bg-white pb-4 z-10 border-b border-slate-50">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Pesquisar Produto</label>
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        value={noteSearchQuery}
-                        onChange={(e) => setNoteSearchQuery(e.target.value)}
-                        onKeyUp={(e) => e.key === 'Enter' && handleNoteSearch()}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        placeholder="Nome, SKU ou EAN..."
-                      />
-                      <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <button 
-                        onClick={handleNoteSearch}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-2 rounded-lg transition-colors"
-                      >
-                        <Search size={16} className="text-slate-600" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {noteSearchResults.length > 0 ? (
-                      noteSearchResults.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => handleAddProductToNote(p)}
-                          className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
-                        >
-                          <div className="w-14 h-14 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100">
-                            <ProductImage src={p.image} alt={p.name} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{p.sku}</span>
-                              <span className="text-xs font-medium text-slate-500">Estoque: {p.count}</span>
-                            </div>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                            <Plus size={16} />
-                          </div>
-                        </button>
-                      ))
-                    ) : noteSearchQuery ? (
-                      <div className="py-12 text-center text-slate-400">
-                        <ShoppingCart size={40} className="mx-auto mb-3 opacity-10" />
-                        <p className="text-sm font-bold">Nenhum produto encontrado</p>
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-400">
-                        <Search size={40} className="mx-auto mb-3 opacity-10" />
-                        <p className="text-sm font-bold">Pesquise para começar</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Note List Panel */}
-                <div className="w-full md:w-1/2 p-6 flex flex-col bg-slate-50/50">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Itens da Nota ({noteItems.length})</h4>
-                    {noteItems.length > 0 && (
-                      <button 
-                        onClick={() => setNoteItems([])}
-                        className="text-[10px] font-bold text-red-500 uppercase hover:underline"
-                      >
-                        Limpar Tudo
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto space-y-3 min-h-[300px]">
-                    {noteItems.length > 0 ? (
-                      noteItems.map((item) => (
-                        <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group">
-                          <div className="w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0">
-                            <ProductImage src={item.image} alt={item.name} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
-                            <p className="text-[10px] font-medium text-slate-500">SKU: {item.sku}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="number" 
-                              value={item.noteQuantity}
-                              onChange={(e) => handleUpdateNoteQuantity(item.id, parseInt(e.target.value) || 0)}
-                              className="w-16 h-10 bg-slate-100 border-none rounded-lg text-center font-bold text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                            />
-                            <button 
-                              onClick={() => handleRemoveProductFromNote(item.id)}
-                              className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                        <FileText size={48} className="mb-4 opacity-10" />
-                        <p className="text-sm font-bold">Nenhum item adicionado</p>
-                        <p className="text-xs">Busque produtos ao lado para incluir na nota</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-6 mt-6 border-t border-slate-200 space-y-4 shrink-0">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500 font-bold">Total de Itens</span>
-                      <span className="text-slate-900 font-black">{noteItems.reduce((acc, curr) => acc + curr.noteQuantity, 0)} unidades</span>
-                    </div>
-                    <button 
-                      disabled={noteItems.length === 0 || isProcessingNote}
-                      onClick={handleProcessManualNote}
-                      className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/30 disabled:opacity-50 disabled:shadow-none"
-                    >
-                      {isProcessingNote ? (
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-                      ) : (
-                        <>
-                          <CheckCircle2 size={20} />
-                          Confirmar Entrada de Mercadoria
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Manual Manifest Modal */}
+      <ManualManifestModal
+        isOpen={showManualNoteModal}
+        onClose={() => setShowManualNoteModal(false)}
+        suppliers={supplierNames}
+        setNotification={setNotification}
+        onManifestSaved={(note) => setReviewNotes(prev => [note, ...prev])}
+      />
 
       {/* Import Supplier Selection Modal */}
       <AnimatePresence>
