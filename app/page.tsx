@@ -4944,9 +4944,23 @@ export default function Page() {
                   <span className="text-slate-500">Valor total da nota:</span>
                   <span className="font-black text-slate-900">
                     {`R$ ${viewingReviewNote.items.reduce((sum: number, item: any, idx: number) => {
-                      const unitCost = (item.price || 0) / (item.multiplier || 1);
+                      const cost = (item.price || 0) / (item.multiplier || 1);
                       const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                      return sum + unitCost * qty;
+                      let discAmt = 0;
+                      if (discountMode === 'geral' && discountApplied) {
+                        discAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
+                      } else if (discountMode === 'individual') {
+                        const v = parseFloat(itemDiscounts[idx] ?? '');
+                        if (!isNaN(v) && v > 0) discAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
+                      }
+                      let surAmt = 0;
+                      if (surchargeMode === 'geral' && surchargeApplied) {
+                        surAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
+                      } else if (surchargeMode === 'individual') {
+                        const v = parseFloat(itemSurcharges[idx] ?? '');
+                        if (!isNaN(v) && v > 0) surAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+                      }
+                      return sum + (cost - discAmt + surAmt) * qty;
                     }, 0).toFixed(2)}`}
                   </span>
                 </div>
