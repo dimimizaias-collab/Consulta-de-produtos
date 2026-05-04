@@ -394,6 +394,8 @@ export function ManualManifestModal({
         verified: !!r.linkedProduct, internal_product_id: r.linkedProduct?.id ?? null,
         supplier_code: r.supplierCode, product_name: r.linkedProduct?.name ?? r.description,
         unit_multiplier: r.unitMultiplier ?? null,
+        original_description: r.description,
+        name: r.supplierCode || r.linkedProduct?.name || r.description,
       }));
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
       const noteId = Date.now().toString();

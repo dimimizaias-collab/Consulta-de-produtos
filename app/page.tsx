@@ -327,6 +327,7 @@ export default function Page() {
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
+  const [editingNoteHeader, setEditingNoteHeader] = useState(false);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -2297,6 +2298,7 @@ export default function Page() {
                     setViewingNoteQtys([]);
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setReviewEditableCols(new Set());
+                    setEditingNoteHeader(false);
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     const fi = note.items[0] as any;
                     const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
@@ -4528,19 +4530,69 @@ export default function Page() {
                     <FileText size={24} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl font-black text-slate-900">Nota Digitalizada</h3>
-                      {viewingReviewNote.supplierName && (
-                        <span className="text-sm font-bold text-slate-500">{viewingReviewNote.supplierName}</span>
-                      )}
-                      {viewingReviewNote.noteNumber && (
-                        <span className="px-2 py-0.5 bg-slate-100 rounded-lg text-xs font-black text-slate-600">NF {viewingReviewNote.noteNumber}</span>
-                      )}
-                    </div>
+                    {editingNoteHeader ? (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={viewingReviewNote.fileName}
+                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, fileName: e.target.value })}
+                            placeholder="Nome da nota"
+                            className="text-xl font-black text-slate-900 border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-slate-300"
+                          />
+                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors" title="Confirmar">
+                            <CheckCircle2 size={16} className="text-primary" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={viewingReviewNote.noteNumber || ''}
+                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, noteNumber: e.target.value || undefined })}
+                            placeholder="Número da nota"
+                            className="text-sm font-bold text-slate-600 border-b border-slate-300 outline-none bg-transparent w-48 placeholder:text-slate-300"
+                          />
+                        </div>
+                        {viewingReviewNote.supplierName && (
+                          <span className="text-xs font-bold text-slate-400">{viewingReviewNote.supplierName}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xl font-black text-slate-900">
+                            {viewingReviewNote.fileName || <span className="text-slate-400 font-medium">Nota sem nome</span>}
+                          </h3>
+                          {viewingReviewNote.supplierName && (
+                            <span className="text-sm font-bold text-slate-500">{viewingReviewNote.supplierName}</span>
+                          )}
+                          <button
+                            onClick={() => setEditingNoteHeader(true)}
+                            className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+                            title="Editar nome e número"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {viewingReviewNote.noteNumber ? (
+                            <span className="px-2 py-0.5 bg-slate-100 rounded-lg text-xs font-black text-slate-600">{viewingReviewNote.noteNumber}</span>
+                          ) : (
+                            <button
+                              onClick={() => setEditingNoteHeader(true)}
+                              className="text-xs text-slate-300 hover:text-slate-500 transition-colors"
+                            >
+                              + Número da nota
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {viewingReviewNote.accessKey && (
                       <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
                     )}
-                    <p className="text-xs text-slate-500 font-medium">{viewingReviewNote.fileName} · {viewingReviewNote.timestamp}</p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -4994,11 +5046,19 @@ export default function Page() {
                         await supabase.from('review_notes').update({
                           verified_count: updatedVerifiedCount,
                           items: updatedItems,
+                          file_name: viewingReviewNote.fileName,
+                          note_number: viewingReviewNote.noteNumber || null,
                           updated_at: new Date().toISOString(),
                         }).eq('id', viewingReviewNote.id);
                         setReviewNotes(prev => prev.map(n => {
                           if (n.id !== viewingReviewNote.id) return n;
-                          return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems };
+                          return {
+                            ...n,
+                            verifiedCount: updatedVerifiedCount,
+                            items: updatedItems,
+                            fileName: viewingReviewNote.fileName,
+                            noteNumber: viewingReviewNote.noteNumber,
+                          };
                         }));
                         setViewingReviewNote(null);
                       } finally {
