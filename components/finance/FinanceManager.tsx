@@ -170,6 +170,9 @@ export function FinanceManager() {
   const [showTxModal, setShowTxModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
+  const [vencimentoEnabled, setVencimentoEnabled] = useState(false);
+  const [parcelasEnabled, setParcelasEnabled] = useState(false);
+  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string }>>([]);
 
   // bank account modal
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -298,24 +301,55 @@ export function FinanceManager() {
   const openAddTx = () => {
     setEditingId(null);
     setTxForm(emptyTxForm());
+    setVencimentoEnabled(false);
+    setParcelasEnabled(false);
+    setParcelas([]);
+    fetchFavorecidos();
     setShowTxModal(true);
   };
 
   const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
     setTxForm({ ...t, vencimento: t.vencimento ?? '' });
+    setVencimentoEnabled(!!t.vencimento);
+    setParcelasEnabled(false);
+    setParcelas([]);
+    fetchFavorecidos();
     setShowTxModal(true);
   };
 
   const handleTxSubmit = async () => {
-    if (!txForm.favorecido.trim() || txForm.valor_final <= 0) return;
+    if (!txForm.favorecido.trim()) return;
     setSubmitting(true);
-    const payload = { ...txForm, vencimento: txForm.vencimento || null };
     try {
-      if (editingId) {
-        await supabase.from('finance_transactions').update(payload).eq('id', editingId);
+      if (parcelasEnabled && txForm.tipo === 'Despesa') {
+        const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
+        if (valid.length === 0) return;
+        const base = {
+          tipo: txForm.tipo,
+          tipo_pagamento: txForm.tipo_pagamento,
+          favorecido: txForm.favorecido,
+          estabelecimento: txForm.estabelecimento,
+          vencimento: vencimentoEnabled ? (txForm.vencimento || null) : null,
+          total_pago: 0,
+          pago: false,
+          account_id: txForm.account_id ?? null,
+          import_id: null,
+        };
+        await supabase.from('finance_transactions').insert(
+          valid.map(p => ({ ...base, data: p.data, valor_final: parseFloat(p.valor) || 0 }))
+        );
       } else {
-        await supabase.from('finance_transactions').insert(payload);
+        if (txForm.valor_final <= 0) return;
+        const payload = {
+          ...txForm,
+          vencimento: txForm.tipo === 'Despesa' && vencimentoEnabled ? (txForm.vencimento || null) : null,
+        };
+        if (editingId) {
+          await supabase.from('finance_transactions').update(payload).eq('id', editingId);
+        } else {
+          await supabase.from('finance_transactions').insert(payload);
+        }
       }
       await fetchAll();
       setShowTxModal(false);
@@ -681,6 +715,10 @@ export function FinanceManager() {
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
+  const totalParcelas = parcelas.reduce((sum, p) => sum + (parseFloat(p.valor) || 0), 0);
+
+  const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
       if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
@@ -1021,7 +1059,8 @@ export function FinanceManager() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between mb-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-manrope font-extrabold text-on-surface">
                   {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
                 </h2>
@@ -1030,57 +1069,209 @@ export function FinanceManager() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Data</label>
-                  <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Vencimento</label>
-                  <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Tipo</label>
-                  <select value={txForm.tipo} onChange={e => setTxForm(f => ({ ...f, tipo: e.target.value as TransactionType }))} className={inputCls}>
-                    <option value="Despesa">Despesa</option>
-                    <option value="Receita">Receita</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Tipo de Pagamento</label>
-                  <select value={txForm.tipo_pagamento} onChange={e => setTxForm(f => ({ ...f, tipo_pagamento: e.target.value as PaymentType }))} className={inputCls}>
-                    {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2 flex flex-col gap-1.5">
-                  <label className={labelCls}>Favorecido</label>
-                  <input type="text" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
-                </div>
-                <div className="col-span-2 flex flex-col gap-1.5">
-                  <label className={labelCls}>Estabelecimento</label>
-                  <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
-                    {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Valor Final (R$)</label>
-                  <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Total Pago (R$)</label>
-                  <input type="number" step="0.01" min="0" value={txForm.total_pago || ''} onChange={e => setTxForm(f => ({ ...f, total_pago: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
-                </div>
-                <div className="col-span-2 flex items-center gap-3">
+              {/* Tabs: Receita / Despesa */}
+              <div className="flex gap-2 mb-5">
+                {(['Receita', 'Despesa'] as TransactionType[]).map(tab => (
                   <button
-                    onClick={() => setTxForm(f => ({ ...f, pago: !f.pago }))}
-                    className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0',
-                      txForm.pago ? 'bg-primary border-primary' : 'border-on-surface/20'
+                    key={tab}
+                    onClick={() => {
+                      setTxForm(f => ({ ...f, tipo: tab }));
+                      setParcelasEnabled(false);
+                      setParcelas([]);
+                      setVencimentoEnabled(false);
+                    }}
+                    className={cn(
+                      'flex-1 py-2 rounded-xl text-sm font-bold transition-all',
+                      txForm.tipo === tab
+                        ? tab === 'Receita'
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                          : 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                        : 'bg-on-surface/5 text-on-surface/50 hover:bg-on-surface/10'
                     )}
                   >
-                    {txForm.pago && <Check size={12} className="text-on-primary" />}
+                    {tab}
                   </button>
-                  <span className="text-sm text-on-surface/70 font-medium">Marcar como pago</span>
-                </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-4">
+
+                {/* ── RECEITA ───────────────────────────────────────────── */}
+                {txForm.tipo === 'Receita' && (<>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Data</label>
+                    <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Favorecido</label>
+                    <input list="favorecidos-list" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
+                    <datalist id="favorecidos-list">
+                      {favorecidos.map(f => <option key={f.id} value={f.nome_fiscal} />)}
+                    </datalist>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Conta</label>
+                    <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={inputCls}>
+                      <option value="">Selecione a conta...</option>
+                      {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Estabelecimento</label>
+                    <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
+                      {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Valor (R$)</label>
+                    <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                  </div>
+                </>)}
+
+                {/* ── DESPESA ───────────────────────────────────────────── */}
+                {txForm.tipo === 'Despesa' && (<>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Data</label>
+                    <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
+                  </div>
+
+                  {/* Vencimento toggle */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          const next = !vencimentoEnabled;
+                          setVencimentoEnabled(next);
+                          if (!next) setTxForm(f => ({ ...f, vencimento: '' }));
+                        }}
+                        className={cn(
+                          'w-9 h-5 rounded-full transition-all relative shrink-0',
+                          vencimentoEnabled ? 'bg-primary' : 'bg-on-surface/20'
+                        )}
+                      >
+                        <span className={cn(
+                          'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                          vencimentoEnabled ? 'left-4' : 'left-0.5'
+                        )} />
+                      </button>
+                      <label className={labelCls}>Vencimento</label>
+                    </div>
+                    {vencimentoEnabled && (
+                      <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
+                    )}
+                  </div>
+
+                  {/* Tipo de Pagamento + Parcelas */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Tipo de Pagamento</label>
+                    <select
+                      value={txForm.tipo_pagamento}
+                      onChange={e => {
+                        const v = e.target.value as PaymentType;
+                        setTxForm(f => ({ ...f, tipo_pagamento: v }));
+                        if (!PARCELA_PAYMENT_TYPES.includes(v)) {
+                          setParcelasEnabled(false);
+                          setParcelas([]);
+                        }
+                      }}
+                      className={inputCls}
+                    >
+                      {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+
+                    {/* Parcelas button */}
+                    {PARCELA_PAYMENT_TYPES.includes(txForm.tipo_pagamento) && (
+                      <button
+                        onClick={() => {
+                          const next = !parcelasEnabled;
+                          setParcelasEnabled(next);
+                          if (next && parcelas.length === 0)
+                            setParcelas([{ seq: 1, data: txForm.data, valor: '' }]);
+                          else if (!next)
+                            setParcelas([]);
+                        }}
+                        className={cn(
+                          'mt-1 self-start px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                          parcelasEnabled
+                            ? 'bg-primary text-on-primary'
+                            : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
+                        )}
+                      >
+                        Parcelas
+                      </button>
+                    )}
+
+                    {/* Parcelas rows */}
+                    {parcelasEnabled && (
+                      <div className="mt-2 flex flex-col gap-2 bg-on-surface/3 rounded-xl p-3">
+                        <div className="grid grid-cols-3 gap-2">
+                          <span className={cn(labelCls, 'text-center')}>Parcela</span>
+                          <span className={cn(labelCls, 'text-center')}>Data</span>
+                          <span className={cn(labelCls, 'text-center')}>Valor</span>
+                        </div>
+                        {parcelas.map((p, idx) => (
+                          <div key={idx} className="grid grid-cols-3 gap-2 items-center">
+                            <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none')}>
+                              {p.seq}
+                            </div>
+                            <input
+                              type="date"
+                              value={p.data}
+                              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+                              className={inputCls}
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={p.valor}
+                              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                              placeholder="0,00"
+                              className={inputCls}
+                            />
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
+                          className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity pt-1"
+                        >
+                          <Plus size={13} />Adicionar parcela
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Favorecido</label>
+                    <input list="favorecidos-list" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
+                    <datalist id="favorecidos-list">
+                      {favorecidos.map(f => <option key={f.id} value={f.nome_fiscal} />)}
+                    </datalist>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Conta</label>
+                    <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={inputCls}>
+                      <option value="">Selecione a conta...</option>
+                      {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Estabelecimento</label>
+                    <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
+                      {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Valor (R$)</label>
+                    {parcelasEnabled ? (
+                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                        {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
+                      </div>
+                    ) : (
+                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                    )}
+                  </div>
+                </>)}
               </div>
 
               <div className="flex gap-3 mt-6">
