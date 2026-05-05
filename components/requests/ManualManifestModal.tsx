@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   X, Plus, Trash2, Search, CheckCircle2, Package,
   ArrowRight, FileSpreadsheet, Save, ChevronLeft,
-  FileText, Clock, Ruler, Zap, Pencil,
+  FileText, Clock, Ruler, Zap, Pencil, Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +23,12 @@ interface ManifestRow {
   linkedProduct: LinkedProduct | null;
   unitTranslated?: boolean;
   unitMultiplier?: number;
+  multiLinked?: boolean;
+}
+
+interface MultiLinkEntry {
+  product: LinkedProduct;
+  qty: string;
 }
 
 interface LinkedProduct {
@@ -155,6 +161,18 @@ export function ManualManifestModal({
   const [translationPickerRowId, setTranslationPickerRowId] = useState<string | null>(null);
   const [translationOptions, setTranslationOptions] = useState<UnitConversion[]>([]);
   const [loadingTranslation, setLoadingTranslation] = useState<string | null>(null);
+
+  // Multi-link sub-modal
+  const [multiLinkRowId, setMultiLinkRowId] = useState<string | null>(null);
+  const [multiLinkEntries, setMultiLinkEntries] = useState<MultiLinkEntry[]>([]);
+  const [multiLinkSearch, setMultiLinkSearch] = useState('');
+  const [multiLinkQty, setMultiLinkQty] = useState('');
+  const [multiLinkResults, setMultiLinkResults] = useState<LinkedProduct[]>([]);
+  const [multiLinkShowCreate, setMultiLinkShowCreate] = useState(false);
+  const [multiLinkNewName, setMultiLinkNewName] = useState('');
+  const [multiLinkNewSku, setMultiLinkNewSku] = useState('');
+  const [multiLinkNewEan, setMultiLinkNewEan] = useState('');
+  const [multiLinkCreating, setMultiLinkCreating] = useState(false);
 
   // Close unit menu on outside click
   useEffect(() => {
@@ -528,6 +546,110 @@ export function ManualManifestModal({
     } finally { setSubmitting(false); }
   };
 
+  // ── Multi-link helpers ───────────────────────────────────────────────────────
+
+  const openMultiLink = (rowId: string) => {
+    setMultiLinkRowId(rowId);
+    setMultiLinkEntries([]);
+    setMultiLinkSearch(''); setMultiLinkQty('');
+    setMultiLinkResults([]);
+    setMultiLinkShowCreate(false);
+    setMultiLinkNewName(''); setMultiLinkNewSku(''); setMultiLinkNewEan('');
+  };
+
+  const closeMultiLink = () => {
+    setMultiLinkRowId(null);
+    setMultiLinkEntries([]);
+    setMultiLinkSearch(''); setMultiLinkQty('');
+    setMultiLinkResults([]);
+    setMultiLinkShowCreate(false);
+  };
+
+  const handleMultiLinkSearch = async () => {
+    if (!multiLinkSearch.trim()) return;
+    const { data } = await supabase.from('products').select('id, name, sku, ean')
+      .or(`name.ilike.%${multiLinkSearch}%,sku.ilike.%${multiLinkSearch}%,ean.ilike.%${multiLinkSearch}%`)
+      .limit(8);
+    setMultiLinkResults((data || []) as LinkedProduct[]);
+  };
+
+  const handleAddToMultiLink = async (product: LinkedProduct) => {
+    const qty = multiLinkQty.trim();
+    if (!qty || parseFloat(qty) <= 0) {
+      setNotification({ type: 'error', message: 'Informe a quantidade antes de adicionar.' });
+      return;
+    }
+    if (supplierId) {
+      const sourceRow = rows.find(r => r.id === multiLinkRowId);
+      if (sourceRow) {
+        await supabase.from('supplier_mappings').upsert({
+          supplier_id: supplierId,
+          supplier_sku: sourceRow.supplierCode.trim() || null,
+          supplier_description: sourceRow.description.trim() || '',
+          internal_product_id: product.id,
+        });
+      }
+    }
+    setMultiLinkEntries(prev => [...prev, { product, qty }]);
+    setMultiLinkSearch('');
+    setMultiLinkQty('');
+    setMultiLinkResults([]);
+  };
+
+  const handleSaveMultiLink = () => {
+    const sourceRow = rows.find(r => r.id === multiLinkRowId);
+    if (!sourceRow || multiLinkEntries.length === 0) return;
+    const newRows: ManifestRow[] = multiLinkEntries.map(entry => ({
+      id: Math.random().toString(36).slice(2, 10),
+      supplierCode: sourceRow.supplierCode,
+      description: sourceRow.description,
+      unit: sourceRow.unit,
+      quantity: entry.qty,
+      unitPrice: sourceRow.unitPrice,
+      linkedProduct: entry.product,
+      unitTranslated: sourceRow.unitTranslated,
+      unitMultiplier: sourceRow.unitMultiplier,
+      multiLinked: true,
+    }));
+    setRows(prev => {
+      const idx = prev.findIndex(r => r.id === multiLinkRowId);
+      if (idx < 0) return [...prev, ...newRows];
+      const next = [...prev];
+      next.splice(idx, 1, ...newRows);
+      return next;
+    });
+    setNotification({ type: 'success', message: `${newRows.length} linha${newRows.length !== 1 ? 's' : ''} criada${newRows.length !== 1 ? 's' : ''} para "${sourceRow.description || sourceRow.supplierCode}".` });
+    closeMultiLink();
+  };
+
+  const handleMultiLinkCreateProduct = async () => {
+    if (!multiLinkNewName.trim()) {
+      setNotification({ type: 'error', message: 'Nome do produto é obrigatório.' });
+      return;
+    }
+    if (!multiLinkQty.trim() || parseFloat(multiLinkQty) <= 0) {
+      setNotification({ type: 'error', message: 'Informe a quantidade.' });
+      return;
+    }
+    setMultiLinkCreating(true);
+    try {
+      const sku = multiLinkNewSku.trim() || `MAN-${Date.now()}`;
+      const { data: created, error } = await supabase.from('products')
+        .insert({ name: multiLinkNewName.trim(), sku, ean: multiLinkNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
+        .select('id, name, sku, ean').single();
+      if (error) throw error;
+      if (created) {
+        await handleAddToMultiLink(created as LinkedProduct);
+        setMultiLinkNewName(''); setMultiLinkNewSku(''); setMultiLinkNewEan('');
+        setMultiLinkShowCreate(false);
+      }
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao criar produto.' });
+    } finally {
+      setMultiLinkCreating(false);
+    }
+  };
+
   // ── Derived ──────────────────────────────────────────────────────────────────
 
   const validCount = rows.filter(r => r.description.trim() || r.supplierCode.trim()).length;
@@ -536,6 +658,7 @@ export function ManualManifestModal({
   const linkingRow = rows.find(r => r.id === linkingRowId) ?? null;
   const measureRow = rows.find(r => r.id === measureRowId) ?? null;
   const translationPickerRow = rows.find(r => r.id === translationPickerRowId) ?? null;
+  const multiLinkRow = rows.find(r => r.id === multiLinkRowId) ?? null;
 
   if (!isOpen) return null;
 
@@ -806,20 +929,36 @@ export function ManualManifestModal({
                       </td>
                       {/* Dicionário */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
-                        {row.linkedProduct ? (
-                          <button onClick={() => openLink(row.id)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
-                            title={`${row.linkedProduct.name} — clique para alterar`}>
-                            <CheckCircle2 size={11} className="shrink-0" />
-                            <span className="text-[11px] font-bold truncate max-w-[150px]">{row.linkedProduct.name}</span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {row.linkedProduct ? (
+                            <button onClick={() => openLink(row.id)}
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
+                              title={`${row.linkedProduct.name} — clique para alterar`}>
+                              <CheckCircle2 size={11} className="shrink-0" />
+                              <span className="text-[11px] font-bold truncate max-w-[100px]">{row.linkedProduct.name}</span>
+                            </button>
+                          ) : (
+                            <button onClick={() => openLink(row.id)}
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all">
+                              <Plus size={11} />
+                              <span className="text-[11px] font-bold">Vincular</span>
+                            </button>
+                          )}
+                          {/* Vincular vários */}
+                          <button
+                            onClick={() => openMultiLink(row.id)}
+                            title="Vincular vários produtos a este item"
+                            className={cn(
+                              'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
+                              row.multiLinked
+                                ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                : 'bg-slate-50 text-slate-400 border-dashed border-slate-300 hover:bg-primary/5 hover:border-primary/40 hover:text-primary'
+                            )}
+                          >
+                            <Layers size={11} className="shrink-0" />
+                            <span>Vários</span>
                           </button>
-                        ) : (
-                          <button onClick={() => openLink(row.id)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all">
-                            <Plus size={11} />
-                            <span className="text-[11px] font-bold">Vincular</span>
-                          </button>
-                        )}
+                        </div>
                       </td>
                       {/* Delete */}
                       <td className="px-2 py-1.5 align-middle">
@@ -1118,6 +1257,193 @@ export function ManualManifestModal({
                   </div>
                 )}
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Multi-Link Sub-Modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {multiLinkRowId && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black" onClick={closeMultiLink} />
+            <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ duration: 0.18 }}
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                      <Layers size={14} />
+                    </div>
+                    <h3 className="text-base font-black text-slate-900">Vincular Vários</h3>
+                  </div>
+                  {multiLinkRow && (
+                    <p className="text-xs text-slate-400 font-medium mt-1 truncate pl-9">
+                      {multiLinkRow.description || multiLinkRow.supplierCode || 'Item sem descrição'}
+                    </p>
+                  )}
+                </div>
+                <button onClick={closeMultiLink} className="ml-3 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                  <X size={16} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {!multiLinkShowCreate ? (
+                  <>
+                    {/* Search + Qty row */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={multiLinkSearch}
+                          onChange={e => setMultiLinkSearch(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleMultiLinkSearch()}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          placeholder="Buscar por nome, SKU ou EAN..."
+                          autoFocus
+                        />
+                      </div>
+                      <input
+                        type="number"
+                        value={multiLinkQty}
+                        onChange={e => setMultiLinkQty(e.target.value)}
+                        className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-center"
+                        placeholder="Qtd"
+                        min="0"
+                        step="any"
+                      />
+                      <button
+                        onClick={handleMultiLinkSearch}
+                        className="px-3 py-2 bg-slate-900 text-white rounded-xl hover:bg-primary transition-colors"
+                        title="Buscar"
+                      >
+                        <Search size={14} />
+                      </button>
+                      <button
+                        onClick={() => setMultiLinkShowCreate(true)}
+                        className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                        title="Criar novo produto"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+
+                    {/* Search results */}
+                    {multiLinkResults.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Resultados</p>
+                        {multiLinkResults.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleAddToMultiLink(p)}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shrink-0">
+                              <Package size={16} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.sku}</span>
+                                {p.ean && <span className="text-[10px] text-slate-400">{p.ean}</span>}
+                              </div>
+                            </div>
+                            <Plus size={14} className="text-slate-300 group-hover:text-primary shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Added entries */}
+                    {multiLinkEntries.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">
+                          A criar ({multiLinkEntries.length})
+                        </p>
+                        {multiLinkEntries.map((entry, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-emerald-800 truncate">{entry.product.name}</p>
+                              <p className="text-[10px] text-emerald-600 font-medium">Qtd: {entry.qty}</p>
+                            </div>
+                            <button
+                              onClick={() => setMultiLinkEntries(prev => prev.filter((_, i) => i !== idx))}
+                              className="w-6 h-6 rounded-lg text-emerald-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-all shrink-0"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Create new product */
+                  <div className="space-y-4">
+                    <button onClick={() => setMultiLinkShowCreate(false)}
+                      className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
+                      ← Voltar para busca
+                    </button>
+                    <h4 className="text-sm font-black text-slate-900">Criar Novo Produto</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Quantidade *</label>
+                        <input type="number" value={multiLinkQty} onChange={e => setMultiLinkQty(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          placeholder="Quantidade" min="0" step="any" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                        <input type="text" value={multiLinkNewName} onChange={e => setMultiLinkNewName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          placeholder="Nome do produto" autoFocus />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                          <input type="text" value={multiLinkNewSku} onChange={e => setMultiLinkNewSku(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="Auto-gerado" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN / Barcode</label>
+                          <input type="text" value={multiLinkNewEan} onChange={e => setMultiLinkNewEan(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="Código de barras" />
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={handleMultiLinkCreateProduct}
+                      disabled={multiLinkCreating || !multiLinkNewName.trim() || !multiLinkQty.trim()}
+                      className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+                      {multiLinkCreating
+                        ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                        : <><Plus size={14} />Criar e Adicionar</>
+                      }
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer save */}
+              {multiLinkEntries.length > 0 && !multiLinkShowCreate && (
+                <div className="px-5 py-4 border-t border-slate-100 shrink-0">
+                  <button
+                    onClick={handleSaveMultiLink}
+                    className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Layers size={14} />
+                    Criar {multiLinkEntries.length} linha{multiLinkEntries.length !== 1 ? 's' : ''}
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
