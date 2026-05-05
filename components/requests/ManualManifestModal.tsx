@@ -479,16 +479,25 @@ export function ManualManifestModal({
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
     setSubmitting(true);
     try {
-      const items = validRows.map((r, i) => ({
-        seq: i + 1, ean: r.linkedProduct?.ean ?? '', sku: r.linkedProduct?.sku ?? '',
-        description: r.description, unit: r.unit,
-        qty: parseFloat(r.quantity) || 0, price: parseFloat(r.unitPrice) || 0,
-        verified: !!r.linkedProduct, internal_product_id: r.linkedProduct?.id ?? null,
-        supplier_code: r.supplierCode, product_name: r.linkedProduct?.name ?? r.description,
-        unit_multiplier: r.unitMultiplier ?? null,
-        original_description: r.description,
-        name: r.supplierCode || r.linkedProduct?.name || r.description,
-      }));
+      const items = validRows.map((r, i) => {
+        const sku = r.linkedProduct?.sku?.startsWith('MAN-') ? '' : (r.linkedProduct?.sku ?? '');
+        return {
+          seq: i + 1,
+          ean: r.linkedProduct?.ean ?? '',
+          sku,
+          description: r.description,
+          unit: r.unit,
+          qty: parseFloat(r.quantity) || 0,
+          price: parseFloat(r.unitPrice) || 0,
+          verified: !!r.linkedProduct,
+          internal_product_id: r.linkedProduct?.id ?? null,
+          supplier_code: r.supplierCode,
+          product_name: r.linkedProduct?.name ?? r.description,
+          unit_multiplier: r.unitMultiplier ?? null,
+          original_description: r.description,
+          name: r.linkedProduct?.name ?? r.description,
+        };
+      });
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
       const noteId = currentDraftId ?? Date.now().toString();
       const timestamp = new Date().toLocaleString('pt-BR');
