@@ -660,6 +660,7 @@ export default function Page() {
     const { data } = await supabase
       .from('review_notes')
       .select('*')
+      .eq('is_draft', false)
       .order('created_at', { ascending: false });
     if (data) {
       setReviewNotes(data.map((n: any) => ({

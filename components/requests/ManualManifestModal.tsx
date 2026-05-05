@@ -60,36 +60,44 @@ export interface ManualManifestModalProps {
   onManifestSaved: (note: ReviewNote) => void;
 }
 
-// ─── Draft persistence (Supabase) ────────────────────────────────────────────
+// ─── Draft persistence (review_notes with is_draft = true) ───────────────────
 
 async function fetchDrafts(): Promise<ManifestDraft[]> {
-  const { data } = await supabase
-    .from('manifest_drafts')
-    .select('*')
-    .order('updated_at', { ascending: false });
-  if (!data) return [];
-  return data.map((d: any) => ({
+  const { data, error } = await supabase
+    .from('review_notes')
+    .select('id, file_name, timestamp_label, supplier_id, raw_rows')
+    .eq('is_draft', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((d: any) => ({
     id: d.id,
-    label: d.label,
-    savedAt: d.saved_at,
+    label: d.file_name,
+    savedAt: d.timestamp_label,
     supplierId: d.supplier_id ?? '',
-    rows: d.rows,
+    rows: d.raw_rows || [],
   }));
 }
 
 async function upsertDraft(draft: ManifestDraft) {
-  await supabase.from('manifest_drafts').upsert({
+  const { error } = await supabase.from('review_notes').upsert({
     id: draft.id,
-    label: draft.label,
-    saved_at: draft.savedAt,
+    file_name: draft.label,
+    timestamp_label: draft.savedAt,
     supplier_id: draft.supplierId || null,
-    rows: draft.rows,
+    supplier_name: null,
+    raw_rows: draft.rows,
+    is_draft: true,
+    item_count: draft.rows.length,
+    verified_count: 0,
+    items: [],
     updated_at: new Date().toISOString(),
   });
+  if (error) throw error;
 }
 
 async function deleteDraft(id: string) {
-  await supabase.from('manifest_drafts').delete().eq('id', id);
+  const { error } = await supabase.from('review_notes').delete().eq('id', id).eq('is_draft', true);
+  if (error) throw error;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -134,6 +142,7 @@ export function ManualManifestModal({
   // Unit menu (small dropdown per row)
   const [unitMenuRowId, setUnitMenuRowId] = useState<string | null>(null);
   const unitMenuRef = useRef<HTMLDivElement>(null);
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Add Measure sub-modal
   const [measureRowId, setMeasureRowId] = useState<string | null>(null);
@@ -158,6 +167,34 @@ export function ManualManifestModal({
     return () => document.removeEventListener('mousedown', handler);
   }, [unitMenuRowId]);
 
+  // Auto-save draft whenever rows / supplier change (debounced 1.5 s)
+  useEffect(() => {
+    if (view !== 'editor' || !currentDraftId) return;
+    const hasContent = rows.some(r => r.description.trim() || r.supplierCode.trim());
+    if (!hasContent) return;
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(async () => {
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
+      const timestamp = new Date().toLocaleString('pt-BR');
+      const draft: ManifestDraft = {
+        id: currentDraftId,
+        label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
+        savedAt: timestamp,
+        supplierId,
+        rows,
+      };
+      try {
+        await upsertDraft(draft);
+        setDrafts(prev => {
+          const idx = prev.findIndex(d => d.id === currentDraftId);
+          if (idx >= 0) { const next = [...prev]; next[idx] = draft; return next; }
+          return [draft, ...prev];
+        });
+      } catch { /* silent — manual Salvar will surface errors */ }
+    }, 1500);
+    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
+  }, [rows, supplierId, view, currentDraftId]);
+
   // On open: load drafts from Supabase
   useEffect(() => {
     if (!isOpen) return;
@@ -169,8 +206,12 @@ export function ManualManifestModal({
       setLoadingDrafts(false);
       if (saved.length === 0) openNewEditor();
       else setView('list');
-    }).catch(() => {
-      if (!cancelled) { setLoadingDrafts(false); openNewEditor(); }
+    }).catch((err: any) => {
+      if (!cancelled) {
+        setLoadingDrafts(false);
+        setNotification({ type: 'error', message: `Erro ao carregar rascunhos: ${err?.message || 'tabela não encontrada'}` });
+        openNewEditor();
+      }
     });
     return () => { cancelled = true; };
   }, [isOpen]);
@@ -178,7 +219,7 @@ export function ManualManifestModal({
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const openNewEditor = () => {
-    setCurrentDraftId(null); setSupplierId('');
+    setCurrentDraftId(Date.now().toString()); setSupplierId('');
     setRows([makeRow(), makeRow(), makeRow()]);
     setLinkingRowId(null); setView('editor');
   };
@@ -435,6 +476,7 @@ export function ManualManifestModal({
   const handleSubmit = async () => {
     const validRows = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (validRows.length === 0) { setNotification({ type: 'error', message: 'Adicione ao menos um item ao manifesto.' }); return; }
+    if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
     setSubmitting(true);
     try {
       const items = validRows.map((r, i) => ({
@@ -448,19 +490,27 @@ export function ManualManifestModal({
         name: r.supplierCode || r.linkedProduct?.name || r.description,
       }));
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
-      const noteId = Date.now().toString();
+      const noteId = currentDraftId ?? Date.now().toString();
       const timestamp = new Date().toLocaleString('pt-BR');
       const note: ReviewNote = {
         id: noteId, timestamp, fileName: `Manifesto Manual — ${timestamp}`,
         items, itemCount: items.length, verifiedCount: items.filter(i => i.verified).length,
         supplierName: supplierName || undefined,
       };
-      await supabase.from('review_notes').insert({
-        id: note.id, timestamp_label: note.timestamp, file_name: note.fileName,
-        item_count: note.itemCount, verified_count: note.verifiedCount,
-        items: note.items, supplier_name: supplierName || null,
+      const { error } = await supabase.from('review_notes').upsert({
+        id: note.id,
+        timestamp_label: note.timestamp,
+        file_name: note.fileName,
+        item_count: note.itemCount,
+        verified_count: note.verifiedCount,
+        items: note.items,
+        supplier_name: supplierName || null,
+        is_draft: false,
+        raw_rows: null,
+        supplier_id: null,
+        updated_at: new Date().toISOString(),
       });
-      if (currentDraftId) await deleteDraft(currentDraftId).catch(() => {});
+      if (error) throw error;
       onManifestSaved(note);
       setNotification({ type: 'success', message: `Manifesto enviado para revisão com ${items.length} item(s).` });
       onClose();
