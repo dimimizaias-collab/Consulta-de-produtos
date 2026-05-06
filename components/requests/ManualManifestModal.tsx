@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import type { ReviewNote } from './LogisticsCenter';
+import { InvoiceImportModal, type ImportedRow } from './InvoiceImportModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,9 +152,8 @@ export function ManualManifestModal({
   const unitMenuRef = useRef<HTMLDivElement>(null);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Import invoice
-  const [importing, setImporting] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  // Import invoice modal
+  const [showImport, setShowImport] = useState(false);
 
   // Add Measure sub-modal
   const [measureRowId, setMeasureRowId] = useState<string | null>(null);
@@ -496,65 +496,22 @@ export function ManualManifestModal({
 
   // ── Import invoice ────────────────────────────────────────────────────────────
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-
-    if (file.size > 10 * 1024 * 1024) {
-      setNotification({ type: 'error', message: 'Arquivo muito grande. Tamanho máximo: 10MB.' });
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('supplierId', supplierId);
-      fd.append('supplierName', suppliers.find(s => s.id === supplierId)?.name ?? '');
-
-      const res = await fetch('/api/import-invoice', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Erro na importação.');
-
-      const items: Array<{
-        supplierCode: string;
-        description: string;
-        unit: string;
-        quantity: number;
-        unitPrice: number;
-        confidence: number;
-        linkedProduct: { id: string; name: string; sku: string; ean: string } | null;
-      }> = json.items ?? [];
-
-      if (items.length === 0) {
-        setNotification({ type: 'error', message: 'Nenhum item encontrado no documento.' });
-        return;
-      }
-
-      const newRows: ManifestRow[] = items.map(item => ({
-        id: Math.random().toString(36).slice(2, 10),
-        supplierCode: item.supplierCode,
-        description: item.description,
-        unit: item.unit,
-        quantity: String(item.quantity),
-        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : '',
-        linkedProduct: item.linkedProduct,
-        confidence: item.confidence,
-      }));
-      newRows.push(makeRow());
-
-      setRows(newRows);
-      const matched = newRows.filter(r => r.linkedProduct).length;
-      setNotification({
-        type: 'success',
-        message: `${items.length} ${items.length === 1 ? 'item importado' : 'itens importados'}. ${matched} vinculado${matched !== 1 ? 's' : ''} automaticamente.`,
-      });
-    } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Erro ao importar nota.' });
-    } finally {
-      setImporting(false);
-    }
+  const handleImportRows = (imported: ImportedRow[]) => {
+    const newRows: ManifestRow[] = imported.map(item => ({
+      id: Math.random().toString(36).slice(2, 10),
+      supplierCode: item.supplierCode,
+      description: item.description,
+      unit: item.unit || 'UN',
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      linkedProduct: null,
+    }));
+    newRows.push(makeRow());
+    setRows(newRows);
+    setNotification({
+      type: 'success',
+      message: `${imported.length} ${imported.length === 1 ? 'item adicionado' : 'itens adicionados'} ao manifesto.`,
+    });
   };
 
   // ── Send to review ────────────────────────────────────────────────────────────
@@ -851,25 +808,14 @@ export function ManualManifestModal({
               </div>
 
               {/* Import invoice button */}
-              <input
-                ref={importInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                className="hidden"
-                onChange={handleImportFile}
-              />
               <div className="mt-4">
                 <button
-                  onClick={() => importInputRef.current?.click()}
-                  disabled={importing}
+                  onClick={() => setShowImport(true)}
                   title="Importar nota fiscal ou romaneio (PDF, JPG, PNG)"
-                  className="flex items-center gap-2 border-2 border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-40 uppercase tracking-widest"
+                  className="flex items-center gap-2 border-2 border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-xs transition-all uppercase tracking-widest"
                 >
-                  {importing
-                    ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
-                    : <Upload size={14} />
-                  }
-                  {importing ? 'Processando...' : 'Importar Nota'}
+                  <Upload size={14} />
+                  Importar Nota
                 </button>
               </div>
 
@@ -1552,6 +1498,13 @@ export function ManualManifestModal({
           </div>
         )}
       </AnimatePresence>
+
+      {/* ── Invoice Import Modal ──────────────────────────────────────────────── */}
+      <InvoiceImportModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleImportRows}
+      />
     </>
   );
 }
