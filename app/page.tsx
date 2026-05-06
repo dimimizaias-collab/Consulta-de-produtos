@@ -14,7 +14,7 @@ import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -326,6 +326,14 @@ export default function Page() {
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
+  const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
+  const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
+  const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
+  const [reviewLoadingUnitIdx, setReviewLoadingUnitIdx] = useState<number | null>(null);
+  const [reviewMeasureIdx, setReviewMeasureIdx] = useState<number | null>(null);
+  const [reviewMeasureUnit, setReviewMeasureUnit] = useState('');
+  const [reviewMeasureMultiplier, setReviewMeasureMultiplier] = useState('');
+  const [reviewSavingMeasure, setReviewSavingMeasure] = useState(false);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
   const [editingNoteHeader, setEditingNoteHeader] = useState(false);
 
@@ -1572,6 +1580,70 @@ export default function Page() {
     }
   };
 
+  const handleReviewUseTranslation = async (idx: number) => {
+    if (!viewingReviewNote) return;
+    const item = viewingReviewNote.items[idx];
+    if (!item.product_id) {
+      setNotification({ type: 'error', message: 'Vincule o produto ao dicionário primeiro.' });
+      return;
+    }
+    setReviewLoadingUnitIdx(idx);
+    try {
+      const { data } = await supabase
+        .from('supplier_units')
+        .select('id, unit_name, multiplier')
+        .eq('product_id', item.product_id)
+        .limit(10);
+      if (!data || data.length === 0) {
+        setNotification({ type: 'error', message: 'Nenhuma tradução cadastrada para este produto. Use "Adicionar medida".' });
+        return;
+      }
+      const conv = data[0];
+      const mult = Number(conv.multiplier);
+      const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
+      const newQty = originalQty * mult;
+      const u = [...viewingNoteUnits]; u[idx] = conv.unit_name; setViewingNoteUnits(u);
+      const m = [...viewingNoteMultipliers]; m[idx] = mult; setViewingNoteMultipliers(m);
+      const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
+      setNotification({ type: 'success', message: `Tradução aplicada: ×${mult}` });
+    } catch {
+      setNotification({ type: 'error', message: 'Erro ao buscar traduções.' });
+    } finally {
+      setReviewLoadingUnitIdx(null);
+    }
+  };
+
+  const handleReviewSaveMeasure = async () => {
+    if (reviewMeasureIdx === null || !viewingReviewNote) return;
+    const mult = parseFloat(reviewMeasureMultiplier);
+    if (isNaN(mult) || mult <= 0) {
+      setNotification({ type: 'error', message: 'Informe um multiplicador válido (maior que 0).' });
+      return;
+    }
+    setReviewSavingMeasure(true);
+    try {
+      const item = viewingReviewNote.items[reviewMeasureIdx];
+      if (item.product_id) {
+        await supabase.from('supplier_units').insert({
+          product_id: item.product_id,
+          unit_name: reviewMeasureUnit.trim() || item.unit,
+          multiplier: mult,
+        });
+      }
+      const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
+      const newQty = originalQty * mult;
+      const u = [...viewingNoteUnits]; u[reviewMeasureIdx] = reviewMeasureUnit.trim() || item.unit || 'UN'; setViewingNoteUnits(u);
+      const m = [...viewingNoteMultipliers]; m[reviewMeasureIdx] = mult; setViewingNoteMultipliers(m);
+      const q = [...viewingNoteQtys]; q[reviewMeasureIdx] = newQty; setViewingNoteQtys(q);
+      setNotification({ type: 'success', message: `Medida cadastrada! 1 ${reviewMeasureUnit || item.unit} = ${mult} UN.` });
+      setReviewMeasureIdx(null);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao salvar medida.' });
+    } finally {
+      setReviewSavingMeasure(false);
+    }
+  };
+
   const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2301,6 +2373,10 @@ export default function Page() {
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
+                    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
+                    setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
+                    setReviewUnitMenuIdx(null);
+                    setReviewMeasureIdx(null);
                     setReviewEditableCols(new Set());
                     setEditingNoteHeader(false);
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
@@ -4741,21 +4817,22 @@ export default function Page() {
                           </td>
                           <td className="py-3 px-4 max-w-[220px] relative">
                             {item.verified ? (
-                              <div className="flex items-center gap-2">
-                                <ArrowRight size={13} className="text-primary shrink-0" />
-                                <p className="text-sm font-black text-primary truncate" title={item.name}>{item.name}</p>
-                              </div>
+                              <button
+                                onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
+                                title={`${item.name} — clique para alterar`}
+                              >
+                                <CheckCircle2 size={11} className="shrink-0" />
+                                <span className="text-[11px] font-bold truncate max-w-[140px]">{item.name}</span>
+                              </button>
                             ) : (
-                              <div className="flex items-center gap-1.5">
-                                <p className="text-xs font-medium text-red-400 italic whitespace-nowrap">Cadastro pendente</p>
-                                <button
-                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
-                                  title="Vincular produto interno"
-                                  className="w-5 h-5 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center shrink-0"
-                                >
-                                  <Plus size={11} />
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all"
+                              >
+                                <Plus size={11} />
+                                <span className="text-[11px] font-bold">Vincular</span>
+                              </button>
                             )}
                             {linkingItemIdx === idx && (
                               <>
@@ -4838,14 +4915,76 @@ export default function Page() {
                               <p className="text-[11px] font-bold text-slate-400">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            {reviewEditableCols.has('Qtd.') ? (
-                              <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
-                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
-                                className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                            ) : (
-                              <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{viewingNoteQtys[idx] ?? item.qty}</span>
-                            )}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="text"
+                                  value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
+                                  onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
+                                  className="w-12 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-slate-600 text-center transition-colors"
+                                  placeholder="UN"
+                                />
+                                {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
+                                  <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${viewingNoteMultipliers[idx] ?? item.multiplier}`}>
+                                    ×{viewingNoteMultipliers[idx] ?? item.multiplier}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
+                                  className={cn(
+                                    'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
+                                    reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-slate-300 hover:text-primary hover:bg-primary/10'
+                                  )}
+                                >
+                                  <Plus size={10} />
+                                </button>
+                                <AnimatePresence>
+                                  {reviewUnitMenuIdx === idx && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                                      transition={{ duration: 0.12 }}
+                                      className="absolute left-0 top-full mt-1 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden w-44"
+                                    >
+                                      <button
+                                        onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2"
+                                      >
+                                        <Ruler size={12} className="shrink-0" />
+                                        Adicionar medida
+                                      </button>
+                                      <button
+                                        onClick={() => { handleReviewUseTranslation(idx); setReviewUnitMenuIdx(null); }}
+                                        disabled={reviewLoadingUnitIdx === idx}
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
+                                      >
+                                        {reviewLoadingUnitIdx === idx
+                                          ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
+                                          : <Zap size={12} className="shrink-0" />
+                                        }
+                                        Usar tradução
+                                      </button>
+                                      <button
+                                        onClick={() => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); }}
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                                      >
+                                        <Pencil size={12} className="shrink-0" />
+                                        Manual
+                                      </button>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              {reviewEditableCols.has('Qtd.') ? (
+                                <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                                  onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                  className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                              ) : (
+                                <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{viewingNoteQtys[idx] ?? item.qty}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <span className={cn("text-sm font-bold", adjCost > 0 ? adjColor : "text-slate-300")}>
@@ -5031,6 +5170,8 @@ export default function Page() {
                           ean: viewingNoteEans[idx] ?? item.ean,
                           sku: viewingNoteSkus[idx] ?? item.sku,
                           qty: viewingNoteQtys[idx] ?? item.qty,
+                          unit: viewingNoteUnits[idx] ?? item.unit,
+                          multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                           product_price: viewingNoteSellPrices[idx] ?? item.product_price,
                           verified: viewingNoteVerified[idx] ?? item.verified,
                           review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
@@ -5190,6 +5331,60 @@ export default function Page() {
                   </div>
                 </div>
               )}
+              {/* Overlay para fechar menu de unidade */}
+              {reviewUnitMenuIdx !== null && (
+                <div className="absolute inset-0 z-40" onClick={() => setReviewUnitMenuIdx(null)} />
+              )}
+
+              {/* Adicionar medida dialog */}
+              {reviewMeasureIdx !== null && (
+                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
+                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
+                    <h4 className="text-base font-black text-slate-900 mb-1">Adicionar medida</h4>
+                    <p className="text-xs text-slate-400 mb-4">
+                      Defina quantas unidades internas equivalem a 1 unidade do fornecedor
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Unidade do fornecedor</label>
+                        <input
+                          type="text"
+                          value={reviewMeasureUnit}
+                          onChange={e => setReviewMeasureUnit(e.target.value)}
+                          placeholder="Ex: CX, PCT, FD..."
+                          autoFocus
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Multiplicador (qtd. por unidade)</label>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={reviewMeasureMultiplier}
+                          onChange={e => setReviewMeasureMultiplier(e.target.value)}
+                          placeholder="Ex: 12"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setReviewMeasureIdx(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleReviewSaveMeasure}
+                          disabled={reviewSavingMeasure}
+                          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors disabled:opacity-60"
+                        >
+                          {reviewSavingMeasure ? 'Salvando...' : 'Salvar'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Acréscimo Individual dialog */}
               {surchargeDialog === 'individual' && (
                 <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
