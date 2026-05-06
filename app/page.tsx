@@ -340,6 +340,7 @@ export default function Page() {
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
+  const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<number[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
@@ -2519,6 +2520,7 @@ export default function Page() {
                     setViewingNoteEans([]);
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
+                    setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
                     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
@@ -4923,7 +4925,7 @@ export default function Page() {
                   </thead>
                   <tbody>
                     {viewingReviewNote.items.map((item: any, idx: number) => {
-                      const cost = (item.price || 0) / (item.multiplier || 1);
+                      const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
 
                       let discountAmt = 0;
@@ -5194,9 +5196,17 @@ export default function Page() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className={cn("text-sm font-bold", adjCost > 0 ? adjColor : "text-slate-300")}>
-                              {adjCost > 0 ? `R$ ${adjCost.toFixed(2)}` : '—'}
-                            </span>
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-xs text-slate-400 font-semibold">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
+                                onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
+                                className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              />
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <span className={cn("text-sm font-bold", totalValue > 0 ? adjColor : "text-slate-300")}>
@@ -5346,7 +5356,7 @@ export default function Page() {
                   <span className="text-slate-500">Valor total da nota:</span>
                   <span className="font-black text-slate-900">
                     {`R$ ${viewingReviewNote.items.reduce((sum: number, item: any, idx: number) => {
-                      const cost = (item.price || 0) / (item.multiplier || 1);
+                      const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
                       let discAmt = 0;
                       if (discountMode === 'geral' && discountApplied) {
@@ -5377,6 +5387,7 @@ export default function Page() {
                           ean: viewingNoteEans[idx] ?? item.ean,
                           sku: viewingNoteSkus[idx] ?? item.sku,
                           qty: viewingNoteQtys[idx] ?? item.qty,
+                          price: viewingNoteItemPrices[idx] ?? item.price,
                           unit: viewingNoteUnits[idx] ?? item.unit,
                           multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                           product_price: viewingNoteSellPrices[idx] ?? item.product_price,
