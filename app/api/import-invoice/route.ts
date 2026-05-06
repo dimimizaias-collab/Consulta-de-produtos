@@ -107,7 +107,7 @@ async function lookupMapping(
   const { data } = await query.limit(1).maybeSingle();
 
   if (!data?.products) return null;
-  const p = data.products as { id: string; name: string; sku: string; ean: string | null };
+  const p = data.products as unknown as { id: string; name: string; sku: string; ean: string | null };
   return { id: p.id, name: p.name, sku: p.sku, ean: p.ean ?? '' };
 }
 
