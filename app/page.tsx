@@ -5047,13 +5047,14 @@ export default function Page() {
                           adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
                         }));
                         const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
-                        await supabase.from('review_notes').update({
+                        const { error: saveError } = await supabase.from('review_notes').update({
                           verified_count: updatedVerifiedCount,
                           items: updatedItems,
                           file_name: viewingReviewNote.fileName,
                           note_number: viewingReviewNote.noteNumber || null,
                           updated_at: new Date().toISOString(),
                         }).eq('id', viewingReviewNote.id);
+                        if (saveError) throw saveError;
                         setReviewNotes(prev => prev.map(n => {
                           if (n.id !== viewingReviewNote.id) return n;
                           return {
@@ -5065,6 +5066,8 @@ export default function Page() {
                           };
                         }));
                         setViewingReviewNote(null);
+                      } catch (err: any) {
+                        setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
                       } finally {
                         setSavingNote(false);
                       }
