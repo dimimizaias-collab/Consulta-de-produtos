@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { X, Upload, FileText, Loader2, CheckSquare, Square, ArrowRight, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +23,56 @@ interface Props {
 
 type Step = 'upload' | 'loading' | 'selecting';
 
+// ─── CDN loaders ──────────────────────────────────────────────────────────────
+
+function loadScript(src: string, globalKey: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w[globalKey]) { resolve(w[globalKey]); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(w[globalKey]);
+    s.onerror = () => reject(new Error(`Falha ao carregar: ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+async function extractFromImage(file: File): Promise<string[]> {
+  const Tesseract = await loadScript(
+    'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js',
+    'Tesseract',
+  );
+  const worker = await Tesseract.createWorker('por+eng', 1, { logger: () => {} });
+  const { data: { text } } = await worker.recognize(file);
+  await worker.terminate();
+  return cleanLines(text);
+}
+
+async function extractFromPDF(file: File): Promise<string[]> {
+  const pdfjsLib = await loadScript(
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+    'pdfjsLib',
+  );
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const all: string[] = [];
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const text = (content.items as any[]).map(i => i.str ?? '').join(' ');
+    all.push(...cleanLines(text));
+  }
+  return all;
+}
+
+function cleanLines(raw: string): string[] {
+  return raw.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l.length > 2);
+}
+
 // ─── Parsing ──────────────────────────────────────────────────────────────────
 
 const UNITS = ['UN', 'KG', 'CX', 'SC', 'FD', 'PC', 'MT', 'LT', 'GR', 'ML',
@@ -35,44 +85,25 @@ function parseLine(line: string): ImportedRow {
   if (unitMatch && unitMatch.index !== undefined) {
     const beforeUnit = line.slice(0, unitMatch.index).trim();
     const afterUnit = line.slice(unitMatch.index + unitMatch[0].length).trim();
-
-    // Leading code (number or alphanumeric) before description
     const codeMatch = beforeUnit.match(/^([A-Z]?\d+[A-Z]?)\s+(.+)$/i);
     const supplierCode = codeMatch ? codeMatch[1] : '';
     const description = (codeMatch ? codeMatch[2] : beforeUnit).trim();
-
-    // Numbers after unit: first = qty, second = unit price
-    const nums = (afterUnit.match(/[\d.,]+/g) || []).map(n =>
-      n.replace(/\.(?=\d{3})/g, '').replace(',', '.')
-    );
-    const quantity = nums[0] ?? '1';
-    const unitPrice = nums[1] ?? '';
-
-    return { supplierCode, description, unit: unitMatch[0].toUpperCase(), quantity, unitPrice };
+    const nums = (afterUnit.match(/[\d.,]+/g) ?? []).map(n =>
+      n.replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+    return {
+      supplierCode, description,
+      unit: unitMatch[0].toUpperCase(),
+      quantity: nums[0] ?? '1',
+      unitPrice: nums[1] ?? '',
+    };
   }
 
-  // Fallback: leading code + rest as description
   const codeMatch = line.match(/^([A-Z]?\d+[A-Z]?)\s+(.+)$/i);
   return {
     supplierCode: codeMatch ? codeMatch[1] : '',
     description: (codeMatch ? codeMatch[2] : line).trim(),
-    unit: 'UN',
-    quantity: '1',
-    unitPrice: '',
+    unit: 'UN', quantity: '1', unitPrice: '',
   };
-}
-
-// ─── CDN loader for Tesseract.js (browser-side OCR, no bundle impact) ────────
-
-function loadTesseractCDN(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Tesseract) { resolve(); return; }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Falha ao carregar motor OCR. Verifique sua conexão.'));
-    document.head.appendChild(script);
-  });
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -87,10 +118,8 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
-    setStep('upload'); setLines([]); setSelected(new Set());
-    setParsed({}); setError('');
+    setStep('upload'); setLines([]); setSelected(new Set()); setParsed({}); setError('');
   };
-
   const handleClose = () => { reset(); onClose(); };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,42 +130,16 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
     setStep('loading');
 
     try {
-      let extractedLines: string[] = [];
-      let src: 'ocr' | 'pdf' = 'ocr';
-
-      if (file.type === 'application/pdf') {
-        // PDF: extract text server-side (pdf-parse, lightweight)
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch('/api/import-invoice', { method: 'POST', body: fd });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Erro ao processar PDF.');
-        extractedLines = json.lines ?? [];
-        src = 'pdf';
-      } else {
-        // Image: OCR in the browser via Tesseract.js CDN (no server dependency)
-        await loadTesseractCDN();
-        const Tesseract = (window as any).Tesseract;
-        const worker = await Tesseract.createWorker('por+eng', 1, {
-          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/worker.min.js',
-          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@6/tesseract-core-simd-lstm.wasm.js',
-          logger: () => {},
-        });
-        const { data: { text } } = await worker.recognize(file);
-        await worker.terminate();
-        extractedLines = text.split('\n').map((l: string) => l.replace(/\s+/g, ' ').trim()).filter((l: string) => l.length > 2);
-        src = 'ocr';
-      }
-
-      if (!extractedLines.length) throw new Error('Nenhum texto encontrado no documento.');
-      setLines(extractedLines);
-      setSource(src);
+      const isPDF = file.type === 'application/pdf';
+      const lines = isPDF ? await extractFromPDF(file) : await extractFromImage(file);
+      if (!lines.length) throw new Error('Nenhum texto encontrado no documento.');
+      setLines(lines);
+      setSource(isPDF ? 'pdf' : 'ocr');
       setSelected(new Set());
       setParsed({});
       setStep('selecting');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message ?? 'Erro ao processar documento.');
       setStep('upload');
     }
   };
@@ -156,19 +159,14 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
   };
 
   const selectAll = () => {
-    const allIdx = lines.map((_, i) => i);
-    setSelected(new Set(allIdx));
-    setParsed(Object.fromEntries(allIdx.map(i => [i, parseLine(lines[i])])));
+    const all = lines.map((_, i) => i);
+    setSelected(new Set(all));
+    setParsed(Object.fromEntries(all.map(i => [i, parseLine(lines[i])])));
   };
+  const clearAll = () => { setSelected(new Set()); setParsed({}); };
 
-  const clearAll = () => {
-    setSelected(new Set());
-    setParsed({});
-  };
-
-  const updateParsed = (idx: number, field: keyof ImportedRow, value: string) => {
+  const updateParsed = (idx: number, field: keyof ImportedRow, value: string) =>
     setParsed(p => ({ ...p, [idx]: { ...p[idx], [field]: value } }));
-  };
 
   const handleImport = () => {
     const rows = [...selected].sort((a, b) => a - b).map(i => parsed[i]).filter(Boolean);
@@ -183,11 +181,11 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
 
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} exit={{ opacity: 0 }}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.55 }}
         className="absolute inset-0 bg-black" onClick={handleClose} />
 
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }} transition={{ duration: 0.18 }}
+        transition={{ duration: 0.18 }}
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
         style={{ maxHeight: '88vh' }}>
 
@@ -202,7 +200,7 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
               <p className="text-xs text-slate-400 mt-0.5">
                 {step === 'upload' && 'Selecione um PDF ou imagem da nota fiscal'}
                 {step === 'loading' && 'Extraindo texto do documento...'}
-                {step === 'selecting' && `${lines.length} linhas extraídas via ${source === 'pdf' ? 'PDF' : 'OCR'} — marque os itens`}
+                {step === 'selecting' && `${lines.length} linhas extraídas via ${source === 'pdf' ? 'PDF' : 'OCR'} — marque os produtos`}
               </p>
             </div>
           </div>
@@ -214,7 +212,6 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
         {/* Body */}
         <div className="flex-1 overflow-hidden flex flex-col">
 
-          {/* Upload step */}
           {step === 'upload' && (
             <div className="flex-1 flex flex-col items-center justify-center p-10 gap-4">
               <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -235,20 +232,18 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
             </div>
           )}
 
-          {/* Loading step */}
           {step === 'loading' && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
               <Loader2 size={32} className="text-blue-500 animate-spin" />
               <p className="text-sm font-bold text-slate-600">Processando documento...</p>
-              <p className="text-xs text-slate-400">Isso pode levar alguns segundos</p>
+              <p className="text-xs text-slate-400">Pode levar alguns segundos na primeira vez</p>
             </div>
           )}
 
-          {/* Selecting step */}
           {step === 'selecting' && (
-            <div className="flex-1 overflow-hidden flex gap-0 min-h-0">
+            <div className="flex-1 overflow-hidden flex min-h-0">
 
-              {/* Left: OCR lines */}
+              {/* Left: lines */}
               <div className="w-1/2 border-r border-slate-100 flex flex-col min-h-0">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Linhas extraídas</span>
@@ -266,7 +261,9 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
                         selected.has(idx) ? 'bg-blue-50' : 'hover:bg-slate-50',
                       )}>
                       <span className="shrink-0 mt-0.5 text-blue-500">
-                        {selected.has(idx) ? <CheckSquare size={14} /> : <Square size={14} className="text-slate-300" />}
+                        {selected.has(idx)
+                          ? <CheckSquare size={14} />
+                          : <Square size={14} className="text-slate-300" />}
                       </span>
                       <span className={cn(
                         'text-xs font-mono leading-relaxed break-all',
@@ -277,9 +274,9 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
                 </div>
               </div>
 
-              {/* Right: parsed items */}
+              {/* Right: editable parsed items */}
               <div className="w-1/2 flex flex-col min-h-0">
-                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50">
+                <div className="px-4 py-2.5 border-b border-slate-100 shrink-0 bg-slate-50">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                     Itens selecionados ({selectedRows.length})
                   </span>
