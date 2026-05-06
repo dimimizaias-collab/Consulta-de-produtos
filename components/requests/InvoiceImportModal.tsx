@@ -62,6 +62,19 @@ function parseLine(line: string): ImportedRow {
   };
 }
 
+// ─── CDN loader for Tesseract.js (browser-side OCR, no bundle impact) ────────
+
+function loadTesseractCDN(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).Tesseract) { resolve(); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Falha ao carregar motor OCR. Verifique sua conexão.'));
+    document.head.appendChild(script);
+  });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
@@ -88,14 +101,37 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
     setStep('loading');
 
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/import-invoice', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Erro ao processar.');
-      if (!json.lines?.length) throw new Error('Nenhum texto encontrado no documento.');
-      setLines(json.lines);
-      setSource(json.source);
+      let extractedLines: string[] = [];
+      let src: 'ocr' | 'pdf' = 'ocr';
+
+      if (file.type === 'application/pdf') {
+        // PDF: extract text server-side (pdf-parse, lightweight)
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/import-invoice', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erro ao processar PDF.');
+        extractedLines = json.lines ?? [];
+        src = 'pdf';
+      } else {
+        // Image: OCR in the browser via Tesseract.js CDN (no server dependency)
+        await loadTesseractCDN();
+        const Tesseract = (window as any).Tesseract;
+        const worker = await Tesseract.createWorker('por+eng', 1, {
+          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/worker.min.js',
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@6/tesseract-core-simd-lstm.wasm.js',
+          logger: () => {},
+        });
+        const { data: { text } } = await worker.recognize(file);
+        await worker.terminate();
+        extractedLines = text.split('\n').map((l: string) => l.replace(/\s+/g, ' ').trim()).filter((l: string) => l.length > 2);
+        src = 'ocr';
+      }
+
+      if (!extractedLines.length) throw new Error('Nenhum texto encontrado no documento.');
+      setLines(extractedLines);
+      setSource(src);
       setSelected(new Set());
       setParsed({});
       setStep('selecting');
