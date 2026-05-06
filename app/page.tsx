@@ -14,7 +14,7 @@ import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -291,6 +291,21 @@ export default function Page() {
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
   const [linkingItemIdx, setLinkingItemIdx] = useState<number | null>(null);
   const [noteItemLinkQuery, setNoteItemLinkQuery] = useState('');
+  const [noteItemShowCreate, setNoteItemShowCreate] = useState(false);
+  const [noteItemNewName, setNoteItemNewName] = useState('');
+  const [noteItemNewSku, setNoteItemNewSku] = useState('');
+  const [noteItemNewEan, setNoteItemNewEan] = useState('');
+  const [noteItemCreating, setNoteItemCreating] = useState(false);
+  const [multiLinkItemIdx, setMultiLinkItemIdx] = useState<number | null>(null);
+  const [multiLinkItemSearch, setMultiLinkItemSearch] = useState('');
+  const [multiLinkItemQty, setMultiLinkItemQty] = useState('');
+  const [multiLinkItemResults, setMultiLinkItemResults] = useState<any[]>([]);
+  const [multiLinkItemEntries, setMultiLinkItemEntries] = useState<{ product: any; qty: string }[]>([]);
+  const [multiLinkItemShowCreate, setMultiLinkItemShowCreate] = useState(false);
+  const [multiLinkItemNewName, setMultiLinkItemNewName] = useState('');
+  const [multiLinkItemNewSku, setMultiLinkItemNewSku] = useState('');
+  const [multiLinkItemNewEan, setMultiLinkItemNewEan] = useState('');
+  const [multiLinkItemCreating, setMultiLinkItemCreating] = useState(false);
   // Discount/surcharge column states
   type AdjType = 'pct' | 'fixed';
   type AdjMode = 'none' | 'geral' | 'individual';
@@ -1642,6 +1657,138 @@ export default function Page() {
     } finally {
       setReviewSavingMeasure(false);
     }
+  };
+
+  const handleNoteItemCreateAndLink = async () => {
+    if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
+    setNoteItemCreating(true);
+    try {
+      const sku = noteItemNewSku.trim() || `MAN-${Date.now()}`;
+      const { data: created, error } = await supabase.from('products')
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
+        .select('id, name, sku, ean, price').single();
+      if (error) throw error;
+      if (created) {
+        const updatedItems = [...viewingReviewNote.items];
+        updatedItems[linkingItemIdx] = {
+          ...updatedItems[linkingItemIdx],
+          name: created.name,
+          sku: created.sku || updatedItems[linkingItemIdx].sku,
+          ean: created.ean || updatedItems[linkingItemIdx].ean,
+          product_id: created.id,
+          product_price: 0,
+          verified: true,
+          status_translation: 'Identificado (SKU/EAN)',
+        };
+        setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+        const uV = [...viewingNoteVerified]; uV[linkingItemIdx] = true; setViewingNoteVerified(uV);
+        const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
+        const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
+        const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = 0; setViewingNoteSellPrices(uP);
+        setLinkingItemIdx(null);
+        setNoteItemShowCreate(false);
+        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan('');
+        setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
+      }
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao criar produto.' });
+    } finally {
+      setNoteItemCreating(false);
+    }
+  };
+
+  const handleMultiLinkItemSearch = async () => {
+    if (!multiLinkItemSearch.trim()) return;
+    const { data } = await supabase.from('products').select('id, name, sku, ean, price')
+      .or(`name.ilike.%${multiLinkItemSearch}%,sku.ilike.%${multiLinkItemSearch}%,ean.ilike.%${multiLinkItemSearch}%`)
+      .limit(8);
+    setMultiLinkItemResults(data || []);
+  };
+
+  const handleMultiLinkItemAdd = (product: any) => {
+    if (!multiLinkItemQty.trim() || parseFloat(multiLinkItemQty) <= 0) {
+      setNotification({ type: 'error', message: 'Informe a quantidade antes de adicionar.' });
+      return;
+    }
+    setMultiLinkItemEntries(prev => [...prev, { product, qty: multiLinkItemQty }]);
+    setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]);
+  };
+
+  const handleMultiLinkItemCreateProduct = async () => {
+    if (!multiLinkItemNewName.trim()) { setNotification({ type: 'error', message: 'Nome é obrigatório.' }); return; }
+    if (!multiLinkItemQty.trim() || parseFloat(multiLinkItemQty) <= 0) { setNotification({ type: 'error', message: 'Informe a quantidade.' }); return; }
+    setMultiLinkItemCreating(true);
+    try {
+      const sku = multiLinkItemNewSku.trim() || `MAN-${Date.now()}`;
+      const { data: created, error } = await supabase.from('products')
+        .insert({ name: multiLinkItemNewName.trim(), sku, ean: multiLinkItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
+        .select('id, name, sku, ean, price').single();
+      if (error) throw error;
+      if (created) {
+        handleMultiLinkItemAdd(created);
+        setMultiLinkItemNewName(''); setMultiLinkItemNewSku(''); setMultiLinkItemNewEan('');
+        setMultiLinkItemShowCreate(false);
+      }
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao criar produto.' });
+    } finally {
+      setMultiLinkItemCreating(false);
+    }
+  };
+
+  const handleSaveMultiLinkItem = () => {
+    if (multiLinkItemIdx === null || !viewingReviewNote || multiLinkItemEntries.length === 0) return;
+    const n = viewingReviewNote.items.length;
+    const srcIdx = multiLinkItemIdx;
+    const sourceItem = viewingReviewNote.items[srcIdx];
+
+    const pad = <T,>(arr: T[], def: (i: number) => T): T[] => {
+      if (arr.length >= n) return arr;
+      return [...arr, ...Array.from({ length: n - arr.length }, (_, i) => def(arr.length + i))];
+    };
+
+    const pV = pad(viewingNoteVerified, (i) => viewingReviewNote.items[i]?.verified || false);
+    const pP = pad(viewingNoteSellPrices, (i) => viewingReviewNote.items[i]?.product_price || 0);
+    const pE = pad(viewingNoteEans, (i) => viewingReviewNote.items[i]?.ean || '');
+    const pS = pad(viewingNoteSkus, (i) => viewingReviewNote.items[i]?.sku || '');
+    const pQ = pad(viewingNoteQtys, (i) => viewingReviewNote.items[i]?.qty || 0);
+    const pD = pad(viewingNoteDistribuicao, (i) => { const d = viewingReviewNote.items[i]?.distribuicao; return d != null ? String(d) : ''; });
+    const pU = pad(viewingNoteUnits, (i) => viewingReviewNote.items[i]?.unit || 'UN');
+    const pM = pad(viewingNoteMultipliers, (i) => viewingReviewNote.items[i]?.multiplier || 1);
+    const pT = pad(viewingNoteReviewTimestamps, () => null as string | null);
+    const pDisc = pad(itemDiscounts, () => '');
+    const pSur = pad(itemSurcharges, () => '');
+
+    const sp = <T,>(arr: T[], reps: T[]): T[] => { const r = [...arr]; r.splice(srcIdx, 1, ...reps); return r; };
+
+    const newItems = multiLinkItemEntries.map(e => ({
+      ...sourceItem,
+      name: e.product.name,
+      sku: e.product.sku || sourceItem.sku,
+      ean: e.product.ean || sourceItem.ean,
+      product_id: e.product.id,
+      product_price: e.product.price || 0,
+      qty: parseFloat(e.qty) || 0,
+      verified: true,
+      status_translation: 'Identificado (SKU/EAN)',
+      multiLinked: true,
+    }));
+
+    setViewingReviewNote({ ...viewingReviewNote, items: sp(viewingReviewNote.items, newItems) });
+    setViewingNoteVerified(sp(pV, newItems.map(() => true)));
+    setViewingNoteSellPrices(sp(pP, multiLinkItemEntries.map(e => e.product.price || 0)));
+    setViewingNoteEans(sp(pE, multiLinkItemEntries.map(e => e.product.ean || '')));
+    setViewingNoteSkus(sp(pS, multiLinkItemEntries.map(e => e.product.sku || '')));
+    setViewingNoteQtys(sp(pQ, multiLinkItemEntries.map(e => parseFloat(e.qty) || 0)));
+    setViewingNoteDistribuicao(sp(pD, newItems.map(() => pD[srcIdx])));
+    setViewingNoteUnits(sp(pU, newItems.map(() => pU[srcIdx])));
+    setViewingNoteMultipliers(sp(pM, newItems.map(() => pM[srcIdx])));
+    setViewingNoteReviewTimestamps(sp(pT, newItems.map(() => null)));
+    setItemDiscounts(sp(pDisc, newItems.map(() => pDisc[srcIdx])));
+    setItemSurcharges(sp(pSur, newItems.map(() => pSur[srcIdx])));
+
+    setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
+    setMultiLinkItemIdx(null); setMultiLinkItemEntries([]);
   };
 
   const handleNoteImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4815,83 +4962,143 @@ export default function Page() {
                               <p className="text-sm font-semibold text-slate-800 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 max-w-[220px] relative">
-                            {item.verified ? (
+                          <td className="py-3 px-4 max-w-[240px] relative">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {item.verified ? (
+                                <button
+                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
+                                  title={`${item.name} — clique para alterar`}
+                                >
+                                  <CheckCircle2 size={11} className="shrink-0" />
+                                  <span className="text-[11px] font-bold truncate max-w-[100px]">{item.name}</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all"
+                                >
+                                  <Plus size={11} />
+                                  <span className="text-[11px] font-bold">Vincular</span>
+                                </button>
+                              )}
                               <button
-                                onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
-                                className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
-                                title={`${item.name} — clique para alterar`}
+                                onClick={() => { setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
+                                title="Vincular vários produtos a este item"
+                                className={cn(
+                                  'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
+                                  (item as any).multiLinked
+                                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                    : 'bg-slate-50 text-slate-400 border-dashed border-slate-300 hover:bg-primary/5 hover:border-primary/40 hover:text-primary'
+                                )}
                               >
-                                <CheckCircle2 size={11} className="shrink-0" />
-                                <span className="text-[11px] font-bold truncate max-w-[140px]">{item.name}</span>
+                                <Layers size={11} className="shrink-0" />
+                                <span>Vários</span>
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); }}
-                                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all"
-                              >
-                                <Plus size={11} />
-                                <span className="text-[11px] font-bold">Vincular</span>
-                              </button>
-                            )}
+                            </div>
                             {linkingItemIdx === idx && (
                               <>
-                                <div className="fixed inset-0 z-[190]" onClick={() => setLinkingItemIdx(null)} />
-                                <div className="absolute z-[200] top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl p-3">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vincular produto interno</p>
-                                  <input
-                                    autoFocus
-                                    type="text"
-                                    value={noteItemLinkQuery}
-                                    onChange={e => setNoteItemLinkQuery(e.target.value)}
-                                    placeholder="Nome, SKU ou EAN..."
-                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-primary"
-                                  />
-                                  <div className="mt-2 max-h-52 overflow-y-auto space-y-0.5">
-                                    {(() => {
-                                      const q = noteItemLinkQuery.toLowerCase().trim();
-                                      const filtered = q.length === 0
-                                        ? []
-                                        : products.filter(p =>
-                                            p.name?.toLowerCase().includes(q) ||
-                                            p.sku?.toLowerCase().includes(q) ||
-                                            (p.ean && p.ean.toLowerCase().includes(q))
-                                          ).slice(0, 12);
-                                      if (q.length === 0) return (
-                                        <p className="text-xs text-slate-400 text-center py-4">Digite para buscar...</p>
-                                      );
-                                      if (filtered.length === 0) return (
-                                        <p className="text-xs text-slate-400 text-center py-4">Nenhum produto encontrado</p>
-                                      );
-                                      return filtered.map((p: any) => (
+                                <div className="fixed inset-0 z-[190]" onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); }} />
+                                <div className="absolute z-[200] top-full left-0 mt-1 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+                                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                      {noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
+                                    </p>
+                                    <button onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); }} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+                                      <X size={12} className="text-slate-400" />
+                                    </button>
+                                  </div>
+                                  <div className="p-3 space-y-2">
+                                    {!noteItemShowCreate ? (
+                                      <>
+                                        <input
+                                          autoFocus
+                                          type="text"
+                                          value={noteItemLinkQuery}
+                                          onChange={e => setNoteItemLinkQuery(e.target.value)}
+                                          placeholder="Nome, SKU ou EAN..."
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-primary"
+                                        />
+                                        <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                          {(() => {
+                                            const q = noteItemLinkQuery.toLowerCase().trim();
+                                            if (q.length === 0) return <p className="text-xs text-slate-400 text-center py-3">Digite para buscar...</p>;
+                                            const filtered = products.filter((p: any) =>
+                                              p.name?.toLowerCase().includes(q) ||
+                                              p.sku?.toLowerCase().includes(q) ||
+                                              (p.ean && p.ean.toLowerCase().includes(q))
+                                            ).slice(0, 12);
+                                            if (filtered.length === 0) return <p className="text-xs text-slate-400 text-center py-3">Nenhum produto encontrado</p>;
+                                            return filtered.map((p: any) => (
+                                              <button
+                                                key={p.id}
+                                                onClick={() => {
+                                                  const updatedItems = [...viewingReviewNote!.items];
+                                                  updatedItems[idx] = { ...updatedItems[idx], name: p.name, sku: p.sku || updatedItems[idx].sku, ean: p.ean || updatedItems[idx].ean, product_id: p.id, product_price: p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                                  setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
+                                                  const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
+                                                  const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
+                                                  const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
+                                                  const uP = [...viewingNoteSellPrices]; uP[idx] = p.price || 0; setViewingNoteSellPrices(uP);
+                                                  setLinkingItemIdx(null);
+                                                }}
+                                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2 group"
+                                              >
+                                                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
+                                                  <Package size={13} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                                                  <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
+                                                </div>
+                                              </button>
+                                            ));
+                                          })()}
+                                        </div>
                                         <button
-                                          key={p.id}
-                                          onClick={() => {
-                                            const updatedItems = [...viewingReviewNote!.items];
-                                            updatedItems[idx] = {
-                                              ...updatedItems[idx],
-                                              name: p.name,
-                                              sku: p.sku || updatedItems[idx].sku,
-                                              ean: p.ean || updatedItems[idx].ean,
-                                              product_id: p.id,
-                                              product_price: p.price || 0,
-                                              verified: true,
-                                              status_translation: 'Identificado (SKU/EAN)',
-                                            };
-                                            setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                            const uVerified = [...viewingNoteVerified]; uVerified[idx] = true; setViewingNoteVerified(uVerified);
-                                            const uSkus = [...viewingNoteSkus]; uSkus[idx] = p.sku || ''; setViewingNoteSkus(uSkus);
-                                            const uEans = [...viewingNoteEans]; uEans[idx] = p.ean || ''; setViewingNoteEans(uEans);
-                                            const uSells = [...viewingNoteSellPrices]; uSells[idx] = p.price || 0; setViewingNoteSellPrices(uSells);
-                                            setLinkingItemIdx(null);
-                                          }}
-                                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors"
+                                          onClick={() => setNoteItemShowCreate(true)}
+                                          className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
                                         >
-                                          <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
-                                          <p className="text-[10px] text-slate-400 font-medium">{p.sku || '—'} · {p.ean || '—'}</p>
+                                          <Plus size={12} />Criar novo produto
                                         </button>
-                                      ));
-                                    })()}
+                                      </>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        <button onClick={() => setNoteItemShowCreate(false)} className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
+                                          ← Voltar para busca
+                                        </button>
+                                        <div>
+                                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                                          <input autoFocus type="text" value={noteItemNewName} onChange={e => setNoteItemNewName(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="Nome do produto" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                                            <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
+                                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                              placeholder="Auto-gerado" />
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
+                                            <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
+                                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                              placeholder="Cód. barras" />
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={handleNoteItemCreateAndLink}
+                                          disabled={noteItemCreating || !noteItemNewName.trim()}
+                                          className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                                        >
+                                          {noteItemCreating
+                                            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                                            : <><Plus size={13} />Criar e Vincular</>
+                                          }
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </>
@@ -5382,6 +5589,151 @@ export default function Page() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Vincular Vários modal */}
+              {multiLinkItemIdx !== null && (
+                <div className="fixed inset-0 z-[170] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); }} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                    transition={{ duration: 0.18 }}
+                    className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+                  >
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                          <Layers size={14} />
+                        </div>
+                        <h3 className="text-base font-black text-slate-900">Vincular Vários</h3>
+                      </div>
+                      <button onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); }} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                        <X size={16} className="text-slate-400" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                      {!multiLinkItemShowCreate ? (
+                        <>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                              <input type="text" value={multiLinkItemSearch}
+                                onChange={e => setMultiLinkItemSearch(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleMultiLinkItemSearch()}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="Buscar por nome, SKU ou EAN..." autoFocus />
+                            </div>
+                            <input type="number" value={multiLinkItemQty}
+                              onChange={e => setMultiLinkItemQty(e.target.value)}
+                              className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-center"
+                              placeholder="Qtd" min="0" step="any" />
+                            <button onClick={handleMultiLinkItemSearch}
+                              className="px-3 py-2 bg-slate-900 text-white rounded-xl hover:bg-primary transition-colors" title="Buscar">
+                              <Search size={14} />
+                            </button>
+                            <button onClick={() => setMultiLinkItemShowCreate(true)}
+                              className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors" title="Criar novo produto">
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                          {multiLinkItemResults.length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Resultados</p>
+                              {multiLinkItemResults.map((p: any) => (
+                                <button key={p.id} onClick={() => handleMultiLinkItemAdd(p)}
+                                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group">
+                                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shrink-0">
+                                    <Package size={16} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.sku}</span>
+                                      {p.ean && <span className="text-[10px] text-slate-400">{p.ean}</span>}
+                                    </div>
+                                  </div>
+                                  <Plus size={14} className="text-slate-300 group-hover:text-primary shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {multiLinkItemEntries.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">A criar ({multiLinkItemEntries.length})</p>
+                              {multiLinkItemEntries.map((entry, i) => (
+                                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-emerald-800 truncate">{entry.product.name}</p>
+                                    <p className="text-[10px] text-emerald-600 font-medium">Qtd: {entry.qty}</p>
+                                  </div>
+                                  <button onClick={() => setMultiLinkItemEntries(prev => prev.filter((_, j) => j !== i))}
+                                    className="w-6 h-6 rounded-lg text-emerald-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-all shrink-0">
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-4">
+                          <button onClick={() => setMultiLinkItemShowCreate(false)} className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
+                            ← Voltar para busca
+                          </button>
+                          <h4 className="text-sm font-black text-slate-900">Criar Novo Produto</h4>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Quantidade *</label>
+                              <input type="number" value={multiLinkItemQty} onChange={e => setMultiLinkItemQty(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="Quantidade" min="0" step="any" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                              <input autoFocus type="text" value={multiLinkItemNewName} onChange={e => setMultiLinkItemNewName(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="Nome do produto" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                                <input type="text" value={multiLinkItemNewSku} onChange={e => setMultiLinkItemNewSku(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  placeholder="Auto-gerado" />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN / Barcode</label>
+                                <input type="text" value={multiLinkItemNewEan} onChange={e => setMultiLinkItemNewEan(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  placeholder="Código de barras" />
+                              </div>
+                            </div>
+                          </div>
+                          <button onClick={handleMultiLinkItemCreateProduct}
+                            disabled={multiLinkItemCreating || !multiLinkItemNewName.trim() || !multiLinkItemQty.trim()}
+                            className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+                            {multiLinkItemCreating
+                              ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                              : <><Plus size={14} />Criar e Adicionar</>
+                            }
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {multiLinkItemEntries.length > 0 && !multiLinkItemShowCreate && (
+                      <div className="px-5 py-4 border-t border-slate-100 shrink-0">
+                        <button onClick={handleSaveMultiLinkItem}
+                          className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
+                          <Layers size={14} />
+                          Criar {multiLinkItemEntries.length} linha{multiLinkItemEntries.length !== 1 ? 's' : ''}
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
                 </div>
               )}
 
