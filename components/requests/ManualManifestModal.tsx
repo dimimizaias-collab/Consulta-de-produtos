@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   X, Plus, Trash2, Search, CheckCircle2, Package,
   ArrowRight, FileSpreadsheet, Save, ChevronLeft,
-  FileText, Clock, Ruler, Zap, Pencil, Layers,
+  FileText, Clock, Ruler, Zap, Pencil, Layers, Upload,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +24,7 @@ interface ManifestRow {
   unitTranslated?: boolean;
   unitMultiplier?: number;
   multiLinked?: boolean;
+  confidence?: number; // 0-1, presente em linhas importadas via IA
 }
 
 interface MultiLinkEntry {
@@ -149,6 +150,10 @@ export function ManualManifestModal({
   const [unitMenuRowId, setUnitMenuRowId] = useState<string | null>(null);
   const unitMenuRef = useRef<HTMLDivElement>(null);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Import invoice
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Add Measure sub-modal
   const [measureRowId, setMeasureRowId] = useState<string | null>(null);
@@ -489,6 +494,69 @@ export function ManualManifestModal({
     } finally { setCreating(false); }
   };
 
+  // ── Import invoice ────────────────────────────────────────────────────────────
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    if (file.size > 10 * 1024 * 1024) {
+      setNotification({ type: 'error', message: 'Arquivo muito grande. Tamanho máximo: 10MB.' });
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('supplierId', supplierId);
+      fd.append('supplierName', suppliers.find(s => s.id === supplierId)?.name ?? '');
+
+      const res = await fetch('/api/import-invoice', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro na importação.');
+
+      const items: Array<{
+        supplierCode: string;
+        description: string;
+        unit: string;
+        quantity: number;
+        unitPrice: number;
+        confidence: number;
+        linkedProduct: { id: string; name: string; sku: string; ean: string } | null;
+      }> = json.items ?? [];
+
+      if (items.length === 0) {
+        setNotification({ type: 'error', message: 'Nenhum item encontrado no documento.' });
+        return;
+      }
+
+      const newRows: ManifestRow[] = items.map(item => ({
+        id: Math.random().toString(36).slice(2, 10),
+        supplierCode: item.supplierCode,
+        description: item.description,
+        unit: item.unit,
+        quantity: String(item.quantity),
+        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : '',
+        linkedProduct: item.linkedProduct,
+        confidence: item.confidence,
+      }));
+      newRows.push(makeRow());
+
+      setRows(newRows);
+      const matched = newRows.filter(r => r.linkedProduct).length;
+      setNotification({
+        type: 'success',
+        message: `${items.length} ${items.length === 1 ? 'item importado' : 'itens importados'}. ${matched} vinculado${matched !== 1 ? 's' : ''} automaticamente.`,
+      });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao importar nota.' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // ── Send to review ────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -781,6 +849,30 @@ export function ManualManifestModal({
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+
+              {/* Import invoice button */}
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+              <div className="mt-4">
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={importing}
+                  title="Importar nota fiscal ou romaneio (PDF, JPG, PNG)"
+                  className="flex items-center gap-2 border-2 border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-40 uppercase tracking-widest"
+                >
+                  {importing
+                    ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+                    : <Upload size={14} />
+                  }
+                  {importing ? 'Processando...' : 'Importar Nota'}
+                </button>
+              </div>
+
               <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors mt-4">
                 <X size={18} className="text-slate-500" />
               </button>
@@ -826,11 +918,23 @@ export function ManualManifestModal({
                       </td>
                       {/* Descrição */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
-                        <input type="text" value={row.description}
-                          onChange={e => updateRow(row.id, { description: e.target.value })}
-                          onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
-                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 transition-colors"
-                          placeholder="Descrição do produto..." />
+                        <div className="flex items-center gap-1">
+                          {row.confidence !== undefined && (
+                            <span
+                              title={`Confiança da IA: ${Math.round(row.confidence * 100)}%`}
+                              className={cn(
+                                'inline-block w-2 h-2 rounded-full shrink-0',
+                                row.confidence >= 0.85 ? 'bg-emerald-500' :
+                                row.confidence >= 0.60 ? 'bg-amber-400' : 'bg-red-400',
+                              )}
+                            />
+                          )}
+                          <input type="text" value={row.description}
+                            onChange={e => updateRow(row.id, { description: e.target.value })}
+                            onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
+                            className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 transition-colors"
+                            placeholder="Descrição do produto..." />
+                        </div>
                       </td>
 
                       {/* Unid. — input + "+" menu */}
