@@ -1663,7 +1663,7 @@ export default function Page() {
     if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
     setNoteItemCreating(true);
     try {
-      const sku = noteItemNewSku.trim() || `MAN-${Date.now()}`;
+      const sku = noteItemNewSku.trim() || null;
       const { data: created, error } = await supabase.from('products')
         .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
         .select('id, name, sku, ean, price').single();
@@ -1719,7 +1719,7 @@ export default function Page() {
     if (!multiLinkItemQty.trim() || parseFloat(multiLinkItemQty) <= 0) { setNotification({ type: 'error', message: 'Informe a quantidade.' }); return; }
     setMultiLinkItemCreating(true);
     try {
-      const sku = multiLinkItemNewSku.trim() || `MAN-${Date.now()}`;
+      const sku = multiLinkItemNewSku.trim() || null;
       const { data: created, error } = await supabase.from('products')
         .insert({ name: multiLinkItemNewName.trim(), sku, ean: multiLinkItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
         .select('id, name, sku, ean, price').single();
