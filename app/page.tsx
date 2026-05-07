@@ -1669,7 +1669,7 @@ export default function Page() {
     if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
     setNoteItemCreating(true);
     try {
-      const sku = noteItemNewSku.trim() || null;
+      const sku = noteItemNewSku.trim() || `SKU-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
       const { data: created, error } = await supabase.from('products')
         .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
         .select('id, name, sku, ean, price').single();
