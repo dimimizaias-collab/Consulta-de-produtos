@@ -121,6 +121,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [unitSearchType, setUnitSearchType] = useState<'name' | 'ean' | 'sku' | 'brand'>('name');
   const [unitSearchResults, setUnitSearchResults] = useState<Product[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [mappingListSearch, setMappingListSearch] = useState('');
   const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch initial data
@@ -508,6 +509,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                               onChange={(e) => {
                                 setSelectedSupplierId(e.target.value);
                                 fetchSupplierMappings(e.target.value);
+                                setMappingListSearch('');
                               }}
                               className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 appearance-none font-bold text-on-surface transition-all shadow-sm"
                             >
@@ -796,19 +798,33 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
 
                 {/* List Panel */}
                 <div className="w-full md:w-1/2 bg-surface-container-low/30 flex flex-col overflow-hidden">
-                  <div className="p-10 border-b border-on-surface/[0.03] flex items-center justify-between bg-surface-container-lowest shrink-0">
-                    <h4 className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.3em] flex items-center gap-4">
-                       {activeTab === 'mappings' ? 'Active Dictionary' : 'Tabela de Conversão'}
-                       {activeTab === 'mappings' ? (
-                         selectedSupplierId && supplierMappings.length > 0 && (
-                          <span className="bg-primary text-white px-3 py-1 rounded-full text-[10px] font-black shadow-md shadow-primary/20">{supplierMappings.length}</span>
-                         )
-                       ) : (
-                         unitConversions.length > 0 && (
-                          <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black shadow-md shadow-amber-500/20">{unitConversions.length}</span>
-                         )
-                       )}
-                    </h4>
+                  <div className="p-10 border-b border-on-surface/[0.03] bg-surface-container-lowest shrink-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.3em] flex items-center gap-4">
+                         {activeTab === 'mappings' ? 'Active Dictionary' : 'Tabela de Conversão'}
+                         {activeTab === 'mappings' ? (
+                           selectedSupplierId && supplierMappings.length > 0 && (
+                            <span className="bg-primary text-white px-3 py-1 rounded-full text-[10px] font-black shadow-md shadow-primary/20">{supplierMappings.length}</span>
+                           )
+                         ) : (
+                           unitConversions.length > 0 && (
+                            <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black shadow-md shadow-amber-500/20">{unitConversions.length}</span>
+                           )
+                         )}
+                      </h4>
+                    </div>
+                    {activeTab === 'mappings' && selectedSupplierId && supplierMappings.length > 0 && (
+                      <div className="relative mt-4">
+                        <input
+                          type="text"
+                          value={mappingListSearch}
+                          onChange={(e) => setMappingListSearch(e.target.value)}
+                          placeholder="Pesquisar mapeamentos..."
+                          className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/10 font-medium placeholder:text-on-surface/20 transition-all"
+                        />
+                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/20" />
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-10 space-y-6 custom-scrollbar">
@@ -823,8 +839,20 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           <BookText size={64} className="mb-6 opacity-20" />
                           <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Empty Protocol</p>
                         </div>
-                      ) : (
-                        supplierMappings.map(mapping => (
+                      ) : (() => {
+                        const filteredMappings = mappingListSearch.trim()
+                          ? supplierMappings.filter(m =>
+                              m.supplier_description.toLowerCase().includes(mappingListSearch.toLowerCase()) ||
+                              (m.supplier_sku ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()) ||
+                              (m.products?.name ?? '').toLowerCase().includes(mappingListSearch.toLowerCase())
+                            )
+                          : supplierMappings;
+                        return filteredMappings.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center pt-16 text-on-surface/10">
+                            <Search size={40} className="mb-4 opacity-20" />
+                            <p className="text-xs font-black uppercase tracking-widest text-on-surface/20">Nenhum resultado</p>
+                          </div>
+                        ) : filteredMappings.map(mapping => (
                           <div key={mapping.id} className="bg-surface-container-lowest p-6 rounded-[2rem] border border-on-surface/[0.03] shadow-sm space-y-4 group hover:border-primary/30 transition-all relative">
                             <div>
                               <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Partner Input:</p>
@@ -845,7 +873,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Internal Reference:</p>
                                  <p className="text-sm font-black text-on-surface/70 truncate">{mapping.products?.name || 'Protocol Orphaned'}</p>
                               </div>
-                              <button 
+                              <button
                                 onClick={() => handleDeleteMapping(mapping.id)}
                                 className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-lg"
                               >
@@ -853,8 +881,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                               </button>
                             </div>
                           </div>
-                        ))
-                      )
+                        ));
+                      })()
                     ) : (
                       unitConversions.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-on-surface/10">
