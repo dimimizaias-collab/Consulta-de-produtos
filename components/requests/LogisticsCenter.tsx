@@ -77,6 +77,8 @@ export function LogisticsCenter({
   const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
+  const [noteSearch, setNoteSearch]                  = useState('');
+  const [noteSearchField, setNoteSearchField]        = useState<'all' | 'supplier_code' | 'original_description' | 'name' | 'ean' | 'sku'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -121,7 +123,27 @@ export function LogisticsCenter({
 
   const pendingNotes   = reviewNotes.filter(n => !n.approved);
   const approvedNotes  = reviewNotes.filter(n => n.approved);
-  const visibleNotes   = activeSection === 'revisoes' ? pendingNotes : approvedNotes;
+
+  const filterNotesBySearch = (notes: typeof reviewNotes) => {
+    const q = noteSearch.trim().toLowerCase();
+    if (!q) return notes;
+    return notes.filter(note =>
+      (note.items || []).some((item: any) => {
+        if (noteSearchField === 'all') {
+          return (
+            (item.supplier_code  || '').toLowerCase().includes(q) ||
+            (item.original_description || '').toLowerCase().includes(q) ||
+            (item.name           || '').toLowerCase().includes(q) ||
+            (item.ean            || '').toLowerCase().includes(q) ||
+            (item.sku            || '').toLowerCase().includes(q)
+          );
+        }
+        return (item[noteSearchField] || '').toLowerCase().includes(q);
+      })
+    );
+  };
+
+  const visibleNotes   = filterNotesBySearch(activeSection === 'revisoes' ? pendingNotes : approvedNotes);
 
   const sectionLabel   = activeSection === 'revisoes' ? 'Revisões' : 'Aprovados';
   const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
@@ -214,8 +236,9 @@ export function LogisticsCenter({
       {/* ── Revisões / Aprovados Section ──────────────────────────────────── */}
       <div className="space-y-6">
 
-        {/* Section header with dropdown */}
-        <div className="flex items-center gap-3">
+        {/* Section header with dropdown + search */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Dropdown Revisões / Aprovados */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowSectionDropdown(v => !v)}
@@ -269,6 +292,7 @@ export function LogisticsCenter({
             </AnimatePresence>
           </div>
 
+          {/* Badge de contagem */}
           {visibleNotes.length > 0 && (
             <span className={cn(
               'px-2.5 py-0.5 text-xs font-black rounded-full',
@@ -279,6 +303,53 @@ export function LogisticsCenter({
               {visibleNotes.length}
             </span>
           )}
+
+          {/* Barra de pesquisa + filtro de coluna */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Filtro de coluna */}
+            <div className="relative">
+              <select
+                value={noteSearchField}
+                onChange={e => setNoteSearchField(e.target.value as typeof noteSearchField)}
+                className="appearance-none bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-3 pr-7 py-2 text-xs font-bold text-on-surface/60 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              >
+                <option value="all">Todas colunas</option>
+                <option value="supplier_code">Código</option>
+                <option value="original_description">Produto na Nota</option>
+                <option value="name">Identificação Interna</option>
+                <option value="ean">EAN</option>
+                <option value="sku">SKU</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+            </div>
+
+            {/* Input de pesquisa */}
+            <div className="relative group">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
+              <input
+                type="text"
+                value={noteSearch}
+                onChange={e => setNoteSearch(e.target.value)}
+                placeholder="Pesquisar nos itens..."
+                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-52 transition-all"
+              />
+              {noteSearch && (
+                <button
+                  onClick={() => setNoteSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Indicador de filtro ativo */}
+            {noteSearch && (
+              <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-1 rounded-lg whitespace-nowrap">
+                {visibleNotes.length} nota{visibleNotes.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Notes table */}
