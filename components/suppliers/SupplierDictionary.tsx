@@ -2,17 +2,19 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  X, 
-  BookText, 
-  Plus, 
-  Search, 
-  ChevronDown, 
-  CheckCircle2, 
-  ArrowRight, 
-  Trash2, 
+  X,
+  BookText,
+  Plus,
+  Search,
+  ChevronDown,
+  CheckCircle2,
+  ArrowRight,
+  Trash2,
   Users,
   ImageOff,
-  FileUp
+  FileUp,
+  Pencil,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -122,6 +124,13 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [unitSearchResults, setUnitSearchResults] = useState<Product[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [mappingListSearch, setMappingListSearch] = useState('');
+  const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
+  const [editSku, setEditSku] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editProductSearch, setEditProductSearch] = useState('');
+  const [editProductResults, setEditProductResults] = useState<Product[]>([]);
+  const [isSavingMapping, setIsSavingMapping] = useState(false);
   const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch initial data
@@ -419,6 +428,66 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     } finally {
       setIsAddingUnit(false);
     }
+  };
+
+  const handleStartEdit = (mapping: Mapping) => {
+    setEditingMappingId(mapping.id);
+    setEditSku(mapping.supplier_sku ?? '');
+    setEditDescription(mapping.supplier_description);
+    setEditProduct(mapping.products ? {
+      id: mapping.internal_product_id,
+      name: mapping.products.name,
+      sku: mapping.products.sku,
+      ean: mapping.products.ean,
+      image: '',
+    } : null);
+    setEditProductSearch('');
+    setEditProductResults([]);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMappingId(null);
+    setEditProductResults([]);
+    setEditProductSearch('');
+  };
+
+  const handleEditProductSearch = async (q: string) => {
+    setEditProductSearch(q);
+    if (!q.trim()) { setEditProductResults([]); return; }
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, sku, ean, image')
+      .or(`name.ilike.%${q}%,sku.ilike.%${q}%,ean.ilike.%${q}%`)
+      .limit(8);
+    setEditProductResults(data || []);
+  };
+
+  const handleSaveMapping = async (mappingId: string) => {
+    if (!editDescription.trim() || !editProduct) {
+      setNotification({ type: 'error', message: 'Descrição e produto interno são obrigatórios.' });
+      return;
+    }
+    setIsSavingMapping(true);
+    const { error } = await supabase
+      .from('supplier_mappings')
+      .update({
+        supplier_sku: editSku.trim() || null,
+        supplier_description: editDescription.trim(),
+        internal_product_id: editProduct.id,
+      })
+      .eq('id', mappingId);
+    setIsSavingMapping(false);
+    if (error) {
+      setNotification({ type: 'error', message: 'Erro ao salvar mapeamento.' });
+      return;
+    }
+    setSupplierMappings(prev => prev.map(m =>
+      m.id === mappingId
+        ? { ...m, supplier_sku: editSku.trim() || undefined, supplier_description: editDescription.trim(), internal_product_id: editProduct.id, products: { name: editProduct.name, sku: editProduct.sku, ean: editProduct.ean } }
+        : m
+    ));
+    setNotification({ type: 'success', message: 'Mapeamento atualizado!' });
+    handleCancelEdit();
   };
 
   const handleDeleteUnit = async (id: string) => {
@@ -852,36 +921,139 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                             <Search size={40} className="mb-4 opacity-20" />
                             <p className="text-xs font-black uppercase tracking-widest text-on-surface/20">Nenhum resultado</p>
                           </div>
-                        ) : filteredMappings.map(mapping => (
-                          <div key={mapping.id} className="bg-surface-container-lowest p-6 rounded-[2rem] border border-on-surface/[0.03] shadow-sm space-y-4 group hover:border-primary/30 transition-all relative">
-                            <div>
-                              <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Partner Input:</p>
-                              <div className="flex items-center gap-2">
-                                {mapping.supplier_sku && (
-                                  <span className="text-[11px] font-black bg-on-surface/5 text-on-surface/50 px-2.5 py-1 rounded-lg shrink-0 uppercase tracking-tight">
-                                    {mapping.supplier_sku}
-                                  </span>
-                                )}
-                                <p className="text-base font-black text-on-surface leading-tight">{mapping.supplier_description}</p>
-                              </div>
+                        ) : filteredMappings.map(mapping => {
+                          const isEditing = editingMappingId === mapping.id;
+                          return (
+                            <div key={mapping.id} className={cn(
+                              "bg-surface-container-lowest p-6 rounded-[2rem] border shadow-sm space-y-4 group transition-all relative",
+                              isEditing ? "border-primary/40 ring-2 ring-primary/10" : "border-on-surface/[0.03] hover:border-primary/30"
+                            )}>
+                              {/* Edit / Delete buttons top-right */}
+                              {!isEditing && (
+                                <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                                  <button
+                                    onClick={() => handleStartEdit(mapping)}
+                                    className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                                    title="Editar"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMapping(mapping.id)}
+                                    className="w-8 h-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              )}
+
+                              {isEditing ? (
+                                /* ── EDIT MODE ── */
+                                <div className="space-y-4">
+                                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Editando mapeamento</p>
+                                  <div className="flex gap-3">
+                                    <input
+                                      type="text"
+                                      value={editSku}
+                                      onChange={(e) => setEditSku(e.target.value)}
+                                      placeholder="Código (opcional)"
+                                      className="w-28 bg-surface-container-low border border-on-surface/[0.05] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface/20"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editDescription}
+                                      onChange={(e) => setEditDescription(e.target.value)}
+                                      placeholder="Descrição do fornecedor"
+                                      className="flex-1 bg-surface-container-low border border-on-surface/[0.05] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface/20"
+                                    />
+                                  </div>
+
+                                  {/* Product picker */}
+                                  {editProduct ? (
+                                    <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-2xl relative group/ep">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-primary/50 uppercase tracking-widest mb-0.5">Produto interno</p>
+                                        <p className="text-sm font-black text-primary truncate">{editProduct.name}</p>
+                                      </div>
+                                      <button onClick={() => { setEditProduct(null); setEditProductSearch(''); setEditProductResults([]); }} className="text-primary/30 hover:text-primary shrink-0"><X size={14} /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={editProductSearch}
+                                          onChange={(e) => handleEditProductSearch(e.target.value)}
+                                          placeholder="Buscar produto interno..."
+                                          className="w-full bg-surface-container-low border border-on-surface/[0.05] rounded-xl pl-8 pr-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface/20"
+                                        />
+                                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/20" />
+                                      </div>
+                                      {editProductResults.length > 0 && (
+                                        <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                                          {editProductResults.map(p => (
+                                            <button
+                                              key={p.id}
+                                              onClick={() => { setEditProduct(p); setEditProductSearch(''); setEditProductResults([]); }}
+                                              className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-on-surface/[0.03] hover:border-primary/20 hover:bg-primary/5 transition-all text-left bg-surface-container-lowest"
+                                            >
+                                              <div className="w-8 h-8 bg-surface-container-low rounded-lg overflow-hidden shrink-0">
+                                                <ProductImage src={p.image} alt={p.name} />
+                                              </div>
+                                              <p className="text-xs font-black text-on-surface truncate">{p.name}</p>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Save / Cancel */}
+                                  <div className="flex gap-2 pt-2">
+                                    <button
+                                      onClick={() => handleSaveMapping(mapping.id)}
+                                      disabled={isSavingMapping}
+                                      className="flex-1 bg-primary text-white font-black text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-on-surface transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+                                    >
+                                      {isSavingMapping ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <><Save size={14} /> Salvar</>}
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEdit}
+                                      className="px-4 py-2.5 rounded-xl text-xs font-black text-on-surface/40 hover:bg-on-surface/5 transition-all"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* ── VIEW MODE ── */
+                                <>
+                                  <div>
+                                    <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Partner Input:</p>
+                                    <div className="flex items-center gap-2 pr-20">
+                                      {mapping.supplier_sku && (
+                                        <span className="text-[11px] font-black bg-on-surface/5 text-on-surface/50 px-2.5 py-1 rounded-lg shrink-0 uppercase tracking-tight">
+                                          {mapping.supplier_sku}
+                                        </span>
+                                      )}
+                                      <p className="text-base font-black text-on-surface leading-tight">{mapping.supplier_description}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 pt-4 border-t border-on-surface/[0.03]">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                      <ArrowRight size={18} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Internal Reference:</p>
+                                      <p className="text-sm font-black text-on-surface/70 truncate">{mapping.products?.name || 'Protocol Orphaned'}</p>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                            <div className="flex items-center gap-4 pt-4 border-t border-on-surface/[0.03]">
-                              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <ArrowRight size={18} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                 <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Internal Reference:</p>
-                                 <p className="text-sm font-black text-on-surface/70 truncate">{mapping.products?.name || 'Protocol Orphaned'}</p>
-                              </div>
-                              <button
-                                onClick={() => handleDeleteMapping(mapping.id)}
-                                className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-lg"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ));
+                          );
+                        });
                       })()
                     ) : (
                       unitConversions.length === 0 ? (
