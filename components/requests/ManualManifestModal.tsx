@@ -313,12 +313,45 @@ export function ManualManifestModal({
 
   type PasteField = keyof Pick<ManifestRow, 'supplierCode' | 'description' | 'unit' | 'quantity' | 'unitPrice'>;
 
+  /**
+   * Normaliza um valor colado para campos numéricos.
+   * Lida com formato brasileiro (vírgula = decimal, ponto = milhar)
+   * e com texto extra vindo de PDFs (ex: "48 UN", "1.248,00").
+   * Retorna string vazia se o valor não for reconhecível como número.
+   */
+  const normalizeNumericPaste = (raw: string): string => {
+    // Extrai apenas dígitos, ponto e vírgula
+    const cleaned = raw.replace(/[^\d.,]/g, '').trim();
+    if (!cleaned) return '';
+
+    // Formato brasileiro: tem vírgula como separador decimal
+    // ex: "1.248,90" → "1248.90"  |  "15,90" → "15.90"
+    if (cleaned.includes(',')) {
+      const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+      return isNaN(parseFloat(normalized)) ? '' : normalized;
+    }
+
+    // Sem vírgula: pode ser "1248" ou "1.248" (milhar br) ou "15.90" (decimal int.)
+    // Heurística: se tem ponto e exatamente 3 dígitos depois → milhar
+    const dotIdx = cleaned.lastIndexOf('.');
+    if (dotIdx !== -1 && cleaned.length - dotIdx - 1 === 3) {
+      // Ex: "1.248" → milhar → "1248"
+      const normalized = cleaned.replace(/\./g, '');
+      return isNaN(parseFloat(normalized)) ? '' : normalized;
+    }
+
+    // Caso geral: "15.90", "48", "0.5"
+    return isNaN(parseFloat(cleaned)) ? '' : cleaned;
+  };
+
   const handleColumnPaste = (
     e: React.ClipboardEvent,
     rowIndex: number,
     field: PasteField,
   ) => {
     const text = e.clipboardData.getData('text');
+    const isNumeric = field === 'quantity' || field === 'unitPrice';
+
     const lines = text
       .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
       .split('\n')
@@ -329,10 +362,16 @@ export function ManualManifestModal({
 
     e.preventDefault();
 
-    let newRows: ManifestRow[] = [];
+    // Para campos numéricos, normaliza cada linha; descarta as inválidas
+    const values = isNumeric
+      ? lines.map(normalizeNumericPaste).filter(v => v.length > 0)
+      : lines;
+
+    if (values.length === 0) return;
+
     setRows(prev => {
       const updated = [...prev];
-      lines.forEach((value, i) => {
+      values.forEach((value, i) => {
         const targetIdx = rowIndex + i;
         if (targetIdx < updated.length) {
           updated[targetIdx] = { ...updated[targetIdx], [field]: value };
@@ -340,19 +379,18 @@ export function ManualManifestModal({
           updated.push({ ...makeRow(), [field]: value });
         }
       });
-      newRows = updated;
       return updated;
     });
 
     // Flash visual nas células preenchidas
-    setPastedRange({ start: rowIndex, end: rowIndex + lines.length - 1, field });
+    setPastedRange({ start: rowIndex, end: rowIndex + values.length - 1, field });
     setTimeout(() => setPastedRange(null), 800);
 
     // Dispara lookup automático nas linhas afetadas
     if (field === 'supplierCode' || field === 'description') {
       setTimeout(() => {
         setRows(prev => {
-          lines.forEach((_, i) => {
+          values.forEach((_, i) => {
             const row = prev[rowIndex + i];
             if (row) lookupMapping(row.id, row.supplierCode, row.description);
           });
