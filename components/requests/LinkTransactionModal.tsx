@@ -116,6 +116,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   const [favorecidos,   setFavorecidos]   = useState<Favorecido[]>([]);
   const [loading,       setLoading]       = useState(false);
   const [linking,       setLinking]       = useState(false);
+  const [linkError,     setLinkError]     = useState<string | null>(null);
 
   // ── Search ────────────────────────────────────────────────────────────────
   const [search,              setSearch]              = useState('');
@@ -149,7 +150,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isOpen) { setMode('search'); setSearch(''); return; }
+    if (!isOpen) { setMode('search'); setSearch(''); setLinkError(null); return; }
     fetchAll();
   }, [isOpen]);
 
@@ -195,18 +196,38 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   }, [transactions, search, filterBy, accounts]);
 
   // ── Link actions ──────────────────────────────────────────────────────────
-  const handleLink = async (txId: string) => {
+  const handleLink = async (txId: string, txData?: { favorecido: string; valor_final: number }) => {
     setLinking(true);
-    await supabase.from('review_notes').update({ finance_transaction_id: txId }).eq('id', note.id);
+    setLinkError(null);
+    // Use provided txData (auto-link path) or look up from loaded list
+    const tx = txData ?? transactions.find(t => t.id === txId);
+    const { error } = await supabase.from('review_notes').update({
+      finance_transaction_id: txId,
+      finance_tx_favorecido:  tx?.favorecido  ?? null,
+      finance_tx_valor:       tx?.valor_final ?? null,
+    }).eq('id', note.id);
     setLinking(false);
+    if (error) {
+      setLinkError('Não foi possível vincular. Tente novamente.');
+      return;
+    }
     onLink(txId);
     onClose();
   };
 
   const handleUnlink = async () => {
     setLinking(true);
-    await supabase.from('review_notes').update({ finance_transaction_id: null }).eq('id', note.id);
+    setLinkError(null);
+    const { error } = await supabase.from('review_notes').update({
+      finance_transaction_id: null,
+      finance_tx_favorecido:  null,
+      finance_tx_valor:       null,
+    }).eq('id', note.id);
     setLinking(false);
+    if (error) {
+      setLinkError('Não foi possível desvincular. Tente novamente.');
+      return;
+    }
     onLink(null);
     onClose();
   };
@@ -239,12 +260,24 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
         const { data } = await supabase.from('finance_transactions')
           .insert(valid.map(p => ({ ...base, data: p.data, valor_final: parseFloat(p.valor) || 0 })))
           .select();
-        if (data) setTransactions(prev => [...(data as Transaction[]), ...prev]);
+        if (data) {
+          const inserted = data as Transaction[];
+          setTransactions(prev => [...inserted, ...prev]);
+          // Auto-link to first installment; pass txData to avoid stale state issue
+          await handleLink(inserted[0].id, { favorecido: inserted[0].favorecido, valor_final: inserted[0].valor_final });
+          return; // handleLink closes modal on success
+        }
       } else {
         if (txForm.valor_final <= 0) return;
         const payload = { ...txForm, vencimento: txForm.tipo === 'Despesa' && vencimentoEnabled ? (txForm.vencimento || null) : null };
         const { data } = await supabase.from('finance_transactions').insert(payload).select().single();
-        if (data) setTransactions(prev => [data as Transaction, ...prev]);
+        if (data) {
+          const tx = data as Transaction;
+          setTransactions(prev => [tx, ...prev]);
+          // Auto-link; pass txData to avoid stale state issue
+          await handleLink(tx.id, { favorecido: tx.favorecido, valor_final: tx.valor_final });
+          return; // handleLink closes modal on success
+        }
       }
       setMode('search');
     } finally {
@@ -443,6 +476,16 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                     </AnimatePresence>
                   </div>
                 </div>
+
+                {/* Error banner */}
+                {linkError && (
+                  <div className="mx-6 mb-2 flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-2xl shrink-0">
+                    <span className="text-xs font-bold text-red-700 flex-1">{linkError}</span>
+                    <button onClick={() => setLinkError(null)} className="text-red-500/60 hover:text-red-700 transition-colors">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
 
                 {/* Transactions table */}
                 <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">

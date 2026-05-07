@@ -36,7 +36,11 @@ export interface ReviewNote {
   accessKey?: string;
   supplierName?: string;
   finance_transaction_id?: string | null;
+  finance_tx_favorecido?: string | null;
+  finance_tx_valor?: number | null;
 }
+
+const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 interface LogisticsCenterProps {
   importing: boolean;
@@ -355,18 +359,34 @@ export function LogisticsCenter({
                       {/* Financeiro (Aprovados only) */}
                       {activeSection === 'aprovados' && (
                         <td className="px-4 py-3.5">
-                          <button
-                            onClick={() => setLinkingNote(note)}
-                            title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
-                            className={cn(
-                              'w-8 h-8 rounded-xl flex items-center justify-center transition-all',
-                              note.finance_transaction_id
-                                ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                                : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                          <div className="flex items-center gap-2">
+                            {note.finance_transaction_id ? (
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-emerald-700 truncate max-w-[120px]">
+                                  {note.finance_tx_favorecido ?? 'Vinculada'}
+                                </span>
+                                {note.finance_tx_valor != null && (
+                                  <span className="text-[10px] text-emerald-600">
+                                    {fmtBRL(note.finance_tx_valor)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-on-surface/30 font-medium">—</span>
                             )}
-                          >
-                            <Link2 size={15} />
-                          </button>
+                            <button
+                              onClick={() => setLinkingNote(note)}
+                              title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
+                              className={cn(
+                                'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
+                                note.finance_transaction_id
+                                  ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                                  : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                              )}
+                            >
+                              <Link2 size={13} />
+                            </button>
+                          </div>
                         </td>
                       )}
 
