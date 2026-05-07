@@ -4962,10 +4962,12 @@ export default function Page() {
                         : null;
                       const isEven = idx % 2 === 0;
                       return (
-                        <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
+                        <tr key={idx} className={cn("border-b border-slate-300 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
                           {/* # */}
                           <td className="py-3 px-3 text-center">
-                            <span className="text-[10px] font-black text-slate-300">{item.seq ?? idx + 1}</span>
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-black">
+                              {item.seq ?? idx + 1}
+                            </span>
                           </td>
                           {/* Código fornecedor */}
                           <td className="py-3 px-4 whitespace-nowrap">
@@ -5334,7 +5336,11 @@ export default function Page() {
                                       const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
                                       const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
                                       const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
-                                      const uP = [...viewingNoteSellPrices]; uP[i] = p.price || 0; setViewingNoteSellPrices(uP);
+                                      // Só aplica preço do dicionário se o usuário ainda não cadastrou um preço de venda
+                                      const existingSell = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
+                                      if (!existingSell || existingSell === 0) {
+                                        const uP = [...viewingNoteSellPrices]; uP[i] = p.price || 0; setViewingNoteSellPrices(uP);
+                                      }
                                       setLinkingItemIdx(null);
                                       setNoteItemLinkQuery('');
                                     }}
@@ -5471,6 +5477,7 @@ export default function Page() {
                           updated_at: new Date().toISOString(),
                         }).eq('id', viewingReviewNote.id);
                         if (saveError) throw saveError;
+                        // Atualiza lista de notas sem fechar o modal
                         setReviewNotes(prev => prev.map(n => {
                           if (n.id !== viewingReviewNote.id) return n;
                           return {
@@ -5481,7 +5488,9 @@ export default function Page() {
                             noteNumber: viewingReviewNote.noteNumber,
                           };
                         }));
-                        setViewingReviewNote(null);
+                        // Sincroniza o viewingReviewNote para refletir o estado salvo
+                        setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber } : null);
+                        setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
                       } catch (err: any) {
                         setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
                       } finally {
