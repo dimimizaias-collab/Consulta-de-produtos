@@ -698,6 +698,7 @@ export default function Page() {
         noteNumber: n.note_number ?? undefined,
         accessKey: n.access_key ?? undefined,
         supplierName: n.supplier_name ?? undefined,
+        finance_transaction_id: n.finance_transaction_id ?? null,
       })));
     }
   };
@@ -705,6 +706,10 @@ export default function Page() {
   const handleApproveNote = async (noteId: string) => {
     await supabase.from('review_notes').update({ approved: true }).eq('id', noteId);
     setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true } : n));
+  };
+
+  const handleLinkNote = (noteId: string, transactionId: string | null) => {
+    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, finance_transaction_id: transactionId } : n));
   };
 
   const fetchRequests = async () => {
@@ -2564,6 +2569,7 @@ export default function Page() {
                     setSurchargeDropdown(false); setSurchargeDialog(null);
                   }}
                   onApproveNote={handleApproveNote}
+                  onLinkNote={handleLinkNote}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />

@@ -16,11 +16,13 @@ import {
   Search,
   X,
   Building2,
+  Link2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
+import { LinkTransactionModal } from './LinkTransactionModal';
 
 export interface ReviewNote {
   id: string;
@@ -33,6 +35,7 @@ export interface ReviewNote {
   noteNumber?: string;
   accessKey?: string;
   supplierName?: string;
+  finance_transaction_id?: string | null;
 }
 
 interface LogisticsCenterProps {
@@ -43,6 +46,7 @@ interface LogisticsCenterProps {
   reviewNotes: ReviewNote[];
   onViewReviewNote: (note: ReviewNote) => void;
   onApproveNote: (noteId: string) => void;
+  onLinkNote?: (noteId: string, transactionId: string | null) => void;
 }
 
 export function LogisticsCenter({
@@ -53,6 +57,7 @@ export function LogisticsCenter({
   reviewNotes,
   onViewReviewNote,
   onApproveNote,
+  onLinkNote,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
@@ -63,6 +68,7 @@ export function LogisticsCenter({
   const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados'>('revisoes');
   const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
+  const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -256,7 +262,7 @@ export function LogisticsCenter({
           )}
         </div>
 
-        {/* Notes grid */}
+        {/* Notes table */}
         {visibleNotes.length === 0 ? (
           <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
             <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
@@ -274,65 +280,123 @@ export function LogisticsCenter({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleNotes.map((note) => (
-              <div
-                key={note.id}
-                className="relative bg-surface-container-lowest rounded-3xl p-6 border border-on-surface/[0.03] shadow-md hover:shadow-lg transition-shadow flex flex-col gap-4"
-              >
-                {/* View button */}
-                <button
-                  onClick={() => onViewReviewNote(note)}
-                  title="Ver nota digitalizada"
-                  className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
-                >
-                  <Pencil size={15} />
-                </button>
+          <div className="bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-on-surface/[0.06]">
+                    {[
+                      'Código',
+                      'Arquivo',
+                      'Fornecedor',
+                      'Data',
+                      'Itens',
+                      'Verificados',
+                      ...(activeSection === 'aprovados' ? ['Financeiro'] : []),
+                      '',
+                    ].map(h => (
+                      <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black uppercase tracking-widest text-on-surface/35 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleNotes.map((note) => (
+                    <tr
+                      key={note.id}
+                      className="border-b border-on-surface/[0.04] last:border-0 hover:bg-on-surface/[0.015] transition-colors"
+                    >
+                      {/* Código */}
+                      <td className="px-4 py-3.5">
+                        {note.noteNumber ? (
+                          <span className="font-mono text-xs font-bold text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                            {note.noteNumber}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-on-surface/25 font-medium">—</span>
+                        )}
+                      </td>
 
-                {/* Note info */}
-                <div className="flex items-start gap-3 pr-10">
-                  <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                    note.approved
-                      ? 'bg-emerald-500/10 text-emerald-600'
-                      : 'bg-amber-500/10 text-amber-600'
-                  )}>
-                    {note.approved ? <CheckCircle2 size={20} /> : <FileText size={20} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-on-surface truncate">{note.fileName}</p>
-                    <p className="text-xs text-on-surface/40 font-medium mt-0.5">{note.timestamp}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-                        {note.verifiedCount} verificados
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-on-surface/5 text-on-surface/50 rounded-full">
-                        {note.itemCount} total
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                      {/* Arquivo */}
+                      <td className="px-4 py-3.5 max-w-[180px]">
+                        <p className="text-sm font-semibold text-on-surface truncate">{note.fileName}</p>
+                      </td>
 
-                {/* Approve button (only in revisoes section) */}
-                {activeSection === 'revisoes' && (
-                  <button
-                    onClick={() => setConfirmApproveId(note.id)}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-700 text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all active:scale-95"
-                  >
-                    <CheckCircle2 size={14} />
-                    Aprovar
-                  </button>
-                )}
+                      {/* Fornecedor */}
+                      <td className="px-4 py-3.5 max-w-[140px]">
+                        <p className="text-xs text-on-surface/60 truncate">{note.supplierName || '—'}</p>
+                      </td>
 
-                {/* Approved badge */}
-                {activeSection === 'aprovados' && (
-                  <div className="flex items-center justify-center gap-2 w-full py-2 rounded-2xl bg-emerald-500/10 text-emerald-700 text-xs font-black uppercase tracking-widest">
-                    <CheckCircle2 size={14} />
-                    Aprovado
-                  </div>
-                )}
-              </div>
-            ))}
+                      {/* Data */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs text-on-surface/50">
+                        {note.timestamp}
+                      </td>
+
+                      {/* Itens */}
+                      <td className="px-4 py-3.5">
+                        <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                          {note.itemCount}
+                        </span>
+                      </td>
+
+                      {/* Verificados */}
+                      <td className="px-4 py-3.5">
+                        <span className={cn(
+                          'text-[10px] font-black px-2 py-1 rounded-lg',
+                          note.verifiedCount === note.itemCount && note.itemCount > 0
+                            ? 'bg-emerald-500/10 text-emerald-700'
+                            : 'bg-amber-500/10 text-amber-700'
+                        )}>
+                          {note.verifiedCount}/{note.itemCount}
+                        </span>
+                      </td>
+
+                      {/* Financeiro (Aprovados only) */}
+                      {activeSection === 'aprovados' && (
+                        <td className="px-4 py-3.5">
+                          <button
+                            onClick={() => setLinkingNote(note)}
+                            title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
+                            className={cn(
+                              'w-8 h-8 rounded-xl flex items-center justify-center transition-all',
+                              note.finance_transaction_id
+                                ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                                : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                            )}
+                          >
+                            <Link2 size={15} />
+                          </button>
+                        </td>
+                      )}
+
+                      {/* Ações */}
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onViewReviewNote(note)}
+                            title="Ver / editar nota"
+                            className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
+                          >
+                            <Pencil size={14} />
+                          </button>
+
+                          {activeSection === 'revisoes' && (
+                            <button
+                              onClick={() => setConfirmApproveId(note.id)}
+                              title="Aprovar nota"
+                              className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"
+                            >
+                              <CheckCircle2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -489,6 +553,19 @@ export function LogisticsCenter({
         editingSupplier={editingSupplier}
         onSuccess={() => { fetchPickerSuppliers(); }}
       />
+
+      {/* ── Link Transaction Modal ─────────────────────────────────────────── */}
+      {linkingNote && (
+        <LinkTransactionModal
+          note={linkingNote}
+          isOpen={!!linkingNote}
+          onClose={() => setLinkingNote(null)}
+          onLink={(transactionId) => {
+            onLinkNote?.(linkingNote.id, transactionId);
+            setLinkingNote(null);
+          }}
+        />
+      )}
     </div>
   );
 }
