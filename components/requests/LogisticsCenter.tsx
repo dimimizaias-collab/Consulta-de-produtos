@@ -521,45 +521,45 @@ export function LogisticsCenter({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 20 }}
               transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              className="relative bg-surface-container-lowest rounded-[2.5rem] p-10 max-w-xs w-full shadow-2xl ring-1 ring-on-surface/5"
+              className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"
             >
               {/* Ícone */}
-              <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 rounded-[1.25rem] bg-emerald-50 flex items-center justify-center shadow-inner">
-                  <AlertTriangle size={32} className="text-emerald-500" />
+              <div className="flex justify-center mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                  <AlertTriangle size={28} className="text-emerald-500" />
                 </div>
               </div>
 
               {/* Texto */}
-              <div className="text-center space-y-2 mb-8">
-                <h3 className="text-xl font-black text-on-surface tracking-tight">Aprovar esta nota?</h3>
-                <p className="text-sm text-on-surface/50 font-medium leading-relaxed">
-                  <span className="font-bold text-on-surface">{confirmNote.fileName}</span> será
-                  movida para a seção{' '}
+              <div className="text-center mb-7 px-2">
+                <h3 className="text-lg font-black text-slate-900 mb-2">Aprovar esta nota?</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  <span className="font-bold text-slate-800">{confirmNote.fileName}</span>{' '}
+                  será movida para a seção{' '}
                   <span className="font-bold text-emerald-500">Aprovados</span>.{' '}
                   Essa ação não pode ser desfeita.
                 </p>
               </div>
 
-              {/* Ações */}
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setConfirmApproveId(null)}
-                  className="flex-1 py-3 font-black text-on-surface/35 hover:text-on-surface/60 transition-all text-xs uppercase tracking-[0.15em]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    onApproveNote(confirmNote.id);
-                    setConfirmApproveId(null);
-                  }}
-                  className="flex-[2] py-4 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-[0.12em] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/25 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 size={15} />
-                  Confirmar Aprovação
-                </button>
-              </div>
+              {/* Botão confirmar */}
+              <button
+                onClick={() => {
+                  onApproveNote(confirmNote.id);
+                  setConfirmApproveId(null);
+                }}
+                className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black text-sm uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 active:scale-95 mb-2"
+              >
+                <CheckCircle2 size={16} />
+                Confirmar Aprovação
+              </button>
+
+              {/* Cancelar */}
+              <button
+                onClick={() => setConfirmApproveId(null)}
+                className="w-full py-3 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
             </motion.div>
           </div>
         )}

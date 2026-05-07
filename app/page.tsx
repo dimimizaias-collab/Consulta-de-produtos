@@ -689,11 +689,15 @@ export default function Page() {
   }, []);
 
   const fetchNotifications = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
+    if (error) {
+      console.warn('[Notificações] Tabela indisponível:', error.message);
+      return;
+    }
     if (data) setAppNotifications(data as AppNotification[]);
   };
 
@@ -726,19 +730,31 @@ export default function Page() {
 
     // Gera notificação de aprovação
     const note = reviewNotes.find(n => n.id === noteId);
-    const { data: notifData } = await supabase
+    const insertPayload = {
+      type: 'note_approved',
+      title: 'Nota aprovada',
+      body: note?.supplierName ?? null,
+      note_id: noteId,
+      note_file_name: note?.fileName ?? null,
+      read: false,
+    };
+
+    const { data: notifData, error: notifError } = await supabase
       .from('notifications')
-      .insert([{
-        type: 'note_approved',
-        title: `Nota aprovada`,
-        body: note?.supplierName ?? null,
-        note_id: noteId,
-        note_file_name: note?.fileName ?? null,
-        read: false,
-      }])
+      .insert([insertPayload])
       .select()
       .single();
-    if (notifData) {
+
+    if (notifError) {
+      console.error('[Notificação] Erro ao inserir no banco:', notifError.message);
+      // Fallback: adiciona localmente mesmo sem persistência no banco
+      const localNotif: AppNotification = {
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString(),
+        ...insertPayload,
+      };
+      setAppNotifications(prev => [localNotif, ...prev]);
+    } else if (notifData) {
       setAppNotifications(prev => [notifData as AppNotification, ...prev]);
     }
   };
