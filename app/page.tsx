@@ -295,7 +295,10 @@ export default function Page() {
   const [noteItemNewName, setNoteItemNewName] = useState('');
   const [noteItemNewSku, setNoteItemNewSku] = useState('');
   const [noteItemNewEan, setNoteItemNewEan] = useState('');
+  const [noteItemNewSellPrice, setNoteItemNewSellPrice] = useState('');
   const [noteItemCreating, setNoteItemCreating] = useState(false);
+  const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
+  const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [multiLinkItemIdx, setMultiLinkItemIdx] = useState<number | null>(null);
   const [multiLinkItemSearch, setMultiLinkItemSearch] = useState('');
   const [multiLinkItemQty, setMultiLinkItemQty] = useState('');
@@ -1690,10 +1693,11 @@ export default function Page() {
         const uV = [...viewingNoteVerified]; uV[linkingItemIdx] = true; setViewingNoteVerified(uV);
         const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
-        const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = 0; setViewingNoteSellPrices(uP);
+        const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
+        const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
-        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan('');
+        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice('');
         setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
       }
     } catch (err: any) {
@@ -5269,7 +5273,7 @@ export default function Page() {
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); }}
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
                     />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
@@ -5292,7 +5296,7 @@ export default function Page() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); }}
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
                           className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
                         >
                           <X size={16} className="text-slate-400" />
@@ -5303,66 +5307,146 @@ export default function Page() {
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                         {!noteItemShowCreate ? (
                           <>
-                            <input
-                              autoFocus
-                              type="text"
-                              value={noteItemLinkQuery}
-                              onChange={e => setNoteItemLinkQuery(e.target.value)}
-                              placeholder="Nome, SKU ou EAN..."
-                              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                            />
-                            <div className="max-h-64 overflow-y-auto space-y-1">
-                              {(() => {
-                                const q = noteItemLinkQuery.toLowerCase().trim();
-                                if (q.length === 0) return (
-                                  <p className="text-xs text-slate-400 text-center py-8">Digite para buscar...</p>
-                                );
-                                const filtered = products.filter((p: any) =>
-                                  p.name?.toLowerCase().includes(q) ||
-                                  p.sku?.toLowerCase().includes(q) ||
-                                  (p.ean && p.ean.toLowerCase().includes(q))
-                                ).slice(0, 12);
-                                if (filtered.length === 0) return (
-                                  <p className="text-xs text-slate-400 text-center py-8">Nenhum produto encontrado</p>
-                                );
-                                return filtered.map((p: any) => (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => {
-                                      const i = linkingItemIdx!;
-                                      const updatedItems = [...viewingReviewNote!.items];
-                                      updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
-                                      setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                      const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
-                                      const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
-                                      const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
-                                      // Só aplica preço do dicionário se o usuário ainda não cadastrou um preço de venda
-                                      const existingSell = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
-                                      if (!existingSell || existingSell === 0) {
-                                        const uP = [...viewingNoteSellPrices]; uP[i] = p.price || 0; setViewingNoteSellPrices(uP);
-                                      }
-                                      setLinkingItemIdx(null);
-                                      setNoteItemLinkQuery('');
-                                    }}
-                                    className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
-                                  >
-                                    <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
-                                      <Package size={15} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
-                                      <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
-                                    </div>
-                                  </button>
-                                ));
-                              })()}
-                            </div>
-                            <button
-                              onClick={() => setNoteItemShowCreate(true)}
-                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
-                            >
-                              <Plus size={13} />Criar novo produto
-                            </button>
+                            {/* ── Painel de confirmação com preço de venda ── */}
+                            {noteItemSelectedProduct ? (
+                              <div className="space-y-3">
+                                <button
+                                  onClick={() => { setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
+                                  className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
+                                >
+                                  ← Voltar para busca
+                                </button>
+
+                                {/* Produto selecionado */}
+                                <div className="flex items-center gap-3 px-3 py-3 bg-primary/5 border border-primary/15 rounded-xl">
+                                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <Package size={15} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-slate-800 truncate">{noteItemSelectedProduct.name}</p>
+                                    <p className="text-[10px] text-slate-400">{noteItemSelectedProduct.sku || '—'} · {noteItemSelectedProduct.ean || '—'}</p>
+                                  </div>
+                                </div>
+
+                                {/* Preço de venda */}
+                                <div>
+                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                                    Preço de Venda (R$)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
+                                    <input
+                                      autoFocus
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={noteItemSellPriceInput}
+                                      onChange={e => setNoteItemSellPriceInput(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                          const i = linkingItemIdx!;
+                                          const p = noteItemSelectedProduct;
+                                          const updatedItems = [...viewingReviewNote!.items];
+                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: parseFloat(noteItemSellPriceInput) || p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                          setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
+                                          const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
+                                          const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
+                                          const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
+                                          const uP = [...viewingNoteSellPrices]; uP[i] = parseFloat(noteItemSellPriceInput) || p.price || 0; setViewingNoteSellPrices(uP);
+                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput('');
+                                        }
+                                      }}
+                                      placeholder="0,00"
+                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                    />
+                                  </div>
+                                  {noteItemSelectedProduct.price > 0 && (
+                                    <p className="text-[10px] text-slate-400 mt-1">
+                                      Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span>
+                                    </p>
+                                  )}
+                                </div>
+
+                                <button
+                                  onClick={() => {
+                                    const i = linkingItemIdx!;
+                                    const p = noteItemSelectedProduct;
+                                    const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
+                                    const updatedItems = [...viewingReviewNote!.items];
+                                    updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                    setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
+                                    const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
+                                    const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
+                                    const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
+                                    const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
+                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput('');
+                                  }}
+                                  className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                >
+                                  <Check size={15} />Vincular com este preço
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                {/* ── Lista de busca ── */}
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={noteItemLinkQuery}
+                                  onChange={e => setNoteItemLinkQuery(e.target.value)}
+                                  placeholder="Nome, SKU ou EAN..."
+                                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                />
+                                <div className="max-h-64 overflow-y-auto space-y-1">
+                                  {(() => {
+                                    const q = noteItemLinkQuery.toLowerCase().trim();
+                                    if (q.length === 0) return (
+                                      <p className="text-xs text-slate-400 text-center py-8">Digite para buscar...</p>
+                                    );
+                                    const filtered = products.filter((p: any) =>
+                                      p.name?.toLowerCase().includes(q) ||
+                                      p.sku?.toLowerCase().includes(q) ||
+                                      (p.ean && p.ean.toLowerCase().includes(q))
+                                    ).slice(0, 12);
+                                    if (filtered.length === 0) return (
+                                      <p className="text-xs text-slate-400 text-center py-8">Nenhum produto encontrado</p>
+                                    );
+                                    return filtered.map((p: any) => (
+                                      <button
+                                        key={p.id}
+                                        onClick={() => {
+                                          // Pré-preenche com o preço existente do item ou o preço do dicionário
+                                          const i = linkingItemIdx!;
+                                          const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
+                                          setNoteItemSelectedProduct(p);
+                                          setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (p.price ? String(p.price) : ''));
+                                        }}
+                                        className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
+                                      >
+                                        <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
+                                          <Package size={15} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                                          <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
+                                        </div>
+                                        {p.price > 0 && (
+                                          <span className="text-[10px] font-black text-slate-500 shrink-0">
+                                            R$ {p.price.toFixed(2).replace('.', ',')}
+                                          </span>
+                                        )}
+                                      </button>
+                                    ));
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => setNoteItemShowCreate(true)}
+                                  className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
+                                >
+                                  <Plus size={13} />Criar novo produto
+                                </button>
+                              </>
+                            )}
                           </>
                         ) : (
                           <div className="space-y-3">
@@ -5390,6 +5474,22 @@ export default function Page() {
                                 <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
                                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                   placeholder="Cód. barras" />
+                              </div>
+                            </div>
+                            {/* ── Preço de venda para produto novo ── */}
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Preço de Venda (R$)</label>
+                              <div className="relative">
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={noteItemNewSellPrice}
+                                  onChange={e => setNoteItemNewSellPrice(e.target.value)}
+                                  placeholder="0,00"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                />
                               </div>
                             </div>
                             <button
