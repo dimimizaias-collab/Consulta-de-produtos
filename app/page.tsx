@@ -5577,6 +5577,13 @@ export default function Page() {
                           updated_at: new Date().toISOString(),
                         }).eq('id', viewingReviewNote.id);
                         if (saveError) throw saveError;
+                        // Sincroniza preços de venda de volta à tabela products
+                        const priceUpdates = updatedItems
+                          .filter((item: any) => item.product_id && item.product_price > 0)
+                          .map((item: any) =>
+                            supabase.from('products').update({ price: item.product_price }).eq('id', item.product_id)
+                          );
+                        if (priceUpdates.length > 0) await Promise.all(priceUpdates);
                         // Atualiza lista de notas sem fechar o modal
                         setReviewNotes(prev => prev.map(n => {
                           if (n.id !== viewingReviewNote.id) return n;
