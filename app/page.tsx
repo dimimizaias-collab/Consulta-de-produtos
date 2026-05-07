@@ -4860,9 +4860,11 @@ export default function Page() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full min-w-[1800px] border-collapse">
+                <table className="w-full min-w-[1900px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-900 text-left">
+                      <th className="py-3 px-3 text-[10px] font-bold text-white/50 uppercase tracking-widest w-10 text-center">#</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest whitespace-nowrap">Código</th>
                       {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                         const editable = reviewEditableCols.has(col);
                         const canEdit = col !== 'Identificação Interna';
@@ -4961,6 +4963,18 @@ export default function Page() {
                       const isEven = idx % 2 === 0;
                       return (
                         <tr key={idx} className={cn("border-b border-slate-100 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
+                          {/* # */}
+                          <td className="py-3 px-3 text-center">
+                            <span className="text-[10px] font-black text-slate-300">{item.seq ?? idx + 1}</span>
+                          </td>
+                          {/* Código fornecedor */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {item.supplier_code ? (
+                              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">{item.supplier_code}</span>
+                            ) : (
+                              <span className="text-xs text-slate-300 font-medium">—</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 max-w-[220px]">
                             {reviewEditableCols.has('Produto na Nota') ? (
                               <input type="text" value={item.original_description || ''}
@@ -5004,113 +5018,6 @@ export default function Page() {
                                 <span>Vários</span>
                               </button>
                             </div>
-                            {linkingItemIdx === idx && (
-                              <>
-                                <div className="fixed inset-0 z-[190]" onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); }} />
-                                <div className="absolute z-[200] top-full left-0 mt-1 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
-                                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                      {noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
-                                    </p>
-                                    <button onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); }} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
-                                      <X size={12} className="text-slate-400" />
-                                    </button>
-                                  </div>
-                                  <div className="p-3 space-y-2">
-                                    {!noteItemShowCreate ? (
-                                      <>
-                                        <input
-                                          autoFocus
-                                          type="text"
-                                          value={noteItemLinkQuery}
-                                          onChange={e => setNoteItemLinkQuery(e.target.value)}
-                                          placeholder="Nome, SKU ou EAN..."
-                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-primary"
-                                        />
-                                        <div className="max-h-48 overflow-y-auto space-y-0.5">
-                                          {(() => {
-                                            const q = noteItemLinkQuery.toLowerCase().trim();
-                                            if (q.length === 0) return <p className="text-xs text-slate-400 text-center py-3">Digite para buscar...</p>;
-                                            const filtered = products.filter((p: any) =>
-                                              p.name?.toLowerCase().includes(q) ||
-                                              p.sku?.toLowerCase().includes(q) ||
-                                              (p.ean && p.ean.toLowerCase().includes(q))
-                                            ).slice(0, 12);
-                                            if (filtered.length === 0) return <p className="text-xs text-slate-400 text-center py-3">Nenhum produto encontrado</p>;
-                                            return filtered.map((p: any) => (
-                                              <button
-                                                key={p.id}
-                                                onClick={() => {
-                                                  const updatedItems = [...viewingReviewNote!.items];
-                                                  updatedItems[idx] = { ...updatedItems[idx], name: p.name, sku: p.sku || updatedItems[idx].sku, ean: p.ean || updatedItems[idx].ean, product_id: p.id, product_price: p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
-                                                  setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                                  const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
-                                                  const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
-                                                  const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
-                                                  const uP = [...viewingNoteSellPrices]; uP[idx] = p.price || 0; setViewingNoteSellPrices(uP);
-                                                  setLinkingItemIdx(null);
-                                                }}
-                                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2 group"
-                                              >
-                                                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
-                                                  <Package size={13} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
-                                                  <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
-                                                </div>
-                                              </button>
-                                            ));
-                                          })()}
-                                        </div>
-                                        <button
-                                          onClick={() => setNoteItemShowCreate(true)}
-                                          className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
-                                        >
-                                          <Plus size={12} />Criar novo produto
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <div className="space-y-3">
-                                        <button onClick={() => setNoteItemShowCreate(false)} className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
-                                          ← Voltar para busca
-                                        </button>
-                                        <div>
-                                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
-                                          <input autoFocus type="text" value={noteItemNewName} onChange={e => setNoteItemNewName(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="Nome do produto" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
-                                            <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
-                                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                              placeholder="Auto-gerado" />
-                                          </div>
-                                          <div>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
-                                            <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
-                                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                              placeholder="Cód. barras" />
-                                          </div>
-                                        </div>
-                                        <button
-                                          onClick={handleNoteItemCreateAndLink}
-                                          disabled={noteItemCreating || !noteItemNewName.trim()}
-                                          className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
-                                        >
-                                          {noteItemCreating
-                                            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-                                            : <><Plus size={13} />Criar e Vincular</>
-                                          }
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </>
-                            )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             {reviewEditableCols.has('EAN') ? (
@@ -5352,6 +5259,150 @@ export default function Page() {
                   </tbody>
                 </table>
               </div>
+
+              {/* ── Vincular ao Dicionário — Modal separado ────────────────── */}
+              {linkingItemIdx !== null && (() => {
+                const linkItem = viewingReviewNote.items[linkingItemIdx];
+                return (
+                  <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); }}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                      transition={{ duration: 0.18 }}
+                      className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden max-h-[80vh]"
+                    >
+                      {/* Header */}
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3 shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <Package size={17} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
+                          </p>
+                          <p className="text-sm font-bold text-slate-800 truncate">
+                            {linkItem?.original_description || 'Item sem descrição'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); }}
+                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+                        >
+                          <X size={16} className="text-slate-400" />
+                        </button>
+                      </div>
+
+                      {/* Body */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                        {!noteItemShowCreate ? (
+                          <>
+                            <input
+                              autoFocus
+                              type="text"
+                              value={noteItemLinkQuery}
+                              onChange={e => setNoteItemLinkQuery(e.target.value)}
+                              placeholder="Nome, SKU ou EAN..."
+                              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                            <div className="max-h-64 overflow-y-auto space-y-1">
+                              {(() => {
+                                const q = noteItemLinkQuery.toLowerCase().trim();
+                                if (q.length === 0) return (
+                                  <p className="text-xs text-slate-400 text-center py-8">Digite para buscar...</p>
+                                );
+                                const filtered = products.filter((p: any) =>
+                                  p.name?.toLowerCase().includes(q) ||
+                                  p.sku?.toLowerCase().includes(q) ||
+                                  (p.ean && p.ean.toLowerCase().includes(q))
+                                ).slice(0, 12);
+                                if (filtered.length === 0) return (
+                                  <p className="text-xs text-slate-400 text-center py-8">Nenhum produto encontrado</p>
+                                );
+                                return filtered.map((p: any) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => {
+                                      const i = linkingItemIdx!;
+                                      const updatedItems = [...viewingReviewNote!.items];
+                                      updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                      setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
+                                      const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
+                                      const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
+                                      const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
+                                      const uP = [...viewingNoteSellPrices]; uP[i] = p.price || 0; setViewingNoteSellPrices(uP);
+                                      setLinkingItemIdx(null);
+                                      setNoteItemLinkQuery('');
+                                    }}
+                                    className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
+                                  >
+                                    <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary shrink-0 transition-colors">
+                                      <Package size={15} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                                      <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}</p>
+                                    </div>
+                                  </button>
+                                ));
+                              })()}
+                            </div>
+                            <button
+                              onClick={() => setNoteItemShowCreate(true)}
+                              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
+                            >
+                              <Plus size={13} />Criar novo produto
+                            </button>
+                          </>
+                        ) : (
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => setNoteItemShowCreate(false)}
+                              className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
+                            >
+                              ← Voltar para busca
+                            </button>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                              <input autoFocus type="text" value={noteItemNewName} onChange={e => setNoteItemNewName(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="Nome do produto" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                                <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  placeholder="Auto-gerado" />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
+                                <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  placeholder="Cód. barras" />
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleNoteItemCreateAndLink}
+                              disabled={noteItemCreating || !noteItemNewName.trim()}
+                              className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                            >
+                              {noteItemCreating
+                                ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                                : <><Plus size={13} />Criar e Vincular</>
+                              }
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </div>
+                );
+              })()}
 
               <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
                 <div className="text-sm text-slate-500 flex items-center gap-2 flex-wrap">
