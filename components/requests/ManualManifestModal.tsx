@@ -135,6 +135,7 @@ export function ManualManifestModal({
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [rows, setRows] = useState<ManifestRow[]>([makeRow(), makeRow(), makeRow()]);
+  const [pastedRange, setPastedRange] = useState<{ start: number; end: number; field: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Link-product sub-modal
@@ -307,6 +308,59 @@ export function ManualManifestModal({
 
   const removeRow = (id: string) =>
     setRows(prev => prev.length === 1 ? [makeRow()] : prev.filter(r => r.id !== id));
+
+  // ── Paste coluna (distribui multi-linhas para baixo) ─────────────────────────
+
+  type PasteField = keyof Pick<ManifestRow, 'supplierCode' | 'description' | 'unit' | 'quantity' | 'unitPrice'>;
+
+  const handleColumnPaste = (
+    e: React.ClipboardEvent,
+    rowIndex: number,
+    field: PasteField,
+  ) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    if (lines.length <= 1) return; // comportamento padrão do browser
+
+    e.preventDefault();
+
+    let newRows: ManifestRow[] = [];
+    setRows(prev => {
+      const updated = [...prev];
+      lines.forEach((value, i) => {
+        const targetIdx = rowIndex + i;
+        if (targetIdx < updated.length) {
+          updated[targetIdx] = { ...updated[targetIdx], [field]: value };
+        } else {
+          updated.push({ ...makeRow(), [field]: value });
+        }
+      });
+      newRows = updated;
+      return updated;
+    });
+
+    // Flash visual nas células preenchidas
+    setPastedRange({ start: rowIndex, end: rowIndex + lines.length - 1, field });
+    setTimeout(() => setPastedRange(null), 800);
+
+    // Dispara lookup automático nas linhas afetadas
+    if (field === 'supplierCode' || field === 'description') {
+      setTimeout(() => {
+        setRows(prev => {
+          lines.forEach((_, i) => {
+            const row = prev[rowIndex + i];
+            if (row) lookupMapping(row.id, row.supplierCode, row.description);
+          });
+          return prev;
+        });
+      }, 50);
+    }
+  };
 
   const lookupMapping = async (rowId: string, code: string, description: string) => {
     if (!supplierId || (!code.trim() && !description.trim())) return;
@@ -859,7 +913,11 @@ export function ManualManifestModal({
                         <input type="text" value={row.supplierCode}
                           onChange={e => updateRow(row.id, { supplierCode: e.target.value })}
                           onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
-                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-mono text-slate-600 transition-colors"
+                          onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
+                          className={cn(
+                            "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-mono text-slate-600 transition-colors",
+                            pastedRange && pastedRange.field === 'supplierCode' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                          )}
                           placeholder="—" />
                       </td>
                       {/* Descrição */}
@@ -878,7 +936,11 @@ export function ManualManifestModal({
                           <input type="text" value={row.description}
                             onChange={e => updateRow(row.id, { description: e.target.value })}
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
-                            className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 transition-colors"
+                            onPaste={e => handleColumnPaste(e, idx, 'description')}
+                            className={cn(
+                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 transition-colors",
+                              pastedRange && pastedRange.field === 'description' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                            )}
                             placeholder="Descrição do produto..." />
                         </div>
                       </td>
@@ -892,7 +954,11 @@ export function ManualManifestModal({
                         >
                           <input type="text" value={row.unit}
                             onChange={e => updateRow(row.id, { unit: e.target.value })}
-                            className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-600 text-center transition-colors"
+                            onPaste={e => handleColumnPaste(e, idx, 'unit')}
+                            className={cn(
+                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-600 text-center transition-colors",
+                              pastedRange && pastedRange.field === 'unit' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                            )}
                             placeholder="UN" />
                           {/* translated badge */}
                           {row.unitTranslated && (
@@ -956,18 +1022,25 @@ export function ManualManifestModal({
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
                         <input type="number" value={row.quantity}
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
-                          className="no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors"
+                          onPaste={e => handleColumnPaste(e, idx, 'quantity')}
+                          className={cn(
+                            "no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors",
+                            pastedRange && pastedRange.field === 'quantity' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                          )}
                           placeholder="0" min="0" />
                       </td>
                       {/* Preço Unitário */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
                         <input type="number" value={row.unitPrice}
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
+                          onPaste={e => handleColumnPaste(e, idx, 'unitPrice')}
                           className={cn(
                             'no-spinner w-full border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
-                            row.unitTranslated
-                              ? 'text-emerald-600 bg-emerald-50/40'
-                              : 'text-slate-700 bg-transparent'
+                            pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end
+                              ? 'ring-1 ring-emerald-400 rounded bg-emerald-50/40 text-slate-700'
+                              : row.unitTranslated
+                                ? 'text-emerald-600 bg-emerald-50/40'
+                                : 'text-slate-700 bg-transparent'
                           )}
                           placeholder="0,00" step="0.01" min="0" />
                       </td>
