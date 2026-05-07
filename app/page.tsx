@@ -3,6 +3,7 @@
 import { Sidebar } from '@/components/Sidebar';
 import { BottomNav } from '@/components/BottomNav';
 import { TopNav } from '@/components/TopNav';
+import { NotificationsPage, type AppNotification } from '@/components/NotificationsPage';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
 import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
@@ -216,6 +217,8 @@ function SearchableSelect({
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState('Inventory');
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
+  const [pendingOpenNoteId, setPendingOpenNoteId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
@@ -681,8 +684,18 @@ export default function Page() {
       fetchProducts();
       fetchRequests();
       fetchReviewNotes();
+      fetchNotifications();
     }
   }, []);
+
+  const fetchNotifications = async () => {
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (data) setAppNotifications(data as AppNotification[]);
+  };
 
   const fetchReviewNotes = async () => {
     const { data } = await supabase
@@ -710,6 +723,37 @@ export default function Page() {
   const handleApproveNote = async (noteId: string) => {
     await supabase.from('review_notes').update({ approved: true }).eq('id', noteId);
     setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true } : n));
+
+    // Gera notificação de aprovação
+    const note = reviewNotes.find(n => n.id === noteId);
+    const { data: notifData } = await supabase
+      .from('notifications')
+      .insert([{
+        type: 'note_approved',
+        title: `Nota aprovada`,
+        body: note?.supplierName ?? null,
+        note_id: noteId,
+        note_file_name: note?.fileName ?? null,
+        read: false,
+      }])
+      .select()
+      .single();
+    if (notifData) {
+      setAppNotifications(prev => [notifData as AppNotification, ...prev]);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    await supabase.from('notifications').update({ read: true }).eq('read', false);
+    setAppNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleGoToNote = (noteId: string) => {
+    setActiveTab('Entrada de Mercadoria');
+    setPendingOpenNoteId(noteId);
+    // Marca notificações daquela nota como lidas
+    supabase.from('notifications').update({ read: true }).eq('note_id', noteId).eq('read', false);
+    setAppNotifications(prev => prev.map(n => n.note_id === noteId ? { ...n, read: true } : n));
   };
 
   const handleLinkNote = (noteId: string, transactionId: string | null) => {
@@ -2454,13 +2498,21 @@ export default function Page() {
           setActiveTab={setActiveTab}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          unreadNotifications={appNotifications.filter(n => !n.read).length}
         />
         <main className={cn(
           "flex-1 transition-all duration-300",
           "ml-0 md:transition-all",
           isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
         )}>
-          <TopNav searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+          <TopNav
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            notifications={appNotifications}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+            onGoToNote={handleGoToNote}
+            onGoToNotificationsPage={() => setActiveTab('Notificações')}
+          />
           <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-8 pb-24 md:pb-8">
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
@@ -2575,11 +2627,19 @@ export default function Page() {
                   }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
+                  pendingOpenNoteId={pendingOpenNoteId}
+                  onPendingOpenNoteHandled={() => setPendingOpenNoteId(null)}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
             ) : activeTab === 'Controle Financeiro' ? (
                 <FinanceManager />
+            ) : activeTab === 'Notificações' ? (
+                <NotificationsPage
+                  notifications={appNotifications}
+                  onGoToNote={handleGoToNote}
+                  onMarkAllRead={handleMarkAllNotificationsRead}
+                />
             ) : activeTab === 'Configurações' ? (
                 <SettingsPage />
             ) : activeTab === 'Dashboard' ? (

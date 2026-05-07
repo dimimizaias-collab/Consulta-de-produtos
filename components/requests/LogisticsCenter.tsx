@@ -51,6 +51,8 @@ interface LogisticsCenterProps {
   onViewReviewNote: (note: ReviewNote) => void;
   onApproveNote: (noteId: string) => void;
   onLinkNote?: (noteId: string, transactionId: string | null) => void;
+  pendingOpenNoteId?: string | null;
+  onPendingOpenNoteHandled?: () => void;
 }
 
 export function LogisticsCenter({
@@ -62,6 +64,8 @@ export function LogisticsCenter({
   onViewReviewNote,
   onApproveNote,
   onLinkNote,
+  pendingOpenNoteId,
+  onPendingOpenNoteHandled,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
@@ -83,6 +87,17 @@ export function LogisticsCenter({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Abre nota aprovada vinda de "Ir para nota" nas notificações
+  useEffect(() => {
+    if (!pendingOpenNoteId) return;
+    const note = reviewNotes.find(n => n.id === pendingOpenNoteId);
+    if (note) {
+      setActiveSection('aprovados');
+      onViewReviewNote(note);
+    }
+    onPendingOpenNoteHandled?.();
+  }, [pendingOpenNoteId]);
 
   const fetchPickerSuppliers = async () => {
     setLoadingPicker(true);
@@ -431,28 +446,35 @@ export function LogisticsCenter({
               onClick={() => setConfirmApproveId(null)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 16 }}
-              className="relative bg-surface-container-lowest rounded-[2rem] p-8 max-w-sm w-full shadow-2xl ring-1 ring-on-surface/5"
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+              className="relative bg-surface-container-lowest rounded-[2.5rem] p-10 max-w-xs w-full shadow-2xl ring-1 ring-on-surface/5"
             >
-              <div className="flex flex-col items-center text-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                  <AlertTriangle size={28} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-on-surface tracking-tight">Aprovar esta nota?</h3>
-                  <p className="text-sm text-on-surface/50 font-medium mt-1 leading-relaxed">
-                    <span className="font-bold text-on-surface">{confirmNote.fileName}</span> será movida para
-                    a seção <span className="font-bold text-emerald-600">Aprovados</span>. Essa ação não pode ser desfeita.
-                  </p>
+              {/* Ícone */}
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 rounded-[1.25rem] bg-emerald-50 flex items-center justify-center shadow-inner">
+                  <AlertTriangle size={32} className="text-emerald-500" />
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-7">
+              {/* Texto */}
+              <div className="text-center space-y-2 mb-8">
+                <h3 className="text-xl font-black text-on-surface tracking-tight">Aprovar esta nota?</h3>
+                <p className="text-sm text-on-surface/50 font-medium leading-relaxed">
+                  <span className="font-bold text-on-surface">{confirmNote.fileName}</span> será
+                  movida para a seção{' '}
+                  <span className="font-bold text-emerald-500">Aprovados</span>.{' '}
+                  Essa ação não pode ser desfeita.
+                </p>
+              </div>
+
+              {/* Ações */}
+              <div className="flex items-center gap-4">
                 <button
                   onClick={() => setConfirmApproveId(null)}
-                  className="flex-1 py-3 rounded-2xl font-black text-on-surface/40 hover:bg-on-surface/5 transition-all text-sm uppercase tracking-widest"
+                  className="flex-1 py-3 font-black text-on-surface/35 hover:text-on-surface/60 transition-all text-xs uppercase tracking-[0.15em]"
                 >
                   Cancelar
                 </button>
@@ -461,9 +483,9 @@ export function LogisticsCenter({
                     onApproveNote(confirmNote.id);
                     setConfirmApproveId(null);
                   }}
-                  className="flex-[2] py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
+                  className="flex-[2] py-4 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-[0.12em] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/25 active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 size={16} />
+                  <CheckCircle2 size={15} />
                   Confirmar Aprovação
                 </button>
               </div>

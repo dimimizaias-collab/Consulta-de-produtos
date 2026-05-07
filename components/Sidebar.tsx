@@ -3,7 +3,6 @@
 import {
   LayoutDashboard,
   Package2,
-  MapPin,
   BarChart3,
   ArrowLeftRight,
   Settings,
@@ -12,7 +11,8 @@ import {
   ChevronRight,
   LogIn,
   ShoppingCart,
-  Wallet
+  Wallet,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
@@ -22,17 +22,19 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  unreadNotifications?: number;
 }
 
-export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse, unreadNotifications = 0 }: SidebarProps) {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
-    { icon: Package2, label: 'Inventory' },
-    { icon: ShoppingCart, label: 'Pedidos de Compra' },
-    { icon: BarChart3, label: 'Requisições' },
-    { icon: LogIn, label: 'Entrada de Mercadoria' },
-    { icon: Wallet, label: 'Controle Financeiro' },
-    { icon: Settings, label: 'Configurações' },
+    { icon: Package2,        label: 'Inventory' },
+    { icon: ShoppingCart,    label: 'Pedidos de Compra' },
+    { icon: BarChart3,       label: 'Requisições' },
+    { icon: LogIn,           label: 'Entrada de Mercadoria' },
+    { icon: Wallet,          label: 'Controle Financeiro' },
+    { icon: Bell,            label: 'Notificações', badge: unreadNotifications },
+    { icon: Settings,        label: 'Configurações' },
   ];
 
   return (
@@ -55,8 +57,8 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
               <p className="text-[10px] font-bold text-primary uppercase tracking-widest leading-tight">Warehouse Curator</p>
             </motion.div>
           )}
-          
-          <button 
+
+          <button
             onClick={onToggleCollapse}
             className={cn(
               "absolute -right-3 top-1/2 -translate-y-1/2 w-7 h-7 bg-surface-container-lowest rounded-full flex items-center justify-center text-on-surface/40 hover:text-primary transition-all shadow-md z-50",
@@ -74,28 +76,47 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
               key={item.label}
               onClick={() => setActiveTab(item.label)}
               className={cn(
-                "flex items-center rounded-xl transition-all duration-300 group text-left w-full",
+                "flex items-center rounded-xl transition-all duration-300 group text-left w-full relative",
                 isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3.5",
-                activeTab === item.label 
-                  ? "text-on-primary bg-primary shadow-lg shadow-primary/20" 
+                activeTab === item.label
+                  ? "text-on-primary bg-primary shadow-lg shadow-primary/20"
                   : "text-on-surface/60 hover:text-on-surface hover:bg-surface-container-lowest/50"
               )}
               title={isCollapsed ? item.label : ""}
             >
-              <item.icon 
-                size={20} 
-                className={cn(
-                  "transition-all shrink-0",
-                  activeTab === item.label ? "scale-110" : "group-hover:scale-110"
-                )} 
-              />
+              <div className="relative shrink-0">
+                <item.icon
+                  size={20}
+                  className={cn(
+                    "transition-all",
+                    activeTab === item.label ? "scale-110" : "group-hover:scale-110"
+                  )}
+                />
+                {/* Badge compacto no ícone quando collapsed */}
+                {isCollapsed && (item as any).badge > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 shadow-sm">
+                    {(item as any).badge > 99 ? '99+' : (item as any).badge}
+                  </span>
+                )}
+              </div>
               {!isCollapsed && (
-                <span className={cn(
-                  "text-xs uppercase tracking-wider font-manrope whitespace-nowrap",
-                  activeTab === item.label ? "font-extrabold" : "font-semibold"
-                )}>
-                  {item.label}
-                </span>
+                <>
+                  <span className={cn(
+                    "text-xs uppercase tracking-wider font-manrope whitespace-nowrap flex-1",
+                    activeTab === item.label ? "font-extrabold" : "font-semibold"
+                  )}>
+                    {item.label}
+                  </span>
+                  {/* Badge quando expandido */}
+                  {(item as any).badge > 0 && (
+                    <span className={cn(
+                      "min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-black px-1.5 shadow-sm",
+                      activeTab === item.label ? "bg-white/20 text-white" : "bg-red-500 text-white"
+                    )}>
+                      {(item as any).badge > 99 ? '99+' : (item as any).badge}
+                    </span>
+                  )}
+                </>
               )}
             </button>
           ))}
@@ -110,11 +131,11 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
               <span className="text-[10px] font-bold text-primary">75%</span>
             </div>
             <div className="h-1.5 w-full bg-on-surface/5 rounded-full overflow-hidden">
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '75%' }}
                 transition={{ duration: 1.5, ease: "easeOut" }}
-                className="h-full bg-primary rounded-full" 
+                className="h-full bg-primary rounded-full"
               />
             </div>
           </div>
