@@ -347,6 +347,7 @@ export default function Page() {
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
+  const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
   const [reviewLoadingUnitIdx, setReviewLoadingUnitIdx] = useState<number | null>(null);
   const [reviewMeasureIdx, setReviewMeasureIdx] = useState<number | null>(null);
@@ -4933,6 +4934,7 @@ export default function Page() {
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Revisão</th>
                       <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Distribuição</th>
+                      <th className="py-3 px-2 w-10" />
                     </tr>
                   </thead>
                   <tbody>
@@ -5258,6 +5260,49 @@ export default function Page() {
                               placeholder="—"
                               className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
+                          </td>
+                          {/* Botão excluir item */}
+                          <td className="py-3 px-2 text-center">
+                            {deleteConfirmIdx === idx ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    const remove = (arr: any[]) => arr.filter((_, i) => i !== idx);
+                                    setViewingReviewNote(prev => prev ? { ...prev, items: remove(prev.items) } : null);
+                                    setViewingNoteVerified(remove(viewingNoteVerified));
+                                    setViewingNoteQtys(remove(viewingNoteQtys));
+                                    setViewingNoteItemPrices(remove(viewingNoteItemPrices));
+                                    setViewingNoteSellPrices(remove(viewingNoteSellPrices));
+                                    setViewingNoteEans(remove(viewingNoteEans));
+                                    setViewingNoteSkus(remove(viewingNoteSkus));
+                                    setViewingNoteUnits(remove(viewingNoteUnits));
+                                    setViewingNoteMultipliers(remove(viewingNoteMultipliers));
+                                    setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
+                                    setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
+                                    setItemDiscounts(remove(itemDiscounts));
+                                    setItemSurcharges(remove(itemSurcharges));
+                                    setDeleteConfirmIdx(null);
+                                  }}
+                                  className="px-2 py-1 bg-red-500 text-white text-[10px] font-black rounded-lg hover:bg-red-600 transition-all whitespace-nowrap"
+                                >
+                                  Sim
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmIdx(null)}
+                                  className="px-2 py-1 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg hover:bg-slate-200 transition-all"
+                                >
+                                  Não
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setDeleteConfirmIdx(idx)}
+                                className="w-7 h-7 rounded-lg bg-slate-100 text-slate-300 flex items-center justify-center hover:bg-red-50 hover:text-red-400 transition-all mx-auto"
+                                title="Excluir produto da nota"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
