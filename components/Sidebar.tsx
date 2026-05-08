@@ -67,22 +67,6 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
         </div>
       </div>
 
-      {/* Botão collapse — fixed para escapar do contexto de clip do backdrop-blur */}
-      <button
-        onClick={onToggleCollapse}
-        className={cn(
-          "fixed top-[44px] -translate-y-1/2 z-50",
-          "w-7 h-7 bg-surface-container-lowest rounded-full",
-          "flex items-center justify-center",
-          "text-on-surface/40 hover:text-primary",
-          "transition-all duration-300 shadow-md border border-[#E9DFC2]",
-          isCollapsed ? "left-[66px]" : "left-[242px]"
-        )}
-        title={isCollapsed ? "Expandir" : "Recolher"}
-      >
-        {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-      </button>
-
       {/* ── Nav items ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <nav className="flex flex-col gap-1.5 w-full">
@@ -134,6 +118,30 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
               )}
             </button>
           ))}
+
+          {/* ── Botão Recolher/Expandir — abaixo de Configurações ── */}
+          <button
+            onClick={onToggleCollapse}
+            className={cn(
+              "flex items-center rounded-xl transition-all duration-200 group text-left w-full mt-1",
+              "bg-[#FFE500] hover:bg-[#F5C400] text-[#1A1208]",
+              isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3"
+            )}
+            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+          >
+            <motion.div
+              animate={{ rotate: isCollapsed ? 0 : 180 }}
+              transition={{ duration: 0.3 }}
+              className="shrink-0"
+            >
+              <ChevronRight size={19} />
+            </motion.div>
+            {!isCollapsed && (
+              <span className="text-[11px] uppercase tracking-wider font-manrope font-semibold whitespace-nowrap">
+                Recolher menu
+              </span>
+            )}
+          </button>
         </nav>
       </div>
 
