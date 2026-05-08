@@ -2475,7 +2475,7 @@ export default function Page() {
   }, [searchQuery, products]);
 
   return (
-    <div className="min-h-screen brand-texture">
+    <div className="min-h-screen bg-background">
       <AnimatePresence>
         {notification && (
           <motion.div

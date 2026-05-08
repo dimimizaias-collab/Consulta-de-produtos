@@ -47,14 +47,14 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
       <div className={cn(
         "relative flex items-center shrink-0 border-b-2 border-[#F5C400]",
         "bg-[#FFE500]",
-        isCollapsed ? "justify-center py-4 px-3" : "justify-start py-3 px-4"
+        isCollapsed ? "justify-center px-3" : "justify-center px-4"
       )}
-        style={{ minHeight: '72px' }}
+        style={{ height: '88px' }}
       >
         {/* Logo real */}
         <div className={cn(
           "relative shrink-0 transition-all duration-300",
-          isCollapsed ? "w-11 h-11" : "w-[120px] h-[54px]"
+          isCollapsed ? "w-11 h-11" : "w-[130px] h-[60px]"
         )}>
           <Image
             src="/brand/logo.png"
@@ -65,38 +65,22 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
             priority
           />
         </div>
-
-        {/* Textos ao lado do logo (só quando expandido) */}
-        {!isCollapsed && (
-          <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="ml-3 overflow-hidden whitespace-nowrap"
-          >
-            <h2 className="text-[11px] font-manrope font-black tracking-tight text-[#1A1208] leading-tight uppercase">
-              Universo . do
-            </h2>
-            <p className="text-[9px] font-bold text-[#A30E0E] uppercase tracking-widest leading-tight mt-0.5">
-              Warehouse Curator
-            </p>
-          </motion.div>
-        )}
-
-        {/* Botão collapse */}
-        <button
-          onClick={onToggleCollapse}
-          className={cn(
-            "absolute -right-3.5 top-1/2 -translate-y-1/2",
-            "w-7 h-7 bg-surface-container-lowest rounded-full",
-            "flex items-center justify-center",
-            "text-on-surface/40 hover:text-primary",
-            "transition-all shadow-md border border-[#E9DFC2] z-50"
-          )}
-          title={isCollapsed ? "Expandir" : "Recolher"}
-        >
-          {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-        </button>
       </div>
+
+      {/* Botão collapse — fora do brand block para não ser cortado */}
+      <button
+        onClick={onToggleCollapse}
+        className={cn(
+          "absolute top-[44px] -translate-y-1/2 -right-3.5",
+          "w-7 h-7 bg-surface-container-lowest rounded-full",
+          "flex items-center justify-center",
+          "text-on-surface/40 hover:text-primary",
+          "transition-all shadow-md border border-[#E9DFC2] z-50"
+        )}
+        title={isCollapsed ? "Expandir" : "Recolher"}
+      >
+        {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+      </button>
 
       {/* ── Nav items ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">

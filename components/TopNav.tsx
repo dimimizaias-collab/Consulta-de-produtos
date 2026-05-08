@@ -43,7 +43,7 @@ export function TopNav({ searchQuery, onSearchChange, notifications = [], onMark
   }, [showDropdown]);
 
   return (
-    <nav className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 w-full sticky top-0 z-50 bg-[#FFE500] border-b-2 border-[#F5C400] transition-all duration-300">
+    <nav className="flex items-center justify-between px-4 md:px-8 w-full sticky top-0 z-50 bg-[#FFE500] border-b-2 border-[#F5C400] transition-all duration-300" style={{ height: '88px' }}>
       <div className="flex items-center gap-3 md:gap-6 flex-1">
         <div className="max-w-3xl w-full">
           <div className="relative group">
