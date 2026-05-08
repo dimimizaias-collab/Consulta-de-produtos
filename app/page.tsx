@@ -2460,10 +2460,10 @@ export default function Page() {
     return products.filter(p => {
       // Global search
       const query = searchQuery.toLowerCase();
-      const matchesGlobal = !query || 
-        p.name.toLowerCase().includes(query) ||
-        p.sku.toLowerCase().includes(query) ||
-        p.location.toLowerCase().includes(query) ||
+      const matchesGlobal = !query ||
+        p.name?.toLowerCase().includes(query) ||
+        p.sku?.toLowerCase().includes(query) ||
+        p.location?.toLowerCase().includes(query) ||
         (p.ean && p.ean.includes(query)) ||
         (p.internalCode && p.internalCode.toLowerCase().includes(query)) ||
         (p.category && p.category.toLowerCase().includes(query)) ||
