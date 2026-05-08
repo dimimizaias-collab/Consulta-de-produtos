@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   X, Plus, Trash2, Search, CheckCircle2, Package,
   ArrowRight, FileSpreadsheet, Save, ChevronLeft,
-  FileText, Clock, Ruler, Zap, Pencil, Layers, Upload,
+  FileText, Clock, Ruler, Zap, Pencil, Layers, Upload, Wand2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,8 @@ interface ManifestRow {
   unitMultiplier?: number;
   multiLinked?: boolean;
   confidence?: number; // 0-1, presente em linhas importadas via IA
+  autoFilledCode?: boolean;  // true se supplierCode foi auto-preenchido pelo vínculo
+  autoFilledDesc?: boolean;  // true se description foi auto-preenchido pelo vínculo
 }
 
 interface MultiLinkEntry {
@@ -403,16 +405,26 @@ export function ManualManifestModal({
   const lookupMapping = async (rowId: string, code: string, description: string) => {
     if (!supplierId || (!code.trim() && !description.trim())) return;
     let q = supabase.from('supplier_mappings')
-      .select('internal_product_id, products(id, name, sku, ean)')
+      .select('internal_product_id, supplier_sku, supplier_description, products(id, name, sku, ean)')
       .eq('supplier_id', supplierId);
     if (code.trim()) q = q.eq('supplier_sku', code.trim());
     else q = q.ilike('supplier_description', `%${description.trim()}%`);
     const { data } = await q.limit(1).maybeSingle();
-    if (data?.products) {
+    if (data) {
       const p = data.products as any;
-      setRows(prev => prev.map(r =>
-        r.id === rowId ? { ...r, linkedProduct: { id: p.id, name: p.name, sku: p.sku, ean: p.ean ?? '' } } : r
-      ));
+      setRows(prev => prev.map(r => {
+        if (r.id !== rowId) return r;
+        const shouldFillDesc = code.trim() && !r.description.trim() && (data as any).supplier_description;
+        const shouldFillCode = description.trim() && !r.supplierCode.trim() && (data as any).supplier_sku;
+        return {
+          ...r,
+          description: shouldFillDesc ? (data as any).supplier_description : r.description,
+          supplierCode: shouldFillCode ? (data as any).supplier_sku : r.supplierCode,
+          autoFilledDesc: shouldFillDesc ? true : r.autoFilledDesc,
+          autoFilledCode: shouldFillCode ? true : r.autoFilledCode,
+          linkedProduct: p ? { id: p.id, name: p.name, sku: p.sku, ean: p.ean ?? '' } : r.linkedProduct,
+        };
+      }));
     }
   };
 
@@ -948,19 +960,25 @@ export function ManualManifestModal({
                       </td>
                       {/* Código */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
-                        <input type="text" value={row.supplierCode}
-                          onChange={e => updateRow(row.id, { supplierCode: e.target.value })}
-                          onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
-                          onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
-                          className={cn(
-                            "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-mono text-slate-600 transition-colors",
-                            pastedRange && pastedRange.field === 'supplierCode' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                        <div className="relative flex items-center">
+                          <input type="text" value={row.supplierCode}
+                            onChange={e => updateRow(row.id, { supplierCode: e.target.value, autoFilledCode: false })}
+                            onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
+                            onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
+                            className={cn(
+                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 text-xs font-mono text-slate-600 transition-colors",
+                              row.autoFilledCode ? "pl-1 pr-5" : "px-1",
+                              pastedRange && pastedRange.field === 'supplierCode' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
+                            )}
+                            placeholder="—" />
+                          {row.autoFilledCode && (
+                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" title="Preenchido automaticamente" />
                           )}
-                          placeholder="—" />
+                        </div>
                       </td>
                       {/* Descrição */}
                       <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
-                        <div className="flex items-center gap-1">
+                        <div className="relative flex items-center gap-1">
                           {row.confidence !== undefined && (
                             <span
                               title={`Confiança da IA: ${Math.round(row.confidence * 100)}%`}
@@ -972,14 +990,18 @@ export function ManualManifestModal({
                             />
                           )}
                           <input type="text" value={row.description}
-                            onChange={e => updateRow(row.id, { description: e.target.value })}
+                            onChange={e => updateRow(row.id, { description: e.target.value, autoFilledDesc: false })}
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
                             onPaste={e => handleColumnPaste(e, idx, 'description')}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 transition-colors",
+                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 text-xs font-medium text-slate-700 transition-colors",
+                              row.autoFilledDesc ? "pl-1 pr-5" : "px-1",
                               pastedRange && pastedRange.field === 'description' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
                             placeholder="Descrição do produto..." />
+                          {row.autoFilledDesc && (
+                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" title="Preenchido automaticamente" />
+                          )}
                         </div>
                       </td>
 
