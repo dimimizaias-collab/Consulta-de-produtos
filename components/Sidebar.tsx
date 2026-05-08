@@ -67,15 +67,16 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
         </div>
       </div>
 
-      {/* Botão collapse — fora do brand block para não ser cortado */}
+      {/* Botão collapse — fixed para escapar do contexto de clip do backdrop-blur */}
       <button
         onClick={onToggleCollapse}
         className={cn(
-          "absolute top-[44px] -translate-y-1/2 -right-3.5",
+          "fixed top-[44px] -translate-y-1/2 z-50",
           "w-7 h-7 bg-surface-container-lowest rounded-full",
           "flex items-center justify-center",
           "text-on-surface/40 hover:text-primary",
-          "transition-all shadow-md border border-[#E9DFC2] z-50"
+          "transition-all duration-300 shadow-md border border-[#E9DFC2]",
+          isCollapsed ? "left-[66px]" : "left-[242px]"
         )}
         title={isCollapsed ? "Expandir" : "Recolher"}
       >
