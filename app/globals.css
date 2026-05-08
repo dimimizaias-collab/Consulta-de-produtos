@@ -4,14 +4,20 @@
   --font-manrope: var(--font-manrope);
   --font-inter: var(--font-inter);
 
-  --color-primary: #b5000b;
-  --color-background: #fcfae4;
+  /* ── Universo do R$1,99 — Design System tokens ── */
+  --color-primary: #D81E1E;               /* brand-red-deep — mais sóbrio que #FF3131, mantém contraste */
+  --color-primary-deep: #A30E0E;          /* hover/pressed */
+  --color-brand-yellow: #FFE500;          /* brand yellow — acento, não base de página */
+  --color-brand-yellow-deep: #F5C400;     /* hover de superfícies amarelas */
+
+  --color-background: #FFFCEC;            /* DS --bg — creme suave */
   --color-surface: #ffffff;
-  --color-surface-container: #f0eded;
-  --color-surface-container-low: #f6f5df;
+  --color-surface-container: #FAF6E6;     /* DS --surface-2 */
+  --color-surface-container-low: #FFF6C9; /* DS --bg-alt */
   --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #1c1c0f;
-  --color-secondary: #5f5e5e;
+  --color-on-surface: #1A1208;            /* DS --ink-1 — preto quente */
+  --color-secondary: #4A3F2E;             /* DS --ink-2 */
+  --color-line: #E9DFC2;                  /* DS --line — bordas quentes */
 }
 
 .dark {
@@ -65,6 +71,12 @@
   }
 
   .brand-texture {
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffeb3b' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("/brand/icon-pattern-yellow.svg");
+    background-size: 120px 120px;
   }
+
+  /* Warm shadows — DS standard, substitui sombras cinza-frio */
+  .shadow-warm-sm  { box-shadow: 0 1px 0 rgba(168,138,0,0.10), 0 2px 8px  rgba(168,138,0,0.08); }
+  .shadow-warm-md  { box-shadow: 0 2px 0 rgba(168,138,0,0.12), 0 8px 20px rgba(168,138,0,0.12); }
+  .shadow-warm-lg  { box-shadow: 0 4px 0 rgba(168,138,0,0.14), 0 16px 32px rgba(168,138,0,0.16); }
 }
