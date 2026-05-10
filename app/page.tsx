@@ -5122,29 +5122,81 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                                <input
-                                  type="text"
-                                  value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
-                                  onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
-                                  className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-white/40 text-center transition-colors"
-                                  placeholder="UN"
-                                />
-                                {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
-                                  <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${viewingNoteMultipliers[idx] ?? item.multiplier}`}>
-                                    ×{viewingNoteMultipliers[idx] ?? item.multiplier}
-                                  </span>
-                                )}
-                                <button
-                                  onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
-                                  className={cn(
-                                    'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
-                                    reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-slate-300 hover:text-primary hover:bg-primary/10'
+                            {reviewEditableCols.has('Qtd.') ? (
+                              /* ── EDIT MODE: unit selector + qty input ── */
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
+                                    onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
+                                    className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-white/40 text-center transition-colors"
+                                    placeholder="UN"
+                                  />
+                                  {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
+                                    <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${viewingNoteMultipliers[idx] ?? item.multiplier}`}>
+                                      ×{viewingNoteMultipliers[idx] ?? item.multiplier}
+                                    </span>
                                   )}
-                                >
-                                  <Plus size={10} />
-                                </button>
+                                  <button
+                                    onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
+                                    className={cn(
+                                      'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
+                                      reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-white/30 hover:text-primary hover:bg-primary/10'
+                                    )}
+                                  >
+                                    <Plus size={10} />
+                                  </button>
+                                  <AnimatePresence>
+                                    {reviewUnitMenuIdx === idx && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                                        transition={{ duration: 0.12 }}
+                                        className="absolute left-0 top-full mt-1 z-50 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden w-44"
+                                      >
+                                        <button
+                                          onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
+                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2"
+                                        >
+                                          <Ruler size={12} className="shrink-0" />
+                                          Adicionar medida
+                                        </button>
+                                        <button
+                                          onClick={() => { handleReviewUseTranslation(idx); setReviewUnitMenuIdx(null); }}
+                                          disabled={reviewLoadingUnitIdx === idx}
+                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                          {reviewLoadingUnitIdx === idx
+                                            ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
+                                            : <Zap size={12} className="shrink-0" />
+                                          }
+                                          Usar tradução
+                                        </button>
+                                        <button
+                                          onClick={() => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); }}
+                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
+                                        >
+                                          <Pencil size={12} className="shrink-0" />
+                                          Manual
+                                        </button>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                                <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                                  onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                  className="w-16 text-center text-sm font-black text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                              </div>
+                            ) : (
+                              /* ── VIEW MODE: single gray box [UN  qty] ── */
+                              <button
+                                onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
+                                className="relative inline-flex items-center gap-2 px-3 py-1.5 bg-[#2e2e28] rounded-[9px] hover:bg-[#3a3a34] transition-colors"
+                              >
+                                <span className="text-sm font-black text-white/40">{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
+                                <span className="text-sm font-black text-[#f2f0e3]">{viewingNoteQtys[idx] ?? item.qty}</span>
                                 <AnimatePresence>
                                   {reviewUnitMenuIdx === idx && (
                                     <motion.div
@@ -5153,6 +5205,7 @@ export default function Page() {
                                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                       transition={{ duration: 0.12 }}
                                       className="absolute left-0 top-full mt-1 z-50 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden w-44"
+                                      onClick={e => e.stopPropagation()}
                                     >
                                       <button
                                         onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
@@ -5172,40 +5225,25 @@ export default function Page() {
                                         }
                                         Usar tradução
                                       </button>
-                                      <button
-                                        onClick={() => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); }}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
-                                      >
-                                        <Pencil size={12} className="shrink-0" />
-                                        Manual
-                                      </button>
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
-                              </div>
-                              {reviewEditableCols.has('Qtd.') ? (
-                                <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
-                                  onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
-                                  className="w-16 text-center text-sm font-black text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                              ) : (
-                                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#2e2e28] rounded-[9px] text-sm font-black text-[#f2f0e3]">
-                                  <span className="text-sm font-black text-white/40">{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
-                                  {viewingNoteQtys[idx] ?? item.qty}
-                                </span>
-                              )}
-                            </div>
+                              </button>
+                            )}
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5 bg-[#2e2e28] rounded-[9px] px-3 py-1.5">
-                              <span className="text-sm font-black text-white/40">R$</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
-                                onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
-                                className="w-20 text-right text-sm font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                              />
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex justify-end">
+                              <div className="inline-flex items-center gap-1.5 bg-[#2e2e28] rounded-[9px] px-3 py-1.5">
+                                <span className="text-sm font-black text-white/40 shrink-0">R$</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
+                                  onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
+                                  className="w-16 text-sm font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                />
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
