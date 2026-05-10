@@ -5634,14 +5634,14 @@ export default function Page() {
                 );
               })()}
 
-              <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
-                <div className="text-sm text-slate-500 flex items-center gap-2 flex-wrap">
-                  Total: <span className="font-bold text-slate-900">{viewingReviewNote.itemCount} itens</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-bold text-green-700">{viewingNoteVerified.filter(Boolean).length} verificados</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-500">Valor total da nota:</span>
-                  <span className="font-black text-slate-900">
+              <div className="p-6 border-t border-white/[0.07] bg-[#252520] flex items-center justify-between shrink-0">
+                <div className="text-sm text-white/40 flex items-center gap-2 flex-wrap">
+                  Total: <span className="font-bold text-[#f2f0e3]">{viewingReviewNote.itemCount} itens</span>
+                  <span className="text-white/15">·</span>
+                  <span className="font-bold text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
+                  <span className="text-white/15">·</span>
+                  <span className="text-white/40">Valor total da nota:</span>
+                  <span className="font-black text-[#f2f0e3]">
                     {`R$ ${viewingReviewNote.items.reduce((sum: number, item: any, idx: number) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
@@ -5728,7 +5728,7 @@ export default function Page() {
                         setSavingNote(false);
                       }
                     }}
-                    className="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
+                    className="px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
                   >
                     {savingNote
                       ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
@@ -5737,8 +5737,8 @@ export default function Page() {
                   </button>
 
                   {confirmDeleteNote ? (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
-                      <span className="text-sm font-bold text-red-700 whitespace-nowrap">Excluir nota?</span>
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
+                      <span className="text-sm font-bold text-red-400 whitespace-nowrap">Excluir nota?</span>
                       <button
                         onClick={async () => {
                           await supabase.from('review_notes').delete().eq('id', viewingReviewNote.id);
@@ -5752,7 +5752,7 @@ export default function Page() {
                       </button>
                       <button
                         onClick={() => setConfirmDeleteNote(false)}
-                        className="px-3 py-1 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50 transition-colors"
+                        className="px-3 py-1 bg-white/[0.07] border border-white/[0.1] text-white/60 text-sm font-bold rounded-lg hover:bg-white/[0.12] transition-colors"
                       >
                         Não
                       </button>
@@ -5760,7 +5760,7 @@ export default function Page() {
                   ) : (
                     <button
                       onClick={() => setConfirmDeleteNote(true)}
-                      className="px-6 py-3 bg-red-50 text-red-600 border border-red-100 font-bold rounded-xl hover:bg-red-100 transition-all flex items-center gap-2"
+                      className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 font-bold rounded-xl hover:bg-red-500/18 transition-all flex items-center gap-2"
                     >
                       <Trash2 size={16} />
                       Excluir
@@ -5769,7 +5769,7 @@ export default function Page() {
 
                   <button
                     onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); }}
-                    className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg"
+                    className="px-8 py-3 bg-[#111110] text-[#f2f0e3] font-black rounded-xl hover:bg-black transition-all border border-white/[0.06]"
                   >
                     Fechar
                   </button>
