@@ -4832,17 +4832,17 @@ export default function Page() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setViewingReviewNote(null)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-7xl bg-[#1e1e18] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/[0.06]"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+              <div className="p-6 border-b border-white/[0.07] flex items-center justify-between bg-[#252520] shrink-0">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-inner shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                     <FileText size={24} />
                   </div>
                   <div>
@@ -4855,9 +4855,9 @@ export default function Page() {
                             value={viewingReviewNote.fileName}
                             onChange={e => setViewingReviewNote({ ...viewingReviewNote, fileName: e.target.value })}
                             placeholder="Nome da nota"
-                            className="text-xl font-black text-slate-900 border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-slate-300"
+                            className="text-xl font-black text-[#f2f0e3] border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-white/20"
                           />
-                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors" title="Confirmar">
+                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-white/[0.07] rounded-lg transition-colors" title="Confirmar">
                             <CheckCircle2 size={16} className="text-primary" />
                           </button>
                         </div>
@@ -4867,25 +4867,25 @@ export default function Page() {
                             value={viewingReviewNote.noteNumber || ''}
                             onChange={e => setViewingReviewNote({ ...viewingReviewNote, noteNumber: e.target.value || undefined })}
                             placeholder="Número da nota"
-                            className="text-sm font-bold text-slate-600 border-b border-slate-300 outline-none bg-transparent w-48 placeholder:text-slate-300"
+                            className="text-sm font-bold text-white/60 border-b border-white/20 outline-none bg-transparent w-48 placeholder:text-white/20"
                           />
                         </div>
                         {viewingReviewNote.supplierName && (
-                          <span className="text-xs font-bold text-slate-400">{viewingReviewNote.supplierName}</span>
+                          <span className="text-xs font-bold text-white/40">{viewingReviewNote.supplierName}</span>
                         )}
                       </div>
                     ) : (
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xl font-black text-slate-900">
-                            {viewingReviewNote.fileName || <span className="text-slate-400 font-medium">Nota sem nome</span>}
+                          <h3 className="text-xl font-black text-[#f2f0e3]">
+                            {viewingReviewNote.fileName || <span className="text-white/30 font-medium">Nota sem nome</span>}
                           </h3>
                           {viewingReviewNote.supplierName && (
-                            <span className="text-sm font-bold text-slate-500">{viewingReviewNote.supplierName}</span>
+                            <span className="text-sm font-bold text-white/45">{viewingReviewNote.supplierName}</span>
                           )}
                           <button
                             onClick={() => setEditingNoteHeader(true)}
-                            className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+                            className="p-1 hover:bg-white/[0.07] rounded-lg transition-colors text-white/30 hover:text-white/60"
                             title="Editar nome e número"
                           >
                             <Pencil size={14} />
@@ -4893,11 +4893,11 @@ export default function Page() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           {viewingReviewNote.noteNumber ? (
-                            <span className="px-2 py-0.5 bg-slate-100 rounded-lg text-xs font-black text-slate-600">{viewingReviewNote.noteNumber}</span>
+                            <span className="px-2 py-0.5 bg-white/[0.07] rounded-lg text-xs font-black text-white/50">{viewingReviewNote.noteNumber}</span>
                           ) : (
                             <button
                               onClick={() => setEditingNoteHeader(true)}
-                              className="text-xs text-slate-300 hover:text-slate-500 transition-colors"
+                              className="text-xs text-white/20 hover:text-white/50 transition-colors"
                             >
                               + Número da nota
                             </button>
@@ -4906,36 +4906,36 @@ export default function Page() {
                       </div>
                     )}
                     {viewingReviewNote.accessKey && (
-                      <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
+                      <p className="text-[10px] font-mono text-white/30 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
                     )}
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
+                    <p className="text-xs text-white/35 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => exportTranslatedToExcel(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
                     onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/18 transition-colors border border-red-500/15"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
                     onClick={() => exportEstoqueToA4PDF(viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold hover:bg-blue-500/18 transition-colors border border-blue-500/15"
                   >
                     <Download size={16} />
                     Estoque
                   </button>
-                  <div className="w-px h-8 bg-slate-100 mx-2" />
-                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                    <X size={24} className="text-slate-400" />
+                  <div className="w-px h-8 bg-white/[0.08] mx-2" />
+                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-white/[0.07] rounded-full transition-colors">
+                    <X size={24} className="text-white/35" />
                   </button>
                 </div>
               </div>
@@ -4943,16 +4943,16 @@ export default function Page() {
               <div className="flex-1 overflow-auto">
                 <table className="w-full min-w-[1900px] border-collapse">
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-900 text-left">
-                      <th className="py-3 px-3 text-[10px] font-bold text-white/50 uppercase tracking-widest w-10 text-center">#</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest whitespace-nowrap">Código</th>
+                    <tr className="bg-[#2e2e28] text-left">
+                      <th className="py-3 px-3 text-[10px] font-bold text-white/35 uppercase tracking-widest w-10 text-center">#</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap">Código</th>
                       {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                         const editable = reviewEditableCols.has(col);
                         const canEdit = col !== 'Identificação Interna';
                         return (
                           <th key={col} className="py-3 px-4 text-[10px] font-bold uppercase tracking-widest">
                             <div className="flex items-center gap-1.5">
-                              <span className={editable ? 'text-emerald-400' : 'text-white'}>{col}</span>
+                              <span className={editable ? 'text-emerald-400' : 'text-white/60'}>{col}</span>
                               {canEdit && (
                                 <button
                                   onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
@@ -4966,8 +4966,8 @@ export default function Page() {
                           </th>
                         );
                       })}
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Custo</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Valor Total</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Preço Custo</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Valor Total</th>
                       {/* Desconto header */}
                       <th className="py-3 px-4 text-right relative">
                         <button
@@ -4979,10 +4979,10 @@ export default function Page() {
                           {discountMode !== 'none' && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
                         </button>
                         {discountDropdown && (
-                          <div className="absolute right-0 top-full mt-1 z-[200] bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden min-w-[150px]">
-                            <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">Geral</button>
-                            <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-50">Individual</button>
-                            {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100">Limpar</button>}
+                          <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
+                            <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
+                            <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
+                            {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
                           </div>
                         )}
                       </th>
@@ -4997,19 +4997,19 @@ export default function Page() {
                           {surchargeMode !== 'none' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
                         </button>
                         {surchargeDropdown && (
-                          <div className="absolute right-0 top-full mt-1 z-[200] bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden min-w-[150px]">
-                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">Geral</button>
-                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-50">Individual</button>
-                            {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100">Limpar</button>}
+                          <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
+                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
+                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
+                            {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
                           </div>
                         )}
                       </th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Preço Venda</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-right">Markup</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest">Status</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Ok</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Revisão</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white uppercase tracking-widest text-center">Distribuição</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Preço Venda</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Markup</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest">Status</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Ok</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Revisão</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Distribuição</th>
                       <th className="py-3 px-2 w-10" />
                     </tr>
                   </thead>
@@ -5036,7 +5036,7 @@ export default function Page() {
                       const hasSurcharge = surchargeAmt > 0;
                       const adjCost = cost - discountAmt + surchargeAmt;
                       const totalValue = adjCost * displayQty;
-                      const adjColor = hasDiscount && hasSurcharge ? 'text-amber-600' : hasDiscount ? 'text-green-600' : hasSurcharge ? 'text-red-600' : 'text-slate-800';
+                      const adjColor = hasDiscount && hasSurcharge ? 'text-amber-400' : hasDiscount ? 'text-emerald-400' : hasSurcharge ? 'text-red-400' : 'text-white/50';
 
                       const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
                       const markup = adjCost > 0 && sellPrice > 0
@@ -5044,28 +5044,28 @@ export default function Page() {
                         : null;
                       const isEven = idx % 2 === 0;
                       return (
-                        <tr key={idx} className={cn("border-b border-slate-300 hover:bg-blue-50/40 transition-colors", isEven ? "bg-white" : "bg-slate-50/60")}>
+                        <tr key={idx} className={cn("border-b border-white/[0.04] hover:bg-white/[0.025] transition-colors", isEven ? "bg-transparent" : "bg-white/[0.02]")}>
                           {/* # */}
                           <td className="py-3 px-3 text-center">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-white text-[10px] font-black">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111110] text-white/30 text-[10px] font-black">
                               {item.seq ?? idx + 1}
                             </span>
                           </td>
                           {/* Código fornecedor */}
                           <td className="py-3 px-4 whitespace-nowrap">
                             {item.supplier_code ? (
-                              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">{item.supplier_code}</span>
+                              <span className="font-mono text-xs font-bold text-white/45">{item.supplier_code}</span>
                             ) : (
-                              <span className="text-xs text-slate-300 font-medium">—</span>
+                              <span className="text-xs text-white/20 font-medium">—</span>
                             )}
                           </td>
                           <td className="py-3 px-4 max-w-[220px]">
                             {reviewEditableCols.has('Produto na Nota') ? (
                               <input type="text" value={item.original_description || ''}
                                 onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
-                                className="w-full text-sm font-semibold text-slate-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-full text-sm font-semibold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-sm font-semibold text-slate-800 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                              <p className="text-sm font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 max-w-[240px] relative">
@@ -5073,7 +5073,7 @@ export default function Page() {
                               {item.verified ? (
                                 <button
                                   onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all max-w-full"
                                   title={`${item.name} — clique para alterar`}
                                 >
                                   <CheckCircle2 size={11} className="shrink-0" />
@@ -5082,7 +5082,7 @@ export default function Page() {
                               ) : (
                                 <button
                                   onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all"
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] text-white/35 border border-dashed border-white/15 rounded-lg hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all"
                                 >
                                   <Plus size={11} />
                                   <span className="text-[11px] font-bold">Vincular</span>
@@ -5094,8 +5094,8 @@ export default function Page() {
                                 className={cn(
                                   'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
                                   (item as any).multiLinked
-                                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-                                    : 'bg-slate-50 text-slate-400 border-dashed border-slate-300 hover:bg-primary/5 hover:border-primary/40 hover:text-primary'
+                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/18'
+                                    : 'bg-white/[0.04] text-white/35 border-dashed border-white/15 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
                                 )}
                               >
                                 <Layers size={11} className="shrink-0" />
@@ -5107,18 +5107,18 @@ export default function Page() {
                             {reviewEditableCols.has('EAN') ? (
                               <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
-                                className="w-36 text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-36 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
+                              <p className="text-[11px] font-bold text-white/40">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             {reviewEditableCols.has('SKU') ? (
                               <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
                                 onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
-                                className="w-28 text-[11px] font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-28 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-[11px] font-bold text-slate-400">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
+                              <p className="text-[11px] font-bold text-white/40">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
@@ -5128,7 +5128,7 @@ export default function Page() {
                                   type="text"
                                   value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
                                   onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
-                                  className="w-12 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-slate-600 text-center transition-colors"
+                                  className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-white/40 text-center transition-colors"
                                   placeholder="UN"
                                 />
                                 {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
@@ -5152,11 +5152,11 @@ export default function Page() {
                                       animate={{ opacity: 1, y: 0, scale: 1 }}
                                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                       transition={{ duration: 0.12 }}
-                                      className="absolute left-0 top-full mt-1 z-50 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden w-44"
+                                      className="absolute left-0 top-full mt-1 z-50 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden w-44"
                                     >
                                       <button
                                         onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2"
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2"
                                       >
                                         <Ruler size={12} className="shrink-0" />
                                         Adicionar medida
@@ -5164,7 +5164,7 @@ export default function Page() {
                                       <button
                                         onClick={() => { handleReviewUseTranslation(idx); setReviewUnitMenuIdx(null); }}
                                         disabled={reviewLoadingUnitIdx === idx}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
                                       >
                                         {reviewLoadingUnitIdx === idx
                                           ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
@@ -5174,7 +5174,7 @@ export default function Page() {
                                       </button>
                                       <button
                                         onClick={() => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); }}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
                                       >
                                         <Pencil size={12} className="shrink-0" />
                                         Manual
@@ -5186,67 +5186,70 @@ export default function Page() {
                               {reviewEditableCols.has('Qtd.') ? (
                                 <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
-                                  className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                  className="w-16 text-center text-sm font-black text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                               ) : (
-                                <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{viewingNoteQtys[idx] ?? item.qty}</span>
+                                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#2e2e28] rounded-[9px] text-sm font-black text-[#f2f0e3]">
+                                  <span className="text-sm font-black text-white/40">{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
+                                  {viewingNoteQtys[idx] ?? item.qty}
+                                </span>
                               )}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span className="text-xs text-slate-400 font-semibold">R$</span>
+                            <div className="inline-flex items-center gap-1.5 bg-[#2e2e28] rounded-[9px] px-3 py-1.5">
+                              <span className="text-sm font-black text-white/40">R$</span>
                               <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
                                 onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
-                                className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                className="w-20 text-right text-sm font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                               />
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className={cn("text-sm font-bold", totalValue > 0 ? adjColor : "text-slate-300")}>
+                            <span className={cn("text-sm font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
                               {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
                             </span>
                           </td>
                           {/* Desconto cell */}
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             {discountMode === 'geral' && discountApplied ? (
-                              <span className="text-red-600 font-bold text-sm">
+                              <span className="text-red-400 font-bold text-sm">
                                 - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
                               </span>
                             ) : discountMode === 'individual' ? (
                               <div className="flex items-center justify-end gap-1">
-                                <span className="text-[10px] text-slate-400 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                <span className="text-[10px] text-white/35 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
                                 <input
                                   type="number" min="0" step="0.01"
                                   value={itemDiscounts[idx] ?? ''}
                                   onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
                                   placeholder="0"
-                                  className="w-16 text-right text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1 focus:outline-none focus:border-red-300 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-16 text-right text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
-                            ) : <span className="text-slate-300 text-sm">—</span>}
+                            ) : <span className="text-white/20 text-sm">—</span>}
                           </td>
                           {/* Acréscimo cell */}
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             {surchargeMode === 'geral' && surchargeApplied ? (
-                              <span className="text-green-600 font-bold text-sm">
+                              <span className="text-emerald-400 font-bold text-sm">
                                 + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
                               </span>
                             ) : surchargeMode === 'individual' ? (
                               <div className="flex items-center justify-end gap-1">
-                                <span className="text-[10px] text-slate-400 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                <span className="text-[10px] text-white/35 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
                                 <input
                                   type="number" min="0" step="0.01"
                                   value={itemSurcharges[idx] ?? ''}
                                   onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
                                   placeholder="0"
-                                  className="w-16 text-right text-sm font-bold text-green-600 bg-green-50 border border-green-100 rounded-lg px-2 py-1 focus:outline-none focus:border-green-300 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-16 text-right text-sm font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
-                            ) : <span className="text-slate-300 text-sm">—</span>}
+                            ) : <span className="text-white/20 text-sm">—</span>}
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <input
@@ -5260,27 +5263,27 @@ export default function Page() {
                                 setViewingNoteSellPrices(updated);
                               }}
                               placeholder="0,00"
-                              className="w-24 text-right text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              className="w-24 text-right text-sm font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             {markup !== null ? (
                               <span className={cn(
                                 "inline-block px-2 py-1 rounded-lg text-xs font-black",
-                                markup >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                markup >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                               )}>
                                 {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-xs text-slate-300 font-bold">—</span>
+                              <span className="text-xs text-white/20 font-bold">—</span>
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span className={cn(
                               "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
-                              item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
-                              item.verified ? "bg-blue-100 text-blue-700" :
-                              "bg-red-100 text-red-700"
+                              item.verified && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
+                              item.verified ? "bg-blue-500/10 text-blue-400" :
+                              "bg-red-500/10 text-red-400"
                             )}>
                               {item.status_translation}
                             </span>
@@ -5307,7 +5310,7 @@ export default function Page() {
                                   updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                                   setViewingNoteReviewTimestamps(updatedTs);
                                 }}
-                                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
+                                className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
                               >
                                 <X size={14} />
                               </button>
@@ -5315,11 +5318,11 @@ export default function Page() {
                           </td>
                           <td className="py-3 px-4 text-center">
                             {viewingNoteReviewTimestamps[idx] ? (
-                              <span className="inline-block px-2 py-1 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
+                              <span className="inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
                                 {viewingNoteReviewTimestamps[idx]}
                               </span>
                             ) : (
-                              <span className="text-slate-300 text-xs font-bold">—</span>
+                              <span className="text-white/20 text-xs font-bold">—</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -5334,7 +5337,7 @@ export default function Page() {
                                 setViewingNoteDistribuicao(u);
                               }}
                               placeholder="—"
-                              className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              className="w-14 text-center text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
                           {/* Botão excluir item */}
@@ -5365,7 +5368,7 @@ export default function Page() {
                                 </button>
                                 <button
                                   onClick={() => setDeleteConfirmIdx(null)}
-                                  className="px-2 py-1 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg hover:bg-slate-200 transition-all"
+                                  className="px-2 py-1 bg-white/[0.07] text-white/50 text-[10px] font-black rounded-lg hover:bg-white/[0.12] transition-all"
                                 >
                                   Não
                                 </button>
@@ -5373,7 +5376,7 @@ export default function Page() {
                             ) : (
                               <button
                                 onClick={() => setDeleteConfirmIdx(idx)}
-                                className="w-7 h-7 rounded-lg bg-slate-100 text-slate-300 flex items-center justify-center hover:bg-red-50 hover:text-red-400 transition-all mx-auto"
+                                className="w-7 h-7 rounded-lg bg-white/[0.05] text-white/20 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all mx-auto"
                                 title="Excluir produto da nota"
                               >
                                 <Trash2 size={13} />
