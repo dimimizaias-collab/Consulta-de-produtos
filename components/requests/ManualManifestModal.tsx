@@ -972,7 +972,7 @@ export function ManualManifestModal({
                             )}
                             placeholder="—" />
                           {row.autoFilledCode && (
-                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" title="Preenchido automaticamente" />
+                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" aria-label="Preenchido automaticamente" />
                           )}
                         </div>
                       </td>
@@ -1000,7 +1000,7 @@ export function ManualManifestModal({
                             )}
                             placeholder="Descrição do produto..." />
                           {row.autoFilledDesc && (
-                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" title="Preenchido automaticamente" />
+                            <Wand2 size={10} className="absolute right-1 text-amber-400 pointer-events-none shrink-0" aria-label="Preenchido automaticamente" />
                           )}
                         </div>
                       </td>
