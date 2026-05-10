@@ -2692,16 +2692,16 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              className="relative bg-white dark:bg-[#2D2D2D] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 dark:border-[#3A3A3A] flex items-center justify-between">
                 <h2 className="text-xl font-manrope font-extrabold text-on-surface">Editar Produto</h2>
-                <button 
+                <button
                   onClick={() => {
                     setShowEditModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-[#3A3A3A] rounded-full transition-colors"
                 >
                   <X size={20} className="text-secondary" />
                 </button>
@@ -2712,7 +2712,7 @@ export default function Page() {
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
                   >
                     <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
                     Produto atualizado com sucesso!
@@ -2736,7 +2736,7 @@ export default function Page() {
                       type="text" 
                       value={editingProduct.sku}
                       onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2746,7 +2746,7 @@ export default function Page() {
                       type="text" 
                       value={editingProduct.name}
                       onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2762,14 +2762,14 @@ export default function Page() {
                               newEans[index] = e.target.value;
                               setEditingProduct({...editingProduct, eans: newEans});
                             }}
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             placeholder="Código de barras..."
                           />
                           {index === 0 ? (
                             <button 
                               type="button"
                               onClick={() => setEditingProduct({...editingProduct, eans: [...(editingProduct.eans || [editingProduct.ean || '']), '']})}
-                              className="w-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-all"
+                              className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
                             >
                               <Plus size={18} />
                             </button>
@@ -2795,7 +2795,7 @@ export default function Page() {
                       type="number" 
                       value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
                       onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2805,7 +2805,7 @@ export default function Page() {
                       step="0.01"
                       value={isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0)}
                       onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2826,7 +2826,7 @@ export default function Page() {
                     <select 
                       value={editingProduct.status}
                       onChange={(e) => setEditingProduct({...editingProduct, status: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     >
                       <option value="Em Estoque">Em Estoque</option>
                       <option value="Estoque em Alta">Estoque em Alta</option>
@@ -2835,41 +2835,41 @@ export default function Page() {
                     </select>
                   </div>
                   
-                  <div className="md:col-span-2 p-4 bg-purple-50 rounded-2xl border border-purple-100 space-y-4">
+                  <div className="md:col-span-2 p-4 bg-purple-50 dark:bg-[#232323] rounded-2xl border border-purple-100 dark:border-[#3A3A3A] space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-purple-700">
+                      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
                         <LinkIcon size={18} />
                         <span className="text-sm font-bold">Relacionamento Mãe/Filho</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="sr-only peer"
                           checked={editingProduct.is_mother}
                           onChange={(e) => setEditingProduct({...editingProduct, is_mother: e.target.checked})}
                         />
-                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                        <span className="ml-3 text-xs font-bold text-purple-700 uppercase">Produto Mãe</span>
+                        <div className="w-11 h-6 bg-slate-200 dark:bg-[#3A3A3A] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                        <span className="ml-3 text-xs font-bold text-purple-700 dark:text-purple-400 uppercase">Produto Mãe</span>
                       </label>
                     </div>
 
                     {editingProduct.is_mother && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 pt-2 border-t border-purple-100"
+                        className="space-y-4 pt-2 border-t border-purple-100 dark:border-[#3A3A3A]"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-purple-700 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
-                          <input 
-                            type="number" 
+                          <label className="text-[10px] font-bold text-purple-700 dark:text-purple-400 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
+                          <input
+                            type="number"
                             value={editingProduct.units_per_mother}
                             onChange={(e) => setEditingProduct({...editingProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                            className="w-full bg-white border border-purple-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            className="w-full bg-white dark:!bg-[#3A3A3A] border border-purple-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-200"
                             placeholder="Ex: 50"
                           />
                         </div>
-                        <p className="text-[10px] text-purple-600 italic">
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400/70 italic">
                           * Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
                         </p>
                       </motion.div>
@@ -2922,7 +2922,7 @@ export default function Page() {
                         type="text" 
                         value={editingProduct.image}
                         onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         placeholder="https://..."
                       />
                       <input 
@@ -2936,7 +2936,7 @@ export default function Page() {
                         type="button"
                         onClick={() => editImageInputRef.current?.click()}
                         disabled={uploading}
-                        className="px-4 bg-slate-100 border border-slate-200 rounded-lg text-secondary hover:bg-slate-200 transition-all flex items-center justify-center shrink-0"
+                        className="px-4 bg-slate-100 dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg text-secondary hover:bg-slate-200 dark:hover:bg-[#444] transition-all flex items-center justify-center shrink-0"
                         title="Upload do computador"
                       >
                         {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
@@ -2947,25 +2947,25 @@ export default function Page() {
                 
                 <div className="pt-4 flex flex-col gap-3">
                   <div className="flex gap-3">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setShowEditModal(false)}
-                      className="flex-1 bg-slate-100 text-secondary font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors"
+                      className="flex-1 bg-slate-100 dark:bg-[#3A3A3A] text-secondary dark:text-[#aaa] font-bold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-[#444] transition-colors"
                     >
                       Cancelar
                     </button>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setLinkTarget('editing');
                         setShowLinkModal(true);
                       }}
-                      className="flex-1 bg-red-50 text-red-500 font-bold py-3 rounded-xl hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center gap-2"
+                      className="flex-1 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 font-bold py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors border border-red-100 dark:border-red-900 flex items-center justify-center gap-2"
                     >
                       <LinkIcon size={18} />
                       {editingProduct.linked_product_id ? 'Alterar vínculo' : 'Vincular produto'}
                     </button>
-                    <button 
+                    <button
                       type="submit"
                       disabled={editStatus === 'loading' || editStatus === 'success'}
                       className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -2973,23 +2973,23 @@ export default function Page() {
                       {editStatus === 'loading' ? 'Salvando...' : editStatus === 'success' ? 'Sucesso!' : 'Salvar Alterações'}
                     </button>
                   </div>
-                  
+
                   {!showDeleteConfirm ? (
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full text-red-500 text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
+                      className="w-full text-red-500 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
                     >
                       Excluir Produto
                     </button>
                   ) : (
-                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex flex-col gap-3">
-                      <p className="text-xs text-red-700 font-bold text-center uppercase">Confirmar Exclusão?</p>
+                    <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border border-red-100 dark:border-red-900 flex flex-col gap-3">
+                      <p className="text-xs text-red-700 dark:text-red-400 font-bold text-center uppercase">Confirmar Exclusão?</p>
                       <div className="flex gap-2">
                         <button 
                           type="button"
                           onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 bg-white border border-slate-200 text-secondary text-[10px] font-bold py-2 rounded uppercase"
+                          className="flex-1 bg-white dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent text-secondary dark:text-[#aaa] text-[10px] font-bold py-2 rounded uppercase"
                         >
                           Não, Manter
                         </button>
@@ -3187,7 +3187,7 @@ export default function Page() {
                               <button 
                                 type="button"
                                 onClick={() => setNewProductRequest({...newProductRequest, eans: [...(newProductRequest.eans || [newProductRequest.ean || '']), '']})}
-                                className="w-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-all"
+                                className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
                               >
                                 <Plus size={18} />
                               </button>
@@ -3450,7 +3450,7 @@ export default function Page() {
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
                   >
                     <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
                     Produto adicionado com sucesso! Fechando...
@@ -3475,7 +3475,7 @@ export default function Page() {
                       type="text" 
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       placeholder="ex: BM-500-A4"
                     />
                   </div>
@@ -3486,7 +3486,7 @@ export default function Page() {
                       type="text" 
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       placeholder="ex: Batedeira Prática Master"
                     />
                   </div>
@@ -3503,14 +3503,14 @@ export default function Page() {
                               newEans[index] = e.target.value;
                               setNewProduct({...newProduct, eans: newEans});
                             }}
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             placeholder="789..."
                           />
                           {index === 0 ? (
                             <button 
                               type="button"
                               onClick={() => setNewProduct({...newProduct, eans: [...(newProduct.eans || [newProduct.ean || '']), '']})}
-                              className="w-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-all"
+                              className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
                             >
                               <Plus size={18} />
                             </button>
@@ -3536,7 +3536,7 @@ export default function Page() {
                       type="number" 
                       value={isNaN(newProduct.count) ? 0 : newProduct.count}
                       onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -3546,7 +3546,7 @@ export default function Page() {
                       step="0.01"
                       value={isNaN(newProduct.price) ? 0 : newProduct.price}
                       onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -3567,7 +3567,7 @@ export default function Page() {
                     <select 
                       value={newProduct.status}
                       onChange={(e) => setNewProduct({...newProduct, status: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     >
                       <option value="Em Estoque">Em Estoque</option>
                       <option value="Estoque em Alta">Estoque em Alta</option>
@@ -3679,7 +3679,7 @@ export default function Page() {
                         type="text" 
                         value={newProduct.image}
                         onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         placeholder="https://..."
                       />
                       <input 
@@ -3693,7 +3693,7 @@ export default function Page() {
                         type="button"
                         onClick={() => imageInputRef.current?.click()}
                         disabled={uploading}
-                        className="px-4 bg-slate-100 border border-slate-200 rounded-lg text-secondary hover:bg-slate-200 transition-all flex items-center justify-center shrink-0"
+                        className="px-4 bg-slate-100 dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg text-secondary hover:bg-slate-200 dark:hover:bg-[#444] transition-all flex items-center justify-center shrink-0"
                         title="Upload do computador"
                       >
                         {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
