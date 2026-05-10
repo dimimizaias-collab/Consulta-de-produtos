@@ -165,8 +165,7 @@ export function LogisticsCenter({
           <div className="w-24 h-24 rounded-[2rem] bg-primary/5 text-primary flex items-center justify-center mb-8 group-hover:bg-primary group-hover:text-white transition-all transform group-hover:rotate-6 shadow-inner">
             <FileUp size={48} />
           </div>
-          <h3 className="text-2xl font-black text-on-surface mb-3 tracking-tight">Import Protocol</h3>
-          <p className="text-sm text-on-surface/40 mb-10 max-w-[240px] leading-relaxed">Automated bulk ingestion via Excel/CSV with supplier mapping support.</p>
+          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Importar Nota</h3>
           <button
             onClick={onImportClick}
             disabled={importing}
@@ -177,7 +176,7 @@ export function LogisticsCenter({
             ) : (
               <>
                 <Download size={20} />
-                Execute Import
+                Executar Importação
               </>
             )}
           </button>
@@ -192,14 +191,13 @@ export function LogisticsCenter({
           <div className="w-24 h-24 rounded-[2rem] bg-on-surface/5 text-on-surface flex items-center justify-center mb-8 group-hover:bg-on-surface group-hover:text-white transition-all transform group-hover:-rotate-6 shadow-inner">
             <FileText size={48} />
           </div>
-          <h3 className="text-2xl font-black text-on-surface mb-3 tracking-tight">Manual Manifest</h3>
-          <p className="text-sm text-on-surface/40 mb-10 max-w-[240px] leading-relaxed">Ad-hoc entry curation. Search and add specific units to the active session.</p>
+          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Inserir Manualmente</h3>
           <button
             onClick={onManualNoteClick}
-            className="bg-on-surface text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-primary transition-all shadow-xl shadow-on-surface/20 w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
+            className="bg-on-surface/[0.12] text-on-surface border border-on-surface/10 px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface/20 transition-all w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
           >
             <Plus size={20} />
-            Create Manifest
+            Criar Manifesto
           </button>
         </motion.div>
 
@@ -212,22 +210,21 @@ export function LogisticsCenter({
           <div className="w-24 h-24 rounded-[2rem] bg-amber-500/10 text-amber-600 flex items-center justify-center mb-8 group-hover:bg-amber-500 group-hover:text-white transition-all transform group-hover:rotate-12 shadow-inner">
             <Users size={48} />
           </div>
-          <h3 className="text-2xl font-black text-on-surface mb-3 tracking-tight">Suppliers Lab</h3>
-          <p className="text-sm text-on-surface/40 mb-8 max-w-[240px] leading-relaxed">Configure the dictionary to synchronize external identifiers with internal SKU.</p>
-          <div className="w-full flex flex-col gap-3">
+          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Dicionário</h3>
+          <div className="flex gap-3 justify-center">
             <button
               onClick={onSuppliersClick}
-              className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-amber-600/20 w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
+              className="bg-amber-600 text-white px-5 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-amber-600/20 w-36 justify-center flex items-center gap-2 uppercase tracking-widest active:scale-95"
             >
-              <BookText size={20} />
-              Open Dictionary
+              <BookText size={16} />
+              Abrir
             </button>
             <button
               onClick={openSupplierPicker}
-              className="border-2 border-amber-500/40 text-amber-600 px-8 py-4 rounded-2xl font-black text-sm hover:bg-amber-500/10 transition-all w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
+              className="border-2 border-amber-500/40 text-amber-600 px-5 py-4 rounded-2xl font-black text-sm hover:bg-amber-500/10 transition-all w-36 justify-center flex items-center gap-2 uppercase tracking-widest active:scale-95"
             >
-              <Users size={20} />
-              Gerenciar Fornecedores
+              <Users size={16} />
+              Fornecedores
             </button>
           </div>
         </motion.div>
