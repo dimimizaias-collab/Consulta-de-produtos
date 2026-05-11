@@ -300,6 +300,8 @@ export default function Page() {
   const [noteItemNewEan, setNoteItemNewEan] = useState('');
   const [noteItemNewSellPrice, setNoteItemNewSellPrice] = useState('');
   const [noteItemCreating, setNoteItemCreating] = useState(false);
+  const [noteItemNewImage, setNoteItemNewImage] = useState('');
+  const [noteItemNewImageUploading, setNoteItemNewImageUploading] = useState(false);
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [multiLinkItemIdx, setMultiLinkItemIdx] = useState<number | null>(null);
@@ -380,6 +382,7 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
+  const noteItemImageInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [newProduct, setNewProduct] = useState({
     sku: '',
@@ -1735,7 +1738,7 @@ export default function Page() {
     try {
       const sku = noteItemNewSku.trim() || `SKU-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -1758,7 +1761,7 @@ export default function Page() {
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
-        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice('');
+        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
         setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
       }
     } catch (err: any) {
@@ -5613,7 +5616,7 @@ export default function Page() {
                         ) : (
                           <div className="space-y-3">
                             <button
-                              onClick={() => setNoteItemShowCreate(false)}
+                              onClick={() => { setNoteItemShowCreate(false); setNoteItemNewImage(''); setNoteItemNewImageUploading(false); }}
                               className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
                             >
                               ← Voltar para busca
@@ -5638,20 +5641,70 @@ export default function Page() {
                                   placeholder="Cód. barras" />
                               </div>
                             </div>
-                            {/* ── Preço de venda para produto novo ── */}
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Preço de Venda (R$)</label>
-                              <div className="relative">
-                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
+                            {/* ── Preço de venda + Foto do produto ── */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Preço de Venda (R$)</label>
+                                <div className="relative">
+                                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteItemNewSellPrice}
+                                    onChange={e => setNoteItemNewSellPrice(e.target.value)}
+                                    placeholder="0,00"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Foto do Produto</label>
                                 <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={noteItemNewSellPrice}
-                                  onChange={e => setNoteItemNewSellPrice(e.target.value)}
-                                  placeholder="0,00"
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  ref={noteItemImageInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setNoteItemNewImageUploading(true);
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    try {
+                                      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                                      if (res.ok) {
+                                        const d = await res.json();
+                                        setNoteItemNewImage(d.url);
+                                      }
+                                    } catch {}
+                                    setNoteItemNewImageUploading(false);
+                                    if (e.target) e.target.value = '';
+                                  }}
                                 />
+                                {noteItemNewImage ? (
+                                  <div className="relative inline-flex">
+                                    <img src={noteItemNewImage} alt="foto" className="w-[46px] h-[46px] rounded-xl object-cover border border-slate-200" />
+                                    <button
+                                      onClick={() => setNoteItemNewImage('')}
+                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-slate-700 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
+                                    >
+                                      <X size={9} className="text-white" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => noteItemImageInputRef.current?.click()}
+                                    disabled={noteItemNewImageUploading}
+                                    className="w-full h-[46px] bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center gap-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
+                                  >
+                                    {noteItemNewImageUploading
+                                      ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-r-transparent" />
+                                      : <><ImageIcon size={13} /><span className="text-[11px] font-bold">Foto</span></>
+                                    }
+                                  </button>
+                                )}
                               </div>
                             </div>
                             <button
