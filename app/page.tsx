@@ -1738,7 +1738,7 @@ export default function Page() {
     try {
       const sku = noteItemNewSku.trim() || `SKU-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null })
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0 })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -5605,7 +5605,12 @@ export default function Page() {
                                   })()}
                                 </div>
                                 <button
-                                  onClick={() => setNoteItemShowCreate(true)}
+                                  onClick={() => {
+                                    setNoteItemShowCreate(true);
+                                    // Pré-preenche o preço de venda com o valor já digitado na linha
+                                    const rowPrice = linkingItemIdx !== null ? viewingNoteSellPrices[linkingItemIdx] : undefined;
+                                    if (rowPrice && rowPrice > 0) setNoteItemNewSellPrice(String(rowPrice));
+                                  }}
                                   className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
                                 >
                                   <Plus size={13} />Criar novo produto
