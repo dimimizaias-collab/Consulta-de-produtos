@@ -801,19 +801,19 @@ export function ManualManifestModal({
           onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 20 }} transition={{ duration: 0.2 }}
-          className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh]">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+          className="relative bg-[#1e1e18] rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh] border border-white/[0.06]">
+          <div className="px-6 py-5 border-b border-white/[0.07] flex items-center justify-between shrink-0 bg-[#252520]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/80 shrink-0">
                 <FileSpreadsheet size={20} />
               </div>
               <div>
-                <h2 className="text-base font-black text-slate-900 leading-none">Manual Manifest</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">Rascunhos salvos</p>
+                <h2 className="text-base font-black text-[#f2f0e3] leading-none">Manual Manifest</h2>
+                <p className="text-xs text-white/40 font-medium mt-0.5">Rascunhos salvos</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <X size={18} className="text-slate-500" />
+            <button onClick={onClose} className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
+              <X size={18} className="text-white/30" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -831,7 +831,7 @@ export function ManualManifestModal({
             )}
             {!loadingDrafts && drafts.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-wider px-1">
                   Rascunhos não enviados ({drafts.length})
                 </p>
                 {drafts.map(d => {
@@ -842,23 +842,23 @@ export function ManualManifestModal({
                     <motion.div key={d.id} layout initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                       onClick={() => openDraft(d)}
-                      className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all group">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shrink-0">
+                      className="flex items-center gap-4 p-4 rounded-2xl border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.03] cursor-pointer transition-all group">
+                      <div className="w-10 h-10 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/30 group-hover:bg-white/[0.08] group-hover:text-white/60 transition-colors shrink-0">
                         <FileText size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary transition-colors">{d.label}</p>
+                        <p className="text-sm font-bold text-[#f2f0e3] truncate group-hover:text-white transition-colors">{d.label}</p>
                         <div className="flex items-center gap-3 mt-1">
-                          {supplierName && <span className="text-[10px] font-bold text-slate-400 truncate max-w-[120px]">{supplierName}</span>}
-                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                          {supplierName && <span className="text-[10px] font-bold text-white/40 truncate max-w-[120px]">{supplierName}</span>}
+                          <span className="text-[10px] font-bold bg-white/[0.06] text-white/40 px-1.5 py-0.5 rounded">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
                           {linkedCnt > 0 && <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">{linkedCnt} vinculado{linkedCnt !== 1 ? 's' : ''}</span>}
                         </div>
-                        <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-white/30">
                           <Clock size={9} />{d.savedAt}
                         </div>
                       </div>
                       <button onClick={e => handleDeleteDraft(d.id, e)}
-                        className="w-8 h-8 rounded-lg text-slate-200 hover:text-red-400 hover:bg-red-50 flex items-center justify-center transition-all shrink-0">
+                        className="w-8 h-8 rounded-lg text-white/[0.08] hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all shrink-0">
                         <Trash2 size={14} />
                       </button>
                     </motion.div>
@@ -882,30 +882,30 @@ export function ManualManifestModal({
           onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <motion.div initial={{ opacity: 0, scale: 0.97, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 20 }} transition={{ duration: 0.2 }}
-          className="relative bg-white rounded-3xl shadow-2xl w-full max-w-[96vw] xl:max-w-[1400px] max-h-[94vh] flex flex-col overflow-hidden">
+          className="relative bg-[#1e1e18] rounded-3xl shadow-2xl w-full max-w-[96vw] xl:max-w-[1400px] max-h-[94vh] flex flex-col overflow-hidden border border-white/[0.06]">
 
           {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-white shrink-0">
+          <div className="px-6 py-4 border-b border-white/[0.07] flex items-center gap-4 bg-[#252520] shrink-0">
             {drafts.length > 0 && (
               <button onClick={goToList}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary transition-colors shrink-0">
+                className="flex items-center gap-1.5 text-xs font-bold text-white/40 hover:text-[#f2f0e3] transition-colors shrink-0">
                 <ChevronLeft size={16} />Rascunhos
               </button>
             )}
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/80 shrink-0">
               <FileSpreadsheet size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-black text-slate-900 leading-none">
+              <h2 className="text-base font-black text-[#f2f0e3] leading-none">
                 {currentDraftId ? 'Editar Rascunho' : 'Nova Entrada Manual'}
               </h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Preencha os itens e vincule ao dicionário do fornecedor</p>
+              <p className="text-xs text-white/40 font-medium mt-0.5">Preencha os itens e vincule ao dicionário do fornecedor</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fornecedor</label>
+                <label className="text-[10px] font-bold text-white/30 uppercase block mb-1">Fornecedor</label>
                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[200px]">
+                  className="bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2 text-xs font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 min-w-[200px]">
                   <option value="">Selecione o fornecedor...</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -916,15 +916,15 @@ export function ManualManifestModal({
                 <button
                   onClick={() => setShowImport(true)}
                   title="Importar nota fiscal ou romaneio (PDF, JPG, PNG)"
-                  className="flex items-center gap-2 border-2 border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-xs transition-all uppercase tracking-widest"
+                  className="flex items-center gap-2 border-2 border-white/[0.12] text-white/50 hover:border-white/[0.22] hover:bg-white/[0.04] px-4 py-2 rounded-xl font-bold text-xs transition-all uppercase tracking-widest"
                 >
                   <Upload size={14} />
                   Importar Nota
                 </button>
               </div>
 
-              <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors mt-4">
-                <X size={18} className="text-slate-500" />
+              <button onClick={onClose} className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors mt-4">
+                <X size={18} className="text-white/30" />
               </button>
             </div>
           </div>
@@ -932,20 +932,20 @@ export function ManualManifestModal({
           {/* Spreadsheet */}
           <div className="flex-1 overflow-auto" onClick={() => setUnitMenuRowId(null)}>
             <table className="w-full border-collapse min-w-[900px]">
-              <thead className="sticky top-0 z-10 bg-slate-50">
-                <tr className="border-b-2 border-slate-200">
-                  <th className="w-12 px-3 py-2.5 text-center text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">#</th>
-                  <th className="w-32 px-3 py-2.5 text-left text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Código</th>
-                  <th className="min-w-[220px] px-3 py-2.5 text-left text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Descrição</th>
-                  <th className="w-24 px-3 py-2.5 text-center text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Unid.</th>
-                  <th className="w-28 px-3 py-2.5 text-right text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Quantidade</th>
-                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Preço Unit.</th>
-                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Valor Total</th>
-                  <th className="min-w-[200px] px-3 py-2.5 text-left text-[10px] font-black text-slate-400 uppercase tracking-wider border-r border-slate-200">Dicionário</th>
+              <thead className="sticky top-0 z-10 bg-[#2e2e28]">
+                <tr className="border-b border-white/[0.10]">
+                  <th className="w-12 px-3 py-2.5 text-center text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">#</th>
+                  <th className="w-32 px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Código</th>
+                  <th className="min-w-[220px] px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Descrição</th>
+                  <th className="w-24 px-3 py-2.5 text-center text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Unid.</th>
+                  <th className="w-28 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Quantidade</th>
+                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Preço Unit.</th>
+                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Valor Total</th>
+                  <th className="min-w-[200px] px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Dicionário</th>
                   <th className="w-10 px-2 py-2.5" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/[0.04]">
                 {rows.map((row, idx) => {
                   const qty = parseFloat(row.quantity) || 0;
                   const price = parseFloat(row.unitPrice) || 0;
@@ -953,20 +953,20 @@ export function ManualManifestModal({
                   const isLoadingTranslation = loadingTranslation === row.id;
 
                   return (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors group">
+                    <tr key={row.id} className="hover:bg-white/[0.025] transition-colors group">
                       {/* # */}
-                      <td className="px-3 py-1.5 text-center border-r border-slate-100 align-middle">
-                        <span className="text-xs font-black text-slate-300">{idx + 1}</span>
+                      <td className="px-3 py-1.5 text-center border-r border-white/[0.04] align-middle">
+                        <span className="text-xs font-black text-white/20">{idx + 1}</span>
                       </td>
                       {/* Código */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <div className="relative flex items-center">
                           <input type="text" value={row.supplierCode}
                             onChange={e => updateRow(row.id, { supplierCode: e.target.value, autoFilledCode: false })}
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
                             onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 text-xs font-mono text-slate-600 transition-colors",
+                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-mono text-white/60 transition-colors",
                               row.autoFilledCode ? "pl-1 pr-5" : "px-1",
                               pastedRange && pastedRange.field === 'supplierCode' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
@@ -977,7 +977,7 @@ export function ManualManifestModal({
                         </div>
                       </td>
                       {/* Descrição */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <div className="relative flex items-center gap-1">
                           {row.confidence !== undefined && (
                             <span
@@ -994,7 +994,7 @@ export function ManualManifestModal({
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
                             onPaste={e => handleColumnPaste(e, idx, 'description')}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 text-xs font-medium text-slate-700 transition-colors",
+                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-medium text-[#f2f0e3]/80 transition-colors",
                               row.autoFilledDesc ? "pl-1 pr-5" : "px-1",
                               pastedRange && pastedRange.field === 'description' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
@@ -1006,7 +1006,7 @@ export function ManualManifestModal({
                       </td>
 
                       {/* Unid. — input + "+" menu */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <div
                           ref={unitMenuRowId === row.id ? unitMenuRef : undefined}
                           className="relative flex items-center gap-0.5"
@@ -1016,13 +1016,13 @@ export function ManualManifestModal({
                             onChange={e => updateRow(row.id, { unit: e.target.value })}
                             onPaste={e => handleColumnPaste(e, idx, 'unit')}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-600 text-center transition-colors",
+                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-white/60 text-center transition-colors",
                               pastedRange && pastedRange.field === 'unit' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
                             placeholder="UN" />
                           {/* translated badge */}
                           {row.unitTranslated && (
-                            <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${row.unitMultiplier}`}>×{row.unitMultiplier}</span>
+                            <span className="text-[8px] font-black text-amber-400/60 leading-none shrink-0" title={`×${row.unitMultiplier}`}>×{row.unitMultiplier}</span>
                           )}
                           {/* "+" trigger */}
                           <button
@@ -1045,11 +1045,11 @@ export function ManualManifestModal({
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                 transition={{ duration: 0.12 }}
-                                className="absolute left-0 top-full mt-1 z-30 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden w-44"
+                                className="absolute left-0 top-full mt-1 z-30 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.10] overflow-hidden w-44"
                               >
                                 <button
                                   onClick={() => { openAddMeasure(row); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/70 hover:bg-white/[0.06] hover:text-[#f2f0e3] transition-colors flex items-center gap-2"
                                 >
                                   <Ruler size={12} className="shrink-0" />
                                   Adicionar medida
@@ -1057,7 +1057,7 @@ export function ManualManifestModal({
                                 <button
                                   onClick={() => { handleUseTranslation(row); setUnitMenuRowId(null); }}
                                   disabled={isLoadingTranslation}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/70 hover:bg-white/[0.06] hover:text-[#f2f0e3] transition-colors flex items-center gap-2 disabled:opacity-50"
                                 >
                                   {isLoadingTranslation
                                     ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
@@ -1067,7 +1067,7 @@ export function ManualManifestModal({
                                 </button>
                                 <button
                                   onClick={() => { updateRow(row.id, { unitTranslated: false, unitMultiplier: undefined }); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.04] transition-colors flex items-center gap-2 border-t border-white/[0.08]"
                                 >
                                   <Pencil size={12} className="shrink-0" />
                                   Manual
@@ -1079,50 +1079,50 @@ export function ManualManifestModal({
                       </td>
 
                       {/* Quantidade */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <input type="number" value={row.quantity}
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
                           onPaste={e => handleColumnPaste(e, idx, 'quantity')}
                           className={cn(
-                            "no-spinner w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-slate-700 text-right transition-colors",
+                            "no-spinner w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-[#f2f0e3]/80 text-right transition-colors",
                             pastedRange && pastedRange.field === 'quantity' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                           )}
                           placeholder="0" min="0" />
                       </td>
                       {/* Preço Unitário */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <input type="number" value={row.unitPrice}
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
                           onPaste={e => handleColumnPaste(e, idx, 'unitPrice')}
                           className={cn(
-                            'no-spinner w-full border-b border-transparent hover:border-slate-200 focus:border-primary/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
+                            'no-spinner w-full border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
                             pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end
-                              ? 'ring-1 ring-emerald-400 rounded bg-emerald-50/40 text-slate-700'
+                              ? 'ring-1 ring-emerald-400 rounded bg-emerald-900/20 text-[#f2f0e3]/80'
                               : row.unitTranslated
-                                ? 'text-emerald-600 bg-emerald-50/40'
-                                : 'text-slate-700 bg-transparent'
+                                ? 'text-emerald-400 bg-emerald-900/20'
+                                : 'text-[#f2f0e3]/80 bg-transparent'
                           )}
                           placeholder="0,00" step="0.01" min="0" />
                       </td>
                       {/* Valor Total */}
-                      <td className="px-3 py-1.5 border-r border-slate-100 text-right align-middle">
-                        <span className={cn('text-xs font-bold tabular-nums', total > 0 ? 'text-slate-800' : 'text-slate-200')}>
+                      <td className="px-3 py-1.5 border-r border-white/[0.04] text-right align-middle">
+                        <span className={cn('text-xs font-bold tabular-nums', total > 0 ? 'text-[#f2f0e3]' : 'text-white/15')}>
                           {total > 0 ? fmtBRL(total) : '—'}
                         </span>
                       </td>
                       {/* Dicionário */}
-                      <td className="px-2 py-1.5 border-r border-slate-100 align-middle">
+                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <div className="flex items-center gap-1 flex-wrap">
                           {row.linkedProduct ? (
                             <button onClick={() => openLink(row.id)}
-                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-all max-w-full"
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-900/25 border border-emerald-500/25 text-emerald-300 rounded-lg hover:bg-emerald-900/40 transition-all max-w-full"
                               title={`${row.linkedProduct.name} — clique para alterar`}>
                               <CheckCircle2 size={11} className="shrink-0" />
                               <span className="text-[11px] font-bold truncate max-w-[100px]">{row.linkedProduct.name}</span>
                             </button>
                           ) : (
                             <button onClick={() => openLink(row.id)}
-                              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 border border-dashed border-slate-300 rounded-lg hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-all">
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent text-white/30 border border-dashed border-white/[0.12] rounded-lg hover:bg-white/[0.04] hover:border-white/25 hover:text-white/60 transition-all">
                               <Plus size={11} />
                               <span className="text-[11px] font-bold">Vincular</span>
                             </button>
@@ -1134,8 +1134,8 @@ export function ManualManifestModal({
                             className={cn(
                               'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
                               row.multiLinked
-                                ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-                                : 'bg-slate-50 text-slate-400 border-dashed border-slate-300 hover:bg-primary/5 hover:border-primary/40 hover:text-primary'
+                                ? 'bg-amber-900/20 border-amber-500/30 text-amber-300 hover:bg-amber-900/35'
+                                : 'bg-transparent text-white/30 border-dashed border-white/[0.12] hover:bg-white/[0.04] hover:border-white/25 hover:text-white/60'
                             )}
                           >
                             <Layers size={11} className="shrink-0" />
@@ -1146,7 +1146,7 @@ export function ManualManifestModal({
                       {/* Delete */}
                       <td className="px-2 py-1.5 align-middle">
                         <button onClick={() => removeRow(row.id)}
-                          className="w-7 h-7 rounded-lg text-slate-200 group-hover:text-slate-300 hover:!text-red-400 hover:bg-red-50 flex items-center justify-center transition-all">
+                          className="w-7 h-7 rounded-lg text-white/[0.08] group-hover:text-white/20 hover:!text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all">
                           <Trash2 size={13} />
                         </button>
                       </td>
@@ -1155,33 +1155,33 @@ export function ManualManifestModal({
                 })}
               </tbody>
             </table>
-            <div className="px-4 py-2 border-t border-slate-100">
+            <div className="px-4 py-2 border-t border-white/[0.06]">
               <button onClick={addRow}
-                className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-primary transition-colors py-2 px-3 rounded-xl hover:bg-primary/5">
+                className="flex items-center gap-2 text-xs font-bold text-white/30 hover:text-white/60 transition-colors py-2 px-3 rounded-xl hover:bg-white/[0.04]">
                 <Plus size={14} />Adicionar linha
               </button>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white shrink-0">
+          <div className="px-6 py-4 border-t border-white/[0.07] flex items-center justify-between bg-[#252520] shrink-0">
             <div className="flex items-center gap-8">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Itens</p>
-                <p className="text-xl font-black text-slate-900 leading-tight tabular-nums">{validCount}</p>
+                <p className="text-[10px] font-bold text-white/30 uppercase">Itens</p>
+                <p className="text-xl font-black text-[#f2f0e3] leading-tight tabular-nums">{validCount}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Vinculados</p>
-                <p className="text-xl font-black text-emerald-600 leading-tight tabular-nums">{linkedCount}</p>
+                <p className="text-[10px] font-bold text-white/30 uppercase">Vinculados</p>
+                <p className="text-xl font-black text-emerald-400 leading-tight tabular-nums">{linkedCount}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Total Geral</p>
-                <p className="text-xl font-black text-slate-900 leading-tight tabular-nums">{fmtBRL(totalValue)}</p>
+                <p className="text-[10px] font-bold text-white/30 uppercase">Total Geral</p>
+                <p className="text-xl font-black text-[#f2f0e3] leading-tight tabular-nums">{fmtBRL(totalValue)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button onClick={handleSaveDraft} disabled={validCount === 0}
-                className="flex items-center gap-2 border-2 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 px-5 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-40 uppercase tracking-widest">
+                className="flex items-center gap-2 border-2 border-white/[0.12] text-white/50 hover:border-white/[0.22] hover:bg-white/[0.04] px-5 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-40 uppercase tracking-widest">
                 <Save size={16} />Salvar
               </button>
               <button onClick={handleSubmit} disabled={submitting || validCount === 0}
@@ -1204,73 +1204,73 @@ export function ManualManifestModal({
               className="absolute inset-0 bg-black" onClick={closeAddMeasure} />
             <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ duration: 0.18 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              className="relative bg-[#1e1e18] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/[0.08]">
 
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between bg-[#252520]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/80 shrink-0">
                     <Ruler size={16} />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">Adicionar Medida</h3>
+                    <h3 className="text-base font-black text-[#f2f0e3]">Adicionar Medida</h3>
                     {measureRow?.linkedProduct && (
-                      <p className="text-xs text-slate-400 font-medium mt-0.5 truncate max-w-[260px]">
+                      <p className="text-xs text-white/40 font-medium mt-0.5 truncate max-w-[260px]">
                         {measureRow.linkedProduct.name}
                       </p>
                     )}
                   </div>
                 </div>
-                <button onClick={closeAddMeasure} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X size={16} className="text-slate-400" />
+                <button onClick={closeAddMeasure} className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
+                  <X size={16} className="text-white/30" />
                 </button>
               </div>
 
               <div className="p-5 space-y-4">
                 {!measureRow?.linkedProduct && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-700">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-900/20 border border-amber-500/20 rounded-xl text-xs font-bold text-amber-300">
                     <span>⚠</span> Vincule o produto no Dicionário para salvar a conversão permanentemente.
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                    <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">
                       Unid. do Fornecedor
                     </label>
                     <input type="text" value={measureSupplierUnit}
                       onChange={e => setMeasureSupplierUnit(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-center"
+                      className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 font-bold text-center"
                       placeholder="ex: CX" autoFocus />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                    <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">
                       Unid. Interna
                     </label>
                     <input type="text" value={measureInternalUnit}
                       onChange={e => setMeasureInternalUnit(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-center"
+                      className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 font-bold text-center"
                       placeholder="ex: UN" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                  <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">
                     Multiplicador — quantas unidades internas por 1 unidade do fornecedor
                   </label>
                   <input type="number" value={measureMultiplier}
                     onChange={e => setMeasureMultiplier(e.target.value)}
-                    className="no-spinner w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-center"
+                    className="no-spinner w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 font-bold text-center"
                     placeholder="ex: 12" min="0.001" step="any" />
                 </div>
 
                 {/* Preview */}
                 {measureMultiplier && parseFloat(measureMultiplier) > 0 && (
-                  <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-3 space-y-1.5">
-                    <p className="text-xs font-black text-primary text-center">
+                  <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 space-y-1.5">
+                    <p className="text-xs font-black text-[#f2f0e3] text-center">
                       1 {measureSupplierUnit || '?'} = {measureMultiplier} {measureInternalUnit || '?'}
                     </p>
                     {measureRow && (measureRow.quantity || measureRow.unitPrice) && (
-                      <div className="text-[10px] text-slate-500 text-center space-y-0.5">
+                      <div className="text-[10px] text-white/40 text-center space-y-0.5">
                         {measureRow.quantity && (
                           <p>Qtd: {measureRow.quantity} → <strong>{Math.round(parseFloat(measureRow.quantity) * parseFloat(measureMultiplier) * 1000) / 1000}</strong></p>
                         )}
@@ -1303,29 +1303,29 @@ export function ManualManifestModal({
               className="absolute inset-0 bg-black" onClick={() => { setTranslationPickerRowId(null); setTranslationOptions([]); }} />
             <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ duration: 0.18 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              className="relative bg-[#1e1e18] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/[0.08]">
+              <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between bg-[#252520]">
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Usar Tradução</h3>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  <h3 className="text-base font-black text-[#f2f0e3]">Usar Tradução</h3>
+                  <p className="text-xs text-white/40 font-medium mt-0.5">
                     {translationPickerRow?.linkedProduct?.name}
                   </p>
                 </div>
                 <button onClick={() => { setTranslationPickerRowId(null); setTranslationOptions([]); }}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X size={16} className="text-slate-400" />
+                  className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
+                  <X size={16} className="text-white/30" />
                 </button>
               </div>
               <div className="p-4 space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase px-1">Escolha a conversão</p>
+                <p className="text-[10px] font-bold text-white/30 uppercase px-1">Escolha a conversão</p>
                 {translationOptions.map(conv => (
                   <button key={conv.id} onClick={() => applyConversion(translationPickerRowId!, conv)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all group text-left">
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04] transition-all group text-left">
                     <div>
-                      <p className="text-sm font-bold text-slate-800 group-hover:text-primary">{conv.unit_name}</p>
-                      <p className="text-[10px] text-slate-400">×{conv.multiplier}</p>
+                      <p className="text-sm font-bold text-[#f2f0e3] group-hover:text-white">{conv.unit_name}</p>
+                      <p className="text-[10px] text-white/40">×{conv.multiplier}</p>
                     </div>
-                    <CheckCircle2 size={16} className="text-slate-200 group-hover:text-primary transition-colors shrink-0" />
+                    <CheckCircle2 size={16} className="text-white/15 group-hover:text-emerald-400 transition-colors shrink-0" />
                   </button>
                 ))}
               </div>
@@ -1342,18 +1342,18 @@ export function ManualManifestModal({
               className="absolute inset-0 bg-black" onClick={closeLink} />
             <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ duration: 0.18 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              className="relative bg-[#1e1e18] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden border border-white/[0.08]">
+              <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between shrink-0 bg-[#252520]">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-black text-slate-900">Vincular ao Dicionário</h3>
+                  <h3 className="text-base font-black text-[#f2f0e3]">Vincular ao Dicionário</h3>
                   {linkingRow && (
-                    <p className="text-xs text-slate-400 font-medium mt-0.5 truncate">
+                    <p className="text-xs text-white/40 font-medium mt-0.5 truncate">
                       {linkingRow.description || linkingRow.supplierCode || 'Item sem descrição'}
                     </p>
                   )}
                 </div>
-                <button onClick={closeLink} className="ml-3 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X size={16} className="text-slate-400" />
+                <button onClick={closeLink} className="ml-3 p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
+                  <X size={16} className="text-white/30" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -1365,7 +1365,7 @@ export function ManualManifestModal({
                         <input type="text" value={linkSearch}
                           onChange={e => setLinkSearch(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleLinkSearch()}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl pl-9 pr-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Buscar por nome, SKU ou EAN..." autoFocus />
                       </div>
                       <button onClick={handleLinkSearch}
@@ -1377,55 +1377,55 @@ export function ManualManifestModal({
                       <div className="space-y-1.5">
                         {linkResults.map(p => (
                           <button key={p.id} onClick={() => handleSelectProduct(p)}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group">
-                            <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shrink-0">
+                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04] transition-all text-left group">
+                            <div className="w-9 h-9 rounded-lg bg-[#2e2e28] flex items-center justify-center text-white/30 group-hover:bg-white/[0.08] group-hover:text-white/60 transition-colors shrink-0">
                               <Package size={16} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                              <p className="text-sm font-bold text-[#f2f0e3] truncate group-hover:text-white">{p.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.sku}</span>
-                                {p.ean && <span className="text-[10px] text-slate-400">{p.ean}</span>}
+                                <span className="text-[10px] font-bold text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded">{p.sku}</span>
+                                {p.ean && <span className="text-[10px] text-white/30">{p.ean}</span>}
                               </div>
                             </div>
-                            <CheckCircle2 size={16} className="text-slate-200 group-hover:text-primary transition-colors shrink-0" />
+                            <CheckCircle2 size={16} className="text-white/15 group-hover:text-emerald-400 transition-colors shrink-0" />
                           </button>
                         ))}
                       </div>
                     )}
                     {linkResults.length === 0 && linkSearch && (
-                      <p className="text-sm text-slate-400 text-center py-4">Nenhum produto encontrado.</p>
+                      <p className="text-sm text-white/30 text-center py-4">Nenhum produto encontrado.</p>
                     )}
                     <button onClick={() => setShowCreate(true)}
-                      className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-sm font-bold">
+                      className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-white/[0.12] text-white/30 rounded-xl hover:border-white/25 hover:text-white/60 hover:bg-white/[0.04] transition-all text-sm font-bold">
                       <Plus size={14} />Criar novo produto
                     </button>
                   </>
                 ) : (
                   <div className="space-y-4">
                     <button onClick={() => setShowCreate(false)}
-                      className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
+                      className="text-xs font-bold text-white/40 hover:text-[#f2f0e3] transition-colors flex items-center gap-1">
                       ← Voltar para busca
                     </button>
-                    <h4 className="text-sm font-black text-slate-900">Criar Novo Produto</h4>
+                    <h4 className="text-sm font-black text-[#f2f0e3]">Criar Novo Produto</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                        <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">Nome *</label>
                         <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Nome do produto" autoFocus />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                          <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">SKU</label>
                           <input type="text" value={newSku} onChange={e => setNewSku(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                             placeholder="Auto-gerado" />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN / Barcode</label>
+                          <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">EAN / Barcode</label>
                           <input type="text" value={newEan} onChange={e => setNewEan(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                             placeholder="Código de barras" />
                         </div>
                       </div>
@@ -1453,25 +1453,25 @@ export function ManualManifestModal({
               className="absolute inset-0 bg-black" onClick={closeMultiLink} />
             <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ duration: 0.18 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+              className="relative bg-[#1e1e18] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden border border-white/[0.08]">
 
               {/* Header */}
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="px-5 py-4 border-b border-white/[0.07] flex items-center justify-between shrink-0 bg-[#252520]">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-900/30 flex items-center justify-center text-amber-300 shrink-0">
                       <Layers size={14} />
                     </div>
-                    <h3 className="text-base font-black text-slate-900">Vincular Vários</h3>
+                    <h3 className="text-base font-black text-[#f2f0e3]">Vincular Vários</h3>
                   </div>
                   {multiLinkRow && (
-                    <p className="text-xs text-slate-400 font-medium mt-1 truncate pl-9">
+                    <p className="text-xs text-white/40 font-medium mt-1 truncate pl-9">
                       {multiLinkRow.description || multiLinkRow.supplierCode || 'Item sem descrição'}
                     </p>
                   )}
                 </div>
-                <button onClick={closeMultiLink} className="ml-3 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X size={16} className="text-slate-400" />
+                <button onClick={closeMultiLink} className="ml-3 p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
+                  <X size={16} className="text-white/30" />
                 </button>
               </div>
 
@@ -1487,7 +1487,7 @@ export function ManualManifestModal({
                           value={multiLinkSearch}
                           onChange={e => setMultiLinkSearch(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleMultiLinkSearch()}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl pl-9 pr-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Buscar por nome, SKU ou EAN..."
                           autoFocus
                         />
@@ -1496,7 +1496,7 @@ export function ManualManifestModal({
                         type="number"
                         value={multiLinkQty}
                         onChange={e => setMultiLinkQty(e.target.value)}
-                        className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-center"
+                        className="w-20 bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 text-center"
                         placeholder="Qtd"
                         min="0"
                         step="any"
@@ -1510,7 +1510,7 @@ export function ManualManifestModal({
                       </button>
                       <button
                         onClick={() => setMultiLinkShowCreate(true)}
-                        className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
+                        className="px-3 py-2 bg-[#2e2e28] text-white/50 rounded-xl hover:bg-white/[0.08] transition-colors"
                         title="Criar novo produto"
                       >
                         <Plus size={14} />
@@ -1520,24 +1520,24 @@ export function ManualManifestModal({
                     {/* Search results */}
                     {multiLinkResults.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Resultados</p>
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-wider px-1">Resultados</p>
                         {multiLinkResults.map(p => (
                           <button
                             key={p.id}
                             onClick={() => handleAddToMultiLink(p)}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
+                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04] transition-all text-left group"
                           >
-                            <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shrink-0">
+                            <div className="w-9 h-9 rounded-lg bg-[#2e2e28] flex items-center justify-center text-white/30 group-hover:bg-white/[0.08] group-hover:text-white/60 transition-colors shrink-0">
                               <Package size={16} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate group-hover:text-primary">{p.name}</p>
+                              <p className="text-sm font-bold text-[#f2f0e3] truncate group-hover:text-white">{p.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.sku}</span>
-                                {p.ean && <span className="text-[10px] text-slate-400">{p.ean}</span>}
+                                <span className="text-[10px] font-bold text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded">{p.sku}</span>
+                                {p.ean && <span className="text-[10px] text-white/30">{p.ean}</span>}
                               </div>
                             </div>
-                            <Plus size={14} className="text-slate-300 group-hover:text-primary shrink-0" />
+                            <Plus size={14} className="text-white/15 group-hover:text-white/60 shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -1546,19 +1546,19 @@ export function ManualManifestModal({
                     {/* Added entries */}
                     {multiLinkEntries.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-wider px-1">
                           A criar ({multiLinkEntries.length})
                         </p>
                         {multiLinkEntries.map((entry, idx) => (
-                          <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                          <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-900/20 border border-emerald-500/20">
                             <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-emerald-800 truncate">{entry.product.name}</p>
-                              <p className="text-[10px] text-emerald-600 font-medium">Qtd: {entry.qty}</p>
+                              <p className="text-sm font-bold text-emerald-300 truncate">{entry.product.name}</p>
+                              <p className="text-[10px] text-emerald-400 font-medium">Qtd: {entry.qty}</p>
                             </div>
                             <button
                               onClick={() => setMultiLinkEntries(prev => prev.filter((_, i) => i !== idx))}
-                              className="w-6 h-6 rounded-lg text-emerald-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-all shrink-0"
+                              className="w-6 h-6 rounded-lg text-emerald-500/40 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all shrink-0"
                             >
                               <X size={12} />
                             </button>
@@ -1571,34 +1571,34 @@ export function ManualManifestModal({
                   /* Create new product */
                   <div className="space-y-4">
                     <button onClick={() => setMultiLinkShowCreate(false)}
-                      className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
+                      className="text-xs font-bold text-white/40 hover:text-[#f2f0e3] transition-colors flex items-center gap-1">
                       ← Voltar para busca
                     </button>
-                    <h4 className="text-sm font-black text-slate-900">Criar Novo Produto</h4>
+                    <h4 className="text-sm font-black text-[#f2f0e3]">Criar Novo Produto</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Quantidade *</label>
+                        <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">Quantidade *</label>
                         <input type="number" value={multiLinkQty} onChange={e => setMultiLinkQty(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Quantidade" min="0" step="any" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
+                        <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">Nome *</label>
                         <input type="text" value={multiLinkNewName} onChange={e => setMultiLinkNewName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Nome do produto" autoFocus />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
+                          <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">SKU</label>
                           <input type="text" value={multiLinkNewSku} onChange={e => setMultiLinkNewSku(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                             placeholder="Auto-gerado" />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN / Barcode</label>
+                          <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">EAN / Barcode</label>
                           <input type="text" value={multiLinkNewEan} onChange={e => setMultiLinkNewEan(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                             placeholder="Código de barras" />
                         </div>
                       </div>
@@ -1617,7 +1617,7 @@ export function ManualManifestModal({
 
               {/* Footer save */}
               {multiLinkEntries.length > 0 && !multiLinkShowCreate && (
-                <div className="px-5 py-4 border-t border-slate-100 shrink-0">
+                <div className="px-5 py-4 border-t border-white/[0.07] bg-[#252520] shrink-0">
                   <button
                     onClick={handleSaveMultiLink}
                     className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
