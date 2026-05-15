@@ -1771,6 +1771,22 @@ export default function Page() {
     }
   };
 
+  const handleNoteEanPaste = (e: React.ClipboardEvent, rowIndex: number) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+    if (lines.length <= 1) return; // comportamento padrão do browser para linha única
+    e.preventDefault();
+    setViewingNoteEans(prev => {
+      const updated = [...prev];
+      lines.forEach((value, i) => { updated[rowIndex + i] = value; });
+      return updated;
+    });
+  };
+
   const handleMultiLinkItemSearch = async () => {
     if (!multiLinkItemSearch.trim()) return;
     const { data } = await supabase.from('products').select('id, name, sku, ean, price')
@@ -5110,6 +5126,7 @@ export default function Page() {
                             {reviewEditableCols.has('EAN') ? (
                               <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
+                                onPaste={e => handleNoteEanPaste(e, idx)}
                                 className="w-36 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-bold text-white/40">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
