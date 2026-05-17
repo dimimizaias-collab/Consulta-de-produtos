@@ -2545,7 +2545,10 @@ export default function Page() {
             onGoToNote={handleGoToNote}
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
           />
-          <div className="p-4 md:p-8 pt-[74px] md:pt-[74px] max-w-7xl mx-auto space-y-4 md:space-y-8 pb-24 md:pb-8">
+          <div className={cn(
+            "px-5 md:px-7 pb-8 max-w-[1400px] space-y-4 md:space-y-8",
+            activeTab === 'Inventory' ? "pt-[74px]" : "pt-5"
+          )}>
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
                   products={products}
