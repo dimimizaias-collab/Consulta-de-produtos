@@ -2535,20 +2535,17 @@ export default function Page() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={appNotifications.filter(n => !n.read).length}
         />
-        <main className={cn(
-          "flex-1 transition-all duration-300",
-          "ml-0 md:transition-all",
-          isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
-        )}>
+        <main className="flex-1 ml-0 md:ml-[72px]">
           <TopNav
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            activeTab={activeTab}
             notifications={appNotifications}
             onMarkAllRead={handleMarkAllNotificationsRead}
             onGoToNote={handleGoToNote}
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
           />
-          <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-8 pb-24 md:pb-8">
+          <div className="p-4 md:p-8 pt-[74px] md:pt-[74px] max-w-7xl mx-auto space-y-4 md:space-y-8 pb-24 md:pb-8">
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
                   products={products}
