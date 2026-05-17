@@ -2535,7 +2535,7 @@ export default function Page() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={appNotifications.filter(n => !n.read).length}
         />
-        <main className="flex-1 ml-0 md:ml-[72px]">
+        <main className="flex-1 ml-0 md:ml-[80px]">
           <TopNav
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}

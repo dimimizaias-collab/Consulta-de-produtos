@@ -52,8 +52,8 @@ export function TopNav({
       {/* ── Search pill — top-left, only on Inventory ── */}
       <div
         className={cn(
-          'fixed top-4 left-[76px] z-50 flex items-center gap-2.5',
-          'h-[42px] w-[260px] rounded-2xl px-4',
+          'fixed top-4 left-[84px] z-50 flex items-center gap-2.5',
+          'h-[42px] rounded-2xl px-4',
           'bg-surface/85 backdrop-blur-xl',
           'border border-on-surface/[0.08]',
           'shadow-[0_2px_16px_rgba(0,0,0,0.18),0_0_0_1px_rgba(255,255,255,0.03)_inset]',
@@ -62,6 +62,7 @@ export function TopNav({
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 -translate-y-2 pointer-events-none'
         )}
+        style={{ width: 'min(600px, calc(100vw - 84px - 300px))' }}
       >
         <Search size={14} className="text-primary/70 shrink-0" strokeWidth={2.5} />
         <input
