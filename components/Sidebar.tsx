@@ -75,11 +75,11 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
               key={item.label}
               onClick={() => setActiveTab(item.label)}
               className={cn(
-                "flex items-center rounded-xl transition-all duration-200 group text-left w-full relative",
+                "flex items-center rounded-xl transition-colors duration-200 group text-left w-full relative",
                 isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3",
                 activeTab === item.label
                   ? "text-white bg-primary shadow-lg shadow-primary/25"
-                  : "text-on-surface/60 hover:text-on-surface hover:bg-[#E9DFC2]/40"
+                  : "text-on-surface/60 hover:text-on-surface hover:bg-[#E9DFC2]/40 dark:hover:bg-white/[0.06]"
               )}
               title={isCollapsed ? item.label : ""}
             >
@@ -123,15 +123,15 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed, onToggleCollapse
           <button
             onClick={onToggleCollapse}
             className={cn(
-              "flex items-center rounded-xl transition-all duration-200 group text-left w-full mt-1",
-              "bg-[#FFE500] hover:bg-[#F5C400] text-[#1A1208]",
+              "flex items-center rounded-xl transition-colors duration-200 group text-left w-full mt-1",
+              "bg-[#FFE500] hover:bg-[#F5C400] text-[#1A1208] dark:bg-white/[0.06] dark:hover:bg-white/[0.10] dark:text-on-surface",
               isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3"
             )}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
             <motion.div
               animate={{ rotate: isCollapsed ? 0 : 180 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               className="shrink-0"
             >
               <ChevronRight size={19} />

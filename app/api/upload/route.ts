@@ -11,6 +11,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
+    // Validate file type server-side (client-supplied file.type cannot be trusted alone)
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    const fileExtensionRaw = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type) || !ALLOWED_EXTENSIONS.includes(fileExtensionRaw)) {
+      return NextResponse.json(
+        { error: 'Tipo de arquivo não permitido. Apenas imagens JPG, PNG, WebP e GIF são aceitas.' },
+        { status: 400 }
+      );
+    }
+
+    // Enforce a reasonable file size limit (5 MB)
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: 'Arquivo muito grande. O tamanho máximo permitido é 5 MB.' },
+        { status: 400 }
+      );
+    }
+
     // Check if Supabase is configured
     const isSupabaseConfigured = 
       process.env.NEXT_PUBLIC_SUPABASE_URL && 
@@ -28,8 +49,7 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
+    const fileName = `${uuidv4()}.${fileExtensionRaw}`;
     // We use a simple path in the 'images' bucket
     const filePath = fileName;
 
@@ -38,7 +58,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin.storage
       .from('images')
       .upload(filePath, buffer, {
-        contentType: file.type,
+        contentType: ALLOWED_MIME_TYPES.find(m => m === file.type) ?? 'application/octet-stream',
         upsert: false
       });
 

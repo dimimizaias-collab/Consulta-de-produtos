@@ -129,7 +129,7 @@ export function SettingsPage() {
     reader.readAsDataURL(file);
   };
 
-  const field = 'w-full bg-surface-container border border-on-surface/10 rounded-2xl px-4 py-3 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-on-surface/30';
+  const field = 'w-full bg-surface-container border border-on-surface/10 rounded-2xl px-4 py-3 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-colors placeholder:text-on-surface/30';
 
   return (
     <div className="space-y-10">
@@ -161,7 +161,7 @@ export function SettingsPage() {
               <button
                 onClick={() => setIsEditing(true)}
                 title="Editar informações"
-                className="w-10 h-10 rounded-2xl bg-on-surface/5 text-on-surface/40 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center"
+                className="w-10 h-10 rounded-2xl bg-on-surface/5 text-on-surface/40 hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center"
               >
                 <Pencil size={16} />
               </button>
@@ -230,7 +230,7 @@ export function SettingsPage() {
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => logoInputRef.current?.click()}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-black hover:bg-primary hover:text-white transition-all"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-xs font-black hover:bg-primary hover:text-white transition-colors"
                     >
                       <ImagePlus size={14} />
                       {storeInfo.logo ? 'Alterar logo' : 'Adicionar logo'}
@@ -238,7 +238,7 @@ export function SettingsPage() {
                     {storeInfo.logo && (
                       <button
                         onClick={() => setStoreInfo(prev => ({ ...prev, logo: '' }))}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-500 text-xs font-black hover:bg-red-100 transition-all"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 dark:text-red-400 text-xs font-black hover:bg-red-500/20 transition-colors"
                       >
                         <Trash2 size={14} />
                         Remover
@@ -296,7 +296,7 @@ export function SettingsPage() {
                 {hasData(storeInfo) && (
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="flex-1 py-4 rounded-2xl font-black text-sm text-on-surface/40 hover:bg-on-surface/5 transition-all uppercase tracking-widest"
+                    className="flex-1 py-4 rounded-2xl font-black text-sm text-on-surface/40 hover:bg-on-surface/5 transition-colors uppercase tracking-widest"
                   >
                     Cancelar
                   </button>
@@ -304,7 +304,7 @@ export function SettingsPage() {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-[2] flex items-center justify-center gap-2 bg-primary text-white py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-primary/20 uppercase tracking-widest active:scale-95 disabled:opacity-60"
+                  className="flex-[2] flex items-center justify-center gap-2 bg-primary text-white py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-[colors,transform] shadow-xl shadow-primary/20 uppercase tracking-widest active:scale-95 disabled:opacity-60"
                 >
                   {saved ? (
                     <>
@@ -346,7 +346,7 @@ export function SettingsPage() {
             <button
               onClick={() => applyTheme('light')}
               className={cn(
-                'relative flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-all group',
+                'relative flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-[colors,box-shadow] group',
                 theme === 'light'
                   ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
                   : 'border-on-surface/10 hover:border-on-surface/20 bg-surface-container'
@@ -377,7 +377,7 @@ export function SettingsPage() {
             <button
               onClick={() => applyTheme('dark')}
               className={cn(
-                'relative flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-all group',
+                'relative flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-[colors,box-shadow] group',
                 theme === 'dark'
                   ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
                   : 'border-on-surface/10 hover:border-on-surface/20 bg-surface-container'

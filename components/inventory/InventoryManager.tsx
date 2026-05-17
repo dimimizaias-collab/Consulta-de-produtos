@@ -99,9 +99,9 @@ export function InventoryManager({
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50/50 border border-red-100 p-6 rounded-[2rem] flex items-center gap-6 text-red-900 shadow-sm"
+          className="bg-red-500/10 border border-red-500/20 p-6 rounded-[2rem] flex items-center gap-6 text-red-700 dark:text-red-400 shadow-sm"
         >
-          <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 shadow-inner">
+          <div className="w-12 h-12 bg-red-500/15 rounded-2xl flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
             <AlertTriangle size={24} />
           </div>
           <div>
@@ -116,7 +116,7 @@ export function InventoryManager({
         <div className="flex items-center gap-4 bg-surface-container-low/50 backdrop-blur-xl px-2 py-2 rounded-[2rem] border border-on-surface/[0.03] shadow-sm ring-1 ring-on-surface/[0.02]">
           <div className="flex items-center gap-4 px-6 py-2">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em] leading-none mb-1.5">Fleet Size</span>
+              <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em] leading-none mb-1.5">Catálogo</span>
               <span className="text-2xl font-black text-on-surface leading-none">{products.length}</span>
             </div>
             <div className="h-8 w-[1px] bg-on-surface/[0.05]"></div>
@@ -128,17 +128,17 @@ export function InventoryManager({
           <button 
             onClick={() => setShowStockUpdateChoiceModal(true)}
             disabled={importing}
-            className="bg-amber-500/10 text-amber-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all flex items-center gap-2.5 disabled:opacity-50 group active:scale-95"
+            className="bg-amber-500/10 text-amber-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-[colors,transform] flex items-center gap-2.5 disabled:opacity-50 group active:scale-95"
           >
             <RefreshCw size={14} className={cn("transition-transform", importing ? "animate-spin" : "group-hover:rotate-180")} />
-            Refresh Inventory
+            Atualizar Estoque
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={onDownloadTemplate}
-            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-all flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
+            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
           >
             <Download size={14} />
             Template
@@ -147,28 +147,28 @@ export function InventoryManager({
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              "h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-sm border active:scale-95",
-              showFilters 
-                ? "bg-primary/10 border-primary/20 text-primary" 
+              "h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-[colors,transform] flex items-center gap-2.5 shadow-sm border active:scale-95",
+              showFilters
+                ? "bg-primary/10 border-primary/20 text-primary"
                 : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
             )}
           >
             <Filter size={14} />
-            Optimization
+            Filtros
           </button>
           
           <button 
             onClick={onAdd}
-            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-6 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-all flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
+            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-6 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
           >
             <Plus size={16} />
-            New Entry
+            Novo Produto
           </button>
           
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-all flex items-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-50 active:scale-95"
+            className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-50 active:scale-95"
           >
             {importing ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
@@ -193,13 +193,13 @@ export function InventoryManager({
           >
             <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 shadow-sm border border-on-surface/[0.03] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
               {[
-                { label: 'EAN Protocol', key: 'ean', placeholder: '789...' },
-                { label: 'Internal ID', key: 'internalCode', placeholder: 'SKU-001...' },
-                { label: 'Domain', key: 'category', placeholder: 'Domestic...' },
-                { label: 'Cluster', key: 'subcategory', placeholder: 'Kitchen...' },
-                { label: 'Signature', key: 'brand', placeholder: 'Lacta...' },
-                { label: 'Nomenclature', key: 'name', placeholder: 'Chocolate...' },
-                { label: 'Position', key: 'location', placeholder: 'Aisle A...' },
+                { label: 'EAN', key: 'ean', placeholder: '789...' },
+                { label: 'Código Interno', key: 'internalCode', placeholder: 'SKU-001...' },
+                { label: 'Categoria', key: 'category', placeholder: 'Doméstico...' },
+                { label: 'Subcategoria', key: 'subcategory', placeholder: 'Cozinha...' },
+                { label: 'Marca', key: 'brand', placeholder: 'Lacta...' },
+                { label: 'Nome', key: 'name', placeholder: 'Chocolate...' },
+                { label: 'Localização', key: 'location', placeholder: 'Corredor A...' },
               ].map((field) => (
                 <div key={field.key} className="space-y-2.5">
                   <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] ml-1">{field.label}</label>
@@ -208,7 +208,7 @@ export function InventoryManager({
                     value={(filters as any)[field.key]}
                     onChange={(e) => setFilters({...filters, [field.key]: e.target.value})}
                     placeholder={field.placeholder}
-                    className="w-full h-12 px-5 bg-surface-container-lowest border border-on-surface/[0.02] rounded-2xl text-xs font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none transition-all placeholder:text-on-surface/10"
+                    className="w-full h-12 px-5 bg-surface-container-lowest border border-on-surface/[0.02] rounded-2xl text-xs font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none transition-colors placeholder:text-on-surface/10"
                   />
                 </div>
               ))}
@@ -218,9 +218,9 @@ export function InventoryManager({
                     setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
                     setSearchQuery('');
                   }}
-                  className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary/5 px-4 py-2 rounded-full transition-all"
+                  className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:bg-primary/5 px-4 py-2 rounded-full transition-colors"
                 >
-                  Clear All Directives
+                  Limpar Filtros
                 </button>
               </div>
             </div>
@@ -247,7 +247,7 @@ export function InventoryManager({
               
               <button 
                 onClick={() => onEdit(sideProduct)}
-                className="absolute top-6 right-6 p-3 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-on-surface/[0.03] opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-primary hover:text-white text-on-surface translate-y-2 group-hover:translate-y-0"
+                className="absolute top-6 right-6 p-3 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-on-surface/[0.03] opacity-0 group-hover:opacity-100 transition-[opacity,background-color,color,transform] z-10 hover:bg-primary hover:text-white text-on-surface translate-y-2 group-hover:translate-y-0"
               >
                 <Edit2 size={16} />
               </button>
@@ -290,7 +290,7 @@ export function InventoryManager({
 
               <button 
                 onClick={() => onEdit(sideProduct)}
-                className="mt-auto w-full bg-on-surface/5 border border-on-surface/[0.03] text-on-surface/60 text-[11px] font-black py-4 rounded-2xl uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-all group/btn flex items-center justify-center gap-2"
+                className="mt-auto w-full bg-on-surface/5 border border-on-surface/[0.03] text-on-surface/60 text-[11px] font-black py-4 rounded-2xl uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-[colors,transform] group/btn flex items-center justify-center gap-2 active:scale-95"
               >
                 Optimization Console
                 <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
@@ -336,7 +336,7 @@ export function InventoryManager({
                    setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
                    setSearchQuery('');
                 }}
-                className="mt-8 text-xs font-black text-primary border-b border-primary/20 hover:border-primary transition-all pb-1"
+                className="mt-8 text-xs font-black text-primary border-b border-primary/20 hover:border-primary transition-colors pb-1"
               >
                  Reset Search Parameters
               </button>
