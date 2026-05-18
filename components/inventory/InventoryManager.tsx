@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  RefreshCw, 
-  Download, 
-  FileUp, 
-  Edit2, 
-  Package, 
+import {
+  Plus,
+  Search,
+  Filter,
+  RefreshCw,
+  Download,
+  FileUp,
+  Edit2,
+  Package,
   TrendingUp,
   AlertTriangle,
   LayoutGrid,
   ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
@@ -88,10 +89,17 @@ export function InventoryManager({
 
   const featuredProduct = useMemo(() => filteredProducts.find(p => p.isFeatured), [filteredProducts]);
   const sideProduct = useMemo(() => filteredProducts.find(p => p.isSide && p.id !== featuredProduct?.id), [filteredProducts, featuredProduct]);
-  const gridProducts = useMemo(() => 
-    filteredProducts.filter(p => p.id !== featuredProduct?.id && p.id !== sideProduct?.id), 
+  const gridProducts = useMemo(() =>
+    filteredProducts.filter(p => p.id !== featuredProduct?.id && p.id !== sideProduct?.id),
     [filteredProducts, featuredProduct, sideProduct]
   );
+
+  // Virtualized list — uses window scroll (no wrapper scroll container needed)
+  const rowVirtualizer = useWindowVirtualizer({
+    count: gridProducts.length,
+    estimateSize: () => 182, // estimated height of ProductCard + gap (px)
+    overscan: 5,             // render 5 extra items above/below viewport
+  });
 
   return (
     <div className="space-y-8">
@@ -230,13 +238,13 @@ export function InventoryManager({
 
       {/* Grid Layout */}
       <div className="grid grid-cols-12 gap-8">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {featuredProduct && (
             <FeaturedProduct key="featured" product={featuredProduct} onEdit={onEdit} />
           )}
 
           {sideProduct && (
-            <motion.div 
+            <motion.div
               key="side"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -298,16 +306,32 @@ export function InventoryManager({
             </motion.div>
           )}
 
-          {/* List View */}
-          <div key="grid-row" className="col-span-12 flex flex-col gap-6">
-            {gridProducts.map((product, index) => (
-              <ProductCard 
-                key={product.id || product.sku || `product-${index}`} 
-                {...product} 
-                onEdit={onEdit}
-                onViewLink={onViewLink}
-              />
-            ))}
+          {/* List View — virtualized */}
+          <div key="grid-row" className="col-span-12">
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const product = gridProducts[virtualRow.index];
+                return (
+                  <div
+                    key={product.id || product.sku || `product-${virtualRow.index}`}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      paddingBottom: '24px', // gap-6 equivalent
+                    }}
+                  >
+                    <ProductCard
+                      {...product}
+                      onEdit={onEdit}
+                      onViewLink={onViewLink}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {loading && (

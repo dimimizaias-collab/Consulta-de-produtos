@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -55,7 +55,7 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   id, sku, name, image, status, count, location, price, ean,
   category, subcategory, brand, isLow, is_mother, units_per_mother,
   linkedProductId, linked_product_id, onEdit, onViewLink,
@@ -193,4 +193,4 @@ export function ProductCard({
       </div>
     </motion.div>
   );
-}
+});

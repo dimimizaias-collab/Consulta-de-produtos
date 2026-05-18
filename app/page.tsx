@@ -403,6 +403,12 @@ export default function Page() {
   });
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
+  // Memoized derived values
+  const unreadNotificationCount = useMemo(
+    () => appNotifications.filter(n => !n.read).length,
+    [appNotifications]
+  );
+
   // Unique values for dropdowns
   const uniqueLocations = useMemo(() => Array.from(new Set(products.map(p => p.location).filter(Boolean))).sort(), [products]);
   const uniqueCategories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort(), [products]);
@@ -709,7 +715,8 @@ export default function Page() {
       .from('review_notes')
       .select('*')
       .eq('is_draft', false)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(300);
     if (data) {
       setReviewNotes(data.map((n: any) => ({
         id: n.id,
@@ -784,7 +791,8 @@ export default function Page() {
       const { data, error } = await supabase
         .from('requests')
         .select('*, products(*)')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       setRequests(data || []);
@@ -1518,7 +1526,6 @@ export default function Page() {
       const sell = item.product_price ?? 0;
       const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '—';
       return [
-        item.sku || '-',
         item.ean || '-',
         item.name || 'NÃO MAPEADO',
         displayQty.toString(),
@@ -1530,23 +1537,36 @@ export default function Page() {
     });
 
     // Column widths sum exactly to 182mm (A4 portrait usable width: 210 - 14*2)
+    // Cols: EAN(28) + Produto(62) + Qtde(11) + Distrib.(15) + PreçoUn.(24) + Total(24) + P.Venda(18) = 182
     autoTable(doc, {
       startY: estoqueTableStartY,
-      head: [['SKU', 'EAN', 'Produto', 'Qtde', 'Distrib.', 'Preço Un.', 'Total', 'P. Venda']],
+      head: [['EAN', 'Produto', 'Qtde', 'Distrib.', 'Preço Un.', 'Total', 'P. Venda']],
       body: tableData,
-      foot: [['', '', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
-      headStyles: { fillColor: [30, 64, 175], fontSize: 7, fontStyle: 'bold' },
-      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 7 },
-      styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'ellipsize', minCellHeight: 0 },
+      foot: [['', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
+      headStyles: { fillColor: [30, 64, 175], fontSize: 9, fontStyle: 'bold' },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        overflow: 'ellipsize',
+        minCellHeight: 0,
+        lineColor: [209, 213, 219],
+        lineWidth: 0.2,
+      },
       columnStyles: {
-        0: { cellWidth: 16 },
-        1: { cellWidth: 24 },
-        2: { cellWidth: 50 },
-        3: { halign: 'center', cellWidth: 9 },
-        4: { halign: 'center', cellWidth: 13 },
-        5: { halign: 'right', cellWidth: 23 },
-        6: { halign: 'right', cellWidth: 23 },
-        7: { halign: 'right', cellWidth: 24 },
+        0: { cellWidth: 28 },
+        1: { cellWidth: 62 },
+        2: { halign: 'center', cellWidth: 11 },
+        3: { halign: 'center', cellWidth: 15 },
+        4: { halign: 'right', cellWidth: 24 },
+        5: { halign: 'right', cellWidth: 24 },
+        6: { halign: 'right', cellWidth: 18 },
+      },
+      didParseCell: (data) => {
+        // Distrib. = col 3, P. Venda = col 6 — red text in head + body only
+        if ((data.column.index === 3 || data.column.index === 6) && data.section !== 'foot') {
+          data.cell.styles.textColor = [220, 38, 38];
+        }
       },
     });
 
@@ -2533,7 +2553,7 @@ export default function Page() {
           setActiveTab={setActiveTab}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          unreadNotifications={appNotifications.filter(n => !n.read).length}
+          unreadNotifications={unreadNotificationCount}
         />
         <main className="flex-1 ml-0 md:ml-[80px]">
           <TopNav
