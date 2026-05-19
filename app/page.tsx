@@ -16,10 +16,11 @@ import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
+import { MobileNoteView } from '@/components/MobileNoteView';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { XMLParser } from 'fast-xml-parser';
@@ -293,6 +294,7 @@ export default function Page() {
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
+  const [showMobileNoteView, setShowMobileNoteView] = useState(false);
   const [linkingItemIdx, setLinkingItemIdx] = useState<number | null>(null);
   const [noteItemLinkQuery, setNoteItemLinkQuery] = useState('');
   const [noteItemShowCreate, setNoteItemShowCreate] = useState(false);
@@ -1791,6 +1793,69 @@ export default function Page() {
       setNoteItemCreating(false);
     }
   };
+
+  const handleSaveNote = useCallback(async () => {
+    if (!viewingReviewNote) return;
+    setSavingNote(true);
+    try {
+      const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
+        ...item,
+        ean: viewingNoteEans[idx] ?? item.ean,
+        sku: viewingNoteSkus[idx] ?? item.sku,
+        qty: viewingNoteQtys[idx] ?? item.qty,
+        price: viewingNoteItemPrices[idx] ?? item.price,
+        unit: viewingNoteUnits[idx] ?? item.unit,
+        multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+        product_price: viewingNoteSellPrices[idx] ?? item.product_price,
+        verified: viewingNoteVerified[idx] ?? item.verified,
+        review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+        distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
+          ? parseInt(viewingNoteDistribuicao[idx]) || null
+          : (item.distribuicao ?? null),
+        adj_discount_mode: discountMode,
+        adj_discount_applied: discountMode === 'geral' ? discountApplied : null,
+        adj_discount_individual_type: discountIndividualType,
+        adj_discount_value: discountMode === 'individual' ? (parseFloat(itemDiscounts[idx] ?? '') || null) : null,
+        adj_surcharge_mode: surchargeMode,
+        adj_surcharge_applied: surchargeMode === 'geral' ? surchargeApplied : null,
+        adj_surcharge_individual_type: surchargeIndividualType,
+        adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
+      }));
+      const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
+      const { error: saveError } = await supabase.from('review_notes').update({
+        verified_count: updatedVerifiedCount,
+        items: updatedItems,
+        file_name: viewingReviewNote.fileName,
+        note_number: viewingReviewNote.noteNumber || null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', viewingReviewNote.id);
+      if (saveError) throw saveError;
+      const priceUpdates = updatedItems
+        .filter((item: any) => item.product_id && item.product_price > 0)
+        .map((item: any) => supabase.from('products').update({ price: item.product_price }).eq('id', item.product_id));
+      if (priceUpdates.length > 0) await Promise.all(priceUpdates);
+      setReviewNotes(prev => prev.map(n => {
+        if (n.id !== viewingReviewNote.id) return n;
+        return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber };
+      }));
+      setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber } : null);
+      setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
+    } finally {
+      setSavingNote(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges]);
+
+  const handleDeleteNote = useCallback(async () => {
+    if (!viewingReviewNote) return;
+    await supabase.from('review_notes').delete().eq('id', viewingReviewNote.id);
+    setReviewNotes(prev => prev.filter(n => n.id !== viewingReviewNote.id));
+    setViewingReviewNote(null);
+    setShowMobileNoteView(false);
+    setConfirmDeleteNote(false);
+  }, [viewingReviewNote]);
 
   const handleNoteEanPaste = (e: React.ClipboardEvent, rowIndex: number) => {
     const text = e.clipboardData.getData('text');
@@ -5820,68 +5885,7 @@ export default function Page() {
                 <div className="flex items-center gap-3">
                   <button
                     disabled={savingNote}
-                    onClick={async () => {
-                      setSavingNote(true);
-                      try {
-                        const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
-                          ...item,
-                          ean: viewingNoteEans[idx] ?? item.ean,
-                          sku: viewingNoteSkus[idx] ?? item.sku,
-                          qty: viewingNoteQtys[idx] ?? item.qty,
-                          price: viewingNoteItemPrices[idx] ?? item.price,
-                          unit: viewingNoteUnits[idx] ?? item.unit,
-                          multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
-                          product_price: viewingNoteSellPrices[idx] ?? item.product_price,
-                          verified: viewingNoteVerified[idx] ?? item.verified,
-                          review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
-                          distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
-                            ? parseInt(viewingNoteDistribuicao[idx]) || null
-                            : (item.distribuicao ?? null),
-                          adj_discount_mode: discountMode,
-                          adj_discount_applied: discountMode === 'geral' ? discountApplied : null,
-                          adj_discount_individual_type: discountIndividualType,
-                          adj_discount_value: discountMode === 'individual' ? (parseFloat(itemDiscounts[idx] ?? '') || null) : null,
-                          adj_surcharge_mode: surchargeMode,
-                          adj_surcharge_applied: surchargeMode === 'geral' ? surchargeApplied : null,
-                          adj_surcharge_individual_type: surchargeIndividualType,
-                          adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
-                        }));
-                        const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
-                        const { error: saveError } = await supabase.from('review_notes').update({
-                          verified_count: updatedVerifiedCount,
-                          items: updatedItems,
-                          file_name: viewingReviewNote.fileName,
-                          note_number: viewingReviewNote.noteNumber || null,
-                          updated_at: new Date().toISOString(),
-                        }).eq('id', viewingReviewNote.id);
-                        if (saveError) throw saveError;
-                        // Sincroniza preços de venda de volta à tabela products
-                        const priceUpdates = updatedItems
-                          .filter((item: any) => item.product_id && item.product_price > 0)
-                          .map((item: any) =>
-                            supabase.from('products').update({ price: item.product_price }).eq('id', item.product_id)
-                          );
-                        if (priceUpdates.length > 0) await Promise.all(priceUpdates);
-                        // Atualiza lista de notas sem fechar o modal
-                        setReviewNotes(prev => prev.map(n => {
-                          if (n.id !== viewingReviewNote.id) return n;
-                          return {
-                            ...n,
-                            verifiedCount: updatedVerifiedCount,
-                            items: updatedItems,
-                            fileName: viewingReviewNote.fileName,
-                            noteNumber: viewingReviewNote.noteNumber,
-                          };
-                        }));
-                        // Sincroniza o viewingReviewNote para refletir o estado salvo
-                        setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber } : null);
-                        setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
-                      } catch (err: any) {
-                        setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
-                      } finally {
-                        setSavingNote(false);
-                      }
-                    }}
+                    onClick={handleSaveNote}
                     className="px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
                   >
                     {savingNote
@@ -5894,12 +5898,7 @@ export default function Page() {
                     <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
                       <span className="text-sm font-bold text-red-400 whitespace-nowrap">Excluir nota?</span>
                       <button
-                        onClick={async () => {
-                          await supabase.from('review_notes').delete().eq('id', viewingReviewNote.id);
-                          setReviewNotes(prev => prev.filter(n => n.id !== viewingReviewNote.id));
-                          setViewingReviewNote(null);
-                          setConfirmDeleteNote(false);
-                        }}
+                        onClick={handleDeleteNote}
                         className="px-3 py-1 bg-red-600 text-white text-sm font-black rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Sim
@@ -5922,7 +5921,15 @@ export default function Page() {
                   )}
 
                   <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); }}
+                    onClick={() => setShowMobileNoteView(true)}
+                    className="px-6 py-3 bg-white/[0.06] text-[#f2f0e3] font-black rounded-xl hover:bg-white/[0.1] transition-all border border-white/[0.06] flex items-center gap-2"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    Mobile
+                  </button>
+
+                  <button
+                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); }}
                     className="px-8 py-3 bg-[#111110] text-[#f2f0e3] font-black rounded-xl hover:bg-black transition-all border border-white/[0.06]"
                   >
                     Fechar
@@ -6223,6 +6230,31 @@ export default function Page() {
               )}
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Note View */}
+      <AnimatePresence>
+        {showMobileNoteView && viewingReviewNote && (
+          <MobileNoteView
+            note={viewingReviewNote}
+            products={products}
+            eans={viewingNoteEans}              setEans={setViewingNoteEans}
+            skus={viewingNoteSkus}              setSkus={setViewingNoteSkus}
+            qtys={viewingNoteQtys}              setQtys={setViewingNoteQtys}
+            itemPrices={viewingNoteItemPrices}  setItemPrices={setViewingNoteItemPrices}
+            sellPrices={viewingNoteSellPrices}  setSellPrices={setViewingNoteSellPrices}
+            verified={viewingNoteVerified}       setVerified={setViewingNoteVerified}
+            units={viewingNoteUnits}
+            multipliers={viewingNoteMultipliers}
+            distribuicao={viewingNoteDistribuicao}
+            setNote={(n) => setViewingReviewNote(n as any)}
+            onClose={() => setShowMobileNoteView(false)}
+            onSave={handleSaveNote}
+            savingNote={savingNote}
+            onDelete={handleDeleteNote}
+            onVarios={(idx) => { setShowMobileNoteView(false); setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
+          />
         )}
       </AnimatePresence>
 
