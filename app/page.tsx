@@ -4869,19 +4869,20 @@ export default function Page() {
       {/* Ver Nota de Revisão (leitura) */}
       <AnimatePresence>
         {viewingReviewNote && (
-          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-[10px]">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setViewingReviewNote(null)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-7xl bg-[#1e1e18] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/[0.06]"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              className="relative w-full h-full bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-white/[0.06]"
             >
               <div className="p-6 border-b border-white/[0.07] flex items-center justify-between bg-[#252520] shrink-0">
                 <div className="flex items-center gap-4">
@@ -4984,16 +4985,16 @@ export default function Page() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full min-w-[1900px] border-collapse">
+                <table className="w-full border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#2e2e28] text-left">
-                      <th className="py-3 px-3 text-[10px] font-bold text-white/35 uppercase tracking-widest w-10 text-center">#</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap">Código</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/35 uppercase tracking-widest w-10 text-center border-b border-r border-white/[0.08]">#</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap border-b border-r border-white/[0.08]">Código</th>
                       {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                         const editable = reviewEditableCols.has(col);
                         const canEdit = col !== 'Identificação Interna';
                         return (
-                          <th key={col} className="py-3 px-4 text-[10px] font-bold uppercase tracking-widest">
+                          <th key={col} className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-widest border-b border-r border-white/[0.08]">
                             <div className="flex items-center gap-1.5">
                               <span className={editable ? 'text-emerald-400' : 'text-white/60'}>{col}</span>
                               {canEdit && (
@@ -5009,10 +5010,10 @@ export default function Page() {
                           </th>
                         );
                       })}
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Preço Custo</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Valor Total</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Preço Custo</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Valor Total</th>
                       {/* Desconto header */}
-                      <th className="py-3 px-4 text-right relative">
+                      <th className="py-2.5 px-3 text-right relative border-b border-r border-white/[0.08]">
                         <button
                           onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
                           className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-red-300 transition-colors"
@@ -5030,7 +5031,7 @@ export default function Page() {
                         )}
                       </th>
                       {/* Acréscimo header */}
-                      <th className="py-3 px-4 text-right relative">
+                      <th className="py-2.5 px-3 text-right relative border-b border-r border-white/[0.08]">
                         <button
                           onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
                           className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-green-300 transition-colors"
@@ -5047,13 +5048,13 @@ export default function Page() {
                           </div>
                         )}
                       </th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Preço Venda</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right">Markup</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest">Status</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Ok</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Revisão</th>
-                      <th className="py-3 px-4 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center">Distribuição</th>
-                      <th className="py-3 px-2 w-10" />
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Preço Venda</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Markup</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest border-b border-r border-white/[0.08]">Status</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Ok</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Revisão</th>
+                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Distribuição</th>
+                      <th className="py-2.5 px-2 w-8 border-b border-white/[0.08]" />
                     </tr>
                   </thead>
                   <tbody>
@@ -5087,85 +5088,101 @@ export default function Page() {
                         : null;
                       const isEven = idx % 2 === 0;
                       return (
-                        <tr key={idx} className={cn("border-b border-white/[0.04] hover:bg-white/[0.025] transition-colors", isEven ? "bg-transparent" : "bg-white/[0.02]")}>
+                        <tr key={idx} className={cn("border-b border-white/[0.055] hover:bg-white/[0.025] transition-colors", isEven ? "bg-transparent" : "bg-white/[0.02]")}>
                           {/* # */}
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111110] text-white/30 text-[10px] font-black">
                               {item.seq ?? idx + 1}
                             </span>
                           </td>
                           {/* Código fornecedor */}
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {item.supplier_code ? (
                               <span className="font-mono text-xs font-bold text-white/45">{item.supplier_code}</span>
                             ) : (
                               <span className="text-xs text-white/20 font-medium">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 max-w-[220px]">
+                          <td className="py-2 px-3 max-w-[220px] border-r border-white/[0.055]">
                             {reviewEditableCols.has('Produto na Nota') ? (
                               <input type="text" value={item.original_description || ''}
                                 onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
-                                className="w-full text-sm font-semibold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-full text-[11px] font-semibold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
-                              <p className="text-sm font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                              <p className="text-[11px] font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 max-w-[240px] relative">
-                            <div className="flex items-center gap-1 flex-wrap">
+                          <td className="py-2 px-3 max-w-[200px] relative border-r border-white/[0.055]">
+                            <div className="flex items-center gap-1.5">
                               {item.verified ? (
-                                <button
-                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all max-w-full"
-                                  title={`${item.name} — clique para alterar`}
-                                >
-                                  <CheckCircle2 size={11} className="shrink-0" />
-                                  <span className="text-[11px] font-bold truncate max-w-[100px]">{item.name}</span>
-                                </button>
+                                /* Produto vinculado: nome truncado + botão icon para trocar */
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[11px] font-bold text-emerald-400 truncate max-w-[120px]" title={item.name}>{item.name}</span>
+                                  <div className="relative group shrink-0">
+                                    <button
+                                      onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                      className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/18 transition-all active:scale-90"
+                                    >
+                                      <CheckCircle2 size={12} />
+                                    </button>
+                                    <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
+                                      Alterar vínculo
+                                    </span>
+                                  </div>
+                                </div>
                               ) : (
-                                <button
-                                  onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] text-white/35 border border-dashed border-white/15 rounded-lg hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all"
-                                >
-                                  <Plus size={11} />
-                                  <span className="text-[11px] font-bold">Vincular</span>
-                                </button>
+                                /* Não vinculado: ícone link */
+                                <div className="relative group shrink-0">
+                                  <button
+                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                    className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-white/[0.04] border border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
+                                  >
+                                    <Plus size={12} />
+                                  </button>
+                                  <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
+                                    Vincular
+                                  </span>
+                                </div>
                               )}
-                              <button
-                                onClick={() => { setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
-                                title="Vincular vários produtos a este item"
-                                className={cn(
-                                  'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
-                                  (item as any).multiLinked
-                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/18'
-                                    : 'bg-white/[0.04] text-white/35 border-dashed border-white/15 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
-                                )}
-                              >
-                                <Layers size={11} className="shrink-0" />
-                                <span>Vários</span>
-                              </button>
+                              {/* Botão Vários — sempre ícone */}
+                              <div className="relative group shrink-0">
+                                <button
+                                  onClick={() => { setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
+                                  className={cn(
+                                    'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
+                                    (item as any).multiLinked
+                                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/18'
+                                      : 'bg-white/[0.04] border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                                  )}
+                                >
+                                  <Layers size={12} />
+                                </button>
+                                <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
+                                  Vários
+                                </span>
+                              </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {reviewEditableCols.has('EAN') ? (
                               <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
                                 onPaste={e => handleNoteEanPaste(e, idx)}
-                                className="w-36 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-32 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-bold text-white/40">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {reviewEditableCols.has('SKU') ? (
                               <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
                                 onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
-                                className="w-28 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                className="w-24 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-bold text-white/40">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {reviewEditableCols.has('Qtd.') ? (
                               /* ── EDIT MODE: unit selector + qty input ── */
                               <div className="flex flex-col items-center gap-1">
@@ -5275,30 +5292,30 @@ export default function Page() {
                               </button>
                             )}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             <div className="flex justify-end">
-                              <div className="inline-flex items-center gap-1.5 bg-[#2e2e28] rounded-[9px] px-3 py-1.5">
-                                <span className="text-sm font-black text-white/40 shrink-0">R$</span>
+                              <div className="inline-flex items-center gap-1 bg-[#2e2e28] rounded-[8px] px-2 py-1">
+                                <span className="text-[10px] font-black text-white/40 shrink-0">R$</span>
                                 <input
                                   type="number"
                                   min="0"
                                   step="0.01"
                                   value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
                                   onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
-                                  className="w-16 text-sm font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-14 text-xs font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className={cn("text-sm font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
+                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
+                            <span className={cn("text-xs font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
                               {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
                             </span>
                           </td>
                           {/* Desconto cell */}
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
                             {discountMode === 'geral' && discountApplied ? (
-                              <span className="text-red-400 font-bold text-sm">
+                              <span className="text-red-400 font-bold text-xs">
                                 - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
                               </span>
                             ) : discountMode === 'individual' ? (
@@ -5309,15 +5326,15 @@ export default function Page() {
                                   value={itemDiscounts[idx] ?? ''}
                                   onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
                                   placeholder="0"
-                                  className="w-16 text-right text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-14 text-right text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
-                            ) : <span className="text-white/20 text-sm">—</span>}
+                            ) : <span className="text-white/20 text-xs">—</span>}
                           </td>
                           {/* Acréscimo cell */}
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
                             {surchargeMode === 'geral' && surchargeApplied ? (
-                              <span className="text-emerald-400 font-bold text-sm">
+                              <span className="text-emerald-400 font-bold text-xs">
                                 + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
                               </span>
                             ) : surchargeMode === 'individual' ? (
@@ -5328,12 +5345,12 @@ export default function Page() {
                                   value={itemSurcharges[idx] ?? ''}
                                   onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
                                   placeholder="0"
-                                  className="w-16 text-right text-sm font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-14 text-right text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
-                            ) : <span className="text-white/20 text-sm">—</span>}
+                            ) : <span className="text-white/20 text-xs">—</span>}
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
                             <input
                               type="number"
                               min="0"
@@ -5345,24 +5362,24 @@ export default function Page() {
                                 setViewingNoteSellPrices(updated);
                               }}
                               placeholder="0,00"
-                              className="w-24 text-right text-sm font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              className="w-20 text-right text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
                             {markup !== null ? (
                               <span className={cn(
-                                "inline-block px-2 py-1 rounded-lg text-xs font-black",
+                                "inline-block px-2 py-0.5 rounded-lg text-[11px] font-black",
                                 markup >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                               )}>
                                 {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-xs text-white/20 font-bold">—</span>
+                              <span className="text-[11px] text-white/20 font-bold">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             <span className={cn(
-                              "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                              "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase",
                               item.verified && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
                               item.verified ? "bg-blue-500/10 text-blue-400" :
                               "bg-red-500/10 text-red-400"
@@ -5370,7 +5387,7 @@ export default function Page() {
                               {item.status_translation}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
                             {viewingNoteVerified[idx] ? (
                               <button
                                 onClick={() => {
@@ -5378,9 +5395,9 @@ export default function Page() {
                                   updated[idx] = false;
                                   setViewingNoteVerified(updated);
                                 }}
-                                className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
+                                className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
                               >
-                                <CheckCircle2 size={14} />
+                                <CheckCircle2 size={12} />
                               </button>
                             ) : (
                               <button
@@ -5392,22 +5409,22 @@ export default function Page() {
                                   updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                                   setViewingNoteReviewTimestamps(updatedTs);
                                 }}
-                                className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
+                                className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
                               >
-                                <X size={14} />
+                                <X size={12} />
                               </button>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
                             {viewingNoteReviewTimestamps[idx] ? (
-                              <span className="inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
+                              <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
                                 {viewingNoteReviewTimestamps[idx]}
                               </span>
                             ) : (
-                              <span className="text-white/20 text-xs font-bold">—</span>
+                              <span className="text-white/20 text-[11px] font-bold">—</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
                             <input
                               type="text"
                               inputMode="numeric"
@@ -5419,11 +5436,11 @@ export default function Page() {
                                 setViewingNoteDistribuicao(u);
                               }}
                               placeholder="—"
-                              className="w-14 text-center text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              className="w-12 text-center text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
                           </td>
                           {/* Botão excluir item */}
-                          <td className="py-3 px-2 text-center">
+                          <td className="py-2 px-2 text-center">
                             {deleteConfirmIdx === idx ? (
                               <div className="flex items-center gap-1">
                                 <button
