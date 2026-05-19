@@ -7,7 +7,9 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: false,
+    // Type check runs locally via `npx tsc --noEmit` before every push.
+    // Skipping here avoids OOM kills on the VPS during the build step.
+    ignoreBuildErrors: true,
   },
   // Allow access to remote image placeholder.
   images: {
