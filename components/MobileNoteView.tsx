@@ -34,9 +34,143 @@ interface MobileNoteViewProps {
   onVarios: (idx: number) => void;
 }
 
+// ─── detect iOS ──────────────────────────────────────────────────────────────
+function isIOS() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+}
+
 // ─── barcode scanner ─────────────────────────────────────────────────────────
+// iOS: uses native camera via <input capture> + scanFile decode (reliable autofocus)
+// Android/desktop: uses real-time getUserMedia video feed
 
 function BarcodeScanner({
+  onScan, onClose,
+}: { onScan: (code: string) => void; onClose: () => void }) {
+  const ios = isIOS();
+
+  // ── iOS: photo capture path ─────────────────────────────────────────────
+  if (ios) {
+    return <IOSBarcodeCapture onScan={onScan} onClose={onClose} />;
+  }
+
+  // ── Android/desktop: real-time video path ───────────────────────────────
+  return <RealtimeBarcodeScanner onScan={onScan} onClose={onClose} />;
+}
+
+// ── iOS capture component ─────────────────────────────────────────────────────
+
+function IOSBarcodeCapture({
+  onScan, onClose,
+}: { onScan: (code: string) => void; onClose: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [decoding, setDecoding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // auto-open camera when component mounts
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.click(), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function handleCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDecoding(true);
+    setError(null);
+    try {
+      // Use a hidden div for the Html5Qrcode instance
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const scanner = new Html5Qrcode('ios-barcode-hidden');
+      const result = await scanner.scanFile(file, /* showImage */ false);
+      onScan(result);
+    } catch {
+      setError('Código não encontrado. Tente novamente com melhor iluminação e enquadramento.');
+    } finally {
+      setDecoding(false);
+      // reset input so user can capture again
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-[#0a0a08] flex flex-col">
+      {/* hidden div required by Html5Qrcode */}
+      <div id="ios-barcode-hidden" className="hidden" />
+
+      {/* top bar */}
+      <div className="flex items-center justify-between px-4 pt-12 pb-4 bg-[#0a0a08]">
+        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white active:bg-white/20">
+          <X size={20} />
+        </button>
+        <span className="text-white font-black text-sm">Ler código de barras</span>
+        <div className="w-10" />
+      </div>
+
+      {/* instructions / state */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 gap-6">
+        {decoding ? (
+          <>
+            <div className="w-16 h-16 rounded-full border-2 border-[#D81E1E]/30 border-t-[#D81E1E] animate-spin" />
+            <p className="text-white/60 text-sm font-medium text-center">Decodificando...</p>
+          </>
+        ) : error ? (
+          <>
+            <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center">
+              <AlertCircle size={36} className="text-red-400" />
+            </div>
+            <p className="text-white/80 text-sm font-bold text-center">{error}</p>
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="w-full max-w-xs py-4 bg-[#D81E1E] rounded-2xl text-white font-black flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-lg shadow-[#D81E1E]/25"
+            >
+              <Camera size={18} /> Tentar novamente
+            </button>
+          </>
+        ) : (
+          <>
+            {/* large camera icon as main CTA */}
+            <div className="w-28 h-28 rounded-[2rem] bg-[#D81E1E]/10 border border-[#D81E1E]/20 flex items-center justify-center">
+              <Camera size={52} className="text-[#D81E1E]" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-white font-black text-base">Câmera nativa do iPhone</p>
+              <p className="text-white/40 text-xs font-medium leading-relaxed">
+                Posicione o código de barras no centro e tire uma foto.{'\n'}A câmera vai focar automaticamente.
+              </p>
+            </div>
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="w-full max-w-xs py-4 bg-[#D81E1E] rounded-2xl text-white font-black flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-lg shadow-[#D81E1E]/25"
+            >
+              <Camera size={18} /> Abrir câmera
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="pb-10 text-center px-8">
+        <p className="text-white/20 text-[10px] font-medium">
+          Usa a câmera nativa do iOS — mesma qualidade de apps nativos
+        </p>
+      </div>
+
+      {/* hidden file input */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCapture}
+      />
+    </div>
+  );
+}
+
+// ── Android / desktop: real-time scanner ──────────────────────────────────────
+
+function RealtimeBarcodeScanner({
   onScan, onClose,
 }: { onScan: (code: string) => void; onClose: () => void }) {
   const scannerRef = useRef<any>(null);
@@ -47,12 +181,26 @@ function BarcodeScanner({
     let stopped = false;
     (async () => {
       try {
-        const { Html5Qrcode } = await import('html5-qrcode');
-        const scanner = new Html5Qrcode('mobile-barcode-reader');
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+        const scanner = new Html5Qrcode('mobile-barcode-reader', {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+          ],
+          verbose: false,
+        });
         scannerRef.current = scanner;
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 15, qrbox: { width: 280, height: 110 } },
+          {
+            fps: 20,
+            qrbox: { width: 300, height: 120 },
+            aspectRatio: 1.777,
+          },
           (text: string) => {
             if (stopped) return;
             onScan(text);
@@ -73,8 +221,8 @@ function BarcodeScanner({
   return (
     <div className="fixed inset-0 z-[300] bg-black flex flex-col">
       {/* top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/90 safe-area-top">
-        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white">
+      <div className="flex items-center justify-between px-4 py-3 bg-black/90">
+        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white active:bg-white/20">
           <X size={20} />
         </button>
         <span className="text-white font-black text-sm">Ler código de barras</span>
@@ -88,25 +236,38 @@ function BarcodeScanner({
         {/* aim overlay */}
         {started && !error && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-72 h-32 relative">
-              {/* corners */}
-              {[['top-0 left-0','border-t-4 border-l-4'],['top-0 right-0','border-t-4 border-r-4'],
-                ['bottom-0 left-0','border-b-4 border-l-4'],['bottom-0 right-0','border-b-4 border-r-4']].map(([pos, brd], i) => (
+            <div className="w-[300px] h-[120px] relative">
+              {([
+                ['top-0 left-0', 'border-t-4 border-l-4'],
+                ['top-0 right-0', 'border-t-4 border-r-4'],
+                ['bottom-0 left-0', 'border-b-4 border-l-4'],
+                ['bottom-0 right-0', 'border-b-4 border-r-4'],
+              ] as const).map(([pos, brd], i) => (
                 <div key={i} className={cn('absolute w-6 h-6 border-[#D81E1E] rounded-sm', pos, brd)} />
               ))}
-              {/* scan line */}
-              <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-[#D81E1E]/70" />
+              <motion.div
+                animate={{ top: ['20%', '75%', '20%'] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute left-0 right-0 h-0.5 bg-[#D81E1E]/80 shadow-[0_0_8px_#D81E1E]"
+                style={{ position: 'absolute' }}
+              />
             </div>
+          </div>
+        )}
+
+        {/* loading */}
+        {!started && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           </div>
         )}
 
         {/* error */}
         {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-8">
             <AlertCircle size={40} className="text-red-400" />
-            <p className="text-white text-sm font-bold text-center px-8">{error}</p>
-            <button onClick={onClose}
-              className="mt-2 px-6 py-3 bg-white/10 rounded-xl text-white font-bold text-sm">
+            <p className="text-white text-sm font-bold text-center">{error}</p>
+            <button onClick={onClose} className="mt-2 px-6 py-3 bg-white/10 rounded-xl text-white font-bold text-sm">
               Fechar
             </button>
           </div>
@@ -114,7 +275,7 @@ function BarcodeScanner({
       </div>
 
       <div className="px-4 py-4 bg-black/90 text-center">
-        <p className="text-white/40 text-xs font-medium">Aponte para o código de barras</p>
+        <p className="text-white/40 text-xs font-medium">Aponte para o código de barras e aguarde</p>
       </div>
     </div>
   );
