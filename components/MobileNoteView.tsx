@@ -40,6 +40,34 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 }
 
+// ─── image resize helper ─────────────────────────────────────────────────────
+// Shrinking a 12 MP photo to ~1500 px wide is the single biggest accuracy
+// improvement: the decoder sees a high-contrast crop instead of a tiny region
+// lost in a sea of background pixels.
+function resizeImageBlob(file: File | Blob, maxWidth = 1500): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        blob => (blob ? resolve(blob) : reject(new Error('canvas.toBlob failed'))),
+        'image/jpeg',
+        0.92,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src = url;
+  });
+}
+
 // ─── barcode scanner ─────────────────────────────────────────────────────────
 // iOS: uses native camera via <input capture> + scanFile decode (reliable autofocus)
 // Android/desktop: uses real-time getUserMedia video feed
@@ -79,11 +107,20 @@ function IOSBarcodeCapture({
     setDecoding(true);
     setError(null);
     try {
-      // Use a hidden div for the Html5Qrcode instance
-      const { Html5Qrcode } = await import('html5-qrcode');
-      const scanner = new Html5Qrcode('ios-barcode-hidden');
-      const result = await scanner.scanFile(file, /* showImage */ false);
-      onScan(result);
+      // Step 1: resize from 12 MP → ~1500 px (biggest accuracy gain)
+      const resized = await resizeImageBlob(file, 1500);
+
+      // Step 2: decode with ZXing C++ via WASM — handles EAN-13/8, Code128,
+      // Code39, UPC, QR Code, DataMatrix, PDF417, Aztec, etc.
+      const { readBarcodes } = await import('zxing-wasm/reader');
+      const results = await readBarcodes(resized, {
+        tryHarder: true,
+        formats: ['EAN13', 'EAN8', 'Code128', 'Code39', 'UPCA', 'UPCE',
+                  'QRCode', 'DataMatrix', 'PDF417', 'Aztec'],
+      });
+
+      if (!results.length || !results[0].text) throw new Error('not found');
+      onScan(results[0].text);
     } catch {
       setError('Código não encontrado. Tente novamente com melhor iluminação e enquadramento.');
     } finally {
@@ -95,9 +132,6 @@ function IOSBarcodeCapture({
 
   return (
     <div className="fixed inset-0 z-[300] bg-[#0a0a08] flex flex-col">
-      {/* hidden div required by Html5Qrcode */}
-      <div id="ios-barcode-hidden" className="hidden" />
-
       {/* top bar */}
       <div className="flex items-center justify-between px-4 pt-12 pb-4 bg-[#0a0a08]">
         <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white active:bg-white/20">
@@ -136,7 +170,8 @@ function IOSBarcodeCapture({
             <div className="text-center space-y-1">
               <p className="text-white font-black text-base">Câmera nativa do iPhone</p>
               <p className="text-white/40 text-xs font-medium leading-relaxed">
-                Posicione o código de barras no centro e tire uma foto.{'\n'}A câmera vai focar automaticamente.
+                Posicione o código de barras no centro e tire uma foto.
+                Suporta EAN, Code128, QR Code, DataMatrix e mais.
               </p>
             </div>
             <button
@@ -151,7 +186,7 @@ function IOSBarcodeCapture({
 
       <div className="pb-10 text-center px-8">
         <p className="text-white/20 text-[10px] font-medium">
-          Usa a câmera nativa do iOS — mesma qualidade de apps nativos
+          Decoder ZXing C++ (WASM) — 1D + 2D, alta precisão
         </p>
       </div>
 
