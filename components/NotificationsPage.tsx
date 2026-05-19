@@ -50,8 +50,6 @@ export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead, on
               {unread > 0 ? `${unread} não lida${unread > 1 ? 's' : ''}` : 'Tudo em dia'}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
           {onGoToFinancas && (
             <button
               onClick={onGoToFinancas}
@@ -61,16 +59,16 @@ export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead, on
               Finanças
             </button>
           )}
-          {unread > 0 && (
-            <button
-              onClick={onMarkAllRead}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-primary hover:bg-primary/5 transition-all"
-            >
-              <CheckCheck size={14} />
-              Marcar todas como lidas
-            </button>
-          )}
         </div>
+        {unread > 0 && (
+          <button
+            onClick={onMarkAllRead}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-primary hover:bg-primary/5 transition-all"
+          >
+            <CheckCheck size={14} />
+            Marcar todas como lidas
+          </button>
+        )}
       </div>
 
       {/* Lista */}
