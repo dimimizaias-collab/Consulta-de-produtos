@@ -1,5 +1,5 @@
 import type {Metadata, Viewport} from 'next';
-import { Manrope, Inter } from 'next/font/google';
+import { Manrope, Inter, DM_Mono } from 'next/font/google';
 import './globals.css';
 
 const manrope = Manrope({
@@ -10,6 +10,12 @@ const manrope = Manrope({
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+});
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-dm-mono',
 });
 
 export const viewport: Viewport = {
@@ -32,7 +38,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="pt-BR" className={`${manrope.variable} ${inter.variable}`}>
+    <html lang="pt-BR" className={`${manrope.variable} ${inter.variable} ${dmMono.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();` }} />
       </head>

@@ -3,6 +3,7 @@
 @theme {
   --font-manrope: var(--font-manrope);
   --font-inter: var(--font-inter);
+  --font-dm-mono: var(--font-dm-mono);
 
   /* ── Universo do R$1,99 — Design System tokens ── */
   --color-primary: #D81E1E;               /* brand-red-deep — mais sóbrio que #FF3131, mantém contraste */

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, CheckCheck, ArrowRight, Package } from 'lucide-react';
+import { Bell, CheckCheck, ArrowRight, Package, TrendingDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ interface NotificationsPageProps {
   notifications: AppNotification[];
   onGoToNote: (noteId: string) => void;
   onMarkAllRead: () => void;
+  onGoToFinancas?: () => void;
 }
 
 function timeAgo(dateStr: string): string {
@@ -32,7 +33,7 @@ function timeAgo(dateStr: string): string {
   return `há ${days} dia${days > 1 ? 's' : ''}`;
 }
 
-export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead }: NotificationsPageProps) {
+export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead, onGoToFinancas }: NotificationsPageProps) {
   const unread = notifications.filter(n => !n.read).length;
 
   return (
@@ -50,15 +51,26 @@ export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead }: 
             </p>
           </div>
         </div>
-        {unread > 0 && (
-          <button
-            onClick={onMarkAllRead}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-primary hover:bg-primary/5 transition-all"
-          >
-            <CheckCheck size={14} />
-            Marcar todas como lidas
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onGoToFinancas && (
+            <button
+              onClick={onGoToFinancas}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-on-surface/60 hover:bg-on-surface/5 border border-on-surface/10 hover:border-on-surface/20 transition-all active:scale-[0.97]"
+            >
+              <TrendingDown size={14} />
+              Finanças
+            </button>
+          )}
+          {unread > 0 && (
+            <button
+              onClick={onMarkAllRead}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-primary hover:bg-primary/5 transition-all"
+            >
+              <CheckCheck size={14} />
+              Marcar todas como lidas
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Lista */}

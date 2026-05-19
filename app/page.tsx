@@ -15,6 +15,7 @@ import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
+import { DespesasPage } from '@/components/finance/DespesasPage';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -2694,7 +2695,10 @@ export default function Page() {
                   notifications={appNotifications}
                   onGoToNote={handleGoToNote}
                   onMarkAllRead={handleMarkAllNotificationsRead}
+                  onGoToFinancas={() => setActiveTab('Despesas')}
                 />
+            ) : activeTab === 'Despesas' ? (
+                <DespesasPage onBack={() => setActiveTab('Notificações')} />
             ) : activeTab === 'Configurações' ? (
                 <SettingsPage />
             ) : activeTab === 'Dashboard' ? (
