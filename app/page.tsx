@@ -293,6 +293,14 @@ export default function Page() {
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
 
+  // estoque print layout picker
+  type EstoquePreset = 'completo' | 'financeiro' | 'contagem' | 'simples';
+  const [showEstoqueLayoutPicker, setShowEstoqueLayoutPicker] = useState(false);
+  const [estoquePickerArgs, setEstoquePickerArgs] = useState<{ items: any[]; adj?: any; meta?: any } | null>(null);
+  const [estoquePreset, setEstoquePreset] = useState<EstoquePreset>('completo');
+  const [estoqueStriped, setEstoqueStriped] = useState(false);
+  const [estoqueCompact, setEstoqueCompact] = useState(false);
+
   // discrepancy modal
   type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string } | null;
   const [viewingNoteDiscrepancies, setViewingNoteDiscrepancies] = useState<DiscrepancyData[]>([]);
@@ -1482,7 +1490,9 @@ export default function Page() {
     discountIndividualType: string; itemDiscounts: string[];
     surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
     surchargeIndividualType: string; itemSurcharges: string[];
-  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string }) => {
+  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string },
+  layout?: { preset: 'completo' | 'financeiro' | 'contagem' | 'simples'; striped: boolean; compact: boolean }
+  ) => {
     const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
     const formatCurrency = (val: number) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1505,6 +1515,46 @@ export default function Page() {
       }
       return cost - disc + sur;
     };
+
+    const preset   = layout?.preset   ?? 'completo';
+    const striped  = layout?.striped  ?? false;
+    const compact  = layout?.compact  ?? false;
+    const cellPad  = compact ? 1.2 : 2;
+    const fontSize = compact ? 8   : 9;
+
+    // ── Column definitions by preset ──────────────────────────────────────
+    // widths always sum to 182 mm (A4 portrait: 210 - 14*2 margins)
+    type ColSpec = { header: string; key: string; width: number; halign?: 'left'|'center'|'right'; redText?: boolean };
+    const PRESET_COLS: Record<string, ColSpec[]> = {
+      completo: [
+        { header: 'EAN',       key: 'ean',    width: 28 },
+        { header: 'Produto',   key: 'name',   width: 62 },
+        { header: 'Qtde',      key: 'qty',    width: 11, halign: 'center' },
+        { header: 'Distrib.',  key: 'distrib',width: 15, halign: 'center', redText: true },
+        { header: 'Preço Un.', key: 'preco',  width: 24, halign: 'right' },
+        { header: 'Total',     key: 'total',  width: 24, halign: 'right' },
+        { header: 'P. Venda',  key: 'pvenda', width: 18, halign: 'right', redText: true },
+      ],
+      financeiro: [
+        { header: 'EAN',       key: 'ean',    width: 26 },
+        { header: 'Produto',   key: 'name',   width: 68 },
+        { header: 'Qtde',      key: 'qty',    width: 13, halign: 'center' },
+        { header: 'Preço Un.', key: 'preco',  width: 25, halign: 'right' },
+        { header: 'Total',     key: 'total',  width: 28, halign: 'right' },
+        { header: 'P. Venda',  key: 'pvenda', width: 22, halign: 'right', redText: true },
+      ],
+      contagem: [
+        { header: 'Produto',   key: 'name',   width: 122 },
+        { header: 'Qtde',      key: 'qty',    width: 22,  halign: 'center' },
+        { header: 'Distrib.',  key: 'distrib',width: 38,  halign: 'center', redText: true },
+      ],
+      simples: [
+        { header: 'Produto',   key: 'name',   width: 152 },
+        { header: 'Qtde',      key: 'qty',    width: 30,  halign: 'center' },
+      ],
+    };
+    const cols = PRESET_COLS[preset];
+    const hasPriceCol = cols.some(c => c.key === 'total');
 
     const titlePartsE = [];
     if (meta?.supplierName) titlePartsE.push(meta.supplierName);
@@ -1539,47 +1589,62 @@ export default function Page() {
       totalGeral += total;
       const sell = item.product_price ?? 0;
       const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '—';
-      return [
-        item.ean || '-',
-        item.name || 'NÃO MAPEADO',
-        displayQty.toString(),
+
+      const valMap: Record<string, string> = {
+        ean:    item.ean || '-',
+        name:   item.name || 'NÃO MAPEADO',
+        qty:    displayQty.toString(),
         distrib,
-        formatCurrency(adjCost),
-        formatCurrency(total),
-        sell > 0 ? formatCurrency(sell) : '—',
-      ];
+        preco:  formatCurrency(adjCost),
+        total:  formatCurrency(total),
+        pvenda: sell > 0 ? formatCurrency(sell) : '—',
+      };
+      return cols.map(c => valMap[c.key] ?? '');
     });
 
-    // Column widths sum exactly to 182mm (A4 portrait usable width: 210 - 14*2)
-    // Cols: EAN(28) + Produto(62) + Qtde(11) + Distrib.(15) + PreçoUn.(24) + Total(24) + P.Venda(18) = 182
+    // Build foot row: blank cells except last two for total label + value (only when price cols exist)
+    const footRow = cols.map((c, i) => {
+      if (!hasPriceCol) return '';
+      if (c.key === 'pvenda' || (i === cols.length - 1 && !cols.some(x => x.key === 'pvenda'))) return formatCurrency(totalGeral);
+      if (c.key === 'total') return 'TOTAL GERAL';
+      return '';
+    });
+
+    const columnStyles: Record<number, any> = {};
+    cols.forEach((c, i) => {
+      columnStyles[i] = { cellWidth: c.width, ...(c.halign ? { halign: c.halign } : {}) };
+    });
+
     autoTable(doc, {
       startY: estoqueTableStartY,
-      head: [['EAN', 'Produto', 'Qtde', 'Distrib.', 'Preço Un.', 'Total', 'P. Venda']],
+      head: [cols.map(c => c.header)],
       body: tableData,
-      foot: [['', '', '', '', '', 'TOTAL GERAL', formatCurrency(totalGeral)]],
-      headStyles: { fillColor: [30, 64, 175], fontSize: 9, fontStyle: 'bold' },
-      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9 },
+      ...(hasPriceCol ? { foot: [footRow] } : {}),
+      headStyles: {
+        fillColor: [80, 80, 74],   // ← gray header (always)
+        textColor: [255, 255, 255],
+        fontSize,
+        fontStyle: 'bold',
+      },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize },
       styles: {
-        fontSize: 9,
-        cellPadding: 2,
+        fontSize,
+        cellPadding: cellPad,
         overflow: 'ellipsize',
         minCellHeight: 0,
         lineColor: [209, 213, 219],
         lineWidth: 0.2,
       },
-      columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 62 },
-        2: { halign: 'center', cellWidth: 11 },
-        3: { halign: 'center', cellWidth: 15 },
-        4: { halign: 'right', cellWidth: 24 },
-        5: { halign: 'right', cellWidth: 24 },
-        6: { halign: 'right', cellWidth: 18 },
-      },
+      columnStyles,
       didParseCell: (data) => {
-        // Distrib. = col 3, P. Venda = col 6 — red text in head + body only
-        if ((data.column.index === 3 || data.column.index === 6) && data.section !== 'foot') {
+        // Red text for marked columns in head + body
+        const col = cols[data.column.index];
+        if (col?.redText && data.section !== 'foot') {
           data.cell.styles.textColor = [220, 38, 38];
+        }
+        // Alternating row striping
+        if (striped && data.section === 'body' && data.row.index % 2 === 1) {
+          data.cell.styles.fillColor = [245, 245, 243];
         }
       },
     });
@@ -4457,7 +4522,7 @@ export default function Page() {
                     PDF
                   </button>
                   <button
-                    onClick={() => exportEstoqueToA4PDF(translatedNoteItems)}
+                    onClick={() => { setEstoquePickerArgs({ items: translatedNoteItems }); setShowEstoqueLayoutPicker(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -4619,7 +4684,7 @@ export default function Page() {
                     PDF
                   </button>
                   <button
-                    onClick={() => exportEstoqueToA4PDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
+                    onClick={() => { setEstoquePickerArgs({ items: pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adj: { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -5051,7 +5116,14 @@ export default function Page() {
                     PDF
                   </button>
                   <button
-                    onClick={() => exportEstoqueToA4PDF(viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
+                    onClick={() => {
+                      setEstoquePickerArgs({
+                        items: viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })),
+                        adj: { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges },
+                        meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
+                      });
+                      setShowEstoqueLayoutPicker(true);
+                    }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold hover:bg-blue-500/18 transition-colors border border-blue-500/15"
                   >
                     <Download size={16} />
@@ -6602,13 +6674,229 @@ export default function Page() {
       />
 
       {/* Hidden File Inputs */}
-      <input 
-        type="file" 
-        ref={noteFileInputRef} 
-        onChange={handleNoteImportExcel} 
-        accept=".xml,.csv,.xlsx,.xls" 
-        className="hidden" 
+      <input
+        type="file"
+        ref={noteFileInputRef}
+        onChange={handleNoteImportExcel}
+        accept=".xml,.csv,.xlsx,.xls"
+        className="hidden"
       />
+
+      {/* ── Estoque Print Layout Picker ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {showEstoqueLayoutPicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(8,8,6,0.78)' }}
+            onClick={() => setShowEstoqueLayoutPicker(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              className="bg-[#1e1e18] border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-white/35">Imprimir</p>
+                  <p className="text-base font-black text-[#f2f0e3]">Layout da Tabela</p>
+                </div>
+                <button
+                  onClick={() => setShowEstoqueLayoutPicker(false)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/[0.07] transition-all"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Preset cards 2×2 grid */}
+                {(() => {
+                  type PresetDef = {
+                    id: 'completo' | 'financeiro' | 'contagem' | 'simples';
+                    label: string;
+                    desc: string;
+                    cols: { label: string; flex: number; red?: boolean }[];
+                  };
+                  const presets: PresetDef[] = [
+                    {
+                      id: 'completo',
+                      label: 'Completo',
+                      desc: 'Todos os campos',
+                      cols: [
+                        { label: 'EAN', flex: 28 },
+                        { label: 'Produto', flex: 62 },
+                        { label: 'Qtd', flex: 11 },
+                        { label: 'Dist.', flex: 15, red: true },
+                        { label: 'Preço', flex: 24 },
+                        { label: 'Total', flex: 24 },
+                        { label: 'P.V.', flex: 18, red: true },
+                      ],
+                    },
+                    {
+                      id: 'financeiro',
+                      label: 'Financeiro',
+                      desc: 'Com preços, sem distribuição',
+                      cols: [
+                        { label: 'EAN', flex: 26 },
+                        { label: 'Produto', flex: 68 },
+                        { label: 'Qtd', flex: 13 },
+                        { label: 'Preço', flex: 25 },
+                        { label: 'Total', flex: 28 },
+                        { label: 'P.V.', flex: 22, red: true },
+                      ],
+                    },
+                    {
+                      id: 'contagem',
+                      label: 'Contagem',
+                      desc: 'Conferência de estoque',
+                      cols: [
+                        { label: 'Produto', flex: 122 },
+                        { label: 'Qtd', flex: 22 },
+                        { label: 'Distrib.', flex: 38, red: true },
+                      ],
+                    },
+                    {
+                      id: 'simples',
+                      label: 'Simples',
+                      desc: 'Nome e quantidade',
+                      cols: [
+                        { label: 'Produto', flex: 152 },
+                        { label: 'Qtd', flex: 30 },
+                      ],
+                    },
+                  ];
+
+                  return (
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {presets.map(p => {
+                        const active = estoquePreset === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setEstoquePreset(p.id)}
+                            className={cn(
+                              "text-left p-3 rounded-xl border transition-all",
+                              active
+                                ? "bg-blue-500/10 border-blue-400/40"
+                                : "bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06] hover:border-white/[0.12]"
+                            )}
+                            style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            <p className={cn("text-sm font-black mb-0.5", active ? "text-blue-300" : "text-[#f2f0e3]")}>{p.label}</p>
+                            <p className="text-[10px] text-white/40 mb-2">{p.desc}</p>
+                            {/* Mini table preview */}
+                            <div className="rounded overflow-hidden border border-white/[0.08]">
+                              {/* Gray header */}
+                              <div className="flex h-3.5" style={{ backgroundColor: 'rgb(80,80,74)' }}>
+                                {p.cols.map((c, i) => (
+                                  <div
+                                    key={i}
+                                    style={{ flex: c.flex }}
+                                    className={cn(
+                                      "border-r border-black/25 last:border-0 flex items-center justify-center",
+                                      c.red ? "text-red-300" : "text-white/70"
+                                    )}
+                                  >
+                                    <span style={{ fontSize: '4px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden' }}>{c.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* 3 data rows */}
+                              {[0, 1, 2].map(row => (
+                                <div
+                                  key={row}
+                                  className="flex"
+                                  style={{ height: '7px', backgroundColor: estoqueStriped && row % 2 === 1 ? 'rgb(245,245,243)' : 'rgb(255,255,255)' }}
+                                >
+                                  {p.cols.map((_, i) => (
+                                    <div
+                                      key={i}
+                                      style={{ flex: p.cols[i].flex }}
+                                      className="border-r border-slate-200 last:border-0"
+                                    />
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Toggles */}
+                <div className="flex gap-3">
+                  {[
+                    { label: 'Linhas listradas', value: estoqueStriped, set: setEstoqueStriped },
+                    { label: 'Compacto', value: estoqueCompact, set: setEstoqueCompact },
+                  ].map(({ label, value, set }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => set(v => !v)}
+                      className={cn(
+                        "flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all",
+                        value
+                          ? "bg-blue-500/10 border-blue-400/40 text-blue-300"
+                          : "bg-white/[0.03] border-white/[0.07] text-white/45 hover:text-white/60 hover:bg-white/[0.06]"
+                      )}
+                      style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                    >
+                      <div className={cn(
+                        "w-8 h-4 rounded-full relative shrink-0 transition-colors",
+                        value ? "bg-blue-500" : "bg-white/[0.15]"
+                      )} style={{ transition: 'background 170ms cubic-bezier(0.23,1,0.32,1)' }}>
+                        <span className={cn(
+                          "absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all",
+                          value ? "left-4" : "left-0.5"
+                        )} style={{ transition: 'left 170ms cubic-bezier(0.23,1,0.32,1)' }} />
+                      </div>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Footer actions */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setShowEstoqueLayoutPicker(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07] text-sm font-bold text-white/45 hover:bg-white/[0.08] hover:text-white/65 transition-all active:scale-[0.97]"
+                    style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!estoquePickerArgs) return;
+                      exportEstoqueToA4PDF(
+                        estoquePickerArgs.items,
+                        estoquePickerArgs.adj,
+                        estoquePickerArgs.meta,
+                        { preset: estoquePreset, striped: estoqueStriped, compact: estoqueCompact }
+                      );
+                      setShowEstoqueLayoutPicker(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-black shadow-lg shadow-blue-500/25 hover:bg-blue-600 transition-all active:scale-[0.97] flex items-center justify-center gap-2"
+                    style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                  >
+                    <Download size={14} />
+                    Gerar PDF
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
