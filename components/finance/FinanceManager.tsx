@@ -199,6 +199,10 @@ export function FinanceManager() {
   const [importDuplicateLogId, setImportDuplicateLogId] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState('');
 
+  // favorecido combobox
+  const [favOpen, setFavOpen] = useState(false);
+  const favRef = useRef<HTMLDivElement>(null);
+
   // dropdown
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -291,6 +295,8 @@ export function FinanceManager() {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setShowDropdown(false);
+      if (favRef.current && !favRef.current.contains(e.target as Node))
+        setFavOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -304,6 +310,7 @@ export function FinanceManager() {
     setVencimentoEnabled(false);
     setParcelasEnabled(false);
     setParcelas([]);
+    setFavOpen(false);
     fetchFavorecidos();
     setShowTxModal(true);
   };
@@ -759,7 +766,17 @@ export function FinanceManager() {
           <p className="text-sm text-on-surface/50 mt-0.5">Receitas, despesas e fluxo de caixa</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Nova Movimentação — kept first so it is never clipped by TopNav overlay */}
+          <button
+            onClick={openAddTx}
+            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+            style={{ transition: 'opacity 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1)' }}
+          >
+            <Plus size={16} />
+            Nova Movimentação
+          </button>
+
           {/* Dropdown Adicionar */}
           <div className="relative" ref={dropdownRef}>
             <button
@@ -823,14 +840,6 @@ export function FinanceManager() {
             Importar Extrato
           </button>
 
-          {/* Nova Movimentação */}
-          <button
-            onClick={openAddTx}
-            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
-          >
-            <Plus size={16} />
-            Nova Movimentação
-          </button>
         </div>
       </div>
 
@@ -1103,19 +1112,76 @@ export function FinanceManager() {
                     <label className={labelCls}>Data</label>
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
                   </div>
+                  {/* Favorecido — custom combobox */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Favorecido</label>
-                    <input list="favorecidos-list" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
-                    <datalist id="favorecidos-list">
-                      {favorecidos.map(f => <option key={f.id} value={f.nome_fiscal} />)}
-                    </datalist>
+                    <div className="flex gap-2 items-stretch">
+                      <div className="relative flex-1" ref={txForm.tipo === 'Receita' ? favRef : undefined}>
+                        <input
+                          value={txForm.favorecido}
+                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavOpen(true); }}
+                          onFocus={() => setFavOpen(true)}
+                          placeholder="Digite para buscar..."
+                          className={inputCls}
+                          autoComplete="off"
+                        />
+                        <AnimatePresence>
+                          {favOpen && txForm.tipo === 'Receita' && (
+                            <motion.ul
+                              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                              transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#2a2a24] border border-on-surface/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+                            >
+                              {favorecidos
+                                .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
+                                .map(fv => (
+                                  <li
+                                    key={fv.id}
+                                    onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: fv.nome_fiscal })); setFavOpen(false); }}
+                                    className="px-3 py-2.5 text-sm text-on-surface/90 hover:bg-on-surface/10 cursor-pointer transition-colors"
+                                  >
+                                    <span className="font-semibold">{fv.nome_fiscal}</span>
+                                    {fv.nome_banco && <span className="ml-2 text-xs text-on-surface/40">{fv.nome_banco}</span>}
+                                  </li>
+                                ))}
+                              {favorecidos.filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase())).length === 0 && (
+                                <li className="px-3 py-2.5 text-sm text-on-surface/40 italic">Nenhum resultado</li>
+                              )}
+                            </motion.ul>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openFavorecidoModal}
+                        title="Cadastrar favorecido"
+                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
                   </div>
+                  {/* Conta */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Conta</label>
-                    <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={inputCls}>
-                      <option value="">Selecione a conta...</option>
-                      {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
-                    </select>
+                    <div className="flex gap-2 items-stretch">
+                      <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={cn(inputCls, 'flex-1')}>
+                        <option value="">Selecione a conta...</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={openAddAccount}
+                        title="Cadastrar conta"
+                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Estabelecimento</label>
@@ -1242,19 +1308,76 @@ export function FinanceManager() {
                     )}
                   </div>
 
+                  {/* Favorecido — custom combobox */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Favorecido</label>
-                    <input list="favorecidos-list" value={txForm.favorecido} onChange={e => setTxForm(f => ({ ...f, favorecido: e.target.value }))} placeholder="Nome do favorecido" className={inputCls} />
-                    <datalist id="favorecidos-list">
-                      {favorecidos.map(f => <option key={f.id} value={f.nome_fiscal} />)}
-                    </datalist>
+                    <div className="flex gap-2 items-stretch">
+                      <div className="relative flex-1" ref={txForm.tipo === 'Despesa' ? favRef : undefined}>
+                        <input
+                          value={txForm.favorecido}
+                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavOpen(true); }}
+                          onFocus={() => setFavOpen(true)}
+                          placeholder="Digite para buscar..."
+                          className={inputCls}
+                          autoComplete="off"
+                        />
+                        <AnimatePresence>
+                          {favOpen && txForm.tipo === 'Despesa' && (
+                            <motion.ul
+                              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                              transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#2a2a24] border border-on-surface/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+                            >
+                              {favorecidos
+                                .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
+                                .map(fv => (
+                                  <li
+                                    key={fv.id}
+                                    onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: fv.nome_fiscal })); setFavOpen(false); }}
+                                    className="px-3 py-2.5 text-sm text-on-surface/90 hover:bg-on-surface/10 cursor-pointer transition-colors"
+                                  >
+                                    <span className="font-semibold">{fv.nome_fiscal}</span>
+                                    {fv.nome_banco && <span className="ml-2 text-xs text-on-surface/40">{fv.nome_banco}</span>}
+                                  </li>
+                                ))}
+                              {favorecidos.filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase())).length === 0 && (
+                                <li className="px-3 py-2.5 text-sm text-on-surface/40 italic">Nenhum resultado</li>
+                              )}
+                            </motion.ul>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openFavorecidoModal}
+                        title="Cadastrar favorecido"
+                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
                   </div>
+                  {/* Conta */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Conta</label>
-                    <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={inputCls}>
-                      <option value="">Selecione a conta...</option>
-                      {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
-                    </select>
+                    <div className="flex gap-2 items-stretch">
+                      <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={cn(inputCls, 'flex-1')}>
+                        <option value="">Selecione a conta...</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={openAddAccount}
+                        title="Cadastrar conta"
+                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Estabelecimento</label>
