@@ -17,7 +17,7 @@ import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -292,6 +292,16 @@ export default function Page() {
   const [viewingNoteSellPrices, setViewingNoteSellPrices] = useState<number[]>([]);
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
+
+  // discrepancy modal
+  type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string } | null;
+  const [viewingNoteDiscrepancies, setViewingNoteDiscrepancies] = useState<DiscrepancyData[]>([]);
+  const [discrepancyModalIdx, setDiscrepancyModalIdx] = useState<number | null>(null);
+  const [discrepancyTab, setDiscrepancyTab] = useState<'falta' | 'sobra'>('falta');
+  const [discrepancyQty, setDiscrepancyQty] = useState('');
+  const [discrepancyMissingAll, setDiscrepancyMissingAll] = useState(false);
+  const [discrepancyObs, setDiscrepancyObs] = useState('');
+
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
@@ -1821,6 +1831,7 @@ export default function Page() {
         adj_surcharge_applied: surchargeMode === 'geral' ? surchargeApplied : null,
         adj_surcharge_individual_type: surchargeIndividualType,
         adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
+        discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
       }));
       const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
       const { error: saveError } = await supabase.from('review_notes').update({
@@ -1847,7 +1858,7 @@ export default function Page() {
       setSavingNote(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges, viewingNoteDiscrepancies]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -1935,6 +1946,7 @@ export default function Page() {
     const pT = pad(viewingNoteReviewTimestamps, () => null as string | null);
     const pDisc = pad(itemDiscounts, () => '');
     const pSur = pad(itemSurcharges, () => '');
+    const pDiscr = pad(viewingNoteDiscrepancies, () => null as DiscrepancyData | null);
 
     const sp = <T,>(arr: T[], reps: T[]): T[] => { const r = [...arr]; r.splice(srcIdx, 1, ...reps); return r; };
 
@@ -1963,6 +1975,7 @@ export default function Page() {
     setViewingNoteReviewTimestamps(sp(pT, newItems.map(() => null)));
     setItemDiscounts(sp(pDisc, newItems.map(() => pDisc[srcIdx])));
     setItemSurcharges(sp(pSur, newItems.map(() => pSur[srcIdx])));
+    setViewingNoteDiscrepancies(sp(pDiscr, newItems.map(() => null)));
 
     setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
     setMultiLinkItemIdx(null); setMultiLinkItemEntries([]);
@@ -2713,6 +2726,7 @@ export default function Page() {
                     setReviewEditableCols(new Set());
                     setEditingNoteHeader(false);
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
+                    setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
                     const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
                     setDiscountMode(savedDiscountMode);
@@ -5255,6 +5269,8 @@ export default function Page() {
                             )}
                           </td>
                           <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
+                            {/* Discrepancy trigger — always rendered, flanks the qty block */}
+                            <div className="flex items-center gap-1.5">
                             {reviewEditableCols.has('Qtd.') ? (
                               /* ── EDIT MODE: unit selector + qty input ── */
                               <div className="flex flex-col items-center gap-1">
@@ -5331,7 +5347,14 @@ export default function Page() {
                                 className="relative inline-flex items-center gap-2 px-3 py-1.5 bg-[#2e2e28] rounded-[9px] hover:bg-[#3a3a34] transition-colors"
                               >
                                 <span className="text-sm font-black text-white/40">{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
-                                <span className="text-sm font-black text-[#f2f0e3]">{viewingNoteQtys[idx] ?? item.qty}</span>
+                                <span className="text-sm font-black text-[#f2f0e3] inline-flex items-baseline gap-0.5">
+                                  {viewingNoteQtys[idx] ?? item.qty}
+                                  {(() => {
+                                    const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                                    if (!d) return null;
+                                    return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
+                                  })()}
+                                </span>
                                 <AnimatePresence>
                                   {reviewUnitMenuIdx === idx && (
                                     <motion.div
@@ -5365,6 +5388,40 @@ export default function Page() {
                                 </AnimatePresence>
                               </button>
                             )}
+                            {/* Discrepancy trigger button */}
+                            {(() => {
+                              const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                              return (
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    const existing = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                                    setDiscrepancyTab(existing?.type ?? 'falta');
+                                    setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
+                                    setDiscrepancyMissingAll(existing?.missingAll ?? false);
+                                    setDiscrepancyObs(existing?.obs ?? '');
+                                    setDiscrepancyModalIdx(idx);
+                                  }}
+                                  title="Registrar divergência"
+                                  className={cn(
+                                    "relative flex items-center justify-center w-5 h-5 rounded-full transition-all shrink-0",
+                                    d?.type === 'falta' ? "text-red-400/90 hover:text-red-300"
+                                    : d?.type === 'sobra' ? "text-emerald-400/90 hover:text-emerald-300"
+                                    : "text-white/20 hover:text-white/50"
+                                  )}
+                                  style={{ transition: 'color 140ms cubic-bezier(0.23,1,0.32,1)' }}
+                                >
+                                  <AlertTriangle size={11} />
+                                  {d && (
+                                    <span className={cn(
+                                      "absolute -top-px -right-px w-[5px] h-[5px] rounded-full",
+                                      d.type === 'falta' ? 'bg-red-400 animate-pulse' : 'bg-emerald-400'
+                                    )} />
+                                  )}
+                                </button>
+                              );
+                            })()}
+                            </div>
                           </td>
                           <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             <div className="flex justify-end">
@@ -5543,6 +5600,7 @@ export default function Page() {
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
                                     setItemDiscounts(remove(itemDiscounts));
                                     setItemSurcharges(remove(itemSurcharges));
+                                    setViewingNoteDiscrepancies(remove(viewingNoteDiscrepancies));
                                     setDeleteConfirmIdx(null);
                                   }}
                                   className="px-2 py-1 bg-red-500 text-white text-[10px] font-black rounded-lg hover:bg-red-600 transition-all whitespace-nowrap"
@@ -5984,6 +6042,236 @@ export default function Page() {
                   </button>
                 </div>
               </div>
+
+              {/* ── Discrepancy Modal ─────────────────────────────────────── */}
+              <AnimatePresence>
+                {discrepancyModalIdx !== null && (() => {
+                  const item = viewingReviewNote.items[discrepancyModalIdx];
+                  const isFalta = discrepancyTab === 'falta';
+                  const accentCls = isFalta ? 'text-red-400' : 'text-emerald-400';
+                  const accentBg  = isFalta ? 'bg-red-500'   : 'bg-emerald-500';
+                  const accentBorder = isFalta ? 'border-red-500/40' : 'border-emerald-500/40';
+                  const accentRing   = isFalta ? 'focus:ring-red-400/40' : 'focus:ring-emerald-400/40';
+
+                  const handleSaveDiscrepancy = () => {
+                    const qty = discrepancyMissingAll ? 0 : (parseFloat(discrepancyQty) || 0);
+                    const updated = [...viewingNoteDiscrepancies];
+                    // Ensure array is long enough
+                    while (updated.length <= discrepancyModalIdx) updated.push(null);
+                    updated[discrepancyModalIdx] = {
+                      type: discrepancyTab,
+                      qty,
+                      missingAll: isFalta && discrepancyMissingAll,
+                      obs: discrepancyObs.trim(),
+                    };
+                    setViewingNoteDiscrepancies(updated);
+                    setDiscrepancyModalIdx(null);
+                  };
+
+                  const handleClearDiscrepancy = () => {
+                    const updated = [...viewingNoteDiscrepancies];
+                    while (updated.length <= discrepancyModalIdx) updated.push(null);
+                    updated[discrepancyModalIdx] = null;
+                    setViewingNoteDiscrepancies(updated);
+                    setDiscrepancyModalIdx(null);
+                  };
+
+                  return (
+                    <motion.div
+                      key="discrepancy-overlay"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute inset-0 z-[200] flex items-center justify-center"
+                      style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(10,10,8,0.72)' }}
+                      onClick={() => setDiscrepancyModalIdx(null)}
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className="bg-[#1e1e18] border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {/* Header */}
+                        <div className="bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
+                          <div className="flex items-center gap-2.5">
+                            <AlertTriangle size={15} className={accentCls} />
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-wider text-white/40">Divergência</p>
+                              <p className="text-sm font-black text-[#f2f0e3] leading-tight max-w-[180px] truncate">{item?.name || item?.original_description || `Item ${discrepancyModalIdx + 1}`}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setDiscrepancyModalIdx(null)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/[0.07] transition-all"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        {/* Tab switcher */}
+                        <div className="px-5 pt-4 pb-0 flex gap-2">
+                          <button
+                            onClick={() => setDiscrepancyTab('falta')}
+                            className={cn(
+                              "flex-1 py-2 rounded-xl text-sm font-black transition-all",
+                              discrepancyTab === 'falta'
+                                ? "bg-red-500/15 text-red-400 border border-red-500/30"
+                                : "bg-white/[0.04] text-white/35 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white/55"
+                            )}
+                            style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            Falta
+                          </button>
+                          <button
+                            onClick={() => setDiscrepancyTab('sobra')}
+                            className={cn(
+                              "flex-1 py-2 rounded-xl text-sm font-black transition-all",
+                              discrepancyTab === 'sobra'
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : "bg-white/[0.04] text-white/35 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white/55"
+                            )}
+                            style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            Sobra
+                          </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="px-5 py-4 space-y-3">
+                          <AnimatePresence mode="wait">
+                            {isFalta ? (
+                              <motion.div
+                                key="falta"
+                                initial={{ opacity: 0, x: -6 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 6 }}
+                                transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
+                                className="space-y-3"
+                              >
+                                {/* Toggle: não veio */}
+                                <button
+                                  type="button"
+                                  onClick={() => setDiscrepancyMissingAll(v => !v)}
+                                  className="w-full flex items-center gap-3 py-2.5 px-3 bg-white/[0.03] border border-white/[0.07] rounded-xl hover:bg-white/[0.06] transition-all text-left"
+                                >
+                                  <div className={cn(
+                                    "w-9 h-5 rounded-full relative shrink-0 transition-colors",
+                                    discrepancyMissingAll ? "bg-red-500" : "bg-white/[0.12]"
+                                  )} style={{ transition: 'background 180ms cubic-bezier(0.23,1,0.32,1)' }}>
+                                    <span className={cn(
+                                      "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all",
+                                      discrepancyMissingAll ? "left-4" : "left-0.5"
+                                    )} style={{ transition: 'left 180ms cubic-bezier(0.23,1,0.32,1)' }} />
+                                  </div>
+                                  <span className="text-sm font-semibold text-white/70">Produto não veio</span>
+                                </button>
+
+                                {/* Qty input */}
+                                <AnimatePresence>
+                                  {!discrepancyMissingAll && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.15 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                                        Qtd. faltando
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={discrepancyQty}
+                                        onChange={e => setDiscrepancyQty(e.target.value)}
+                                        autoFocus
+                                        placeholder="0"
+                                        className={cn(
+                                          "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                          "border-white/[0.08]", accentRing
+                                        )}
+                                        style={{ transition: 'box-shadow 150ms ease' }}
+                                      />
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key="sobra"
+                                initial={{ opacity: 0, x: 6 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -6 }}
+                                transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
+                              >
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                                  Qtd. sobrando
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={discrepancyQty}
+                                  onChange={e => setDiscrepancyQty(e.target.value)}
+                                  autoFocus
+                                  placeholder="0"
+                                  className={cn(
+                                    "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                    "border-white/[0.08]", accentRing
+                                  )}
+                                  style={{ transition: 'box-shadow 150ms ease' }}
+                                />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Observations */}
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                              Observações
+                            </label>
+                            <textarea
+                              value={discrepancyObs}
+                              onChange={e => setDiscrepancyObs(e.target.value)}
+                              placeholder="Detalhes adicionais sobre a divergência..."
+                              rows={3}
+                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none transition-all"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Footer actions */}
+                        <div className="px-5 pb-5 flex gap-2">
+                          <button
+                            onClick={handleClearDiscrepancy}
+                            className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07] text-sm font-bold text-white/45 hover:bg-white/[0.08] hover:text-white/65 transition-all active:scale-[0.97]"
+                            style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            Limpar
+                          </button>
+                          <button
+                            onClick={handleSaveDiscrepancy}
+                            className={cn(
+                              "flex-1 py-2.5 rounded-xl text-sm font-black text-white shadow-lg transition-all active:scale-[0.97]",
+                              isFalta
+                                ? "bg-red-500 hover:bg-red-600 shadow-red-500/25"
+                                : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25"
+                            )}
+                            style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
 
               {/* Desconto Geral dialog */}
               {discountDialog === 'geral' && (
