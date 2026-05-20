@@ -306,7 +306,7 @@ export function DespesasPage({ onBack }: DespesasPageProps) {
     const fetchExpenses = async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from('transactions')
+        .from('finance_transactions')
         .select('id, favorecido, estabelecimento, valor_final, vencimento, tipo_pagamento, pago')
         .eq('tipo', 'Despesa')
         .eq('pago', false)

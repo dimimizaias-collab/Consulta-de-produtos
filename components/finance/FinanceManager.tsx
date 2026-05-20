@@ -337,7 +337,8 @@ export function FinanceManager() {
           import_id: null,
         };
         await supabase.from('finance_transactions').insert(
-          valid.map(p => ({ ...base, data: p.data, valor_final: parseFloat(p.valor) || 0 }))
+          // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
+          valid.map(p => ({ ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0 }))
         );
       } else {
         if (txForm.valor_final <= 0) return;
