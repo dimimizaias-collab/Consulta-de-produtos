@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -5171,7 +5172,9 @@ export default function Page() {
                           <td className="py-2 px-3 max-w-[220px] border-r border-white/[0.055]">
                             {reviewEditableCols.has('Produto na Nota') ? (
                               <input type="text" value={item.original_description || ''}
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
                                 onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                onKeyDown={tableCellKeyDown('review-note', idx, 0)}
                                 className="w-full text-[11px] font-semibold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
@@ -5231,8 +5234,10 @@ export default function Page() {
                           <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {reviewEditableCols.has('EAN') ? (
                               <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
                                 onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
                                 onPaste={e => handleNoteEanPaste(e, idx)}
+                                onKeyDown={tableCellKeyDown('review-note', idx, 1)}
                                 className="w-32 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-bold text-white/40">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
@@ -5241,7 +5246,9 @@ export default function Page() {
                           <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
                             {reviewEditableCols.has('SKU') ? (
                               <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                 onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
+                                onKeyDown={tableCellKeyDown('review-note', idx, 2)}
                                 className="w-24 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <p className="text-[11px] font-bold text-white/40">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
@@ -5312,7 +5319,9 @@ export default function Page() {
                                   </AnimatePresence>
                                 </div>
                                 <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 3)}
                                   className="w-16 text-center text-sm font-black text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                               </div>
                             ) : (
@@ -5365,8 +5374,10 @@ export default function Page() {
                                   type="number"
                                   min="0"
                                   step="0.01"
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={4}
                                   value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
                                   onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 4)}
                                   className="w-14 text-xs font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                               </div>
@@ -5388,8 +5399,10 @@ export default function Page() {
                                 <span className="text-[10px] text-white/35 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
                                 <input
                                   type="number" min="0" step="0.01"
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
                                   value={itemDiscounts[idx] ?? ''}
                                   onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 5)}
                                   placeholder="0"
                                   className="w-14 text-right text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
@@ -5407,8 +5420,10 @@ export default function Page() {
                                 <span className="text-[10px] text-white/35 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
                                 <input
                                   type="number" min="0" step="0.01"
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
                                   value={itemSurcharges[idx] ?? ''}
                                   onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 6)}
                                   placeholder="0"
                                   className="w-14 text-right text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
@@ -5420,12 +5435,14 @@ export default function Page() {
                               type="number"
                               min="0"
                               step="0.01"
+                              data-nav-table="review-note" data-nav-row={idx} data-nav-col={7}
                               value={viewingNoteSellPrices[idx] || ''}
                               onChange={(e) => {
                                 const updated = [...viewingNoteSellPrices];
                                 updated[idx] = parseFloat(e.target.value) || 0;
                                 setViewingNoteSellPrices(updated);
                               }}
+                              onKeyDown={tableCellKeyDown('review-note', idx, 7)}
                               placeholder="0,00"
                               className="w-20 text-right text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />
@@ -5493,6 +5510,7 @@ export default function Page() {
                             <input
                               type="text"
                               inputMode="numeric"
+                              data-nav-table="review-note" data-nav-row={idx} data-nav-col={8}
                               value={viewingNoteDistribuicao[idx] ?? ''}
                               onChange={e => {
                                 const val = e.target.value.replace(/[^0-9]/g, '');
@@ -5500,6 +5518,7 @@ export default function Page() {
                                 u[idx] = val;
                                 setViewingNoteDistribuicao(u);
                               }}
+                              onKeyDown={tableCellKeyDown('review-note', idx, 8)}
                               placeholder="—"
                               className="w-12 text-center text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                             />

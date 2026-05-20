@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import type { ReviewNote } from './LogisticsCenter';
 import { InvoiceImportModal, type ImportedRow } from './InvoiceImportModal';
 
@@ -962,9 +963,11 @@ export function ManualManifestModal({
                       <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <div className="relative flex items-center">
                           <input type="text" value={row.supplierCode}
+                            data-nav-table="manifest" data-nav-row={idx} data-nav-col={0}
                             onChange={e => updateRow(row.id, { supplierCode: e.target.value, autoFilledCode: false })}
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
                             onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
+                            onKeyDown={tableCellKeyDown('manifest', idx, 0)}
                             className={cn(
                               "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-mono text-white/60 transition-colors",
                               row.autoFilledCode ? "pl-1 pr-5" : "px-1",
@@ -990,9 +993,11 @@ export function ManualManifestModal({
                             />
                           )}
                           <input type="text" value={row.description}
+                            data-nav-table="manifest" data-nav-row={idx} data-nav-col={1}
                             onChange={e => updateRow(row.id, { description: e.target.value, autoFilledDesc: false })}
                             onBlur={() => lookupMapping(row.id, row.supplierCode, row.description)}
                             onPaste={e => handleColumnPaste(e, idx, 'description')}
+                            onKeyDown={tableCellKeyDown('manifest', idx, 1)}
                             className={cn(
                               "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-medium text-[#f2f0e3]/80 transition-colors",
                               row.autoFilledDesc ? "pl-1 pr-5" : "px-1",
@@ -1013,8 +1018,10 @@ export function ManualManifestModal({
                           onClick={e => e.stopPropagation()}
                         >
                           <input type="text" value={row.unit}
+                            data-nav-table="manifest" data-nav-row={idx} data-nav-col={2}
                             onChange={e => updateRow(row.id, { unit: e.target.value })}
                             onPaste={e => handleColumnPaste(e, idx, 'unit')}
+                            onKeyDown={tableCellKeyDown('manifest', idx, 2)}
                             className={cn(
                               "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-white/60 text-center transition-colors",
                               pastedRange && pastedRange.field === 'unit' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
@@ -1081,8 +1088,10 @@ export function ManualManifestModal({
                       {/* Quantidade */}
                       <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <input type="number" value={row.quantity}
+                          data-nav-table="manifest" data-nav-row={idx} data-nav-col={3}
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
                           onPaste={e => handleColumnPaste(e, idx, 'quantity')}
+                          onKeyDown={tableCellKeyDown('manifest', idx, 3)}
                           className={cn(
                             "no-spinner w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-[#f2f0e3]/80 text-right transition-colors",
                             pastedRange && pastedRange.field === 'quantity' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
@@ -1092,8 +1101,10 @@ export function ManualManifestModal({
                       {/* Preço Unitário */}
                       <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
                         <input type="number" value={row.unitPrice}
+                          data-nav-table="manifest" data-nav-row={idx} data-nav-col={4}
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
                           onPaste={e => handleColumnPaste(e, idx, 'unitPrice')}
+                          onKeyDown={tableCellKeyDown('manifest', idx, 4)}
                           className={cn(
                             'no-spinner w-full border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
                             pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end
