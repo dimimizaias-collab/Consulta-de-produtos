@@ -5878,28 +5878,57 @@ export default function Page() {
                   <span className="text-white/15">·</span>
                   <span className="font-bold text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
                   <span className="text-white/15">·</span>
-                  <span className="text-white/40">Valor total da nota:</span>
-                  <span className="font-black text-[#f2f0e3]">
-                    {`R$ ${viewingReviewNote.items.reduce((sum: number, item: any, idx: number) => {
-                      const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
-                      const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                      let discAmt = 0;
-                      if (discountMode === 'geral' && discountApplied) {
-                        discAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
-                      } else if (discountMode === 'individual') {
-                        const v = parseFloat(itemDiscounts[idx] ?? '');
-                        if (!isNaN(v) && v > 0) discAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
-                      }
-                      let surAmt = 0;
-                      if (surchargeMode === 'geral' && surchargeApplied) {
-                        surAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
-                      } else if (surchargeMode === 'individual') {
-                        const v = parseFloat(itemSurcharges[idx] ?? '');
-                        if (!isNaN(v) && v > 0) surAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
-                      }
-                      return sum + (cost - discAmt + surAmt) * qty;
-                    }, 0).toFixed(2)}`}
-                  </span>
+                  {/* Single reduce: totalCost (nota) + markup ponderado */}
+                  {(() => {
+                    const { noteTotalCost, markupCost, markupRevenue } =
+                      viewingReviewNote.items.reduce(
+                        (acc: { noteTotalCost: number; markupCost: number; markupRevenue: number }, item: any, idx: number) => {
+                          const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
+                          const qty  = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                          let discAmt = 0;
+                          if (discountMode === 'geral' && discountApplied) {
+                            discAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
+                          } else if (discountMode === 'individual') {
+                            const v = parseFloat(itemDiscounts[idx] ?? '');
+                            if (!isNaN(v) && v > 0) discAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
+                          }
+                          let surAmt = 0;
+                          if (surchargeMode === 'geral' && surchargeApplied) {
+                            surAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
+                          } else if (surchargeMode === 'individual') {
+                            const v = parseFloat(itemSurcharges[idx] ?? '');
+                            if (!isNaN(v) && v > 0) surAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+                          }
+                          const adjCost   = cost - discAmt + surAmt;
+                          const sellPrice = viewingNoteSellPrices[idx] ?? (item as any).product_price ?? 0;
+                          const hasMarkup = adjCost > 0 && sellPrice > 0;
+                          return {
+                            noteTotalCost:  acc.noteTotalCost  + (adjCost > 0 ? adjCost * qty : 0),
+                            markupCost:     acc.markupCost     + (hasMarkup ? adjCost    * qty : 0),
+                            markupRevenue:  acc.markupRevenue  + (hasMarkup ? sellPrice  * qty : 0),
+                          };
+                        },
+                        { noteTotalCost: 0, markupCost: 0, markupRevenue: 0 },
+                      );
+                    const noteMarkup = markupCost > 0
+                      ? (markupRevenue - markupCost) / markupCost * 100
+                      : null;
+                    return (
+                      <>
+                        <span className="text-white/40">Valor total da nota:</span>
+                        <span className="font-black text-[#f2f0e3]">R$ {noteTotalCost.toFixed(2)}</span>
+                        {noteMarkup !== null && (
+                          <>
+                            <span className="text-white/15">·</span>
+                            <span className="text-white/40">Markup total:</span>
+                            <span className={cn('font-black', noteMarkup >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                              {noteMarkup >= 0 ? '+' : ''}{noteMarkup.toFixed(1)}%
+                            </span>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-3">
                   <button
