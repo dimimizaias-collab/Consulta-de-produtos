@@ -203,8 +203,8 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 flex flex-col"
-          style={{ backgroundColor: 'var(--bt-bg)' }}
+          className="fixed inset-0 z-[500] flex flex-col bg-[#FFFCEC] dark:bg-[#0f0f0c]"
+          style={{ minHeight: '100dvh' }}
         >
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div
@@ -309,7 +309,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           </div>
 
           {/* ── Table ──────────────────────────────────────────────────── */}
-          <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2">
+          <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2 bg-[#FFFCEC] dark:bg-[#0f0f0c]">
             <table
               className="w-full"
               style={{
