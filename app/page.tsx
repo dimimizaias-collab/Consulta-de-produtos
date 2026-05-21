@@ -339,7 +339,7 @@ export default function Page() {
   const [multiLinkItemNewEan, setMultiLinkItemNewEan] = useState('');
   const [multiLinkItemCreating, setMultiLinkItemCreating] = useState(false);
   // Discount/surcharge column states
-  type AdjType = 'pct' | 'fixed';
+  type AdjType = 'pct' | 'fixed' | 'fixed_total';
   type AdjMode = 'none' | 'geral' | 'individual';
   const [discountDropdown, setDiscountDropdown] = useState(false);
   const [discountDialog, setDiscountDialog] = useState<'geral' | 'individual' | null>(null);
@@ -1348,7 +1348,10 @@ export default function Page() {
         sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
       } else if (adj.surchargeMode === 'individual') {
         const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+        if (!isNaN(v) && v > 0) {
+          const qty = items[idx]?.qty || 1;
+          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
+        }
       }
       return cost - disc + sur;
     };
@@ -1410,7 +1413,10 @@ export default function Page() {
         sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
       } else if (adj.surchargeMode === 'individual') {
         const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+        if (!isNaN(v) && v > 0) {
+          const qty = items[idx]?.qty || 1;
+          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
+        }
       }
       return cost - disc + sur;
     };
@@ -1513,7 +1519,10 @@ export default function Page() {
         sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
       } else if (adj.surchargeMode === 'individual') {
         const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+        if (!isNaN(v) && v > 0) {
+          const qty = items[idx]?.qty || 1;
+          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
+        }
       }
       return cost - disc + sur;
     };
@@ -5072,9 +5081,9 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-              className="relative w-full h-full bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-white/[0.06]"
+              className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
             >
-              <div className="p-6 border-b border-white/[0.07] flex items-center justify-between bg-[#252520] shrink-0">
+              <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between bg-surface-container dark:bg-[#252520] shrink-0">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                     <FileText size={24} />
@@ -5089,9 +5098,9 @@ export default function Page() {
                             value={viewingReviewNote.fileName}
                             onChange={e => setViewingReviewNote({ ...viewingReviewNote, fileName: e.target.value })}
                             placeholder="Nome da nota"
-                            className="text-xl font-black text-[#f2f0e3] border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-white/20"
+                            className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-on-surface/20"
                           />
-                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-white/[0.07] rounded-lg transition-colors" title="Confirmar">
+                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors" title="Confirmar">
                             <CheckCircle2 size={16} className="text-primary" />
                           </button>
                         </div>
@@ -5101,25 +5110,25 @@ export default function Page() {
                             value={viewingReviewNote.noteNumber || ''}
                             onChange={e => setViewingReviewNote({ ...viewingReviewNote, noteNumber: e.target.value || undefined })}
                             placeholder="Número da nota"
-                            className="text-sm font-bold text-white/60 border-b border-white/20 outline-none bg-transparent w-48 placeholder:text-white/20"
+                            className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent w-48 placeholder:text-on-surface/20"
                           />
                         </div>
                         {viewingReviewNote.supplierName && (
-                          <span className="text-xs font-bold text-white/40">{viewingReviewNote.supplierName}</span>
+                          <span className="text-xs font-bold text-on-surface/40">{viewingReviewNote.supplierName}</span>
                         )}
                       </div>
                     ) : (
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xl font-black text-[#f2f0e3]">
-                            {viewingReviewNote.fileName || <span className="text-white/30 font-medium">Nota sem nome</span>}
+                          <h3 className="text-xl font-black text-on-surface">
+                            {viewingReviewNote.fileName || <span className="text-on-surface/30 font-medium">Nota sem nome</span>}
                           </h3>
                           {viewingReviewNote.supplierName && (
-                            <span className="text-sm font-bold text-white/45">{viewingReviewNote.supplierName}</span>
+                            <span className="text-sm font-bold text-on-surface/45">{viewingReviewNote.supplierName}</span>
                           )}
                           <button
                             onClick={() => setEditingNoteHeader(true)}
-                            className="p-1 hover:bg-white/[0.07] rounded-lg transition-colors text-white/30 hover:text-white/60"
+                            className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60"
                             title="Editar nome e número"
                           >
                             <Pencil size={14} />
@@ -5127,11 +5136,11 @@ export default function Page() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           {viewingReviewNote.noteNumber ? (
-                            <span className="px-2 py-0.5 bg-white/[0.07] rounded-lg text-xs font-black text-white/50">{viewingReviewNote.noteNumber}</span>
+                            <span className="px-2 py-0.5 bg-on-surface/[0.07] rounded-lg text-xs font-black text-on-surface/50">{viewingReviewNote.noteNumber}</span>
                           ) : (
                             <button
                               onClick={() => setEditingNoteHeader(true)}
-                              className="text-xs text-white/20 hover:text-white/50 transition-colors"
+                              className="text-xs text-on-surface/20 hover:text-on-surface/50 transition-colors"
                             >
                               + Número da nota
                             </button>
@@ -5140,9 +5149,9 @@ export default function Page() {
                       </div>
                     )}
                     {viewingReviewNote.accessKey && (
-                      <p className="text-[10px] font-mono text-white/30 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
+                      <p className="text-[10px] font-mono text-on-surface/30 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
                     )}
-                    <p className="text-xs text-white/35 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
+                    <p className="text-xs text-on-surface/35 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -5174,9 +5183,9 @@ export default function Page() {
                     <Download size={16} />
                     Estoque
                   </button>
-                  <div className="w-px h-8 bg-white/[0.08] mx-2" />
-                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-white/[0.07] rounded-full transition-colors">
-                    <X size={24} className="text-white/35" />
+                  <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
+                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-on-surface/[0.07] rounded-full transition-colors">
+                    <X size={24} className="text-on-surface/35" />
                   </button>
                 </div>
               </div>
@@ -5313,7 +5322,11 @@ export default function Page() {
                         surchargeAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
                       } else if (surchargeMode === 'individual') {
                         const v = parseFloat(itemSurcharges[idx] ?? '');
-                        if (!isNaN(v) && v > 0) surchargeAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+                        if (!isNaN(v) && v > 0) {
+                          surchargeAmt = surchargeIndividualType === 'pct' ? cost * v / 100
+                            : surchargeIndividualType === 'fixed_total' ? v / (displayQty || 1)
+                            : v;
+                        }
                       }
                       const hasDiscount = discountAmt > 0;
                       const hasSurcharge = surchargeAmt > 0;
@@ -5669,7 +5682,9 @@ export default function Page() {
                                 </span>
                               ) : surchargeMode === 'individual' ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>
+                                    {surchargeIndividualType === 'pct' ? '%' : surchargeIndividualType === 'fixed_total' ? 'R$∑' : 'R$'}
+                                  </span>
                                   <input
                                     type="number" min="0" step="0.01"
                                     data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
@@ -6152,12 +6167,12 @@ export default function Page() {
                 );
               })()}
 
-              <div className="p-6 border-t border-white/[0.07] bg-[#252520] flex items-center justify-between shrink-0">
-                <div className="text-sm text-white/40 flex items-center gap-2 flex-wrap">
-                  Total: <span className="font-bold text-[#f2f0e3]">{viewingReviewNote.itemCount} itens</span>
-                  <span className="text-white/15">·</span>
-                  <span className="font-bold text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
-                  <span className="text-white/15">·</span>
+              <div className="p-6 border-t border-line dark:border-white/[0.07] bg-surface-container dark:bg-[#252520] flex items-center justify-between shrink-0">
+                <div className="text-sm text-on-surface/40 flex items-center gap-2 flex-wrap">
+                  Total: <span className="font-bold text-on-surface">{viewingReviewNote.itemCount} itens</span>
+                  <span className="text-on-surface/15">·</span>
+                  <span className="font-bold text-emerald-500 dark:text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
+                  <span className="text-on-surface/15">·</span>
                   {/* Single reduce: totalCost (nota) + markup ponderado */}
                   {(() => {
                     const { noteTotalCost, markupCost, markupRevenue } =
@@ -6177,7 +6192,12 @@ export default function Page() {
                             surAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
                           } else if (surchargeMode === 'individual') {
                             const v = parseFloat(itemSurcharges[idx] ?? '');
-                            if (!isNaN(v) && v > 0) surAmt = surchargeIndividualType === 'pct' ? cost * v / 100 : v;
+                            if (!isNaN(v) && v > 0) {
+                              const qty = viewingNoteQtys[idx] ?? item.qty ?? 1;
+                              surAmt = surchargeIndividualType === 'pct' ? cost * v / 100
+                                : surchargeIndividualType === 'fixed_total' ? v / (qty || 1)
+                                : v;
+                            }
                           }
                           const adjCost   = cost - discAmt + surAmt;
                           const sellPrice = viewingNoteSellPrices[idx] ?? (item as any).product_price ?? 0;
@@ -6195,12 +6215,12 @@ export default function Page() {
                       : null;
                     return (
                       <>
-                        <span className="text-white/40">Valor total da nota:</span>
-                        <span className="font-black text-[#f2f0e3]">R$ {noteTotalCost.toFixed(2)}</span>
+                        <span className="text-on-surface/40">Valor total da nota:</span>
+                        <span className="font-black text-on-surface">R$ {noteTotalCost.toFixed(2)}</span>
                         {noteMarkup !== null && (
                           <>
-                            <span className="text-white/15">·</span>
-                            <span className="text-white/40">Markup total:</span>
+                            <span className="text-on-surface/15">·</span>
+                            <span className="text-on-surface/40">Markup total:</span>
                             <span className={cn('font-black', noteMarkup >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                               {noteMarkup >= 0 ? '+' : ''}{noteMarkup.toFixed(1)}%
                             </span>
@@ -6233,7 +6253,7 @@ export default function Page() {
                       </button>
                       <button
                         onClick={() => setConfirmDeleteNote(false)}
-                        className="px-3 py-1 bg-white/[0.07] border border-white/[0.1] text-white/60 text-sm font-bold rounded-lg hover:bg-white/[0.12] transition-colors"
+                        className="px-3 py-1 bg-on-surface/[0.07] border border-on-surface/[0.1] text-on-surface/60 text-sm font-bold rounded-lg hover:bg-on-surface/[0.12] transition-colors"
                       >
                         Não
                       </button>
@@ -6250,7 +6270,7 @@ export default function Page() {
 
                   <button
                     onClick={() => setShowMobileNoteView(true)}
-                    className="px-6 py-3 bg-white/[0.06] text-[#f2f0e3] font-black rounded-xl hover:bg-white/[0.1] transition-all border border-white/[0.06] flex items-center gap-2"
+                    className="px-6 py-3 bg-on-surface/[0.06] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.1] transition-all border border-on-surface/[0.06] flex items-center gap-2"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
                     Mobile
@@ -6258,7 +6278,7 @@ export default function Page() {
 
                   <button
                     onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); }}
-                    className="px-8 py-3 bg-[#111110] text-[#f2f0e3] font-black rounded-xl hover:bg-black transition-all border border-white/[0.06]"
+                    className="px-8 py-3 bg-on-surface/[0.08] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.14] transition-all border border-on-surface/[0.08] dark:bg-[#111110] dark:border-white/[0.06] dark:hover:bg-black"
                   >
                     Fechar
                   </button>
@@ -6767,17 +6787,44 @@ export default function Page() {
               {/* Acréscimo Individual dialog */}
               {surchargeDialog === 'individual' && (
                 <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
-                  <div className="bg-white rounded-2xl p-6 w-72 shadow-2xl">
+                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
                     <h4 className="text-base font-black text-slate-900 mb-1">Acréscimo Individual</h4>
-                    <p className="text-xs text-slate-400 mb-5">Escolha o tipo de valor para cada item</p>
-                    <div className="flex gap-3 mb-5">
-                      <button onClick={() => setSurchargeIndividualType('pct')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                    <p className="text-xs text-slate-400 mb-4">Escolha o tipo e a base de cálculo para cada item</p>
+
+                    {/* Tipo: % ou R$ */}
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</p>
+                    <div className="flex gap-3 mb-4">
+                      <button onClick={() => setSurchargeIndividualType('pct')} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
                         <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
                       </button>
-                      <button onClick={() => setSurchargeIndividualType('fixed')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                      <button onClick={() => { if (surchargeIndividualType === 'pct') setSurchargeIndividualType('fixed'); }} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType !== 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
                         <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
                       </button>
                     </div>
+
+                    {/* Base: apenas quando R$ selecionado */}
+                    {surchargeIndividualType !== 'pct' && (
+                      <>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar sobre</p>
+                        <div className="flex gap-3 mb-4">
+                          <button
+                            onClick={() => setSurchargeIndividualType('fixed')}
+                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", surchargeIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
+                          >
+                            <span className="text-sm">R$/un</span>
+                            <span className="text-[10px] font-medium leading-tight">Preço Custo<br/>(por unidade)</span>
+                          </button>
+                          <button
+                            onClick={() => setSurchargeIndividualType('fixed_total')}
+                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", surchargeIndividualType === 'fixed_total' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
+                          >
+                            <span className="text-sm">R$∑</span>
+                            <span className="text-[10px] font-medium leading-tight">Valor Total<br/>(rateado por qtd.)</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+
                     <div className="flex gap-2">
                       <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
                       <button onClick={() => { setSurchargeMode('individual'); if (viewingReviewNote) setItemSurcharges(new Array(viewingReviewNote.items.length).fill('')); setSurchargeDialog(null); }}
