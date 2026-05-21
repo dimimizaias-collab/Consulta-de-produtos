@@ -5181,30 +5181,41 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto" style={{ padding: '12px 14px 0' }}>
-                {/* ── shared style tokens (defined inline for Next.js compatibility) ── */}
+              <div
+                className="flex-1 overflow-auto [--rn-th-bg:#FFE500] [--rn-th-color:rgba(26,26,20,0.55)] [--rn-th-pill:rgba(0,0,0,0.1)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FFFCEC] [--rn-cell-border:rgba(180,165,120,0.35)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,20,0.85)] [--rn-text-muted:rgba(26,26,20,0.5)] [--rn-text-subtle:rgba(26,26,20,0.28)] dark:[--rn-th-bg:#2e2e28] dark:[--rn-th-color:rgba(242,240,227,0.45)] dark:[--rn-th-pill:rgba(255,255,255,0.06)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#111110] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.5)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                style={{ padding: '12px 14px 0' }}
+              >
                 <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 4px', minWidth: '1400px' }}>
                   <thead className="sticky top-0 z-10">
                     <tr className="text-left">
-                      {/* Pill style shared by all header cells */}
+                      {/* Single connected header bar — all th share bg, radius only on corners */}
                       {(() => {
-                        const thS: React.CSSProperties = { padding: '0 2px', verticalAlign: 'bottom' };
-                        const pill: React.CSSProperties = { borderRadius: '9px', background: '#2e2e28', border: '1.5px solid rgba(242,240,227,0.07)', padding: '8px 10px', fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(242,240,227,0.45)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', whiteSpace: 'nowrap' };
+                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '5px 4px', verticalAlign: 'middle', height: '40px' };
+                        const thFirst: React.CSSProperties = { ...thBar, borderRadius: '9px 0 0 9px', paddingLeft: '6px' };
+                        const thLast: React.CSSProperties = { ...thBar, borderRadius: '0 9px 9px 0', paddingRight: '6px', width: '36px' };
+                        const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          background: 'var(--rn-th-pill)', borderRadius: '5px',
+                          padding: '3px 7px', fontSize: '9px', fontWeight: 800,
+                          letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+                          color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, ...extra,
+                        });
                         return (<>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>#</div></th>
-                          <th style={thS}><div style={pill}>Código</div></th>
+                          <th style={thFirst}><div style={lbl({ justifyContent: 'center' })}>#</div></th>
+                          <th style={thBar}><div style={lbl()}>Código</div></th>
                           {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
                             return (
-                              <th key={col} style={thS}>
-                                <div style={pill}>
-                                  <span className={editable ? 'text-emerald-400' : ''}>{col}</span>
+                              <th key={col} style={thBar}>
+                                <div style={lbl()}>
+                                  <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
                                   {canEdit && (
                                     <button
                                       onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
                                       title={editable ? 'Bloquear coluna' : 'Editar coluna'}
-                                      className={cn('w-4 h-4 rounded flex items-center justify-center transition-colors', editable ? 'text-emerald-400 hover:text-emerald-200' : 'text-white/30 hover:text-white/70')}
+                                      style={{ color: editable ? 'rgb(52 211 153)' : 'inherit', opacity: editable ? 1 : 0.5 }}
+                                      className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
                                     >
                                       <Pencil size={9} />
                                     </button>
@@ -5213,14 +5224,14 @@ export default function Page() {
                               </th>
                             );
                           })}
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Preço Custo</div></th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Valor Total</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Custo</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Valor Total</div></th>
                           {/* Desconto header */}
-                          <th style={{ ...thS, position: 'relative' }}>
-                            <div style={pill}>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl()}>
                               <button
                                 onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
-                                className="flex items-center gap-1.5 ml-auto hover:text-red-300 transition-colors"
+                                className="flex items-center gap-1.5 ml-auto hover:text-red-400 transition-colors"
                                 style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
                               >
                                 Desconto
@@ -5237,11 +5248,11 @@ export default function Page() {
                             )}
                           </th>
                           {/* Acréscimo header */}
-                          <th style={{ ...thS, position: 'relative' }}>
-                            <div style={pill}>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl()}>
                               <button
                                 onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
-                                className="flex items-center gap-1.5 ml-auto hover:text-green-300 transition-colors"
+                                className="flex items-center gap-1.5 ml-auto hover:text-green-500 transition-colors"
                                 style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
                               >
                                 Acréscimo
@@ -5257,13 +5268,13 @@ export default function Page() {
                               </div>
                             )}
                           </th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Preço Venda</div></th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Markup</div></th>
-                          <th style={thS}><div style={pill}>Status</div></th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Ok</div></th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Revisão</div></th>
-                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Distribuição</div></th>
-                          <th style={{ ...thS, width: '36px' }}><div style={{ ...pill, justifyContent: 'center', minWidth: 0 }}></div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Markup</div></th>
+                          <th style={thBar}><div style={lbl()}>Status</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Ok</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Revisão</div></th>
+                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Distribuição</div></th>
+                          <th style={thLast}><div style={lbl({ justifyContent: 'center', minWidth: 0 })}></div></th>
                         </>);
                       })()}
                     </tr>
@@ -5274,13 +5285,12 @@ export default function Page() {
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
 
                       /* ── Rounded-cell style tokens (per-row) ── */
-                      const isEven = idx % 2 === 0;
-                      const cellBg = isEven ? '#252520' : '#1e1e18';
+                      const cellBg = idx % 2 === 0 ? 'var(--rn-cell-bg)' : 'var(--rn-cell-bg-alt)';
                       const tdP: React.CSSProperties = { padding: '0 2px' };
                       const cell = (extra?: React.CSSProperties): React.CSSProperties => ({
                         borderRadius: '9px',
                         background: cellBg,
-                        border: '1.5px solid rgba(242,240,227,0.06)',
+                        border: '1.5px solid var(--rn-cell-border)',
                         height: '40px',
                         display: 'flex',
                         alignItems: 'center',
@@ -5320,7 +5330,7 @@ export default function Page() {
                           {/* # */}
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111110] text-white/30 text-[10px] font-black">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black" style={{ background: 'var(--rn-seq-bg)', color: 'var(--rn-text-subtle)' }}>
                                 {item.seq ?? idx + 1}
                               </span>
                             </div>
@@ -5329,9 +5339,9 @@ export default function Page() {
                           <td style={tdP}>
                             <div style={cell({ padding: '0 10px' })}>
                               {item.supplier_code ? (
-                                <span className="font-mono text-xs font-bold text-white/45">{item.supplier_code}</span>
+                                <span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code}</span>
                               ) : (
-                                <span className="text-xs text-white/20 font-medium">—</span>
+                                <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               )}
                             </div>
                           </td>
@@ -5345,9 +5355,9 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 0)}
-                                  className="w-full text-[11px] font-semibold text-[#f2f0e3] bg-transparent outline-none" />
+                                  className="w-full text-[11px] font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
                               ) : (
-                                <p className="text-[11px] font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                                <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--rn-text)' }} title={item.original_description || '-'}>{item.original_description || '-'}</p>
                               )}
                             </div>
                           </td>
@@ -5413,9 +5423,9 @@ export default function Page() {
                                   onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
                                   onPaste={e => handleNoteEanPaste(e, idx)}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 1)}
-                                  className="w-full text-[11px] font-bold text-[#f2f0e3] bg-transparent outline-none font-mono" />
+                                  className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
-                                <p className="text-[11px] font-bold text-white/40 font-mono">{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
+                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
                               )}
                             </div>
                           </td>
@@ -5429,9 +5439,9 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                   onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
-                                  className="w-full text-[11px] font-bold text-[#f2f0e3] bg-transparent outline-none font-mono" />
+                                  className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
-                                <p className="text-[11px] font-bold text-white/40 font-mono">{(viewingNoteSkus[idx] ?? item.sku) || '—'}</p>
+                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteSkus[idx] ?? item.sku) || '—'}</p>
                               )}
                             </div>
                           </td>
@@ -5506,16 +5516,16 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 3)}
-                                  className="w-16 text-center text-sm font-black text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                                  className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" style={{ color: 'var(--rn-text)' }} />
                               </div>
                             ) : (
                               /* ── VIEW MODE: single gray box [UN  qty] ── */
                               <button
                                 onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
-                                className="relative inline-flex items-center gap-2 px-3 py-1.5 bg-[#2e2e28] rounded-[9px] hover:bg-[#3a3a34] transition-colors"
+                                className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
                               >
-                                <span className="text-sm font-black text-white/40">{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
-                                <span className="text-sm font-black text-[#f2f0e3] inline-flex items-baseline gap-0.5">
+                                <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
+                                <span className="text-sm font-black inline-flex items-baseline gap-0.5" style={{ color: 'var(--rn-text)' }}>
                                   {viewingNoteQtys[idx] ?? item.qty}
                                   {(() => {
                                     const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
@@ -5598,8 +5608,8 @@ export default function Page() {
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
                             <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 8px' })}>
-                              <div className="inline-flex items-center gap-1 bg-[#2e2e28] rounded-[8px] px-2 py-1">
-                                <span className="text-[10px] font-black text-white/40 shrink-0">R$</span>
+                              <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
+                                <span className="text-[10px] font-black shrink-0" style={{ color: 'var(--rn-text-muted)' }}>R$</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -5608,7 +5618,7 @@ export default function Page() {
                                   value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
                                   onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 4)}
-                                  className="w-14 text-xs font-black text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                                 />
                               </div>
                             </div>
@@ -5616,7 +5626,7 @@ export default function Page() {
                           {/* Valor Total */}
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
-                              <span className={cn("text-xs font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
+                              <span className="text-xs font-bold" style={{ color: totalValue > 0 ? 'var(--rn-text-muted)' : 'var(--rn-text-subtle)' }}>
                                 {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
                               </span>
                             </div>
@@ -5633,7 +5643,7 @@ export default function Page() {
                                 </span>
                               ) : discountMode === 'individual' ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] text-white/35 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
                                   <input
                                     type="number" min="0" step="0.01"
                                     data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
@@ -5644,7 +5654,7 @@ export default function Page() {
                                     className="w-12 text-right text-xs font-bold text-red-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                   />
                                 </div>
-                              ) : <span className="text-white/20 text-xs">—</span>}
+                              ) : <span className="text-xs" style={{ color: 'var(--rn-text-subtle)' }}>—</span>}
                             </div>
                           </td>
                           {/* Acréscimo cell */}
@@ -5659,7 +5669,7 @@ export default function Page() {
                                 </span>
                               ) : surchargeMode === 'individual' ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] text-white/35 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
                                   <input
                                     type="number" min="0" step="0.01"
                                     data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
@@ -5670,7 +5680,7 @@ export default function Page() {
                                     className="w-12 text-right text-xs font-bold text-emerald-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                   />
                                 </div>
-                              ) : <span className="text-white/20 text-xs">—</span>}
+                              ) : <span className="text-xs" style={{ color: 'var(--rn-text-subtle)' }}>—</span>}
                             </div>
                           </td>
                           {/* Preço Venda */}
@@ -5692,7 +5702,7 @@ export default function Page() {
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 7)}
                                 placeholder="0,00"
-                                className="w-full text-right text-xs font-bold text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                className="w-full text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                               />
                             </div>
                           </td>
@@ -5707,7 +5717,7 @@ export default function Page() {
                                   {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
                                 </span>
                               ) : (
-                                <span className="text-[11px] text-white/20 font-bold">—</span>
+                                <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               )}
                             </div>
                           </td>
@@ -5748,7 +5758,7 @@ export default function Page() {
                                     updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                                     setViewingNoteReviewTimestamps(updatedTs);
                                   }}
-                                  className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
+                                  className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text-subtle)' }}
                                 >
                                   <X size={12} />
                                 </button>
@@ -5763,7 +5773,7 @@ export default function Page() {
                                   {viewingNoteReviewTimestamps[idx]}
                                 </span>
                               ) : (
-                                <span className="text-white/20 text-[11px] font-bold">—</span>
+                                <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               )}
                             </div>
                           </td>
@@ -5786,7 +5796,7 @@ export default function Page() {
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 8)}
                                 placeholder="—"
-                                className="w-10 text-center text-xs font-bold text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                className="w-10 text-center text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                               />
                             </div>
                           </td>
@@ -5820,7 +5830,7 @@ export default function Page() {
                                 </button>
                                 <button
                                   onClick={() => setDeleteConfirmIdx(null)}
-                                  className="px-2 py-1 bg-white/[0.07] text-white/50 text-[10px] font-black rounded-lg hover:bg-white/[0.12] transition-all"
+                                  className="px-2 py-1 text-[10px] font-black rounded-lg transition-all" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text-muted)' }}
                                 >
                                   Não
                                 </button>
@@ -5828,7 +5838,7 @@ export default function Page() {
                             ) : (
                               <button
                                 onClick={() => setDeleteConfirmIdx(idx)}
-                                className="w-7 h-7 rounded-lg bg-transparent text-white/20 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all"
+                                className="w-7 h-7 rounded-lg bg-transparent flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all" style={{ color: 'var(--rn-text-subtle)' }}
                                 title="Excluir produto da nota"
                               >
                                 <Trash2 size={13} />
