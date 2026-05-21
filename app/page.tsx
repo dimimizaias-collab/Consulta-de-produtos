@@ -5762,7 +5762,7 @@ export default function Page() {
                           {/* Preço Custo — shows adjCost when discount/surcharge active */}
                           <td style={tdP}>
                             {(() => {
-                              const showAdj = (hasDiscount || hasSurcharge) && adjCost > 0 && Math.abs(adjCost - cost) > 0.001;
+                              const hasAdj = (hasDiscount || hasSurcharge) && Math.abs(adjCost - cost) > 0.001;
                               // Persistent border: green = discount (cheaper), red = surcharge (pricier), amber = both
                               const adjBorder = hasDiscount && hasSurcharge ? 'rgba(245,158,11,0.65)'
                                 : hasDiscount ? 'rgba(34,197,94,0.60)'
@@ -5779,9 +5779,9 @@ export default function Page() {
                               return (
                                 <div
                                   style={{
-                                    ...cell({ flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', padding: '3px 8px', gap: '0', height: showAdj ? '52px' : '40px' }),
+                                    ...cell({ justifyContent: 'flex-end', padding: '0 8px' }),
                                     ...(adjBorder ? { borderColor: adjBorder, boxShadow: adjGlow } : {}),
-                                    transition: 'border-color 180ms cubic-bezier(0.23,1,0.32,1), box-shadow 180ms cubic-bezier(0.23,1,0.32,1), height 180ms cubic-bezier(0.23,1,0.32,1)',
+                                    transition: 'border-color 180ms cubic-bezier(0.23,1,0.32,1), box-shadow 180ms cubic-bezier(0.23,1,0.32,1)',
                                   }}
                                   onFocus={e => {
                                     e.currentTarget.style.borderColor = 'rgba(216,30,30,0.55)';
@@ -5793,25 +5793,29 @@ export default function Page() {
                                   }}
                                 >
                                   <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
-                                    <span className="text-[10px] font-black shrink-0" style={{ color: 'var(--rn-text-muted)' }}>R$</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      data-nav-table="review-note" data-nav-row={idx} data-nav-col={4}
-                                      value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
-                                      onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
-                                      onKeyDown={tableCellKeyDown('review-note', idx, 4)}
-                                      className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
-                                    />
-                                  </div>
-                                  {showAdj && (
-                                    <div className="flex items-center justify-end gap-0.5 w-full px-1" style={{ marginTop: '2px' }}>
-                                      <span style={{ fontSize: '9px', fontWeight: 900, color: adjValueColor, letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                                        {hasDiscount ? '▼' : '▲'} R$ {adjCost.toFixed(2)}
+                                    <span className="text-[10px] font-black shrink-0" style={{ color: hasAdj ? adjValueColor : 'var(--rn-text-muted)' }}>R$</span>
+                                    {hasAdj ? (
+                                      /* Adjusted cost replaces raw cost — click cell to edit raw price */
+                                      <span
+                                        className="w-14 text-xs font-black text-right"
+                                        style={{ color: adjValueColor, fontVariantNumeric: 'tabular-nums' }}
+                                        title={`Custo base: R$ ${cost.toFixed(2)}`}
+                                      >
+                                        {adjCost.toFixed(2)}
                                       </span>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        data-nav-table="review-note" data-nav-row={idx} data-nav-col={4}
+                                        value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
+                                        onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
+                                        onKeyDown={tableCellKeyDown('review-note', idx, 4)}
+                                        className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
+                                      />
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })()}
