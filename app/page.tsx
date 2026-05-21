@@ -385,6 +385,11 @@ export default function Page() {
   const [reviewSavingMeasure, setReviewSavingMeasure] = useState(false);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
   const [editingNoteHeader, setEditingNoteHeader] = useState(false);
+  // ── Column filters (Excel-like) ──
+  const [reviewFilterActive, setReviewFilterActive] = useState(false);
+  const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
+  const [reviewFilterOpen, setReviewFilterOpen] = useState<string | null>(null);
+  const [reviewFilterSearch, setReviewFilterSearch] = useState('');
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -2806,6 +2811,10 @@ export default function Page() {
                     setReviewMeasureIdx(null);
                     setReviewEditableCols(new Set());
                     setEditingNoteHeader(false);
+                    setReviewFilterActive(false);
+                    setReviewColumnFilters({});
+                    setReviewFilterOpen(null);
+                    setReviewFilterSearch('');
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
@@ -5155,13 +5164,33 @@ export default function Page() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
-                  >
-                    <Download size={16} />
-                    Excel
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => exportTranslatedToExcel(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
+                    >
+                      <Download size={16} />
+                      Excel
+                    </button>
+                    <div className="w-px h-5 bg-on-surface/10" />
+                    <button
+                      onClick={() => {
+                        const next = !reviewFilterActive;
+                        setReviewFilterActive(next);
+                        if (!next) { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }
+                      }}
+                      title={reviewFilterActive ? 'Desativar filtros' : 'Filtrar por coluna'}
+                      className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center transition-all',
+                        reviewFilterActive
+                          ? 'bg-primary text-white shadow-md'
+                          : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                        Object.values(reviewColumnFilters).some(s => s.size > 0) && !reviewFilterActive && 'ring-2 ring-primary/40',
+                      )}
+                    >
+                      <Filter size={13} />
+                    </button>
+                  </div>
                   <button
                     onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/18 transition-colors border border-red-500/15"
@@ -5209,14 +5238,101 @@ export default function Page() {
                           letterSpacing: '0.12em', textTransform: 'uppercase' as const,
                           color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, ...extra,
                         });
+                        // ── Filter helpers (used when reviewFilterActive) ──
+                        const colFilterKey: Record<string, string> = {
+                          'Produto na Nota': 'produto',
+                          'Identificação Interna': 'interno',
+                          'EAN': 'ean',
+                          'SKU': 'sku',
+                        };
+                        const getColUniqueValues = (key: string): string[] =>
+                          Array.from(new Set(
+                            viewingReviewNote!.items.map((it: any, i: number) => {
+                              if (key === 'produto') return it.original_description || '-';
+                              if (key === 'interno') return it.name || '-';
+                              if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
+                              if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                              if (key === 'status') return it.status_translation || '-';
+                              return '-';
+                            })
+                          )).sort();
+                        const renderFilterDropdown = (key: string) => {
+                          if (!reviewFilterActive || reviewFilterOpen !== key) return null;
+                          const uniqueVals = getColUniqueValues(key);
+                          const selected = reviewColumnFilters[key] ?? new Set<string>();
+                          const searchLower = reviewFilterSearch.toLowerCase();
+                          const displayed = searchLower ? uniqueVals.filter(v => v.toLowerCase().includes(searchLower)) : uniqueVals;
+                          return (<>
+                            <div className="fixed inset-0 z-[290]" onClick={() => { setReviewFilterOpen(null); setReviewFilterSearch(''); }} />
+                            <div className="absolute left-0 top-full mt-1 z-[300] rounded-xl shadow-2xl border overflow-hidden bg-surface-container border-line dark:bg-[#2e2e28] dark:border-white/[0.08]" style={{ minWidth: '200px', maxWidth: '300px' }}>
+                              <div className="p-2 border-b border-line dark:border-white/[0.05]">
+                                <input autoFocus type="text" value={reviewFilterSearch}
+                                  onChange={e => setReviewFilterSearch(e.target.value)}
+                                  placeholder="Buscar valor..."
+                                  onClick={e => e.stopPropagation()}
+                                  className="w-full px-3 py-1.5 text-xs rounded-lg outline-none bg-on-surface/[0.05] text-on-surface placeholder-on-surface/30 border border-on-surface/[0.08] focus:border-primary/50 dark:bg-white/[0.05] dark:text-white/75 dark:placeholder-white/25 dark:border-white/[0.05] dark:focus:border-primary/50"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-line dark:border-white/[0.05]">
+                                <button onClick={e => { e.stopPropagation(); setReviewColumnFilters(prev => ({ ...prev, [key]: new Set(uniqueVals) })); }}
+                                  className="text-[10px] font-bold text-on-surface/40 hover:text-on-surface/70 dark:text-white/40 dark:hover:text-white/70 transition-colors">
+                                  Selecionar tudo
+                                </button>
+                                <span className="text-on-surface/15 dark:text-white/15">·</span>
+                                <button onClick={e => { e.stopPropagation(); setReviewColumnFilters(prev => { const n = { ...prev }; delete n[key]; return n; }); }}
+                                  className="text-[10px] font-bold text-on-surface/40 hover:text-red-400 dark:text-white/40 transition-colors">
+                                  Limpar
+                                </button>
+                              </div>
+                              <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
+                                {displayed.length === 0 ? (
+                                  <div className="px-3 py-3 text-[11px] text-on-surface/30 dark:text-white/30 text-center">Nenhum resultado</div>
+                                ) : displayed.map(val => {
+                                  const checked = selected.has(val);
+                                  return (
+                                    <label key={val} className="flex items-center gap-2 px-3 py-1.5 hover:bg-on-surface/[0.04] dark:hover:bg-white/[0.04] cursor-pointer" onClick={e => e.stopPropagation()}>
+                                      <input type="checkbox" checked={checked} className="w-3 h-3 accent-primary"
+                                        onChange={() => {
+                                          setReviewColumnFilters(prev => {
+                                            const cur = new Set<string>(prev[key] ?? []);
+                                            if (checked) cur.delete(val); else cur.add(val);
+                                            const nxt = { ...prev };
+                                            if (cur.size === 0) delete nxt[key]; else nxt[key] = cur;
+                                            return nxt;
+                                          });
+                                        }}
+                                      />
+                                      <span className="text-[11px] text-on-surface/70 dark:text-white/65 truncate" title={val}>{val}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>);
+                        };
+                        const filterBtn = (key: string) => {
+                          if (!reviewFilterActive) return null;
+                          const hasFilter = (reviewColumnFilters[key]?.size ?? 0) > 0;
+                          return (
+                            <button
+                              onClick={e => { e.stopPropagation(); setReviewFilterOpen(prev => prev === key ? null : key); setReviewFilterSearch(''); }}
+                              title={hasFilter ? 'Filtro ativo' : 'Filtrar'}
+                              style={{ color: hasFilter ? '#D81E1E' : 'inherit', opacity: hasFilter ? 1 : 0.5 }}
+                              className="w-4 h-4 rounded flex items-center justify-center transition-all hover:opacity-100"
+                            >
+                              <Filter size={9} />
+                            </button>
+                          );
+                        };
                         return (<>
                           <th style={thFirst}><div style={lbl({ justifyContent: 'center' })}>#</div></th>
                           <th style={thBar}><div style={lbl()}>Código</div></th>
                           {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
+                            const filterKey = colFilterKey[col];
                             return (
-                              <th key={col} style={thBar}>
+                              <th key={col} style={{ ...thBar, position: 'relative' }}>
                                 <div style={lbl()}>
                                   <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
                                   {canEdit && (
@@ -5229,7 +5345,9 @@ export default function Page() {
                                       <Pencil size={9} />
                                     </button>
                                   )}
+                                  {filterKey && filterBtn(filterKey)}
                                 </div>
+                                {filterKey && renderFilterDropdown(filterKey)}
                               </th>
                             );
                           })}
@@ -5279,7 +5397,14 @@ export default function Page() {
                           </th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Markup</div></th>
-                          <th style={thBar}><div style={lbl()}>Status</div></th>
+                          {/* Status — with filter */}
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl()}>
+                              <span>Status</span>
+                              {filterBtn('status')}
+                            </div>
+                            {renderFilterDropdown('status')}
+                          </th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Ok</div></th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Revisão</div></th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Distribuição</div></th>
@@ -5289,7 +5414,26 @@ export default function Page() {
                     </tr>
                   </thead>
                   <tbody>
-                    {viewingReviewNote.items.map((item: any, idx: number) => {
+                    {(() => {
+                      // ── Build filtered items list, preserving original indices ──
+                      const _allItems: any[] = viewingReviewNote!.items;
+                      const _getVal = (key: string, it: any, i: number): string => {
+                        if (key === 'produto') return it.original_description || '-';
+                        if (key === 'interno') return it.name || '-';
+                        if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
+                        if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                        if (key === 'status') return it.status_translation || '-';
+                        return '-';
+                      };
+                      const _hasActiveFilters = reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0);
+                      const _filtered = _allItems
+                        .map((item: any, origIdx: number) => ({ item, origIdx }))
+                        .filter(({ item, origIdx }) =>
+                          !_hasActiveFilters || Object.entries(reviewColumnFilters).every(([key, sel]) =>
+                            sel.size === 0 || sel.has(_getVal(key, item, origIdx))
+                          )
+                        );
+                      return _filtered.map(({ item, origIdx: idx }) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
 
@@ -5863,7 +6007,8 @@ export default function Page() {
                           </td>
                         </tr>
                       );
-                    })}
+                      }); // end _filtered.map
+                    })(/* tbody IIFE */)}
                   </tbody>
                 </table>
               </div>
@@ -6170,6 +6315,35 @@ export default function Page() {
               <div className="p-6 border-t border-line dark:border-white/[0.07] bg-surface-container dark:bg-[#252520] flex items-center justify-between shrink-0">
                 <div className="text-sm text-on-surface/40 flex items-center gap-2 flex-wrap">
                   Total: <span className="font-bold text-on-surface">{viewingReviewNote.itemCount} itens</span>
+                  {reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0) && (() => {
+                    const totalCount = viewingReviewNote.items.length;
+                    const _getFilterVal = (key: string, it: any, i: number): string => {
+                      if (key === 'produto') return it.original_description || '-';
+                      if (key === 'interno') return it.name || '-';
+                      if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
+                      if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                      if (key === 'status') return it.status_translation || '-';
+                      return '-';
+                    };
+                    const shownCount = viewingReviewNote.items.filter((it: any, i: number) =>
+                      Object.entries(reviewColumnFilters).every(([key, sel]) => sel.size === 0 || sel.has(_getFilterVal(key, it, i)))
+                    ).length;
+                    return (
+                      <>
+                        <span className="text-on-surface/15">·</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-black">
+                          <Filter size={10} />
+                          {shownCount} de {totalCount}
+                        </span>
+                        <button
+                          onClick={() => { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }}
+                          className="text-xs font-bold text-primary/60 hover:text-primary transition-colors"
+                        >
+                          Limpar filtros
+                        </button>
+                      </>
+                    );
+                  })()}
                   <span className="text-on-surface/15">·</span>
                   <span className="font-bold text-emerald-500 dark:text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
                   <span className="text-on-surface/15">·</span>
