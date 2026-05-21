@@ -1822,7 +1822,11 @@ export default function Page() {
       const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
       const newQty = originalQty * mult;
       const u = [...viewingNoteUnits]; u[reviewMeasureIdx] = reviewMeasureUnit.trim() || item.unit || 'UN'; setViewingNoteUnits(u);
-      const m = [...viewingNoteMultipliers]; m[reviewMeasureIdx] = mult; setViewingNoteMultipliers(m);
+      // Divide unit price by multiplier and reset multiplier to 1 to avoid double-division in cost = price/multiplier
+      const currentPrice = viewingNoteItemPrices[reviewMeasureIdx] ?? item.price ?? 0;
+      const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
+      const p = [...viewingNoteItemPrices]; p[reviewMeasureIdx] = unitPrice; setViewingNoteItemPrices(p);
+      const m = [...viewingNoteMultipliers]; m[reviewMeasureIdx] = 1; setViewingNoteMultipliers(m);
       const q = [...viewingNoteQtys]; q[reviewMeasureIdx] = newQty; setViewingNoteQtys(q);
       setNotification({ type: 'success', message: `Medida cadastrada! 1 ${reviewMeasureUnit || item.unit} = ${mult} UN.` });
       setReviewMeasureIdx(null);
@@ -5177,83 +5181,115 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto">
-                <table className="w-full border-collapse">
+              <div className="flex-1 overflow-auto" style={{ padding: '12px 14px 0' }}>
+                {/* ── shared style tokens (defined inline for Next.js compatibility) ── */}
+                <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 4px', minWidth: '1400px' }}>
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-[#2e2e28] text-left">
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/35 uppercase tracking-widest w-10 text-center border-b border-r border-white/[0.08]">#</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap border-b border-r border-white/[0.08]">Código</th>
-                      {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
-                        const editable = reviewEditableCols.has(col);
-                        const canEdit = col !== 'Identificação Interna';
-                        return (
-                          <th key={col} className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-widest border-b border-r border-white/[0.08]">
-                            <div className="flex items-center gap-1.5">
-                              <span className={editable ? 'text-emerald-400' : 'text-white/60'}>{col}</span>
-                              {canEdit && (
-                                <button
-                                  onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
-                                  title={editable ? 'Bloquear coluna' : 'Editar coluna'}
-                                  className={cn('w-4 h-4 rounded flex items-center justify-center transition-colors', editable ? 'text-emerald-400 hover:text-emerald-200' : 'text-white/30 hover:text-white/70')}
-                                >
-                                  <Pencil size={9} />
-                                </button>
-                              )}
+                    <tr className="text-left">
+                      {/* Pill style shared by all header cells */}
+                      {(() => {
+                        const thS: React.CSSProperties = { padding: '0 2px', verticalAlign: 'bottom' };
+                        const pill: React.CSSProperties = { borderRadius: '9px', background: '#2e2e28', border: '1.5px solid rgba(242,240,227,0.07)', padding: '8px 10px', fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(242,240,227,0.45)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', whiteSpace: 'nowrap' };
+                        return (<>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>#</div></th>
+                          <th style={thS}><div style={pill}>Código</div></th>
+                          {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
+                            const editable = reviewEditableCols.has(col);
+                            const canEdit = col !== 'Identificação Interna';
+                            return (
+                              <th key={col} style={thS}>
+                                <div style={pill}>
+                                  <span className={editable ? 'text-emerald-400' : ''}>{col}</span>
+                                  {canEdit && (
+                                    <button
+                                      onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                                      title={editable ? 'Bloquear coluna' : 'Editar coluna'}
+                                      className={cn('w-4 h-4 rounded flex items-center justify-center transition-colors', editable ? 'text-emerald-400 hover:text-emerald-200' : 'text-white/30 hover:text-white/70')}
+                                    >
+                                      <Pencil size={9} />
+                                    </button>
+                                  )}
+                                </div>
+                              </th>
+                            );
+                          })}
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Preço Custo</div></th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Valor Total</div></th>
+                          {/* Desconto header */}
+                          <th style={{ ...thS, position: 'relative' }}>
+                            <div style={pill}>
+                              <button
+                                onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
+                                className="flex items-center gap-1.5 ml-auto hover:text-red-300 transition-colors"
+                                style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
+                              >
+                                Desconto
+                                <ChevronDown size={10} className={cn("transition-transform", discountDropdown && "rotate-180")} />
+                                {discountMode !== 'none' && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
+                              </button>
                             </div>
+                            {discountDropdown && (
+                              <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
+                                <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
+                                <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
+                                {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
+                              </div>
+                            )}
                           </th>
-                        );
-                      })}
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Preço Custo</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Valor Total</th>
-                      {/* Desconto header */}
-                      <th className="py-2.5 px-3 text-right relative border-b border-r border-white/[0.08]">
-                        <button
-                          onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
-                          className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-red-300 transition-colors"
-                        >
-                          Desconto
-                          <ChevronDown size={10} className={cn("transition-transform", discountDropdown && "rotate-180")} />
-                          {discountMode !== 'none' && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
-                        </button>
-                        {discountDropdown && (
-                          <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
-                            <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
-                            <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
-                            {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
-                          </div>
-                        )}
-                      </th>
-                      {/* Acréscimo header */}
-                      <th className="py-2.5 px-3 text-right relative border-b border-r border-white/[0.08]">
-                        <button
-                          onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
-                          className="flex items-center gap-1.5 ml-auto text-[10px] font-bold uppercase tracking-widest hover:text-green-300 transition-colors"
-                        >
-                          Acréscimo
-                          <ChevronDown size={10} className={cn("transition-transform", surchargeDropdown && "rotate-180")} />
-                          {surchargeMode !== 'none' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
-                        </button>
-                        {surchargeDropdown && (
-                          <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
-                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
-                            <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
-                            {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
-                          </div>
-                        )}
-                      </th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Preço Venda</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-right border-b border-r border-white/[0.08]">Markup</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest border-b border-r border-white/[0.08]">Status</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Ok</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Revisão</th>
-                      <th className="py-2.5 px-3 text-[10px] font-bold text-white/60 uppercase tracking-widest text-center border-b border-r border-white/[0.08]">Distribuição</th>
-                      <th className="py-2.5 px-2 w-8 border-b border-white/[0.08]" />
+                          {/* Acréscimo header */}
+                          <th style={{ ...thS, position: 'relative' }}>
+                            <div style={pill}>
+                              <button
+                                onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
+                                className="flex items-center gap-1.5 ml-auto hover:text-green-300 transition-colors"
+                                style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
+                              >
+                                Acréscimo
+                                <ChevronDown size={10} className={cn("transition-transform", surchargeDropdown && "rotate-180")} />
+                                {surchargeMode !== 'none' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
+                              </button>
+                            </div>
+                            {surchargeDropdown && (
+                              <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
+                                <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
+                                <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
+                                {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
+                              </div>
+                            )}
+                          </th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Preço Venda</div></th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'flex-end' }}>Markup</div></th>
+                          <th style={thS}><div style={pill}>Status</div></th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Ok</div></th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Revisão</div></th>
+                          <th style={thS}><div style={{ ...pill, justifyContent: 'center' }}>Distribuição</div></th>
+                          <th style={{ ...thS, width: '36px' }}><div style={{ ...pill, justifyContent: 'center', minWidth: 0 }}></div></th>
+                        </>);
+                      })()}
                     </tr>
                   </thead>
                   <tbody>
                     {viewingReviewNote.items.map((item: any, idx: number) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+
+                      /* ── Rounded-cell style tokens (per-row) ── */
+                      const isEven = idx % 2 === 0;
+                      const cellBg = isEven ? '#252520' : '#1e1e18';
+                      const tdP: React.CSSProperties = { padding: '0 2px' };
+                      const cell = (extra?: React.CSSProperties): React.CSSProperties => ({
+                        borderRadius: '9px',
+                        background: cellBg,
+                        border: '1.5px solid rgba(242,240,227,0.06)',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                        transition: 'border-color 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 120ms cubic-bezier(0.23,1,0.32,1)',
+                        ...extra,
+                      });
+                      const focusCell = (el: HTMLElement | null) => { if (el) { el.style.borderColor = 'rgba(216,30,30,0.55)'; el.style.boxShadow = '0 0 0 3px rgba(216,30,30,0.12)'; } };
+                      const blurCell  = (el: HTMLElement | null) => { if (el) { el.style.borderColor = ''; el.style.boxShadow = ''; } };
 
                       let discountAmt = 0;
                       if (discountMode === 'geral' && discountApplied) {
@@ -5279,36 +5315,44 @@ export default function Page() {
                       const markup = adjCost > 0 && sellPrice > 0
                         ? ((sellPrice - adjCost) / adjCost * 100)
                         : null;
-                      const isEven = idx % 2 === 0;
                       return (
-                        <tr key={idx} className={cn("border-b border-white/[0.055] hover:bg-white/[0.025] transition-colors", isEven ? "bg-transparent" : "bg-white/[0.02]")}>
+                        <tr key={idx}>
                           {/* # */}
-                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111110] text-white/30 text-[10px] font-black">
-                              {item.seq ?? idx + 1}
-                            </span>
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'center' })}>
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111110] text-white/30 text-[10px] font-black">
+                                {item.seq ?? idx + 1}
+                              </span>
+                            </div>
                           </td>
                           {/* Código fornecedor */}
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
-                            {item.supplier_code ? (
-                              <span className="font-mono text-xs font-bold text-white/45">{item.supplier_code}</span>
-                            ) : (
-                              <span className="text-xs text-white/20 font-medium">—</span>
-                            )}
+                          <td style={tdP}>
+                            <div style={cell({ padding: '0 10px' })}>
+                              {item.supplier_code ? (
+                                <span className="font-mono text-xs font-bold text-white/45">{item.supplier_code}</span>
+                              ) : (
+                                <span className="text-xs text-white/20 font-medium">—</span>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 max-w-[220px] border-r border-white/[0.055]">
-                            {reviewEditableCols.has('Produto na Nota') ? (
-                              <input type="text" value={item.original_description || ''}
-                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
-                                onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
-                                onKeyDown={tableCellKeyDown('review-note', idx, 0)}
-                                className="w-full text-[11px] font-semibold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                            ) : (
-                              <p className="text-[11px] font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
-                            )}
+                          <td style={{ ...tdP, maxWidth: '220px' }}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px', overflow: reviewEditableCols.has('Produto na Nota') ? 'visible' : 'hidden' })}>
+                              {reviewEditableCols.has('Produto na Nota') ? (
+                                <input type="text" value={item.original_description || ''}
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
+                                  onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 0)}
+                                  className="w-full text-[11px] font-semibold text-[#f2f0e3] bg-transparent outline-none" />
+                              ) : (
+                                <p className="text-[11px] font-semibold text-white/75 truncate" title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 max-w-[200px] relative border-r border-white/[0.055]">
-                            <div className="flex items-center gap-1.5">
+                          <td style={{ ...tdP, maxWidth: '200px', position: 'relative' }}>
+                            <div style={cell({ padding: '0 8px', overflow: 'visible', gap: '6px' })}>
                               {item.verified ? (
                                 /* Produto vinculado: nome truncado + botão icon para trocar */
                                 <div className="flex items-center gap-1.5 min-w-0">
@@ -5358,30 +5402,41 @@ export default function Page() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
-                            {reviewEditableCols.has('EAN') ? (
-                              <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
-                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
-                                onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
-                                onPaste={e => handleNoteEanPaste(e, idx)}
-                                onKeyDown={tableCellKeyDown('review-note', idx, 1)}
-                                className="w-32 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                            ) : (
-                              <p className="text-[11px] font-bold text-white/40">{(viewingNoteEans[idx] ?? item.ean) || '-'}</p>
-                            )}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px' })}>
+                              {reviewEditableCols.has('EAN') ? (
+                                <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
+                                  onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
+                                  onPaste={e => handleNoteEanPaste(e, idx)}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 1)}
+                                  className="w-full text-[11px] font-bold text-[#f2f0e3] bg-transparent outline-none font-mono" />
+                              ) : (
+                                <p className="text-[11px] font-bold text-white/40 font-mono">{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
-                            {reviewEditableCols.has('SKU') ? (
-                              <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
-                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
-                                onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
-                                onKeyDown={tableCellKeyDown('review-note', idx, 2)}
-                                className="w-24 text-[11px] font-bold text-[#f2f0e3] bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                            ) : (
-                              <p className="text-[11px] font-bold text-white/40">{(viewingNoteSkus[idx] ?? item.sku) || '-'}</p>
-                            )}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px' })}>
+                              {reviewEditableCols.has('SKU') ? (
+                                <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
+                                  onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 2)}
+                                  className="w-full text-[11px] font-bold text-[#f2f0e3] bg-transparent outline-none font-mono" />
+                              ) : (
+                                <p className="text-[11px] font-bold text-white/40 font-mono">{(viewingNoteSkus[idx] ?? item.sku) || '—'}</p>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
+                          <td style={{ ...tdP, position: 'relative' }}>
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
                             {/* Discrepancy trigger — always rendered, flanks the qty block */}
                             <div className="flex items-center gap-1.5">
                             {reviewEditableCols.has('Qtd.') ? (
@@ -5535,9 +5590,14 @@ export default function Page() {
                               );
                             })()}
                             </div>
+                            </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
-                            <div className="flex justify-end">
+                          {/* Preço Custo */}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 8px' })}>
                               <div className="inline-flex items-center gap-1 bg-[#2e2e28] rounded-[8px] px-2 py-1">
                                 <span className="text-[10px] font-black text-white/40 shrink-0">R$</span>
                                 <input
@@ -5553,148 +5613,186 @@ export default function Page() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
-                            <span className={cn("text-xs font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
-                              {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
-                            </span>
+                          {/* Valor Total */}
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                              <span className={cn("text-xs font-bold", totalValue > 0 ? "text-white/50" : "text-white/20")}>
+                                {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
+                              </span>
+                            </div>
                           </td>
                           {/* Desconto cell */}
-                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
-                            {discountMode === 'geral' && discountApplied ? (
-                              <span className="text-red-400 font-bold text-xs">
-                                - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
-                              </span>
-                            ) : discountMode === 'individual' ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="text-[10px] text-white/35 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
-                                <input
-                                  type="number" min="0" step="0.01"
-                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
-                                  value={itemDiscounts[idx] ?? ''}
-                                  onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
-                                  onKeyDown={tableCellKeyDown('review-note', idx, 5)}
-                                  placeholder="0"
-                                  className="w-14 text-right text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                                />
-                              </div>
-                            ) : <span className="text-white/20 text-xs">—</span>}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                              {discountMode === 'geral' && discountApplied ? (
+                                <span className="text-red-400 font-bold text-xs">
+                                  - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
+                                </span>
+                              ) : discountMode === 'individual' ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-[10px] text-white/35 font-bold">{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <input
+                                    type="number" min="0" step="0.01"
+                                    data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
+                                    value={itemDiscounts[idx] ?? ''}
+                                    onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
+                                    onKeyDown={tableCellKeyDown('review-note', idx, 5)}
+                                    placeholder="0"
+                                    className="w-12 text-right text-xs font-bold text-red-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  />
+                                </div>
+                              ) : <span className="text-white/20 text-xs">—</span>}
+                            </div>
                           </td>
                           {/* Acréscimo cell */}
-                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
-                            {surchargeMode === 'geral' && surchargeApplied ? (
-                              <span className="text-emerald-400 font-bold text-xs">
-                                + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
-                              </span>
-                            ) : surchargeMode === 'individual' ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="text-[10px] text-white/35 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
-                                <input
-                                  type="number" min="0" step="0.01"
-                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
-                                  value={itemSurcharges[idx] ?? ''}
-                                  onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
-                                  onKeyDown={tableCellKeyDown('review-note', idx, 6)}
-                                  placeholder="0"
-                                  className="w-14 text-right text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                                />
-                              </div>
-                            ) : <span className="text-white/20 text-xs">—</span>}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                              {surchargeMode === 'geral' && surchargeApplied ? (
+                                <span className="text-emerald-400 font-bold text-xs">
+                                  + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
+                                </span>
+                              ) : surchargeMode === 'individual' ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-[10px] text-white/35 font-bold">{surchargeIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <input
+                                    type="number" min="0" step="0.01"
+                                    data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
+                                    value={itemSurcharges[idx] ?? ''}
+                                    onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
+                                    onKeyDown={tableCellKeyDown('review-note', idx, 6)}
+                                    placeholder="0"
+                                    className="w-12 text-right text-xs font-bold text-emerald-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  />
+                                </div>
+                              ) : <span className="text-white/20 text-xs">—</span>}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              data-nav-table="review-note" data-nav-row={idx} data-nav-col={7}
-                              value={viewingNoteSellPrices[idx] || ''}
-                              onChange={(e) => {
-                                const updated = [...viewingNoteSellPrices];
-                                updated[idx] = parseFloat(e.target.value) || 0;
-                                setViewingNoteSellPrices(updated);
-                              }}
-                              onKeyDown={tableCellKeyDown('review-note', idx, 7)}
-                              placeholder="0,00"
-                              className="w-20 text-right text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                            />
+                          {/* Preço Venda */}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={7}
+                                value={viewingNoteSellPrices[idx] || ''}
+                                onChange={(e) => {
+                                  const updated = [...viewingNoteSellPrices];
+                                  updated[idx] = parseFloat(e.target.value) || 0;
+                                  setViewingNoteSellPrices(updated);
+                                }}
+                                onKeyDown={tableCellKeyDown('review-note', idx, 7)}
+                                placeholder="0,00"
+                                className="w-full text-right text-xs font-bold text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              />
+                            </div>
                           </td>
-                          <td className="py-2 px-3 text-right whitespace-nowrap border-r border-white/[0.055]">
-                            {markup !== null ? (
+                          {/* Markup */}
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                              {markup !== null ? (
+                                <span className={cn(
+                                  "inline-block px-2 py-0.5 rounded-lg text-[11px] font-black",
+                                  markup >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                                )}>
+                                  {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-white/20 font-bold">—</span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Status */}
+                          <td style={tdP}>
+                            <div style={cell({ padding: '0 10px' })}>
                               <span className={cn(
-                                "inline-block px-2 py-0.5 rounded-lg text-[11px] font-black",
-                                markup >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                                "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase",
+                                item.verified && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
+                                item.verified ? "bg-blue-500/10 text-blue-400" :
+                                "bg-red-500/10 text-red-400"
                               )}>
-                                {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
+                                {item.status_translation}
                               </span>
-                            ) : (
-                              <span className="text-[11px] text-white/20 font-bold">—</span>
-                            )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap border-r border-white/[0.055]">
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase",
-                              item.verified && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
-                              item.verified ? "bg-blue-500/10 text-blue-400" :
-                              "bg-red-500/10 text-red-400"
-                            )}>
-                              {item.status_translation}
-                            </span>
+                          {/* Ok */}
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'center' })}>
+                              {viewingNoteVerified[idx] ? (
+                                <button
+                                  onClick={() => {
+                                    const updated = [...viewingNoteVerified];
+                                    updated[idx] = false;
+                                    setViewingNoteVerified(updated);
+                                  }}
+                                  className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
+                                >
+                                  <CheckCircle2 size={12} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    const updatedVerified = [...viewingNoteVerified];
+                                    updatedVerified[idx] = true;
+                                    setViewingNoteVerified(updatedVerified);
+                                    const updatedTs = [...viewingNoteReviewTimestamps];
+                                    updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    setViewingNoteReviewTimestamps(updatedTs);
+                                  }}
+                                  className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
+                                >
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
-                            {viewingNoteVerified[idx] ? (
-                              <button
-                                onClick={() => {
-                                  const updated = [...viewingNoteVerified];
-                                  updated[idx] = false;
-                                  setViewingNoteVerified(updated);
+                          {/* Revisão (timestamp) */}
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'center', padding: '0 8px' })}>
+                              {viewingNoteReviewTimestamps[idx] ? (
+                                <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
+                                  {viewingNoteReviewTimestamps[idx]}
+                                </span>
+                              ) : (
+                                <span className="text-white/20 text-[11px] font-bold">—</span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Distribuição */}
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ justifyContent: 'center', padding: '0 8px' })}>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={8}
+                                value={viewingNoteDistribuicao[idx] ?? ''}
+                                onChange={e => {
+                                  const val = e.target.value.replace(/[^0-9]/g, '');
+                                  const u = [...viewingNoteDistribuicao];
+                                  u[idx] = val;
+                                  setViewingNoteDistribuicao(u);
                                 }}
-                                className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white mx-auto shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
-                              >
-                                <CheckCircle2 size={12} />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  const updatedVerified = [...viewingNoteVerified];
-                                  updatedVerified[idx] = true;
-                                  setViewingNoteVerified(updatedVerified);
-                                  const updatedTs = [...viewingNoteReviewTimestamps];
-                                  updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                  setViewingNoteReviewTimestamps(updatedTs);
-                                }}
-                                className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-white/25 mx-auto hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer"
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
-                            {viewingNoteReviewTimestamps[idx] ? (
-                              <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
-                                {viewingNoteReviewTimestamps[idx]}
-                              </span>
-                            ) : (
-                              <span className="text-white/20 text-[11px] font-bold">—</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-center border-r border-white/[0.055]">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              data-nav-table="review-note" data-nav-row={idx} data-nav-col={8}
-                              value={viewingNoteDistribuicao[idx] ?? ''}
-                              onChange={e => {
-                                const val = e.target.value.replace(/[^0-9]/g, '');
-                                const u = [...viewingNoteDistribuicao];
-                                u[idx] = val;
-                                setViewingNoteDistribuicao(u);
-                              }}
-                              onKeyDown={tableCellKeyDown('review-note', idx, 8)}
-                              placeholder="—"
-                              className="w-12 text-center text-xs font-bold text-[#f2f0e3] bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-1 focus:outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                            />
+                                onKeyDown={tableCellKeyDown('review-note', idx, 8)}
+                                placeholder="—"
+                                className="w-10 text-center text-xs font-bold text-[#f2f0e3] bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              />
+                            </div>
                           </td>
                           {/* Botão excluir item */}
-                          <td className="py-2 px-2 text-center">
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible' })}>
                             {deleteConfirmIdx === idx ? (
                               <div className="flex items-center gap-1">
                                 <button
@@ -5730,12 +5828,13 @@ export default function Page() {
                             ) : (
                               <button
                                 onClick={() => setDeleteConfirmIdx(idx)}
-                                className="w-7 h-7 rounded-lg bg-white/[0.05] text-white/20 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all mx-auto"
+                                className="w-7 h-7 rounded-lg bg-transparent text-white/20 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all"
                                 title="Excluir produto da nota"
                               >
                                 <Trash2 size={13} />
                               </button>
                             )}
+                            </div>
                           </td>
                         </tr>
                       );
