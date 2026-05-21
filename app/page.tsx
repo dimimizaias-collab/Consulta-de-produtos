@@ -8,6 +8,7 @@ import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
 import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
+import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
@@ -254,6 +255,7 @@ export default function Page() {
     units_per_mother: 1
   });
   const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
+  const [showProductBulkTable, setShowProductBulkTable] = useState(false);
   const [showManualStockModal, setShowManualStockModal] = useState(false);
   const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
   const [manualStockSearchResults, setManualStockSearchResults] = useState<any[]>([]);
@@ -2723,6 +2725,7 @@ export default function Page() {
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
                   onAdd={() => setShowAddModal(true)}
+                  onOpenProductList={() => setShowProductBulkTable(true)}
                   onEdit={openEditModal}
                   onViewLink={handleViewLink}
                   onStockUpdate={handleStockUpdate}
@@ -4036,6 +4039,44 @@ export default function Page() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Product Bulk Table */}
+      <ProductBulkTable
+        isOpen={showProductBulkTable}
+        onClose={() => setShowProductBulkTable(false)}
+        onSave={async (rows) => {
+          let savedCount = 0;
+          let errorCount = 0;
+          try {
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            const inserts = rows
+              .filter(r => r.name.trim())
+              .map(r => ({
+                name: r.name.trim(),
+                sku: r.sku.trim() || null,
+                ean: r.ean.trim() || null,
+                category: r.category.trim() || null,
+                subcategory: r.subcategory.trim() || null,
+                brand: r.brand.trim() || null,
+                location: r.location.trim() || null,
+                stock: r.count !== '' ? parseFloat(r.count) || 0 : 0,
+                price: r.price !== '' ? parseFloat(r.price.replace(',', '.')) || null : null,
+                status: r.status || 'Em Estoque',
+              }));
+            if (inserts.length === 0) return { saved: 0, errors: 1 };
+            const { error } = await supabase.from('products').insert(inserts);
+            if (error) { errorCount = inserts.length; }
+            else { savedCount = inserts.length; await fetchProducts(); }
+          } catch {
+            errorCount = rows.length;
+          }
+          return { saved: savedCount, errors: errorCount };
+        }}
+      />
 
       {/* Stock Update Choice Modal */}
       <AnimatePresence>

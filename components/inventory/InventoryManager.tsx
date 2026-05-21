@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -13,7 +13,9 @@ import {
   TrendingUp,
   AlertTriangle,
   LayoutGrid,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Rows3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
@@ -29,6 +31,7 @@ interface InventoryManagerProps {
   searchQuery: string;
   setSearchQuery: (val: string) => void;
   onAdd: () => void;
+  onOpenProductList: () => void;
   onEdit: (product: any) => void;
   onViewLink: (mother: any, child: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -47,6 +50,7 @@ export function InventoryManager({
   searchQuery,
   setSearchQuery,
   onAdd,
+  onOpenProductList,
   onEdit,
   onViewLink,
   onStockUpdate,
@@ -57,6 +61,19 @@ export function InventoryManager({
   setShowStockUpdateChoiceModal
 }: InventoryManagerProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const newDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (newDropdownRef.current && !newDropdownRef.current.contains(e.target as Node)) {
+        setShowNewDropdown(false);
+      }
+    }
+    if (showNewDropdown) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNewDropdown]);
+
   const [filters, setFilters] = useState({
     ean: '',
     internalCode: '',
@@ -165,13 +182,52 @@ export function InventoryManager({
             Filtros
           </button>
           
-          <button 
-            onClick={onAdd}
-            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-6 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
-          >
-            <Plus size={16} />
-            Novo Produto
-          </button>
+          {/* Novo dropdown */}
+          <div ref={newDropdownRef} className="relative">
+            <button
+              onClick={() => setShowNewDropdown(v => !v)}
+              className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2 shadow-sm uppercase tracking-widest active:scale-[0.97]"
+              style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+            >
+              <Plus size={15} />
+              Novo
+              <motion.span
+                animate={{ rotate: showNewDropdown ? 180 : 0 }}
+                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                style={{ display: 'flex' }}
+              >
+                <ChevronDown size={13} />
+              </motion.span>
+            </button>
+
+            <AnimatePresence>
+              {showNewDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Rows3 size={14} className="text-primary" />
+                    Lista de produtos
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                  <button
+                    onClick={() => { setShowNewDropdown(false); onAdd(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Plus size={14} />
+                    Novo Produto
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           
           <button 
             onClick={() => fileInputRef.current?.click()}
