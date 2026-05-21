@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Tailwind v4: por padrão dark: usa prefers-color-scheme.
+   Redefinimos para usar a classe .dark no <html>,
+   controlada pelo toggle de tema da aplicação. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+
 @theme {
   --font-manrope: var(--font-manrope);
   --font-inter: var(--font-inter);
