@@ -44,38 +44,49 @@ const emptyRow = (): BulkRow => ({
   status: 'Em Estoque',
 });
 
-// Column definitions
+// Column definitions — w is the explicit CSS col width ('auto' for flex)
 type ColDef = {
   key: keyof Omit<BulkRow, 'id'>;
   label: string;
   placeholder: string;
-  width: string;        // CSS width for the th/td
+  w: string;
   type?: 'text' | 'number' | 'select';
   required?: boolean;
+  align?: 'left' | 'right';
 };
 
 const COLS: ColDef[] = [
-  { key: 'name',        label: 'Nome',        placeholder: 'Ex: Chocolate Lacta 80g',  width: 'w-[220px]', required: true },
-  { key: 'sku',         label: 'SKU',         placeholder: 'SKU-001',                  width: 'w-[110px]' },
-  { key: 'ean',         label: 'EAN',         placeholder: '7891234567890',             width: 'w-[140px]' },
-  { key: 'category',    label: 'Categoria',   placeholder: 'Doméstico',                width: 'w-[120px]' },
-  { key: 'subcategory', label: 'Sub.',        placeholder: 'Cozinha',                  width: 'w-[110px]' },
-  { key: 'brand',       label: 'Marca',       placeholder: 'Lacta',                    width: 'w-[110px]' },
-  { key: 'location',    label: 'Localização', placeholder: 'Prateleira A1',            width: 'w-[120px]' },
-  { key: 'count',       label: 'Qtde',        placeholder: '0',                        width: 'w-[72px]', type: 'number' },
-  { key: 'price',       label: 'Preço',       placeholder: '0,00',                     width: 'w-[90px]', type: 'number' },
-  { key: 'status',      label: 'Status',      placeholder: '',                         width: 'w-[130px]', type: 'select' },
+  { key: 'name',        label: 'Nome',        placeholder: 'Ex: Chocolate Lacta 80g',  w: 'auto',   required: true },
+  { key: 'sku',         label: 'SKU',         placeholder: 'SKU-001',                  w: '96px'  },
+  { key: 'ean',         label: 'EAN',         placeholder: '7891234567890',             w: '134px' },
+  { key: 'category',    label: 'Categoria',   placeholder: 'Doméstico',                w: '114px' },
+  { key: 'subcategory', label: 'Sub.',        placeholder: 'Cozinha',                  w: '100px' },
+  { key: 'brand',       label: 'Marca',       placeholder: 'Lacta',                    w: '100px' },
+  { key: 'location',    label: 'Localização', placeholder: 'Prateleira A1',            w: '118px' },
+  { key: 'count',       label: 'Qtde',        placeholder: '0',    w: '70px',  type: 'number', align: 'right' },
+  { key: 'price',       label: 'Preço R$',    placeholder: '0,00', w: '88px',  type: 'number', align: 'right' },
+  { key: 'status',      label: 'Status',      placeholder: '',     w: '130px', type: 'select' },
 ];
+
+// Focus ring helpers — direct DOM, no re-render
+const applyFocus = (el: HTMLElement) => {
+  el.style.borderColor = '#D81E1E';
+  el.style.boxShadow  = '0 0 0 3px rgba(216,30,30,0.15)';
+};
+const removeFocus = (el: HTMLElement, invalid?: boolean) => {
+  el.style.borderColor = invalid ? 'rgba(216,30,30,0.55)' : '';
+  el.style.boxShadow  = '';
+};
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTableProps) {
-  const [rows, setRows] = useState<BulkRow[]>([emptyRow()]);
+  const [rows, setRows]                     = useState<BulkRow[]>([emptyRow()]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
-  const [openStatusId, setOpenStatusId] = useState<string | null>(null);
+  const [invalidIds, setInvalidIds]         = useState<Set<string>>(new Set());
+  const [saving, setSaving]                 = useState(false);
+  const [saveResult, setSaveResult]         = useState<SaveResult | null>(null);
+  const [openStatusId, setOpenStatusId]     = useState<string | null>(null);
 
   // Reset on open
   useEffect(() => {
@@ -112,7 +123,6 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
   }, []);
 
   const handleSave = useCallback(async () => {
-    // Validate required fields
     const invalids = new Set<string>();
     rows.forEach(r => { if (!r.name.trim()) invalids.add(r.id); });
     if (invalids.size > 0) { setInvalidIds(invalids); return; }
@@ -122,16 +132,13 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
     try {
       const result = await onSave(rows.map(({ id, ...rest }) => rest));
       setSaveResult(result);
-      if (result.errors === 0) {
-        // auto-close after brief success flash
-        setTimeout(() => onClose(), 1200);
-      }
+      if (result.errors === 0) setTimeout(() => onClose(), 1200);
     } finally {
       setSaving(false);
     }
   }, [rows, onSave, onClose]);
 
-  // Keyboard: ↑/↓ navigate between rows in same column
+  // ↑/↓ row navigation
   const handleCellKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>,
     rowIdx: number,
@@ -146,7 +153,6 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
       );
       if (cell) { cell.focus(); cell.select(); }
     }
-    // Enter on last col → add row
     if (e.key === 'Enter' && colIdx === COLS.length - 1 && rowIdx === rows.length - 1) {
       e.preventDefault();
       addRow();
@@ -159,7 +165,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
     }
   };
 
-  // Paste handler: distribute multi-line clipboard to rows below
+  // Multi-line paste → distribute to rows below
   const handleCellPaste = (
     e: React.ClipboardEvent<HTMLInputElement>,
     rowIdx: number,
@@ -168,7 +174,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
   ) => {
     const text = e.clipboardData.getData('text');
     const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length <= 1) return; // let browser handle single-line paste
+    if (lines.length <= 1) return;
     e.preventDefault();
     setRows(prev => {
       const next = [...prev];
@@ -177,15 +183,13 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
         if (targetIdx < next.length) {
           next[targetIdx] = { ...next[targetIdx], [colKey]: line.trim() };
         } else {
-          const newRow = emptyRow();
-          next.push({ ...newRow, [colKey]: line.trim() });
+          next.push({ ...emptyRow(), [colKey]: line.trim() });
         }
       });
       return next;
     });
   };
 
-  // Filled row count (at least name)
   const filledCount = rows.filter(r => r.name.trim()).length;
 
   if (!isOpen) return null;
@@ -200,41 +204,37 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           className="fixed inset-0 z-50 flex flex-col"
-          style={{ backgroundColor: 'var(--color-background, #FFFCEC)' }}
+          style={{ backgroundColor: 'var(--bt-bg)' }}
         >
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div
-            className="flex items-center justify-between px-6 md:px-10 py-4 border-b shrink-0"
+            className="flex items-center justify-between px-6 md:px-8 py-4 border-b shrink-0"
             style={{
-              backgroundColor: 'var(--color-header-bg)',
-              borderColor: 'var(--color-header-border)',
+              backgroundColor: 'var(--bt-header-bg)',
+              borderColor:     'var(--bt-header-border)',
             }}
           >
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: 'var(--color-icon-bg)' }}
+                style={{ backgroundColor: 'var(--bt-icon-bg)' }}
               >
-                <LayoutGrid size={18} style={{ color: 'var(--color-icon)' }} />
+                <LayoutGrid size={18} style={{ color: 'var(--bt-icon)' }} />
               </div>
               <div>
                 <p
                   className="text-[10px] font-black uppercase tracking-[0.18em] leading-none mb-1"
-                  style={{ color: 'var(--color-subtitle)' }}
+                  style={{ color: 'var(--bt-subtitle)' }}
                 >
                   Cadastro em Lote
                 </p>
-                <p
-                  className="text-lg font-black leading-none"
-                  style={{ color: 'var(--color-title)' }}
-                >
+                <p className="text-lg font-black leading-none" style={{ color: 'var(--bt-title)' }}>
                   Lista de Produtos
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Save result badge */}
               <AnimatePresence>
                 {saveResult && (
                   <motion.div
@@ -258,12 +258,15 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
 
               <button
                 onClick={onClose}
-                className="h-9 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
+                className="h-9 px-4 rounded-xl text-sm font-bold"
                 style={{
-                  backgroundColor: 'var(--color-btn-cancel-bg)',
-                  color: 'var(--color-btn-cancel-text)',
-                  transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                  backgroundColor: 'var(--bt-btn-cancel-bg)',
+                  color:           'var(--bt-btn-cancel-text)',
+                  border:          '1.5px solid var(--bt-btn-cancel-border)',
+                  transition:      'all 150ms cubic-bezier(0.23,1,0.32,1)',
                 }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
               >
                 Cancelar
               </button>
@@ -271,12 +274,16 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
               <button
                 onClick={handleSave}
                 disabled={saving || filledCount === 0}
-                className="h-9 px-5 rounded-xl text-sm font-black text-white flex items-center gap-2 disabled:opacity-50 active:scale-[0.97]"
+                className="h-9 px-5 rounded-xl text-sm font-black text-white flex items-center gap-2 disabled:opacity-50"
                 style={{
                   backgroundColor: '#D81E1E',
-                  boxShadow: '0 4px 14px rgba(216,30,30,0.25)',
-                  transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                  boxShadow:       '0 4px 14px rgba(216,30,30,0.25)',
+                  transition:      'all 150ms cubic-bezier(0.23,1,0.32,1)',
                 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#c01818'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#D81E1E'; }}
+                onMouseDown ={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
+                onMouseUp   ={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
               >
                 {saving
                   ? <><Loader2 size={14} className="animate-spin" />Salvando...</>
@@ -286,11 +293,15 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
 
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-[0.97]"
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
                 style={{
-                  color: 'var(--color-close)',
+                  color:      'var(--bt-close)',
                   transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
                 }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.6'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                onMouseDown ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.93)'}
+                onMouseUp   ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
               >
                 <X size={18} />
               </button>
@@ -298,179 +309,249 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           </div>
 
           {/* ── Table ──────────────────────────────────────────────────── */}
-          <div className="flex-1 overflow-auto">
-            <table className="w-full border-collapse" style={{ minWidth: '1100px' }}>
-              {/* Sticky header */}
-              <thead
-                className="sticky top-0 z-10"
-                style={{ backgroundColor: 'var(--color-thead-bg)' }}
-              >
+          <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2">
+            <table
+              className="w-full"
+              style={{
+                minWidth:       '1060px',
+                borderCollapse: 'separate',
+                borderSpacing:  '5px 3px',
+              }}
+            >
+              {/* column widths */}
+              <colgroup>
+                <col style={{ width: '28px' }} />
+                {COLS.map(col => (
+                  <col key={col.key} style={{ width: col.w }} />
+                ))}
+                <col style={{ width: '34px' }} />
+              </colgroup>
+
+              {/* ── Sticky header ── */}
+              <thead className="sticky top-0 z-10">
                 <tr>
-                  {/* Row number column */}
-                  <th
-                    className="w-10 py-3 text-center text-[9px] font-black uppercase tracking-widest select-none"
-                    style={{
-                      color: 'var(--color-thead-text)',
-                      borderBottom: '1px solid var(--color-border)',
-                    }}
-                  >
-                    #
-                  </th>
+                  {/* row-num col: empty */}
+                  <th style={{ padding: 0 }} />
 
                   {COLS.map(col => (
-                    <th
-                      key={col.key}
-                      className={cn('py-3 px-3 text-left text-[9px] font-black uppercase tracking-widest', col.width)}
-                      style={{
-                        color: 'var(--color-thead-text)',
-                        borderBottom: '1px solid var(--color-border)',
-                        minWidth: col.width.replace('w-[', '').replace(']', ''),
-                      }}
-                    >
-                      {col.label}
-                      {col.required && (
-                        <span className="ml-0.5 text-[#D81E1E]">*</span>
-                      )}
+                    <th key={col.key} style={{ padding: 0, verticalAlign: 'bottom' }}>
+                      <div
+                        style={{
+                          display:        'block',
+                          borderRadius:   '9px',
+                          background:     'var(--bt-col-header-bg)',
+                          border:         '1.5px solid var(--bt-col-header-border)',
+                          padding:        '8px 11px',
+                          fontSize:       '10px',
+                          fontWeight:     700,
+                          letterSpacing:  '0.11em',
+                          textTransform:  'uppercase',
+                          color:          'var(--bt-col-header-text)',
+                          whiteSpace:     'nowrap',
+                          userSelect:     'none',
+                        }}
+                      >
+                        {col.label}
+                        {col.required && (
+                          <span style={{ color: '#D81E1E', marginLeft: '2px' }}>*</span>
+                        )}
+                      </div>
                     </th>
                   ))}
 
-                  {/* Delete column */}
-                  <th
-                    className="w-10 py-3"
-                    style={{ borderBottom: '1px solid var(--color-border)' }}
-                  />
+                  {/* delete col: empty */}
+                  <th style={{ padding: 0 }} />
                 </tr>
               </thead>
 
+              {/* ── Body ── */}
               <tbody>
                 {rows.map((row, rowIdx) => {
                   const isInvalid = invalidIds.has(row.id);
-                  const isEven = rowIdx % 2 === 0;
+                  const isEven    = rowIdx % 2 === 0;
 
                   return (
                     <tr
                       key={row.id}
-                      className="group transition-colors"
+                      className="group"
                       style={{
-                        backgroundColor: isInvalid
-                          ? 'var(--color-row-invalid)'
+                        background: isInvalid
+                          ? 'var(--bt-row-invalid)'
                           : isEven
-                            ? 'var(--color-row-even)'
-                            : 'var(--color-row-odd)',
+                            ? 'var(--bt-row-even)'
+                            : 'var(--bt-row-odd)',
                       }}
                       onMouseEnter={e => {
-                        if (!isInvalid) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-row-hover)';
+                        if (!isInvalid)
+                          (e.currentTarget as HTMLElement).style.background = 'var(--bt-row-hover)';
                       }}
                       onMouseLeave={e => {
-                        if (!isInvalid) (e.currentTarget as HTMLElement).style.backgroundColor = isEven ? 'var(--color-row-even)' : 'var(--color-row-odd)';
+                        if (!isInvalid)
+                          (e.currentTarget as HTMLElement).style.background =
+                            isEven ? 'var(--bt-row-even)' : 'var(--bt-row-odd)';
                       }}
                     >
                       {/* Row number */}
-                      <td
-                        className="w-10 py-2 text-center font-mono text-[10px] select-none"
-                        style={{ color: 'var(--color-row-num)', borderBottom: '1px solid var(--color-row-border)' }}
-                      >
-                        {rowIdx + 1}
+                      <td style={{ padding: '0 5px 0 0', textAlign: 'right', verticalAlign: 'middle' }}>
+                        <span
+                          style={{
+                            fontSize:    '10px',
+                            fontFamily:  'monospace',
+                            fontWeight:  300,
+                            letterSpacing: '0.03em',
+                            color:       'var(--bt-row-num)',
+                          }}
+                        >
+                          {rowIdx + 1}
+                        </span>
                       </td>
 
                       {/* Data cells */}
-                      {COLS.map((col, colIdx) => (
-                        <td
-                          key={col.key}
-                          className={cn('py-0 px-3', col.width)}
-                          style={{ borderBottom: '1px solid var(--color-row-border)' }}
-                        >
-                          {col.type === 'select' ? (
-                            /* Status dropdown */
-                            <div className="relative">
-                              <button
-                                data-bulk-row={rowIdx}
-                                data-bulk-col={colIdx}
-                                onKeyDown={e => handleCellKeyDown(e, rowIdx, colIdx)}
-                                onClick={() => setOpenStatusId(openStatusId === row.id ? null : row.id)}
-                                className="w-full flex items-center justify-between py-2 text-xs font-semibold transition-colors text-left"
-                                style={{ color: 'var(--color-cell-text)' }}
+                      {COLS.map((col, colIdx) => {
+                        const isCellInvalid = isInvalid && !!col.required;
+
+                        /* ── cell wrapper style ── */
+                        const cellBase: React.CSSProperties = {
+                          borderRadius: '9px',
+                          border:       `1.5px solid ${
+                            isCellInvalid
+                              ? 'rgba(216,30,30,0.55)'
+                              : 'var(--bt-cell-border)'
+                          }`,
+                          background:   isCellInvalid
+                            ? 'var(--bt-cell-invalid-bg)'
+                            : 'var(--bt-cell-bg)',
+                          height:       '36px',
+                          display:      'flex',
+                          alignItems:   'center',
+                          overflow:     'hidden',
+                          transition:   'border-color 130ms cubic-bezier(0.23,1,0.32,1), box-shadow 130ms cubic-bezier(0.23,1,0.32,1)',
+                        };
+
+                        /* ── input style ── */
+                        const inputStyle: React.CSSProperties = {
+                          background:    'transparent',
+                          border:        'none',
+                          outline:       'none',
+                          width:         '100%',
+                          height:        '100%',
+                          padding:       '0 11px',
+                          fontFamily:    '"DM Mono", monospace',
+                          fontSize:      '12px',
+                          fontWeight:    400,
+                          letterSpacing: '0.02em',
+                          color:         isCellInvalid ? '#D81E1E' : 'var(--bt-cell-text)',
+                          textAlign:     col.align ?? 'left',
+                          caretColor:    '#D81E1E',
+                        };
+
+                        return (
+                          <td key={col.key} style={{ padding: 0, verticalAlign: 'middle' }}>
+                            {col.type === 'select' ? (
+                              /* ── Status cell ── */
+                              <div
+                                style={cellBase}
+                                onFocus={e => applyFocus(e.currentTarget)}
+                                onBlur ={e => {
+                                  if (!e.currentTarget.contains(e.relatedTarget as Node))
+                                    removeFocus(e.currentTarget);
+                                }}
                               >
-                                <span className={cn(
-                                  'px-2 py-0.5 rounded-full text-[10px] font-black',
-                                  row.status === 'Em Estoque' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-                                  row.status === 'Estoque em Alta' && 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-                                  row.status === 'Estoque Baixo' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-                                  row.status === 'Fora de Estoque' && 'bg-red-500/15 text-red-600 dark:text-red-400',
-                                )}>
-                                  {row.status}
-                                </span>
-                                <ChevronDown size={11} style={{ color: 'var(--color-cell-muted)', flexShrink: 0 }} className={cn('transition-transform', openStatusId === row.id && 'rotate-180')} />
-                              </button>
-
-                              <AnimatePresence>
-                                {openStatusId === row.id && (
-                                  <motion.div
-                                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                                    transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                                    className="absolute left-0 top-full z-50 w-44 rounded-xl shadow-xl overflow-hidden"
-                                    style={{ backgroundColor: 'var(--color-dropdown-bg)', border: '1px solid var(--color-border)' }}
+                                <button
+                                  data-bulk-row={rowIdx}
+                                  data-bulk-col={colIdx}
+                                  onKeyDown={e => handleCellKeyDown(e, rowIdx, colIdx)}
+                                  onClick={() =>
+                                    setOpenStatusId(openStatusId === row.id ? null : row.id)
+                                  }
+                                  className="w-full flex items-center justify-between text-left"
+                                  style={{ padding: '0 10px', height: '100%', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                >
+                                  <span
+                                    className={cn(
+                                      'px-2 py-0.5 rounded-full text-[10px] font-black',
+                                      row.status === 'Em Estoque'     && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                                      row.status === 'Estoque em Alta'&& 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                                      row.status === 'Estoque Baixo'  && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                                      row.status === 'Fora de Estoque'&& 'bg-red-500/15 text-red-600 dark:text-red-400',
+                                    )}
                                   >
-                                    {STATUS_OPTIONS.map(opt => (
-                                      <button
-                                        key={opt}
-                                        onMouseDown={() => { updateRow(row.id, 'status', opt); setOpenStatusId(null); }}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
-                                        style={{ color: 'var(--color-cell-text)' }}
-                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-row-hover)'}
-                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
-                                      >
-                                        {opt}
-                                      </button>
-                                    ))}
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          ) : (
-                            /* Text / number input */
-                            <input
-                              data-bulk-row={rowIdx}
-                              data-bulk-col={colIdx}
-                              type={col.type ?? 'text'}
-                              value={row[col.key]}
-                              placeholder={col.placeholder}
-                              onChange={e => updateRow(row.id, col.key, e.target.value)}
-                              onKeyDown={e => handleCellKeyDown(e as any, rowIdx, colIdx)}
-                              onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
-                              className={cn(
-                                'w-full py-2 text-sm transition-colors bg-transparent outline-none',
-                                col.type === 'number' && '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden',
-                              )}
-                              style={{
-                                color: 'var(--color-cell-text)',
-                                borderBottom: isInvalid && col.required
-                                  ? '1.5px solid #D81E1E'
-                                  : '1.5px solid transparent',
-                                caretColor: '#D81E1E',
-                              }}
-                              onFocus={e => {
-                                if (!(isInvalid && col.required)) {
-                                  (e.target as HTMLElement).style.borderBottom = '1.5px solid rgba(216,30,30,0.5)';
-                                }
-                              }}
-                              onBlur={e => {
-                                if (!(isInvalid && col.required)) {
-                                  (e.target as HTMLElement).style.borderBottom = '1.5px solid transparent';
-                                }
-                              }}
-                            />
-                          )}
-                        </td>
-                      ))}
+                                    {row.status}
+                                  </span>
+                                  <ChevronDown
+                                    size={11}
+                                    style={{ color: 'var(--bt-cell-muted)', flexShrink: 0 }}
+                                    className={cn('transition-transform duration-150', openStatusId === row.id && 'rotate-180')}
+                                  />
+                                </button>
 
-                      {/* Delete button / confirm */}
-                      <td
-                        className="w-10 py-2 text-center"
-                        style={{ borderBottom: '1px solid var(--color-row-border)' }}
-                      >
+                                <AnimatePresence>
+                                  {openStatusId === row.id && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                                      className="absolute left-0 top-full z-50 w-44 rounded-xl shadow-xl overflow-hidden"
+                                      style={{
+                                        backgroundColor: 'var(--bt-dropdown-bg)',
+                                        border:          '1px solid var(--bt-cell-border)',
+                                      }}
+                                    >
+                                      {STATUS_OPTIONS.map(opt => (
+                                        <button
+                                          key={opt}
+                                          onMouseDown={() => {
+                                            updateRow(row.id, 'status', opt);
+                                            setOpenStatusId(null);
+                                          }}
+                                          className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
+                                          style={{ color: 'var(--bt-cell-text)' }}
+                                          onMouseEnter={e =>
+                                            (e.currentTarget as HTMLElement).style.backgroundColor =
+                                              'var(--bt-row-hover)'
+                                          }
+                                          onMouseLeave={e =>
+                                            (e.currentTarget as HTMLElement).style.backgroundColor =
+                                              'transparent'
+                                          }
+                                        >
+                                          {opt}
+                                        </button>
+                                      ))}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            ) : (
+                              /* ── Text / number cell ── */
+                              <div
+                                style={cellBase}
+                                onFocus={e => !isCellInvalid && applyFocus(e.currentTarget)}
+                                onBlur ={e => !isCellInvalid && removeFocus(e.currentTarget)}
+                              >
+                                <input
+                                  data-bulk-row={rowIdx}
+                                  data-bulk-col={colIdx}
+                                  type={col.type ?? 'text'}
+                                  value={row[col.key]}
+                                  placeholder={col.placeholder}
+                                  onChange={e => updateRow(row.id, col.key, e.target.value)}
+                                  onKeyDown={e => handleCellKeyDown(e as any, rowIdx, colIdx)}
+                                  onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
+                                  className={cn(
+                                    col.type === 'number' && '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden',
+                                  )}
+                                  style={inputStyle}
+                                />
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      {/* Delete */}
+                      <td style={{ padding: 0, textAlign: 'center', verticalAlign: 'middle' }}>
                         <AnimatePresence mode="wait">
                           {deleteConfirmId === row.id ? (
                             <motion.div
@@ -490,7 +571,10 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                               <button
                                 onClick={() => setDeleteConfirmId(null)}
                                 className="px-1.5 py-0.5 text-[10px] font-black rounded-md transition-colors"
-                                style={{ backgroundColor: 'var(--color-btn-cancel-bg)', color: 'var(--color-btn-cancel-text)' }}
+                                style={{
+                                  backgroundColor: 'var(--bt-btn-cancel-bg)',
+                                  color:           'var(--bt-btn-cancel-text)',
+                                }}
                               >
                                 Não
                               </button>
@@ -501,9 +585,23 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              onClick={() => rows.length === 1 ? updateRow(row.id, 'name', '') : setDeleteConfirmId(row.id)}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              style={{ color: 'var(--color-cell-muted)' }}
+                              onClick={() =>
+                                rows.length === 1
+                                  ? updateRow(row.id, 'name', '')
+                                  : setDeleteConfirmId(row.id)
+                              }
+                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                              style={{ color: 'var(--bt-cell-muted)' }}
+                              onMouseEnter={e => {
+                                (e.currentTarget as HTMLElement).style.color = '#D81E1E';
+                                (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(216,30,30,0.1)';
+                              }}
+                              onMouseLeave={e => {
+                                (e.currentTarget as HTMLElement).style.color = '';
+                                (e.currentTarget as HTMLElement).style.backgroundColor = '';
+                              }}
+                              onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.90)'}
+                              onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
                               title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
                             >
                               <Trash2 size={13} />
@@ -516,105 +614,153 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                 })}
               </tbody>
             </table>
+
+            {/* Add row */}
+            <button
+              onClick={addRow}
+              className="mt-1 w-full flex items-center justify-center gap-2 font-bold uppercase tracking-[0.1em]"
+              style={{
+                height:       '36px',
+                borderRadius: '9px',
+                fontSize:     '10px',
+                border:       '1.5px dashed var(--bt-add-border)',
+                color:        'var(--bt-add-text)',
+                background:   'transparent',
+                transition:   'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                cursor:       'pointer',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.color       = '#D81E1E';
+                el.style.borderColor = 'rgba(216,30,30,0.45)';
+                el.style.background  = 'rgba(216,30,30,0.04)';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.color       = '';
+                el.style.borderColor = '';
+                el.style.background  = '';
+              }}
+              onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)'}
+              onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
+            >
+              <Plus size={12} />
+              Adicionar linha
+            </button>
           </div>
 
           {/* ── Footer ─────────────────────────────────────────────────── */}
           <div
-            className="flex items-center justify-between px-6 md:px-10 py-3 border-t shrink-0"
+            className="flex items-center justify-between px-6 md:px-8 py-3 border-t shrink-0"
             style={{
-              backgroundColor: 'var(--color-footer-bg)',
-              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--bt-footer-bg)',
+              borderColor:     'var(--bt-footer-border)',
             }}
           >
-            <button
-              onClick={addRow}
-              className="flex items-center gap-2 text-sm font-bold transition-all active:scale-[0.97] py-1.5 px-2 rounded-lg"
-              style={{
-                color: '#D81E1E',
-                transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
-              }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+            <span
+              className="text-[10px] font-light tracking-[0.04em]"
+              style={{ color: 'var(--bt-subtitle)', fontFamily: '"DM Mono", monospace' }}
             >
-              <Plus size={15} />
-              Adicionar Linha
-            </button>
+              ↑ ↓ navegar · Tab próxima · ⌘V colar coluna
+            </span>
 
-            <div className="flex items-center gap-4 text-xs font-semibold" style={{ color: 'var(--color-subtitle)' }}>
+            <div className="flex items-center gap-4 text-xs font-semibold" style={{ color: 'var(--bt-subtitle)' }}>
               {invalidIds.size > 0 && (
                 <span className="flex items-center gap-1.5 text-red-500">
                   <AlertCircle size={13} />
                   {invalidIds.size} linha{invalidIds.size !== 1 ? 's' : ''} com Nome em branco
                 </span>
               )}
-              <span>{rows.length} linha{rows.length !== 1 ? 's' : ''} · {filledCount} preenchida{filledCount !== 1 ? 's' : ''}</span>
+              <span>
+                {rows.length} linha{rows.length !== 1 ? 's' : ''} · {filledCount} preenchida{filledCount !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
 
-          {/* ── CSS Variables — dark / light theme tokens ──────────────── */}
+          {/* ── CSS Tokens ─────────────────────────────────────────────── */}
           <style jsx>{`
-            /* ── LIGHT MODE (default) — Caderno de Estoque ── */
+            /* ── LIGHT — cream + brand yellow ── */
             div {
-              --color-background:    #FFFCEC;
-              --color-header-bg:     #FFE500;
-              --color-header-border: rgba(0,0,0,0.08);
-              --color-icon-bg:       rgba(216,30,30,0.12);
-              --color-icon:          #D81E1E;
-              --color-title:         #1a1a14;
-              --color-subtitle:      rgba(26,26,20,0.50);
-              --color-close:         rgba(26,26,20,0.45);
-              --color-btn-cancel-bg: rgba(26,26,20,0.08);
-              --color-btn-cancel-text: rgba(26,26,20,0.65);
+              --bt-bg:                #FFFCEC;
+              --bt-header-bg:         #FFE500;
+              --bt-header-border:     #D4C900;
+              --bt-icon-bg:           rgba(216,30,30,0.10);
+              --bt-icon:              #D81E1E;
+              --bt-title:             #1a1a14;
+              --bt-subtitle:          rgba(26,26,20,0.48);
+              --bt-close:             rgba(26,26,20,0.45);
+              --bt-btn-cancel-bg:     rgba(26,26,20,0.07);
+              --bt-btn-cancel-text:   rgba(26,26,20,0.60);
+              --bt-btn-cancel-border: #DDD5BC;
 
-              --color-thead-bg:      #f0ede0;
-              --color-thead-text:    rgba(26,26,20,0.50);
-              --color-border:        #D9D0BA;
-              --color-row-border:    rgba(217,208,186,0.55);
+              --bt-col-header-bg:     #FFE500;
+              --bt-col-header-border: #D4C900;
+              --bt-col-header-text:   rgba(26,26,20,0.72);
 
-              --color-row-even:      #ffffff;
-              --color-row-odd:       #faf9f2;
-              --color-row-hover:     #fff8e0;
-              --color-row-invalid:   rgba(216,30,30,0.06);
-              --color-row-num:       rgba(216,30,30,0.45);
+              --bt-row-even:          #FFFFFF;
+              --bt-row-odd:           #FAF7EE;
+              --bt-row-hover:         #FFF8D0;
+              --bt-row-invalid:       rgba(216,30,30,0.05);
+              --bt-row-num:           rgba(26,26,20,0.28);
 
-              --color-cell-text:     #1a1a14;
-              --color-cell-muted:    rgba(26,26,20,0.35);
-              --color-dropdown-bg:   #ffffff;
+              --bt-cell-bg:           #FFFFFF;
+              --bt-cell-border:       #E2D9C5;
+              --bt-cell-invalid-bg:   rgba(216,30,30,0.04);
+              --bt-cell-text:         #1a1a14;
+              --bt-cell-muted:        rgba(26,26,20,0.32);
+              --bt-dropdown-bg:       #FFFFFF;
 
-              --color-footer-bg:     #f5f2e8;
+              --bt-add-border:        #D2C9B5;
+              --bt-add-text:          rgba(26,26,20,0.38);
+
+              --bt-footer-bg:         #F5F2E8;
+              --bt-footer-border:     #E9DFC2;
             }
 
-            /* ── DARK MODE — Manifesto Industrial ── */
+            /* ── DARK — industrial charcoal ── */
             @media (prefers-color-scheme: dark) {
               div {
-                --color-background:    #0f0f0c;
-                --color-header-bg:     #1c1c16;
-                --color-header-border: rgba(216,30,30,0.30);
-                --color-icon-bg:       rgba(216,30,30,0.12);
-                --color-icon:          #D81E1E;
-                --color-title:         #f2f0e3;
-                --color-subtitle:      rgba(242,240,227,0.38);
-                --color-close:         rgba(242,240,227,0.30);
-                --color-btn-cancel-bg: rgba(242,240,227,0.07);
-                --color-btn-cancel-text: rgba(242,240,227,0.50);
+                --bt-bg:                #0f0f0c;
+                --bt-header-bg:         #1c1c16;
+                --bt-header-border:     rgba(216,30,30,0.22);
+                --bt-icon-bg:           rgba(216,30,30,0.13);
+                --bt-icon:              #D81E1E;
+                --bt-title:             #f2f0e3;
+                --bt-subtitle:          rgba(242,240,227,0.36);
+                --bt-close:             rgba(242,240,227,0.32);
+                --bt-btn-cancel-bg:     rgba(242,240,227,0.06);
+                --bt-btn-cancel-text:   rgba(242,240,227,0.48);
+                --bt-btn-cancel-border: rgba(242,240,227,0.08);
 
-                --color-thead-bg:      #2e2e28;
-                --color-thead-text:    rgba(242,240,227,0.40);
-                --color-border:        rgba(242,240,227,0.08);
-                --color-row-border:    rgba(242,240,227,0.04);
+                --bt-col-header-bg:     #2e2e28;
+                --bt-col-header-border: rgba(242,240,227,0.07);
+                --bt-col-header-text:   rgba(242,240,227,0.50);
 
-                --color-row-even:      #141410;
-                --color-row-odd:       #161612;
-                --color-row-hover:     rgba(242,240,227,0.025);
-                --color-row-invalid:   rgba(216,30,30,0.08);
-                --color-row-num:       rgba(216,30,30,0.50);
+                --bt-row-even:          #141410;
+                --bt-row-odd:           #161612;
+                --bt-row-hover:         rgba(242,240,227,0.025);
+                --bt-row-invalid:       rgba(216,30,30,0.08);
+                --bt-row-num:           rgba(242,240,227,0.20);
 
-                --color-cell-text:     #f2f0e3;
-                --color-cell-muted:    rgba(242,240,227,0.28);
-                --color-dropdown-bg:   #2a2a24;
+                --bt-cell-bg:           #1e1e18;
+                --bt-cell-border:       rgba(242,240,227,0.08);
+                --bt-cell-invalid-bg:   rgba(216,30,30,0.08);
+                --bt-cell-text:         #f2f0e3;
+                --bt-cell-muted:        rgba(242,240,227,0.28);
+                --bt-dropdown-bg:       #2a2a24;
 
-                --color-footer-bg:     #1c1c16;
+                --bt-add-border:        rgba(242,240,227,0.13);
+                --bt-add-text:          rgba(242,240,227,0.32);
+
+                --bt-footer-bg:         #1c1c16;
+                --bt-footer-border:     rgba(242,240,227,0.06);
               }
+            }
+
+            /* placeholder color via CSS (can't be done inline) */
+            input::placeholder {
+              color: var(--bt-cell-muted);
+              opacity: 1;
             }
           `}</style>
         </motion.div>
