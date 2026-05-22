@@ -296,12 +296,11 @@ export default function Page() {
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
 
   // estoque print layout picker
-  type EstoquePreset = 'completo' | 'financeiro' | 'contagem' | 'simples';
+  type EstoquePreset = 'financeiro' | 'estoque' | 'personalizado';
   const [showEstoqueLayoutPicker, setShowEstoqueLayoutPicker] = useState(false);
   const [estoquePickerArgs, setEstoquePickerArgs] = useState<{ items: any[]; adj?: any; meta?: any } | null>(null);
-  const [estoquePreset, setEstoquePreset] = useState<EstoquePreset>('completo');
-  const [estoqueStriped, setEstoqueStriped] = useState(false);
-  const [estoqueCompact, setEstoqueCompact] = useState(false);
+  const [estoquePreset, setEstoquePreset] = useState<EstoquePreset>('financeiro');
+  const [estoqueCustomCols, setEstoqueCustomCols] = useState<string[]>([]);
 
   // discrepancy modal
   type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string } | null;
@@ -1504,22 +1503,21 @@ export default function Page() {
     surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
     surchargeIndividualType: string; itemSurcharges: string[];
   }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string },
-  layout?: { preset: 'completo' | 'financeiro' | 'contagem' | 'simples'; striped: boolean; compact: boolean }
+  layout?: { preset: 'financeiro' | 'estoque' | 'personalizado'; customCols?: string[] }
   ) => {
-    const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
-    const formatCurrency = (val: number) =>
-      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+    const fmtCur = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    const fmtNum = (v: number) => new Intl.NumberFormat('pt-BR').format(Math.round(v));
 
-    const calcCost = (cost: number, idx: number) => {
-      if (!adj) return cost;
-      let disc = 0;
+    const calcAdj = (cost: number, idx: number) => {
+      let disc = 0, sur = 0;
+      if (!adj) return { disc, sur };
       if (adj.discountMode === 'geral' && adj.discountApplied) {
         disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
       } else if (adj.discountMode === 'individual') {
         const v = parseFloat(adj.itemDiscounts[idx] ?? '');
         if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
       }
-      let sur = 0;
       if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
         sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
       } else if (adj.surchargeMode === 'individual') {
@@ -1529,143 +1527,245 @@ export default function Page() {
           sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
         }
       }
-      return cost - disc + sur;
+      return { disc, sur };
     };
 
-    const preset   = layout?.preset   ?? 'completo';
-    const striped  = layout?.striped  ?? false;
-    const compact  = layout?.compact  ?? false;
-    const cellPad  = compact ? 1.2 : 2;
-    const fontSize = compact ? 8   : 9;
+    const preset   = layout?.preset ?? 'financeiro';
+    const marginX  = 14;
+    const pageW    = 297; // landscape A4
+    const usableW  = pageW - 2 * marginX; // 269mm
+    const fontSize = 9;
+    const cellPad  = 2.5;
 
-    // ── Column definitions by preset ──────────────────────────────────────
-    // widths always sum to 182 mm (A4 portrait: 210 - 14*2 margins)
-    type ColSpec = { header: string; key: string; width: number; halign?: 'left'|'center'|'right'; redText?: boolean };
-    const PRESET_COLS: Record<string, ColSpec[]> = {
-      completo: [
-        { header: 'EAN',       key: 'ean',    width: 28 },
-        { header: 'Produto',   key: 'name',   width: 62 },
-        { header: 'Qtde',      key: 'qty',    width: 11, halign: 'center' },
-        { header: 'Distrib.',  key: 'distrib',width: 15, halign: 'center', redText: true },
-        { header: 'Preço Un.', key: 'preco',  width: 24, halign: 'right' },
-        { header: 'Total',     key: 'total',  width: 24, halign: 'right' },
-        { header: 'P. Venda',  key: 'pvenda', width: 18, halign: 'right', redText: true },
-      ],
-      financeiro: [
-        { header: 'EAN',       key: 'ean',    width: 26 },
-        { header: 'Produto',   key: 'name',   width: 68 },
-        { header: 'Qtde',      key: 'qty',    width: 13, halign: 'center' },
-        { header: 'Preço Un.', key: 'preco',  width: 25, halign: 'right' },
-        { header: 'Total',     key: 'total',  width: 28, halign: 'right' },
-        { header: 'P. Venda',  key: 'pvenda', width: 22, halign: 'right', redText: true },
-      ],
-      contagem: [
-        { header: 'Produto',   key: 'name',   width: 122 },
-        { header: 'Qtde',      key: 'qty',    width: 22,  halign: 'center' },
-        { header: 'Distrib.',  key: 'distrib',width: 38,  halign: 'center', redText: true },
-      ],
-      simples: [
-        { header: 'Produto',   key: 'name',   width: 152 },
-        { header: 'Qtde',      key: 'qty',    width: 30,  halign: 'center' },
-      ],
-    };
-    const cols = PRESET_COLS[preset];
-    const hasPriceCol = cols.some(c => c.key === 'total');
+    // ── Landscape header ─────────────────────────────────────────────────
+    const hY        = 12;
+    const supBoxW   = 68;
+    const supBoxH   = 7.5;
+    const noteBoxH  = 6;
+    const boxGap    = 1.5;
+    const tableY    = hY + supBoxH + boxGap + noteBoxH + 4;
 
-    const titlePartsE = [];
-    if (meta?.supplierName) titlePartsE.push(meta.supplierName);
-    if (meta?.noteNumber) titlePartsE.push(`NF ${meta.noteNumber}`);
-    const titleTextE = titlePartsE.length > 0 ? titlePartsE.join(' — ') : 'Nota para Estoque';
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.4);
+    doc.rect(marginX, hY, supBoxW, supBoxH);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20, 20, 14);
+    const supplierTxt = (meta?.supplierName ?? 'Fornecedor').toUpperCase().slice(0, 40);
+    doc.text(supplierTxt, marginX + 2.5, hY + 5);
 
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(titleTextE, 14, 16);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 23);
+    const noteY = hY + supBoxH + boxGap;
+    doc.rect(marginX, noteY, supBoxW, noteBoxH);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(70, 70, 70);
+    doc.text(`Nota: ${meta?.noteNumber ?? '—'}  ·  ${new Date().toLocaleDateString('pt-BR')}`, marginX + 2.5, noteY + 4);
 
-    let estoqueTableStartY = 28;
-    if (meta?.accessKey) {
-      try {
-        const barcodeUrl = generateBarcodeDataUrl(meta.accessKey);
-        doc.addImage(barcodeUrl, 'PNG', 14, 26, 182, 14);
-        doc.setFontSize(6);
-        doc.text(meta.accessKey, 105, 43, { align: 'center' });
-        estoqueTableStartY = 47;
-      } catch { /* ignore barcode errors */ }
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(216, 30, 30);
+    doc.text('Universo do R$1,99', pageW - marginX, hY + 5.5, { align: 'right' });
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(140, 140, 140);
+    const reportLabel = preset === 'financeiro' ? 'Relatório Financeiro · Entrada de Mercadoria'
+      : preset === 'estoque' ? 'Relatório de Estoque · Entrada de Mercadoria'
+      : 'Relatório Personalizado · Entrada de Mercadoria';
+    doc.text(reportLabel, pageW - marginX, noteY + 4, { align: 'right' });
+    doc.setTextColor(20, 20, 14);
+
+    // ── Per-item computed data ────────────────────────────────────────────
+    interface RowData {
+      codigo: string; produto: string; interno: string; ean: string; sku: string;
+      qtd: number; adjCost: number; disc: number; sur: number; vlrtotal: number;
+      pvenda: number; markup: number | null; distribuicao: number | null;
     }
-
-    let totalGeral = 0;
-    const tableData = items.map((item, idx) => {
-      const isTranslated = item.verified;
-      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
-      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
-      const adjCost = calcCost(rawCost, idx);
-      const total = adjCost * displayQty;
-      totalGeral += total;
-      const sell = item.product_price ?? 0;
-      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : '—';
-
-      const valMap: Record<string, string> = {
-        ean:    item.ean || '-',
-        name:   item.name || 'NÃO MAPEADO',
-        qty:    displayQty.toString(),
-        distrib,
-        preco:  formatCurrency(adjCost),
-        total:  formatCurrency(total),
-        pvenda: sell > 0 ? formatCurrency(sell) : '—',
+    const rows: RowData[] = items.map((item, idx) => {
+      const isT    = item.verified;
+      const qty    = isT ? (item.qty || 0) : (item.original_qty || 1);
+      const raw    = isT ? ((item.price || 0) / (item.multiplier || 1)) : (item.price || 0);
+      const { disc, sur } = calcAdj(raw, idx);
+      const adj2   = raw - disc + sur;
+      const pvenda = item.product_price ?? 0;
+      const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? Number(item.distribuicao) : null;
+      return {
+        codigo:      item.supplier_code || item.ean || '-',
+        produto:     item.original_description || item.name || 'NÃO MAPEADO',
+        interno:     item.name || '-',
+        ean:         item.ean || '-',
+        sku:         item.sku || '-',
+        qtd:         qty,
+        adjCost:     adj2,
+        disc,
+        sur,
+        vlrtotal:    adj2 * qty,
+        pvenda,
+        markup:      pvenda > 0 && adj2 > 0 ? ((pvenda - adj2) / adj2 * 100) : null,
+        distribuicao: distrib,
       };
-      return cols.map(c => valMap[c.key] ?? '');
     });
 
-    // Build foot row: blank cells except last two for total label + value (only when price cols exist)
+    const hasDisc = rows.some(r => r.disc > 0);
+    const hasSur  = rows.some(r => r.sur  > 0);
+
+    // ── Column specs ─────────────────────────────────────────────────────
+    type ColSpec = { header: string; key: string; width: number; halign?: 'left'|'center'|'right'; redHeader?: boolean };
+    let cols: ColSpec[];
+
+    if (preset === 'financeiro') {
+      const prodW = hasDisc && hasSur ? 60 : hasDisc || hasSur ? 66 : 76;
+      const baseCols: ColSpec[] = [
+        { header: 'Código',        key: 'codigo',    width: 25 },
+        { header: 'Produto na Nota', key: 'produto', width: prodW },
+        { header: 'Qtd',           key: 'qtd',       width: 10, halign: 'right' },
+        { header: 'P. Custo',      key: 'adjcost',   width: 20, halign: 'right' },
+        { header: 'Vlr Total',     key: 'vlrtotal',  width: 22, halign: 'right' },
+        ...(hasDisc ? [{ header: 'Desconto',  key: 'disc', width: 18, halign: 'right' as const }] : []),
+        ...(hasSur  ? [{ header: 'Acréscimo', key: 'sur',  width: 18, halign: 'right' as const }] : []),
+        { header: 'P. Venda',      key: 'pvenda',    width: 20, halign: 'right' },
+        { header: 'Markup',        key: 'markup',    width: 18, halign: 'right' },
+        { header: 'Distribuição',  key: 'distribuicao', width: 0, halign: 'right' },
+      ];
+      const fixedW = baseCols.slice(0, -1).reduce((s, c) => s + c.width, 0);
+      baseCols[baseCols.length - 1].width = usableW - fixedW;
+      cols = baseCols;
+    } else if (preset === 'estoque') {
+      const fixedW = 25 + 68 + 35 + 18 + 24 + 29; // = 199
+      cols = [
+        { header: 'Código',        key: 'codigo',    width: 25 },
+        { header: 'Produto na Nota', key: 'produto', width: 68 },
+        { header: 'EAN',           key: 'ean',        width: 35 },
+        { header: 'Quantidade',    key: 'qtd',        width: 18, halign: 'right' },
+        { header: 'Preço Venda',   key: 'pvenda',     width: 24, halign: 'right', redHeader: true },
+        { header: 'Distribuição',  key: 'distribuicao', width: usableW - fixedW, halign: 'right', redHeader: true },
+        { header: 'Check',         key: 'check',      width: 29, halign: 'center' },
+      ];
+    } else {
+      // Personalizado
+      const COL_META: Record<string, Omit<ColSpec,'key'>> = {
+        codigo:       { header: 'Código',                width: 25 },
+        produto:      { header: 'Produto na Nota',       width: 70 },
+        interno:      { header: 'Identificação Interna', width: 50 },
+        ean:          { header: 'EAN',                   width: 35 },
+        sku:          { header: 'SKU',                   width: 30 },
+        qtd:          { header: 'Quantidade',            width: 18, halign: 'right' },
+        adjcost:      { header: 'P. Custo',              width: 20, halign: 'right' },
+        vlrtotal:     { header: 'Vlr Total',             width: 22, halign: 'right' },
+        disc:         { header: 'Desconto',              width: 18, halign: 'right' },
+        sur:          { header: 'Acréscimo',             width: 18, halign: 'right' },
+        pvenda:       { header: 'P. Venda',              width: 20, halign: 'right' },
+        markup:       { header: 'Markup',                width: 18, halign: 'right' },
+        distribuicao: { header: 'Distribuição',          width: 40, halign: 'right' },
+        check:        { header: 'Check',                 width: 20, halign: 'center' },
+      };
+      const keys = (layout?.customCols ?? ['codigo','produto','qtd','pvenda','distribuicao']);
+      const rawCols: ColSpec[] = keys.map(k => ({ key: k, ...(COL_META[k] ?? { header: k, width: 20 }) }));
+      const totalW = rawCols.reduce((s, c) => s + c.width, 0);
+      cols = totalW > 0 ? rawCols.map(c => ({ ...c, width: Math.round(c.width / totalW * usableW) })) : rawCols;
+    }
+
+    // ── Cell value accessor ───────────────────────────────────────────────
+    const getVal = (row: RowData, key: string): string => {
+      switch (key) {
+        case 'codigo':       return row.codigo;
+        case 'produto':      return row.produto;
+        case 'interno':      return row.interno;
+        case 'ean':          return row.ean;
+        case 'sku':          return row.sku;
+        case 'qtd':          return fmtNum(row.qtd);
+        case 'adjcost':      return row.adjCost > 0 ? fmtCur(row.adjCost) : '—';
+        case 'vlrtotal':     return fmtCur(row.vlrtotal);
+        case 'disc':         return row.disc > 0 ? `−${fmtCur(row.disc)}` : '—';
+        case 'sur':          return row.sur  > 0 ? `+${fmtCur(row.sur)}`  : '—';
+        case 'pvenda':       return row.pvenda > 0 ? fmtCur(row.pvenda) : '—';
+        case 'markup':       return row.markup !== null ? `${row.markup >= 0 ? '+' : ''}${row.markup.toFixed(1)}%` : '—';
+        case 'distribuicao': return row.distribuicao !== null ? fmtNum(row.distribuicao) : '—';
+        case 'check':        return '';
+        default:             return '—';
+      }
+    };
+
+    const tableBody = rows.map(row => cols.map(c => getVal(row, c.key)));
+
+    // ── Foot row ──────────────────────────────────────────────────────────
     const footRow = cols.map((c, i) => {
-      if (!hasPriceCol) return '';
-      if (c.key === 'pvenda' || (i === cols.length - 1 && !cols.some(x => x.key === 'pvenda'))) return formatCurrency(totalGeral);
-      if (c.key === 'total') return 'TOTAL GERAL';
+      if (i === 0)              return `${items.length} itens`;
+      if (c.key === 'qtd')      return fmtNum(rows.reduce((s, r) => s + r.qtd, 0));
+      if (c.key === 'vlrtotal') return fmtCur(rows.reduce((s, r) => s + r.vlrtotal, 0));
+      if (c.key === 'disc')     return `−${fmtCur(rows.reduce((s, r) => s + r.disc, 0))}`;
+      if (c.key === 'sur')      return `+${fmtCur(rows.reduce((s, r) => s + r.sur, 0))}`;
+      if (c.key === 'markup') {
+        const valid = rows.filter(r => r.markup !== null && r.adjCost > 0 && r.pvenda > 0);
+        if (valid.length === 0) return '';
+        const rev  = valid.reduce((s, r) => s + r.pvenda * r.qtd, 0);
+        const cost = valid.reduce((s, r) => s + r.adjCost * r.qtd, 0);
+        const avg  = cost > 0 ? ((rev - cost) / cost * 100) : 0;
+        return `${avg >= 0 ? '+' : ''}${avg.toFixed(1)}%`;
+      }
+      if (c.key === 'distribuicao') return fmtNum(rows.reduce((s, r) => s + (r.distribuicao ?? 0), 0));
       return '';
     });
 
-    const columnStyles: Record<number, any> = {};
+    // ── autoTable ─────────────────────────────────────────────────────────
+    const columnStyles: Record<number, object> = {};
     cols.forEach((c, i) => {
       columnStyles[i] = { cellWidth: c.width, ...(c.halign ? { halign: c.halign } : {}) };
     });
 
     autoTable(doc, {
-      startY: estoqueTableStartY,
+      startY: tableY,
       head: [cols.map(c => c.header)],
-      body: tableData,
-      ...(hasPriceCol ? { foot: [footRow] } : {}),
+      body: tableBody,
+      foot: [footRow],
+      margin: { left: marginX, right: marginX },
       headStyles: {
-        fillColor: [80, 80, 74],   // ← gray header (always)
-        textColor: [255, 255, 255],
+        fillColor: [200, 200, 190] as [number, number, number],
+        textColor: [20, 20, 14]   as [number, number, number],
         fontSize,
         fontStyle: 'bold',
+        lineColor: [170, 168, 160] as [number, number, number],
+        lineWidth: 0.5,
       },
-      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize },
+      footStyles: {
+        fillColor: [232, 232, 224] as [number, number, number],
+        textColor: [20, 20, 14]   as [number, number, number],
+        fontStyle: 'bold',
+        fontSize,
+        lineColor: [192, 192, 184] as [number, number, number],
+        lineWidth: 0.4,
+      },
       styles: {
         fontSize,
         cellPadding: cellPad,
         overflow: 'ellipsize',
         minCellHeight: 0,
-        lineColor: [209, 213, 219],
-        lineWidth: 0.2,
+        lineColor: [212, 212, 200] as [number, number, number],
+        lineWidth: 0.4,
       },
+      alternateRowStyles: { fillColor: [245, 245, 240] as [number, number, number] },
       columnStyles,
-      didParseCell: (data) => {
-        // Red text for marked columns in head + body
+      didParseCell: (data: any) => {
         const col = cols[data.column.index];
-        if (col?.redText && data.section !== 'foot') {
-          data.cell.styles.textColor = [220, 38, 38];
+        // Red header for Estoque preset columns
+        if (col?.redHeader && data.section === 'head') {
+          data.cell.styles.textColor = [185, 28, 28];
         }
-        // Alternating row striping
-        if (striped && data.section === 'body' && data.row.index % 2 === 1) {
-          data.cell.styles.fillColor = [245, 245, 243];
+        // Markup: color cells only (<65% red, >100% green), head/foot normal
+        if (col?.key === 'markup' && data.section === 'body') {
+          const row = rows[data.row.index];
+          if (row?.markup !== null) {
+            if ((row.markup as number) < 65)  data.cell.styles.textColor = [185, 28, 28];
+            if ((row.markup as number) > 100) data.cell.styles.textColor = [21, 128, 61];
+          }
         }
       },
     });
 
-    doc.save("nota_estoque.pdf");
+    const filename = preset === 'financeiro' ? 'estoque_financeiro.pdf'
+      : preset === 'estoque' ? 'estoque_conferencia.pdf'
+      : 'estoque_personalizado.pdf';
+    doc.save(filename);
   };
 
   const downloadNoteTemplate = () => {
@@ -7110,14 +7210,14 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 12 }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-              className="bg-[#1e1e18] border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+              className="bg-[#1e1e18] border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
               <div className="bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-wider text-white/35">Imprimir</p>
-                  <p className="text-base font-black text-[#f2f0e3]">Layout da Tabela</p>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-white/35">Exportar</p>
+                  <p className="text-base font-black text-[#f2f0e3]">Exportar PDF — Estoque</p>
                 </div>
                 <button
                   onClick={() => setShowEstoqueLayoutPicker(false)}
@@ -7128,65 +7228,60 @@ export default function Page() {
               </div>
 
               <div className="p-5 space-y-4">
-                {/* Preset cards 2×2 grid */}
+                {/* Preset cards — 3 columns */}
                 {(() => {
                   type PresetDef = {
-                    id: 'completo' | 'financeiro' | 'contagem' | 'simples';
+                    id: 'financeiro' | 'estoque' | 'personalizado';
                     label: string;
                     desc: string;
                     cols: { label: string; flex: number; red?: boolean }[];
                   };
                   const presets: PresetDef[] = [
                     {
-                      id: 'completo',
-                      label: 'Completo',
-                      desc: 'Todos os campos',
-                      cols: [
-                        { label: 'EAN', flex: 28 },
-                        { label: 'Produto', flex: 62 },
-                        { label: 'Qtd', flex: 11 },
-                        { label: 'Dist.', flex: 15, red: true },
-                        { label: 'Preço', flex: 24 },
-                        { label: 'Total', flex: 24 },
-                        { label: 'P.V.', flex: 18, red: true },
-                      ],
-                    },
-                    {
                       id: 'financeiro',
                       label: 'Financeiro',
-                      desc: 'Com preços, sem distribuição',
+                      desc: 'Custo, markup e venda',
                       cols: [
-                        { label: 'EAN', flex: 26 },
-                        { label: 'Produto', flex: 68 },
-                        { label: 'Qtd', flex: 13 },
-                        { label: 'Preço', flex: 25 },
-                        { label: 'Total', flex: 28 },
-                        { label: 'P.V.', flex: 22, red: true },
+                        { label: 'Cód', flex: 20 },
+                        { label: 'Produto', flex: 60 },
+                        { label: 'Qtd', flex: 12 },
+                        { label: 'P.Custo', flex: 22 },
+                        { label: 'Vlr Total', flex: 22 },
+                        { label: 'P.Venda', flex: 20 },
+                        { label: 'Markup', flex: 18 },
+                        { label: 'Dist.', flex: 26 },
                       ],
                     },
                     {
-                      id: 'contagem',
-                      label: 'Contagem',
-                      desc: 'Conferência de estoque',
+                      id: 'estoque',
+                      label: 'Estoque',
+                      desc: 'Conferência com EAN',
                       cols: [
-                        { label: 'Produto', flex: 122 },
-                        { label: 'Qtd', flex: 22 },
-                        { label: 'Distrib.', flex: 38, red: true },
+                        { label: 'Cód', flex: 18 },
+                        { label: 'Produto', flex: 55 },
+                        { label: 'EAN', flex: 30 },
+                        { label: 'Qtd', flex: 14 },
+                        { label: 'P.Venda', flex: 20, red: true },
+                        { label: 'Dist.', flex: 24, red: true },
+                        { label: '□', flex: 20 },
                       ],
                     },
                     {
-                      id: 'simples',
-                      label: 'Simples',
-                      desc: 'Nome e quantidade',
-                      cols: [
-                        { label: 'Produto', flex: 152 },
-                        { label: 'Qtd', flex: 30 },
-                      ],
+                      id: 'personalizado',
+                      label: 'Personalizado',
+                      desc: 'Escolha as colunas',
+                      cols: estoqueCustomCols.length > 0
+                        ? estoqueCustomCols.slice(0, 5).map(c => ({ label: c.slice(0, 5), flex: 30 }))
+                        : [
+                            { label: '?', flex: 30 },
+                            { label: '?', flex: 60 },
+                            { label: '?', flex: 30 },
+                          ],
                     },
                   ];
 
                   return (
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-3 gap-2.5">
                       {presets.map(p => {
                         const active = estoquePreset === p.id;
                         return (
@@ -7196,16 +7291,15 @@ export default function Page() {
                             className={cn(
                               "text-left p-3 rounded-xl border transition-all",
                               active
-                                ? "bg-blue-500/10 border-blue-400/40"
+                                ? "bg-primary/10 border-primary/40"
                                 : "bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06] hover:border-white/[0.12]"
                             )}
                             style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                           >
-                            <p className={cn("text-sm font-black mb-0.5", active ? "text-blue-300" : "text-[#f2f0e3]")}>{p.label}</p>
+                            <p className={cn("text-sm font-black mb-0.5", active ? "text-primary" : "text-[#f2f0e3]")}>{p.label}</p>
                             <p className="text-[10px] text-white/40 mb-2">{p.desc}</p>
                             {/* Mini table preview */}
                             <div className="rounded overflow-hidden border border-white/[0.08]">
-                              {/* Gray header */}
                               <div className="flex h-3.5" style={{ backgroundColor: 'rgb(80,80,74)' }}>
                                 {p.cols.map((c, i) => (
                                   <div
@@ -7213,26 +7307,17 @@ export default function Page() {
                                     style={{ flex: c.flex }}
                                     className={cn(
                                       "border-r border-black/25 last:border-0 flex items-center justify-center",
-                                      c.red ? "text-red-300" : "text-white/70"
+                                      c.red ? "text-red-400" : "text-white/70"
                                     )}
                                   >
                                     <span style={{ fontSize: '4px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden' }}>{c.label}</span>
                                   </div>
                                 ))}
                               </div>
-                              {/* 3 data rows */}
                               {[0, 1, 2].map(row => (
-                                <div
-                                  key={row}
-                                  className="flex"
-                                  style={{ height: '7px', backgroundColor: estoqueStriped && row % 2 === 1 ? 'rgb(245,245,243)' : 'rgb(255,255,255)' }}
-                                >
+                                <div key={row} className="flex" style={{ height: '7px', backgroundColor: row % 2 === 1 ? 'rgb(245,245,240)' : 'rgb(255,255,255)' }}>
                                   {p.cols.map((_, i) => (
-                                    <div
-                                      key={i}
-                                      style={{ flex: p.cols[i].flex }}
-                                      className="border-r border-slate-200 last:border-0"
-                                    />
+                                    <div key={i} style={{ flex: p.cols[i].flex }} className="border-r border-slate-200 last:border-0" />
                                   ))}
                                 </div>
                               ))}
@@ -7244,37 +7329,70 @@ export default function Page() {
                   );
                 })()}
 
-                {/* Toggles */}
-                <div className="flex gap-3">
-                  {[
-                    { label: 'Linhas listradas', value: estoqueStriped, set: setEstoqueStriped },
-                    { label: 'Compacto', value: estoqueCompact, set: setEstoqueCompact },
-                  ].map(({ label, value, set }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => set(v => !v)}
-                      className={cn(
-                        "flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all",
-                        value
-                          ? "bg-blue-500/10 border-blue-400/40 text-blue-300"
-                          : "bg-white/[0.03] border-white/[0.07] text-white/45 hover:text-white/60 hover:bg-white/[0.06]"
-                      )}
-                      style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
-                    >
-                      <div className={cn(
-                        "w-8 h-4 rounded-full relative shrink-0 transition-colors",
-                        value ? "bg-blue-500" : "bg-white/[0.15]"
-                      )} style={{ transition: 'background 170ms cubic-bezier(0.23,1,0.32,1)' }}>
-                        <span className={cn(
-                          "absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all",
-                          value ? "left-4" : "left-0.5"
-                        )} style={{ transition: 'left 170ms cubic-bezier(0.23,1,0.32,1)' }} />
+                {/* Personalizado builder */}
+                {estoquePreset === 'personalizado' && (() => {
+                  const allCols = [
+                    { key: 'codigo',      label: 'Código' },
+                    { key: 'produto',     label: 'Produto' },
+                    { key: 'ean',         label: 'EAN' },
+                    { key: 'sku',         label: 'SKU' },
+                    { key: 'qtd',         label: 'Quantidade' },
+                    { key: 'pcusto',      label: 'P.Custo' },
+                    { key: 'vlrtotal',    label: 'Vlr Total' },
+                    { key: 'desconto',    label: 'Desconto' },
+                    { key: 'acrescimo',   label: 'Acréscimo' },
+                    { key: 'pvenda',      label: 'P.Venda' },
+                    { key: 'markup',      label: 'Markup' },
+                    { key: 'distribuicao',label: 'Distribuição' },
+                    { key: 'check',       label: 'Check □' },
+                  ];
+                  const addedKeys = estoqueCustomCols;
+                  return (
+                    <div className="space-y-3 pt-1">
+                      {/* Chip pool */}
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-white/35 mb-2">Colunas disponíveis</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {allCols.filter(c => !addedKeys.includes(c.key)).map(c => (
+                            <button
+                              key={c.key}
+                              onClick={() => setEstoqueCustomCols(prev => [...prev, c.key])}
+                              className="px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.10] text-[11px] font-semibold text-white/60 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-95"
+                              style={{ transition: 'all 120ms cubic-bezier(0.23,1,0.32,1)' }}
+                            >
+                              + {c.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                      {/* Added slots */}
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-white/35 mb-2">Ordem das colunas</p>
+                        {addedKeys.length === 0 ? (
+                          <p className="text-xs text-white/25 italic">Nenhuma coluna adicionada</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {addedKeys.map((key, i) => {
+                              const col = allCols.find(c => c.key === key);
+                              return (
+                                <div key={key} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/30">
+                                  <span className="text-[10px] text-white/40 font-bold">{i + 1}</span>
+                                  <span className="text-[11px] font-semibold text-primary">{col?.label ?? key}</span>
+                                  <button
+                                    onClick={() => setEstoqueCustomCols(prev => prev.filter((_, idx) => idx !== i))}
+                                    className="text-white/30 hover:text-red-400 transition-colors ml-0.5"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Footer actions */}
                 <div className="flex gap-2 pt-1">
@@ -7292,11 +7410,12 @@ export default function Page() {
                         estoquePickerArgs.items,
                         estoquePickerArgs.adj,
                         estoquePickerArgs.meta,
-                        { preset: estoquePreset, striped: estoqueStriped, compact: estoqueCompact }
+                        { preset: estoquePreset, customCols: estoqueCustomCols }
                       );
                       setShowEstoqueLayoutPicker(false);
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-black shadow-lg shadow-blue-500/25 hover:bg-blue-600 transition-all active:scale-[0.97] flex items-center justify-center gap-2"
+                    disabled={estoquePreset === 'personalizado' && estoqueCustomCols.length === 0}
+                    className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-[0.97] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                   >
                     <Download size={14} />
