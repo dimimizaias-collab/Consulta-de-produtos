@@ -5626,7 +5626,7 @@ export default function Page() {
                                   <span className="text-[11px] font-bold text-emerald-400 truncate max-w-[120px]" title={item.name}>{item.name}</span>
                                   <div className="relative group shrink-0">
                                     <button
-                                      onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                      onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? ''); }}
                                       className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/18 transition-all active:scale-90"
                                     >
                                       <CheckCircle2 size={12} />
@@ -5640,7 +5640,7 @@ export default function Page() {
                                 /* Não vinculado: ícone link */
                                 <div className="relative group shrink-0">
                                   <button
-                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); }}
+                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? ''); }}
                                     className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-white/[0.04] border border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
                                   >
                                     <Plus size={12} />
