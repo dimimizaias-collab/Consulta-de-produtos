@@ -332,7 +332,7 @@ export default function Page() {
   const [multiLinkItemSearch, setMultiLinkItemSearch] = useState('');
   const [multiLinkItemQty, setMultiLinkItemQty] = useState('');
   const [multiLinkItemResults, setMultiLinkItemResults] = useState<any[]>([]);
-  const [multiLinkItemEntries, setMultiLinkItemEntries] = useState<{ product: any; qty: string }[]>([]);
+  const [multiLinkItemEntries, setMultiLinkItemEntries] = useState<{ product: any; qty: string; multiplier: string }[]>([]);
   const [multiLinkItemShowCreate, setMultiLinkItemShowCreate] = useState(false);
   const [multiLinkItemNewName, setMultiLinkItemNewName] = useState('');
   const [multiLinkItemNewSku, setMultiLinkItemNewSku] = useState('');
@@ -2097,12 +2097,24 @@ export default function Page() {
     setMultiLinkItemResults(data || []);
   };
 
-  const handleMultiLinkItemAdd = (product: any) => {
+  const handleMultiLinkItemAdd = async (product: any) => {
     if (!multiLinkItemQty.trim() || parseFloat(multiLinkItemQty) <= 0) {
       setNotification({ type: 'error', message: 'Informe a quantidade antes de adicionar.' });
       return;
     }
-    setMultiLinkItemEntries(prev => [...prev, { product, qty: multiLinkItemQty }]);
+    // Busca conversão cadastrada em supplier_units para pré-preencher o Mult
+    let defaultMultiplier = '1';
+    try {
+      const { data: units } = await supabase
+        .from('supplier_units')
+        .select('multiplier')
+        .eq('product_id', product.id)
+        .limit(1);
+      if (units && units.length > 0) {
+        defaultMultiplier = String(units[0].multiplier);
+      }
+    } catch { /* ignora erro, usa mult=1 */ }
+    setMultiLinkItemEntries(prev => [...prev, { product, qty: multiLinkItemQty, multiplier: defaultMultiplier }]);
     setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]);
   };
 
@@ -2157,19 +2169,23 @@ export default function Page() {
 
     const sp = <T,>(arr: T[], reps: T[]): T[] => { const r = [...arr]; r.splice(srcIdx, 1, ...reps); return r; };
 
-    const newItems = multiLinkItemEntries.map(e => ({
-      ...sourceItem,
-      price: srcPrice,
-      name: e.product.name,
-      sku: e.product.sku || sourceItem.sku,
-      ean: e.product.ean || sourceItem.ean,
-      product_id: e.product.id,
-      product_price: e.product.price || 0,
-      qty: parseFloat(e.qty) || 0,
-      verified: true,
-      status_translation: 'Identificado (SKU/EAN)',
-      multiLinked: true,
-    }));
+    const newItems = multiLinkItemEntries.map(e => {
+      const mult = parseFloat(e.multiplier) || 1;
+      const entryPrice = mult > 1 ? parseFloat((srcPrice / mult).toFixed(6)) : srcPrice;
+      return {
+        ...sourceItem,
+        price: entryPrice,
+        name: e.product.name,
+        sku: e.product.sku || sourceItem.sku,
+        ean: e.product.ean || sourceItem.ean,
+        product_id: e.product.id,
+        product_price: e.product.price || 0,
+        qty: parseFloat(e.qty) || 0,
+        verified: true,
+        status_translation: 'Identificado (SKU/EAN)',
+        multiLinked: true,
+      };
+    });
 
     setViewingReviewNote({ ...viewingReviewNote, items: sp(viewingReviewNote.items, newItems) });
     setViewingNoteVerified(sp(pV, newItems.map(() => true)));
@@ -2184,7 +2200,10 @@ export default function Page() {
     setItemDiscounts(sp(pDisc, newItems.map(() => pDisc[srcIdx])));
     setItemSurcharges(sp(pSur, newItems.map(() => pSur[srcIdx])));
     setViewingNoteDiscrepancies(sp(pDiscr, newItems.map(() => null)));
-    setViewingNoteItemPrices(sp(pIP, newItems.map(() => srcPrice)));
+    setViewingNoteItemPrices(sp(pIP, multiLinkItemEntries.map(e => {
+      const mult = parseFloat(e.multiplier) || 1;
+      return mult > 1 ? parseFloat((srcPrice / mult).toFixed(6)) : srcPrice;
+    })));
 
     setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
     setMultiLinkItemIdx(null); setMultiLinkItemEntries([]);
@@ -5751,7 +5770,7 @@ export default function Page() {
                                     if ((item as any).multiLinked && item.product_id) {
                                       const currentQty = String(viewingNoteQtys[idx] ?? item.qty ?? '');
                                       setMultiLinkItemQty(currentQty);
-                                      setMultiLinkItemEntries([{ product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.product_price }, qty: currentQty }]);
+                                      setMultiLinkItemEntries([{ product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.product_price }, qty: currentQty, multiplier: '1' }]);
                                     } else {
                                       setMultiLinkItemQty('');
                                       setMultiLinkItemEntries([]);
@@ -7195,13 +7214,21 @@ export default function Page() {
                                   <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-emerald-800 truncate">{entry.product.name}</p>
-                                    <div className="flex items-center gap-1 mt-0.5">
+                                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                       <span className="text-[10px] text-emerald-600 font-medium">Qtd:</span>
                                       <input
                                         type="number" min="0" step="any"
                                         value={entry.qty}
                                         onChange={e => setMultiLinkItemEntries(prev => prev.map((en, j) => j === i ? { ...en, qty: e.target.value } : en))}
                                         className="w-16 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                      />
+                                      <span className="text-[10px] text-emerald-600 font-medium ml-2">Mult:</span>
+                                      <input
+                                        type="number" min="1" step="any"
+                                        value={entry.multiplier}
+                                        onChange={e => setMultiLinkItemEntries(prev => prev.map((en, j) => j === i ? { ...en, multiplier: e.target.value } : en))}
+                                        className="w-14 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                        title="Unidades por embalagem — divide o preço custo automaticamente"
                                       />
                                     </div>
                                   </div>
