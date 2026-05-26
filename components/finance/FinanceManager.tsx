@@ -27,6 +27,7 @@ interface Transaction {
   valor_final: number;
   total_pago: number;
   pago: boolean;
+  numero_cheque: string | null;
   import_id?: string | null;
   account_id?: string | null;
 }
@@ -75,6 +76,7 @@ const emptyTxForm = (): TxForm => ({
   valor_final: 0,
   total_pago: 0,
   pago: false,
+  numero_cheque: null,
 });
 
 const emptyAccountForm = (): AccountForm => ({
@@ -351,7 +353,8 @@ export function FinanceManager() {
         if (txForm.valor_final <= 0) return;
         const payload = {
           ...txForm,
-          vencimento: txForm.tipo === 'Despesa' && vencimentoEnabled ? (txForm.vencimento || null) : null,
+          vencimento: vencimentoEnabled ? (txForm.vencimento || null) : null,
+          numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
         };
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
@@ -659,6 +662,7 @@ export function FinanceManager() {
           total_pago: valorAbs,
           account_id: importAccountId || null,
           pago: true,
+          numero_cheque: null,
         });
       }
 
@@ -743,12 +747,15 @@ export function FinanceManager() {
     const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
     const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
     const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
-    return { receitas, despesas, saldo: saldoInicial + receitas - despesas };
+    // Saldo: apenas transações quitadas (pago=true) — exclui despesas/receitas com vencimento futuro
+    const receitasPagas = transactions.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
+    const despesasPagas = transactions.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
+    return { receitas, despesas, saldo: saldoInicial + receitasPagas - despesasPagas };
   }, [transactions, accounts]);
 
   const accountBalances = useMemo(() => {
     return accounts.map(a => {
-      const txs = transactions.filter(t => t.account_id === a.id);
+      const txs = transactions.filter(t => t.account_id === a.id && t.pago);
       const r = txs.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
       const d = txs.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
       return { ...a, saldo: (a.saldo_inicial ?? 0) + r - d };
@@ -1018,7 +1025,14 @@ export function FinanceManager() {
                             {t.tipo}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-on-surface/70">{t.tipo_pagamento}</td>
+                        <td className="px-4 py-3 text-on-surface/70">
+                          {t.tipo_pagamento}
+                          {t.tipo_pagamento === 'Cheque' && t.numero_cheque && (
+                            <span className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5">
+                              #{t.numero_cheque}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 font-semibold text-on-surface">{t.favorecido}</td>
                         <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
@@ -1112,6 +1126,33 @@ export function FinanceManager() {
                     <label className={labelCls}>Data</label>
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
                   </div>
+
+                  {/* Vencimento toggle — receita futura só entra no Saldo após essa data */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          const next = !vencimentoEnabled;
+                          setVencimentoEnabled(next);
+                          if (!next) setTxForm(f => ({ ...f, vencimento: '' }));
+                        }}
+                        className={cn(
+                          'w-9 h-5 rounded-full transition-all relative shrink-0',
+                          vencimentoEnabled ? 'bg-emerald-500' : 'bg-on-surface/20'
+                        )}
+                      >
+                        <span className={cn(
+                          'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                          vencimentoEnabled ? 'left-4' : 'left-0.5'
+                        )} />
+                      </button>
+                      <label className={labelCls}>Vencimento</label>
+                    </div>
+                    {vencimentoEnabled && (
+                      <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
+                    )}
+                  </div>
+
                   {/* Favorecido — custom combobox */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Favorecido</label>
@@ -1245,6 +1286,20 @@ export function FinanceManager() {
                     >
                       {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
+
+                    {/* Numeração do Cheque */}
+                    {txForm.tipo_pagamento === 'Cheque' && (
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <label className={labelCls}>Numeração do Cheque</label>
+                        <input
+                          type="text"
+                          value={txForm.numero_cheque ?? ''}
+                          onChange={e => setTxForm(f => ({ ...f, numero_cheque: e.target.value || null }))}
+                          placeholder="Ex: 000123"
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
 
                     {/* Parcelas button */}
                     {PARCELA_PAYMENT_TYPES.includes(txForm.tipo_pagamento) && (
