@@ -6467,7 +6467,7 @@ export default function Page() {
                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
                                 <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
                                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  placeholder="Auto-gerado" />
+                                  placeholder="Opcional" />
                               </div>
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
@@ -7207,7 +7207,7 @@ export default function Page() {
                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
                                 <input type="text" value={multiLinkItemNewSku} onChange={e => setMultiLinkItemNewSku(e.target.value)}
                                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  placeholder="Auto-gerado" />
+                                  placeholder="Opcional" />
                               </div>
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN / Barcode</label>
