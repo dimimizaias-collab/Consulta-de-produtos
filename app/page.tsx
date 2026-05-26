@@ -1967,7 +1967,7 @@ export default function Page() {
     if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
     setNoteItemCreating(true);
     try {
-      const sku = noteItemNewSku.trim() || `SKU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const sku = noteItemNewSku.trim() || null;
       const { data: created, error } = await supabase.from('products')
         .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0 })
         .select('id, name, sku, ean, price').single();
@@ -5641,7 +5641,9 @@ export default function Page() {
                         discountAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
                       } else if (discountMode === 'individual') {
                         const v = parseFloat(itemDiscounts[idx] ?? '');
-                        if (!isNaN(v) && v > 0) discountAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
+                        if (!isNaN(v) && v > 0) discountAmt = discountIndividualType === 'pct' ? cost * v / 100
+                          : discountIndividualType === 'fixed_total' ? v / (displayQty || 1)
+                          : v;
                       }
                       let surchargeAmt = 0;
                       if (surchargeMode === 'geral' && surchargeApplied) {
@@ -6022,7 +6024,7 @@ export default function Page() {
                                 </span>
                               ) : discountMode === 'individual' ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{discountIndividualType === 'pct' ? '%' : 'R$'}</span>
+                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{discountIndividualType === 'pct' ? '%' : discountIndividualType === 'fixed_total' ? 'R$∑' : 'R$'}</span>
                                   <input
                                     type="number" min="0" step="0.01"
                                     data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
@@ -6949,17 +6951,44 @@ export default function Page() {
               {/* Desconto Individual dialog */}
               {discountDialog === 'individual' && (
                 <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
-                  <div className="bg-white rounded-2xl p-6 w-72 shadow-2xl">
+                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
                     <h4 className="text-base font-black text-slate-900 mb-1">Desconto Individual</h4>
-                    <p className="text-xs text-slate-400 mb-5">Escolha o tipo de valor para cada item</p>
-                    <div className="flex gap-3 mb-5">
-                      <button onClick={() => setDiscountIndividualType('pct')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                    <p className="text-xs text-slate-400 mb-4">Escolha o tipo e a base de cálculo para cada item</p>
+
+                    {/* Tipo: % ou R$ */}
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</p>
+                    <div className="flex gap-3 mb-4">
+                      <button onClick={() => setDiscountIndividualType('pct')} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
                         <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
                       </button>
-                      <button onClick={() => setDiscountIndividualType('fixed')} className={cn("flex-1 py-5 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                      <button onClick={() => { if (discountIndividualType === 'pct') setDiscountIndividualType('fixed'); }} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType !== 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
                         <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
                       </button>
                     </div>
+
+                    {/* Base: apenas quando R$ selecionado */}
+                    {discountIndividualType !== 'pct' && (
+                      <>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar sobre</p>
+                        <div className="flex gap-3 mb-4">
+                          <button
+                            onClick={() => setDiscountIndividualType('fixed')}
+                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", discountIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
+                          >
+                            <span className="text-sm">R$/un</span>
+                            <span className="text-[10px] font-medium leading-tight">Preço Custo<br/>(por unidade)</span>
+                          </button>
+                          <button
+                            onClick={() => setDiscountIndividualType('fixed_total')}
+                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", discountIndividualType === 'fixed_total' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
+                          >
+                            <span className="text-sm">R$∑</span>
+                            <span className="text-[10px] font-medium leading-tight">Valor Total<br/>(rateado por qtd.)</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+
                     <div className="flex gap-2">
                       <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
                       <button onClick={() => { setDiscountMode('individual'); if (viewingReviewNote) setItemDiscounts(new Array(viewingReviewNote.items.length).fill('')); setDiscountDialog(null); }}
