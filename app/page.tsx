@@ -327,6 +327,7 @@ export default function Page() {
   const [noteItemNewImageUploading, setNoteItemNewImageUploading] = useState(false);
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
+  const [noteItemSaveTranslation, setNoteItemSaveTranslation] = useState(false);
   const [multiLinkItemIdx, setMultiLinkItemIdx] = useState<number | null>(null);
   const [multiLinkItemSearch, setMultiLinkItemSearch] = useState('');
   const [multiLinkItemQty, setMultiLinkItemQty] = useState('');
@@ -6257,7 +6258,7 @@ export default function Page() {
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
                     />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
@@ -6280,7 +6281,7 @@ export default function Page() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
                           className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
                         >
                           <X size={16} className="text-slate-400" />
@@ -6295,7 +6296,7 @@ export default function Page() {
                             {noteItemSelectedProduct ? (
                               <div className="space-y-3">
                                 <button
-                                  onClick={() => { setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); }}
+                                  onClick={() => { setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
                                   className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
                                 >
                                   ← Voltar para busca
@@ -6312,6 +6313,20 @@ export default function Page() {
                                   </div>
                                 </div>
 
+                                {/* Toggle: salvar como tradução permanente */}
+                                <button
+                                  onClick={() => setNoteItemSaveTranslation(v => !v)}
+                                  className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
+                                >
+                                  <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
+                                    {noteItemSaveTranslation && <Check size={10} className="text-white" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
+                                    <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
+                                  </div>
+                                </button>
+
                                 {/* Preço de venda */}
                                 <div>
                                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
@@ -6326,18 +6341,24 @@ export default function Page() {
                                       min="0"
                                       value={noteItemSellPriceInput}
                                       onChange={e => setNoteItemSellPriceInput(e.target.value)}
-                                      onKeyDown={e => {
+                                      onKeyDown={async e => {
                                         if (e.key === 'Enter') {
                                           const i = linkingItemIdx!;
                                           const p = noteItemSelectedProduct;
+                                          const sellPrice = parseFloat(noteItemSellPriceInput) || p.price || 0;
                                           const updatedItems = [...viewingReviewNote!.items];
-                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: parseFloat(noteItemSellPriceInput) || p.price || 0, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
                                           setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
                                           const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
                                           const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
                                           const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
-                                          const uP = [...viewingNoteSellPrices]; uP[i] = parseFloat(noteItemSellPriceInput) || p.price || 0; setViewingNoteSellPrices(uP);
-                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput('');
+                                          const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
+                                          if (noteItemSaveTranslation) {
+                                            const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+                                            await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.sku || null, internal_product_id: p.id });
+                                            setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                          }
+                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                         }
                                       }}
                                       placeholder="0,00"
@@ -6352,7 +6373,7 @@ export default function Page() {
                                 </div>
 
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     const i = linkingItemIdx!;
                                     const p = noteItemSelectedProduct;
                                     const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
@@ -6363,7 +6384,12 @@ export default function Page() {
                                     const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
                                     const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
                                     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
-                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput('');
+                                    if (noteItemSaveTranslation) {
+                                      const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+                                      await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.sku || null, internal_product_id: p.id });
+                                      setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                    }
+                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                   }}
                                   className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                 >
