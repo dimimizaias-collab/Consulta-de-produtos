@@ -2133,6 +2133,8 @@ export default function Page() {
     const n = viewingReviewNote.items.length;
     const srcIdx = multiLinkItemIdx;
     const sourceItem = viewingReviewNote.items[srcIdx];
+    // Preço efetivo da linha origem: preferir o estado editável ao preço salvo no JSON
+    const srcPrice = viewingNoteItemPrices[srcIdx] ?? sourceItem.price ?? 0;
 
     const pad = <T,>(arr: T[], def: (i: number) => T): T[] => {
       if (arr.length >= n) return arr;
@@ -2151,11 +2153,13 @@ export default function Page() {
     const pDisc = pad(itemDiscounts, () => '');
     const pSur = pad(itemSurcharges, () => '');
     const pDiscr = pad(viewingNoteDiscrepancies, () => null as DiscrepancyData | null);
+    const pIP = pad(viewingNoteItemPrices, (i) => viewingReviewNote.items[i]?.price ?? 0);
 
     const sp = <T,>(arr: T[], reps: T[]): T[] => { const r = [...arr]; r.splice(srcIdx, 1, ...reps); return r; };
 
     const newItems = multiLinkItemEntries.map(e => ({
       ...sourceItem,
+      price: srcPrice,
       name: e.product.name,
       sku: e.product.sku || sourceItem.sku,
       ean: e.product.ean || sourceItem.ean,
@@ -2180,6 +2184,7 @@ export default function Page() {
     setItemDiscounts(sp(pDisc, newItems.map(() => pDisc[srcIdx])));
     setItemSurcharges(sp(pSur, newItems.map(() => pSur[srcIdx])));
     setViewingNoteDiscrepancies(sp(pDiscr, newItems.map(() => null)));
+    setViewingNoteItemPrices(sp(pIP, newItems.map(() => srcPrice)));
 
     setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
     setMultiLinkItemIdx(null); setMultiLinkItemEntries([]);
