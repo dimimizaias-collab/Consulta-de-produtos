@@ -5737,7 +5737,20 @@ export default function Page() {
                               {/* Botão Vários — sempre ícone */}
                               <div className="relative group shrink-0">
                                 <button
-                                  onClick={() => { setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
+                                  onClick={() => {
+                                    setMultiLinkItemIdx(idx);
+                                    setMultiLinkItemSearch('');
+                                    setMultiLinkItemResults([]);
+                                    setMultiLinkItemShowCreate(false);
+                                    if ((item as any).multiLinked && item.product_id) {
+                                      const currentQty = String(viewingNoteQtys[idx] ?? item.qty ?? '');
+                                      setMultiLinkItemQty(currentQty);
+                                      setMultiLinkItemEntries([{ product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.product_price }, qty: currentQty }]);
+                                    } else {
+                                      setMultiLinkItemQty('');
+                                      setMultiLinkItemEntries([]);
+                                    }
+                                  }}
                                   className={cn(
                                     'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
                                     (item as any).multiLinked
@@ -7151,7 +7164,15 @@ export default function Page() {
                                   <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-emerald-800 truncate">{entry.product.name}</p>
-                                    <p className="text-[10px] text-emerald-600 font-medium">Qtd: {entry.qty}</p>
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <span className="text-[10px] text-emerald-600 font-medium">Qtd:</span>
+                                      <input
+                                        type="number" min="0" step="any"
+                                        value={entry.qty}
+                                        onChange={e => setMultiLinkItemEntries(prev => prev.map((en, j) => j === i ? { ...en, qty: e.target.value } : en))}
+                                        className="w-16 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                      />
+                                    </div>
                                   </div>
                                   <button onClick={() => setMultiLinkItemEntries(prev => prev.filter((_, j) => j !== i))}
                                     className="w-6 h-6 rounded-lg text-emerald-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-all shrink-0">
