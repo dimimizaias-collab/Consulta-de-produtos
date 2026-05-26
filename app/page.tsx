@@ -725,6 +725,18 @@ export default function Page() {
     }
   }, []);
 
+  // ── Scroll lock: prevent background scroll whenever any modal is open ──────
+  useEffect(() => {
+    const anyModalOpen = !!(
+      viewingReviewNote ||
+      showEstoqueLayoutPicker ||
+      showSuppliersModal ||
+      linkingItemIdx !== null
+    );
+    document.body.style.overflow = anyModalOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [viewingReviewNote, showEstoqueLayoutPicker, showSuppliersModal, linkingItemIdx]);
+
   const fetchNotifications = async () => {
     const { data, error } = await supabase
       .from('notifications')
@@ -2792,7 +2804,7 @@ export default function Page() {
             initial={{ opacity: 0, y: -100 }}
             animate={{ opacity: 1, y: 24 }}
             exit={{ opacity: 0, y: -100 }}
-            className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md"
+            className="fixed top-0 left-1/2 -translate-x-1/2 z-[999999] w-full max-w-md"
           >
             <div className={cn(
               "mx-4 p-4 rounded-xl shadow-2xl border flex items-center gap-3",
