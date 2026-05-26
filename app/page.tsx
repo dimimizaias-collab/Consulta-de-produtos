@@ -5644,7 +5644,7 @@ export default function Page() {
                                   <span className="text-[11px] font-bold text-emerald-400 truncate max-w-[120px]" title={item.name}>{item.name}</span>
                                   <div className="relative group shrink-0">
                                     <button
-                                      onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
+                                      onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
                                       className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/18 transition-all active:scale-90"
                                     >
                                       <CheckCircle2 size={12} />
@@ -5658,7 +5658,7 @@ export default function Page() {
                                 /* Não vinculado: ícone link */
                                 <div className="relative group shrink-0">
                                   <button
-                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
+                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
                                     className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-white/[0.04] border border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
                                   >
                                     <Plus size={12} />
@@ -6314,7 +6314,11 @@ export default function Page() {
                                       (p.ean && p.ean.toLowerCase().includes(q))
                                     ).slice(0, 12);
                                     if (filtered.length === 0) return (
-                                      <p className="text-xs text-slate-400 text-center py-8">Nenhum produto encontrado</p>
+                                      <p className="text-xs text-slate-400 text-center py-8">
+                                        {/^\d{8,14}$/.test(q)
+                                          ? `Nenhum produto com EAN "${q}" encontrado no sistema. Pesquise pelo nome ou crie um novo.`
+                                          : 'Nenhum produto encontrado'}
+                                      </p>
                                     );
                                     return filtered.map((p: any) => (
                                       <button
@@ -6350,6 +6354,13 @@ export default function Page() {
                                     // Pré-preenche o preço de venda com o valor já digitado na linha
                                     const rowPrice = linkingItemIdx !== null ? viewingNoteSellPrices[linkingItemIdx] : undefined;
                                     if (rowPrice && rowPrice > 0) setNoteItemNewSellPrice(String(rowPrice));
+                                    // Pré-preenche o Nome com a descrição do item em minúsculas
+                                    if (linkingItemIdx !== null && viewingReviewNote) {
+                                      const desc = viewingReviewNote.items[linkingItemIdx]?.original_description
+                                        || viewingReviewNote.items[linkingItemIdx]?.description
+                                        || '';
+                                      setNoteItemNewName(desc.toLowerCase());
+                                    }
                                   }}
                                   className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
                                 >
