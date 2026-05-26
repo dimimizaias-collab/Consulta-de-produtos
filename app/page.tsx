@@ -1955,7 +1955,7 @@ export default function Page() {
     if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
     setNoteItemCreating(true);
     try {
-      const sku = noteItemNewSku.trim() || `SKU-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const sku = noteItemNewSku.trim() || `SKU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
       const { data: created, error } = await supabase.from('products')
         .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0 })
         .select('id, name, sku, ean, price').single();
@@ -1984,7 +1984,13 @@ export default function Page() {
         setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
       }
     } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Erro ao criar produto.' });
+      const msg = err.message || '';
+      const friendly = msg.includes('products_sku_key')
+        ? 'Este SKU já está em uso. Escolha um SKU diferente ou deixe em branco para gerar automaticamente.'
+        : msg.includes('products_ean') || msg.includes('ean')
+        ? 'Este EAN já está cadastrado em outro produto.'
+        : msg || 'Erro ao criar produto.';
+      setNotification({ type: 'error', message: friendly });
     } finally {
       setNoteItemCreating(false);
     }
