@@ -119,6 +119,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
 
   const removeRow = useCallback((id: string) => {
     setRows(prev => prev.filter(r => r.id !== id));
+    setInvalidIds(prev => { const next = new Set(prev); next.delete(id); return next; });
     setDeleteConfirmId(null);
   }, []);
 
