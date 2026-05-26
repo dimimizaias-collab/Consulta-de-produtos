@@ -5310,13 +5310,6 @@ export default function Page() {
                     </button>
                   </div>
                   <button
-                    onClick={() => exportTranslatedToPDF(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey })}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/18 transition-colors border border-red-500/15"
-                  >
-                    <Download size={16} />
-                    PDF
-                  </button>
-                  <button
                     onClick={() => {
                       setEstoquePickerArgs({
                         items: viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })),
@@ -5328,7 +5321,7 @@ export default function Page() {
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold hover:bg-blue-500/18 transition-colors border border-blue-500/15"
                   >
                     <Download size={16} />
-                    Estoque
+                    Baixar
                   </button>
                   <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
                   <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-on-surface/[0.07] rounded-full transition-colors">
@@ -5362,18 +5355,41 @@ export default function Page() {
                           'Identificação Interna': 'interno',
                           'EAN': 'ean',
                           'SKU': 'sku',
+                          'Qtd.': 'qtd',
                         };
-                        const getColUniqueValues = (key: string): string[] =>
-                          Array.from(new Set(
-                            viewingReviewNote!.items.map((it: any, i: number) => {
-                              if (key === 'produto') return it.original_description || '-';
-                              if (key === 'interno') return it.name || '-';
-                              if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
-                              if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
-                              if (key === 'status') return it.status_translation || '-';
-                              return '-';
-                            })
-                          )).sort();
+                        const _computeNumerics = (it: any, i: number) => {
+                          const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
+                          const q = viewingNoteQtys[i] ?? it.qty ?? 0;
+                          let dsc = 0;
+                          if (discountMode === 'geral' && discountApplied) dsc = discountApplied.type === 'pct' ? c * discountApplied.value / 100 : discountApplied.value;
+                          else if (discountMode === 'individual') { const v = parseFloat(itemDiscounts[i] ?? ''); if (!isNaN(v) && v > 0) dsc = discountIndividualType === 'pct' ? c * v / 100 : v; }
+                          let sur = 0;
+                          if (surchargeMode === 'geral' && surchargeApplied) sur = surchargeApplied.type === 'pct' ? c * surchargeApplied.value / 100 : surchargeApplied.value;
+                          else if (surchargeMode === 'individual') { const v = parseFloat(itemSurcharges[i] ?? ''); if (!isNaN(v) && v > 0) sur = surchargeIndividualType === 'pct' ? c * v / 100 : v; }
+                          const adj = c - dsc + sur;
+                          const sp = viewingNoteSellPrices[i] ?? it.product_price ?? 0;
+                          return { adj, q, total: adj * q, markup: adj > 0 && sp > 0 ? ((sp - adj) / adj * 100) : null };
+                        };
+                        const getColUniqueValues = (key: string): string[] => {
+                          const raw = viewingReviewNote!.items.map((it: any, i: number) => {
+                            if (key === 'produto') return it.original_description || '-';
+                            if (key === 'interno') return it.name || '-';
+                            if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
+                            if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                            if (key === 'status') return it.status_translation || '-';
+                            if (key === 'seq') return String(i + 1);
+                            if (key === 'codigo') return it.supplier_code || '-';
+                            if (key === 'qtd') return String(viewingNoteQtys[i] ?? it.qty ?? 0);
+                            if (key === 'preco_custo') { const { adj } = _computeNumerics(it, i); return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-'; }
+                            if (key === 'valor_total') { const { total } = _computeNumerics(it, i); return total > 0 ? `R$ ${total.toFixed(2)}` : '-'; }
+                            if (key === 'markup') { const { markup } = _computeNumerics(it, i); return markup !== null ? `${markup.toFixed(1)}%` : '-'; }
+                            return '-';
+                          });
+                          const unique = Array.from(new Set(raw));
+                          // Numeric sort for seq/qtd; string sort otherwise
+                          if (key === 'seq' || key === 'qtd') return unique.sort((a, b) => parseFloat(a) - parseFloat(b));
+                          return unique.sort();
+                        };
                         const renderFilterDropdown = (key: string) => {
                           if (!reviewFilterActive || reviewFilterOpen !== key) return null;
                           const uniqueVals = getColUniqueValues(key);
@@ -5443,8 +5459,20 @@ export default function Page() {
                           );
                         };
                         return (<>
-                          <th style={thFirst}><div style={lbl({ justifyContent: 'center' })}>#</div></th>
-                          <th style={thBar}><div style={lbl()}>Código</div></th>
+                          <th style={{ ...thFirst, position: 'relative' }}>
+                            <div style={lbl({ justifyContent: 'center' })}>
+                              #
+                              {filterBtn('seq')}
+                            </div>
+                            {renderFilterDropdown('seq')}
+                          </th>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl()}>
+                              Código
+                              {filterBtn('codigo')}
+                            </div>
+                            {renderFilterDropdown('codigo')}
+                          </th>
                           {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
@@ -5469,8 +5497,20 @@ export default function Page() {
                               </th>
                             );
                           })}
-                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Custo</div></th>
-                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Valor Total</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl({ justifyContent: 'flex-end' })}>
+                              Preço Custo
+                              {filterBtn('preco_custo')}
+                            </div>
+                            {renderFilterDropdown('preco_custo')}
+                          </th>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl({ justifyContent: 'flex-end' })}>
+                              Valor Total
+                              {filterBtn('valor_total')}
+                            </div>
+                            {renderFilterDropdown('valor_total')}
+                          </th>
                           {/* Desconto header */}
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl()}>
@@ -5514,7 +5554,13 @@ export default function Page() {
                             )}
                           </th>
                           <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
-                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Markup</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl({ justifyContent: 'flex-end' })}>
+                              Markup
+                              {filterBtn('markup')}
+                            </div>
+                            {renderFilterDropdown('markup')}
+                          </th>
                           {/* Status — with filter */}
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl()}>
@@ -5541,6 +5587,24 @@ export default function Page() {
                         if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
                         if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
                         if (key === 'status') return it.status_translation || '-';
+                        if (key === 'seq') return String(i + 1);
+                        if (key === 'codigo') return it.supplier_code || '-';
+                        if (key === 'qtd') return String(viewingNoteQtys[i] ?? it.qty ?? 0);
+                        if (key === 'preco_custo' || key === 'valor_total' || key === 'markup') {
+                          const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
+                          const q = viewingNoteQtys[i] ?? it.qty ?? 0;
+                          let dsc = 0;
+                          if (discountMode === 'geral' && discountApplied) dsc = discountApplied.type === 'pct' ? c * discountApplied.value / 100 : discountApplied.value;
+                          else if (discountMode === 'individual') { const v = parseFloat(itemDiscounts[i] ?? ''); if (!isNaN(v) && v > 0) dsc = discountIndividualType === 'pct' ? c * v / 100 : v; }
+                          let sur = 0;
+                          if (surchargeMode === 'geral' && surchargeApplied) sur = surchargeApplied.type === 'pct' ? c * surchargeApplied.value / 100 : surchargeApplied.value;
+                          else if (surchargeMode === 'individual') { const v = parseFloat(itemSurcharges[i] ?? ''); if (!isNaN(v) && v > 0) sur = surchargeIndividualType === 'pct' ? c * v / 100 : v; }
+                          const adj = c - dsc + sur;
+                          if (key === 'preco_custo') return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-';
+                          if (key === 'valor_total') { const t = adj * q; return t > 0 ? `R$ ${t.toFixed(2)}` : '-'; }
+                          const sp = viewingNoteSellPrices[i] ?? it.product_price ?? 0;
+                          return adj > 0 && sp > 0 ? `${((sp - adj) / adj * 100).toFixed(1)}%` : '-';
+                        }
                         return '-';
                       };
                       const _hasActiveFilters = reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0);
