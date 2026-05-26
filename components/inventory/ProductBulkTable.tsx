@@ -56,13 +56,13 @@ type ColDef = {
 };
 
 const COLS: ColDef[] = [
-  { key: 'name',        label: 'Nome',        placeholder: 'Ex: Chocolate Lacta 80g',  w: 'auto',   required: true },
-  { key: 'sku',         label: 'SKU',         placeholder: 'SKU-001',                  w: '96px'  },
-  { key: 'ean',         label: 'EAN',         placeholder: '7891234567890',             w: '134px' },
-  { key: 'category',    label: 'Categoria',   placeholder: 'Doméstico',                w: '114px' },
-  { key: 'subcategory', label: 'Sub.',        placeholder: 'Cozinha',                  w: '100px' },
-  { key: 'brand',       label: 'Marca',       placeholder: 'Lacta',                    w: '100px' },
-  { key: 'location',    label: 'Localização', placeholder: 'Prateleira A1',            w: '118px' },
+  { key: 'name',        label: 'Nome',        placeholder: '',  w: 'auto',   required: true },
+  { key: 'sku',         label: 'SKU',         placeholder: '',  w: '96px'  },
+  { key: 'ean',         label: 'EAN',         placeholder: '',  w: '134px' },
+  { key: 'category',    label: 'Categoria',   placeholder: '',  w: '114px' },
+  { key: 'subcategory', label: 'Sub.',        placeholder: '',  w: '100px' },
+  { key: 'brand',       label: 'Marca',       placeholder: '',  w: '100px' },
+  { key: 'location',    label: 'Localização', placeholder: '',  w: '118px' },
   { key: 'count',       label: 'Qtde',        placeholder: '0',    w: '70px',  type: 'number', align: 'right' },
   { key: 'price',       label: 'Preço R$',    placeholder: '0,00', w: '88px',  type: 'number', align: 'right' },
   { key: 'status',      label: 'Status',      placeholder: '',     w: '130px', type: 'select' },
@@ -204,7 +204,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-[500] flex flex-col bg-[#FFFCEC] dark:bg-[#0f0f0c]"
+          className="fixed inset-0 z-[500] flex flex-col bg-[#FDFAF0] dark:bg-[#1E1E18]"
           style={{ minHeight: '100dvh' }}
         >
           {/* ── Header ─────────────────────────────────────────────────── */}
@@ -296,11 +296,23 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                 onClick={onClose}
                 className="w-9 h-9 rounded-xl flex items-center justify-center"
                 style={{
-                  color:      'var(--bt-close)',
-                  transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                  color:           'var(--bt-close)',
+                  background:      'var(--bt-btn-close-bg)',
+                  border:          '1.5px solid var(--bt-btn-close-border)',
+                  transition:      'all 150ms cubic-bezier(0.23,1,0.32,1)',
                 }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.6'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background   = 'rgba(200,26,26,0.10)';
+                  el.style.borderColor  = 'rgba(200,26,26,0.22)';
+                  el.style.color        = '#C81A1A';
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background  = '';
+                  el.style.borderColor = '';
+                  el.style.color       = '';
+                }}
                 onMouseDown ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.93)'}
                 onMouseUp   ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
               >
@@ -310,7 +322,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           </div>
 
           {/* ── Table ──────────────────────────────────────────────────── */}
-          <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2 bg-[#FFFCEC] dark:bg-[#0f0f0c]">
+          <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2 bg-[#FDFAF0] dark:bg-[#1E1E18]">
             <table
               className="w-full"
               style={{
@@ -619,16 +631,21 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
             {/* Add row */}
             <button
               onClick={addRow}
-              className="mt-1 w-full flex items-center justify-center gap-2 font-bold uppercase tracking-[0.1em]"
+              title="Adicionar linha"
               style={{
-                height:       '36px',
-                borderRadius: '9px',
-                fontSize:     '10px',
+                width:        '32px',
+                height:       '32px',
+                marginTop:    '4px',
+                borderRadius: '7px',
                 border:       '1.5px dashed var(--bt-add-border)',
                 color:        'var(--bt-add-text)',
                 background:   'transparent',
-                transition:   'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                display:      'flex',
+                alignItems:   'center',
+                justifyContent: 'center',
+                flexShrink:   0,
                 cursor:       'pointer',
+                transition:   'all 150ms cubic-bezier(0.23,1,0.32,1)',
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
@@ -642,11 +659,10 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                 el.style.borderColor = '';
                 el.style.background  = '';
               }}
-              onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)'}
+              onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.96)'}
               onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
             >
-              <Plus size={12} />
-              Adicionar linha
+              <Plus size={13} />
             </button>
           </div>
 
@@ -682,78 +698,82 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           <style jsx>{`
             /* ── LIGHT — cream + brand yellow ── */
             div {
-              --bt-bg:                #FFFCEC;
+              --bt-bg:                #FDFAF0;
               --bt-header-bg:         #FFE500;
-              --bt-header-border:     #D4C900;
-              --bt-icon-bg:           rgba(216,30,30,0.10);
-              --bt-icon:              #D81E1E;
-              --bt-title:             #1a1a14;
-              --bt-subtitle:          rgba(26,26,20,0.48);
-              --bt-close:             rgba(26,26,20,0.45);
-              --bt-btn-cancel-bg:     rgba(26,26,20,0.07);
-              --bt-btn-cancel-text:   rgba(26,26,20,0.60);
-              --bt-btn-cancel-border: #DDD5BC;
+              --bt-header-border:     #D4C000;
+              --bt-icon-bg:           rgba(26,26,10,0.09);
+              --bt-icon:              #1A1A0E;
+              --bt-title:             #1A1A0E;
+              --bt-subtitle:          rgba(26,26,10,0.40);
+              --bt-close:             rgba(26,26,10,0.45);
+              --bt-btn-close-bg:      rgba(26,26,10,0.08);
+              --bt-btn-close-border:  rgba(26,26,10,0.10);
+              --bt-btn-cancel-bg:     rgba(26,26,10,0.08);
+              --bt-btn-cancel-text:   rgba(26,26,10,0.55);
+              --bt-btn-cancel-border: rgba(26,26,10,0.14);
 
               --bt-col-header-bg:     #FFE500;
-              --bt-col-header-border: #D4C900;
-              --bt-col-header-text:   rgba(26,26,20,0.72);
+              --bt-col-header-border: #D4C000;
+              --bt-col-header-text:   rgba(26,26,10,0.55);
 
               --bt-row-even:          #FFFFFF;
               --bt-row-odd:           #FAF7EE;
               --bt-row-hover:         #FFF8D0;
-              --bt-row-invalid:       rgba(216,30,30,0.05);
-              --bt-row-num:           rgba(26,26,20,0.28);
+              --bt-row-invalid:       rgba(200,26,26,0.04);
+              --bt-row-num:           rgba(26,26,10,0.28);
 
               --bt-cell-bg:           #FFFFFF;
-              --bt-cell-border:       #E2D9C5;
-              --bt-cell-invalid-bg:   rgba(216,30,30,0.04);
-              --bt-cell-text:         #1a1a14;
-              --bt-cell-muted:        rgba(26,26,20,0.32);
+              --bt-cell-border:       #E0D8BF;
+              --bt-cell-invalid-bg:   rgba(200,26,26,0.04);
+              --bt-cell-text:         #1A1A0E;
+              --bt-cell-muted:        rgba(26,26,10,0.22);
               --bt-dropdown-bg:       #FFFFFF;
 
-              --bt-add-border:        #D2C9B5;
-              --bt-add-text:          rgba(26,26,20,0.38);
+              --bt-add-border:        rgba(26,26,10,0.22);
+              --bt-add-text:          rgba(26,26,10,0.30);
 
-              --bt-footer-bg:         #F5F2E8;
-              --bt-footer-border:     #E9DFC2;
+              --bt-footer-bg:         #FFF7B0;
+              --bt-footer-border:     #DDD000;
             }
 
-            /* ── DARK — industrial charcoal ── */
+            /* ── DARK — charcoal + yellow anchor ── */
             @media (prefers-color-scheme: dark) {
               div {
-                --bt-bg:                #0f0f0c;
-                --bt-header-bg:         #1c1c16;
-                --bt-header-border:     rgba(216,30,30,0.22);
+                --bt-bg:                #1E1E18;
+                --bt-header-bg:         #252520;
+                --bt-header-border:     rgba(242,240,227,0.07);
                 --bt-icon-bg:           rgba(216,30,30,0.13);
                 --bt-icon:              #D81E1E;
-                --bt-title:             #f2f0e3;
-                --bt-subtitle:          rgba(242,240,227,0.36);
-                --bt-close:             rgba(242,240,227,0.32);
-                --bt-btn-cancel-bg:     rgba(242,240,227,0.06);
-                --bt-btn-cancel-text:   rgba(242,240,227,0.48);
-                --bt-btn-cancel-border: rgba(242,240,227,0.08);
+                --bt-title:             #F2F0E3;
+                --bt-subtitle:          rgba(242,240,227,0.28);
+                --bt-close:             rgba(242,240,227,0.35);
+                --bt-btn-close-bg:      rgba(242,240,227,0.06);
+                --bt-btn-close-border:  rgba(242,240,227,0.08);
+                --bt-btn-cancel-bg:     rgba(242,240,227,0.07);
+                --bt-btn-cancel-text:   rgba(242,240,227,0.50);
+                --bt-btn-cancel-border: rgba(242,240,227,0.10);
 
-                --bt-col-header-bg:     #2e2e28;
-                --bt-col-header-border: rgba(242,240,227,0.07);
-                --bt-col-header-text:   rgba(242,240,227,0.50);
+                --bt-col-header-bg:     #FFE500;
+                --bt-col-header-border: #C8B800;
+                --bt-col-header-text:   rgba(26,26,10,0.58);
 
-                --bt-row-even:          #141410;
-                --bt-row-odd:           #161612;
-                --bt-row-hover:         rgba(242,240,227,0.025);
+                --bt-row-even:          #252520;
+                --bt-row-odd:           #1E1E18;
+                --bt-row-hover:         rgba(242,240,227,0.03);
                 --bt-row-invalid:       rgba(216,30,30,0.08);
-                --bt-row-num:           rgba(242,240,227,0.20);
+                --bt-row-num:           rgba(242,240,227,0.22);
 
-                --bt-cell-bg:           #1e1e18;
+                --bt-cell-bg:           #252520;
                 --bt-cell-border:       rgba(242,240,227,0.08);
                 --bt-cell-invalid-bg:   rgba(216,30,30,0.08);
-                --bt-cell-text:         #f2f0e3;
-                --bt-cell-muted:        rgba(242,240,227,0.28);
-                --bt-dropdown-bg:       #2a2a24;
+                --bt-cell-text:         #F2F0E3;
+                --bt-cell-muted:        rgba(242,240,227,0.25);
+                --bt-dropdown-bg:       #2E2E28;
 
-                --bt-add-border:        rgba(242,240,227,0.13);
-                --bt-add-text:          rgba(242,240,227,0.32);
+                --bt-add-border:        rgba(242,240,227,0.18);
+                --bt-add-text:          rgba(242,240,227,0.25);
 
-                --bt-footer-bg:         #1c1c16;
+                --bt-footer-bg:         #252520;
                 --bt-footer-border:     rgba(242,240,227,0.06);
               }
             }
