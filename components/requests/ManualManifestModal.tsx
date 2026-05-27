@@ -137,6 +137,8 @@ export function ManualManifestModal({
   // Editor state
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const [rows, setRows] = useState<ManifestRow[]>([makeRow(), makeRow(), makeRow()]);
   const [pastedRange, setPastedRange] = useState<{ start: number; end: number; field: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -798,23 +800,51 @@ export function ManualManifestModal({
   if (view === 'list') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <style jsx>{`
+          .cm-m {
+            --cm-bg: #FDFAF0; --cm-header-bg: #FFE500; --cm-header-border: #D4C000;
+            --cm-icon-bg: rgba(26,26,10,0.09); --cm-icon: #1A1A0E;
+            --cm-title: #1A1A0E; --cm-subtitle: rgba(26,26,10,0.40);
+            --cm-close: rgba(26,26,10,0.45); --cm-btn-close-bg: rgba(26,26,10,0.08);
+            --cm-btn-close-border: rgba(26,26,10,0.10); --cm-modal-border: rgba(26,26,10,0.08);
+          }
+          @media (prefers-color-scheme: dark) {
+            .cm-m {
+              --cm-bg: #1E1E18; --cm-header-bg: #252520; --cm-header-border: rgba(242,240,227,0.07);
+              --cm-icon-bg: rgba(216,30,30,0.13); --cm-icon: #D81E1E;
+              --cm-title: #F2F0E3; --cm-subtitle: rgba(242,240,227,0.28);
+              --cm-close: rgba(242,240,227,0.35); --cm-btn-close-bg: rgba(242,240,227,0.06);
+              --cm-btn-close-border: rgba(242,240,227,0.08); --cm-modal-border: rgba(242,240,227,0.07);
+            }
+          }
+        `}</style>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 20 }} transition={{ duration: 0.2 }}
-          className="relative bg-[#1e1e18] rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh] border border-white/[0.06]">
-          <div className="px-6 py-5 border-b border-white/[0.07] flex items-center justify-between shrink-0 bg-[#252520]">
+          className="cm-m relative rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh]"
+          style={{ background: 'var(--cm-bg)', border: '1px solid var(--cm-modal-border)' }}>
+          <div className="px-6 py-5 flex items-center justify-between shrink-0"
+            style={{ background: 'var(--cm-header-bg)', borderBottom: '1.5px solid var(--cm-header-border)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/80 shrink-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'var(--cm-icon-bg)', color: 'var(--cm-icon)' }}>
                 <FileSpreadsheet size={20} />
               </div>
               <div>
-                <h2 className="text-base font-black text-[#f2f0e3] leading-none">Manual Manifest</h2>
-                <p className="text-xs text-white/40 font-medium mt-0.5">Rascunhos salvos</p>
+                <h2 className="text-base font-black leading-none" style={{ color: 'var(--cm-title)' }}>Manual Manifest</h2>
+                <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--cm-subtitle)' }}>Rascunhos salvos</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors">
-              <X size={18} className="text-white/30" />
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+              style={{ color: 'var(--cm-close)', background: 'var(--cm-btn-close-bg)', border: '1.5px solid var(--cm-btn-close-border)', transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background='rgba(200,26,26,0.10)'; el.style.borderColor='rgba(200,26,26,0.22)'; el.style.color='#C81A1A'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background='var(--cm-btn-close-bg)'; el.style.borderColor='var(--cm-btn-close-border)'; el.style.color='var(--cm-close)'; }}
+            >
+              <X size={16} />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -903,13 +933,42 @@ export function ManualManifestModal({
               <p className="text-xs text-white/40 font-medium mt-0.5">Preencha os itens e vincule ao dicionário do fornecedor</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <div>
+              <div className="relative">
                 <label className="text-[10px] font-bold text-white/30 uppercase block mb-1">Fornecedor</label>
-                <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
-                  className="bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2 text-xs font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 min-w-[200px]">
-                  <option value="">Selecione o fornecedor...</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="relative min-w-[220px]">
+                  <input
+                    type="text"
+                    value={supplierDropdownOpen ? supplierSearch : (suppliers.find(s => s.id === supplierId)?.name ?? '')}
+                    onChange={e => { setSupplierSearch(e.target.value); setSupplierDropdownOpen(true); }}
+                    onFocus={() => { setSupplierSearch(''); setSupplierDropdownOpen(true); }}
+                    onBlur={() => setTimeout(() => setSupplierDropdownOpen(false), 150)}
+                    placeholder="Buscar fornecedor..."
+                    className="bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2 text-xs font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 w-full"
+                  />
+                  {supplierDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#2e2e28] border border-white/[0.10] rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto">
+                      {suppliers
+                        .filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+                        .map(s => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onMouseDown={() => { setSupplierId(s.id); setSupplierSearch(''); setSupplierDropdownOpen(false); }}
+                            className={cn(
+                              'w-full text-left px-3 py-2 text-xs font-bold hover:bg-white/[0.06] transition-colors',
+                              supplierId === s.id ? 'text-amber-400' : 'text-[#f2f0e3]'
+                            )}
+                          >
+                            {s.name}
+                          </button>
+                        ))
+                      }
+                      {suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase())).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-white/30">Nenhum fornecedor encontrado</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Import invoice button */}
