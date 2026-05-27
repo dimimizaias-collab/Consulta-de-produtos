@@ -908,33 +908,111 @@ export function ManualManifestModal({
   // ══════════════════════════════════════════════════════════════════════════════
   return (
     <>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <style jsx>{`
+        .cm-m {
+          --cm-bg: #FDFAF0; --cm-header-bg: #FFE500; --cm-header-border: #D4C000;
+          --cm-icon-bg: rgba(26,26,10,0.09); --cm-icon: #1A1A0E;
+          --cm-title: #1A1A0E; --cm-subtitle: rgba(26,26,10,0.40);
+          --cm-close: rgba(26,26,10,0.45); --cm-btn-close-bg: rgba(26,26,10,0.08);
+          --cm-btn-close-border: rgba(26,26,10,0.10); --cm-modal-border: rgba(26,26,10,0.08);
+          --cm-supplier-label: rgba(26,26,10,0.40); --cm-supplier-bg: rgba(26,26,10,0.05);
+          --cm-supplier-border: rgba(26,26,10,0.14); --cm-supplier-text: #1A1A0E;
+          --cm-import-border: rgba(26,26,10,0.22); --cm-import-text: rgba(26,26,10,0.45);
+          --cm-col-bg: #FFE500; --cm-col-border: #D4C000; --cm-col-text: rgba(26,26,10,0.55);
+          --cm-col-sep: rgba(26,26,10,0.08);
+          --cm-row-even: #FFFFFF; --cm-row-odd: #FAF7EE; --cm-row-hover: #FFF8D0;
+          --cm-row-num: rgba(26,26,10,0.28); --cm-cell-border: #E0D8BF;
+          --cm-cell-text: #1A1A0E; --cm-cell-muted: rgba(26,26,10,0.22);
+          --cm-input-hover: rgba(26,26,10,0.25); --cm-input-focus: rgba(192,145,0,0.55);
+          --cm-valor-bg: rgba(26,26,10,0.03); --cm-valor-muted: rgba(26,26,10,0.18);
+          --cm-linked-bg: rgba(16,185,129,0.10); --cm-linked-border: rgba(16,185,129,0.30); --cm-linked-text: #0A7A55;
+          --cm-vincular-border: rgba(26,26,10,0.22); --cm-vincular-text: rgba(26,26,10,0.40);
+          --cm-multi-active-bg: rgba(217,119,6,0.12); --cm-multi-active-border: rgba(217,119,6,0.30); --cm-multi-active-text: #92400E;
+          --cm-add-border: rgba(26,26,10,0.22); --cm-add-text: rgba(26,26,10,0.30);
+          --cm-footer-bg: #FFF7B0; --cm-footer-border: #DDD000;
+          --cm-footer-text: #1A1A0E; --cm-footer-muted: rgba(26,26,10,0.38);
+          --cm-stat-linked: #0A7A55;
+          --cm-ghost-border: rgba(26,26,10,0.18); --cm-ghost-text: rgba(26,26,10,0.55);
+          --cm-primary-bg: #1A1A0E; --cm-primary-text: #FFE500;
+          --cm-dropdown-bg: #FFFFFF; --cm-dropdown-border: rgba(26,26,10,0.12);
+          --cm-dropdown-text: rgba(26,26,10,0.70); --cm-dropdown-sep: rgba(26,26,10,0.08);
+          --cm-back-text: rgba(26,26,10,0.40); --cm-back-hover: #1A1A0E;
+        }
+        @media (prefers-color-scheme: dark) {
+          .cm-m {
+            --cm-bg: #1E1E18; --cm-header-bg: #252520; --cm-header-border: rgba(242,240,227,0.07);
+            --cm-icon-bg: rgba(216,30,30,0.13); --cm-icon: #D81E1E;
+            --cm-title: #F2F0E3; --cm-subtitle: rgba(242,240,227,0.28);
+            --cm-close: rgba(242,240,227,0.35); --cm-btn-close-bg: rgba(242,240,227,0.06);
+            --cm-btn-close-border: rgba(242,240,227,0.08); --cm-modal-border: rgba(242,240,227,0.07);
+            --cm-supplier-label: rgba(242,240,227,0.30); --cm-supplier-bg: rgba(242,240,227,0.06);
+            --cm-supplier-border: rgba(242,240,227,0.10); --cm-supplier-text: #F2F0E3;
+            --cm-import-border: rgba(242,240,227,0.12); --cm-import-text: rgba(242,240,227,0.40);
+            --cm-col-bg: #FFE500; --cm-col-border: #C8B800; --cm-col-text: rgba(26,26,10,0.58);
+            --cm-col-sep: rgba(26,26,10,0.10);
+            --cm-row-even: #252520; --cm-row-odd: #1E1E18; --cm-row-hover: rgba(242,240,227,0.03);
+            --cm-row-num: rgba(242,240,227,0.22); --cm-cell-border: rgba(242,240,227,0.06);
+            --cm-cell-text: #F2F0E3; --cm-cell-muted: rgba(242,240,227,0.25);
+            --cm-input-hover: rgba(242,240,227,0.20); --cm-input-focus: rgba(251,191,36,0.50);
+            --cm-valor-bg: rgba(0,0,0,0.15); --cm-valor-muted: rgba(242,240,227,0.15);
+            --cm-linked-bg: rgba(16,185,129,0.12); --cm-linked-border: rgba(16,185,129,0.25); --cm-linked-text: #34D399;
+            --cm-vincular-border: rgba(242,240,227,0.18); --cm-vincular-text: rgba(242,240,227,0.30);
+            --cm-multi-active-bg: rgba(217,119,6,0.18); --cm-multi-active-border: rgba(217,119,6,0.30); --cm-multi-active-text: #FCD34D;
+            --cm-add-border: rgba(242,240,227,0.18); --cm-add-text: rgba(242,240,227,0.25);
+            --cm-footer-bg: #252520; --cm-footer-border: rgba(242,240,227,0.06);
+            --cm-footer-text: #F2F0E3; --cm-footer-muted: rgba(242,240,227,0.30);
+            --cm-stat-linked: #34D399;
+            --cm-ghost-border: rgba(242,240,227,0.12); --cm-ghost-text: rgba(242,240,227,0.50);
+            --cm-primary-bg: #FFE500; --cm-primary-text: #1A1A0E;
+            --cm-dropdown-bg: #2E2E28; --cm-dropdown-border: rgba(242,240,227,0.10);
+            --cm-dropdown-text: rgba(242,240,227,0.70); --cm-dropdown-sep: rgba(242,240,227,0.08);
+            --cm-back-text: rgba(242,240,227,0.40); --cm-back-hover: #F2F0E3;
+          }
+        }
+        .cm-m tbody tr:nth-child(even) { background: var(--cm-row-even); }
+        .cm-m tbody tr:nth-child(odd)  { background: var(--cm-row-odd);  }
+        .cm-m tbody tr:hover           { background: var(--cm-row-hover) !important; }
+        .cm-m td { border-bottom: 1px solid var(--cm-cell-border); }
+        .cm-m td + td { border-left: 1px solid var(--cm-cell-border); }
+        .cm-m .cm-input { color: var(--cm-cell-text); }
+        .cm-m .cm-input:hover  { border-bottom-color: var(--cm-input-hover) !important; }
+        .cm-m .cm-input:focus  { border-bottom-color: var(--cm-input-focus) !important; }
+        .cm-m .cm-input::placeholder { color: var(--cm-cell-muted); }
+      `}</style>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 overflow-hidden">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <motion.div initial={{ opacity: 0, scale: 0.97, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 20 }} transition={{ duration: 0.2 }}
-          className="relative bg-[#1e1e18] rounded-3xl shadow-2xl w-full max-w-[96vw] xl:max-w-[1400px] max-h-[94vh] flex flex-col overflow-hidden border border-white/[0.06]">
+          className="cm-m relative rounded-3xl shadow-2xl w-full max-w-[96vw] xl:max-w-[1400px] max-h-[94vh] flex flex-col overflow-hidden"
+          style={{ background: 'var(--cm-bg)', border: '1px solid var(--cm-modal-border)' }}>
 
           {/* Header */}
-          <div className="px-6 py-4 border-b border-white/[0.07] flex items-center gap-4 bg-[#252520] shrink-0">
+          <div className="px-6 py-4 flex items-center gap-4 shrink-0"
+            style={{ background: 'var(--cm-header-bg)', borderBottom: '1.5px solid var(--cm-header-border)' }}>
             {drafts.length > 0 && (
               <button onClick={goToList}
-                className="flex items-center gap-1.5 text-xs font-bold text-white/40 hover:text-[#f2f0e3] transition-colors shrink-0">
+                className="flex items-center gap-1.5 text-xs font-bold transition-colors shrink-0"
+                style={{ color: 'var(--cm-back-text)' }}
+                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--cm-back-hover)'}
+                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--cm-back-text)'}>
                 <ChevronLeft size={16} />Rascunhos
               </button>
             )}
-            <div className="w-10 h-10 rounded-xl bg-[#2e2e28] flex items-center justify-center text-white/80 shrink-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'var(--cm-icon-bg)', color: 'var(--cm-icon)' }}>
               <FileSpreadsheet size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-black text-[#f2f0e3] leading-none">
+              <h2 className="text-base font-black leading-none" style={{ color: 'var(--cm-title)' }}>
                 {currentDraftId ? 'Editar Rascunho' : 'Nova Entrada Manual'}
               </h2>
-              <p className="text-xs text-white/40 font-medium mt-0.5">Preencha os itens e vincule ao dicionário do fornecedor</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--cm-subtitle)' }}>Preencha os itens e vincule ao dicionário do fornecedor</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <div className="relative">
-                <label className="text-[10px] font-bold text-white/30 uppercase block mb-1">Fornecedor</label>
+                <label className="text-[10px] font-bold uppercase block mb-1" style={{ color: 'var(--cm-supplier-label)' }}>Fornecedor</label>
                 <div className="relative min-w-[220px]">
                   <input
                     type="text"
@@ -943,10 +1021,12 @@ export function ManualManifestModal({
                     onFocus={() => { setSupplierSearch(''); setSupplierDropdownOpen(true); }}
                     onBlur={() => setTimeout(() => setSupplierDropdownOpen(false), 150)}
                     placeholder="Buscar fornecedor..."
-                    className="bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2 text-xs font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 w-full"
+                    className="rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/20 w-full"
+                    style={{ background: 'var(--cm-supplier-bg)', border: '1.5px solid var(--cm-supplier-border)', color: 'var(--cm-supplier-text)' }}
                   />
                   {supplierDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#2e2e28] border border-white/[0.10] rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto"
+                      style={{ background: 'var(--cm-dropdown-bg)', border: '1px solid var(--cm-dropdown-border)' }}>
                       {suppliers
                         .filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()))
                         .map(s => (
@@ -954,17 +1034,15 @@ export function ManualManifestModal({
                             key={s.id}
                             type="button"
                             onMouseDown={() => { setSupplierId(s.id); setSupplierSearch(''); setSupplierDropdownOpen(false); }}
-                            className={cn(
-                              'w-full text-left px-3 py-2 text-xs font-bold hover:bg-white/[0.06] transition-colors',
-                              supplierId === s.id ? 'text-amber-400' : 'text-[#f2f0e3]'
-                            )}
+                            className="w-full text-left px-3 py-2 text-xs font-bold transition-colors"
+                            style={{ color: supplierId === s.id ? '#D97706' : 'var(--cm-dropdown-text)' }}
                           >
                             {s.name}
                           </button>
                         ))
                       }
                       {suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase())).length === 0 && (
-                        <p className="px-3 py-2 text-xs text-white/30">Nenhum fornecedor encontrado</p>
+                        <p className="px-3 py-2 text-xs" style={{ color: 'var(--cm-cell-muted)' }}>Nenhum fornecedor encontrado</p>
                       )}
                     </div>
                   )}
@@ -976,36 +1054,47 @@ export function ManualManifestModal({
                 <button
                   onClick={() => setShowImport(true)}
                   title="Importar nota fiscal ou romaneio (PDF, JPG, PNG)"
-                  className="flex items-center gap-2 border-2 border-white/[0.12] text-white/50 hover:border-white/[0.22] hover:bg-white/[0.04] px-4 py-2 rounded-xl font-bold text-xs transition-all uppercase tracking-widest"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all uppercase tracking-widest"
+                  style={{ border: '1.5px solid var(--cm-import-border)', color: 'var(--cm-import-text)', background: 'transparent', transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor='var(--cm-supplier-border)'; el.style.background='var(--cm-supplier-bg)'; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor='var(--cm-import-border)'; el.style.background='transparent'; }}
                 >
                   <Upload size={14} />
                   Importar Nota
                 </button>
               </div>
 
-              <button onClick={onClose} className="p-2 hover:bg-white/[0.06] rounded-xl transition-colors mt-4">
-                <X size={18} className="text-white/30" />
+              <button
+                onClick={onClose}
+                className="w-9 h-9 rounded-xl flex items-center justify-center mt-4"
+                style={{ color: 'var(--cm-close)', background: 'var(--cm-btn-close-bg)', border: '1.5px solid var(--cm-btn-close-border)', transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background='rgba(200,26,26,0.10)'; el.style.borderColor='rgba(200,26,26,0.22)'; el.style.color='#C81A1A'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.background='var(--cm-btn-close-bg)'; el.style.borderColor='var(--cm-btn-close-border)'; el.style.color='var(--cm-close)'; }}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(0.93)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; }}
+              >
+                <X size={16} />
               </button>
             </div>
           </div>
 
           {/* Spreadsheet */}
-          <div className="flex-1 overflow-auto" onClick={() => setUnitMenuRowId(null)}>
+          <div className="flex-1 overflow-auto" style={{ background: 'var(--cm-bg)' }} onClick={() => setUnitMenuRowId(null)}>
             <table className="w-full border-collapse min-w-[900px]">
-              <thead className="sticky top-0 z-10 bg-[#2e2e28]">
-                <tr className="border-b border-white/[0.10]">
-                  <th className="w-12 px-3 py-2.5 text-center text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">#</th>
-                  <th className="w-32 px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Código</th>
-                  <th className="min-w-[220px] px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Descrição</th>
-                  <th className="w-24 px-3 py-2.5 text-center text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Unid.</th>
-                  <th className="w-28 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Quantidade</th>
-                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Preço Unit.</th>
-                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Valor Total</th>
-                  <th className="min-w-[200px] px-3 py-2.5 text-left text-[10px] font-black text-white/40 uppercase tracking-wider border-r border-white/[0.08]">Dicionário</th>
+              <thead className="sticky top-0 z-10" style={{ background: 'var(--cm-col-bg)' }}>
+                <tr style={{ borderBottom: '1.5px solid var(--cm-col-border)' }}>
+                  <th className="w-12 px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>#</th>
+                  <th className="w-32 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Código</th>
+                  <th className="min-w-[220px] px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Descrição</th>
+                  <th className="w-24 px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Unid.</th>
+                  <th className="w-28 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Quantidade</th>
+                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Preço Unit.</th>
+                  <th className="w-36 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Valor Total</th>
+                  <th className="min-w-[200px] px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--cm-col-text)', borderRight: '1px solid var(--cm-col-sep)' }}>Dicionário</th>
                   <th className="w-10 px-2 py-2.5" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody>
                 {rows.map((row, idx) => {
                   const qty = parseFloat(row.quantity) || 0;
                   const price = parseFloat(row.unitPrice) || 0;
@@ -1013,13 +1102,13 @@ export function ManualManifestModal({
                   const isLoadingTranslation = loadingTranslation === row.id;
 
                   return (
-                    <tr key={row.id} className="hover:bg-white/[0.025] transition-colors group">
+                    <tr key={row.id} className="transition-colors group">
                       {/* # */}
-                      <td className="px-3 py-1.5 text-center border-r border-white/[0.04] align-middle">
-                        <span className="text-xs font-black text-white/20">{idx + 1}</span>
+                      <td className="px-3 py-1.5 text-center align-middle">
+                        <span className="text-xs font-black" style={{ color: 'var(--cm-row-num)' }}>{idx + 1}</span>
                       </td>
                       {/* Código */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <div className="relative flex items-center">
                           <input type="text" value={row.supplierCode}
                             data-nav-table="manifest" data-nav-row={idx} data-nav-col={0}
@@ -1028,7 +1117,7 @@ export function ManualManifestModal({
                             onPaste={e => handleColumnPaste(e, idx, 'supplierCode')}
                             onKeyDown={tableCellKeyDown('manifest', idx, 0)}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-mono text-white/60 transition-colors",
+                              "cm-input w-full bg-transparent border-b border-transparent outline-none py-1 text-xs font-mono",
                               row.autoFilledCode ? "pl-1 pr-5" : "px-1",
                               pastedRange && pastedRange.field === 'supplierCode' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
@@ -1039,7 +1128,7 @@ export function ManualManifestModal({
                         </div>
                       </td>
                       {/* Descrição */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <div className="relative flex items-center gap-1">
                           {row.confidence !== undefined && (
                             <span
@@ -1058,7 +1147,7 @@ export function ManualManifestModal({
                             onPaste={e => handleColumnPaste(e, idx, 'description')}
                             onKeyDown={tableCellKeyDown('manifest', idx, 1)}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 text-xs font-medium text-[#f2f0e3]/80 transition-colors",
+                              "cm-input w-full bg-transparent border-b border-transparent outline-none py-1 text-xs font-medium",
                               row.autoFilledDesc ? "pl-1 pr-5" : "px-1",
                               pastedRange && pastedRange.field === 'description' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
@@ -1070,7 +1159,7 @@ export function ManualManifestModal({
                       </td>
 
                       {/* Unid. — input + "+" menu */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <div
                           ref={unitMenuRowId === row.id ? unitMenuRef : undefined}
                           className="relative flex items-center gap-0.5"
@@ -1082,7 +1171,7 @@ export function ManualManifestModal({
                             onPaste={e => handleColumnPaste(e, idx, 'unit')}
                             onKeyDown={tableCellKeyDown('manifest', idx, 2)}
                             className={cn(
-                              "w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-white/60 text-center transition-colors",
+                              "cm-input w-full bg-transparent border-b border-transparent outline-none py-1 px-1 text-xs font-medium text-center",
                               pastedRange && pastedRange.field === 'unit' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                             )}
                             placeholder="UN" />
@@ -1111,11 +1200,13 @@ export function ManualManifestModal({
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                 transition={{ duration: 0.12 }}
-                                className="absolute left-0 top-full mt-1 z-30 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.10] overflow-hidden w-44"
+                                className="absolute left-0 top-full mt-1 z-30 rounded-xl shadow-2xl overflow-hidden w-44"
+                                style={{ background: 'var(--cm-dropdown-bg)', border: '1px solid var(--cm-dropdown-border)' }}
                               >
                                 <button
                                   onClick={() => { openAddMeasure(row); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/70 hover:bg-white/[0.06] hover:text-[#f2f0e3] transition-colors flex items-center gap-2"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2"
+                                  style={{ color: 'var(--cm-dropdown-text)' }}
                                 >
                                   <Ruler size={12} className="shrink-0" />
                                   Adicionar medida
@@ -1123,7 +1214,8 @@ export function ManualManifestModal({
                                 <button
                                   onClick={() => { handleUseTranslation(row); setUnitMenuRowId(null); }}
                                   disabled={isLoadingTranslation}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/70 hover:bg-white/[0.06] hover:text-[#f2f0e3] transition-colors flex items-center gap-2 disabled:opacity-50"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
+                                  style={{ color: 'var(--cm-dropdown-text)' }}
                                 >
                                   {isLoadingTranslation
                                     ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
@@ -1133,7 +1225,8 @@ export function ManualManifestModal({
                                 </button>
                                 <button
                                   onClick={() => { updateRow(row.id, { unitTranslated: false, unitMultiplier: undefined }); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.04] transition-colors flex items-center gap-2 border-t border-white/[0.08]"
+                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2"
+                                  style={{ color: 'var(--cm-cell-muted)', borderTop: '1px solid var(--cm-dropdown-sep)' }}
                                 >
                                   <Pencil size={12} className="shrink-0" />
                                   Manual
@@ -1145,54 +1238,60 @@ export function ManualManifestModal({
                       </td>
 
                       {/* Quantidade */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <input type="number" value={row.quantity}
                           data-nav-table="manifest" data-nav-row={idx} data-nav-col={3}
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
                           onPaste={e => handleColumnPaste(e, idx, 'quantity')}
                           onKeyDown={tableCellKeyDown('manifest', idx, 3)}
                           className={cn(
-                            "no-spinner w-full bg-transparent border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-[#f2f0e3]/80 text-right transition-colors",
+                            "cm-input no-spinner w-full bg-transparent border-b border-transparent outline-none py-1 px-1 text-xs font-medium text-right",
                             pastedRange && pastedRange.field === 'quantity' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
                           )}
                           placeholder="0" min="0" />
                       </td>
                       {/* Preço Unitário */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <input type="number" value={row.unitPrice}
                           data-nav-table="manifest" data-nav-row={idx} data-nav-col={4}
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
                           onPaste={e => handleColumnPaste(e, idx, 'unitPrice')}
                           onKeyDown={tableCellKeyDown('manifest', idx, 4)}
                           className={cn(
-                            'no-spinner w-full border-b border-transparent hover:border-white/20 focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-right transition-colors',
+                            'cm-input no-spinner w-full border-b border-transparent outline-none py-1 px-1 text-xs font-medium text-right',
                             pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end
-                              ? 'ring-1 ring-emerald-400 rounded bg-emerald-900/20 text-[#f2f0e3]/80'
+                              ? 'ring-1 ring-emerald-400 rounded bg-emerald-50/40'
                               : row.unitTranslated
-                                ? 'text-emerald-400 bg-emerald-900/20'
-                                : 'text-[#f2f0e3]/80 bg-transparent'
+                                ? 'bg-[var(--cm-translated-bg,rgba(16,185,129,0.08))]'
+                                : 'bg-transparent'
                           )}
+                          style={row.unitTranslated && !(pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end)
+                            ? { color: 'var(--cm-linked-text)', background: 'var(--cm-linked-bg)' }
+                            : {}}
                           placeholder="0,00" step="0.01" min="0" />
                       </td>
                       {/* Valor Total */}
-                      <td className="px-3 py-1.5 border-r border-white/[0.04] text-right align-middle">
-                        <span className={cn('text-xs font-bold tabular-nums', total > 0 ? 'text-[#f2f0e3]' : 'text-white/15')}>
+                      <td className="px-3 py-1.5 text-right align-middle" style={{ background: 'var(--cm-valor-bg)' }}>
+                        <span className="text-xs font-bold tabular-nums"
+                          style={{ color: total > 0 ? 'var(--cm-cell-text)' : 'var(--cm-valor-muted)' }}>
                           {total > 0 ? fmtBRL(total) : '—'}
                         </span>
                       </td>
                       {/* Dicionário */}
-                      <td className="px-2 py-1.5 border-r border-white/[0.04] align-middle">
+                      <td className="px-2 py-1.5 align-middle">
                         <div className="flex items-center gap-1 flex-wrap">
                           {row.linkedProduct ? (
                             <button onClick={() => openLink(row.id)}
-                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-900/25 border border-emerald-500/25 text-emerald-300 rounded-lg hover:bg-emerald-900/40 transition-all max-w-full"
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all max-w-full"
+                              style={{ background: 'var(--cm-linked-bg)', border: '1px solid var(--cm-linked-border)', color: 'var(--cm-linked-text)' }}
                               title={`${row.linkedProduct.name} — clique para alterar`}>
                               <CheckCircle2 size={11} className="shrink-0" />
                               <span className="text-[11px] font-bold truncate max-w-[100px]">{row.linkedProduct.name}</span>
                             </button>
                           ) : (
                             <button onClick={() => openLink(row.id)}
-                              className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent text-white/30 border border-dashed border-white/[0.12] rounded-lg hover:bg-white/[0.04] hover:border-white/25 hover:text-white/60 transition-all">
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent rounded-lg transition-all"
+                              style={{ color: 'var(--cm-vincular-text)', border: '1.5px dashed var(--cm-vincular-border)' }}>
                               <Plus size={11} />
                               <span className="text-[11px] font-bold">Vincular</span>
                             </button>
@@ -1201,12 +1300,10 @@ export function ManualManifestModal({
                           <button
                             onClick={() => openMultiLink(row.id)}
                             title="Vincular vários produtos a este item"
-                            className={cn(
-                              'flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all',
-                              row.multiLinked
-                                ? 'bg-amber-900/20 border-amber-500/30 text-amber-300 hover:bg-amber-900/35'
-                                : 'bg-transparent text-white/30 border-dashed border-white/[0.12] hover:bg-white/[0.04] hover:border-white/25 hover:text-white/60'
-                            )}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all"
+                            style={row.multiLinked
+                              ? { background: 'var(--cm-multi-active-bg)', borderColor: 'var(--cm-multi-active-border)', color: 'var(--cm-multi-active-text)' }
+                              : { background: 'transparent', borderStyle: 'dashed', borderColor: 'var(--cm-vincular-border)', color: 'var(--cm-vincular-text)' }}
                           >
                             <Layers size={11} className="shrink-0" />
                             <span>Vários</span>
@@ -1216,7 +1313,10 @@ export function ManualManifestModal({
                       {/* Delete */}
                       <td className="px-2 py-1.5 align-middle">
                         <button onClick={() => removeRow(row.id)}
-                          className="w-7 h-7 rounded-lg text-white/[0.08] group-hover:text-white/20 hover:!text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all">
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-500/10"
+                          style={{ color: 'var(--cm-cell-muted)' }}
+                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'}
+                          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--cm-cell-muted)'}>
                           <Trash2 size={13} />
                         </button>
                       </td>
@@ -1225,39 +1325,66 @@ export function ManualManifestModal({
                 })}
               </tbody>
             </table>
-            <div className="px-4 py-2 border-t border-white/[0.06]">
-              <button onClick={addRow}
-                className="flex items-center gap-2 text-xs font-bold text-white/30 hover:text-white/60 transition-colors py-2 px-3 rounded-xl hover:bg-white/[0.04]">
-                <Plus size={14} />Adicionar linha
+            {/* Add row */}
+            <div className="px-3 py-2 flex" style={{ borderTop: '1px solid var(--cm-cell-border)' }}>
+              <button
+                onClick={addRow}
+                title="Adicionar linha"
+                className="flex items-center justify-center"
+                style={{
+                  width: '32px', height: '32px', borderRadius: '7px',
+                  border: '1.5px dashed var(--cm-add-border)',
+                  color: 'var(--cm-add-text)',
+                  background: 'transparent',
+                  flexShrink: 0, cursor: 'pointer',
+                  transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor='rgba(200,26,26,0.35)'; el.style.background='rgba(200,26,26,0.04)'; el.style.color='rgba(200,26,26,0.60)'; el.style.transform='scale(1.04)'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor='var(--cm-add-border)'; el.style.background='transparent'; el.style.color='var(--cm-add-text)'; el.style.transform='scale(1)'; }}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(0.96)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; }}
+              >
+                <Plus size={13} />
               </button>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-white/[0.07] flex items-center justify-between bg-[#252520] shrink-0">
+          <div className="px-6 py-4 flex items-center justify-between shrink-0"
+            style={{ background: 'var(--cm-footer-bg)', borderTop: '1.5px solid var(--cm-footer-border)' }}>
             <div className="flex items-center gap-8">
               <div>
-                <p className="text-[10px] font-bold text-white/30 uppercase">Itens</p>
-                <p className="text-xl font-black text-[#f2f0e3] leading-tight tabular-nums">{validCount}</p>
+                <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--cm-footer-muted)' }}>Itens</p>
+                <p className="text-xl font-black leading-tight tabular-nums" style={{ color: 'var(--cm-footer-text)' }}>{validCount}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-white/30 uppercase">Vinculados</p>
-                <p className="text-xl font-black text-emerald-400 leading-tight tabular-nums">{linkedCount}</p>
+                <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--cm-footer-muted)' }}>Vinculados</p>
+                <p className="text-xl font-black leading-tight tabular-nums" style={{ color: 'var(--cm-stat-linked)' }}>{linkedCount}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-white/30 uppercase">Total Geral</p>
-                <p className="text-xl font-black text-[#f2f0e3] leading-tight tabular-nums">{fmtBRL(totalValue)}</p>
+                <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--cm-footer-muted)' }}>Total Geral</p>
+                <p className="text-xl font-black leading-tight tabular-nums" style={{ color: 'var(--cm-footer-text)' }}>{fmtBRL(totalValue)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button onClick={handleSaveDraft} disabled={validCount === 0}
-                className="flex items-center gap-2 border-2 border-white/[0.12] text-white/50 hover:border-white/[0.22] hover:bg-white/[0.04] px-5 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-40 uppercase tracking-widest">
+                className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-40 uppercase tracking-widest"
+                style={{ border: '2px solid var(--cm-ghost-border)', color: 'var(--cm-ghost-text)', background: 'transparent', transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; if (!el.disabled) { el.style.borderColor='var(--cm-supplier-border)'; el.style.background='var(--cm-supplier-bg)'; }}}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.borderColor='var(--cm-ghost-border)'; el.style.background='transparent'; }}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(0.97)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; }}>
                 <Save size={16} />Salvar
               </button>
               <button onClick={handleSubmit} disabled={submitting || validCount === 0}
-                className="flex items-center gap-2 bg-slate-900 text-white px-7 py-3 rounded-2xl font-black text-sm hover:bg-primary transition-all shadow-lg shadow-slate-900/10 disabled:opacity-40 uppercase tracking-widest">
+                className="flex items-center gap-2 px-7 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-40 uppercase tracking-widest"
+                style={{ background: 'var(--cm-primary-bg)', color: 'var(--cm-primary-text)', transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLButtonElement; if (!el.disabled) { el.style.opacity='0.88'; el.style.transform='translateY(-1px)'; }}}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLButtonElement; el.style.opacity='1'; el.style.transform='translateY(0)'; }}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(0.97) translateY(0)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform='translateY(0)'; }}>
                 {submitting
-                  ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                  ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
                   : <><ArrowRight size={16} />Enviar para Revisão</>
                 }
               </button>

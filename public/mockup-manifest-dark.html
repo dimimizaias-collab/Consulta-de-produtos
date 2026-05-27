@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Nova Entrada Manual (Dark)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #111109;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* ── tokens ─────────────────────────── */
+  :root {
+    --cm-bg:                 #1E1E18;
+    --cm-header-bg:          #252520;
+    --cm-header-border:      rgba(242,240,227,0.07);
+    --cm-icon-bg:            rgba(216,30,30,0.13);
+    --cm-icon:               #D81E1E;
+    --cm-title:              #F2F0E3;
+    --cm-subtitle:           rgba(242,240,227,0.28);
+    --cm-close:              rgba(242,240,227,0.35);
+    --cm-btn-close-bg:       rgba(242,240,227,0.06);
+    --cm-btn-close-border:   rgba(242,240,227,0.08);
+    --cm-col-header-bg:      #FFE500;
+    --cm-col-header-border:  #C8B800;
+    --cm-col-header-text:    rgba(26,26,10,0.58);
+    --cm-row-even:           #252520;
+    --cm-row-odd:            #1E1E18;
+    --cm-row-hover:          rgba(242,240,227,0.03);
+    --cm-row-num:            rgba(242,240,227,0.22);
+    --cm-cell-border:        rgba(242,240,227,0.06);
+    --cm-cell-text:          #F2F0E3;
+    --cm-cell-muted:         rgba(242,240,227,0.25);
+    --cm-linked-bg:          rgba(16,185,129,0.12);
+    --cm-linked-border:      rgba(16,185,129,0.25);
+    --cm-linked-text:        #34D399;
+    --cm-translated-bg:      rgba(16,185,129,0.10);
+    --cm-translated-text:    #34D399;
+    --cm-vincular-border:    rgba(242,240,227,0.18);
+    --cm-vincular-text:      rgba(242,240,227,0.30);
+    --cm-add-border:         rgba(242,240,227,0.18);
+    --cm-add-text:           rgba(242,240,227,0.25);
+    --cm-footer-bg:          #252520;
+    --cm-footer-border:      rgba(242,240,227,0.06);
+    --cm-footer-text:        #F2F0E3;
+    --cm-footer-muted:       rgba(242,240,227,0.30);
+    --cm-stat-linked:        #34D399;
+    --cm-btn-ghost-border:   rgba(242,240,227,0.12);
+    --cm-btn-ghost-text:     rgba(242,240,227,0.50);
+    --cm-btn-primary-bg:     #FFE500;
+    --cm-btn-primary-text:   #1A1A0E;
+    --cm-select-bg:          rgba(242,240,227,0.06);
+    --cm-select-border:      rgba(242,240,227,0.10);
+    --cm-import-border:      rgba(242,240,227,0.12);
+    --cm-import-text:        rgba(242,240,227,0.40);
+    --cm-valor-bg:           rgba(0,0,0,0.15);
+    --ease: cubic-bezier(0.23,1,0.32,1);
+  }
+
+  /* ── modal shell ────────────────────── */
+  .modal {
+    background: var(--cm-bg);
+    border-radius: 24px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.30);
+    width: 100%;
+    max-width: 1340px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(242,240,227,0.07);
+  }
+
+  /* ── header ─────────────────────────── */
+  .header {
+    background: var(--cm-header-bg);
+    border-bottom: 1px solid var(--cm-header-border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .icon-chip {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    background: var(--cm-icon-bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-chip svg { color: var(--cm-icon); }
+
+  .title-block { flex: 1; min-width: 0; }
+  .title-block h2 {
+    font-size: 14px; font-weight: 900;
+    color: var(--cm-title); line-height: 1;
+    letter-spacing: -0.2px;
+  }
+  .title-block p {
+    font-size: 11px; color: var(--cm-subtitle);
+    font-weight: 500; margin-top: 3px;
+  }
+
+  .header-controls {
+    display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0;
+  }
+
+  .supplier-block label {
+    display: block;
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(242,240,227,0.30);
+    margin-bottom: 4px;
+  }
+
+  .supplier-select {
+    background: var(--cm-select-bg);
+    border: 1.5px solid var(--cm-select-border);
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 12px; font-weight: 700;
+    color: var(--cm-title);
+    min-width: 200px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn-import {
+    display: flex; align-items: center; gap: 6px;
+    border: 1.5px solid var(--cm-import-border);
+    background: transparent;
+    color: var(--cm-import-text);
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+    white-space: nowrap;
+  }
+  .btn-import:hover {
+    border-color: rgba(242,240,227,0.25);
+    background: rgba(242,240,227,0.04);
+    color: rgba(242,240,227,0.65);
+  }
+
+  .btn-close {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: var(--cm-btn-close-bg);
+    border: 1.5px solid var(--cm-btn-close-border);
+    color: var(--cm-close);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+  }
+  .btn-close:hover {
+    background: rgba(200,26,26,0.14);
+    border-color: rgba(200,26,26,0.28);
+    color: #EF4444;
+  }
+
+  /* ── table area ─────────────────────── */
+  .table-area {
+    flex: 1;
+    overflow: auto;
+    background: var(--cm-bg);
+    padding: 0 0 8px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 920px;
+  }
+
+  thead { position: sticky; top: 0; z-index: 10; }
+
+  thead th {
+    background: var(--cm-col-header-bg);
+    border-bottom: 1.5px solid var(--cm-col-header-border);
+    padding: 9px 10px;
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--cm-col-header-text);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  thead th + th { border-left: 1px solid rgba(26,26,10,0.10); }
+
+  thead th.center { text-align: center; }
+  thead th.right  { text-align: right;  }
+  thead th.left   { text-align: left;   }
+
+  tbody tr:nth-child(even) { background: var(--cm-row-even); }
+  tbody tr:nth-child(odd)  { background: var(--cm-row-odd);  }
+  tbody tr:hover           { background: var(--cm-row-hover); }
+
+  tbody td {
+    padding: 0;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--cm-cell-border);
+  }
+  tbody td + td { border-left: 1px solid var(--cm-cell-border); }
+
+  .cell-input {
+    width: 100%;
+    background: transparent;
+    border: none; outline: none;
+    padding: 8px 10px;
+    font-size: 12px; font-weight: 500;
+    color: var(--cm-cell-text);
+    font-family: inherit;
+  }
+  .cell-input::placeholder { color: var(--cm-cell-muted); }
+  .cell-input.mono { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 11px; }
+  .cell-input.right { text-align: right; }
+  .cell-input.center { text-align: center; }
+
+  .row-num {
+    padding: 8px 6px;
+    text-align: center;
+    font-size: 11px; font-weight: 700;
+    color: var(--cm-row-num);
+    font-family: 'SF Mono', monospace;
+    user-select: none;
+  }
+
+  .valor-cell {
+    background: var(--cm-valor-bg);
+    padding: 8px 10px;
+    text-align: right;
+    font-size: 12px; font-weight: 700;
+    color: var(--cm-cell-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1px;
+  }
+
+  .translated-price {
+    background: var(--cm-translated-bg);
+    padding: 8px 10px;
+    text-align: right;
+    font-size: 12px; font-weight: 700;
+    color: var(--cm-translated-text);
+    width: 100%;
+  }
+
+  .vincular-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1.5px dashed var(--cm-vincular-border);
+    background: transparent;
+    color: var(--cm-vincular-text);
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    margin: 6px 10px;
+    transition: all 150ms var(--ease);
+  }
+  .vincular-btn:hover {
+    border-color: rgba(242,240,227,0.35);
+    color: rgba(242,240,227,0.60);
+    background: rgba(242,240,227,0.04);
+  }
+
+  .linked-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--cm-linked-bg);
+    border: 1px solid var(--cm-linked-border);
+    color: var(--cm-linked-text);
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-size: 11px; font-weight: 700;
+    margin: 6px 10px;
+    max-width: 180px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .confidence { display: flex; align-items: center; gap: 3px; margin-left: 6px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .dot.red   { background: #F87171; opacity: 0.75; }
+  .dot.amber { background: #FBBF24; opacity: 0.80; }
+  .dot.green { background: #34D399; opacity: 0.75; }
+  .dot.empty { background: rgba(242,240,227,0.12); }
+
+  .desc-wrapper {
+    display: flex; align-items: center;
+    padding: 0 10px; gap: 6px;
+  }
+  .desc-wrapper input {
+    flex: 1; background: transparent; border: none; outline: none;
+    padding: 8px 0; font-size: 12px; font-weight: 500;
+    color: var(--cm-cell-text); font-family: inherit;
+  }
+
+  .unid-wrapper {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 8px;
+  }
+  .unid-wrapper input {
+    background: transparent; border: none; outline: none;
+    padding: 8px 0; font-size: 12px; font-weight: 600;
+    color: var(--cm-cell-text); font-family: inherit;
+    text-align: center; width: 48px;
+  }
+
+  .delete-btn {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: transparent; border: none;
+    color: rgba(242,240,227,0.15);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    margin: auto;
+    transition: all 150ms var(--ease);
+  }
+  .delete-btn:hover {
+    background: rgba(216,30,30,0.15);
+    color: #EF4444;
+  }
+
+  .add-row-area {
+    padding: 8px 10px;
+    display: flex;
+  }
+
+  .btn-add-row {
+    width: 32px; height: 32px;
+    border-radius: 7px;
+    border: 1.5px dashed var(--cm-add-border);
+    background: transparent;
+    color: var(--cm-add-text);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 150ms var(--ease);
+  }
+  .btn-add-row:hover {
+    border-color: rgba(216,30,30,0.40);
+    background: rgba(216,30,30,0.08);
+    color: rgba(216,30,30,0.70);
+    transform: scale(1.04);
+  }
+  .btn-add-row:active { transform: scale(0.96); }
+
+  /* ── footer ─────────────────────────── */
+  .footer {
+    background: var(--cm-footer-bg);
+    border-top: 1px solid var(--cm-footer-border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .stats { display: flex; align-items: center; gap: 32px; }
+  .stat-block p.label {
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--cm-footer-muted);
+    margin-bottom: 2px;
+  }
+  .stat-block p.value {
+    font-size: 20px; font-weight: 900;
+    color: var(--cm-footer-text);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+  }
+  .stat-block p.value.linked { color: var(--cm-stat-linked); }
+
+  .footer-actions { display: flex; align-items: center; gap: 10px; }
+
+  .btn-ghost {
+    display: flex; align-items: center; gap: 7px;
+    border: 2px solid var(--cm-btn-ghost-border);
+    background: transparent;
+    color: var(--cm-btn-ghost-text);
+    padding: 10px 18px;
+    border-radius: 14px;
+    font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+  }
+  .btn-ghost:hover {
+    border-color: rgba(242,240,227,0.25);
+    background: rgba(242,240,227,0.05);
+    color: rgba(242,240,227,0.80);
+  }
+  .btn-ghost:active { transform: scale(0.97); }
+
+  .btn-primary {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--cm-btn-primary-bg);
+    color: var(--cm-btn-primary-text);
+    padding: 10px 22px;
+    border-radius: 14px;
+    border: none;
+    font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(255,229,0,0.22);
+    transition: all 150ms var(--ease);
+    white-space: nowrap;
+  }
+  .btn-primary:hover {
+    background: #FFF066;
+    box-shadow: 0 6px 24px rgba(255,229,0,0.32);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: scale(0.97) translateY(0); }
+
+  /* col widths */
+  .col-num  { width: 48px; }
+  .col-cod  { width: 116px; }
+  .col-desc { min-width: 220px; }
+  .col-unid { width: 88px; }
+  .col-qty  { width: 108px; }
+  .col-prc  { width: 132px; }
+  .col-tot  { width: 132px; }
+  .col-dic  { min-width: 196px; }
+  .col-del  { width: 40px; }
+</style>
+</head>
+<body>
+
+<div class="modal">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="icon-chip">
+      <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="18" x="3" y="3" rx="2"/>
+        <path d="M3 9h18M3 15h18M9 3v18"/>
+      </svg>
+    </div>
+
+    <div class="title-block">
+      <h2>Nova Entrada Manual</h2>
+      <p>Preencha os itens e vincule ao dicionário do fornecedor</p>
+    </div>
+
+    <div class="header-controls">
+      <div class="supplier-block">
+        <label>Fornecedor</label>
+        <select class="supplier-select">
+          <option>Distribuidora ABC Ltda.</option>
+        </select>
+      </div>
+
+      <button class="btn-import" style="align-self:flex-end; margin-bottom:1px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" x2="12" y1="3" y2="15"/>
+        </svg>
+        Importar Nota
+      </button>
+
+      <button class="btn-close" style="align-self:flex-end; margin-bottom:1px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLE AREA -->
+  <div class="table-area">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-num center">#</th>
+          <th class="col-cod left">Código</th>
+          <th class="col-desc left">Descrição</th>
+          <th class="col-unid center">Unid.</th>
+          <th class="col-qty right">Quantidade</th>
+          <th class="col-prc right">Preço Unit.</th>
+          <th class="col-tot right">Valor Total</th>
+          <th class="col-dic left">Dicionário</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ROW 1: normal unlinked -->
+        <tr>
+          <td><div class="row-num">1</div></td>
+          <td><input class="cell-input mono" value="FRN-00847" /></td>
+          <td>
+            <div class="desc-wrapper">
+              <input value="Detergente Líquido 500ml Neutro" />
+              <div class="confidence">
+                <div class="dot green"></div>
+                <div class="dot green"></div>
+                <div class="dot green"></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="unid-wrapper"><input value="UN" /></div></td>
+          <td><input class="cell-input right" value="48" /></td>
+          <td><input class="cell-input right" value="3,90" /></td>
+          <td><div class="valor-cell">R$ 187,20</div></td>
+          <td>
+            <button class="vincular-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Vincular
+            </button>
+          </td>
+          <td>
+            <button class="delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+        <!-- ROW 2: linked -->
+        <tr>
+          <td><div class="row-num">2</div></td>
+          <td><input class="cell-input mono" value="FRN-00391" /></td>
+          <td>
+            <div class="desc-wrapper">
+              <input value="Sabão em Pó 1kg Concentrado" />
+              <div class="confidence">
+                <div class="dot green"></div>
+                <div class="dot green"></div>
+                <div class="dot green"></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="unid-wrapper"><input value="CX" /></div></td>
+          <td><input class="cell-input right" value="12" /></td>
+          <td><input class="cell-input right" value="28,50" /></td>
+          <td><div class="valor-cell">R$ 342,00</div></td>
+          <td>
+            <span class="linked-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Sabão Ypê 1kg Conc.
+            </span>
+          </td>
+          <td>
+            <button class="delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+        <!-- ROW 3: translated price -->
+        <tr>
+          <td><div class="row-num">3</div></td>
+          <td><input class="cell-input mono" value="FRN-01122" /></td>
+          <td>
+            <div class="desc-wrapper">
+              <input value="Amaciante Concentrado 2L Lavanda" />
+              <div class="confidence">
+                <div class="dot amber"></div>
+                <div class="dot amber"></div>
+                <div class="dot empty"></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="unid-wrapper"><input value="FD" /></div></td>
+          <td><input class="cell-input right" value="24" /></td>
+          <td><div class="translated-price">R$ 14,80</div></td>
+          <td><div class="valor-cell" style="color:var(--cm-translated-text)">R$ 355,20</div></td>
+          <td>
+            <span class="linked-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Amaciante Comfort 2L
+            </span>
+          </td>
+          <td>
+            <button class="delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+        <!-- ROW 4: low confidence unlinked -->
+        <tr>
+          <td><div class="row-num">4</div></td>
+          <td><input class="cell-input mono" value="" placeholder="—" /></td>
+          <td>
+            <div class="desc-wrapper">
+              <input value="Esponja Multi Uso c/3 unidades" />
+              <div class="confidence">
+                <div class="dot red"></div>
+                <div class="dot empty"></div>
+                <div class="dot empty"></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="unid-wrapper"><input value="PC" /></div></td>
+          <td><input class="cell-input right" value="60" /></td>
+          <td><input class="cell-input right" value="2,20" /></td>
+          <td><div class="valor-cell">R$ 132,00</div></td>
+          <td>
+            <button class="vincular-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Vincular
+            </button>
+          </td>
+          <td>
+            <button class="delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+        <!-- ROW 5: empty -->
+        <tr>
+          <td><div class="row-num">5</div></td>
+          <td><input class="cell-input mono" placeholder="" /></td>
+          <td>
+            <div class="desc-wrapper">
+              <input placeholder="" />
+            </div>
+          </td>
+          <td><div class="unid-wrapper"><input placeholder="UN" /></div></td>
+          <td><input class="cell-input right" placeholder="0" /></td>
+          <td><input class="cell-input right" placeholder="0,00" /></td>
+          <td><div class="valor-cell" style="color:var(--cm-cell-muted)">—</div></td>
+          <td>
+            <button class="vincular-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Vincular
+            </button>
+          </td>
+          <td>
+            <button class="delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="add-row-area">
+      <button class="btn-add-row" title="Adicionar linha">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="stats">
+      <div class="stat-block">
+        <p class="label">Itens</p>
+        <p class="value">4</p>
+      </div>
+      <div class="stat-block">
+        <p class="label">Vinculados</p>
+        <p class="value linked">2</p>
+      </div>
+      <div class="stat-block">
+        <p class="label">Total Geral</p>
+        <p class="value">R$ 1.016,40</p>
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <button class="btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Salvar
+      </button>
+      <button class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+        Enviar para Revisão
+      </button>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
