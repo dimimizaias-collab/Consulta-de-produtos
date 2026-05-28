@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Entrada de Mercadoria · Light Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #F2EDD8;
+  --surface:     #FDFAF0;
+  --white:       #FFFFFF;
+  --yellow:      #FFE500;
+  --yellow-dark: #D4C000;
+  --yellow-soft: #FFF7B0;
+  --border:      #E0D8BF;
+  --border-hover:#C8C0A0;
+  --text:        #1A1A0E;
+  --text-muted:  rgba(26,26,14,.42);
+  --text-mid:    rgba(26,26,14,.65);
+  --green:       #15803d;
+  --green-bg:    rgba(21,128,61,.08);
+  --red:         #C81A1A;
+  --red-bg:      rgba(200,26,26,.07);
+  --blue:        #2563eb;
+  --blue-bg:     rgba(37,99,235,.08);
+  --teal:        #0891b2;
+  --teal-bg:     rgba(8,145,178,.08);
+  --shadow-modal: 0 40px 100px rgba(0,0,0,.22), 0 8px 24px rgba(0,0,0,.10);
+  --ease-snap:   cubic-bezier(0.23,1,0.32,1);
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 24px 80px;
+}
+
+/* ── Modal shell ── */
+.modal {
+  width: 100%;
+  max-width: 1400px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-modal);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* ── Header ── */
+.modal-header {
+  background: var(--yellow);
+  padding: 0 20px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid var(--yellow-dark);
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.header-icon {
+  width: 38px; height: 38px;
+  background: rgba(26,26,14,.09);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.header-icon svg { width: 18px; height: 18px; }
+
+.header-meta { min-width: 0; }
+.header-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-title .supplier-tag {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(26,26,14,.10);
+  color: var(--text-mid);
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: .02em;
+}
+.header-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-family: 'DM Mono', monospace;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  transition: all 140ms var(--ease-snap);
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+.btn-ghost {
+  background: rgba(26,26,14,.08);
+  color: var(--text-mid);
+  border: 1.5px solid rgba(26,26,14,.12);
+}
+.btn-ghost:hover { background: rgba(26,26,14,.14); border-color: rgba(26,26,14,.2); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1.5px solid rgba(26,26,14,.18);
+}
+.btn-outline:hover { background: rgba(26,26,14,.05); }
+
+.btn-close {
+  width: 34px; height: 34px; padding: 0;
+  background: rgba(26,26,14,.08);
+  color: var(--text-mid);
+  border: 1.5px solid rgba(26,26,14,.10);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-close:hover { background: rgba(200,26,26,.10); color: var(--red); border-color: rgba(200,26,26,.2); }
+
+/* ── Table area ── */
+.table-area {
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+
+table.rt {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 3px;
+  min-width: 1320px;
+}
+
+/* ── Column headers ── */
+table.rt thead th {
+  padding: 0 2px 0 2px;
+  vertical-align: bottom;
+}
+table.rt thead th:first-child { padding-left: 0; }
+table.rt thead th:last-child { padding-right: 0; }
+
+.th {
+  background: var(--yellow);
+  border: 1.5px solid var(--yellow-dark);
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  color: rgba(26,26,14,.55);
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 2px;
+  user-select: none;
+}
+.th svg { width: 10px; height: 10px; opacity: .6; }
+
+/* ── Row cells ── */
+table.rt tbody td {
+  padding: 0 2px;
+  vertical-align: middle;
+}
+table.rt tbody td:first-child { padding-left: 0; }
+table.rt tbody td:last-child { padding-right: 0; }
+
+.td {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  height: 42px;
+  display: flex; align-items: center;
+  padding: 0 10px;
+  transition: border-color 120ms var(--ease-snap), box-shadow 120ms var(--ease-snap);
+  overflow: hidden;
+}
+
+.td.alt { background: var(--surface); }
+
+table.rt tbody tr:hover .td {
+  border-color: var(--border-hover);
+}
+
+/* ── Cell contents ── */
+
+.seq {
+  width: 24px; height: 24px;
+  border-radius: 7px;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.code {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.prod-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.id-interna {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.id-linked {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.id-empty {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.icon-btn {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 120ms var(--ease-snap);
+  flex-shrink: 0;
+}
+.icon-btn svg { width: 11px; height: 11px; }
+.icon-btn.link-unset {
+  background: rgba(26,26,14,.04);
+  border: 1.5px dashed rgba(26,26,14,.2);
+  color: var(--text-muted);
+}
+.icon-btn.link-ok {
+  background: var(--green-bg);
+  border: 1.5px solid rgba(21,128,61,.25);
+  color: var(--green);
+}
+.icon-btn.layers {
+  background: rgba(26,26,14,.03);
+  border: 1.5px dashed rgba(26,26,14,.14);
+  color: var(--text-muted);
+}
+
+.ean-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: .02em;
+}
+.sku-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-mid);
+  letter-spacing: .02em;
+}
+
+.qty-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: background 100ms;
+}
+.qty-pill:hover { background: #e8e2c8; }
+.qty-unit {
+  font-size: 10px; font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.qty-val {
+  font-size: 14px; font-weight: 900;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+}
+
+.price-box {
+  display: flex; align-items: center; gap: 4px;
+  width: 100%;
+  background: var(--bg);
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+.price-currency {
+  font-size: 9px; font-weight: 700;
+  color: var(--text-muted);
+}
+.price-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+
+.total-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-mid);
+  text-align: right;
+  width: 100%;
+}
+
+.disc-cell {
+  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+  width: 100%;
+}
+.disc-val {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+.disc-unit { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+
+.surcharge-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  color: var(--teal);
+  text-align: right;
+  width: 100%;
+}
+
+.sell-price {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px; font-weight: 800;
+  color: var(--text);
+  text-align: right;
+  width: 100%;
+}
+
+.markup-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: -.01em;
+}
+.markup-pos { background: var(--green-bg); color: var(--green); }
+.markup-neg { background: var(--red-bg); color: var(--red); }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  font-size: 9.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .06em;
+  white-space: nowrap;
+}
+.status-ident  { background: var(--blue-bg); color: var(--blue); }
+.status-pend   { background: rgba(234,179,8,.10); color: #a16207; }
+.status-notok  { background: var(--red-bg); color: var(--red); }
+
+.verify-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+  transition: all 120ms var(--ease-snap);
+  flex-shrink: 0;
+}
+.verify-btn svg { width: 12px; height: 12px; }
+.verify-yes {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(21,128,61,.30);
+}
+.verify-no {
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+
+.ts-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 9px; font-weight: 700;
+  background: var(--green-bg);
+  color: var(--green);
+  white-space: nowrap;
+  font-family: 'DM Mono', monospace;
+}
+
+.distrib-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-mid);
+  text-align: center;
+  width: 100%;
+}
+
+.del-btn {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+  background: transparent;
+  color: rgba(200,26,26,.3);
+  transition: all 120ms var(--ease-snap);
+}
+.del-btn:hover { background: var(--red-bg); color: var(--red); }
+.del-btn svg { width: 13px; height: 13px; }
+
+/* ── Footer ── */
+.modal-footer {
+  background: var(--yellow-soft);
+  border-top: 1.5px solid #DDD500;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.footer-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mid);
+  flex-wrap: wrap;
+}
+.footer-stats strong { font-weight: 800; color: var(--text); }
+.footer-stats .sep { color: var(--text-muted); margin: 0 2px; }
+.footer-verified { color: var(--green); font-weight: 800; }
+.footer-value { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--text); }
+.footer-markup { font-family: 'DM Mono', monospace; font-weight: 800; color: var(--green); font-size: 13px; }
+
+.footer-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-save {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  box-shadow: 0 3px 12px rgba(200,26,26,.28);
+}
+.btn-save:hover { background: #a81515; }
+
+.btn-delete {
+  background: transparent;
+  color: var(--red);
+  border: 1.5px solid rgba(200,26,26,.25);
+}
+.btn-delete:hover { background: var(--red-bg); }
+
+.btn-mobile {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1.5px solid var(--border);
+}
+.btn-mobile:hover { background: rgba(26,26,14,.05); }
+
+.btn-close-footer {
+  background: var(--text);
+  color: var(--yellow);
+  border: none;
+}
+.btn-close-footer:hover { opacity: .88; }
+</style>
+</head>
+<body>
+
+<div class="modal">
+
+  <!-- ── Header ── -->
+  <div class="modal-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      </div>
+      <div class="header-meta">
+        <div class="header-title">
+          PAROLAR – 22/05/2026
+          <span class="supplier-tag">PAROLAR</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;opacity:.4;cursor:pointer"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div class="header-subtitle">000.232.612 &nbsp;·&nbsp; 25/05/2026, 17:02:43</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel
+      </button>
+      <button class="btn btn-outline" style="padding:8px 10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+      <button class="btn btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Baixar
+      </button>
+      <button class="btn btn-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="table-area">
+    <table class="rt">
+      <colgroup>
+        <col style="width:36px">
+        <col style="width:78px">
+        <col style="width:210px">
+        <col style="width:185px">
+        <col style="width:118px">
+        <col style="width:105px">
+        <col style="width:100px">
+        <col style="width:108px">
+        <col style="width:92px">
+        <col style="width:78px">
+        <col style="width:78px">
+        <col style="width:96px">
+        <col style="width:80px">
+        <col style="width:130px">
+        <col style="width:36px">
+        <col style="width:82px">
+        <col style="width:54px">
+        <col style="width:34px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th><div class="th" style="justify-content:center">#</div></th>
+          <th><div class="th">Código</div></th>
+          <th><div class="th">
+            Produto na Nota
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div></th>
+          <th><div class="th">Identificação Interna</div></th>
+          <th><div class="th">
+            EAN
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div></th>
+          <th><div class="th">
+            SKU
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div></th>
+          <th><div class="th" style="justify-content:center">
+            QTD.
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div></th>
+          <th><div class="th" style="justify-content:flex-end">Preço Custo</div></th>
+          <th><div class="th" style="justify-content:flex-end">Valor Total</div></th>
+          <th><div class="th" style="justify-content:flex-end">
+            Desconto
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div></th>
+          <th><div class="th" style="justify-content:flex-end">
+            Acréscimo
+            <span style="width:7px;height:7px;border-radius:50%;background:#0891b2;display:inline-block;margin-left:2px;opacity:.7"></span>
+          </div></th>
+          <th><div class="th" style="justify-content:flex-end">Preço Venda</div></th>
+          <th><div class="th" style="justify-content:flex-end">Markup</div></th>
+          <th><div class="th">Status</div></th>
+          <th><div class="th" style="justify-content:center">✓</div></th>
+          <th><div class="th">Hora</div></th>
+          <th><div class="th" style="justify-content:center">Dist.</div></th>
+          <th><div class="th"></div></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Row 1 -->
+        <tr>
+          <td><div class="td" style="justify-content:center"><span class="seq">1</span></div></td>
+          <td><div class="td"><span class="code">09427</span></div></td>
+          <td><div class="td"><span class="prod-name">BARROCO CANECA 375ML</span></div></td>
+          <td><div class="td" style="gap:5px">
+            <span class="id-linked" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">xicara wheaton bic…</span>
+            <div class="icon-btn link-ok" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="icon-btn layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div></td>
+          <td><div class="td"><span class="ean-val">7891240028120</span></div></td>
+          <td><div class="td"><span class="sku-val">SKU-ZFELLPKEL</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <div class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">24</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:rgba(26,26,14,.25);margin-left:4px;flex-shrink:0"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+          </div></td>
+          <td><div class="td"><div class="price-box"><span class="price-currency">R$</span><span class="price-num">4,47</span></div></div></td>
+          <td><div class="td"><span class="total-num">R$ 107.28</span></div></td>
+          <td><div class="td"><div class="disc-cell"><span class="disc-val">—</span><span class="disc-unit">%</span></div></div></td>
+          <td><div class="td"><span class="surcharge-val">0</span></div></td>
+          <td><div class="td"><span class="sell-price">9</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="markup-badge markup-pos">+101.3%</span></div></td>
+          <td><div class="td"><span class="status-badge status-ident">Identific. (SKU/EAN)</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="verify-btn verify-yes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div></td>
+          <td><div class="td"><span class="ts-chip">17:02:43</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="distrib-val">—</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+          </div></td>
+        </tr>
+
+        <!-- Row 2 -->
+        <tr>
+          <td><div class="td alt" style="justify-content:center"><span class="seq">2</span></div></td>
+          <td><div class="td alt"><span class="code">09428</span></div></td>
+          <td><div class="td alt"><span class="prod-name">BARROCO CANEQUINHA MULTIUSO…</span></div></td>
+          <td><div class="td alt" style="gap:5px">
+            <span class="id-linked" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">xicara barroca whe…</span>
+            <div class="icon-btn link-ok" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="icon-btn layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div></td>
+          <td><div class="td alt"><span class="ean-val">7891240029639</span></div></td>
+          <td><div class="td alt"><span class="sku-val">SKU-GIBPNXCJQ</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <div class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">48</span></div>
+          </div></td>
+          <td><div class="td alt"><div class="price-box"><span class="price-currency">R$</span><span class="price-num">2,2</span></div></div></td>
+          <td><div class="td alt"><span class="total-num">R$ 105.60</span></div></td>
+          <td><div class="td alt"><div class="disc-cell"><span class="disc-val">—</span><span class="disc-unit">%</span></div></div></td>
+          <td><div class="td alt"><span class="surcharge-val">0</span></div></td>
+          <td><div class="td alt"><span class="sell-price">3,8</span></div></td>
+          <td><div class="td alt" style="justify-content:center"><span class="markup-badge markup-pos">+72.7%</span></div></td>
+          <td><div class="td alt"><span class="status-badge status-ident">Identific. (SKU/EAN)</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <button class="verify-btn verify-yes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div></td>
+          <td><div class="td alt"><span class="ts-chip">17:02:43</span></div></td>
+          <td><div class="td alt" style="justify-content:center"><span class="distrib-val">—</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+          </div></td>
+        </tr>
+
+        <!-- Row 3 -->
+        <tr>
+          <td><div class="td" style="justify-content:center"><span class="seq">3</span></div></td>
+          <td><div class="td"><span class="code">27523</span></div></td>
+          <td><div class="td"><span class="prod-name">BARROCO COPO GOLD 255ML</span></div></td>
+          <td><div class="td" style="gap:5px">
+            <span class="id-linked" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">copo vidro barroco</span>
+            <div class="icon-btn link-ok" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="icon-btn layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div></td>
+          <td><div class="td"><span class="ean-val">7891240077821</span></div></td>
+          <td><div class="td"><span class="sku-val">SKU-7T302IDYV</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <div class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">48</span></div>
+          </div></td>
+          <td><div class="td"><div class="price-box"><span class="price-currency">R$</span><span class="price-num">2,635</span></div></div></td>
+          <td><div class="td"><span class="total-num">R$ 126.51</span></div></td>
+          <td><div class="td"><div class="disc-cell"><span class="disc-val">—</span><span class="disc-unit">%</span></div></div></td>
+          <td><div class="td"><span class="surcharge-val">0</span></div></td>
+          <td><div class="td"><span class="sell-price">5</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="markup-badge markup-pos">+89.7%</span></div></td>
+          <td><div class="td"><span class="status-badge status-ident">Identific. (SKU/EAN)</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="verify-btn verify-yes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div></td>
+          <td><div class="td"><span class="ts-chip">17:02:43</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="distrib-val">—</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+          </div></td>
+        </tr>
+
+        <!-- Row 4 — pending status -->
+        <tr>
+          <td><div class="td alt" style="justify-content:center"><span class="seq">4</span></div></td>
+          <td><div class="td alt"><span class="code">27527</span></div></td>
+          <td><div class="td alt"><span class="prod-name">BARROCO PRATO FUNDO GOLD 2…</span></div></td>
+          <td><div class="td alt" style="gap:5px">
+            <span class="id-linked" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">prato vidro wheaton</span>
+            <div class="icon-btn link-ok" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="icon-btn layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div></td>
+          <td><div class="td alt"><span class="ean-val">7891240078729</span></div></td>
+          <td><div class="td alt"><span class="sku-val">35352</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <div class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">48</span></div>
+          </div></td>
+          <td><div class="td alt"><div class="price-box"><span class="price-currency">R$</span><span class="price-num">4,716</span></div></div></td>
+          <td><div class="td alt"><span class="total-num">R$ 226.40</span></div></td>
+          <td><div class="td alt"><div class="disc-cell"><span class="disc-val">—</span><span class="disc-unit">%</span></div></div></td>
+          <td><div class="td alt"><span class="surcharge-val">0</span></div></td>
+          <td><div class="td alt"><span class="sell-price">8</span></div></td>
+          <td><div class="td alt" style="justify-content:center"><span class="markup-badge markup-pos">+69.6%</span></div></td>
+          <td><div class="td alt"><span class="status-badge status-ident">Identific. (SKU/EAN)</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <button class="verify-btn verify-yes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div></td>
+          <td><div class="td alt"><span class="ts-chip">17:02:43</span></div></td>
+          <td><div class="td alt" style="justify-content:center"><span class="distrib-val">—</span></div></td>
+          <td><div class="td alt" style="justify-content:center">
+            <button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+          </div></td>
+        </tr>
+
+        <!-- Row 5 -->
+        <tr>
+          <td><div class="td" style="justify-content:center"><span class="seq">5</span></div></td>
+          <td><div class="td"><span class="code">25042</span></div></td>
+          <td><div class="td"><span class="prod-name">CINZEIRO VIDRO 11X3,5CM CX</span></div></td>
+          <td><div class="td" style="gap:5px">
+            <span class="id-linked" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">cinzeiro vidro 11×3…</span>
+            <div class="icon-btn link-ok" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="icon-btn layers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div></td>
+          <td><div class="td"><span class="ean-val">7898745134356</span></div></td>
+          <td><div class="td"><span class="sku-val">SKU-KP734BH2W</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <div class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">24</span></div>
+          </div></td>
+          <td><div class="td"><div class="price-box"><span class="price-currency">R$</span><span class="price-num">5,51</span></div></div></td>
+          <td><div class="td"><span class="total-num">R$ 132.24</span></div></td>
+          <td><div class="td"><div class="disc-cell"><span class="disc-val">—</span><span class="disc-unit">%</span></div></div></td>
+          <td><div class="td"><span class="surcharge-val">0</span></div></td>
+          <td><div class="td"><span class="sell-price">12</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="markup-badge markup-pos">+117.8%</span></div></td>
+          <td><div class="td"><span class="status-badge status-ident">Identific. (SKU/EAN)</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="verify-btn verify-yes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div></td>
+          <td><div class="td"><span class="ts-chip">17:02:43</span></div></td>
+          <td><div class="td" style="justify-content:center"><span class="distrib-val">—</span></div></td>
+          <td><div class="td" style="justify-content:center">
+            <button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+          </div></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div class="modal-footer">
+    <div class="footer-stats">
+      Total: <strong>21 itens</strong>
+      <span class="sep">·</span>
+      <span class="footer-verified">21 verificados</span>
+      <span class="sep">·</span>
+      Valor total da nota: <span class="footer-value">R$ 3.874,77</span>
+      <span class="sep">·</span>
+      Markup total: <span class="footer-markup">+79.4%</span>
+    </div>
+    <div class="footer-btns">
+      <button class="btn btn-save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar
+      </button>
+      <button class="btn btn-delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Excluir
+      </button>
+      <button class="btn btn-mobile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        Mobile
+      </button>
+      <button class="btn btn-close-footer">Fechar</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

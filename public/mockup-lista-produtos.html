@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Lista de Produtos · Estilo Notas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#EDE8D5;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 20px 60px;
+}
+
+/* ────────────────────────────────────────────
+   MODAL SHELL
+──────────────────────────────────────────── */
+.modal {
+  width:100%;
+  max-width:1380px;
+  border-radius:20px;
+  overflow:hidden;
+  background:#FDFAF0;
+  box-shadow:0 40px 100px rgba(0,0,0,.20), 0 6px 20px rgba(0,0,0,.08);
+  border:1px solid #DDD5B8;
+}
+
+/* ────────────────────────────────────────────
+   HEADER
+──────────────────────────────────────────── */
+.header {
+  background:#FFE500;
+  border-bottom:1.5px solid #D4C000;
+  padding:0 20px;
+  height:66px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.header-label {
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  flex:1;
+  min-width:0;
+}
+
+.label-eyebrow {
+  font-size:9.5px;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:rgba(26,26,10,.40);
+}
+
+.label-title {
+  font-size:17px;
+  font-weight:800;
+  color:#1A1A0E;
+  letter-spacing:-.025em;
+  line-height:1;
+}
+
+/* status badge in header */
+.header-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 11px;
+  border-radius:10px;
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.badge-ok   { background:rgba(21,128,61,.12); color:#15803d; }
+.badge-err  { background:rgba(200,26,26,.10); color:#C81A1A;
+              border:1px solid rgba(200,26,26,.18); }
+
+/* header buttons */
+.header-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 16px;
+  border-radius:10px;
+  border:none;
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:all 130ms cubic-bezier(0.23,1,0.32,1);
+}
+.btn:active{transform:scale(.97)}
+.btn svg{width:13px;height:13px;flex-shrink:0}
+
+.btn-cancel {
+  background:rgba(26,26,10,.08);
+  color:rgba(26,26,10,.55);
+  border:1.5px solid rgba(26,26,10,.14);
+}
+.btn-cancel:hover{background:rgba(26,26,10,.13)}
+
+.btn-save {
+  background:#C81A1A;
+  color:#fff;
+  box-shadow:0 3px 12px rgba(200,26,26,.30);
+}
+.btn-save:hover{background:#a81414}
+
+.btn-close {
+  width:34px;height:34px;
+  padding:0;
+  border-radius:10px;
+  background:rgba(26,26,10,.08);
+  color:rgba(26,26,10,.45);
+  border:1.5px solid rgba(26,26,10,.10);
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-close:hover{background:rgba(200,26,26,.10);color:#C81A1A;border-color:rgba(200,26,26,.20)}
+
+/* ────────────────────────────────────────────
+   TABLE AREA
+──────────────────────────────────────────── */
+.table-area {
+  padding:12px 14px 10px;
+  overflow-x:auto;
+}
+
+table.t {
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0 3px;
+  min-width:1200px;
+}
+
+/* col headers */
+table.t thead th {
+  padding:0 2px 0 2px;
+  vertical-align:bottom;
+}
+table.t thead th:first-child{padding-left:0}
+table.t thead th:last-child {padding-right:0}
+
+.th {
+  background:#FFE500;
+  border:1.5px solid #D4C000;
+  border-radius:9px;
+  padding:7px 10px;
+  font-size:9.5px;
+  font-weight:800;
+  letter-spacing:.10em;
+  text-transform:uppercase;
+  color:rgba(26,26,10,.55);
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-bottom:1px;
+  user-select:none;
+}
+.th .req{color:#C81A1A}
+
+/* rows */
+table.t tbody td {
+  padding:0 2px;
+  vertical-align:middle;
+}
+table.t tbody td:first-child{padding-left:0}
+table.t tbody td:last-child {padding-right:0}
+
+/* row num */
+.row-num {
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  font-weight:400;
+  color:rgba(26,26,10,.28);
+  text-align:right;
+  padding-right:6px !important;
+  width:28px;
+}
+
+/* cell wrapper */
+.cell {
+  background:#FFFFFF;
+  border:1.5px solid #E0D8BF;
+  border-radius:9px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  transition:border-color 120ms cubic-bezier(0.23,1,0.32,1),
+             box-shadow  120ms cubic-bezier(0.23,1,0.32,1);
+}
+.cell.alt{background:#FAF7EE}
+.cell.focus{border-color:rgba(200,26,26,.50)!important;
+            box-shadow:0 0 0 3px rgba(200,26,26,.10)}
+
+/* inputs */
+.cell input, .cell select {
+  background:transparent;border:none;outline:none;
+  width:100%;height:100%;
+  padding:0 10px;
+  font-family:'DM Mono',monospace;
+  font-size:11.5px;font-weight:400;
+  color:#1A1A0E;
+  letter-spacing:.02em;
+}
+.cell input::placeholder{color:rgba(26,26,10,.22)}
+.cell input[type=number]{text-align:right}
+.cell input[type=number]::-webkit-inner-spin-button,
+.cell input[type=number]::-webkit-outer-spin-button{display:none}
+
+/* status select cell */
+.status-cell {
+  padding:0 8px;
+  gap:6px;
+}
+.status-pill {
+  display:inline-flex;align-items:center;
+  padding:3px 9px;
+  border-radius:7px;
+  font-size:10px;font-weight:700;
+  white-space:nowrap;
+}
+.s-em-estoque  { background:rgba(21,128,61,.10); color:#15803d; }
+.s-estoque-alt { background:rgba(234,179,8,.12); color:#a16207; }
+.s-estoque-bx  { background:rgba(234,88,12,.10); color:#c2410c; }
+.s-fora        { background:rgba(200,26,26,.08); color:#C81A1A; }
+
+/* chevron icon for select */
+.select-icon{
+  width:13px;height:13px;flex-shrink:0;
+  color:rgba(26,26,10,.30);margin-left:auto;
+}
+
+/* delete cell */
+.del-btn {
+  width:28px;height:28px;
+  border-radius:8px;border:none;cursor:pointer;
+  background:transparent;
+  color:rgba(200,26,26,.28);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 120ms cubic-bezier(0.23,1,0.32,1);
+  margin:0 auto;
+}
+.del-btn:hover{background:rgba(200,26,26,.08);color:#C81A1A}
+.del-btn svg{width:13px;height:13px}
+
+/* ────────────────────────────────────────────
+   ADD ROW BUTTON
+──────────────────────────────────────────── */
+.add-btn {
+  width:32px;height:32px;
+  margin-top:4px;
+  border-radius:7px;
+  border:1.5px dashed rgba(26,26,10,.22);
+  background:transparent;
+  color:rgba(26,26,10,.30);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:all 140ms cubic-bezier(0.23,1,0.32,1);
+}
+.add-btn:hover{
+  border-color:rgba(200,26,26,.45);
+  color:#C81A1A;
+  background:rgba(200,26,26,.04);
+}
+.add-btn svg{width:13px;height:13px}
+
+/* ────────────────────────────────────────────
+   FOOTER
+──────────────────────────────────────────── */
+.footer {
+  background:#FFF7B0;
+  border-top:1.5px solid #DDD000;
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.footer-hint {
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  font-weight:400;
+  color:rgba(26,26,10,.38);
+  letter-spacing:.02em;
+}
+
+.footer-right {
+  display:flex;align-items:center;gap:10px;
+  font-size:11.5px;font-weight:600;
+  color:rgba(26,26,10,.45);
+}
+.footer-right strong{color:#1A1A0E;font-weight:800}
+
+/* ────────────────────────────────────────────
+   HOVER ROWS (JS-free demo toggle)
+──────────────────────────────────────────── */
+table.t tbody tr:hover .cell:not(.focus){
+  border-color:#C8C0A0;
+}
+
+</style>
+</head>
+<body>
+
+<div class="modal">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-label">
+      <span class="label-eyebrow">Cadastro em Lote</span>
+      <span class="label-title">Lista de Produtos</span>
+    </div>
+
+    <div class="header-badge badge-err">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      0 salvos · 2 erro(s)
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-cancel">Cancelar</button>
+      <button class="btn btn-save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar (2)
+      </button>
+      <button class="btn btn-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-area">
+    <table class="t">
+      <colgroup>
+        <col style="width:26px"><!-- # -->
+        <col style="width:auto"><!-- Nome -->
+        <col style="width:96px"><!-- SKU -->
+        <col style="width:136px"><!-- EAN -->
+        <col style="width:116px"><!-- Categoria -->
+        <col style="width:102px"><!-- Sub. -->
+        <col style="width:102px"><!-- Marca -->
+        <col style="width:120px"><!-- Localização -->
+        <col style="width:72px"><!-- Qtde -->
+        <col style="width:90px"><!-- Preço -->
+        <col style="width:132px"><!-- Status -->
+        <col style="width:32px"><!-- del -->
+      </colgroup>
+
+      <thead>
+        <tr>
+          <th style="padding:0"></th><!-- # header empty -->
+          <th><div class="th">Nome <span class="req">*</span></div></th>
+          <th><div class="th">SKU</div></th>
+          <th><div class="th">EAN</div></th>
+          <th><div class="th">Categoria</div></th>
+          <th><div class="th">Sub.</div></th>
+          <th><div class="th">Marca</div></th>
+          <th><div class="th">Localização</div></th>
+          <th><div class="th">Qtde</div></th>
+          <th><div class="th">Preço R$</div></th>
+          <th><div class="th">Status</div></th>
+          <th style="padding:0"></th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <!-- ROW 1 — filled, valid -->
+        <tr>
+          <td class="row-num">1</td>
+          <td><div class="cell focus">
+            <input type="text" value="maxmallows 70g docile" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="7896451929389" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="Docile" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="text" value="Doces" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="number" value="0"/>
+          </div></td>
+          <td><div class="cell">
+            <input type="number" value="6"/>
+          </div></td>
+          <td><div class="cell status-cell">
+            <span class="status-pill s-em-estoque">Em Estoque</span>
+            <svg class="select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div></td>
+          <td><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- ROW 2 — error (name missing) -->
+        <tr>
+          <td class="row-num">2</td>
+          <td><div class="cell alt" style="border-color:rgba(200,26,26,.45);background:rgba(200,26,26,.04)">
+            <input type="text" value="maxmallows uni recheado 70g docile" spellcheck="false" style="color:#C81A1A"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="7896451929372" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="Docile" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="text" value="Doces" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="number" value="0"/>
+          </div></td>
+          <td><div class="cell alt">
+            <input type="number" value="6"/>
+          </div></td>
+          <td><div class="cell alt status-cell">
+            <span class="status-pill s-em-estoque">Em Estoque</span>
+            <svg class="select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div></td>
+          <td><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- ROW 3 — empty -->
+        <tr>
+          <td class="row-num">3</td>
+          <td><div class="cell">
+            <input type="text" placeholder="" spellcheck="false"/>
+          </div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="text" placeholder=""/></div></td>
+          <td><div class="cell"><input type="number" placeholder="0"/></div></td>
+          <td><div class="cell"><input type="number" placeholder="0,00"/></div></td>
+          <td><div class="cell status-cell">
+            <span class="status-pill s-em-estoque">Em Estoque</span>
+            <svg class="select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div></td>
+          <td><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <!-- ADD ROW -->
+    <button class="add-btn" title="Adicionar linha">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span class="footer-hint">↑ ↓ navegar · Tab próxima · ⌘V colar coluna</span>
+    <div class="footer-right">
+      <span style="color:rgba(200,26,26,.7);font-size:11px;display:flex;align-items:center;gap:5px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        1 linha com Nome em branco
+      </span>
+      <span><strong>3</strong> linhas · <strong>2</strong> preenchidas</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
