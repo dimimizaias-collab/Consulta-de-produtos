@@ -18,7 +18,7 @@ import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -379,6 +379,11 @@ export default function Page() {
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
+  // Undo/Redo history
+  const noteHistoryRef = useRef<any[]>([]);
+  const noteHistoryIdxRef = useRef<number>(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
   const [reviewLoadingUnitIdx, setReviewLoadingUnitIdx] = useState<number | null>(null);
@@ -1932,8 +1937,97 @@ export default function Page() {
     }
   };
 
+  // ── Undo / Redo ─────────────────────────────────────────────────────────────
+  const captureSnapshot = useCallback(() => {
+    if (!viewingReviewNote) return;
+    const snap = {
+      viewingReviewNote: JSON.parse(JSON.stringify(viewingReviewNote)),
+      viewingNoteEans: [...viewingNoteEans],
+      viewingNoteSkus: [...viewingNoteSkus],
+      viewingNoteQtys: [...viewingNoteQtys],
+      viewingNoteItemPrices: [...viewingNoteItemPrices],
+      viewingNoteUnits: [...viewingNoteUnits],
+      viewingNoteMultipliers: [...viewingNoteMultipliers],
+      viewingNoteDistribuicao: [...viewingNoteDistribuicao],
+      viewingNoteSellPrices: [...viewingNoteSellPrices],
+      viewingNoteVerified: [...viewingNoteVerified],
+      viewingNoteReviewTimestamps: [...viewingNoteReviewTimestamps],
+      viewingNoteDiscrepancies: [...viewingNoteDiscrepancies],
+      discountMode, discountApplied, discountIndividualType,
+      itemDiscounts: [...itemDiscounts],
+      surchargeMode, surchargeApplied, surchargeIndividualType,
+      itemSurcharges: [...itemSurcharges],
+    };
+    const newStack = noteHistoryRef.current.slice(0, noteHistoryIdxRef.current + 1);
+    newStack.push(snap);
+    if (newStack.length > 50) newStack.shift();
+    noteHistoryRef.current = newStack;
+    noteHistoryIdxRef.current = newStack.length - 1;
+    setCanUndo(noteHistoryIdxRef.current > 0);
+    setCanRedo(false);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges]);
+
+  const applySnapshot = useCallback((snap: any) => {
+    setViewingReviewNote(snap.viewingReviewNote);
+    setViewingNoteEans(snap.viewingNoteEans);
+    setViewingNoteSkus(snap.viewingNoteSkus);
+    setViewingNoteQtys(snap.viewingNoteQtys);
+    setViewingNoteItemPrices(snap.viewingNoteItemPrices);
+    setViewingNoteUnits(snap.viewingNoteUnits);
+    setViewingNoteMultipliers(snap.viewingNoteMultipliers);
+    setViewingNoteDistribuicao(snap.viewingNoteDistribuicao);
+    setViewingNoteSellPrices(snap.viewingNoteSellPrices);
+    setViewingNoteVerified(snap.viewingNoteVerified);
+    setViewingNoteReviewTimestamps(snap.viewingNoteReviewTimestamps);
+    setViewingNoteDiscrepancies(snap.viewingNoteDiscrepancies);
+    setDiscountMode(snap.discountMode);
+    setDiscountApplied(snap.discountApplied);
+    setDiscountIndividualType(snap.discountIndividualType);
+    setItemDiscounts(snap.itemDiscounts);
+    setSurchargeMode(snap.surchargeMode);
+    setSurchargeApplied(snap.surchargeApplied);
+    setSurchargeIndividualType(snap.surchargeIndividualType);
+    setItemSurcharges(snap.itemSurcharges);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (noteHistoryIdxRef.current <= 0) return;
+    noteHistoryIdxRef.current -= 1;
+    applySnapshot(noteHistoryRef.current[noteHistoryIdxRef.current]);
+    setCanUndo(noteHistoryIdxRef.current > 0);
+    setCanRedo(true);
+  }, [applySnapshot]);
+
+  const handleRedo = useCallback(() => {
+    if (noteHistoryIdxRef.current >= noteHistoryRef.current.length - 1) return;
+    noteHistoryIdxRef.current += 1;
+    applySnapshot(noteHistoryRef.current[noteHistoryIdxRef.current]);
+    setCanUndo(true);
+    setCanRedo(noteHistoryIdxRef.current < noteHistoryRef.current.length - 1);
+  }, [applySnapshot]);
+
+  const resetNoteHistory = useCallback(() => {
+    noteHistoryRef.current = [];
+    noteHistoryIdxRef.current = -1;
+    setCanUndo(false);
+    setCanRedo(false);
+  }, []);
+
+  // Atalhos Ctrl+Z / Ctrl+Y enquanto nota estiver aberta
+  useEffect(() => {
+    if (!viewingReviewNote) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [viewingReviewNote, handleUndo, handleRedo]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   const handleReviewSaveMeasure = async () => {
     if (reviewMeasureIdx === null || !viewingReviewNote) return;
+    captureSnapshot();
     const mult = parseFloat(reviewMeasureMultiplier);
     if (isNaN(mult) || mult <= 0) {
       setNotification({ type: 'error', message: 'Informe um multiplicador válido (maior que 0).' });
@@ -2146,6 +2240,7 @@ export default function Page() {
 
   const handleSaveMultiLinkItem = async () => {
     if (multiLinkItemIdx === null || !viewingReviewNote || multiLinkItemEntries.length === 0) return;
+    captureSnapshot();
     const n = viewingReviewNote.items.length;
     const srcIdx = multiLinkItemIdx;
     const sourceItem = viewingReviewNote.items[srcIdx];
@@ -3017,6 +3112,8 @@ export default function Page() {
                       setItemSurcharges([]);
                     }
                     setSurchargeDropdown(false); setSurchargeDialog(null);
+                    resetNoteHistory();
+                    setTimeout(() => captureSnapshot(), 0);
                   }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
@@ -5826,6 +5923,7 @@ export default function Page() {
                                   onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
                                   onPaste={e => handleNoteEanPaste(e, idx)}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 1)}
+                                  onBlur={captureSnapshot}
                                   className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
                                 <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
@@ -5842,6 +5940,7 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                   onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
+                                  onBlur={captureSnapshot}
                                   className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
                                 <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteSkus[idx] ?? item.sku) || '—'}</p>
@@ -5919,6 +6018,7 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 3)}
+                                  onBlur={captureSnapshot}
                                   className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" style={{ color: 'var(--rn-text)' }} />
                               </div>
                             ) : (
@@ -6058,6 +6158,7 @@ export default function Page() {
                                         value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
                                         onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
+                                        onBlur={captureSnapshot}
                                         className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                                       />
                                     )}
@@ -6240,6 +6341,7 @@ export default function Page() {
                                   setViewingNoteDistribuicao(u);
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 8)}
+                                onBlur={captureSnapshot}
                                 placeholder="—"
                                 className="w-10 text-center text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                               />
@@ -6424,6 +6526,7 @@ export default function Page() {
                                       onChange={e => setNoteItemSellPriceInput(e.target.value)}
                                       onKeyDown={async e => {
                                         if (e.key === 'Enter') {
+                                          captureSnapshot();
                                           const i = linkingItemIdx!;
                                           const p = noteItemSelectedProduct;
                                           const sellPrice = parseFloat(noteItemSellPriceInput) || p.price || 0;
@@ -6455,6 +6558,7 @@ export default function Page() {
 
                                 <button
                                   onClick={async () => {
+                                    captureSnapshot();
                                     const i = linkingItemIdx!;
                                     const p = noteItemSelectedProduct;
                                     const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
@@ -6771,6 +6875,26 @@ export default function Page() {
                     }
                   </button>
 
+                  {/* Undo / Redo */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleUndo}
+                      disabled={!canUndo}
+                      title="Desfazer (Ctrl+Z)"
+                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Undo2 size={16} />
+                    </button>
+                    <button
+                      onClick={handleRedo}
+                      disabled={!canRedo}
+                      title="Refazer (Ctrl+Y)"
+                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Redo2 size={16} />
+                    </button>
+                  </div>
+
                   {confirmDeleteNote ? (
                     <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
                       <span className="text-sm font-bold text-red-400 whitespace-nowrap">Excluir nota?</span>
@@ -6806,7 +6930,7 @@ export default function Page() {
                   </button>
 
                   <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); }}
+                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); }}
                     className="px-8 py-3 bg-on-surface/[0.08] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.14] transition-all border border-on-surface/[0.08] dark:bg-[#111110] dark:border-white/[0.06] dark:hover:bg-black"
                   >
                     Fechar
@@ -7061,7 +7185,7 @@ export default function Page() {
                       </div>
                       <div className="flex gap-2 pt-1">
                         <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                        <button onClick={() => { const v = parseFloat(discountGeralValue); if (!isNaN(v) && v > 0) { setDiscountApplied({ value: v, type: discountGeralType }); setDiscountMode('geral'); } setDiscountDialog(null); }}
+                        <button onClick={() => { const v = parseFloat(discountGeralValue); if (!isNaN(v) && v > 0) { captureSnapshot(); setDiscountApplied({ value: v, type: discountGeralType }); setDiscountMode('geral'); } setDiscountDialog(null); }}
                           className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
                       </div>
                     </div>
@@ -7134,7 +7258,7 @@ export default function Page() {
                       </div>
                       <div className="flex gap-2 pt-1">
                         <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                        <button onClick={() => { const v = parseFloat(surchargeGeralValue); if (!isNaN(v) && v > 0) { setSurchargeApplied({ value: v, type: surchargeGeralType }); setSurchargeMode('geral'); } setSurchargeDialog(null); }}
+                        <button onClick={() => { const v = parseFloat(surchargeGeralValue); if (!isNaN(v) && v > 0) { captureSnapshot(); setSurchargeApplied({ value: v, type: surchargeGeralType }); setSurchargeMode('geral'); } setSurchargeDialog(null); }}
                           className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
                       </div>
                     </div>
