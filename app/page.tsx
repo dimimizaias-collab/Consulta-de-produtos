@@ -2118,6 +2118,7 @@ export default function Page() {
         setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
         setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
         setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
+        fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
       }
     } catch (err: any) {
       const msg = err.message || '';
@@ -2179,6 +2180,7 @@ export default function Page() {
       }));
       setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber } : null);
       setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
+      fetchProducts(); // Reflete preços de venda e dados atualizados no state global
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
     } finally {
@@ -3085,6 +3087,7 @@ export default function Page() {
                   }}
                   reviewNotes={reviewNotes}
                   onViewReviewNote={(note) => {
+                    fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
                     setViewingReviewNote(note);
                     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
                     setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
