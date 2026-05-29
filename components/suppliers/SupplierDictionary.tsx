@@ -133,6 +133,22 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [isSavingMapping, setIsSavingMapping] = useState(false);
   const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Combobox state for supplier selector
+  const [supplierComboQuery, setSupplierComboQuery] = useState('');
+  const [supplierComboOpen, setSupplierComboOpen] = useState(false);
+  const supplierComboRef = useRef<HTMLDivElement>(null);
+
+  const selectedSupplier = supplierNames.find(s => s.id === selectedSupplierId) ?? null;
+  const filteredSuppliers = supplierComboQuery.trim()
+    ? supplierNames.filter(s => s.name.toLowerCase().includes(supplierComboQuery.toLowerCase()))
+    : supplierNames;
+
+  // Duplicate detection
+  const isDupCode = supplierMappingCode.trim().length > 0 &&
+    supplierMappings.some(m => (m.supplier_sku ?? '').toLowerCase() === supplierMappingCode.trim().toLowerCase());
+  const isDupDescription = supplierMappingDescription.trim().length > 0 &&
+    supplierMappings.some(m => m.supplier_description.toLowerCase() === supplierMappingDescription.trim().toLowerCase());
+
   // Fetch initial data
   useEffect(() => {
     if (isOpen) {
@@ -140,6 +156,18 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
       fetchUnitConversions();
     }
   }, [isOpen]);
+
+  // Close combobox on click outside
+  useEffect(() => {
+    if (!supplierComboOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (supplierComboRef.current && !supplierComboRef.current.contains(e.target as Node)) {
+        setSupplierComboOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [supplierComboOpen]);
 
   const fetchSuppliers = async () => {
     try {
@@ -214,7 +242,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
 
       if (error) throw error;
 
-      setNotification({ type: 'success', message: 'Mapping added successfully!' });
+      setNotification({ type: 'success', message: 'Mapeamento adicionado com sucesso!' });
       setSupplierMappingDescription('');
       setSupplierMappingCode('');
       setSelectedSupplierMappingProduct(null);
@@ -517,7 +545,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-surface-container-lowest rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden ring-1 ring-on-surface/5"
+              className="relative bg-surface-container-lowest rounded-[2.5rem] shadow-2xl w-[95vw] max-w-[1400px] max-h-[92vh] flex flex-col overflow-hidden ring-1 ring-on-surface/5"
             >
               <div className="p-8 border-b border-on-surface/[0.03] flex items-center justify-between shrink-0 bg-surface-container-low/30">
                 <div className="flex items-center gap-6">
@@ -558,63 +586,110 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
 
               <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-on-surface/[0.03]">
                 {/* Form Panel */}
-                <div className="w-full md:w-1/2 p-10 overflow-y-auto space-y-10 custom-scrollbar">
+                <div className="w-full md:w-1/2 p-10 flex flex-col space-y-6">
                   {activeTab === 'mappings' ? (
                     <>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Select Supplier</label>
-                          <button 
+                          <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Selecionar Fornecedor</label>
+                          <button
                             onClick={() => setShowAddSupplierModal(true)}
                             className="text-[10px] font-black text-primary flex items-center gap-2 hover:bg-primary/5 px-3 py-1.5 rounded-full transition-all"
                           >
                             <Plus size={14} />
-                            New Partner
+                            + Novo Fornecedor
                           </button>
                         </div>
-                          <div className="relative group">
-                            <select 
-                              value={selectedSupplierId}
-                              onChange={(e) => {
-                                setSelectedSupplierId(e.target.value);
-                                fetchSupplierMappings(e.target.value);
-                                setMappingListSearch('');
-                              }}
-                              className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 appearance-none font-bold text-on-surface transition-all shadow-sm"
-                            >
-                              <option value="">Select a supplier protocol...</option>
-                              {supplierNames.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface/20 pointer-events-none group-focus-within:text-primary transition-colors" />
-                          </div>
 
-                          {selectedSupplierId && (
-                            <div className="flex gap-4">
-                              <input 
-                                type="file" 
-                                ref={dictionaryFileInputRef} 
-                                onChange={handleImportDictionary} 
-                                accept=".xlsx,.xls" 
-                                className="hidden" 
-                              />
-                              <button 
-                                onClick={() => dictionaryFileInputRef.current?.click()}
-                                disabled={isImporting}
-                                className="flex-1 bg-surface-container-low border border-on-surface/[0.03] px-6 py-4 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 shadow-sm uppercase tracking-widest active:scale-95 disabled:opacity-50"
+                        {/* Combobox pesquisável */}
+                        <div className="relative" ref={supplierComboRef}>
+                          {selectedSupplier ? (
+                            /* Selected state — pill with X */
+                            <div className="flex items-center gap-3 w-full bg-primary/10 border border-primary/20 rounded-2xl px-5 py-4 text-sm font-bold text-primary">
+                              <CheckCircle2 size={16} className="shrink-0 text-primary" />
+                              <span className="flex-1 truncate">{selectedSupplier.name}</span>
+                              <button
+                                onClick={() => {
+                                  setSelectedSupplierId('');
+                                  setSupplierMappings([]);
+                                  setMappingListSearch('');
+                                  setSupplierComboQuery('');
+                                }}
+                                className="shrink-0 text-primary/50 hover:text-primary transition-colors"
                               >
-                                {isImporting ? (
-                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent" />
-                                ) : (
-                                  <>
-                                    <FileUp size={16} />
-                                    Importar Planilha
-                                  </>
-                                )}
+                                <X size={16} />
                               </button>
                             </div>
+                          ) : (
+                            /* Search input */
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={supplierComboQuery}
+                                onChange={(e) => {
+                                  setSupplierComboQuery(e.target.value);
+                                  setSupplierComboOpen(true);
+                                }}
+                                onFocus={() => setSupplierComboOpen(true)}
+                                placeholder="Buscar fornecedor..."
+                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 pr-12 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
+                              />
+                              <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface/20 pointer-events-none" />
+                            </div>
                           )}
+
+                          {/* Dropdown */}
+                          {supplierComboOpen && !selectedSupplier && (
+                            <div className="absolute z-50 w-full mt-1 bg-surface-container-lowest border border-on-surface/[0.07] rounded-2xl shadow-xl overflow-hidden">
+                              <div className="max-h-52 overflow-y-auto custom-scrollbar py-1">
+                                {filteredSuppliers.length === 0 ? (
+                                  <p className="px-5 py-3 text-xs text-on-surface/30 font-medium">Nenhum fornecedor encontrado</p>
+                                ) : filteredSuppliers.map(s => (
+                                  <button
+                                    key={s.id}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                      setSelectedSupplierId(s.id);
+                                      fetchSupplierMappings(s.id);
+                                      setMappingListSearch('');
+                                      setSupplierComboOpen(false);
+                                      setSupplierComboQuery('');
+                                    }}
+                                    className="w-full text-left px-5 py-3 text-sm font-bold text-on-surface hover:bg-primary/5 hover:text-primary transition-colors"
+                                  >
+                                    {s.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedSupplierId && (
+                          <div className="flex gap-4">
+                            <input
+                              type="file"
+                              ref={dictionaryFileInputRef}
+                              onChange={handleImportDictionary}
+                              accept=".xlsx,.xls"
+                              className="hidden"
+                            />
+                            <button
+                              onClick={() => dictionaryFileInputRef.current?.click()}
+                              disabled={isImporting}
+                              className="flex-1 bg-surface-container-low border border-on-surface/[0.03] px-6 py-4 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-3 shadow-sm uppercase tracking-widest active:scale-95 disabled:opacity-50"
+                            >
+                              {isImporting ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent" />
+                              ) : (
+                                <>
+                                  <FileUp size={16} />
+                                  Importar Planilha
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {selectedSupplierId && (
@@ -623,31 +698,55 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                           animate={{ opacity: 1, y: 0 }}
                           className="space-y-8 pt-8 border-t border-on-surface/[0.03]"
                         >
-                          <div className="flex gap-4">
-                            <div className="flex-1 space-y-2">
-                              <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Supplier Code (Optional)</label>
-                              <input 
-                                type="text" 
-                                value={supplierMappingCode}
-                                onChange={(e) => setSupplierMappingCode(e.target.value)}
-                                placeholder="Ref/SKU"
-                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
-                              />
-                            </div>
-                            <div className="flex-[2] space-y-2">
-                              <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Supplier Description (Invoice text)</label>
-                              <input 
-                                type="text" 
-                                value={supplierMappingDescription}
-                                onChange={(e) => setSupplierMappingDescription(e.target.value)}
-                                placeholder="e.g. CHOCOLATE OURO BRANCO LACTA 1KG..."
-                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm"
-                              />
+                          {/* Single "FORNECEDOR" header above both fields */}
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Fornecedor</label>
+                            <div className="flex gap-4 items-start">
+                              {/* Código */}
+                              <div className="flex-1 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em]">Código</span>
+                                  <span className="text-[10px] text-on-surface/20 font-medium">(opcional)</span>
+                                  {isDupCode && (
+                                    <span className="ml-auto text-[9px] font-black bg-amber-500/15 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-wide">Já cadastrado</span>
+                                  )}
+                                </div>
+                                <input
+                                  type="text"
+                                  value={supplierMappingCode}
+                                  onChange={(e) => setSupplierMappingCode(e.target.value)}
+                                  placeholder="Ref/SKU"
+                                  className={cn(
+                                    "w-full bg-surface-container-low border rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm",
+                                    isDupCode ? "border-amber-500/30" : "border-on-surface/[0.03]"
+                                  )}
+                                />
+                              </div>
+                              {/* Descrição */}
+                              <div className="flex-[2] space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em]">Descrição</span>
+                                  <span className="text-primary/60 text-[11px] font-black">*</span>
+                                  {isDupDescription && (
+                                    <span className="ml-auto text-[9px] font-black bg-amber-500/15 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-wide">Já cadastrado</span>
+                                  )}
+                                </div>
+                                <input
+                                  type="text"
+                                  value={supplierMappingDescription}
+                                  onChange={(e) => setSupplierMappingDescription(e.target.value)}
+                                  placeholder="Ex: CHOCOLATE LACTA 1KG..."
+                                  className={cn(
+                                    "w-full bg-surface-container-low border rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium placeholder:text-on-surface/20 transition-all shadow-sm",
+                                    isDupDescription ? "border-amber-500/30" : "border-on-surface/[0.03]"
+                                  )}
+                                />
+                              </div>
                             </div>
                           </div>
 
                           <div className="space-y-4">
-                            <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Internal Correspondence</label>
+                            <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em]">Produto Interno</label>
                             {!selectedSupplierMappingProduct ? (
                               <div className="space-y-4">
                                 <div className="relative group">
@@ -656,7 +755,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                     value={supplierMappingSearchQuery}
                                     onChange={(e) => setSupplierMappingSearchQuery(e.target.value)}
                                     onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()}
-                                    placeholder="Universal product search..."
+                                    placeholder="Nome, EAN ou SKU..."
                                     className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl pl-14 pr-6 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
                                   />
                                   <Search size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface/20 group-focus-within:text-primary transition-colors" />
@@ -698,7 +797,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-lg font-black text-primary leading-tight mb-1">{selectedSupplierMappingProduct.name}</p>
-                                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em]">IDENTIFIER: {selectedSupplierMappingProduct.ean || selectedSupplierMappingProduct.sku}</p>
+                                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em]">EAN/SKU: {selectedSupplierMappingProduct.ean || selectedSupplierMappingProduct.sku}</p>
                                 </div>
                                 <button 
                                   onClick={() => setSelectedSupplierMappingProduct(null)}
@@ -720,7 +819,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                             ) : (
                               <>
                                 <CheckCircle2 size={24} />
-                                Commit Protocol
+                                Salvar Mapeamento
                               </>
                             )}
                           </button>
@@ -870,7 +969,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                   <div className="p-10 border-b border-on-surface/[0.03] bg-surface-container-lowest shrink-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.3em] flex items-center gap-4">
-                         {activeTab === 'mappings' ? 'Active Dictionary' : 'Tabela de Conversão'}
+                         {activeTab === 'mappings' ? 'Dicionário Ativo' : 'Tabela de Conversão'}
                          {activeTab === 'mappings' ? (
                            selectedSupplierId && supplierMappings.length > 0 && (
                             <span className="bg-primary text-white px-3 py-1 rounded-full text-[10px] font-black shadow-md shadow-primary/20">{supplierMappings.length}</span>
@@ -901,12 +1000,12 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                       !selectedSupplierId ? (
                         <div className="h-full flex flex-col items-center justify-center text-on-surface/10">
                           <Users size={64} className="mb-6 opacity-20" />
-                          <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Select Partner Entity</p>
+                          <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Selecione um fornecedor para ver o dicionário</p>
                         </div>
                       ) : supplierMappings.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-on-surface/10">
                           <BookText size={64} className="mb-6 opacity-20" />
-                          <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Empty Protocol</p>
+                          <p className="text-sm font-black uppercase tracking-widest text-on-surface/20">Dicionário vazio</p>
                         </div>
                       ) : (() => {
                         const filteredMappings = mappingListSearch.trim()
@@ -1030,7 +1129,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                 /* ── VIEW MODE ── */
                                 <>
                                   <div>
-                                    <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Partner Input:</p>
+                                    <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em] mb-2">Do Fornecedor:</p>
                                     <div className="flex items-center gap-2 pr-20">
                                       {mapping.supplier_sku && (
                                         <span className="text-[11px] font-black bg-on-surface/5 text-on-surface/50 px-2.5 py-1 rounded-lg shrink-0 uppercase tracking-tight">
@@ -1045,8 +1144,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                       <ArrowRight size={18} />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Internal Reference:</p>
-                                      <p className="text-sm font-black text-on-surface/70 truncate">{mapping.products?.name || 'Protocol Orphaned'}</p>
+                                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Produto Interno:</p>
+                                      <p className="text-sm font-black text-on-surface/70 truncate">{mapping.products?.name || 'Produto não encontrado'}</p>
                                     </div>
                                   </div>
                                 </>
