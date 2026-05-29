@@ -18,7 +18,7 @@ import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2 } from 'lucide-react';
+import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -384,6 +384,7 @@ export default function Page() {
   const noteHistoryIdxRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [noteSupplierMappings, setNoteSupplierMappings] = useState<any[]>([]);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
   const [reviewLoadingUnitIdx, setReviewLoadingUnitIdx] = useState<number | null>(null);
@@ -2023,6 +2024,15 @@ export default function Page() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [viewingReviewNote, handleUndo, handleRedo]);
+  // Retorna o mapeamento permanente de um item da nota, se existir
+  const getItemMapping = useCallback((item: any) => {
+    if (!noteSupplierMappings.length || !item) return null;
+    return noteSupplierMappings.find(m =>
+      (m.supplier_sku && item.supplier_code && m.supplier_sku === item.supplier_code) ||
+      (m.supplier_description && item.original_description &&
+       m.supplier_description.toLowerCase().trim() === item.original_description.toLowerCase().trim())
+    ) || null;
+  }, [noteSupplierMappings]);
   // ────────────────────────────────────────────────────────────────────────────
 
   const handleReviewSaveMeasure = async () => {
@@ -2097,6 +2107,11 @@ export default function Page() {
             supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
             internal_product_id: created.id,
           });
+          setNoteSupplierMappings(prev => [...prev, {
+            supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
+            supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+            internal_product_id: created.id,
+          }]);
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
@@ -3125,6 +3140,16 @@ export default function Page() {
                     setSurchargeDropdown(false); setSurchargeDialog(null);
                     resetNoteHistory();
                     setTimeout(() => captureSnapshot(), 0);
+                    // Busca mapeamentos permanentes do fornecedor desta nota
+                    const supplierForNote = supplierNames.find((s: any) => s.name === note.supplierName);
+                    if (supplierForNote?.id) {
+                      supabase.from('supplier_mappings')
+                        .select('supplier_sku, supplier_description, internal_product_id')
+                        .eq('supplier_id', supplierForNote.id)
+                        .then(({ data }) => setNoteSupplierMappings(data || []));
+                    } else {
+                      setNoteSupplierMappings([]);
+                    }
                   }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
@@ -5855,7 +5880,22 @@ export default function Page() {
                                   onKeyDown={tableCellKeyDown('review-note', idx, 0)}
                                   className="w-full text-[11px] font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
                               ) : (
-                                <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--rn-text)' }} title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                                <div className="flex items-center gap-1 min-w-0 flex-1">
+                                  <p className="text-[11px] font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--rn-text)' }} title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                                  {(() => {
+                                    const mapping = getItemMapping(item);
+                                    if (!mapping) return null;
+                                    const mappedProduct = products.find((p: any) => p.id === mapping.internal_product_id);
+                                    return (
+                                      <div className="relative group shrink-0">
+                                        <Bookmark size={10} className="text-amber-400 fill-amber-400/30" />
+                                        <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:right-2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
+                                          Tradução: {mappedProduct?.name || '—'}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -6451,6 +6491,21 @@ export default function Page() {
 
                       {/* Body */}
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                        {/* Aviso: tradução permanente já existe para este item */}
+                        {(() => {
+                          const mapping = getItemMapping(linkItem);
+                          if (!mapping) return null;
+                          const mappedProduct = products.find((p: any) => p.id === mapping.internal_product_id);
+                          return (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                              <Bookmark size={13} className="text-amber-500 shrink-0 fill-amber-200" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">Tradução permanente já existe</p>
+                                <p className="text-xs font-bold text-amber-800 truncate">{mappedProduct?.name || 'Produto removido'}</p>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {!noteItemShowCreate ? (
                           <>
                             {/* ── Painel de confirmação com preço de venda ── */}
@@ -6551,6 +6606,7 @@ export default function Page() {
                                           if (noteItemSaveTranslation) {
                                             const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
                                             await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                            setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
                                             setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
                                           }
                                           setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
@@ -6583,6 +6639,7 @@ export default function Page() {
                                     if (noteItemSaveTranslation) {
                                       const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
                                       await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                      setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
                                       setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
                                     }
                                     setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
@@ -6982,7 +7039,7 @@ export default function Page() {
                   </button>
 
                   <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); }}
+                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
                     className="px-8 py-3 bg-on-surface/[0.08] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.14] transition-all border border-on-surface/[0.08] dark:bg-[#111110] dark:border-white/[0.06] dark:hover:bg-black"
                   >
                     Fechar
