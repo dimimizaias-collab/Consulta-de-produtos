@@ -2088,10 +2088,21 @@ export default function Page() {
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
+        if (noteItemSaveTranslation) {
+          const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+          const sourceItem = viewingReviewNote.items[linkingItemIdx];
+          await supabase.from('supplier_mappings').insert({
+            supplier_id: supplierId,
+            supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+            supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
+            internal_product_id: created.id,
+          });
+        }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
         setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
-        setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
+        setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
+        setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
       }
     } catch (err: any) {
       const msg = err.message || '';
@@ -6753,6 +6764,47 @@ export default function Page() {
                                 )}
                               </div>
                             </div>
+                            {/* Toggle: salvar como tradução permanente */}
+                            <button
+                              onClick={() => setNoteItemSaveTranslation(v => !v)}
+                              className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
+                            >
+                              <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
+                                {noteItemSaveTranslation && <Check size={10} className="text-white" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
+                                <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
+                              </div>
+                            </button>
+                            {noteItemSaveTranslation && (
+                              <div className="mt-2 space-y-1.5">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vincular pelo campo</p>
+                                <button type="button" onClick={() => setNoteItemSaveTranslationKey('codigo')} disabled={!linkItem?.supplier_code}
+                                  className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'codigo' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.supplier_code && 'opacity-40 cursor-not-allowed')}
+                                >
+                                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'codigo' ? 'border-primary' : 'border-slate-300')}>
+                                    {noteItemSaveTranslationKey === 'codigo' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
+                                    <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
+                                  </div>
+                                </button>
+                                <button type="button" onClick={() => setNoteItemSaveTranslationKey('descricao')} disabled={!linkItem?.original_description}
+                                  className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'descricao' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.original_description && 'opacity-40 cursor-not-allowed')}
+                                >
+                                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'descricao' ? 'border-primary' : 'border-slate-300')}>
+                                    {noteItemSaveTranslationKey === 'descricao' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
+                                    <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+
                             <button
                               onClick={handleNoteItemCreateAndLink}
                               disabled={noteItemCreating || !noteItemNewName.trim()}
