@@ -53,6 +53,9 @@ interface LogisticsCenterProps {
   onLinkNote?: (noteId: string, transactionId: string | null) => void;
   pendingOpenNoteId?: string | null;
   onPendingOpenNoteHandled?: () => void;
+  bulkDrafts?: any[];
+  onApproveBulkDraft?: (noteId: string, items: any[]) => void;
+  onDeleteBulkDraft?: (noteId: string) => void;
 }
 
 export function LogisticsCenter({
@@ -66,6 +69,9 @@ export function LogisticsCenter({
   onLinkNote,
   pendingOpenNoteId,
   onPendingOpenNoteHandled,
+  bulkDrafts,
+  onApproveBulkDraft,
+  onDeleteBulkDraft,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
@@ -73,7 +79,8 @@ export function LogisticsCenter({
   const [supplierSearch, setSupplierSearch]         = useState('');
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
-  const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados'>('revisoes');
+  const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados' | 'rascunhos'>('revisoes');
+  const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
@@ -143,9 +150,9 @@ export function LogisticsCenter({
     );
   };
 
-  const visibleNotes   = filterNotesBySearch(activeSection === 'revisoes' ? pendingNotes : approvedNotes);
+  const visibleNotes   = activeSection === 'rascunhos' ? [] : filterNotesBySearch(activeSection === 'revisoes' ? pendingNotes : approvedNotes);
 
-  const sectionLabel   = activeSection === 'revisoes' ? 'Revisões' : 'Aprovados';
+  const sectionLabel   = activeSection === 'revisoes' ? 'Revisões' : activeSection === 'aprovados' ? 'Aprovados' : 'Rascunhos';
   const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
 
   return (
@@ -257,17 +264,18 @@ export function LogisticsCenter({
                   transition={{ duration: 0.15 }}
                   className="absolute left-0 top-full mt-2 w-48 bg-surface-container-lowest border border-on-surface/[0.06] rounded-2xl shadow-xl z-30 overflow-hidden"
                 >
-                  {([
-                    { key: 'revisoes',  label: 'Revisões',  count: pendingNotes.length },
-                    { key: 'aprovados', label: 'Aprovados', count: approvedNotes.length },
-                  ] as const).map(opt => (
+                  {[
+                    { key: 'revisoes' as const,  label: 'Revisões',  count: pendingNotes.length, color: 'primary' },
+                    { key: 'aprovados' as const, label: 'Aprovados', count: approvedNotes.length, color: 'primary' },
+                    { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0, color: 'emerald' },
+                  ].map(opt => (
                     <button
                       key={opt.key}
                       onClick={() => { setActiveSection(opt.key); setShowSectionDropdown(false); }}
                       className={cn(
                         'flex items-center justify-between w-full px-4 py-3 text-sm font-bold transition-colors text-left',
                         activeSection === opt.key
-                          ? 'bg-primary/10 text-primary'
+                          ? opt.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
                           : 'text-on-surface hover:bg-on-surface/5'
                       )}
                     >
@@ -276,7 +284,7 @@ export function LogisticsCenter({
                         <span className={cn(
                           'text-[10px] font-black px-2 py-0.5 rounded-full',
                           activeSection === opt.key
-                            ? 'bg-primary/20 text-primary'
+                            ? opt.color === 'emerald' ? 'bg-emerald-500/20 text-emerald-600' : 'bg-primary/20 text-primary'
                             : 'bg-on-surface/10 text-on-surface/50'
                         )}>
                           {opt.count}
@@ -350,7 +358,46 @@ export function LogisticsCenter({
         </div>
 
         {/* Notes table */}
-        {visibleNotes.length === 0 ? (
+        {activeSection === 'rascunhos' ? (
+          <div className="space-y-4">
+            {(!bulkDrafts || bulkDrafts.length === 0) ? (
+              <div className="flex flex-col items-center justify-center py-16 text-on-surface/20">
+                <ClipboardList size={48} className="mb-4 opacity-30" />
+                <p className="text-sm font-black uppercase tracking-widest">Nenhum rascunho</p>
+              </div>
+            ) : bulkDrafts.map(draft => {
+              const isConfirmingDelete = confirmDeleteDraftId === draft.id;
+              return (
+                <div key={draft.id} className="bg-surface-container-lowest border border-on-surface/[0.04] rounded-[2rem] p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-1">Rascunho · Lista de Produtos</p>
+                      <p className="text-base font-black text-on-surface">{draft.file_name || 'Rascunho sem nome'}</p>
+                      <p className="text-xs text-on-surface/40 mt-1">{draft.timestamp_label || ''} · {draft.item_count || 0} produto(s)</p>
+                    </div>
+                  </div>
+                  {isConfirmingDelete ? (
+                    <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl">
+                      <p className="text-sm font-bold text-red-600 dark:text-red-400 flex-1">Excluir este rascunho?</p>
+                      <button onClick={() => { onDeleteBulkDraft?.(draft.id); setConfirmDeleteDraftId(null); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-black rounded-xl hover:bg-red-600 transition-colors">Sim</button>
+                      <button onClick={() => setConfirmDeleteDraftId(null)} className="px-3 py-1.5 bg-on-surface/10 text-on-surface/60 text-xs font-black rounded-xl transition-colors">Não</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button onClick={() => onApproveBulkDraft?.(draft.id, draft.items || [])} className="flex-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-4 py-3 rounded-2xl font-black text-sm hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 uppercase tracking-widest active:scale-95">
+                        <CheckCircle2 size={16} />
+                        Aprovar
+                      </button>
+                      <button onClick={() => setConfirmDeleteDraftId(draft.id)} className="px-4 py-3 rounded-2xl font-black text-sm bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest active:scale-95">
+                        Excluir
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : visibleNotes.length === 0 ? (
           <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
             <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
               <ClipboardList size={32} />
