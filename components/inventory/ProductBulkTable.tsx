@@ -38,6 +38,12 @@ interface ProductBulkTableProps {
   locations?: string[];
   eanProblems?: EanProblem[];
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
+  // Review mode
+  initialRows?: Array<Partial<Omit<BulkRow, 'id'>>>;
+  title?: string;
+  subtitle?: string;
+  saveButtonLabel?: string;
+  skipNameValidation?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -102,6 +108,11 @@ export function ProductBulkTable({
   locations = [],
   eanProblems = [],
   onReportEanProblem,
+  initialRows,
+  title = 'Lista de Produtos',
+  subtitle,
+  saveButtonLabel = 'Salvar',
+  skipNameValidation = false,
 }: ProductBulkTableProps) {
   const [rows, setRows]                       = useState<BulkRow[]>([emptyRow()]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -135,13 +146,29 @@ export function ProductBulkTable({
   // Reset on open
   useEffect(() => {
     if (isOpen) {
-      setRows([emptyRow()]);
+      if (initialRows && initialRows.length > 0) {
+        setRows(initialRows.map(r => ({
+          id: crypto.randomUUID(),
+          name: r.name ?? '',
+          sku: r.sku ?? '',
+          ean: r.ean ?? '',
+          category: r.category ?? '',
+          subcategory: r.subcategory ?? '',
+          brand: r.brand ?? '',
+          location: r.location ?? '',
+          count: r.count != null ? String(r.count) : '',
+          price: r.price != null ? String(r.price) : '',
+          status: r.status ?? 'Em Estoque',
+        })));
+      } else {
+        setRows([emptyRow()]);
+      }
       setInvalidIds(new Set());
       setSaveResult(null);
       setDeleteConfirmId(null);
       setOpenComboKey(null);
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close on Escape
   useEffect(() => {
@@ -185,9 +212,11 @@ export function ProductBulkTable({
   }, []);
 
   const handleSave = useCallback(async () => {
-    const invalids = new Set<string>();
-    rows.forEach(r => { if (!r.name.trim()) invalids.add(r.id); });
-    if (invalids.size > 0) { setInvalidIds(invalids); return; }
+    if (!skipNameValidation) {
+      const invalids = new Set<string>();
+      rows.forEach(r => { if (!r.name.trim()) invalids.add(r.id); });
+      if (invalids.size > 0) { setInvalidIds(invalids); return; }
+    }
 
     setSaving(true);
     setSaveResult(null);
@@ -276,10 +305,10 @@ export function ProductBulkTable({
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] leading-none mb-1 text-[#1A1A0E]/40 dark:text-white/[0.28]">
-                  Cadastro em Lote
+                  {subtitle ?? 'Cadastro em Lote'}
                 </p>
                 <p className="text-lg font-black leading-none text-[#1A1A0E] dark:text-[#F2F0E3]">
-                  Lista de Produtos
+                  {title}
                 </p>
               </div>
             </div>
@@ -332,7 +361,7 @@ export function ProductBulkTable({
               >
                 {saving
                   ? <><Loader2 size={14} className="animate-spin" />Salvando...</>
-                  : <><Save size={14} />Salvar {filledCount > 0 ? `(${filledCount})` : ''}</>
+                  : <><Save size={14} />{saveButtonLabel} {filledCount > 0 && !skipNameValidation ? `(${filledCount})` : ''}</>
                 }
               </button>
 
