@@ -260,6 +260,9 @@ export default function Page() {
   const [showProductBulkTable, setShowProductBulkTable] = useState(false);
   const [showMobileBulkTable, setShowMobileBulkTable] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
+  const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
+  const [bulkDraftUnderReview, setBulkDraftUnderReview] = useState<any>(null);
+  const [bulkDraftEditedItems, setBulkDraftEditedItems] = useState<any[]>([]);
   const [eanProblems, setEanProblems] = useState<EanProblem[]>([]);
   const [showManualStockModal, setShowManualStockModal] = useState(false);
   const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
@@ -1030,8 +1033,8 @@ export default function Page() {
       const isNewProduct = changes.is_new_product && !isBulkProducts;
 
       if (isBulkProducts) {
-        // Insert multiple products from bulk draft
-        const items = changes.items || [];
+        // Insert multiple products from bulk draft - use edited items if available
+        const items = bulkDraftEditedItems.length > 0 ? bulkDraftEditedItems : (changes.items || []);
         const results = await Promise.allSettled(
           items.map(item => supabase.from('products').insert([{
             name: item.name,
@@ -1049,6 +1052,8 @@ export default function Page() {
         const saved = results.filter(r => r.status === 'fulfilled' && !(r as any).value?.error).length;
         const errors = results.length - saved;
         setNotification({ type: 'success', message: `${saved} produto(s) cadastrado(s)${errors > 0 ? ` · ${errors} com erro` : ''}` });
+        setBulkDraftEditedItems([]);
+        setBulkDraftUnderReview(null);
       } else if (isNewProduct) {
         // Create new product
         const { is_new_product, observation, ...productData } = changes;
@@ -3157,15 +3162,20 @@ export default function Page() {
                   }}
                   onEditRequest={(request) => {
                     const changes = JSON.parse(request.requested_changes);
-                    if (changes.is_new_product) {
+                    if (changes.is_bulk_products) {
+                      setBulkDraftUnderReview(request);
+                      setBulkDraftEditedItems(changes.items || []);
+                      setShowBulkDraftReviewModal(true);
+                    } else if (changes.is_new_product) {
                       setIsRequestingNewProduct(true);
                       setNewProductRequest(changes);
+                      setShowAddRequestModal(true);
                     } else {
                       setIsRequestingNewProduct(false);
                       setFoundProductForRequest(request.products);
                       setRequestDraftChanges(changes);
+                      setShowAddRequestModal(true);
                     }
-                    setShowAddRequestModal(true);
                   }}
                   onApproveRequest={(id) => setShowRequestConfirmModal({ show: true, requestId: id })}
                   onDeleteRequest={handleDeleteRequest}
@@ -3988,6 +3998,103 @@ export default function Page() {
                   ) : (
                     'Confirmar'
                   )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Draft Review Modal */}
+      <AnimatePresence>
+        {showBulkDraftReviewModal && bulkDraftUnderReview && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBulkDraftReviewModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">Revisão de Rascunho em Bulk</h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {bulkDraftEditedItems.length} produto{bulkDraftEditedItems.length !== 1 ? 's' : ''} para revisar e aprovar
+                  </p>
+                </div>
+                <button onClick={() => setShowBulkDraftReviewModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1">
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">#</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">Nome</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">SKU</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">EAN</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">Categoria</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">Preço</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">Qtd</th>
+                          <th className="text-left py-2 px-3 font-bold text-slate-600 bg-slate-50">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkDraftEditedItems.map((item, idx) => (
+                          <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-3 text-slate-500">{idx + 1}</td>
+                            <td className="py-3 px-3 font-medium text-slate-900">{item.name}</td>
+                            <td className="py-3 px-3 text-slate-600">{item.sku || '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 font-mono text-xs">{item.ean || '-'}</td>
+                            <td className="py-3 px-3 text-slate-600">{item.category || '-'}</td>
+                            <td className="py-3 px-3 text-emerald-600 font-bold">R$ {item.price || '0,00'}</td>
+                            <td className="py-3 px-3 text-center">{item.count || 0}</td>
+                            <td className="py-3 px-3">
+                              <span className={cn(
+                                "text-[10px] font-bold px-2 py-1 rounded-full",
+                                item.status === 'Em Estoque' ? 'bg-emerald-100 text-emerald-700' :
+                                item.status === 'Estoque em Alta' ? 'bg-blue-100 text-blue-700' :
+                                item.status === 'Estoque Baixo' ? 'bg-amber-100 text-amber-700' :
+                                'bg-red-100 text-red-700'
+                              )}>
+                                {item.status || 'Em Estoque'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowBulkDraftReviewModal(false)}
+                  className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-lg font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBulkDraftReviewModal(false);
+                    setShowRequestConfirmModal({ show: true, requestId: bulkDraftUnderReview.id });
+                  }}
+                  className="px-6 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-colors flex items-center gap-2"
+                >
+                  <CheckCircle2 size={18} />
+                  Aprovar Todos
                 </button>
               </div>
             </motion.div>
