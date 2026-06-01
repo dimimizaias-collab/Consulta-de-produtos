@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   X, Plus, Trash2, FileText, List, CheckCircle2,
   AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
+  Keyboard, Delete,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -129,6 +130,7 @@ export function MobileBulkTable({
   const [problemDesc, setProblemDesc] = useState<'Não lê' | 'Sem código' | 'Outro'>('Não lê');
   const [problemObs, setProblemObs] = useState('');
   const [savingProblem, setSavingProblem] = useState(false);
+  const [showPriceKeyboard, setShowPriceKeyboard] = useState(false);
 
   if (!isOpen) return null;
 
@@ -137,6 +139,7 @@ export function MobileBulkTable({
   function openDetail(idx: number) {
     setSelectedIdx(idx);
     setTab('detalhe');
+    setShowPriceKeyboard(false);
   }
 
   function addRow() {
@@ -303,7 +306,7 @@ export function MobileBulkTable({
             <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] border-b border-on-surface/[0.05] px-4 py-2 flex items-center gap-2">
               <button
                 disabled={selectedIdx === 0}
-                onClick={() => setSelectedIdx(i => Math.max(0, i - 1))}
+                onClick={() => { setSelectedIdx(i => Math.max(0, i - 1)); setShowPriceKeyboard(false); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 active:bg-on-surface/10 transition-colors"
               >
                 <ChevronLeft size={15} />
@@ -315,7 +318,7 @@ export function MobileBulkTable({
               </div>
               <button
                 disabled={selectedIdx === rows.length - 1}
-                onClick={() => setSelectedIdx(i => Math.min(rows.length - 1, i + 1))}
+                onClick={() => { setSelectedIdx(i => Math.min(rows.length - 1, i + 1)); setShowPriceKeyboard(false); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 active:bg-on-surface/10 transition-colors"
               >
                 <ChevronRight size={15} />
@@ -476,13 +479,84 @@ export function MobileBulkTable({
               {/* Preço */}
               <div>
                 <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">Preço R$</label>
-                <input
-                  type="text"
-                  value={selectedRow?.price ?? ''}
-                  onChange={e => updateField(selectedIdx, 'price', e.target.value)}
-                  placeholder="0,00"
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
-                />
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="none"
+                      value={selectedRow?.price ?? ''}
+                      onChange={e => updateField(selectedIdx, 'price', e.target.value)}
+                      placeholder="0,00"
+                      className="flex-1 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceKeyboard(v => !v)}
+                      title="Teclado numérico"
+                      className={cn(
+                        'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                        showPriceKeyboard
+                          ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
+                          : 'bg-[#FDFAF0] dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface/50 hover:text-[#D81E1E] hover:border-[#D81E1E]/40'
+                      )}
+                    >
+                      <Keyboard size={18} />
+                    </button>
+                  </div>
+
+                  {/* Teclado numérico suspenso */}
+                  <AnimatePresence>
+                    {showPriceKeyboard && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute left-0 top-full mt-2 z-50 bg-white dark:bg-[#2e2e28] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl shadow-2xl p-3 w-full"
+                      >
+                        <div className="grid grid-cols-3 gap-2">
+                          {['7','8','9','4','5','6','1','2','3',',','0','.'].map(key => (
+                            <button
+                              key={key}
+                              type="button"
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                updateField(selectedIdx, 'price', (selectedRow?.price ?? '') + key);
+                              }}
+                              className="h-12 rounded-xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-base font-black text-on-surface hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-all active:scale-95"
+                            >
+                              {key}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <button
+                            type="button"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              const cur = selectedRow?.price ?? '';
+                              updateField(selectedIdx, 'price', cur.slice(0, -1));
+                            }}
+                            className="h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-all active:scale-95"
+                          >
+                            <Delete size={16} />
+                            ⌫
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              updateField(selectedIdx, 'price', '');
+                            }}
+                            className="h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-all active:scale-95"
+                          >
+                            Limpar
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               {/* Status */}
