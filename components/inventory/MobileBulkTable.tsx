@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   X, Plus, Trash2, FileText, List, CheckCircle2,
   AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
@@ -131,10 +131,21 @@ export function MobileBulkTable({
   const [problemObs, setProblemObs] = useState('');
   const [savingProblem, setSavingProblem] = useState(false);
   const [showPriceKeyboard, setShowPriceKeyboard] = useState(false);
+  const eanInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
   const eanSet = new Set(existingEans.map(e => e.trim()).filter(Boolean));
+
+  // EANs que aparecem mais de uma vez na lista atual
+  const listDupEanSet = (() => {
+    const count: Record<string, number> = {};
+    rows.forEach(r => {
+      const e = r.ean.trim();
+      if (e) count[e] = (count[e] ?? 0) + 1;
+    });
+    return new Set(Object.entries(count).filter(([, n]) => n > 1).map(([e]) => e));
+  })();
 
   function openDetail(idx: number) {
     setSelectedIdx(idx);
@@ -147,6 +158,8 @@ export function MobileBulkTable({
     setRows(prev => [...prev, newRow]);
     setSelectedIdx(rows.length);
     setTab('detalhe');
+    setShowPriceKeyboard(false);
+    setTimeout(() => eanInputRef.current?.focus(), 60);
   }
 
   function updateField(idx: number, key: keyof Omit<BulkRow, 'id'>, value: string) {
@@ -198,6 +211,7 @@ export function MobileBulkTable({
 
   const selectedRow = rows[selectedIdx] ?? rows[0];
   const isDupEan = selectedRow?.ean.trim() && eanSet.has(selectedRow.ean.trim());
+  const isDupInList = !!(selectedRow?.ean.trim() && listDupEanSet.has(selectedRow.ean.trim()));
   const hasEanProblem = selectedRow?.ean.trim() && eanProblems.some(p => p.ean === selectedRow.ean.trim());
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -246,6 +260,7 @@ export function MobileBulkTable({
             <div className="flex-1 overflow-y-auto">
               {rows.map((row, idx) => {
                 const isDup = row.ean.trim() && eanSet.has(row.ean.trim());
+                const isDupInCurrentList = !!(row.ean.trim() && listDupEanSet.has(row.ean.trim()));
                 const hasProblem = row.ean.trim() && eanProblems.some(p => p.ean === row.ean.trim());
                 return (
                   <button
@@ -282,8 +297,13 @@ export function MobileBulkTable({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {isDupInCurrentList && (
+                        <span title="EAN repetido nesta lista" className="text-red-500">
+                          <AlertTriangle size={14} />
+                        </span>
+                      )}
                       {isDup && (
-                        <span title="EAN já cadastrado" className="text-amber-500">
+                        <span title="EAN já cadastrado no inventário" className="text-amber-500">
                           <AlertTriangle size={14} />
                         </span>
                       )}
@@ -343,14 +363,16 @@ export function MobileBulkTable({
                 <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">EAN</label>
                 <div className="flex items-center gap-2">
                   <input
+                    ref={eanInputRef}
                     type="text"
                     value={selectedRow?.ean ?? ''}
                     onChange={e => updateField(selectedIdx, 'ean', e.target.value)}
                     placeholder="Código de barras"
                     className={cn(
                       'flex-1 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]',
-                      isDupEan && 'border-amber-400/60 text-amber-700 dark:text-amber-400',
-                      hasEanProblem && 'border-red-400/60',
+                      isDupInList && 'border-red-500/70 bg-red-500/[0.03] text-red-700 dark:text-red-400',
+                      !isDupInList && isDupEan && 'border-amber-400/60 text-amber-700 dark:text-amber-400',
+                      !isDupInList && !isDupEan && hasEanProblem && 'border-red-400/60',
                     )}
                   />
                   {selectedRow?.ean.trim() && onReportEanProblem && (
@@ -362,6 +384,9 @@ export function MobileBulkTable({
                     />
                   )}
                 </div>
+                {isDupInList && (
+                  <p className="text-[10px] text-red-500 mt-1 font-medium">EAN repetido nesta lista</p>
+                )}
                 {isDupEan && (
                   <p className="text-[10px] text-amber-600 mt-1 font-medium">EAN já cadastrado no inventário</p>
                 )}
