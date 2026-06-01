@@ -4380,7 +4380,7 @@ export default function Page() {
               subcategory: r.subcategory.trim() || null,
               brand: r.brand.trim() || null,
               location: r.location.trim() || null,
-              stock: r.count !== '' ? parseFloat(r.count) || 0 : 0,
+              count: r.count !== '' ? parseFloat(r.count) || 0 : 0,
               price: r.price !== '' ? parseFloat(r.price.replace(',', '.')) || null : null,
               status: r.status || 'Em Estoque',
             }));
