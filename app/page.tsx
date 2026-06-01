@@ -4369,6 +4369,11 @@ export default function Page() {
       <ProductBulkTable
         isOpen={showProductBulkTable}
         onClose={() => setShowProductBulkTable(false)}
+        existingEans={products.map((p: any) => p.ean).filter(Boolean) as string[]}
+        categories={uniqueCategories}
+        subcategories={Array.from(new Set(products.map((p: any) => p.subcategory).filter(Boolean))).sort() as string[]}
+        brands={uniqueBrands}
+        locations={uniqueLocations}
         onSave={async (rows) => {
           const inserts = rows
             .filter(r => r.name.trim())

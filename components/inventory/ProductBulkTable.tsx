@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, X, Trash2, LayoutGrid, Save, AlertCircle, CheckCircle2,
   ChevronDown, Loader2,
@@ -30,6 +30,11 @@ interface ProductBulkTableProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (rows: Omit<BulkRow, 'id'>[]) => Promise<SaveResult>;
+  existingEans?: string[];
+  categories?: string[];
+  subcategories?: string[];
+  brands?: string[];
+  locations?: string[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -44,25 +49,26 @@ const emptyRow = (): BulkRow => ({
   status: 'Em Estoque',
 });
 
-// Column definitions — w is the explicit CSS col width ('auto' for flex)
+// Column definitions
 type ColDef = {
   key: keyof Omit<BulkRow, 'id'>;
   label: string;
   placeholder: string;
   w: string;
-  type?: 'text' | 'number' | 'select';
+  type?: 'text' | 'number' | 'select' | 'combobox';
+  optionsKey?: 'categories' | 'subcategories' | 'brands' | 'locations';
   required?: boolean;
   align?: 'left' | 'right';
 };
 
 const COLS: ColDef[] = [
-  { key: 'name',        label: 'Nome',        placeholder: '',  w: 'auto',   required: true },
-  { key: 'sku',         label: 'SKU',         placeholder: '',  w: '96px'  },
-  { key: 'ean',         label: 'EAN',         placeholder: '',  w: '134px' },
-  { key: 'category',    label: 'Categoria',   placeholder: '',  w: '114px' },
-  { key: 'subcategory', label: 'Sub.',        placeholder: '',  w: '100px' },
-  { key: 'brand',       label: 'Marca',       placeholder: '',  w: '100px' },
-  { key: 'location',    label: 'Localização', placeholder: '',  w: '118px' },
+  { key: 'name',        label: 'Nome',        placeholder: '',     w: 'auto',   required: true },
+  { key: 'sku',         label: 'SKU',         placeholder: '',     w: '96px'  },
+  { key: 'ean',         label: 'EAN',         placeholder: '',     w: '134px' },
+  { key: 'category',    label: 'Categoria',   placeholder: '',     w: '114px', type: 'combobox', optionsKey: 'categories'    },
+  { key: 'subcategory', label: 'Sub.',        placeholder: '',     w: '100px', type: 'combobox', optionsKey: 'subcategories' },
+  { key: 'brand',       label: 'Marca',       placeholder: '',     w: '100px', type: 'combobox', optionsKey: 'brands'        },
+  { key: 'location',    label: 'Localização', placeholder: '',     w: '118px', type: 'combobox', optionsKey: 'locations'     },
   { key: 'count',       label: 'Qtde',        placeholder: '0',    w: '70px',  type: 'number', align: 'right' },
   { key: 'price',       label: 'Preço R$',    placeholder: '0,00', w: '88px',  type: 'number', align: 'right' },
   { key: 'status',      label: 'Status',      placeholder: '',     w: '130px', type: 'select' },
@@ -77,16 +83,49 @@ const removeFocus = (el: HTMLElement, invalid?: boolean) => {
   el.style.borderColor = invalid ? 'rgba(216,30,30,0.55)' : '';
   el.style.boxShadow  = '';
 };
+const applyWarn = (el: HTMLElement) => {
+  el.style.borderColor = 'rgba(245,158,11,0.7)';
+  el.style.boxShadow  = '0 0 0 3px rgba(245,158,11,0.15)';
+};
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTableProps) {
-  const [rows, setRows]                     = useState<BulkRow[]>([emptyRow()]);
+export function ProductBulkTable({
+  isOpen, onClose, onSave,
+  existingEans = [],
+  categories = [],
+  subcategories = [],
+  brands = [],
+  locations = [],
+}: ProductBulkTableProps) {
+  const [rows, setRows]                       = useState<BulkRow[]>([emptyRow()]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [invalidIds, setInvalidIds]         = useState<Set<string>>(new Set());
-  const [saving, setSaving]                 = useState(false);
-  const [saveResult, setSaveResult]         = useState<SaveResult | null>(null);
-  const [openStatusId, setOpenStatusId]     = useState<string | null>(null);
+  const [invalidIds, setInvalidIds]           = useState<Set<string>>(new Set());
+  const [saving, setSaving]                   = useState(false);
+  const [saveResult, setSaveResult]           = useState<SaveResult | null>(null);
+  const [openStatusId, setOpenStatusId]       = useState<string | null>(null);
+
+  // Combobox: `${rowId}:${colKey}` of the currently open dropdown
+  const [openComboKey, setOpenComboKey] = useState<string | null>(null);
+  const comboRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // EAN duplicate detection
+  const duplicateEanRowIds = useMemo(() => {
+    const set = new Set<string>();
+    const eanSet = new Set(existingEans.map(e => e.trim()).filter(Boolean));
+    rows.forEach(r => {
+      if (r.ean.trim() && eanSet.has(r.ean.trim())) set.add(r.id);
+    });
+    return set;
+  }, [rows, existingEans]);
+
+  // Options map
+  const optionsMap: Record<string, string[]> = {
+    categories,
+    subcategories,
+    brands,
+    locations,
+  };
 
   // Reset on open
   useEffect(() => {
@@ -95,16 +134,33 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
       setInvalidIds(new Set());
       setSaveResult(null);
       setDeleteConfirmId(null);
+      setOpenComboKey(null);
     }
   }, [isOpen]);
 
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (openComboKey) { setOpenComboKey(null); return; }
+        onClose();
+      }
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, openComboKey]);
+
+  // Click-outside for combobox
+  useEffect(() => {
+    if (!openComboKey) return;
+    const handler = (e: MouseEvent) => {
+      const ref = comboRefs.current.get(openComboKey);
+      if (ref && !ref.contains(e.target as Node)) setOpenComboKey(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openComboKey]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -343,9 +399,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
               {/* ── Sticky header ── */}
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {/* row-num col: empty */}
                   <th style={{ padding: 0 }} />
-
                   {COLS.map(col => (
                     <th key={col.key} style={{ padding: 0, verticalAlign: 'bottom' }}>
                       <div
@@ -371,8 +425,6 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                       </div>
                     </th>
                   ))}
-
-                  {/* delete col: empty */}
                   <th style={{ padding: 0 }} />
                 </tr>
               </thead>
@@ -380,8 +432,9 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
               {/* ── Body ── */}
               <tbody>
                 {rows.map((row, rowIdx) => {
-                  const isInvalid = invalidIds.has(row.id);
-                  const isEven    = rowIdx % 2 === 0;
+                  const isInvalid    = invalidIds.has(row.id);
+                  const isEanDup     = duplicateEanRowIds.has(row.id);
+                  const isEven       = rowIdx % 2 === 0;
 
                   return (
                     <tr
@@ -406,15 +459,7 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                     >
                       {/* Row number */}
                       <td style={{ padding: '0 5px 0 0', textAlign: 'right', verticalAlign: 'middle' }}>
-                        <span
-                          style={{
-                            fontSize:    '10px',
-                            fontFamily:  'monospace',
-                            fontWeight:  300,
-                            letterSpacing: '0.03em',
-                            color:       'var(--bt-row-num)',
-                          }}
-                        >
+                        <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 300, letterSpacing: '0.03em', color: 'var(--bt-row-num)' }}>
                           {rowIdx + 1}
                         </span>
                       </td>
@@ -422,23 +467,28 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                       {/* Data cells */}
                       {COLS.map((col, colIdx) => {
                         const isCellInvalid = isInvalid && !!col.required;
+                        const isEanCell     = col.key === 'ean';
+                        const isEanWarn     = isEanCell && isEanDup;
 
                         /* ── cell wrapper style ── */
                         const cellBase: React.CSSProperties = {
                           borderRadius: '9px',
-                          border:       `1.5px solid ${
-                            isCellInvalid
-                              ? 'rgba(216,30,30,0.55)'
-                              : 'var(--bt-cell-border)'
+                          border: `1.5px solid ${
+                            isCellInvalid ? 'rgba(216,30,30,0.55)'
+                            : isEanWarn   ? 'rgba(245,158,11,0.65)'
+                            : 'var(--bt-cell-border)'
                           }`,
-                          background:   isCellInvalid
+                          background: isCellInvalid
                             ? 'var(--bt-cell-invalid-bg)'
-                            : 'var(--bt-cell-bg)',
-                          height:       '36px',
-                          display:      'flex',
-                          alignItems:   'center',
-                          overflow:     'hidden',
-                          transition:   'border-color 130ms cubic-bezier(0.23,1,0.32,1), box-shadow 130ms cubic-bezier(0.23,1,0.32,1)',
+                            : isEanWarn
+                              ? 'rgba(245,158,11,0.06)'
+                              : 'var(--bt-cell-bg)',
+                          height:     '36px',
+                          display:    'flex',
+                          alignItems: 'center',
+                          overflow:   col.type === 'combobox' ? 'visible' : 'hidden',
+                          transition: 'border-color 130ms cubic-bezier(0.23,1,0.32,1), box-shadow 130ms cubic-bezier(0.23,1,0.32,1)',
+                          position:   col.type === 'combobox' ? 'relative' : undefined,
                         };
 
                         /* ── input style ── */
@@ -453,51 +503,40 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                           fontSize:      '12px',
                           fontWeight:    400,
                           letterSpacing: '0.02em',
-                          color:         isCellInvalid ? '#D81E1E' : 'var(--bt-cell-text)',
+                          color:         isCellInvalid ? '#D81E1E' : isEanWarn ? '#b45309' : 'var(--bt-cell-text)',
                           textAlign:     col.align ?? 'left',
                           caretColor:    '#D81E1E',
                         };
 
                         return (
-                          <td key={col.key} style={{ padding: 0, verticalAlign: 'middle' }}>
+                          <td key={col.key} style={{ padding: 0, verticalAlign: 'middle', position: col.type === 'combobox' ? 'relative' : undefined }}>
+
+                            {/* ── STATUS cell ── */}
                             {col.type === 'select' ? (
-                              /* ── Status cell ── */
                               <div
                                 style={cellBase}
                                 onFocus={e => applyFocus(e.currentTarget)}
-                                onBlur ={e => {
-                                  if (!e.currentTarget.contains(e.relatedTarget as Node))
-                                    removeFocus(e.currentTarget);
-                                }}
+                                onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) removeFocus(e.currentTarget); }}
                               >
                                 <button
                                   data-bulk-row={rowIdx}
                                   data-bulk-col={colIdx}
                                   onKeyDown={e => handleCellKeyDown(e, rowIdx, colIdx)}
-                                  onClick={() =>
-                                    setOpenStatusId(openStatusId === row.id ? null : row.id)
-                                  }
+                                  onClick={() => setOpenStatusId(openStatusId === row.id ? null : row.id)}
                                   className="w-full flex items-center justify-between text-left"
                                   style={{ padding: '0 10px', height: '100%', background: 'transparent', border: 'none', cursor: 'pointer' }}
                                 >
-                                  <span
-                                    className={cn(
-                                      'px-2 py-0.5 rounded-full text-[10px] font-black',
-                                      row.status === 'Em Estoque'     && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-                                      row.status === 'Estoque em Alta'&& 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-                                      row.status === 'Estoque Baixo'  && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-                                      row.status === 'Fora de Estoque'&& 'bg-red-500/15 text-red-600 dark:text-red-400',
-                                    )}
-                                  >
+                                  <span className={cn(
+                                    'px-2 py-0.5 rounded-full text-[10px] font-black',
+                                    row.status === 'Em Estoque'      && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                                    row.status === 'Estoque em Alta' && 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                                    row.status === 'Estoque Baixo'   && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                                    row.status === 'Fora de Estoque' && 'bg-red-500/15 text-red-600 dark:text-red-400',
+                                  )}>
                                     {row.status}
                                   </span>
-                                  <ChevronDown
-                                    size={11}
-                                    style={{ color: 'var(--bt-cell-muted)', flexShrink: 0 }}
-                                    className={cn('transition-transform duration-150', openStatusId === row.id && 'rotate-180')}
-                                  />
+                                  <ChevronDown size={11} style={{ color: 'var(--bt-cell-muted)', flexShrink: 0 }} className={cn('transition-transform duration-150', openStatusId === row.id && 'rotate-180')} />
                                 </button>
-
                                 <AnimatePresence>
                                   {openStatusId === row.id && (
                                     <motion.div
@@ -506,28 +545,16 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                       transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
                                       className="absolute left-0 top-full z-50 w-44 rounded-xl shadow-xl overflow-hidden"
-                                      style={{
-                                        backgroundColor: 'var(--bt-dropdown-bg)',
-                                        border:          '1px solid var(--bt-cell-border)',
-                                      }}
+                                      style={{ backgroundColor: 'var(--bt-dropdown-bg)', border: '1px solid var(--bt-cell-border)' }}
                                     >
                                       {STATUS_OPTIONS.map(opt => (
                                         <button
                                           key={opt}
-                                          onMouseDown={() => {
-                                            updateRow(row.id, 'status', opt);
-                                            setOpenStatusId(null);
-                                          }}
+                                          onMouseDown={() => { updateRow(row.id, 'status', opt); setOpenStatusId(null); }}
                                           className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
                                           style={{ color: 'var(--bt-cell-text)' }}
-                                          onMouseEnter={e =>
-                                            (e.currentTarget as HTMLElement).style.backgroundColor =
-                                              'var(--bt-row-hover)'
-                                          }
-                                          onMouseLeave={e =>
-                                            (e.currentTarget as HTMLElement).style.backgroundColor =
-                                              'transparent'
-                                          }
+                                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bt-row-hover)'}
+                                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
                                         >
                                           {opt}
                                         </button>
@@ -536,12 +563,189 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                                   )}
                                 </AnimatePresence>
                               </div>
-                            ) : (
-                              /* ── Text / number cell ── */
+
+                            ) : col.type === 'combobox' ? (() => {
+                              /* ── COMBOBOX cell ── */
+                              const comboKey  = `${row.id}:${col.key}`;
+                              const isOpen    = openComboKey === comboKey;
+                              const allOpts   = col.optionsKey ? (optionsMap[col.optionsKey] ?? []) : [];
+                              const typed     = (row[col.key] as string) ?? '';
+                              const filtered  = typed.trim()
+                                ? allOpts.filter(o => o.toLowerCase().includes(typed.toLowerCase()))
+                                : allOpts;
+                              const showDrop  = isOpen && (filtered.length > 0 || allOpts.length === 0);
+
+                              return (
+                                <div
+                                  ref={el => {
+                                    if (el) comboRefs.current.set(comboKey, el);
+                                    else comboRefs.current.delete(comboKey);
+                                  }}
+                                  style={{ position: 'relative' }}
+                                >
+                                  <div
+                                    style={{
+                                      ...cellBase,
+                                      paddingRight: '30px', // space for "+" button
+                                    }}
+                                    onFocus={e => {
+                                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                        applyFocus(e.currentTarget);
+                                        setOpenComboKey(comboKey);
+                                      }
+                                    }}
+                                    onBlur={e => {
+                                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                        removeFocus(e.currentTarget);
+                                      }
+                                    }}
+                                  >
+                                    <input
+                                      data-bulk-row={rowIdx}
+                                      data-bulk-col={colIdx}
+                                      type="text"
+                                      value={typed}
+                                      placeholder={col.placeholder}
+                                      onChange={e => {
+                                        updateRow(row.id, col.key, e.target.value);
+                                        setOpenComboKey(comboKey);
+                                      }}
+                                      onFocus={() => setOpenComboKey(comboKey)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Escape') { setOpenComboKey(null); e.stopPropagation(); return; }
+                                        handleCellKeyDown(e as any, rowIdx, colIdx);
+                                      }}
+                                      onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
+                                      style={{ ...inputStyle, paddingRight: '2px' }}
+                                    />
+                                    {/* "+" button */}
+                                    <button
+                                      tabIndex={-1}
+                                      title="Digitar novo valor"
+                                      onMouseDown={e => {
+                                        e.preventDefault();
+                                        setOpenComboKey(null);
+                                        // focus input so user can type freely
+                                        const inp = (e.currentTarget as HTMLElement).previousSibling as HTMLInputElement | null;
+                                        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+                                      }}
+                                      style={{
+                                        position:        'absolute',
+                                        right:           '6px',
+                                        top:             '50%',
+                                        transform:       'translateY(-50%)',
+                                        width:           '18px',
+                                        height:          '18px',
+                                        borderRadius:    '5px',
+                                        border:          '1.5px solid var(--bt-cell-border)',
+                                        background:      'var(--bt-btn-cancel-bg)',
+                                        color:           'var(--bt-cell-muted)',
+                                        display:         'flex',
+                                        alignItems:      'center',
+                                        justifyContent:  'center',
+                                        cursor:          'pointer',
+                                        flexShrink:      0,
+                                        transition:      'all 120ms',
+                                        lineHeight:      1,
+                                        padding:         0,
+                                      }}
+                                      onMouseEnter={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.color        = '#D81E1E';
+                                        el.style.borderColor  = 'rgba(216,30,30,0.35)';
+                                        el.style.background   = 'rgba(216,30,30,0.07)';
+                                      }}
+                                      onMouseLeave={e => {
+                                        const el = e.currentTarget as HTMLElement;
+                                        el.style.color       = '';
+                                        el.style.borderColor = '';
+                                        el.style.background  = '';
+                                      }}
+                                    >
+                                      <Plus size={10} strokeWidth={2.5} />
+                                    </button>
+                                  </div>
+
+                                  {/* Dropdown */}
+                                  <AnimatePresence>
+                                    {showDrop && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                                        transition={{ duration: 0.12, ease: [0.23, 1, 0.32, 1] }}
+                                        style={{
+                                          position:        'absolute',
+                                          left:            0,
+                                          top:             'calc(100% + 3px)',
+                                          minWidth:        '100%',
+                                          maxWidth:        '220px',
+                                          zIndex:          100,
+                                          borderRadius:    '10px',
+                                          overflow:        'hidden',
+                                          backgroundColor: 'var(--bt-dropdown-bg)',
+                                          border:          '1.5px solid var(--bt-cell-border)',
+                                          boxShadow:       '0 8px 24px rgba(0,0,0,0.13)',
+                                        }}
+                                      >
+                                        <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                          {filtered.slice(0, 8).map(opt => (
+                                            <button
+                                              key={opt}
+                                              onMouseDown={e => {
+                                                e.preventDefault();
+                                                updateRow(row.id, col.key, opt);
+                                                setOpenComboKey(null);
+                                              }}
+                                              style={{
+                                                display:    'block',
+                                                width:      '100%',
+                                                textAlign:  'left',
+                                                padding:    '7px 11px',
+                                                fontSize:   '11px',
+                                                fontFamily: '"DM Mono", monospace',
+                                                fontWeight: 500,
+                                                color:      'var(--bt-cell-text)',
+                                                background: 'transparent',
+                                                border:     'none',
+                                                cursor:     'pointer',
+                                                whiteSpace: 'nowrap',
+                                                overflow:   'hidden',
+                                                textOverflow: 'ellipsis',
+                                              }}
+                                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bt-row-hover)'}
+                                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                                            >
+                                              {opt}
+                                            </button>
+                                          ))}
+                                          {filtered.length === 0 && allOpts.length > 0 && (
+                                            <p style={{ padding: '7px 11px', fontSize: '11px', color: 'var(--bt-cell-muted)', fontStyle: 'italic' }}>
+                                              Nenhum resultado — clique "+" para criar
+                                            </p>
+                                          )}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              );
+                            })() : (
+                              /* ── TEXT / NUMBER cell ── */
                               <div
                                 style={cellBase}
-                                onFocus={e => !isCellInvalid && applyFocus(e.currentTarget)}
-                                onBlur ={e => !isCellInvalid && removeFocus(e.currentTarget)}
+                                onFocus={e => {
+                                  if (isEanWarn) applyWarn(e.currentTarget);
+                                  else if (!isCellInvalid) applyFocus(e.currentTarget);
+                                }}
+                                onBlur={e => {
+                                  if (isEanWarn) {
+                                    e.currentTarget.style.borderColor = 'rgba(245,158,11,0.65)';
+                                    e.currentTarget.style.boxShadow = '';
+                                  } else if (!isCellInvalid) {
+                                    removeFocus(e.currentTarget);
+                                  }
+                                }}
                               >
                                 <input
                                   data-bulk-row={rowIdx}
@@ -555,8 +759,30 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                                   className={cn(
                                     col.type === 'number' && '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden',
                                   )}
-                                  style={inputStyle}
+                                  style={{
+                                    ...inputStyle,
+                                    paddingRight: isEanWarn ? '28px' : inputStyle.padding as string,
+                                  }}
                                 />
+                                {/* EAN duplicate warning icon */}
+                                {isEanWarn && (
+                                  <div
+                                    title="EAN já cadastrado no inventário"
+                                    style={{
+                                      position:       'absolute',
+                                      right:          '7px',
+                                      top:            '50%',
+                                      transform:      'translateY(-50%)',
+                                      color:          '#d97706',
+                                      display:        'flex',
+                                      alignItems:     'center',
+                                      pointerEvents:  'none',
+                                      flexShrink:     0,
+                                    }}
+                                  >
+                                    <AlertCircle size={13} />
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -575,22 +801,8 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                               transition={{ duration: 0.12 }}
                               className="flex items-center gap-1"
                             >
-                              <button
-                                onClick={() => removeRow(row.id)}
-                                className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-md hover:bg-red-600 transition-colors"
-                              >
-                                Sim
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="px-1.5 py-0.5 text-[10px] font-black rounded-md transition-colors"
-                                style={{
-                                  backgroundColor: 'var(--bt-btn-cancel-bg)',
-                                  color:           'var(--bt-btn-cancel-text)',
-                                }}
-                              >
-                                Não
-                              </button>
+                              <button onClick={() => removeRow(row.id)} className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-md hover:bg-red-600 transition-colors">Sim</button>
+                              <button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 text-[10px] font-black rounded-md transition-colors" style={{ backgroundColor: 'var(--bt-btn-cancel-bg)', color: 'var(--bt-btn-cancel-text)' }}>Não</button>
                             </motion.div>
                           ) : (
                             <motion.button
@@ -598,21 +810,11 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              onClick={() =>
-                                rows.length === 1
-                                  ? updateRow(row.id, 'name', '')
-                                  : setDeleteConfirmId(row.id)
-                              }
+                              onClick={() => rows.length === 1 ? updateRow(row.id, 'name', '') : setDeleteConfirmId(row.id)}
                               className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                               style={{ color: 'var(--bt-cell-muted)' }}
-                              onMouseEnter={e => {
-                                (e.currentTarget as HTMLElement).style.color = '#D81E1E';
-                                (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(216,30,30,0.1)';
-                              }}
-                              onMouseLeave={e => {
-                                (e.currentTarget as HTMLElement).style.color = '';
-                                (e.currentTarget as HTMLElement).style.backgroundColor = '';
-                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#D81E1E'; (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(216,30,30,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = ''; (e.currentTarget as HTMLElement).style.backgroundColor = ''; }}
                               onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.90)'}
                               onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
                               title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
@@ -633,32 +835,14 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
               onClick={addRow}
               title="Adicionar linha"
               style={{
-                width:        '32px',
-                height:       '32px',
-                marginTop:    '4px',
-                borderRadius: '7px',
-                border:       '1.5px dashed var(--bt-add-border)',
-                color:        'var(--bt-add-text)',
-                background:   'transparent',
-                display:      'flex',
-                alignItems:   'center',
-                justifyContent: 'center',
-                flexShrink:   0,
-                cursor:       'pointer',
-                transition:   'all 150ms cubic-bezier(0.23,1,0.32,1)',
+                width: '32px', height: '32px', marginTop: '4px', borderRadius: '7px',
+                border: '1.5px dashed var(--bt-add-border)', color: 'var(--bt-add-text)',
+                background: 'transparent', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+                transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
               }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.color       = '#D81E1E';
-                el.style.borderColor = 'rgba(216,30,30,0.45)';
-                el.style.background  = 'rgba(216,30,30,0.04)';
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.color       = '';
-                el.style.borderColor = '';
-                el.style.background  = '';
-              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#D81E1E'; el.style.borderColor = 'rgba(216,30,30,0.45)'; el.style.background = 'rgba(216,30,30,0.04)'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = ''; el.style.borderColor = ''; el.style.background = ''; }}
               onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.96)'}
               onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
             >
@@ -669,19 +853,19 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
           {/* ── Footer ─────────────────────────────────────────────────── */}
           <div
             className="flex items-center justify-between px-6 md:px-8 py-3 border-t shrink-0"
-            style={{
-              backgroundColor: 'var(--bt-footer-bg)',
-              borderColor:     'var(--bt-footer-border)',
-            }}
+            style={{ backgroundColor: 'var(--bt-footer-bg)', borderColor: 'var(--bt-footer-border)' }}
           >
-            <span
-              className="text-[10px] font-light tracking-[0.04em]"
-              style={{ color: 'var(--bt-subtitle)', fontFamily: '"DM Mono", monospace' }}
-            >
+            <span className="text-[10px] font-light tracking-[0.04em]" style={{ color: 'var(--bt-subtitle)', fontFamily: '"DM Mono", monospace' }}>
               ↑ ↓ navegar · Tab próxima · ⌘V colar coluna
             </span>
 
             <div className="flex items-center gap-4 text-xs font-semibold" style={{ color: 'var(--bt-subtitle)' }}>
+              {duplicateEanRowIds.size > 0 && (
+                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <AlertCircle size={13} />
+                  {duplicateEanRowIds.size} EAN{duplicateEanRowIds.size !== 1 ? 's' : ''} já cadastrado{duplicateEanRowIds.size !== 1 ? 's' : ''}
+                </span>
+              )}
               {invalidIds.size > 0 && (
                 <span className="flex items-center gap-1.5 text-red-500">
                   <AlertCircle size={13} />
@@ -778,7 +962,6 @@ export function ProductBulkTable({ isOpen, onClose, onSave }: ProductBulkTablePr
               }
             }
 
-            /* placeholder color via CSS (can't be done inline) */
             input::placeholder {
               color: var(--bt-cell-muted);
               opacity: 1;
