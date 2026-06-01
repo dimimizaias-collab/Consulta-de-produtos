@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Lista de Produtos · Modo Claro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&family=DM+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#E8E4D0;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── tokens ── */
+:root {
+  --bg:               #FDFAF0;
+  --header-bg:        #FFE500;
+  --header-border:    #D4C000;
+  --icon-bg:          rgba(26,26,10,0.09);
+  --icon:             #1A1A0E;
+  --title:            #1A1A0E;
+  --subtitle:         rgba(26,26,10,0.40);
+  --close-bg:         rgba(26,26,10,0.08);
+  --close-border:     rgba(26,26,10,0.10);
+  --close-color:      rgba(26,26,10,0.45);
+  --cancel-bg:        rgba(26,26,10,0.08);
+  --cancel-text:      rgba(26,26,10,0.55);
+  --cancel-border:    rgba(26,26,10,0.14);
+  --col-bg:           #FFE500;
+  --col-border:       #D4C000;
+  --col-text:         rgba(26,26,10,0.55);
+  --row-even:         #FFFFFF;
+  --row-odd:          #FAF7EE;
+  --row-hover:        #FFF8D0;
+  --row-invalid:      rgba(200,26,26,0.04);
+  --row-num:          rgba(26,26,10,0.28);
+  --cell-bg:          #FFFFFF;
+  --cell-border:      #E0D8BF;
+  --cell-text:        #1A1A0E;
+  --cell-muted:       rgba(26,26,10,0.22);
+  --dropdown-bg:      #FFFFFF;
+  --add-border:       rgba(26,26,10,0.22);
+  --add-text:         rgba(26,26,10,0.30);
+  --footer-bg:        #FFF7B0;
+  --footer-border:    #DDD000;
+  --footer-text:      #1A1A0E;
+  --footer-muted:     rgba(26,26,10,0.38);
+}
+
+/* ── full-screen shell ── */
+.shell {
+  width:100%;
+  min-height:100vh;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── HEADER ── */
+.header {
+  background:var(--header-bg);
+  border-bottom:1.5px solid var(--header-border);
+  padding:0 28px;
+  height:62px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  shrink:0;
+}
+.header-left { display:flex; align-items:center; gap:12px; }
+.icon-chip {
+  width:36px; height:36px;
+  border-radius:10px;
+  background:var(--icon-bg);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--icon);
+}
+.icon-chip svg { width:18px; height:18px; }
+.eyebrow {
+  font-size:9.5px; font-weight:800; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--subtitle);
+  line-height:1; margin-bottom:3px;
+}
+.title { font-size:17px; font-weight:900; color:var(--title); line-height:1; }
+.header-right { display:flex; align-items:center; gap:10px; }
+
+.btn-cancel {
+  height:36px; padding:0 16px;
+  border-radius:10px;
+  background:var(--cancel-bg);
+  color:var(--cancel-text);
+  border:1.5px solid var(--cancel-border);
+  font-size:13px; font-weight:700;
+  cursor:pointer; transition:opacity 150ms;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-cancel:hover { opacity:.7; }
+
+.btn-save {
+  height:36px; padding:0 20px;
+  border-radius:10px;
+  background:#D81E1E;
+  color:#fff;
+  border:none;
+  font-size:13px; font-weight:900;
+  cursor:pointer;
+  display:flex; align-items:center; gap:8px;
+  font-family:'DM Sans',sans-serif;
+  box-shadow:0 4px 14px rgba(216,30,30,0.28);
+  transition:all 150ms cubic-bezier(.23,1,.32,1);
+}
+.btn-save:hover { background:#c01818; transform:translateY(-1px); }
+.btn-save:active { transform:scale(.97); }
+.btn-save svg { width:14px; height:14px; }
+
+.btn-close {
+  width:36px; height:36px;
+  border-radius:10px;
+  background:var(--close-bg);
+  border:1.5px solid var(--close-border);
+  color:var(--close-color);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 150ms;
+}
+.btn-close:hover { background:rgba(200,26,26,.10); border-color:rgba(200,26,26,.22); color:#C81A1A; }
+.btn-close svg { width:16px; height:16px; }
+
+/* ── TABLE AREA ── */
+.table-wrap {
+  flex:1;
+  overflow:auto;
+  padding:12px 28px 8px;
+  background:var(--bg);
+}
+
+table {
+  width:100%;
+  border-collapse:separate;
+  border-spacing:5px 3px;
+  min-width:1060px;
+}
+
+/* column widths */
+colgroup col.c-num    { width:28px; }
+colgroup col.c-nome   { width:auto; }
+colgroup col.c-sku    { width:96px; }
+colgroup col.c-ean    { width:134px; }
+colgroup col.c-cat    { width:114px; }
+colgroup col.c-sub    { width:100px; }
+colgroup col.c-marca  { width:100px; }
+colgroup col.c-loc    { width:118px; }
+colgroup col.c-qtde   { width:70px; }
+colgroup col.c-preco  { width:88px; }
+colgroup col.c-status { width:130px; }
+colgroup col.c-del    { width:34px; }
+
+/* sticky header */
+thead { position:sticky; top:0; z-index:10; }
+thead th { padding:0; vertical-align:bottom; }
+thead th:first-child, thead th:last-child { padding:0; }
+
+.col-chip {
+  display:block;
+  border-radius:9px;
+  background:var(--col-bg);
+  border:1.5px solid var(--col-border);
+  padding:8px 11px;
+  font-size:10px; font-weight:700; letter-spacing:.11em;
+  text-transform:uppercase;
+  color:var(--col-text);
+  white-space:nowrap;
+  user-select:none;
+}
+.col-chip .req { color:#D81E1E; margin-left:2px; }
+
+/* body rows */
+tbody tr { cursor:default; transition:background 80ms; }
+tbody tr:nth-child(even) { background:var(--row-even); }
+tbody tr:nth-child(odd)  { background:var(--row-odd); }
+tbody tr:hover { background:var(--row-hover); }
+tbody tr.invalid { background:var(--row-invalid); }
+
+tbody td { padding:0; vertical-align:middle; }
+tbody td.td-num { padding:0 5px 0 0; text-align:right; }
+
+.row-num {
+  font-family:'DM Mono',monospace;
+  font-size:10px; font-weight:300; letter-spacing:.03em;
+  color:var(--row-num);
+}
+
+/* cell wrapper */
+.cell {
+  border-radius:9px;
+  border:1.5px solid var(--cell-border);
+  background:var(--cell-bg);
+  height:36px;
+  display:flex; align-items:center;
+  overflow:hidden;
+  transition:border-color 130ms, box-shadow 130ms;
+}
+.cell:focus-within {
+  border-color:#D81E1E;
+  box-shadow:0 0 0 3px rgba(216,30,30,.15);
+}
+.cell.invalid { border-color:rgba(216,30,30,.55); background:rgba(200,26,26,.04); }
+
+.cell input, .cell .cell-inner {
+  background:transparent;
+  border:none;
+  outline:none;
+  width:100%;
+  height:100%;
+  padding:0 11px;
+  font-family:'DM Mono',monospace;
+  font-size:12px; font-weight:400; letter-spacing:.02em;
+  color:var(--cell-text);
+  caret-color:#D81E1E;
+}
+.cell input::placeholder { color:var(--cell-muted); opacity:1; }
+.cell input.right { text-align:right; }
+
+/* status cell */
+.status-btn {
+  width:100%; height:100%;
+  padding:0 10px;
+  background:transparent; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:space-between;
+  font-family:'DM Sans',sans-serif;
+}
+.badge {
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:10px; font-weight:900;
+  white-space:nowrap;
+}
+.badge.em-estoque    { background:rgba(16,185,129,.15); color:#065f46; }
+.badge.alta          { background:rgba(59,130,246,.15); color:#1e40af; }
+.badge.baixo         { background:rgba(245,158,11,.15); color:#92400e; }
+.badge.fora          { background:rgba(239,68,68,.15); color:#991b1b; }
+.chevron { width:11px; height:11px; color:var(--cell-muted); }
+
+/* delete col */
+td.td-del { text-align:center; }
+.btn-del {
+  width:28px; height:28px;
+  border-radius:8px;
+  background:transparent; border:none;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; transition:all 120ms;
+  color:var(--cell-muted);
+}
+tbody tr:hover .btn-del { opacity:1; }
+.btn-del:hover { color:#D81E1E; background:rgba(216,30,30,.10); }
+.btn-del svg { width:13px; height:13px; }
+
+/* add row btn */
+.btn-add {
+  width:32px; height:32px;
+  margin-top:4px;
+  border-radius:7px;
+  border:1.5px dashed var(--add-border);
+  color:var(--add-text);
+  background:transparent;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  transition:all 150ms cubic-bezier(.23,1,.32,1);
+}
+.btn-add:hover { color:#D81E1E; border-color:rgba(216,30,30,.45); background:rgba(216,30,30,.04); }
+.btn-add svg { width:13px; height:13px; }
+
+/* ── FOOTER ── */
+.footer {
+  background:var(--footer-bg);
+  border-top:1.5px solid var(--footer-border);
+  padding:10px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  shrink:0;
+}
+.footer-hint {
+  font-family:'DM Mono',monospace;
+  font-size:10px; font-weight:300; letter-spacing:.04em;
+  color:var(--subtitle);
+}
+.footer-count {
+  font-size:11px; font-weight:600;
+  color:var(--subtitle);
+}
+
+/* ── SVG icons inline ── */
+svg { display:inline-block; vertical-align:middle; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="icon-chip">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div>
+        <div class="eyebrow">Cadastro em Lote</div>
+        <div class="title">Lista de Produtos</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar (4)
+      </button>
+      <button class="btn-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <colgroup>
+        <col class="c-num"/>
+        <col class="c-nome"/>
+        <col class="c-sku"/>
+        <col class="c-ean"/>
+        <col class="c-cat"/>
+        <col class="c-sub"/>
+        <col class="c-marca"/>
+        <col class="c-loc"/>
+        <col class="c-qtde"/>
+        <col class="c-preco"/>
+        <col class="c-status"/>
+        <col class="c-del"/>
+      </colgroup>
+
+      <thead>
+        <tr>
+          <th></th>
+          <th><div class="col-chip">Nome<span class="req">*</span></div></th>
+          <th><div class="col-chip">SKU</div></th>
+          <th><div class="col-chip">EAN</div></th>
+          <th><div class="col-chip">Categoria</div></th>
+          <th><div class="col-chip">Sub.</div></th>
+          <th><div class="col-chip">Marca</div></th>
+          <th><div class="col-chip">Localização</div></th>
+          <th><div class="col-chip">Qtde</div></th>
+          <th><div class="col-chip">Preço R$</div></th>
+          <th><div class="col-chip">Status</div></th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <!-- Row 1 (even) — filled, linked -->
+        <tr>
+          <td class="td-num"><span class="row-num">1</span></td>
+          <td><div class="cell"><input type="text" value="Cimento CP II 50kg" /></div></td>
+          <td><div class="cell"><input type="text" value="CIM-002" /></div></td>
+          <td><div class="cell"><input type="text" value="7891234560001" /></div></td>
+          <td><div class="cell"><input type="text" value="Construção" /></div></td>
+          <td><div class="cell"><input type="text" value="Argamassa" /></div></td>
+          <td><div class="cell"><input type="text" value="Votorantim" /></div></td>
+          <td><div class="cell"><input type="text" value="A-03" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="120" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="42,90" /></div></td>
+          <td>
+            <div class="cell">
+              <button class="status-btn">
+                <span class="badge em-estoque">Em Estoque</span>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </td>
+          <td class="td-del"><button class="btn-del"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- Row 2 (odd) — partially filled -->
+        <tr>
+          <td class="td-num"><span class="row-num">2</span></td>
+          <td><div class="cell"><input type="text" value="Tijolo Cerâmico Furado 9F" /></div></td>
+          <td><div class="cell"><input type="text" value="TIJ-009" /></div></td>
+          <td><div class="cell"><input type="text" value="7891234560018" /></div></td>
+          <td><div class="cell"><input type="text" value="Construção" /></div></td>
+          <td><div class="cell"><input type="text" value="Alvenaria" /></div></td>
+          <td><div class="cell"><input type="text" value="Cerâmica PR" /></div></td>
+          <td><div class="cell"><input type="text" value="B-07" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="2400" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="1,25" /></div></td>
+          <td>
+            <div class="cell">
+              <button class="status-btn">
+                <span class="badge alta">Estoque em Alta</span>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </td>
+          <td class="td-del"><button class="btn-del"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- Row 3 (even) — low stock -->
+        <tr>
+          <td class="td-num"><span class="row-num">3</span></td>
+          <td><div class="cell"><input type="text" value="Vergalhão CA-50 10mm 12m" /></div></td>
+          <td><div class="cell"><input type="text" value="VER-050" /></div></td>
+          <td><div class="cell"><input type="text" value="7891234560025" /></div></td>
+          <td><div class="cell"><input type="text" value="Metal" /></div></td>
+          <td><div class="cell"><input type="text" value="Ferro" /></div></td>
+          <td><div class="cell"><input type="text" value="Gerdau" /></div></td>
+          <td><div class="cell"><input type="text" value="C-12" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="18" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="89,00" /></div></td>
+          <td>
+            <div class="cell">
+              <button class="status-btn">
+                <span class="badge baixo">Estoque Baixo</span>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </td>
+          <td class="td-del"><button class="btn-del"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- Row 4 (odd) — invalid (name empty) -->
+        <tr class="invalid">
+          <td class="td-num"><span class="row-num">4</span></td>
+          <td><div class="cell invalid"><input type="text" placeholder="Nome obrigatório" /></div></td>
+          <td><div class="cell"><input type="text" value="ARG-003" /></div></td>
+          <td><div class="cell"><input type="text" placeholder="" /></div></td>
+          <td><div class="cell"><input type="text" value="Construção" /></div></td>
+          <td><div class="cell"><input type="text" placeholder="" /></div></td>
+          <td><div class="cell"><input type="text" placeholder="" /></div></td>
+          <td><div class="cell"><input type="text" placeholder="" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="50" /></div></td>
+          <td><div class="cell"><input class="right" type="text" value="28,50" /></div></td>
+          <td>
+            <div class="cell">
+              <button class="status-btn">
+                <span class="badge fora">Fora de Estoque</span>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </td>
+          <td class="td-del"><button class="btn-del"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></td>
+        </tr>
+
+        <!-- Row 5 (even) — empty new row -->
+        <tr>
+          <td class="td-num"><span class="row-num">5</span></td>
+          <td><div class="cell" style="border-color:#D81E1E;box-shadow:0 0 0 3px rgba(216,30,30,.15)"><input type="text" placeholder="" autofocus /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input type="text" /></div></td>
+          <td><div class="cell"><input class="right" type="text" placeholder="0" /></div></td>
+          <td><div class="cell"><input class="right" type="text" placeholder="0,00" /></div></td>
+          <td>
+            <div class="cell">
+              <button class="status-btn">
+                <span class="badge em-estoque">Em Estoque</span>
+                <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+          </td>
+          <td class="td-del"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Add row button -->
+    <button class="btn-add">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span class="footer-hint">↑ ↓ navegar · Tab próxima · ⌘V colar coluna</span>
+    <span class="footer-count">5 linhas · 4 preenchidas</span>
+  </div>
+
+</div>
+</body>
+</html>

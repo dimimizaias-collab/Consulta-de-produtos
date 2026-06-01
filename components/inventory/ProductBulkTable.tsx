@@ -264,28 +264,16 @@ export function ProductBulkTable({
           style={{ minHeight: '100dvh' }}
         >
           {/* ── Header ─────────────────────────────────────────────────── */}
-          <div
-            className="flex items-center justify-between px-6 md:px-8 py-4 border-b shrink-0"
-            style={{
-              backgroundColor: 'var(--bt-header-bg)',
-              borderColor:     'var(--bt-header-border)',
-            }}
-          >
+          <div className="flex items-center justify-between px-6 md:px-8 py-4 border-b shrink-0 bg-[#FFE500] dark:bg-[#252520] border-[#D4C000] dark:border-white/[0.07]">
             <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: 'var(--bt-icon-bg)' }}
-              >
-                <LayoutGrid size={18} style={{ color: 'var(--bt-icon)' }} />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#D81E1E]">
+                <LayoutGrid size={18} />
               </div>
               <div>
-                <p
-                  className="text-[10px] font-black uppercase tracking-[0.18em] leading-none mb-1"
-                  style={{ color: 'var(--bt-subtitle)' }}
-                >
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] leading-none mb-1 text-[#1A1A0E]/40 dark:text-white/[0.28]">
                   Cadastro em Lote
                 </p>
-                <p className="text-lg font-black leading-none" style={{ color: 'var(--bt-title)' }}>
+                <p className="text-lg font-black leading-none text-[#1A1A0E] dark:text-[#F2F0E3]">
                   Lista de Produtos
                 </p>
               </div>
@@ -315,13 +303,8 @@ export function ProductBulkTable({
 
               <button
                 onClick={onClose}
-                className="h-9 px-4 rounded-xl text-sm font-bold"
-                style={{
-                  backgroundColor: 'var(--bt-btn-cancel-bg)',
-                  color:           'var(--bt-btn-cancel-text)',
-                  border:          '1.5px solid var(--bt-btn-cancel-border)',
-                  transition:      'all 150ms cubic-bezier(0.23,1,0.32,1)',
-                }}
+                className="h-9 px-4 rounded-xl text-sm font-bold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/55 dark:text-white/50 border border-black/[0.14] dark:border-white/[0.10]"
+                style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
               >
@@ -350,25 +333,8 @@ export function ProductBulkTable({
 
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{
-                  color:           'var(--bt-close)',
-                  background:      'var(--bt-btn-close-bg)',
-                  border:          '1.5px solid var(--bt-btn-close-border)',
-                  transition:      'all 150ms cubic-bezier(0.23,1,0.32,1)',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background   = 'rgba(200,26,26,0.10)';
-                  el.style.borderColor  = 'rgba(200,26,26,0.22)';
-                  el.style.color        = '#C81A1A';
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background  = '';
-                  el.style.borderColor = '';
-                  el.style.color       = '';
-                }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all bg-black/[0.08] dark:bg-white/[0.06] border border-black/[0.10] dark:border-white/[0.08] text-[#1A1A0E]/45 dark:text-white/35 hover:bg-red-500/10 hover:border-red-500/25 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                 onMouseDown ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.93)'}
                 onMouseUp   ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
               >
@@ -402,22 +368,7 @@ export function ProductBulkTable({
                   <th style={{ padding: 0 }} />
                   {COLS.map(col => (
                     <th key={col.key} style={{ padding: 0, verticalAlign: 'bottom' }}>
-                      <div
-                        style={{
-                          display:        'block',
-                          borderRadius:   '9px',
-                          background:     'var(--bt-col-header-bg)',
-                          border:         '1.5px solid var(--bt-col-header-border)',
-                          padding:        '8px 11px',
-                          fontSize:       '10px',
-                          fontWeight:     700,
-                          letterSpacing:  '0.11em',
-                          textTransform:  'uppercase',
-                          color:          'var(--bt-col-header-text)',
-                          whiteSpace:     'nowrap',
-                          userSelect:     'none',
-                        }}
-                      >
+                      <div className="block rounded-[9px] bg-[#FFE500] dark:bg-[#FFE500] border-[1.5px] border-[#D4C000] dark:border-[#C8B800] px-[11px] py-2 text-[10px] font-bold tracking-[0.11em] uppercase text-[#1A1A0E]/55 whitespace-nowrap select-none">
                         {col.label}
                         {col.required && (
                           <span style={{ color: '#D81E1E', marginLeft: '2px' }}>*</span>
@@ -439,27 +390,18 @@ export function ProductBulkTable({
                   return (
                     <tr
                       key={row.id}
-                      className="group"
-                      style={{
-                        background: isInvalid
-                          ? 'var(--bt-row-invalid)'
+                      className={cn(
+                        'group transition-colors',
+                        isInvalid
+                          ? 'bg-[rgba(200,26,26,0.04)] dark:bg-[rgba(216,30,30,0.08)]'
                           : isEven
-                            ? 'var(--bt-row-even)'
-                            : 'var(--bt-row-odd)',
-                      }}
-                      onMouseEnter={e => {
-                        if (!isInvalid)
-                          (e.currentTarget as HTMLElement).style.background = 'var(--bt-row-hover)';
-                      }}
-                      onMouseLeave={e => {
-                        if (!isInvalid)
-                          (e.currentTarget as HTMLElement).style.background =
-                            isEven ? 'var(--bt-row-even)' : 'var(--bt-row-odd)';
-                      }}
+                            ? 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]'
+                            : 'bg-[#FAF7EE] dark:bg-[#1E1E18] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]',
+                      )}
                     >
                       {/* Row number */}
                       <td style={{ padding: '0 5px 0 0', textAlign: 'right', verticalAlign: 'middle' }}>
-                        <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 300, letterSpacing: '0.03em', color: 'var(--bt-row-num)' }}>
+                        <span className="text-[10px] font-mono font-light tracking-[0.03em] text-[#1A1A0E]/28 dark:text-white/[0.22]">
                           {rowIdx + 1}
                         </span>
                       </td>
@@ -470,43 +412,30 @@ export function ProductBulkTable({
                         const isEanCell     = col.key === 'ean';
                         const isEanWarn     = isEanCell && isEanDup;
 
-                        /* ── cell wrapper style ── */
-                        const cellBase: React.CSSProperties = {
-                          borderRadius: '9px',
-                          border: `1.5px solid ${
-                            isCellInvalid ? 'rgba(216,30,30,0.55)'
-                            : isEanWarn   ? 'rgba(245,158,11,0.65)'
-                            : 'var(--bt-cell-border)'
-                          }`,
-                          background: isCellInvalid
-                            ? 'var(--bt-cell-invalid-bg)'
+                        /* ── cell wrapper className ── */
+                        const cellCls = cn(
+                          'rounded-[9px] border-[1.5px] h-9 flex items-center',
+                          'transition-[border-color,box-shadow] duration-[130ms]',
+                          col.type === 'combobox' ? 'overflow-visible relative' : 'overflow-hidden',
+                          isCellInvalid
+                            ? 'border-[rgba(216,30,30,0.55)] bg-[rgba(200,26,26,0.04)] dark:bg-[rgba(216,30,30,0.08)]'
                             : isEanWarn
-                              ? 'rgba(245,158,11,0.06)'
-                              : 'var(--bt-cell-bg)',
-                          height:     '36px',
-                          display:    'flex',
-                          alignItems: 'center',
-                          overflow:   col.type === 'combobox' ? 'visible' : 'hidden',
-                          transition: 'border-color 130ms cubic-bezier(0.23,1,0.32,1), box-shadow 130ms cubic-bezier(0.23,1,0.32,1)',
-                          position:   col.type === 'combobox' ? 'relative' : undefined,
-                        };
+                              ? 'border-[rgba(245,158,11,0.65)] bg-[rgba(245,158,11,0.06)]'
+                              : 'border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520]',
+                        );
 
-                        /* ── input style ── */
-                        const inputStyle: React.CSSProperties = {
-                          background:    'transparent',
-                          border:        'none',
-                          outline:       'none',
-                          width:         '100%',
-                          height:        '100%',
-                          padding:       '0 11px',
-                          fontFamily:    '"DM Mono", monospace',
-                          fontSize:      '12px',
-                          fontWeight:    400,
-                          letterSpacing: '0.02em',
-                          color:         isCellInvalid ? '#D81E1E' : isEanWarn ? '#b45309' : 'var(--bt-cell-text)',
-                          textAlign:     col.align ?? 'left',
-                          caretColor:    '#D81E1E',
-                        };
+                        /* ── input className ── */
+                        const inputCls = cn(
+                          'bg-transparent border-none outline-none w-full h-full px-[11px]',
+                          '[font-family:"DM_Mono",monospace] text-[12px] tracking-[0.02em] caret-[#D81E1E]',
+                          col.align === 'right' ? 'text-right' : 'text-left',
+                          isCellInvalid
+                            ? 'text-[#D81E1E]'
+                            : isEanWarn
+                              ? 'text-amber-700 dark:text-amber-400'
+                              : 'text-[#1A1A0E] dark:text-[#F2F0E3]',
+                          'placeholder:text-[#1A1A0E]/22 dark:placeholder:text-white/25',
+                        );
 
                         return (
                           <td key={col.key} style={{ padding: 0, verticalAlign: 'middle', position: col.type === 'combobox' ? 'relative' : undefined }}>
@@ -514,7 +443,7 @@ export function ProductBulkTable({
                             {/* ── STATUS cell ── */}
                             {col.type === 'select' ? (
                               <div
-                                style={cellBase}
+                                className={cellCls}
                                 onFocus={e => applyFocus(e.currentTarget)}
                                 onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) removeFocus(e.currentTarget); }}
                               >
@@ -535,7 +464,7 @@ export function ProductBulkTable({
                                   )}>
                                     {row.status}
                                   </span>
-                                  <ChevronDown size={11} style={{ color: 'var(--bt-cell-muted)', flexShrink: 0 }} className={cn('transition-transform duration-150', openStatusId === row.id && 'rotate-180')} />
+                                  <ChevronDown size={11} className={cn('transition-transform duration-150 shrink-0 text-[#1A1A0E]/22 dark:text-white/25', openStatusId === row.id && 'rotate-180')} />
                                 </button>
                                 <AnimatePresence>
                                   {openStatusId === row.id && (
@@ -544,17 +473,13 @@ export function ProductBulkTable({
                                       animate={{ opacity: 1, y: 0, scale: 1 }}
                                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                       transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                                      className="absolute left-0 top-full z-50 w-44 rounded-xl shadow-xl overflow-hidden"
-                                      style={{ backgroundColor: 'var(--bt-dropdown-bg)', border: '1px solid var(--bt-cell-border)' }}
+                                      className="absolute left-0 top-full z-50 w-44 rounded-xl shadow-xl overflow-hidden bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.08]"
                                     >
                                       {STATUS_OPTIONS.map(opt => (
                                         <button
                                           key={opt}
                                           onMouseDown={() => { updateRow(row.id, 'status', opt); setOpenStatusId(null); }}
-                                          className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
-                                          style={{ color: 'var(--bt-cell-text)' }}
-                                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bt-row-hover)'}
-                                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                                          className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors text-[#1A1A0E]/70 dark:text-white/70 hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]"
                                         >
                                           {opt}
                                         </button>
@@ -584,10 +509,8 @@ export function ProductBulkTable({
                                   style={{ position: 'relative' }}
                                 >
                                   <div
-                                    style={{
-                                      ...cellBase,
-                                      paddingRight: '30px', // space for "+" button
-                                    }}
+                                    className={cellCls}
+                                    style={{ paddingRight: '30px' }}
                                     onFocus={e => {
                                       if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                                         applyFocus(e.currentTarget);
@@ -616,7 +539,7 @@ export function ProductBulkTable({
                                         handleCellKeyDown(e as any, rowIdx, colIdx);
                                       }}
                                       onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
-                                      style={{ ...inputStyle, paddingRight: '2px' }}
+                                      className={cn(inputCls, 'pr-[2px]')}
                                     />
                                     {/* "+" button */}
                                     <button
@@ -629,38 +552,7 @@ export function ProductBulkTable({
                                         const inp = (e.currentTarget as HTMLElement).previousSibling as HTMLInputElement | null;
                                         if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
                                       }}
-                                      style={{
-                                        position:        'absolute',
-                                        right:           '6px',
-                                        top:             '50%',
-                                        transform:       'translateY(-50%)',
-                                        width:           '18px',
-                                        height:          '18px',
-                                        borderRadius:    '5px',
-                                        border:          '1.5px solid var(--bt-cell-border)',
-                                        background:      'var(--bt-btn-cancel-bg)',
-                                        color:           'var(--bt-cell-muted)',
-                                        display:         'flex',
-                                        alignItems:      'center',
-                                        justifyContent:  'center',
-                                        cursor:          'pointer',
-                                        flexShrink:      0,
-                                        transition:      'all 120ms',
-                                        lineHeight:      1,
-                                        padding:         0,
-                                      }}
-                                      onMouseEnter={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.color        = '#D81E1E';
-                                        el.style.borderColor  = 'rgba(216,30,30,0.35)';
-                                        el.style.background   = 'rgba(216,30,30,0.07)';
-                                      }}
-                                      onMouseLeave={e => {
-                                        const el = e.currentTarget as HTMLElement;
-                                        el.style.color       = '';
-                                        el.style.borderColor = '';
-                                        el.style.background  = '';
-                                      }}
+                                      className="absolute right-[6px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-[5px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-black/[0.05] dark:bg-white/[0.06] text-[#1A1A0E]/22 dark:text-white/25 flex items-center justify-center cursor-pointer shrink-0 transition-all duration-[120ms] p-0 leading-none hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.35)] hover:bg-[rgba(216,30,30,0.07)]"
                                     >
                                       <Plus size={10} strokeWidth={2.5} />
                                     </button>
@@ -674,19 +566,7 @@ export function ProductBulkTable({
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -4, scale: 0.97 }}
                                         transition={{ duration: 0.12, ease: [0.23, 1, 0.32, 1] }}
-                                        style={{
-                                          position:        'absolute',
-                                          left:            0,
-                                          top:             'calc(100% + 3px)',
-                                          minWidth:        '100%',
-                                          maxWidth:        '220px',
-                                          zIndex:          100,
-                                          borderRadius:    '10px',
-                                          overflow:        'hidden',
-                                          backgroundColor: 'var(--bt-dropdown-bg)',
-                                          border:          '1.5px solid var(--bt-cell-border)',
-                                          boxShadow:       '0 8px 24px rgba(0,0,0,0.13)',
-                                        }}
+                                        className="absolute left-0 top-[calc(100%+3px)] min-w-full max-w-[220px] z-[100] rounded-[10px] overflow-hidden bg-white dark:bg-[#2E2E28] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.13)]"
                                       >
                                         <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
                                           {filtered.slice(0, 8).map(opt => (
@@ -697,30 +577,13 @@ export function ProductBulkTable({
                                                 updateRow(row.id, col.key, opt);
                                                 setOpenComboKey(null);
                                               }}
-                                              style={{
-                                                display:    'block',
-                                                width:      '100%',
-                                                textAlign:  'left',
-                                                padding:    '7px 11px',
-                                                fontSize:   '11px',
-                                                fontFamily: '"DM Mono", monospace',
-                                                fontWeight: 500,
-                                                color:      'var(--bt-cell-text)',
-                                                background: 'transparent',
-                                                border:     'none',
-                                                cursor:     'pointer',
-                                                whiteSpace: 'nowrap',
-                                                overflow:   'hidden',
-                                                textOverflow: 'ellipsis',
-                                              }}
-                                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bt-row-hover)'}
-                                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                                              className="block w-full text-left px-[11px] py-[7px] text-[11px] font-medium text-[#1A1A0E]/70 dark:text-white/70 bg-transparent border-none cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04] [font-family:'DM_Mono',monospace]"
                                             >
                                               {opt}
                                             </button>
                                           ))}
                                           {filtered.length === 0 && allOpts.length > 0 && (
-                                            <p style={{ padding: '7px 11px', fontSize: '11px', color: 'var(--bt-cell-muted)', fontStyle: 'italic' }}>
+                                            <p className="px-[11px] py-[7px] text-[11px] italic text-[#1A1A0E]/22 dark:text-white/25">
                                               Nenhum resultado — clique "+" para criar
                                             </p>
                                           )}
@@ -733,7 +596,7 @@ export function ProductBulkTable({
                             })() : (
                               /* ── TEXT / NUMBER cell ── */
                               <div
-                                style={cellBase}
+                                className={cellCls}
                                 onFocus={e => {
                                   if (isEanWarn) applyWarn(e.currentTarget);
                                   else if (!isCellInvalid) applyFocus(e.currentTarget);
@@ -757,12 +620,10 @@ export function ProductBulkTable({
                                   onKeyDown={e => handleCellKeyDown(e as any, rowIdx, colIdx)}
                                   onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
                                   className={cn(
+                                    inputCls,
                                     col.type === 'number' && '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden',
+                                    isEanWarn && 'pr-7',
                                   )}
-                                  style={{
-                                    ...inputStyle,
-                                    paddingRight: isEanWarn ? '28px' : inputStyle.padding as string,
-                                  }}
                                 />
                                 {/* EAN duplicate warning icon */}
                                 {isEanWarn && (
@@ -802,7 +663,7 @@ export function ProductBulkTable({
                               className="flex items-center gap-1"
                             >
                               <button onClick={() => removeRow(row.id)} className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-md hover:bg-red-600 transition-colors">Sim</button>
-                              <button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 text-[10px] font-black rounded-md transition-colors" style={{ backgroundColor: 'var(--bt-btn-cancel-bg)', color: 'var(--bt-btn-cancel-text)' }}>Não</button>
+                              <button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 text-[10px] font-black rounded-md transition-colors bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/55 dark:text-white/50">Não</button>
                             </motion.div>
                           ) : (
                             <motion.button
@@ -811,10 +672,7 @@ export function ProductBulkTable({
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
                               onClick={() => rows.length === 1 ? updateRow(row.id, 'name', '') : setDeleteConfirmId(row.id)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                              style={{ color: 'var(--bt-cell-muted)' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#D81E1E'; (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(216,30,30,0.1)'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = ''; (e.currentTarget as HTMLElement).style.backgroundColor = ''; }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-[#1A1A0E]/22 dark:text-white/[0.15] hover:text-[#D81E1E] hover:bg-[rgba(216,30,30,0.10)]"
                               onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.90)'}
                               onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
                               title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
@@ -834,15 +692,8 @@ export function ProductBulkTable({
             <button
               onClick={addRow}
               title="Adicionar linha"
-              style={{
-                width: '32px', height: '32px', marginTop: '4px', borderRadius: '7px',
-                border: '1.5px dashed var(--bt-add-border)', color: 'var(--bt-add-text)',
-                background: 'transparent', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
-                transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)',
-              }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#D81E1E'; el.style.borderColor = 'rgba(216,30,30,0.45)'; el.style.background = 'rgba(216,30,30,0.04)'; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = ''; el.style.borderColor = ''; el.style.background = ''; }}
+              className="w-8 h-8 mt-1 flex items-center justify-center rounded-[7px] border border-dashed border-[#1A1A0E]/22 dark:border-white/[0.18] text-[#1A1A0E]/30 dark:text-white/25 bg-transparent shrink-0 cursor-pointer hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.45)] hover:bg-[rgba(216,30,30,0.04)] active:scale-95"
+              style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
               onMouseDown={e => (e.currentTarget as HTMLElement).style.transform = 'scale(0.96)'}
               onMouseUp  ={e => (e.currentTarget as HTMLElement).style.transform = 'scale(1)'}
             >
@@ -851,15 +702,12 @@ export function ProductBulkTable({
           </div>
 
           {/* ── Footer ─────────────────────────────────────────────────── */}
-          <div
-            className="flex items-center justify-between px-6 md:px-8 py-3 border-t shrink-0"
-            style={{ backgroundColor: 'var(--bt-footer-bg)', borderColor: 'var(--bt-footer-border)' }}
-          >
-            <span className="text-[10px] font-light tracking-[0.04em]" style={{ color: 'var(--bt-subtitle)', fontFamily: '"DM Mono", monospace' }}>
+          <div className="flex items-center justify-between px-6 md:px-8 py-3 border-t shrink-0 bg-[#FFF7B0] dark:bg-[#252520] border-[#DDD000] dark:border-white/[0.06]">
+            <span className="text-[10px] font-light tracking-[0.04em] text-[#1A1A0E]/40 dark:text-white/[0.28]" style={{ fontFamily: '"DM Mono", monospace' }}>
               ↑ ↓ navegar · Tab próxima · ⌘V colar coluna
             </span>
 
-            <div className="flex items-center gap-4 text-xs font-semibold" style={{ color: 'var(--bt-subtitle)' }}>
+            <div className="flex items-center gap-4 text-xs font-semibold text-[#1A1A0E]/40 dark:text-white/[0.28]">
               {duplicateEanRowIds.size > 0 && (
                 <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                   <AlertCircle size={13} />
@@ -878,95 +726,6 @@ export function ProductBulkTable({
             </div>
           </div>
 
-          {/* ── CSS Tokens ─────────────────────────────────────────────── */}
-          <style jsx>{`
-            /* ── LIGHT — cream + brand yellow ── */
-            div {
-              --bt-bg:                #FDFAF0;
-              --bt-header-bg:         #FFE500;
-              --bt-header-border:     #D4C000;
-              --bt-icon-bg:           rgba(26,26,10,0.09);
-              --bt-icon:              #1A1A0E;
-              --bt-title:             #1A1A0E;
-              --bt-subtitle:          rgba(26,26,10,0.40);
-              --bt-close:             rgba(26,26,10,0.45);
-              --bt-btn-close-bg:      rgba(26,26,10,0.08);
-              --bt-btn-close-border:  rgba(26,26,10,0.10);
-              --bt-btn-cancel-bg:     rgba(26,26,10,0.08);
-              --bt-btn-cancel-text:   rgba(26,26,10,0.55);
-              --bt-btn-cancel-border: rgba(26,26,10,0.14);
-
-              --bt-col-header-bg:     #FFE500;
-              --bt-col-header-border: #D4C000;
-              --bt-col-header-text:   rgba(26,26,10,0.55);
-
-              --bt-row-even:          #FFFFFF;
-              --bt-row-odd:           #FAF7EE;
-              --bt-row-hover:         #FFF8D0;
-              --bt-row-invalid:       rgba(200,26,26,0.04);
-              --bt-row-num:           rgba(26,26,10,0.28);
-
-              --bt-cell-bg:           #FFFFFF;
-              --bt-cell-border:       #E0D8BF;
-              --bt-cell-invalid-bg:   rgba(200,26,26,0.04);
-              --bt-cell-text:         #1A1A0E;
-              --bt-cell-muted:        rgba(26,26,10,0.22);
-              --bt-dropdown-bg:       #FFFFFF;
-
-              --bt-add-border:        rgba(26,26,10,0.22);
-              --bt-add-text:          rgba(26,26,10,0.30);
-
-              --bt-footer-bg:         #FFF7B0;
-              --bt-footer-border:     #DDD000;
-            }
-
-            /* ── DARK — charcoal + yellow anchor ── */
-            @media (prefers-color-scheme: dark) {
-              div {
-                --bt-bg:                #1E1E18;
-                --bt-header-bg:         #252520;
-                --bt-header-border:     rgba(242,240,227,0.07);
-                --bt-icon-bg:           rgba(216,30,30,0.13);
-                --bt-icon:              #D81E1E;
-                --bt-title:             #F2F0E3;
-                --bt-subtitle:          rgba(242,240,227,0.28);
-                --bt-close:             rgba(242,240,227,0.35);
-                --bt-btn-close-bg:      rgba(242,240,227,0.06);
-                --bt-btn-close-border:  rgba(242,240,227,0.08);
-                --bt-btn-cancel-bg:     rgba(242,240,227,0.07);
-                --bt-btn-cancel-text:   rgba(242,240,227,0.50);
-                --bt-btn-cancel-border: rgba(242,240,227,0.10);
-
-                --bt-col-header-bg:     #FFE500;
-                --bt-col-header-border: #C8B800;
-                --bt-col-header-text:   rgba(26,26,10,0.58);
-
-                --bt-row-even:          #252520;
-                --bt-row-odd:           #1E1E18;
-                --bt-row-hover:         rgba(242,240,227,0.03);
-                --bt-row-invalid:       rgba(216,30,30,0.08);
-                --bt-row-num:           rgba(242,240,227,0.22);
-
-                --bt-cell-bg:           #252520;
-                --bt-cell-border:       rgba(242,240,227,0.08);
-                --bt-cell-invalid-bg:   rgba(216,30,30,0.08);
-                --bt-cell-text:         #F2F0E3;
-                --bt-cell-muted:        rgba(242,240,227,0.25);
-                --bt-dropdown-bg:       #2E2E28;
-
-                --bt-add-border:        rgba(242,240,227,0.18);
-                --bt-add-text:          rgba(242,240,227,0.25);
-
-                --bt-footer-bg:         #252520;
-                --bt-footer-border:     rgba(242,240,227,0.06);
-              }
-            }
-
-            input::placeholder {
-              color: var(--bt-cell-muted);
-              opacity: 1;
-            }
-          `}</style>
         </motion.div>
       )}
     </AnimatePresence>
