@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReviewNote } from '@/components/requests/LogisticsCenter';
+import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,8 @@ interface MobileNoteViewProps {
   savingNote: boolean;
   onDelete: () => Promise<void>;
   onVarios: (idx: number) => void;
+  eanProblems?: EanProblem[];
+  onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
 }
 
 type Tab = 'itens' | 'detalhe' | 'resumo';
@@ -310,6 +313,8 @@ export function MobileNoteView({
   itemPrices, setItemPrices, sellPrices, setSellPrices,
   verified, setVerified, units, multipliers, distribuicao,
   setNote, onClose, onSave, savingNote, onDelete, onVarios,
+  eanProblems = [],
+  onReportEanProblem,
 }: MobileNoteViewProps) {
   const [tab, setTab] = useState<Tab>('itens');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -587,6 +592,14 @@ export function MobileNoteView({
                   >
                     <Camera size={18} />
                   </button>
+                  {ean(activeIdx).trim() && onReportEanProblem && (
+                    <EanProblemButton
+                      ean={ean(activeIdx)}
+                      problems={eanProblems}
+                      onReport={(e, desc, obs) => onReportEanProblem(e, desc, obs)}
+                      size="sm"
+                    />
+                  )}
                 </div>
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="text-[10px] font-black text-white/40 w-10 shrink-0">SKU</span>

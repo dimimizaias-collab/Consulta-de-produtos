@@ -18,6 +18,8 @@ import { FinanceManager } from '@/components/finance/FinanceManager';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
+import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
+import { type EanProblem } from '@/components/shared/EanProblemButton';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -256,6 +258,9 @@ export default function Page() {
   });
   const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
   const [showProductBulkTable, setShowProductBulkTable] = useState(false);
+  const [showMobileBulkTable, setShowMobileBulkTable] = useState(false);
+  const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
+  const [eanProblems, setEanProblems] = useState<EanProblem[]>([]);
   const [showManualStockModal, setShowManualStockModal] = useState(false);
   const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
   const [manualStockSearchResults, setManualStockSearchResults] = useState<any[]>([]);
@@ -732,6 +737,8 @@ export default function Page() {
       fetchRequests();
       fetchReviewNotes();
       fetchNotifications();
+      fetchBulkDrafts();
+      fetchEanProblems();
     }
   }, []);
 
@@ -782,6 +789,79 @@ export default function Page() {
         finance_transaction_id: n.finance_transaction_id ?? null,
       })));
     }
+  };
+
+  const fetchBulkDrafts = async () => {
+    const { data } = await supabase.from('review_notes').select('*')
+      .eq('is_draft', true).eq('note_type', 'bulk_products')
+      .order('created_at', { ascending: false });
+    setBulkDrafts(data ?? []);
+  };
+
+  const fetchEanProblems = async () => {
+    const { data } = await supabase.from('ean_problems').select('*').order('created_at', { ascending: false });
+    setEanProblems(data ?? []);
+  };
+
+  const handleSaveBulkDraft = async (rows: any[]) => {
+    const items = rows.filter((r: any) => r.name?.trim()).map((r: any, idx: number) => ({
+      seq: idx + 1,
+      name: r.name.trim(),
+      sku: r.sku || null,
+      ean: r.ean || null,
+      category: r.category || null,
+      subcategory: r.subcategory || null,
+      brand: r.brand || null,
+      location: r.location || null,
+      count: parseFloat(r.count) || 0,
+      price: parseFloat(String(r.price).replace(',', '.')) || null,
+      status: r.status || 'Em Estoque',
+    }));
+    const { error } = await supabase.from('review_notes').insert([{
+      id: crypto.randomUUID(),
+      timestamp_label: new Date().toLocaleString('pt-BR'),
+      file_name: `Rascunho Produtos — ${new Date().toLocaleDateString('pt-BR')}`,
+      item_count: items.length,
+      verified_count: 0,
+      items,
+      approved: false,
+      is_draft: true,
+      note_type: 'bulk_products',
+    }]);
+    if (error) throw error;
+    await fetchBulkDrafts();
+    setNotification({ type: 'success', message: 'Rascunho salvo em Requisições!' });
+  };
+
+  const handleApproveBulkDraft = async (noteId: string, items: any[]) => {
+    const results = await Promise.allSettled(
+      items.map((item: any) => supabase.from('products').insert([{
+        name: item.name, sku: item.sku || null, ean: item.ean || null,
+        category: item.category || null, subcategory: item.subcategory || null,
+        brand: item.brand || null, location: item.location || null,
+        count: item.count || 0, price: item.price || null,
+        status: item.status || 'Em Estoque',
+      }]))
+    );
+    const saved = results.filter(r => r.status === 'fulfilled' && !(r as any).value?.error).length;
+    const errors = results.length - saved;
+    await supabase.from('review_notes').delete().eq('id', noteId);
+    await fetchBulkDrafts();
+    await fetchProducts();
+    setNotification({ type: 'success', message: `${saved} produto(s) inserido(s)${errors > 0 ? ` · ${errors} com erro` : ''}` });
+  };
+
+  const handleDeleteBulkDraft = async (noteId: string) => {
+    await supabase.from('review_notes').delete().eq('id', noteId);
+    await fetchBulkDrafts();
+    setNotification({ type: 'success', message: 'Rascunho excluído.' });
+  };
+
+  const handleReportEanProblem = async (ean: string, desc: string, obs: string, source?: string) => {
+    await supabase.from('ean_problems').insert([{
+      ean: ean.trim(), descricao: desc, observacao: obs || null, source: source || null,
+    }]);
+    await fetchEanProblems();
   };
 
   const handleApproveNote = async (noteId: string) => {
@@ -3038,7 +3118,7 @@ export default function Page() {
                   onViewLink={handleViewLink}
                   onStockUpdate={handleStockUpdate}
                   onFileImport={handleFileImport}
-                  onDownloadTemplate={downloadTemplate}
+                  onOpenMobileBulkTable={() => setShowMobileBulkTable(true)}
                   stockFileInputRef={stockFileInputRef}
                   fileInputRef={fileInputRef}
                   setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
@@ -3158,6 +3238,9 @@ export default function Page() {
                   onLinkNote={handleLinkNote}
                   pendingOpenNoteId={pendingOpenNoteId}
                   onPendingOpenNoteHandled={() => setPendingOpenNoteId(null)}
+                  bulkDrafts={bulkDrafts}
+                  onApproveBulkDraft={handleApproveBulkDraft}
+                  onDeleteBulkDraft={handleDeleteBulkDraft}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
@@ -4365,6 +4448,20 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Bulk Table */}
+      <MobileBulkTable
+        isOpen={showMobileBulkTable}
+        onClose={() => setShowMobileBulkTable(false)}
+        existingEans={products.map((p: any) => p.ean).filter(Boolean) as string[]}
+        eanProblems={eanProblems}
+        categories={uniqueCategories}
+        subcategories={Array.from(new Set(products.map((p: any) => p.subcategory).filter(Boolean))).sort() as string[]}
+        brands={uniqueBrands}
+        locations={uniqueLocations}
+        onSaveDraft={handleSaveBulkDraft}
+        onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'mobile_bulk')}
+      />
+
       {/* Product Bulk Table */}
       <ProductBulkTable
         isOpen={showProductBulkTable}
@@ -4374,6 +4471,8 @@ export default function Page() {
         subcategories={Array.from(new Set(products.map((p: any) => p.subcategory).filter(Boolean))).sort() as string[]}
         brands={uniqueBrands}
         locations={uniqueLocations}
+        eanProblems={eanProblems}
+        onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'bulk_table')}
         onSave={async (rows) => {
           const inserts = rows
             .filter(r => r.name.trim())
@@ -7749,6 +7848,8 @@ export default function Page() {
             savingNote={savingNote}
             onDelete={handleDeleteNote}
             onVarios={(idx) => { setShowMobileNoteView(false); setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
+            eanProblems={eanProblems}
+            onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}
           />
         )}
       </AnimatePresence>

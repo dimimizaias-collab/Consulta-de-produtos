@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ interface ProductBulkTableProps {
   subcategories?: string[];
   brands?: string[];
   locations?: string[];
+  eanProblems?: EanProblem[];
+  onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -97,6 +100,8 @@ export function ProductBulkTable({
   subcategories = [],
   brands = [],
   locations = [],
+  eanProblems = [],
+  onReportEanProblem,
 }: ProductBulkTableProps) {
   const [rows, setRows]                       = useState<BulkRow[]>([emptyRow()]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -631,7 +636,7 @@ export function ProductBulkTable({
                                     title="EAN já cadastrado no inventário"
                                     style={{
                                       position:       'absolute',
-                                      right:          '7px',
+                                      right:          row.ean.trim() && onReportEanProblem ? '26px' : '7px',
                                       top:            '50%',
                                       transform:      'translateY(-50%)',
                                       color:          '#d97706',
@@ -642,6 +647,26 @@ export function ProductBulkTable({
                                     }}
                                   >
                                     <AlertCircle size={13} />
+                                  </div>
+                                )}
+                                {/* EAN problem button */}
+                                {row.ean.trim() && onReportEanProblem && (
+                                  <div
+                                    style={{
+                                      position:  'absolute',
+                                      right:     '7px',
+                                      top:       '50%',
+                                      transform: 'translateY(-50%)',
+                                      display:   'flex',
+                                      alignItems: 'center',
+                                    }}
+                                  >
+                                    <EanProblemButton
+                                      ean={row.ean}
+                                      problems={eanProblems}
+                                      onReport={(ean, desc, obs) => onReportEanProblem(ean, desc, obs)}
+                                      size="xs"
+                                    />
                                   </div>
                                 )}
                               </div>

@@ -6,7 +6,6 @@ import {
   Search,
   Filter,
   RefreshCw,
-  Download,
   FileUp,
   Edit2,
   Package,
@@ -15,7 +14,8 @@ import {
   LayoutGrid,
   ChevronRight,
   ChevronDown,
-  Rows3
+  Rows3,
+  Smartphone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
@@ -36,7 +36,7 @@ interface InventoryManagerProps {
   onViewLink: (mother: any, child: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onFileImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onDownloadTemplate: () => void;
+  onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   setShowStockUpdateChoiceModal: (val: boolean) => void;
@@ -55,7 +55,7 @@ export function InventoryManager({
   onViewLink,
   onStockUpdate,
   onFileImport,
-  onDownloadTemplate,
+  onOpenMobileBulkTable,
   stockFileInputRef,
   fileInputRef,
   setShowStockUpdateChoiceModal
@@ -161,12 +161,12 @@ export function InventoryManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button 
-            onClick={onDownloadTemplate}
+          <button
+            onClick={onOpenMobileBulkTable}
             className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
           >
-            <Download size={14} />
-            Template
+            <Smartphone size={14} />
+            Mobile
           </button>
           
           <button 
