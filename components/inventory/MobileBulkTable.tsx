@@ -189,8 +189,11 @@ export function MobileBulkTable({
     }
   }
 
-  const namedRows = rows.filter(r => r.name.trim());
-  const unnamedCount = rows.length - namedRows.length;
+  // Linha válida = tem pelo menos nome OU ean (não precisa de nome obrigatório)
+  const filledRows = rows.filter(r => r.name.trim() || r.ean.trim());
+  const emptyCount = rows.length - filledRows.length;
+  const namedRows = filledRows; // alias para compatibilidade com o restante do componente
+  const unnamedCount = emptyCount;
   const dupEanCount = rows.filter(r => r.ean.trim() && eanSet.has(r.ean.trim())).length;
 
   const selectedRow = rows[selectedIdx] ?? rows[0];
@@ -261,15 +264,22 @@ export function MobileBulkTable({
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         'text-sm font-black truncate',
-                        row.name.trim() ? 'text-on-surface' : 'text-on-surface/30 italic',
+                        (row.name.trim() || row.ean.trim()) ? 'text-on-surface' : 'text-on-surface/30 italic',
                       )}>
-                        {row.name.trim() || 'Item vazio'}
+                        {row.name.trim() || (row.ean.trim() ? row.ean : 'Item vazio')}
                       </p>
-                      {(row.ean || row.sku) && (
-                        <p className="text-[10px] text-on-surface/35 font-medium mt-0.5 truncate">
-                          {[row.sku && `SKU ${row.sku}`, row.ean && `EAN ${row.ean}`].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {(row.sku || (row.ean && row.name.trim())) && (
+                          <p className="text-[10px] text-on-surface/35 font-medium truncate">
+                            {[row.sku && `SKU ${row.sku}`, (row.ean && row.name.trim()) && `EAN ${row.ean}`].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                        {row.price.trim() && (
+                          <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 shrink-0">
+                            R$ {row.price}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isDup && (
