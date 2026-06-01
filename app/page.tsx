@@ -4370,36 +4370,51 @@ export default function Page() {
         isOpen={showProductBulkTable}
         onClose={() => setShowProductBulkTable(false)}
         onSave={async (rows) => {
+          const inserts = rows
+            .filter(r => r.name.trim())
+            .map(r => ({
+              name: r.name.trim(),
+              sku: r.sku.trim() || null,
+              ean: r.ean.trim() || null,
+              category: r.category.trim() || null,
+              subcategory: r.subcategory.trim() || null,
+              brand: r.brand.trim() || null,
+              location: r.location.trim() || null,
+              stock: r.count !== '' ? parseFloat(r.count) || 0 : 0,
+              price: r.price !== '' ? parseFloat(r.price.replace(',', '.')) || null : null,
+              status: r.status || 'Em Estoque',
+            }));
+          if (inserts.length === 0) return { saved: 0, errors: 1 };
+
+          // Insert row-by-row so a single failure (ex: EAN duplicado) não bloqueia as demais
+          const results = await Promise.allSettled(
+            inserts.map(row => supabase.from('products').insert([row]))
+          );
+
           let savedCount = 0;
-          let errorCount = 0;
-          try {
-            const { createClient } = await import('@supabase/supabase-js');
-            const supabase = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
-            const inserts = rows
-              .filter(r => r.name.trim())
-              .map(r => ({
-                name: r.name.trim(),
-                sku: r.sku.trim() || null,
-                ean: r.ean.trim() || null,
-                category: r.category.trim() || null,
-                subcategory: r.subcategory.trim() || null,
-                brand: r.brand.trim() || null,
-                location: r.location.trim() || null,
-                stock: r.count !== '' ? parseFloat(r.count) || 0 : 0,
-                price: r.price !== '' ? parseFloat(r.price.replace(',', '.')) || null : null,
-                status: r.status || 'Em Estoque',
-              }));
-            if (inserts.length === 0) return { saved: 0, errors: 1 };
-            const { error } = await supabase.from('products').insert(inserts);
-            if (error) { errorCount = inserts.length; }
-            else { savedCount = inserts.length; await fetchProducts(); }
-          } catch {
-            errorCount = rows.length;
+          const errorMessages: string[] = [];
+          results.forEach((r, i) => {
+            if (r.status === 'fulfilled' && !r.value.error) {
+              savedCount++;
+            } else {
+              const msg = r.status === 'rejected'
+                ? String(r.reason)
+                : (r.value.error?.message ?? 'Erro desconhecido');
+              const friendly = msg.includes('products_sku_key') || msg.includes('sku')
+                ? `Linha ${i + 1}: SKU "${inserts[i].sku}" já existe`
+                : msg.includes('ean')
+                ? `Linha ${i + 1}: EAN "${inserts[i].ean}" já cadastrado`
+                : `Linha ${i + 1}: ${msg}`;
+              errorMessages.push(friendly);
+            }
+          });
+
+          if (savedCount > 0) await fetchProducts();
+          if (errorMessages.length > 0) {
+            setNotification({ type: 'error', message: errorMessages.join(' · ') });
           }
-          return { saved: savedCount, errors: errorCount };
+
+          return { saved: savedCount, errors: errorMessages.length };
         }}
       />
 
