@@ -338,35 +338,6 @@ export function MobileBulkTable({
             {/* form */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-              {/* Nome */}
-              <div>
-                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">
-                  Nome <span className="text-[#D81E1E]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={selectedRow?.name ?? ''}
-                  onChange={e => updateField(selectedIdx, 'name', e.target.value)}
-                  placeholder="Nome do produto"
-                  className={cn(
-                    'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]',
-                    !(selectedRow?.name?.trim()) && 'border-[#D81E1E]/50 bg-[#D81E1E]/[0.03]',
-                  )}
-                />
-              </div>
-
-              {/* SKU */}
-              <div>
-                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">SKU</label>
-                <input
-                  type="text"
-                  value={selectedRow?.sku ?? ''}
-                  onChange={e => updateField(selectedIdx, 'sku', e.target.value)}
-                  placeholder="Código interno"
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
-                />
-              </div>
-
               {/* EAN + problem button */}
               <div>
                 <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">EAN</label>
@@ -436,54 +407,6 @@ export function MobileBulkTable({
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Categoria */}
-              <ComboInput
-                label="Categoria"
-                value={selectedRow?.category ?? ''}
-                onChange={v => updateField(selectedIdx, 'category', v)}
-                options={categories}
-                placeholder="Selecione ou digite..."
-              />
-
-              {/* Subcategoria */}
-              <ComboInput
-                label="Subcategoria"
-                value={selectedRow?.subcategory ?? ''}
-                onChange={v => updateField(selectedIdx, 'subcategory', v)}
-                options={subcategories}
-                placeholder="Selecione ou digite..."
-              />
-
-              {/* Marca */}
-              <ComboInput
-                label="Marca"
-                value={selectedRow?.brand ?? ''}
-                onChange={v => updateField(selectedIdx, 'brand', v)}
-                options={brands}
-                placeholder="Selecione ou digite..."
-              />
-
-              {/* Localização */}
-              <ComboInput
-                label="Localização"
-                value={selectedRow?.location ?? ''}
-                onChange={v => updateField(selectedIdx, 'location', v)}
-                options={locations}
-                placeholder="Corredor A..."
-              />
-
-              {/* Quantidade */}
-              <div>
-                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">Quantidade</label>
-                <input
-                  type="number"
-                  value={selectedRow?.count ?? ''}
-                  onChange={e => updateField(selectedIdx, 'count', e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E] [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
-                />
               </div>
 
               {/* Preço */}
@@ -569,6 +492,83 @@ export function MobileBulkTable({
                 </div>
               </div>
 
+              {/* Nome */}
+              <div>
+                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">
+                  Nome <span className="text-[#D81E1E]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={selectedRow?.name ?? ''}
+                  onChange={e => updateField(selectedIdx, 'name', e.target.value)}
+                  placeholder="Nome do produto"
+                  className={cn(
+                    'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]',
+                    !(selectedRow?.name?.trim()) && 'border-[#D81E1E]/50 bg-[#D81E1E]/[0.03]',
+                  )}
+                />
+              </div>
+
+              {/* SKU */}
+              <div>
+                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">SKU</label>
+                <input
+                  type="text"
+                  value={selectedRow?.sku ?? ''}
+                  onChange={e => updateField(selectedIdx, 'sku', e.target.value)}
+                  placeholder="Código interno"
+                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
+                />
+              </div>
+
+              {/* Categoria */}
+              <ComboInput
+                label="Categoria"
+                value={selectedRow?.category ?? ''}
+                onChange={v => updateField(selectedIdx, 'category', v)}
+                options={categories}
+                placeholder="Selecione ou digite..."
+              />
+
+              {/* Subcategoria */}
+              <ComboInput
+                label="Subcategoria"
+                value={selectedRow?.subcategory ?? ''}
+                onChange={v => updateField(selectedIdx, 'subcategory', v)}
+                options={subcategories}
+                placeholder="Selecione ou digite..."
+              />
+
+              {/* Marca */}
+              <ComboInput
+                label="Marca"
+                value={selectedRow?.brand ?? ''}
+                onChange={v => updateField(selectedIdx, 'brand', v)}
+                options={brands}
+                placeholder="Selecione ou digite..."
+              />
+
+              {/* Localização */}
+              <ComboInput
+                label="Localização"
+                value={selectedRow?.location ?? ''}
+                onChange={v => updateField(selectedIdx, 'location', v)}
+                options={locations}
+                placeholder="Corredor A..."
+              />
+
+              {/* Quantidade */}
+              <div>
+                <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">Quantidade</label>
+                <input
+                  type="number"
+                  value={selectedRow?.count ?? ''}
+                  onChange={e => updateField(selectedIdx, 'count', e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E] [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                />
+              </div>
+
               {/* Status */}
               <div>
                 <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-2">Status</label>
@@ -602,6 +602,17 @@ export function MobileBulkTable({
                 >
                   <Trash2 size={15} />
                   Remover este item
+                </button>
+              </div>
+
+              {/* Adicionar novo produto */}
+              <div className="pt-1">
+                <button
+                  onClick={addRow}
+                  className="flex items-center justify-center gap-2 w-full text-[#D81E1E] text-sm font-black py-3 px-3 rounded-xl border border-[#D81E1E]/25 hover:bg-[#D81E1E]/[0.07] active:scale-95 transition-all"
+                >
+                  <Plus size={15} />
+                  Adicionar novo produto
                 </button>
               </div>
 
