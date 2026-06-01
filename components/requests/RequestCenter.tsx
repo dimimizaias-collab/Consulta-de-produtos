@@ -129,8 +129,11 @@ export function RequestCenter({
                     <div className="grid grid-cols-1 gap-2 bg-surface-container-low/30 p-4 rounded-2xl border border-on-surface/[0.02] max-h-48 overflow-y-auto">
                       {items.slice(0, 5).map((item: any, idx: number) => (
                         <div key={idx} className="text-xs">
-                          <span className="font-black text-on-surface">{item.name}</span>
-                          {item.ean && <span className="text-on-surface/40"> · EAN {item.ean}</span>}
+                          <span className="font-black text-on-surface">
+                            {item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}
+                          </span>
+                          {item.name && item.ean && <span className="text-on-surface/40"> · EAN {item.ean}</span>}
+                          {!item.name && item.ean && item.sku && <span className="text-on-surface/40"> · SKU {item.sku}</span>}
                           {item.price && <span className="text-emerald-600 dark:text-emerald-400"> · R${item.price}</span>}
                         </div>
                       ))}

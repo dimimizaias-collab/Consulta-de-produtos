@@ -807,9 +807,9 @@ export default function Page() {
   };
 
   const handleSaveBulkDraft = async (rows: any[]) => {
-    const items = rows.filter((r: any) => r.name?.trim()).map((r: any, idx: number) => ({
+    const items = rows.filter((r: any) => r.name?.trim() || r.ean?.trim()).map((r: any, idx: number) => ({
       seq: idx + 1,
-      name: r.name.trim(),
+      name: r.name?.trim() || '',
       sku: r.sku || null,
       ean: r.ean || null,
       category: r.category || null,
@@ -4054,7 +4054,9 @@ export default function Page() {
                         {bulkDraftEditedItems.map((item, idx) => (
                           <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                             <td className="py-3 px-3 text-slate-500">{idx + 1}</td>
-                            <td className="py-3 px-3 font-medium text-slate-900">{item.name}</td>
+                            <td className="py-3 px-3 font-medium text-slate-900">
+                              {item.name || <span className="text-slate-400 italic text-xs">Sem descrição</span>}
+                            </td>
                             <td className="py-3 px-3 text-slate-600">{item.sku || '-'}</td>
                             <td className="py-3 px-3 text-slate-600 font-mono text-xs">{item.ean || '-'}</td>
                             <td className="py-3 px-3 text-slate-600">{item.category || '-'}</td>
