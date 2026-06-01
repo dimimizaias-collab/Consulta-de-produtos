@@ -817,19 +817,19 @@ export default function Page() {
       price: parseFloat(String(r.price).replace(',', '.')) || null,
       status: r.status || 'Em Estoque',
     }));
-    const { error } = await supabase.from('review_notes').insert([{
-      id: crypto.randomUUID(),
-      timestamp_label: new Date().toLocaleString('pt-BR'),
-      file_name: `Rascunho Produtos — ${new Date().toLocaleDateString('pt-BR')}`,
-      item_count: items.length,
-      verified_count: 0,
-      items,
-      approved: false,
-      is_draft: true,
-      note_type: 'bulk_products',
+
+    const { error } = await supabase.from('requests').insert([{
+      product_id: null,
+      requested_changes: JSON.stringify({
+        is_bulk_products: true,
+        items,
+        count: items.length,
+      }),
+      status: 'pending',
     }]);
+
     if (error) throw error;
-    await fetchBulkDrafts();
+    await fetchRequests();
     setNotification({ type: 'success', message: 'Rascunho salvo em Requisições!' });
   };
 
@@ -1026,18 +1026,40 @@ export default function Page() {
 
     try {
       const changes = JSON.parse(request.requested_changes);
-      const isNewProduct = changes.is_new_product;
-      
-      if (isNewProduct) {
+      const isBulkProducts = changes.is_bulk_products;
+      const isNewProduct = changes.is_new_product && !isBulkProducts;
+
+      if (isBulkProducts) {
+        // Insert multiple products from bulk draft
+        const items = changes.items || [];
+        const results = await Promise.allSettled(
+          items.map(item => supabase.from('products').insert([{
+            name: item.name,
+            sku: item.sku || null,
+            ean: item.ean || null,
+            category: item.category || null,
+            subcategory: item.subcategory || null,
+            brand: item.brand || null,
+            location: item.location || null,
+            count: item.count || 0,
+            price: item.price || null,
+            status: item.status || 'Em Estoque',
+          }]))
+        );
+        const saved = results.filter(r => r.status === 'fulfilled' && !(r as any).value?.error).length;
+        const errors = results.length - saved;
+        setNotification({ type: 'success', message: `${saved} produto(s) cadastrado(s)${errors > 0 ? ` · ${errors} com erro` : ''}` });
+      } else if (isNewProduct) {
         // Create new product
         const { is_new_product, observation, ...productData } = changes;
         const { error: insertError } = await supabase
           .from('products')
           .insert([{
             ...productData,
-            status: 'Ativo' // Default status
+            status: 'Ativo'
           }]);
         if (insertError) throw insertError;
+        setNotification({ type: 'success', message: 'Novo produto cadastrado com sucesso!' });
       } else {
         // Update the product in Inventory
         const { error: updateError } = await supabase
@@ -1045,6 +1067,7 @@ export default function Page() {
           .update(changes)
           .eq('id', request.product_id);
         if (updateError) throw updateError;
+        setNotification({ type: 'success', message: 'Alteração aplicada com sucesso!' });
       }
 
       // Update request status
@@ -1055,7 +1078,6 @@ export default function Page() {
 
       if (requestError) throw requestError;
 
-      setNotification({ type: 'success', message: isNewProduct ? 'Novo produto cadastrado com sucesso!' : 'Alteração aplicada com sucesso!' });
       setShowRequestConfirmModal({ show: false, requestId: null });
       fetchRequests();
       fetchProducts();

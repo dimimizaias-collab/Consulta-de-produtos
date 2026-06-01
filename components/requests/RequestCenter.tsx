@@ -1,11 +1,11 @@
 'use client';
 
-import { 
-  Plus, 
-  X, 
-  Edit2, 
-  Check, 
-  Trash2, 
+import {
+  Plus,
+  X,
+  Edit2,
+  Check,
+  Trash2,
   ArrowLeftRight,
   Package,
   Clock,
@@ -82,13 +82,97 @@ export function RequestCenter({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {pendingRequests.map((request) => {
           const requestedChanges = JSON.parse(request.requested_changes);
-          const isNewProduct = requestedChanges.is_new_product;
+          const isBulkProducts = requestedChanges.is_bulk_products;
+          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts;
           const productData = isNewProduct ? requestedChanges : request.products;
 
+          if (isBulkProducts) {
+            const items = requestedChanges.items || [];
+            return (
+              <motion.div
+                layout
+                key={request.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-surface-container-lowest rounded-[2.5rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] overflow-hidden flex flex-col group hover:border-primary/20 transition-all"
+              >
+                <div className="p-8 flex-1 space-y-6">
+                  <div className="flex gap-6">
+                    <div className="w-24 h-24 rounded-3xl bg-primary/10 border border-primary/20 overflow-hidden shrink-0 group-hover:scale-105 transition-transform duration-500 flex items-center justify-center">
+                      <Package size={48} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest bg-primary text-white">
+                          Bulk Draft
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black text-on-surface truncate leading-tight mb-1 group-hover:text-primary transition-colors">
+                        Rascunho em Bulk
+                      </h3>
+                      <p className="text-[10px] font-black text-on-surface/20 uppercase tracking-[0.2em]">
+                        {items.length} produto{items.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-6 border-t border-on-surface/[0.03]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest">
+                        Lista de Produtos:
+                      </p>
+                      <div className="flex items-center gap-2 text-[9px] font-black text-primary/40 uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full">
+                        <Clock size={12} />
+                        Pending
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 bg-surface-container-low/30 p-4 rounded-2xl border border-on-surface/[0.02] max-h-48 overflow-y-auto">
+                      {items.slice(0, 5).map((item: any, idx: number) => (
+                        <div key={idx} className="text-xs">
+                          <span className="font-black text-on-surface">{item.name}</span>
+                          {item.ean && <span className="text-on-surface/40"> · EAN {item.ean}</span>}
+                          {item.price && <span className="text-emerald-600 dark:text-emerald-400"> · R${item.price}</span>}
+                        </div>
+                      ))}
+                      {items.length > 5 && (
+                        <div className="text-[9px] text-on-surface/40 italic pt-2 border-t border-on-surface/[0.05]">
+                          +{items.length - 5} mais produtos...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-8 py-6 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-3">
+                  <button
+                    onClick={() => onEditRequest(request)}
+                    className="flex-1 h-12 bg-white border border-on-surface/[0.03] text-on-surface/60 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <Edit2 size={14} />
+                    Review
+                  </button>
+                  <button
+                    onClick={() => onApproveRequest(request.id)}
+                    className="flex-1 h-12 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  >
+                    <CheckCircle2 size={16} />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => onDeleteRequest(request.id)}
+                    className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50 shadow-sm"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          }
+
           return (
-            <motion.div 
+            <motion.div
               layout
-              key={request.id} 
+              key={request.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-surface-container-lowest rounded-[2.5rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] overflow-hidden flex flex-col group hover:border-primary/20 transition-all"
