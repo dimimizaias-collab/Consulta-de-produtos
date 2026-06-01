@@ -44,6 +44,9 @@ interface ProductBulkTableProps {
   subtitle?: string;
   saveButtonLabel?: string;
   skipNameValidation?: boolean;
+  // Secondary action button (e.g. "Enviar p/ revisão" or "Salvar revisão")
+  secondaryActionLabel?: string;
+  onSecondaryAction?: (rows: Omit<BulkRow, 'id'>[]) => Promise<void>;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -113,11 +116,14 @@ export function ProductBulkTable({
   subtitle,
   saveButtonLabel = 'Salvar',
   skipNameValidation = false,
+  secondaryActionLabel,
+  onSecondaryAction,
 }: ProductBulkTableProps) {
   const [rows, setRows]                       = useState<BulkRow[]>([emptyRow()]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [invalidIds, setInvalidIds]           = useState<Set<string>>(new Set());
   const [saving, setSaving]                   = useState(false);
+  const [savingSecondary, setSavingSecondary] = useState(false);
   const [saveResult, setSaveResult]           = useState<SaveResult | null>(null);
   const [openStatusId, setOpenStatusId]       = useState<string | null>(null);
 
@@ -195,6 +201,16 @@ export function ProductBulkTable({
   }, [openComboKey]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
+
+  const handleSecondaryAction = useCallback(async () => {
+    if (!onSecondaryAction) return;
+    setSavingSecondary(true);
+    try {
+      await onSecondaryAction(rows.map(({ id, ...rest }) => rest));
+    } finally {
+      setSavingSecondary(false);
+    }
+  }, [rows, onSecondaryAction]);
 
   const addRow = useCallback(() => {
     setRows(prev => [...prev, emptyRow()]);
@@ -334,6 +350,24 @@ export function ProductBulkTable({
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {secondaryActionLabel && onSecondaryAction && (
+                <button
+                  onClick={handleSecondaryAction}
+                  disabled={savingSecondary || saving}
+                  className="h-9 px-5 rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50 border border-[#1A1A0E]/[0.18] dark:border-white/[0.15] bg-black/[0.06] dark:bg-white/[0.06] text-[#1A1A0E]/70 dark:text-white/60"
+                  style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(26,26,14,0.11)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = ''; }}
+                  onMouseDown ={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
+                  onMouseUp   ={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+                >
+                  {savingSecondary
+                    ? <><Loader2 size={14} className="animate-spin" />Salvando...</>
+                    : <><Save size={14} />{secondaryActionLabel}</>
+                  }
+                </button>
+              )}
 
               <button
                 onClick={onClose}

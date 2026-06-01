@@ -836,6 +836,32 @@ export default function Page() {
     setNotification({ type: 'success', message: 'Rascunho salvo em Requisições!' });
   };
 
+  const handleSaveReviewProgress = async (rows: any[]) => {
+    if (!bulkDraftUnderReview) return;
+    const items = rows.map((r: any, idx: number) => ({
+      seq: idx + 1,
+      name: r.name?.trim() || '',
+      sku: r.sku || null,
+      ean: r.ean || null,
+      category: r.category || null,
+      subcategory: r.subcategory || null,
+      brand: r.brand || null,
+      location: r.location || null,
+      count: parseFloat(r.count) || 0,
+      price: parseFloat(String(r.price).replace(',', '.')) || null,
+      status: r.status || 'Em Estoque',
+    }));
+    const { error } = await supabase.from('requests')
+      .update({
+        requested_changes: JSON.stringify({ is_bulk_products: true, items, count: items.length }),
+      })
+      .eq('id', bulkDraftUnderReview.id);
+    if (error) throw error;
+    setBulkDraftEditedItems(items);
+    await fetchRequests();
+    setNotification({ type: 'success', message: 'Revisão salva com sucesso!' });
+  };
+
   const handleApproveBulkDraft = async (noteId: string, items: any[]) => {
     const results = await Promise.allSettled(
       items.map((item: any) => supabase.from('products').insert([{
@@ -4025,6 +4051,8 @@ export default function Page() {
         locations={[...new Set(products.map((p: any) => p.location).filter(Boolean))]}
         eanProblems={eanProblems}
         onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs)}
+        secondaryActionLabel="Salvar revisão"
+        onSecondaryAction={handleSaveReviewProgress}
         onSave={async (rows) => {
           const results = await Promise.allSettled(
             rows.map(r => supabase.from('products').insert([{
@@ -4553,6 +4581,17 @@ export default function Page() {
         locations={uniqueLocations}
         eanProblems={eanProblems}
         onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'bulk_table')}
+        secondaryActionLabel="Enviar p/ revisão"
+        onSecondaryAction={async (rows) => {
+          await handleSaveBulkDraft(
+            rows.map(r => ({
+              name: r.name, sku: r.sku, ean: r.ean,
+              category: r.category, subcategory: r.subcategory,
+              brand: r.brand, location: r.location,
+              count: r.count, price: r.price, status: r.status,
+            }))
+          );
+        }}
         onSave={async (rows) => {
           const inserts = rows
             .filter(r => r.name.trim())
