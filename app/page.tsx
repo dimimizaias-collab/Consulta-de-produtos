@@ -683,25 +683,26 @@ export default function Page() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      console.log('Buscando produtos do Supabase...');
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Supabase limita 1000 linhas por request — busca em páginas até trazer tudo
+      const PAGE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE - 1);
 
-      if (error) {
-        console.log('Erro na busca do Supabase:', error);
-        throw error;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < PAGE) break; // última página
+        from += PAGE;
       }
 
-      if (data && data.length > 0) {
-        console.log('Colunas disponíveis no primeiro produto:', Object.keys(data[0]));
-      }
-      
-      console.log(`Produtos recebidos: ${data?.length || 0}`);
-      
       // Sempre mapeia, mesmo que vazio, para limpar dados estáticos se necessário
-      const mappedData = (data || []).map((p: any) => ({
+      const mappedData = allData.map((p: any) => ({
         ...p,
         ean: p.ean || '',
         category: p.category || 'Geral',
@@ -714,7 +715,7 @@ export default function Page() {
         createdAt: p.created_at,
         updatedAt: p.updated_at
       }));
-      
+
       setProducts(mappedData);
     } catch (err) {
       console.log('Erro ao buscar produtos:', err);
