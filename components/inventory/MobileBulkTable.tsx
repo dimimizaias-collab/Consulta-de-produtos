@@ -107,6 +107,29 @@ function ComboInput({
   );
 }
 
+// ── Name keyboard layout ───────────────────────────────────────────────────
+
+const NAME_KBD: Record<string, string[][]> = {
+  abc: [
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['SHIFT','z','x','c','v','b','n','m','⌫'],
+    ['123','SPACE','↵'],
+  ],
+  '123': [
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['-','/',':', ';','(',')', '$','&','@','"'],
+    ['#+=','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+  '#+=': [
+    ['[',']','{','}','#','%','^','*','+','='],
+    ['_','\\','|','~','<','>','€','£','¥','•'],
+    ['123','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+};
+
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function MobileBulkTable({
@@ -131,6 +154,9 @@ export function MobileBulkTable({
   const [problemObs, setProblemObs] = useState('');
   const [savingProblem, setSavingProblem] = useState(false);
   const [showPriceKeyboard, setShowPriceKeyboard] = useState(false);
+  const [showNameKeyboard, setShowNameKeyboard] = useState(false);
+  const [nameKbdMode, setNameKbdMode] = useState<'abc' | '123' | '#+='>('abc');
+  const [nameKbdShift, setNameKbdShift] = useState(true);
   const eanInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -151,6 +177,7 @@ export function MobileBulkTable({
     setSelectedIdx(idx);
     setTab('detalhe');
     setShowPriceKeyboard(false);
+    setShowNameKeyboard(false);
   }
 
   function addRow() {
@@ -159,7 +186,23 @@ export function MobileBulkTable({
     setSelectedIdx(rows.length);
     setTab('detalhe');
     setShowPriceKeyboard(true);
+    setShowNameKeyboard(false);
+    setNameKbdShift(true);
     setTimeout(() => eanInputRef.current?.focus(), 60);
+  }
+
+  function handleNameKey(key: string) {
+    const cur = selectedRow?.name ?? '';
+    if (key === '⌫') { updateField(selectedIdx, 'name', cur.slice(0, -1)); return; }
+    if (key === 'SHIFT') { setNameKbdShift(v => !v); return; }
+    if (key === 'SPACE') { updateField(selectedIdx, 'name', cur + ' '); return; }
+    if (key === '↵') { setShowNameKeyboard(false); return; }
+    if (key === '123') { setNameKbdMode('123'); return; }
+    if (key === 'ABC') { setNameKbdMode('abc'); return; }
+    if (key === '#+=') { setNameKbdMode('#+='); return; }
+    const char = nameKbdMode === 'abc' ? (nameKbdShift ? key.toUpperCase() : key) : key;
+    updateField(selectedIdx, 'name', cur + char);
+    if (nameKbdMode === 'abc' && nameKbdShift) setNameKbdShift(false);
   }
 
   function updateField(idx: number, key: keyof Omit<BulkRow, 'id'>, value: string) {
@@ -386,7 +429,10 @@ export function MobileBulkTable({
                   {selectedRow?.ean.trim() && (
                     <button
                       type="button"
-                      onClick={() => updateField(selectedIdx, 'ean', '')}
+                      onClick={() => {
+                        updateField(selectedIdx, 'ean', '');
+                        setTimeout(() => eanInputRef.current?.focus(), 20);
+                      }}
                       title="Limpar EAN"
                       className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#E0D8BF] dark:border-white/[0.08] text-on-surface/40 hover:text-red-500 hover:border-red-400/50 hover:bg-red-500/[0.06] active:scale-90 transition-all shrink-0"
                     >
@@ -540,16 +586,36 @@ export function MobileBulkTable({
                 <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">
                   Nome <span className="text-[#D81E1E]">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={selectedRow?.name ?? ''}
-                  onChange={e => updateField(selectedIdx, 'name', e.target.value)}
-                  placeholder="Nome do produto"
-                  className={cn(
-                    'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]',
-                    !(selectedRow?.name?.trim()) && 'border-[#D81E1E]/50 bg-[#D81E1E]/[0.03]',
-                  )}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode={showNameKeyboard ? 'none' : undefined}
+                    value={selectedRow?.name ?? ''}
+                    onChange={e => updateField(selectedIdx, 'name', e.target.value)}
+                    placeholder="Nome do produto"
+                    className={cn(
+                      'flex-1 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]',
+                      !(selectedRow?.name?.trim()) && 'border-[#D81E1E]/50 bg-[#D81E1E]/[0.03]',
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNameKeyboard(v => !v);
+                      if (showPriceKeyboard) setShowPriceKeyboard(false);
+                      setNameKbdMode('abc');
+                    }}
+                    title="Teclado de texto"
+                    className={cn(
+                      'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                      showNameKeyboard
+                        ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
+                        : 'bg-[#FDFAF0] dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface/50 hover:text-[#D81E1E] hover:border-[#D81E1E]/40'
+                    )}
+                  >
+                    <Keyboard size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* SKU */}
@@ -739,6 +805,68 @@ export function MobileBulkTable({
           </div>
         )}
       </div>
+
+      {/* ── Name Keyboard ────────────────────────────────────── */}
+      <AnimatePresence>
+        {showNameKeyboard && (
+          <motion.div
+            key="name-keyboard"
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            className="shrink-0 bg-[#CDD0D6] dark:bg-[#1C1C1E] pt-2 pb-1 px-0.5 space-y-1 select-none"
+          >
+            {NAME_KBD[nameKbdMode].map((row, ri) => (
+              <div key={ri} className={cn(
+                'flex gap-1 justify-center',
+                ri === 0 ? 'px-0.5' : ri === 1 ? 'px-3' : 'px-0.5',
+              )}>
+                {row.map(key => {
+                  const isShiftKey  = key === 'SHIFT';
+                  const isDelete    = key === '⌫';
+                  const isSpace     = key === 'SPACE';
+                  const isModeKey   = ['123','ABC','#+='].includes(key);
+                  const isReturn    = key === '↵';
+                  const isSpecial   = isShiftKey || isDelete || isSpace || isModeKey || isReturn;
+                  const displayKey  = nameKbdMode === 'abc' && !isSpecial
+                    ? (nameKbdShift ? key.toUpperCase() : key)
+                    : key;
+                  return (
+                    <button
+                      key={key + ri}
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); handleNameKey(key); }}
+                      className={cn(
+                        'h-[42px] rounded-[8px] flex items-center justify-center transition-opacity active:opacity-50',
+                        'shadow-[0_1px_0_rgba(0,0,0,0.28)] dark:shadow-[0_1px_0_rgba(0,0,0,0.55)]',
+                        isSpace ? 'flex-1 text-sm font-medium' :
+                        isModeKey ? 'w-[42px] text-[11px] font-bold' :
+                        isReturn ? 'w-[42px] text-base' :
+                        (isShiftKey || isDelete) ? 'w-[42px]' : 'flex-1 text-[17px] font-normal',
+                        // colors
+                        (isShiftKey && nameKbdShift)
+                          ? 'bg-white dark:bg-[#4A9EFF] text-[#4A9EFF] dark:text-white'
+                          : isSpecial
+                            ? 'bg-[#AEB3BB] dark:bg-[#2E2E2E] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                            : 'bg-white dark:bg-[#3D3D3D] text-[#1A1A0E] dark:text-[#F2F0E3]',
+                      )}
+                    >
+                      {isShiftKey
+                        ? <span className={cn('text-lg leading-none', nameKbdShift ? 'font-black' : 'font-light')}>⇧</span>
+                        : isDelete  ? <Delete size={15} />
+                        : isSpace   ? 'espaço'
+                        : isReturn  ? '↵'
+                        : displayKey
+                      }
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Bottom Tab Bar ────────────────────────────────────── */}
       <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-t border-[#D4C000] dark:border-white/[0.07] flex">
