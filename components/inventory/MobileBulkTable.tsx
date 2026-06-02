@@ -158,7 +158,7 @@ export function MobileBulkTable({
     setRows(prev => [...prev, newRow]);
     setSelectedIdx(rows.length);
     setTab('detalhe');
-    setShowPriceKeyboard(false);
+    setShowPriceKeyboard(true);
     setTimeout(() => eanInputRef.current?.focus(), 60);
   }
 
@@ -246,9 +246,17 @@ export function MobileBulkTable({
             </p>
           </div>
         </div>
-        <span className="text-sm font-black text-[#1A1A0E]/40 dark:text-white/30">
-          {rows.length} {rows.length === 1 ? 'item' : 'itens'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-black text-[#1A1A0E]/40 dark:text-white/30">
+            {rows.length} {rows.length === 1 ? 'item' : 'itens'}
+          </span>
+          <button
+            onClick={addRow}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.09] dark:bg-white/[0.08] text-[#1A1A0E] dark:text-white/70 active:bg-black/20 transition-colors"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
       </div>
 
       {/* ── Content ─────────────────────────────────────────────── */}
@@ -375,6 +383,16 @@ export function MobileBulkTable({
                       !isDupInList && !isDupEan && hasEanProblem && 'border-red-400/60',
                     )}
                   />
+                  {selectedRow?.ean.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => updateField(selectedIdx, 'ean', '')}
+                      title="Limpar EAN"
+                      className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#E0D8BF] dark:border-white/[0.08] text-on-surface/40 hover:text-red-500 hover:border-red-400/50 hover:bg-red-500/[0.06] active:scale-90 transition-all shrink-0"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                   {selectedRow?.ean.trim() && onReportEanProblem && (
                     <EanProblemButton
                       ean={selectedRow.ean}
@@ -627,17 +645,6 @@ export function MobileBulkTable({
                 >
                   <Trash2 size={15} />
                   Remover este item
-                </button>
-              </div>
-
-              {/* Adicionar novo produto */}
-              <div className="pt-1">
-                <button
-                  onClick={addRow}
-                  className="flex items-center justify-center gap-2 w-full text-[#D81E1E] text-sm font-black py-3 px-3 rounded-xl border border-[#D81E1E]/25 hover:bg-[#D81E1E]/[0.07] active:scale-95 transition-all"
-                >
-                  <Plus size={15} />
-                  Adicionar novo produto
                 </button>
               </div>
 
