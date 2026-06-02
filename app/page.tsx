@@ -19,7 +19,7 @@ import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
-import { type EanProblem } from '@/components/shared/EanProblemButton';
+import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -3829,8 +3829,8 @@ export default function Page() {
                       <div className="space-y-2">
                         {(newProductRequest.eans || [newProductRequest.ean || '']).map((ean: string, index: number) => (
                           <div key={index} className="flex gap-2">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={ean}
                               onChange={(e) => {
                                 const newEans = [...(newProductRequest.eans || [newProductRequest.ean || ''])];
@@ -3840,8 +3840,16 @@ export default function Page() {
                               className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                               placeholder="789..."
                             />
+                            {ean.trim() && (
+                              <EanProblemButton
+                                ean={ean}
+                                problems={eanProblems}
+                                onReport={(e, desc, obs) => handleReportEanProblem(e, desc, obs, 'new_product')}
+                                size="sm"
+                              />
+                            )}
                             {index === 0 ? (
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setNewProductRequest({...newProductRequest, eans: [...(newProductRequest.eans || [newProductRequest.ean || '']), '']})}
                                 className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
@@ -3849,7 +3857,7 @@ export default function Page() {
                                 <Plus size={18} />
                               </button>
                             ) : (
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => {
                                   const newEans = (newProductRequest.eans || [newProductRequest.ean || '']).filter((_: any, i: number) => i !== index);
