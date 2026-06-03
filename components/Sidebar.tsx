@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useViewMode } from '@/lib/view-mode';
 
 interface SidebarProps {
   activeTab: string;
@@ -33,8 +34,13 @@ const navItems = [
 ] as const;
 
 export function Sidebar({ activeTab, setActiveTab, unreadNotifications = 0 }: SidebarProps) {
+  const { isMobileView } = useViewMode();
+
   return (
-    <aside className="hidden md:flex fixed left-4 inset-y-0 z-40 flex-col items-center w-[56px] py-6">
+    <aside className={cn(
+      'fixed left-4 inset-y-0 z-40 flex-col items-center w-[56px] py-6',
+      isMobileView ? 'hidden' : 'flex'
+    )}>
 
       {/* ── Logo circle — slightly larger than nav circles ── */}
       <div className="w-14 h-14 rounded-full bg-on-surface/[0.10] flex items-center justify-center shrink-0 mb-6 overflow-hidden">

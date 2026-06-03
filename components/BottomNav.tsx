@@ -3,6 +3,7 @@
 import { LayoutDashboard, Package2, ShoppingCart, BarChart3, LogIn, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
+import { useViewMode } from '@/lib/view-mode';
 
 interface BottomNavProps {
   activeTab: string;
@@ -19,8 +20,13 @@ const navItems = [
 ];
 
 export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
+  const { isMobileView } = useViewMode();
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-surface-container-low/90 backdrop-blur-xl border-t border-on-surface/5 safe-area-inset-bottom">
+    <nav className={cn(
+      'fixed bottom-0 left-0 right-0 z-50 bg-surface-container-low/90 backdrop-blur-xl border-t border-on-surface/5 safe-area-inset-bottom',
+      !isMobileView && 'hidden'
+    )}>
       <div className="flex items-center justify-around px-2 pt-2 pb-[env(safe-area-inset-bottom,8px)]">
         {navItems.map((item) => {
           const isActive = activeTab === item.key;

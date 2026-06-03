@@ -25,6 +25,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
+import { useViewMode } from '@/lib/view-mode';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import { XMLParser } from 'fast-xml-parser';
@@ -222,6 +223,7 @@ function SearchableSelect({
 }
 
 export default function Page() {
+  const { isMobileView } = useViewMode();
   const [activeTab, setActiveTab] = useState('Inventory');
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
   const [pendingOpenNoteId, setPendingOpenNoteId] = useState<string | null>(null);
@@ -3144,7 +3146,7 @@ export default function Page() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={unreadNotificationCount}
         />
-        <main className="flex-1 ml-0 md:ml-[80px]">
+        <main className={cn('flex-1', isMobileView ? 'ml-0' : 'ml-[80px]')}>
           <TopNav
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -3155,8 +3157,9 @@ export default function Page() {
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
           />
           <div className={cn(
-            "px-5 md:px-7 pb-8 max-w-[1400px] space-y-4 md:space-y-8",
-            activeTab === 'Inventory' ? "pt-[74px]" : "pt-5"
+            'pb-8 max-w-[1400px]',
+            isMobileView ? 'px-5 space-y-4' : 'px-7 space-y-8',
+            activeTab === 'Inventory' ? 'pt-[74px]' : 'pt-5'
           )}>
             {activeTab === 'Inventory' ? (
                 <InventoryManager 

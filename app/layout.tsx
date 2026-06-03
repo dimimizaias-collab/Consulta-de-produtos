@@ -1,5 +1,6 @@
 import type {Metadata, Viewport} from 'next';
 import { Manrope, Inter, DM_Mono } from 'next/font/google';
+import { Providers } from './providers';
 import './globals.css';
 
 const manrope = Manrope({
@@ -40,10 +41,12 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="pt-BR" className={`${manrope.variable} ${inter.variable} ${dmMono.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');var m=localStorage.getItem('view-mode');if(m==='mobile'||m==='desktop')document.documentElement.setAttribute('data-view-mode',m);}catch(e){}})();` }} />
       </head>
       <body suppressHydrationWarning className="font-inter">
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
