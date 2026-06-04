@@ -225,6 +225,9 @@ export function MobileTaskPage({
   const [obsKbdShift, setObsKbdShift] = useState(true);
 
   // Keyboards (item detail)
+  const [showEanKeyboard, setShowEanKeyboard] = useState(false);
+  const [eanKbdMode, setEanKbdMode] = useState<'abc'|'123'|'#+='>('abc');
+  const [eanKbdShift, setEanKbdShift] = useState(true);
   const [showPriceKeyboard, setShowPriceKeyboard] = useState(false);
   const [showNewPriceKeyboard, setShowNewPriceKeyboard] = useState(false);
   const [showItemNameKeyboard, setShowItemNameKeyboard] = useState(false);
@@ -294,6 +297,20 @@ export function MobileTaskPage({
     if (obsKbdMode === 'abc' && obsKbdShift) setObsKbdShift(false);
   }
 
+  function handleEanKey(key: string) {
+    if (editingItemIdx === null) return;
+    if (key === '⌫') { updateItemField(editingItemIdx, 'ean', (curItem?.ean ?? '').slice(0, -1)); return; }
+    if (key === 'SHIFT') { setEanKbdShift(v => !v); return; }
+    if (key === 'SPACE') { updateItemField(editingItemIdx, 'ean', (curItem?.ean ?? '') + ' '); return; }
+    if (key === '↵') { setShowEanKeyboard(false); return; }
+    if (key === '123') { setEanKbdMode('123'); return; }
+    if (key === 'ABC') { setEanKbdMode('abc'); return; }
+    if (key === '#+=') { setEanKbdMode('#+='); return; }
+    const char = eanKbdMode === 'abc' ? (eanKbdShift ? key.toUpperCase() : key) : key;
+    updateItemField(editingItemIdx, 'ean', (curItem?.ean ?? '') + char);
+    if (eanKbdMode === 'abc' && eanKbdShift) setEanKbdShift(false);
+  }
+
   function handleItemNameKey(key: string) {
     if (editingItemIdx === null) return;
     if (key === '⌫') { updateItemField(editingItemIdx, 'name', (curItem?.name ?? '').slice(0, -1)); return; }
@@ -342,7 +359,7 @@ export function MobileTaskPage({
   }
 
   // ── Active keyboard for item detail ──
-  const activeItemKbd = showItemNameKeyboard ? 'name' : showItemObsKeyboard ? 'obs' : null;
+  const activeItemKbd = showEanKeyboard ? 'ean' : showItemNameKeyboard ? 'name' : showItemObsKeyboard ? 'obs' : null;
 
   // ══════════════════════════════════════════════════════════════════════════
   // RENDER — ITEM DETAIL VIEW
@@ -365,7 +382,7 @@ export function MobileTaskPage({
           </button>
           <div className="flex items-center gap-2">
             <button disabled={editingItemIdx === 0}
-              onClick={() => { setEditingItemIdx(i => Math.max(0, (i ?? 1) - 1)); setShowPriceKeyboard(false); setShowItemNameKeyboard(false); setShowItemObsKeyboard(false); }}
+              onClick={() => { setEditingItemIdx(i => Math.max(0, (i ?? 1) - 1)); setShowPriceKeyboard(false); setShowItemNameKeyboard(false); setShowItemObsKeyboard(false); setShowEanKeyboard(false); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 active:bg-on-surface/10 transition-colors">
               <ChevronLeft size={15} />
             </button>
@@ -373,12 +390,15 @@ export function MobileTaskPage({
               Item <span className="text-on-surface">{editingItemIdx + 1}</span> de {items.length}
             </p>
             <button disabled={editingItemIdx === items.length - 1}
-              onClick={() => { setEditingItemIdx(i => Math.min(items.length - 1, (i ?? 0) + 1)); setShowPriceKeyboard(false); setShowItemNameKeyboard(false); setShowItemObsKeyboard(false); }}
+              onClick={() => { setEditingItemIdx(i => Math.min(items.length - 1, (i ?? 0) + 1)); setShowPriceKeyboard(false); setShowItemNameKeyboard(false); setShowItemObsKeyboard(false); setShowEanKeyboard(false); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 active:bg-on-surface/10 transition-colors">
               <ChevronRight size={15} />
             </button>
           </div>
-          <div className="w-9" />
+          <button onClick={addItem} title="Adicionar item"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#D81E1E] text-white active:bg-red-600 transition-colors active:scale-90">
+            <Plus size={18} />
+          </button>
         </div>
 
         {/* Scroll content */}
@@ -391,6 +411,7 @@ export function MobileTaskPage({
               <input
                 ref={eanInputRef}
                 type="text"
+                inputMode={showEanKeyboard ? 'none' : undefined}
                 value={curItem.ean}
                 onChange={e => updateItemField(editingItemIdx, 'ean', e.target.value)}
                 onBlur={e => handleEanBlur(e.target.value, editingItemIdx)}
@@ -404,6 +425,11 @@ export function MobileTaskPage({
                   <Trash2 size={15} />
                 </button>
               )}
+              <button type="button" onClick={() => { setShowEanKeyboard(v => !v); setShowItemNameKeyboard(false); setShowItemObsKeyboard(false); setEanKbdMode('abc'); }}
+                className={cn('w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                  showEanKeyboard ? 'bg-[#D81E1E] text-white border-[#D81E1E]' : 'bg-[#FDFAF0] dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-on-surface/50 hover:text-[#D81E1E] hover:border-[#D81E1E]/40')}>
+                <Keyboard size={18} />
+              </button>
             </div>
             {curItem.foundInInventory && (
               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold flex items-center gap-1">
@@ -538,6 +564,9 @@ export function MobileTaskPage({
 
         {/* QWERTY keyboard panel */}
         <AnimatePresence>
+          {activeItemKbd === 'ean' && (
+            <QwertyKeyboard mode={eanKbdMode} shift={eanKbdShift} onKey={handleEanKey} />
+          )}
           {activeItemKbd === 'name' && (
             <QwertyKeyboard mode={itemNameKbdMode} shift={itemNameKbdShift} onKey={handleItemNameKey} />
           )}
