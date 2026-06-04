@@ -35,7 +35,7 @@ interface MobileBulkTableProps {
   subcategories?: string[];
   brands?: string[];
   locations?: string[];
-  onSaveDraft: (rows: BulkRow[]) => Promise<void>;
+  onSaveDraft: (rows: BulkRow[], title: string) => Promise<void>;
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
 }
 
@@ -157,6 +157,7 @@ export function MobileBulkTable({
   const [showNameKeyboard, setShowNameKeyboard] = useState(false);
   const [nameKbdMode, setNameKbdMode] = useState<'abc' | '123' | '#+='>('abc');
   const [nameKbdShift, setNameKbdShift] = useState(true);
+  const [listTitle, setListTitle] = useState('');
   const eanInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -223,7 +224,7 @@ export function MobileBulkTable({
   async function handleSaveDraft() {
     setSaving(true);
     try {
-      await onSaveDraft(rows);
+      await onSaveDraft(rows, listTitle);
       onClose();
     } finally {
       setSaving(false);
@@ -723,6 +724,20 @@ export function MobileBulkTable({
         {/* ════ RESUMO TAB ═════════════════════════════════════ */}
         {tab === 'resumo' && (
           <div className="flex flex-col h-full overflow-y-auto pb-32">
+            {/* nome do rascunho */}
+            <div className="px-4 pt-4 pb-2">
+              <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">
+                Nome do rascunho
+              </label>
+              <input
+                type="text"
+                value={listTitle}
+                onChange={e => setListTitle(e.target.value)}
+                placeholder="Ex: Feira de Janeiro..."
+                className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
+              />
+            </div>
+
             {/* stats cards */}
             <div className="p-4 grid grid-cols-3 gap-3">
               <div className="bg-[#FDFAF0] dark:bg-[#252520] border border-on-surface/[0.05] rounded-2xl p-3 text-center">

@@ -809,7 +809,7 @@ export default function Page() {
     setEanProblems(data ?? []);
   };
 
-  const handleSaveBulkDraft = async (rows: any[]) => {
+  const handleSaveBulkDraft = async (rows: any[], title: string) => {
     const items = rows.filter((r: any) => r.name?.trim() || r.ean?.trim()).map((r: any, idx: number) => ({
       seq: idx + 1,
       name: r.name?.trim() || '',
@@ -828,6 +828,7 @@ export default function Page() {
       product_id: null,
       requested_changes: JSON.stringify({
         is_bulk_products: true,
+        title: title?.trim() || null,
         items,
         count: items.length,
       }),
