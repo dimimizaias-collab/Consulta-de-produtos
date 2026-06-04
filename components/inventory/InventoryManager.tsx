@@ -137,69 +137,61 @@ export function InventoryManager({
       )}
       
       {/* Action Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex items-center gap-4 bg-surface-container-low/50 backdrop-blur-xl px-2 py-2 rounded-[2rem] border border-on-surface/[0.03] shadow-sm ring-1 ring-on-surface/[0.02]">
-          <div className="flex items-center gap-4 px-6 py-2">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em] leading-none mb-1.5">Catálogo</span>
-              <span className="text-2xl font-black text-on-surface leading-none">{products.length}</span>
-            </div>
-            <div className="h-8 w-[1px] bg-on-surface/[0.05]"></div>
+      <div className="flex flex-col gap-3">
+
+        <input type="file" ref={stockFileInputRef} onChange={onStockUpdate} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
+        <input type="file" ref={fileInputRef} onChange={onFileImport} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
+
+        {/* Mobile layout: count chip + icon buttons in one row */}
+        <div className="flex items-center gap-2 lg:hidden">
+          {/* Produtos count chip */}
+          <div className="bg-[#FFF8C0] dark:bg-surface-container-low border border-[#E8D800] dark:border-on-surface/[0.06] rounded-2xl px-4 py-2 shrink-0">
+            <span className="block text-[8px] font-black text-on-surface/40 uppercase tracking-[0.18em] leading-none mb-1">Produtos</span>
+            <span className="text-xl font-black text-on-surface leading-none">{products.length}</span>
           </div>
-          
-          <input type="file" ref={stockFileInputRef} onChange={onStockUpdate} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
-          <input type="file" ref={fileInputRef} onChange={onFileImport} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
-          
-          <button 
+
+          {/* Atualizar — ícone */}
+          <button
             onClick={() => setShowStockUpdateChoiceModal(true)}
             disabled={importing}
-            className="bg-amber-500/10 text-amber-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-[colors,transform] flex items-center gap-2.5 disabled:opacity-50 group active:scale-95"
+            title="Atualizar Estoque"
+            className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low text-amber-600 flex items-center justify-center active:scale-95 transition-all disabled:opacity-50"
           >
-            <RefreshCw size={14} className={cn("transition-transform", importing ? "animate-spin" : "group-hover:rotate-180")} />
-            Atualizar Estoque
+            <RefreshCw size={17} className={cn(importing ? 'animate-spin' : '')} />
           </button>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+          {/* Mobile — ícone */}
           <button
             onClick={onOpenMobileBulkTable}
-            className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
+            title="Mobile"
+            className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] dark:border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
           >
-            <Smartphone size={14} />
-            Mobile
+            <Smartphone size={17} />
           </button>
-          
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
+
+          {/* Filtros — ícone */}
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            title="Filtros"
             className={cn(
-              "h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-[colors,transform] flex items-center gap-2.5 shadow-sm border active:scale-95",
+              'w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center active:scale-95 transition-all',
               showFilters
-                ? "bg-primary/10 border-primary/20 text-primary"
-                : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
+                ? 'bg-primary/10 border-primary/20 text-primary'
+                : 'bg-surface-container-low border-on-surface/[0.06] text-on-surface/55 hover:text-on-surface'
             )}
           >
-            <Filter size={14} />
-            Filtros
+            <Filter size={17} />
           </button>
-          
-          {/* Novo dropdown */}
+
+          {/* Novo — ícone vermelho */}
           <div ref={newDropdownRef} className="relative">
             <button
               onClick={() => setShowNewDropdown(v => !v)}
-              className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2 shadow-sm uppercase tracking-widest active:scale-[0.97]"
-              style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+              title="Novo"
+              className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
             >
-              <Plus size={15} />
-              Novo
-              <motion.span
-                animate={{ rotate: showNewDropdown ? 180 : 0 }}
-                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                style={{ display: 'flex' }}
-              >
-                <ChevronDown size={13} />
-              </motion.span>
+              <Plus size={19} />
             </button>
-
             <AnimatePresence>
               {showNewDropdown && (
                 <motion.div
@@ -228,22 +220,116 @@ export function InventoryManager({
               )}
             </AnimatePresence>
           </div>
-          
-          <button 
+
+          {/* Bulk Import — hidden on mobile */}
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-50 active:scale-95"
-          >
-            {importing ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-            ) : (
-              <>
-                <FileUp size={16} />
-                Bulk Import
-              </>
-            )}
-          </button>
+            className="hidden"
+          />
         </div>
+
+        {/* Desktop layout — original, preservado */}
+        <div className="hidden lg:flex lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex items-center gap-4 bg-surface-container-low/50 backdrop-blur-xl px-2 py-2 rounded-[2rem] border border-on-surface/[0.03] shadow-sm ring-1 ring-on-surface/[0.02]">
+            <div className="flex items-center gap-4 px-6 py-2">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em] leading-none mb-1.5">Produtos</span>
+                <span className="text-2xl font-black text-on-surface leading-none">{products.length}</span>
+              </div>
+              <div className="h-8 w-[1px] bg-on-surface/[0.05]"></div>
+            </div>
+            <button
+              onClick={() => setShowStockUpdateChoiceModal(true)}
+              disabled={importing}
+              className="bg-amber-500/10 text-amber-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-[colors,transform] flex items-center gap-2.5 disabled:opacity-50 group active:scale-95"
+            >
+              <RefreshCw size={14} className={cn("transition-transform", importing ? "animate-spin" : "group-hover:rotate-180")} />
+              Atualizar Estoque
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={onOpenMobileBulkTable}
+              className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
+            >
+              <Smartphone size={14} />
+              Mobile
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-[colors,transform] flex items-center gap-2.5 shadow-sm border active:scale-95",
+                showFilters
+                  ? "bg-primary/10 border-primary/20 text-primary"
+                  : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
+              )}
+            >
+              <Filter size={14} />
+              Filtros
+            </button>
+            <div ref={newDropdownRef} className="relative">
+              <button
+                onClick={() => setShowNewDropdown(v => !v)}
+                className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2 shadow-sm uppercase tracking-widest active:scale-[0.97]"
+                style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+              >
+                <Plus size={15} />
+                Novo
+                <motion.span
+                  animate={{ rotate: showNewDropdown ? 180 : 0 }}
+                  transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                  style={{ display: 'flex' }}
+                >
+                  <ChevronDown size={13} />
+                </motion.span>
+              </button>
+              <AnimatePresence>
+                {showNewDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Rows3 size={14} className="text-primary" />
+                      Lista de produtos
+                    </button>
+                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Plus size={14} />
+                      Novo Produto
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-50 active:scale-95"
+            >
+              {importing ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+              ) : (
+                <>
+                  <FileUp size={16} />
+                  Bulk Import
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
       </div>
 
       {/* Filters Panel */}
