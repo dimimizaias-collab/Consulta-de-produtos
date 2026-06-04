@@ -19,6 +19,8 @@ import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
+import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
+import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
@@ -260,7 +262,9 @@ export default function Page() {
   });
   const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
   const [showProductBulkTable, setShowProductBulkTable] = useState(false);
+  const [showMobileTypeModal, setShowMobileTypeModal] = useState(false);
   const [showMobileBulkTable, setShowMobileBulkTable] = useState(false);
+  const [showMobileTaskPage, setShowMobileTaskPage] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
   const [bulkDraftUnderReview, setBulkDraftUnderReview] = useState<any>(null);
@@ -840,6 +844,24 @@ export default function Page() {
     setNotification({ type: 'success', message: 'Rascunho salvo em Requisições!' });
   };
 
+  const handleSendTask = async (task: TaskDraft) => {
+    const { error } = await supabase.from('requests').insert([{
+      product_id: null,
+      requested_changes: JSON.stringify({
+        is_task: true,
+        task_type: task.task_type,
+        responsavel: task.responsavel || null,
+        classificacao: task.classificacao,
+        observacao: task.observacao || null,
+        items: task.items || [],
+      }),
+      status: 'pending',
+    }]);
+    if (error) throw error;
+    await fetchRequests();
+    setNotification({ type: 'success', message: 'Tarefa enviada para Requisições!' });
+  };
+
   const handleSaveReviewProgress = async (rows: any[]) => {
     if (!bulkDraftUnderReview) return;
     const items = rows.map((r: any, idx: number) => ({
@@ -1066,7 +1088,7 @@ export default function Page() {
         // Insert multiple products from bulk draft - use edited items if available
         const items = bulkDraftEditedItems.length > 0 ? bulkDraftEditedItems : (changes.items || []);
         const results = await Promise.allSettled(
-          items.map(item => supabase.from('products').insert([{
+          items.map((item: any) => supabase.from('products').insert([{
             name: item.name,
             sku: item.sku || null,
             ean: item.ean || null,
@@ -3176,7 +3198,7 @@ export default function Page() {
                   onViewLink={handleViewLink}
                   onStockUpdate={handleStockUpdate}
                   onFileImport={handleFileImport}
-                  onOpenMobileBulkTable={() => setShowMobileBulkTable(true)}
+                  onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
                   fileInputRef={fileInputRef}
                   setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
@@ -4569,6 +4591,26 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Type Selection Modal */}
+      <MobileTypeModal
+        isOpen={showMobileTypeModal}
+        onClose={() => setShowMobileTypeModal(false)}
+        onSelectConferencia={() => { setShowMobileTypeModal(false); setShowMobileBulkTable(true); }}
+        onSelectTarefas={() => { setShowMobileTypeModal(false); setShowMobileTaskPage(true); }}
+      />
+
+      {/* Mobile Task Page */}
+      <MobileTaskPage
+        isOpen={showMobileTaskPage}
+        onClose={() => setShowMobileTaskPage(false)}
+        products={products}
+        categories={uniqueCategories}
+        subcategories={Array.from(new Set(products.map((p: any) => p.subcategory).filter(Boolean))).sort() as string[]}
+        brands={uniqueBrands}
+        locations={uniqueLocations}
+        onSendTask={handleSendTask}
+      />
+
       {/* Mobile Bulk Table */}
       <MobileBulkTable
         isOpen={showMobileBulkTable}
@@ -4602,7 +4644,8 @@ export default function Page() {
               category: r.category, subcategory: r.subcategory,
               brand: r.brand, location: r.location,
               count: r.count, price: r.price, status: r.status,
-            }))
+            })),
+            ''
           );
         }}
         onSave={async (rows) => {

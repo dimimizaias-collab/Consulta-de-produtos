@@ -11,12 +11,37 @@ import {
   Clock,
   CheckCircle2,
   ImageOff,
-  Search
+  Search,
+  ClipboardList,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import Image from 'next/image';
 import { useState, useMemo } from 'react';
+
+// ── Thermometer SVG icon ────────────────────────────────────────────────────
+
+function ThermometerIcon({ level, className }: { level: 'Alta' | 'Média' | 'Baixa' | null; className?: string }) {
+  const fillPct = level === 'Alta' ? 85 : level === 'Média' ? 45 : level === 'Baixa' ? 15 : 20;
+  const color = level === 'Alta' ? '#EF4444' : level === 'Média' ? '#F97316' : level === 'Baixa' ? '#22C55E' : 'currentColor';
+  const tubeH = 20; // total tube height in svg units
+  const filled = (fillPct / 100) * tubeH;
+  return (
+    <svg viewBox="0 0 24 40" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Tube outline */}
+      <rect x="9" y="2" width="6" height="22" rx="3" stroke={color} strokeWidth="1.5" fill="none" opacity="0.3" />
+      {/* Fill */}
+      <rect x="10.5" y={2 + tubeH - filled} width="3" height={filled} rx="1.5" fill={color} />
+      {/* Bulb */}
+      <circle cx="12" cy="31" r="6" fill={color} />
+      <circle cx="12" cy="31" r="3.5" fill="white" opacity="0.35" />
+      {/* Tick marks */}
+      <line x1="15" y1="8"  x2="17" y2="8"  stroke={color} strokeWidth="1" opacity="0.5" />
+      <line x1="15" y1="13" x2="17" y2="13" stroke={color} strokeWidth="1" opacity="0.5" />
+      <line x1="15" y1="18" x2="17" y2="18" stroke={color} strokeWidth="1" opacity="0.5" />
+    </svg>
+  );
+}
 
 interface RequestCenterProps {
   requests: any[];
@@ -106,8 +131,83 @@ export function RequestCenter({
         {pendingRequests.map((request) => {
           const requestedChanges = JSON.parse(request.requested_changes);
           const isBulkProducts = requestedChanges.is_bulk_products;
-          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts;
+          const isTask = requestedChanges.is_task;
+          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask;
           const productData = isNewProduct ? requestedChanges : request.products;
+
+          // ── Task card ──
+          if (isTask) {
+            const clevel = requestedChanges.classificacao as 'Alta' | 'Média' | 'Baixa' | null;
+            const borderCls = clevel === 'Alta' ? 'border-red-400/40 hover:border-red-400/70'
+              : clevel === 'Média' ? 'border-orange-400/40 hover:border-orange-400/70'
+              : clevel === 'Baixa' ? 'border-green-400/40 hover:border-green-400/70'
+              : 'border-on-surface/[0.04] hover:border-primary/20';
+            const iconBg = clevel === 'Alta' ? 'bg-red-500/10 border-red-400/20'
+              : clevel === 'Média' ? 'bg-orange-500/10 border-orange-400/20'
+              : clevel === 'Baixa' ? 'bg-green-500/10 border-green-400/20'
+              : 'bg-primary/10 border-primary/20';
+            const taskItems = requestedChanges.items || [];
+            const taskTypeLabel = requestedChanges.task_type === 'revisao' ? 'Revisão de mercadoria' : 'Tarefa';
+            return (
+              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className={cn('bg-surface-container-lowest rounded-[1.5rem] border shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all', borderCls)}>
+                <div className="p-5 flex-1 space-y-3">
+                  <div className="flex gap-3 items-start">
+                    <div className={cn('w-12 h-12 rounded-xl border shrink-0 flex items-center justify-center p-2', iconBg)}>
+                      <ThermometerIcon level={clevel} className="w-full h-full" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className={cn('text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest',
+                          clevel === 'Alta' ? 'bg-red-500/15 text-red-600' :
+                          clevel === 'Média' ? 'bg-orange-500/15 text-orange-600' :
+                          clevel === 'Baixa' ? 'bg-green-500/15 text-green-700' : 'bg-primary/10 text-primary')}>
+                          {clevel || 'Tarefa'}
+                        </span>
+                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-on-surface/5 text-on-surface/40">
+                          {taskTypeLabel}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-black text-on-surface leading-tight">
+                        {requestedChanges.observacao?.slice(0, 60) || 'Nova tarefa'}
+                        {requestedChanges.observacao?.length > 60 && '...'}
+                      </h3>
+                      {taskItems.length > 0 && (
+                        <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest mt-0.5">
+                          {taskItems.length} item{taskItems.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {taskItems.length > 0 && (
+                    <div className="bg-surface-container-low/30 px-3 py-2 rounded-xl border border-on-surface/[0.03] max-h-28 overflow-y-auto space-y-1">
+                      {taskItems.slice(0, 4).map((item: any, idx: number) => (
+                        <p key={idx} className="text-[10px] text-on-surface/60 truncate">
+                          {item.name || item.ean || 'Item'}
+                          {item.newPriceEnabled && item.newPrice && <span className="text-primary ml-1">→ R${item.newPrice}</span>}
+                        </p>
+                      ))}
+                      {taskItems.length > 4 && <p className="text-[9px] text-on-surface/35 italic">+{taskItems.length - 4} mais...</p>}
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
+                  <button onClick={() => onEditRequest(request)}
+                    className="flex-1 h-9 bg-white border border-on-surface/[0.04] text-on-surface/60 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    <Edit2 size={12} /> Ver
+                  </button>
+                  <button onClick={() => onApproveRequest(request.id)}
+                    className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20">
+                    <CheckCircle2 size={13} /> Aprovar
+                  </button>
+                  <button onClick={() => onDeleteRequest(request.id)}
+                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          }
 
           if (isBulkProducts) {
             const items = requestedChanges.items || [];
