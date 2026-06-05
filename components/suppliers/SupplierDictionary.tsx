@@ -147,7 +147,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const isDupCode = supplierMappingCode.trim().length > 0 &&
     supplierMappings.some(m => (m.supplier_sku ?? '').toLowerCase() === supplierMappingCode.trim().toLowerCase());
   const isDupDescription = supplierMappingDescription.trim().length > 0 &&
-    supplierMappings.some(m => m.supplier_description.toLowerCase() === supplierMappingDescription.trim().toLowerCase());
+    supplierMappings.some(m => (m.supplier_description ?? '').toLowerCase() === supplierMappingDescription.trim().toLowerCase());
 
   // Fetch initial data
   useEffect(() => {
@@ -1010,7 +1010,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                       ) : (() => {
                         const filteredMappings = mappingListSearch.trim()
                           ? supplierMappings.filter(m =>
-                              m.supplier_description.toLowerCase().includes(mappingListSearch.toLowerCase()) ||
+                              (m.supplier_description ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()) ||
                               (m.supplier_sku ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()) ||
                               (m.products?.name ?? '').toLowerCase().includes(mappingListSearch.toLowerCase())
                             )
