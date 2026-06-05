@@ -8085,7 +8085,7 @@ export default function Page() {
             multipliers={viewingNoteMultipliers}
             distribuicao={viewingNoteDistribuicao}
             setNote={(n) => setViewingReviewNote(n as any)}
-            onClose={() => setShowMobileNoteView(false)}
+            onClose={() => { setShowMobileNoteView(false); setViewingReviewNote(null); }}
             onSave={handleSaveNote}
             savingNote={savingNote}
             onDelete={handleDeleteNote}
