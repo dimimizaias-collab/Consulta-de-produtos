@@ -2187,10 +2187,26 @@ export default function Page() {
   const resolveNoteSupplierId = useCallback(async (): Promise<string | null> => {
     const name = viewingReviewNote?.supplierName;
     if (!name) return null;
-    const fromMemory = supplierNames.find((s: any) => s.name === name || s.nome_fantasia?.trim() === name)?.id;
+    const nameLower = name.toLowerCase().trim();
+    // 1) Busca na memória (comparação exata e case-insensitive)
+    const fromMemory = supplierNames.find((s: any) =>
+      s.name === name ||
+      s.nome_fantasia?.trim() === name ||
+      s.name?.toLowerCase().trim() === nameLower ||
+      s.nome_fantasia?.toLowerCase().trim() === nameLower
+    )?.id;
     if (fromMemory) return fromMemory;
-    const { data } = await supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${name}",name.eq."${name}"`).limit(1);
-    return data?.[0]?.id ?? null;
+    // 2) Fallback: carrega todos os fornecedores e filtra em JS (evita problemas de syntax no PostgREST)
+    console.warn('[resolveNoteSupplierId] nome não encontrado em memória, buscando no banco. supplierName:', name, 'supplierNames:', supplierNames.map(s => s.name));
+    const { data } = await supabase.from('suppliers').select('id, name, nome_fantasia');
+    const found = (data || []).find((s: any) =>
+      s.name === name ||
+      s.nome_fantasia?.trim() === name ||
+      s.name?.toLowerCase().trim() === nameLower ||
+      s.nome_fantasia?.toLowerCase().trim() === nameLower
+    );
+    if (!found) console.error('[resolveNoteSupplierId] fornecedor não encontrado no banco. supplierName:', name);
+    return found?.id ?? null;
   }, [viewingReviewNote, supplierNames]);
 
   // Retorna o mapeamento permanente de um item da nota, se existir
