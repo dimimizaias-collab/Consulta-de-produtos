@@ -2260,17 +2260,19 @@ export default function Page() {
         if (noteItemSaveTranslation) {
           const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
           const sourceItem = viewingReviewNote.items[linkingItemIdx];
-          await supabase.from('supplier_mappings').insert({
+          const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
             supplier_id: supplierId,
             supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
             supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
             internal_product_id: created.id,
           });
-          setNoteSupplierMappings(prev => [...prev, {
-            supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
-            supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
-            internal_product_id: created.id,
-          }]);
+          if (!mappingErr) {
+            setNoteSupplierMappings(prev => [...prev, {
+              supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
+              supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+              internal_product_id: created.id,
+            }]);
+          }
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
@@ -2493,20 +2495,19 @@ export default function Page() {
 
     // Tradução permanente
     if (multiLinkSaveTranslation) {
-      try {
-        const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
-        const seen = new Set<string>();
-        for (const e of multiLinkItemEntries) {
-          if (seen.has(e.product.id)) continue; // dedup por produto
-          seen.add(e.product.id);
-          await supabase.from('supplier_mappings').insert({
-            supplier_id: supplierId,
-            supplier_sku: multiLinkSaveTranslationKey === 'codigo' ? (e.supplierCode.trim() || null) : null,
-            supplier_description: multiLinkSaveTranslationKey === 'descricao' ? (sourceItem.original_description || null) : null,
-            internal_product_id: e.product.id,
-          });
-        }
-      } catch { /* ignora erro, vínculo já foi criado */ }
+      const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+      const seen = new Set<string>();
+      for (const e of multiLinkItemEntries) {
+        if (seen.has(e.product.id)) continue;
+        seen.add(e.product.id);
+        const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
+          supplier_id: supplierId,
+          supplier_sku: multiLinkSaveTranslationKey === 'codigo' ? (e.supplierCode.trim() || null) : null,
+          supplier_description: multiLinkSaveTranslationKey === 'descricao' ? (sourceItem.original_description || null) : null,
+          internal_product_id: e.product.id,
+        });
+        if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+      }
     }
 
     setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
@@ -6969,9 +6970,13 @@ export default function Page() {
                                           const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                           if (noteItemSaveTranslation) {
                                             const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
-                                            await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
-                                            setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
-                                            setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                            const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                            if (mappingErr) {
+                                              setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                            } else {
+                                              setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                              setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                            }
                                           }
                                           setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
                                         }
@@ -7002,9 +7007,13 @@ export default function Page() {
                                     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                     if (noteItemSaveTranslation) {
                                       const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
-                                      await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
-                                      setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
-                                      setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                      const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                      if (mappingErr) {
+                                        setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                      } else {
+                                        setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                        setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                      }
                                     }
                                     setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
                                   }}
