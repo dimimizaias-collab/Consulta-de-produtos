@@ -2187,26 +2187,24 @@ export default function Page() {
   const resolveNoteSupplierId = useCallback(async (): Promise<string | null> => {
     const name = viewingReviewNote?.supplierName;
     if (!name) return null;
-    const nameLower = name.toLowerCase().trim();
-    // 1) Busca na memória (comparação exata e case-insensitive)
-    const fromMemory = supplierNames.find((s: any) =>
-      s.name === name ||
-      s.nome_fantasia?.trim() === name ||
-      s.name?.toLowerCase().trim() === nameLower ||
-      s.nome_fantasia?.toLowerCase().trim() === nameLower
-    )?.id;
+    // Normaliza para comparação robusta (remove acentos, lowercase, trim)
+    const normalize = (s: string) => s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
+    const nameNorm = normalize(name);
+    const matchSupplier = (s: any) =>
+      s.name === name || s.nome_fantasia?.trim() === name ||
+      normalize(s.name ?? '') === nameNorm || normalize(s.nome_fantasia ?? '') === nameNorm;
+    // 1) Busca na memória
+    const fromMemory = supplierNames.find(matchSupplier)?.id;
     if (fromMemory) return fromMemory;
-    // 2) Fallback: carrega todos os fornecedores e filtra em JS (evita problemas de syntax no PostgREST)
-    console.warn('[resolveNoteSupplierId] nome não encontrado em memória, buscando no banco. supplierName:', name, 'supplierNames:', supplierNames.map(s => s.name));
+    // 2) Fallback: carrega todos do banco e filtra em JS
     const { data } = await supabase.from('suppliers').select('id, name, nome_fantasia');
-    const found = (data || []).find((s: any) =>
-      s.name === name ||
-      s.nome_fantasia?.trim() === name ||
-      s.name?.toLowerCase().trim() === nameLower ||
-      s.nome_fantasia?.toLowerCase().trim() === nameLower
-    );
-    if (!found) console.error('[resolveNoteSupplierId] fornecedor não encontrado no banco. supplierName:', name);
-    return found?.id ?? null;
+    const found = (data || []).find(matchSupplier);
+    if (found) return found.id;
+    // 3) Último recurso: busca por ilike no banco (cobre variações de encoding)
+    const { data: ilikeData } = await supabase.from('suppliers').select('id').ilike('nome_fantasia', name).limit(1);
+    if (ilikeData?.[0]?.id) return ilikeData[0].id;
+    const { data: ilikeData2 } = await supabase.from('suppliers').select('id').ilike('name', name).limit(1);
+    return ilikeData2?.[0]?.id ?? null;
   }, [viewingReviewNote, supplierNames]);
 
   // Retorna o mapeamento permanente de um item da nota, se existir
