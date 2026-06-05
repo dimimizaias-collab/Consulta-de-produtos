@@ -3319,6 +3319,73 @@ export default function Page() {
                       setNoteSupplierMappings([]);
                     }
                   }}
+                  onViewMobile={(note) => {
+                    fetchProducts();
+                    setViewingReviewNote(note);
+                    setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
+                    setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
+                    setViewingNoteEans([]);
+                    setViewingNoteSkus([]);
+                    setViewingNoteQtys([]);
+                    setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
+                    setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
+                    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
+                    setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
+                    setReviewUnitMenuIdx(null);
+                    setReviewMeasureIdx(null);
+                    setReviewEditableCols(new Set());
+                    setEditingNoteHeader(false);
+                    setReviewFilterActive(false);
+                    setReviewColumnFilters({});
+                    setReviewFilterOpen(null);
+                    setReviewFilterSearch('');
+                    setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
+                    setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
+                    const fi = note.items[0] as any;
+                    const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
+                    setDiscountMode(savedDiscountMode);
+                    if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
+                      setDiscountApplied(fi.adj_discount_applied);
+                      setDiscountGeralValue(String(fi.adj_discount_applied.value));
+                      setDiscountGeralType(fi.adj_discount_applied.type);
+                    } else {
+                      setDiscountApplied(null);
+                    }
+                    if (savedDiscountMode === 'individual') {
+                      setDiscountIndividualType(fi?.adj_discount_individual_type ?? 'pct');
+                      setItemDiscounts(note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : ''));
+                    } else {
+                      setItemDiscounts([]);
+                    }
+                    setDiscountDropdown(false); setDiscountDialog(null);
+                    const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
+                    setSurchargeMode(savedSurchargeMode);
+                    if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
+                      setSurchargeApplied(fi.adj_surcharge_applied);
+                      setSurchargeGeralValue(String(fi.adj_surcharge_applied.value));
+                      setSurchargeGeralType(fi.adj_surcharge_applied.type);
+                    } else {
+                      setSurchargeApplied(null);
+                    }
+                    if (savedSurchargeMode === 'individual') {
+                      setSurchargeIndividualType(fi?.adj_surcharge_individual_type ?? 'pct');
+                      setItemSurcharges(note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : ''));
+                    } else {
+                      setItemSurcharges([]);
+                    }
+                    setSurchargeDropdown(false); setSurchargeDialog(null);
+                    resetNoteHistory();
+                    const supplierForNote2 = supplierNames.find((s: any) => s.name === note.supplierName);
+                    if (supplierForNote2?.id) {
+                      supabase.from('supplier_mappings')
+                        .select('supplier_sku, supplier_description, internal_product_id')
+                        .eq('supplier_id', supplierForNote2.id)
+                        .then(({ data }) => setNoteSupplierMappings(data || []));
+                    } else {
+                      setNoteSupplierMappings([]);
+                    }
+                    setShowMobileNoteView(true);
+                  }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
                   pendingOpenNoteId={pendingOpenNoteId}

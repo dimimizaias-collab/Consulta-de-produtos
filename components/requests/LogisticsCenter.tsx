@@ -56,6 +56,7 @@ interface LogisticsCenterProps {
   bulkDrafts?: any[];
   onApproveBulkDraft?: (noteId: string, items: any[]) => void;
   onDeleteBulkDraft?: (noteId: string) => void;
+  onViewMobile?: (note: ReviewNote) => void;
 }
 
 export function LogisticsCenter({
@@ -72,6 +73,7 @@ export function LogisticsCenter({
   bulkDrafts,
   onApproveBulkDraft,
   onDeleteBulkDraft,
+  onViewMobile,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
@@ -156,13 +158,13 @@ export function LogisticsCenter({
   const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-4 md:space-y-12">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black text-on-surface tracking-tighter">Entrada de Mercadoria</h1>
+        <h1 className="text-2xl md:text-4xl font-black text-on-surface tracking-tighter">Entrada de Mercadoria</h1>
         <p className="text-sm text-on-surface/40 font-medium uppercase tracking-[0.2em]">Logistics Orchestration & Inventory Feed</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="hidden md:grid grid-cols-3 gap-8">
         {/* Import Card */}
         <motion.div
           whileHover={{ y: -5 }}
@@ -237,8 +239,206 @@ export function LogisticsCenter({
         </motion.div>
       </div>
 
+      {/* ── MOBILE LAYOUT ─────────────────────────────────────────────────── */}
+      <div className="md:hidden space-y-4">
+
+        {/* Mobile action buttons — 2 col grid, sem Importar Nota */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={onManualNoteClick}
+            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform"
+          >
+            <div className="w-full h-[6px] bg-[#1A1A0E] dark:bg-white/40 shrink-0" />
+            <div className="p-3 flex flex-col gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] flex items-center justify-center text-[#1A1A0E] dark:text-[#F2F0E3]">
+                <FileText size={18} />
+              </div>
+              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Inserir<br/>Manualmente</span>
+            </div>
+          </button>
+
+          <button
+            onClick={onSuppliersClick}
+            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform"
+          >
+            <div className="w-full h-[6px] bg-[#D97706] shrink-0" />
+            <div className="p-3 flex flex-col gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] bg-amber-500/10 flex items-center justify-center text-[#92400E] dark:text-[#FCD34D]">
+                <BookText size={18} />
+              </div>
+              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Dicionário</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Mobile tabs */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+          {([
+            { key: 'revisoes'  as const, label: 'Revisões',  count: pendingNotes.length },
+            { key: 'aprovados' as const, label: 'Aprovados', count: approvedNotes.length },
+            { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSection(tab.key)}
+              className={cn(
+                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-[7px] rounded-full text-[11px] font-black tracking-[0.04em] transition-all',
+                activeSection === tab.key
+                  ? 'bg-[#FFE500] text-[#1A1A0E]'
+                  : 'bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] text-[#1A1A0E]/45 dark:text-white/35'
+              )}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={cn(
+                  'text-[9px] font-black px-1.5 py-0.5 rounded-full',
+                  activeSection === tab.key
+                    ? 'bg-[#1A1A0E]/15 text-[#1A1A0E]'
+                    : 'bg-[#1A1A0E]/10 dark:bg-white/10 text-[#1A1A0E]/40 dark:text-white/35'
+                )}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile search */}
+        <div className="relative flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3.5 py-2.5">
+          <Search size={14} className="text-[#1A1A0E]/28 dark:text-white/25 shrink-0" />
+          <input
+            type="text"
+            value={noteSearch}
+            onChange={e => setNoteSearch(e.target.value)}
+            placeholder="Buscar por fornecedor, EAN, código…"
+            className="bg-transparent border-none outline-none text-[13px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/25 w-full"
+          />
+          {noteSearch && (
+            <button onClick={() => setNoteSearch('')} className="shrink-0 text-[#1A1A0E]/30 dark:text-white/30">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {/* Mobile section label */}
+        {activeSection !== 'rascunhos' && (
+          <p className="text-[10px] font-black text-[#1A1A0E]/35 dark:text-white/25 uppercase tracking-[0.14em] px-0.5">
+            {activeSection === 'revisoes'
+              ? `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} para revisão`
+              : `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} aprovada${visibleNotes.length !== 1 ? 's' : ''}`}
+          </p>
+        )}
+
+        {/* Mobile notes list */}
+        {activeSection === 'rascunhos' ? (
+          /* Rascunhos — reusa os mesmos cards do desktop */
+          <div className="space-y-3">
+            {(!bulkDrafts || bulkDrafts.length === 0) ? (
+              <div className="flex flex-col items-center justify-center py-10 text-[#1A1A0E]/20 dark:text-white/20">
+                <ClipboardList size={36} className="mb-3 opacity-40" />
+                <p className="text-xs font-black uppercase tracking-widest">Nenhum rascunho</p>
+              </div>
+            ) : bulkDrafts.map(draft => (
+              <div key={draft.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-0.5">Rascunho · Lista</p>
+                  <p className="text-sm font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{draft.file_name || 'Rascunho sem nome'}</p>
+                  <p className="text-xs text-[#1A1A0E]/40 dark:text-white/35 mt-0.5">{draft.item_count || 0} produto(s)</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => onApproveBulkDraft?.(draft.id, draft.items || [])}
+                    className="flex-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 py-2.5 rounded-[14px] font-black text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider active:scale-95 transition-all">
+                    <CheckCircle2 size={14} /> Aprovar
+                  </button>
+                  <button onClick={() => setConfirmDeleteDraftId(draft.id)}
+                    className="px-4 py-2.5 rounded-[14px] font-black text-xs bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 active:scale-95 transition-all uppercase tracking-wider">
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : visibleNotes.length === 0 ? (
+          <div className="flex items-center gap-4 bg-[#FDFAF0] dark:bg-[#252520] border border-dashed border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-5">
+            <div className="w-11 h-11 bg-[#1A1A0E]/[0.04] dark:bg-white/[0.04] rounded-[12px] flex items-center justify-center shrink-0">
+              <ClipboardList size={22} className="text-[#1A1A0E]/20 dark:text-white/20" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-[#1A1A0E]/45 dark:text-white/35 uppercase tracking-[0.06em]">
+                {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+              </p>
+              <p className="text-[11px] text-[#1A1A0E]/28 dark:text-white/22 mt-0.5 leading-relaxed">
+                {activeSection === 'revisoes'
+                  ? 'Notas importadas aparecerão aqui.'
+                  : 'Notas aprovadas aparecerão aqui.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visibleNotes.map(note => (
+              <div
+                key={note.id}
+                onClick={() => (onViewMobile ?? onViewReviewNote)(note)}
+                className="bg-[#2A2A24] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+              >
+                {/* Avatar */}
+                <div className={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                  note.approved
+                    ? 'bg-[rgba(52,211,153,0.18)] text-[#34D399]'
+                    : 'bg-[rgba(216,30,30,0.18)] text-[#D81E1E]'
+                )}>
+                  {note.approved
+                    ? <CheckCircle2 size={22} />
+                    : <FileText size={22} />
+                  }
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <p className="text-[12px] font-black text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
+                    {note.supplierName
+                      ? `${note.supplierName} — ${note.timestamp}`
+                      : note.fileName}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgba(242,240,227,0.40)]">
+                    <span className="truncate">{note.supplierName || '—'}</span>
+                    <span className="text-[rgba(242,240,227,0.18)]">·</span>
+                    <span className="whitespace-nowrap shrink-0">{note.timestamp}</span>
+                  </div>
+                  <span className="self-start bg-[rgba(242,240,227,0.08)] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[rgba(242,240,227,0.50)] tracking-[0.04em]">
+                    {note.noteNumber || note.fileName}
+                  </span>
+                </div>
+
+                {/* Right — badge + botão aprovar */}
+                <div className="flex flex-col items-end justify-between gap-2 shrink-0 self-stretch py-0.5">
+                  <span className={cn(
+                    'text-[12px] font-black px-2.5 py-1 rounded-full',
+                    note.verifiedCount === note.itemCount && note.itemCount > 0
+                      ? 'bg-[rgba(52,211,153,0.20)] text-[#34D399]'
+                      : 'bg-[#D97706] text-white'
+                  )}>
+                    {String(note.verifiedCount).padStart(2, '0')}/{String(note.itemCount).padStart(2, '0')}
+                  </span>
+                  {!note.approved && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setConfirmApproveId(note.id); }}
+                      className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
+                    >
+                      <CheckCircle2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ── Revisões / Aprovados Section ──────────────────────────────────── */}
-      <div className="space-y-6">
+      <div className="hidden md:block space-y-6">
 
         {/* Section header with dropdown + search */}
         <div className="flex flex-wrap items-center gap-3">
