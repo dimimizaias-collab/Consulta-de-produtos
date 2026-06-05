@@ -35,6 +35,7 @@ export interface ReviewNote {
   noteNumber?: string;
   accessKey?: string;
   supplierName?: string;
+  supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;
   finance_tx_valor?: number | null;

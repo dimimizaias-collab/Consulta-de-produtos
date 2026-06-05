@@ -796,6 +796,7 @@ export default function Page() {
         noteNumber: n.note_number ?? undefined,
         accessKey: n.access_key ?? undefined,
         supplierName: n.supplier_name ?? undefined,
+        supplierId: n.supplier_id ?? null,
         finance_transaction_id: n.finance_transaction_id ?? null,
       })));
     }
@@ -2032,6 +2033,7 @@ export default function Page() {
         noteNumber: nfNoteNumber || undefined,
         accessKey: nfAccessKey || undefined,
         supplierName: nfSupplierName || undefined,
+        supplierId: selectedImportSupplierId || null,
       };
       await supabase.from('review_notes').insert({
         id: newNote.id,
@@ -2043,6 +2045,7 @@ export default function Page() {
         note_number: nfNoteNumber || null,
         access_key: nfAccessKey || null,
         supplier_name: nfSupplierName || null,
+        supplier_id: selectedImportSupplierId || null,
       });
       setReviewNotes(prev => [newNote, ...prev]);
       setShowApproveNfConfirm(false);
@@ -2183,8 +2186,10 @@ export default function Page() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [viewingReviewNote, handleUndo, handleRedo]);
-  // Resolve o supplier_id da nota aberta — tenta memória, cai no banco se necessário
+  // Resolve o supplier_id da nota aberta — usa ID direto da nota, ou cai em lookup por nome
   const resolveNoteSupplierId = useCallback(async (): Promise<string | null> => {
+    // 1) Caminho ideal: ID já salvo na nota
+    if (viewingReviewNote?.supplierId) return viewingReviewNote.supplierId;
     const name = viewingReviewNote?.supplierName;
     if (!name) return null;
     // Normaliza para comparação robusta (remove acentos, lowercase, trim)
@@ -2193,14 +2198,14 @@ export default function Page() {
     const matchSupplier = (s: any) =>
       s.name === name || s.nome_fantasia?.trim() === name ||
       normalize(s.name ?? '') === nameNorm || normalize(s.nome_fantasia ?? '') === nameNorm;
-    // 1) Busca na memória
+    // 2) Busca na memória
     const fromMemory = supplierNames.find(matchSupplier)?.id;
     if (fromMemory) return fromMemory;
-    // 2) Fallback: carrega todos do banco e filtra em JS
+    // 3) Fallback: carrega todos do banco e filtra em JS
     const { data } = await supabase.from('suppliers').select('id, name, nome_fantasia');
     const found = (data || []).find(matchSupplier);
     if (found) return found.id;
-    // 3) Último recurso: busca por ilike no banco (cobre variações de encoding)
+    // 4) Último recurso: ilike no banco
     const { data: ilikeData } = await supabase.from('suppliers').select('id').ilike('nome_fantasia', name).limit(1);
     if (ilikeData?.[0]?.id) return ilikeData[0].id;
     const { data: ilikeData2 } = await supabase.from('suppliers').select('id').ilike('name', name).limit(1);
@@ -3334,23 +3339,12 @@ export default function Page() {
                     resetNoteHistory();
                     setTimeout(() => captureSnapshot(), 0);
                     // Busca mapeamentos permanentes do fornecedor desta nota
-                    const supplierForNote = supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName);
-                    if (supplierForNote?.id) {
+                    const sidForNote = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
+                    if (sidForNote) {
                       supabase.from('supplier_mappings')
                         .select('supplier_sku, supplier_description, internal_product_id')
-                        .eq('supplier_id', supplierForNote.id)
+                        .eq('supplier_id', sidForNote)
                         .then(({ data }) => setNoteSupplierMappings(data || []));
-                    } else if (note.supplierName) {
-                      supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${note.supplierName}",name.eq."${note.supplierName}"`).limit(1)
-                        .then(({ data: sData }) => {
-                          const sid = sData?.[0]?.id;
-                          if (sid) {
-                            supabase.from('supplier_mappings').select('supplier_sku, supplier_description, internal_product_id').eq('supplier_id', sid)
-                              .then(({ data }) => setNoteSupplierMappings(data || []));
-                          } else {
-                            setNoteSupplierMappings([]);
-                          }
-                        });
                     } else {
                       setNoteSupplierMappings([]);
                     }
@@ -3411,23 +3405,12 @@ export default function Page() {
                     }
                     setSurchargeDropdown(false); setSurchargeDialog(null);
                     resetNoteHistory();
-                    const supplierForNote2 = supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName);
-                    if (supplierForNote2?.id) {
+                    const sidForNote2 = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
+                    if (sidForNote2) {
                       supabase.from('supplier_mappings')
                         .select('supplier_sku, supplier_description, internal_product_id')
-                        .eq('supplier_id', supplierForNote2.id)
+                        .eq('supplier_id', sidForNote2)
                         .then(({ data }) => setNoteSupplierMappings(data || []));
-                    } else if (note.supplierName) {
-                      supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${note.supplierName}",name.eq."${note.supplierName}"`).limit(1)
-                        .then(({ data: sData }) => {
-                          const sid = sData?.[0]?.id;
-                          if (sid) {
-                            supabase.from('supplier_mappings').select('supplier_sku, supplier_description, internal_product_id').eq('supplier_id', sid)
-                              .then(({ data }) => setNoteSupplierMappings(data || []));
-                          } else {
-                            setNoteSupplierMappings([]);
-                          }
-                        });
                     } else {
                       setNoteSupplierMappings([]);
                     }
