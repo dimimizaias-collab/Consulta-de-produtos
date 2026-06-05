@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, X, Trash2, LayoutGrid, Save, AlertCircle, CheckCircle2,
-  ChevronDown, Loader2,
+  ChevronDown, Loader2, Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -130,6 +130,14 @@ export function ProductBulkTable({
   // Combobox: `${rowId}:${colKey}` of the currently open dropdown
   const [openComboKey, setOpenComboKey] = useState<string | null>(null);
   const comboRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(new Set());
+
+  const toggleRowCheck = (id: string) =>
+    setCheckedRowIds(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
 
   // EAN duplicate detection
   const duplicateEanRowIds = useMemo(() => {
@@ -428,6 +436,7 @@ export function ProductBulkTable({
                   <col key={col.key} style={{ width: col.w }} />
                 ))}
                 <col style={{ width: '34px' }} />
+                <col style={{ width: '34px' }} />
               </colgroup>
 
               {/* ── Sticky header ── */}
@@ -444,6 +453,7 @@ export function ProductBulkTable({
                       </div>
                     </th>
                   ))}
+                  <th style={{ padding: 0 }} />
                   <th style={{ padding: 0 }} />
                 </tr>
               </thead>
@@ -737,6 +747,21 @@ export function ProductBulkTable({
                           </td>
                         );
                       })}
+
+                      {/* Check */}
+                      <td style={{ padding: 0, textAlign: 'center', verticalAlign: 'middle' }}>
+                        <button
+                          onClick={() => toggleRowCheck(row.id)}
+                          className={cn(
+                            'w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center mx-auto shrink-0 transition-all',
+                            checkedRowIds.has(row.id)
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'border-[#1A1A0E]/25 dark:border-white/25 text-transparent hover:border-emerald-400'
+                          )}
+                        >
+                          <Check size={8} />
+                        </button>
+                      </td>
 
                       {/* Delete */}
                       <td style={{ padding: 0, textAlign: 'center', verticalAlign: 'middle' }}>
