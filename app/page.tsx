@@ -2183,6 +2183,16 @@ export default function Page() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [viewingReviewNote, handleUndo, handleRedo]);
+  // Resolve o supplier_id da nota aberta — tenta memória, cai no banco se necessário
+  const resolveNoteSupplierId = useCallback(async (): Promise<string | null> => {
+    const name = viewingReviewNote?.supplierName;
+    if (!name) return null;
+    const fromMemory = supplierNames.find((s: any) => s.name === name || s.nome_fantasia?.trim() === name)?.id;
+    if (fromMemory) return fromMemory;
+    const { data } = await supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${name}",name.eq."${name}"`).limit(1);
+    return data?.[0]?.id ?? null;
+  }, [viewingReviewNote, supplierNames]);
+
   // Retorna o mapeamento permanente de um item da nota, se existir
   const getItemMapping = useCallback((item: any) => {
     if (!noteSupplierMappings.length || !item) return null;
@@ -2258,7 +2268,7 @@ export default function Page() {
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
         if (noteItemSaveTranslation) {
-          const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+          const supplierId = await resolveNoteSupplierId();
           const sourceItem = viewingReviewNote.items[linkingItemIdx];
           const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
             supplier_id: supplierId,
@@ -2495,7 +2505,7 @@ export default function Page() {
 
     // Tradução permanente
     if (multiLinkSaveTranslation) {
-      const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+      const supplierId = await resolveNoteSupplierId();
       const seen = new Set<string>();
       for (const e of multiLinkItemEntries) {
         if (seen.has(e.product.id)) continue;
@@ -3310,12 +3320,23 @@ export default function Page() {
                     resetNoteHistory();
                     setTimeout(() => captureSnapshot(), 0);
                     // Busca mapeamentos permanentes do fornecedor desta nota
-                    const supplierForNote = supplierNames.find((s: any) => s.name === note.supplierName);
+                    const supplierForNote = supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName);
                     if (supplierForNote?.id) {
                       supabase.from('supplier_mappings')
                         .select('supplier_sku, supplier_description, internal_product_id')
                         .eq('supplier_id', supplierForNote.id)
                         .then(({ data }) => setNoteSupplierMappings(data || []));
+                    } else if (note.supplierName) {
+                      supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${note.supplierName}",name.eq."${note.supplierName}"`).limit(1)
+                        .then(({ data: sData }) => {
+                          const sid = sData?.[0]?.id;
+                          if (sid) {
+                            supabase.from('supplier_mappings').select('supplier_sku, supplier_description, internal_product_id').eq('supplier_id', sid)
+                              .then(({ data }) => setNoteSupplierMappings(data || []));
+                          } else {
+                            setNoteSupplierMappings([]);
+                          }
+                        });
                     } else {
                       setNoteSupplierMappings([]);
                     }
@@ -3376,12 +3397,23 @@ export default function Page() {
                     }
                     setSurchargeDropdown(false); setSurchargeDialog(null);
                     resetNoteHistory();
-                    const supplierForNote2 = supplierNames.find((s: any) => s.name === note.supplierName);
+                    const supplierForNote2 = supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName);
                     if (supplierForNote2?.id) {
                       supabase.from('supplier_mappings')
                         .select('supplier_sku, supplier_description, internal_product_id')
                         .eq('supplier_id', supplierForNote2.id)
                         .then(({ data }) => setNoteSupplierMappings(data || []));
+                    } else if (note.supplierName) {
+                      supabase.from('suppliers').select('id').or(`nome_fantasia.eq."${note.supplierName}",name.eq."${note.supplierName}"`).limit(1)
+                        .then(({ data: sData }) => {
+                          const sid = sData?.[0]?.id;
+                          if (sid) {
+                            supabase.from('supplier_mappings').select('supplier_sku, supplier_description, internal_product_id').eq('supplier_id', sid)
+                              .then(({ data }) => setNoteSupplierMappings(data || []));
+                          } else {
+                            setNoteSupplierMappings([]);
+                          }
+                        });
                     } else {
                       setNoteSupplierMappings([]);
                     }
@@ -6969,7 +7001,7 @@ export default function Page() {
                                           const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
                                           const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                           if (noteItemSaveTranslation) {
-                                            const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+                                            const supplierId = await resolveNoteSupplierId();
                                             const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
                                             if (mappingErr) {
                                               setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
@@ -7006,7 +7038,7 @@ export default function Page() {
                                     const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
                                     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                     if (noteItemSaveTranslation) {
-                                      const supplierId = supplierNames.find((s: any) => s.name === viewingReviewNote?.supplierName)?.id || null;
+                                      const supplierId = await resolveNoteSupplierId();
                                       const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
                                       if (mappingErr) {
                                         setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
