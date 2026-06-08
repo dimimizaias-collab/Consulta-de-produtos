@@ -122,14 +122,12 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const clearAll = useCallback(() => setSelections({}), []);
 
   const toggleBlock = useCallback((idx: number) => {
-    // only allow toggling non-print blocks (used/free)
-    if (printBlocks.includes(idx)) return;
     setUsedBlocks(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx); else next.add(idx);
       return next;
     });
-  }, [printBlocks]);
+  }, []);
 
   const handleClose = () => {
     setStep(1);
@@ -488,11 +486,11 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                             onClick={() => toggleBlock(i)}
                             title={`Bloco ${i + 1}`}
                             className={cn(
-                              'h-[33px] rounded-md text-[6px] font-bold transition-all flex items-center justify-center',
-                              isPrint && printEntry?.type === 'estoque' && 'bg-[#1a3a6b] text-white/60 cursor-default',
-                              isPrint && printEntry?.type === 'prateleira' && 'bg-[#1a6b3c] text-white/60 cursor-default',
-                              isUsed && !isPrint && 'bg-on-surface/20 cursor-pointer hover:bg-on-surface/15',
-                              !isPrint && !isUsed && 'bg-on-surface/[0.04] border border-on-surface/10 hover:border-on-surface/20 cursor-pointer'
+                              'h-[33px] rounded-md text-[6px] font-bold transition-all flex items-center justify-center cursor-pointer',
+                              isPrint && printEntry?.type === 'estoque' && 'bg-[#1a3a6b] text-white/60 hover:bg-[#162f5a]',
+                              isPrint && printEntry?.type === 'prateleira' && 'bg-[#1a6b3c] text-white/60 hover:bg-[#155930]',
+                              isUsed && 'bg-on-surface/20 hover:bg-on-surface/15',
+                              !isPrint && !isUsed && 'bg-on-surface/[0.04] border border-on-surface/10 hover:border-on-surface/20'
                             )}
                           >
                             {i + 1}
