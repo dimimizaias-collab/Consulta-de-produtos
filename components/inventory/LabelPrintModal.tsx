@@ -11,7 +11,7 @@ import JsBarcode from 'jsbarcode';
 const LABEL_W    = 38.2;
 const LABEL_H    = 21.2;
 const MARGIN_L   = 4.0;
-const MARGIN_T   = 10.0;
+const MARGIN_T   = 4.5;
 const COL_GAP    = 2.6;
 const ROW_GAP    = 1.1;
 const PAD        = 1.5;
