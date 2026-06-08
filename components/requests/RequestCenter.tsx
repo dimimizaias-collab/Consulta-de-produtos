@@ -49,6 +49,7 @@ interface RequestCenterProps {
   onEditRequest: (request: any) => void;
   onApproveRequest: (requestId: string) => void;
   onDeleteRequest: (requestId: string) => void;
+  onToggleCheck?: (requestId: string, checkedIndices: number[]) => void;
 }
 
 function ProductImage({ src, alt }: { src: string, alt: string }) {
@@ -80,17 +81,34 @@ export function RequestCenter({
   onAddRequest,
   onEditRequest,
   onApproveRequest,
-  onDeleteRequest
+  onDeleteRequest,
+  onToggleCheck,
 }: RequestCenterProps) {
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
-  const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>({});
+
+  // Inicializa checkedItems a partir dos dados salvos no banco
+  const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>(() => {
+    const initial: Record<string, Set<number>> = {};
+    for (const r of requests) {
+      try {
+        const rc = JSON.parse(r.requested_changes || '{}');
+        if (Array.isArray(rc.checked_indices) && rc.checked_indices.length > 0) {
+          initial[r.id] = new Set(rc.checked_indices);
+        }
+      } catch { /* ignora */ }
+    }
+    return initial;
+  });
+
   const [filterQuery, setFilterQuery] = useState('');
 
   function toggleCheck(requestId: string, idx: number) {
     setCheckedItems(prev => {
       const set = new Set(prev[requestId] ?? []);
       set.has(idx) ? set.delete(idx) : set.add(idx);
-      return { ...prev, [requestId]: set };
+      const next = { ...prev, [requestId]: set };
+      onToggleCheck?.(requestId, Array.from(set));
+      return next;
     });
   }
 

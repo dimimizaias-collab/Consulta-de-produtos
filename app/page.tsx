@@ -1070,6 +1070,17 @@ export default function Page() {
     }
   };
 
+  const handleToggleCheck = async (requestId: string, checkedIndices: number[]) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request) return;
+    try {
+      const changes = JSON.parse(request.requested_changes || '{}');
+      changes.checked_indices = checkedIndices;
+      await supabase.from('requests').update({ requested_changes: JSON.stringify(changes) }).eq('id', requestId);
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, requested_changes: JSON.stringify(changes) } : r));
+    } catch { /* ignora */ }
+  };
+
   const handleApproveRequest = async (requestId: string) => {
     const request = requests.find(r => r.id === requestId);
     if (!request) return;
@@ -3085,6 +3096,7 @@ export default function Page() {
                   }}
                   onApproveRequest={(id) => setShowRequestConfirmModal({ show: true, requestId: id })}
                   onDeleteRequest={handleDeleteRequest}
+                  onToggleCheck={handleToggleCheck}
                 />
             ) : activeTab === 'Entrada de Mercadoria' ? (
                 <LogisticsCenter
