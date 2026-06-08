@@ -4104,22 +4104,30 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-transparent dark:border-white/[0.05]"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-xl font-manrope font-extrabold text-on-surface">Adicionar Novo Produto</h2>
-                <button 
+              <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-[#FFE500] dark:bg-[#252520] border-[#D4C000] dark:border-white/[0.07]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#D81E1E]">
+                    <Package size={17} />
+                  </div>
+                  <div>
+                    <h2 className="text-[15px] font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">Adicionar Novo Produto</h2>
+                    <p className="text-[11px] font-medium text-[#1A1A0E]/40 dark:text-[#F2F0E3]/28 mt-0.5">Preencha os dados para cadastrar no inventário</p>
+                  </div>
+                </div>
+                <button
                   onClick={() => {
                     setShowAddModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-[8px] bg-[rgba(26,26,10,0.08)] dark:bg-[rgba(242,240,227,0.06)] border border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.08)] text-[rgba(26,26,10,0.45)] dark:text-[rgba(242,240,227,0.35)] hover:bg-[rgba(216,30,30,0.10)] hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.20)] transition-all duration-150 shrink-0"
                 >
-                  <X size={20} className="text-secondary" />
+                  <X size={15} />
                 </button>
               </div>
               
-              <form onSubmit={handleAddProduct} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              <form onSubmit={handleAddProduct} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto bg-[#FDFAF0] dark:bg-[#1E1E18]">
                 {addStatus === 'success' && (
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
@@ -4144,23 +4152,23 @@ export default function Page() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">SKU (Obrigatório)</label>
-                    <input 
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                       placeholder="ex: BM-500-A4"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Nome do Produto (Obrigatório)</label>
-                    <input 
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                       placeholder="ex: Batedeira Prática Master"
                     />
                   </div>
@@ -4177,14 +4185,14 @@ export default function Page() {
                               newEans[index] = e.target.value;
                               setNewProduct({...newProduct, eans: newEans});
                             }}
-                            className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            className="flex-1 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                             placeholder="789..."
                           />
                           {index === 0 ? (
                             <button 
                               type="button"
                               onClick={() => setNewProduct({...newProduct, eans: [...(newProduct.eans || [newProduct.ean || '']), '']})}
-                              className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
+                              className="w-10 bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.13)] border-[1.5px] border-[rgba(216,30,30,0.22)] dark:border-[rgba(216,30,30,0.28)] text-[#D81E1E] rounded-[10px] flex items-center justify-center hover:bg-[rgba(216,30,30,0.18)] transition-colors shrink-0"
                             >
                               <Plus size={18} />
                             </button>
@@ -4206,21 +4214,21 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Quantidade Inicial</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={isNaN(newProduct.count) ? 0 : newProduct.count}
                       onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="0.01"
                       value={isNaN(newProduct.price) ? 0 : newProduct.price}
                       onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -4238,10 +4246,10 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Status</label>
-                    <select 
+                    <select
                       value={newProduct.status}
                       onChange={(e) => setNewProduct({...newProduct, status: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                     >
                       <option value="Em Estoque">Em Estoque</option>
                       <option value="Estoque em Alta">Estoque em Alta</option>
@@ -4250,49 +4258,49 @@ export default function Page() {
                     </select>
                   </div>
 
-                  <div className="md:col-span-2 p-4 bg-purple-50 rounded-2xl border border-purple-100 space-y-4">
+                  <div className="md:col-span-2 p-4 bg-purple-50/60 dark:bg-purple-900/[0.09] rounded-2xl border border-purple-100 dark:border-purple-500/[0.18] space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-purple-700">
+                      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
                         <LinkIcon size={18} />
                         <span className="text-sm font-bold">Relacionamento Mãe/Filho</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="sr-only peer"
                           checked={newProduct.is_mother}
                           onChange={(e) => setNewProduct({...newProduct, is_mother: e.target.checked})}
                         />
-                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                        <span className="ml-3 text-xs font-bold text-purple-700 uppercase">Produto Mãe</span>
+                        <div className="w-11 h-6 bg-slate-200 dark:bg-[rgba(242,240,227,0.16)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-700/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 dark:peer-checked:bg-purple-500"></div>
+                        <span className="ml-3 text-xs font-bold text-purple-700 dark:text-purple-300/70 uppercase">Produto Mãe</span>
                       </label>
                     </div>
 
                     {newProduct.is_mother && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 pt-2 border-t border-purple-100"
+                        className="space-y-4 pt-2 border-t border-purple-100 dark:border-purple-500/[0.15]"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-purple-700 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
-                          <input 
-                            type="number" 
+                          <label className="text-[10px] font-bold text-purple-700 dark:text-purple-300/70 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
+                          <input
+                            type="number"
                             value={newProduct.units_per_mother}
                             onChange={(e) => setNewProduct({...newProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                            className="w-full bg-white border border-purple-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-purple-200 dark:border-purple-500/[0.25] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                             placeholder="Ex: 50"
                           />
                         </div>
-                        
+
                         <div className="pt-2">
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               setLinkTarget('new');
                               setShowLinkModal(true);
                             }}
-                            className="flex items-center gap-2 text-purple-700 hover:text-purple-900 font-bold text-sm transition-colors"
+                            className="flex items-center gap-2 text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-200 font-bold text-sm transition-colors"
                           >
                             <LinkIcon size={18} />
                             {newProduct.linked_product_id ? 'Alterar produto vinculado' : 'Vincular produto (Filho)'}
@@ -4353,21 +4361,21 @@ export default function Page() {
                         type="text" 
                         value={newProduct.image}
                         onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
-                        className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="flex-1 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                         placeholder="https://..."
                       />
                       <input 
                         type="file" 
                         ref={imageInputRef}
                         onChange={(e) => handleImageUpload(e, false)}
-                        className="hidden" 
+                        className="hidden"
                         accept="image/*"
                       />
-                      <button 
+                      <button
                         type="button"
                         onClick={() => imageInputRef.current?.click()}
                         disabled={uploading}
-                        className="px-4 bg-slate-100 dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg text-secondary hover:bg-slate-200 dark:hover:bg-[#444] transition-all flex items-center justify-center shrink-0"
+                        className="px-4 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/35 hover:bg-[#FFF8D0] dark:hover:bg-white/[0.06] transition-colors flex items-center justify-center shrink-0"
                         title="Upload do computador"
                       >
                         {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
@@ -4377,17 +4385,17 @@ export default function Page() {
                 </div>
                 
                 <div className="pt-4 flex gap-3">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 bg-slate-100 text-secondary font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors"
+                    className="flex-1 bg-[rgba(26,26,10,0.07)] dark:bg-[rgba(242,240,227,0.07)] border border-[rgba(26,26,10,0.14)] dark:border-[rgba(242,240,227,0.10)] text-[#1A1A0E]/55 dark:text-[#F2F0E3]/50 font-bold py-3 rounded-xl hover:bg-[rgba(26,26,10,0.12)] dark:hover:bg-[rgba(242,240,227,0.11)] transition-colors"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     disabled={adding || addStatus === 'success'}
-                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
+                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150 shadow-lg shadow-primary/20 disabled:opacity-50"
                   >
                     {adding ? 'Adicionando...' : addStatus === 'success' ? 'Sucesso!' : 'Adicionar Produto'}
                   </button>

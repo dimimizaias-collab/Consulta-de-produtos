@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Adicionar Novo Produto (Light)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:             #FDFAF0;
+    --header-bg:      #FFE500;
+    --header-border:  #D4C000;
+    --icon-chip-bg:   rgba(26,26,10,0.09);
+    --icon-chip:      #1A1A0E;
+    --title:          #1A1A0E;
+    --subtitle:       rgba(26,26,10,0.40);
+    --close-bg:       rgba(26,26,10,0.08);
+    --close-border:   rgba(26,26,10,0.10);
+    --close-color:    rgba(26,26,10,0.45);
+    --label:          rgba(26,26,10,0.55);
+    --input-bg:       #FFFFFF;
+    --input-border:   #E0D8BF;
+    --input-text:     #1A1A0E;
+    --input-ph:       rgba(26,26,10,0.28);
+    --section-border: #E8E0C8;
+    --mother-bg:      rgba(147,114,211,0.07);
+    --mother-border:  rgba(147,114,211,0.22);
+    --mother-text:    #5B3DAE;
+    --mother-muted:   rgba(91,61,174,0.55);
+    --toggle-off:     #D5CDB8;
+    --cancel-bg:      rgba(26,26,10,0.07);
+    --cancel-border:  rgba(26,26,10,0.14);
+    --cancel-text:    rgba(26,26,10,0.55);
+    --submit-bg:      #D81E1E;
+    --submit-text:    #FFFFFF;
+    --overlay:        rgba(30,30,24,0.45);
+    --modal-shadow:   0 32px 80px rgba(26,26,10,0.18), 0 8px 24px rgba(26,26,10,0.10);
+  }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: #FFFCEC;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    backdrop-filter: blur(6px);
+    z-index: 0;
+  }
+
+  .modal {
+    position: relative;
+    z-index: 1;
+    background: var(--bg);
+    border-radius: 20px;
+    box-shadow: var(--modal-shadow);
+    width: 100%;
+    max-width: 640px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+
+  /* ── Header ── */
+  .modal-header {
+    background: var(--header-bg);
+    border-bottom: 1.5px solid var(--header-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .icon-chip {
+    width: 36px; height: 36px;
+    background: var(--icon-chip-bg);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--icon-chip);
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 18px; height: 18px; stroke-width: 2; }
+  .header-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--title);
+    letter-spacing: -0.01em;
+  }
+  .header-subtitle {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--subtitle);
+    margin-top: 1px;
+  }
+  .close-btn {
+    width: 32px; height: 32px;
+    background: var(--close-bg);
+    border: 1px solid var(--close-border);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--close-color);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .close-btn svg { width: 16px; height: 16px; stroke-width: 2.5; }
+
+  /* ── Form body ── */
+  .modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+    background: var(--bg);
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+  }
+  .field-grid .span-2 { grid-column: 1 / -1; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+
+  label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+  }
+
+  input, select {
+    background: var(--input-bg);
+    border: 1.5px solid var(--input-border);
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 13px;
+    color: var(--input-text);
+    font-family: inherit;
+    width: 100%;
+    outline: none;
+    transition: border-color 130ms, box-shadow 130ms;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+  input::placeholder { color: var(--input-ph); font-size: 12px; }
+  input:focus, select:focus {
+    border-color: #D81E1E;
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.13);
+  }
+
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .input-row input { flex: 1; }
+
+  .add-ean-btn {
+    width: 38px; height: 38px;
+    background: rgba(216,30,30,0.10);
+    border: 1.5px solid rgba(216,30,30,0.22);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #D81E1E;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .add-ean-btn svg { width: 16px; height: 16px; stroke-width: 2.5; }
+
+  .searchable-select {
+    display: flex; gap: 8px;
+  }
+  .searchable-select input { flex: 1; }
+  .select-add-btn {
+    width: 38px; height: 38px;
+    background: rgba(216,30,30,0.10);
+    border: 1.5px solid rgba(216,30,30,0.22);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #D81E1E;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+  .select-add-btn svg { width: 16px; height: 16px; stroke-width: 2.5; }
+
+  /* ── Mãe/Filho section ── */
+  .mother-section {
+    background: var(--mother-bg);
+    border: 1.5px solid var(--mother-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mother-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mother-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mother-text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .mother-label-row svg { width: 16px; height: 16px; stroke-width: 2.2; }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toggle {
+    width: 40px; height: 22px;
+    background: var(--toggle-off);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--mother-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--section-border);
+    margin: 6px 0;
+  }
+
+  /* ── Footer ── */
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1.5px solid var(--section-border);
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+
+  .btn-cancel {
+    flex: 1;
+    padding: 11px 16px;
+    background: var(--cancel-bg);
+    border: 1px solid var(--cancel-border);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cancel-text);
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .btn-cancel:hover { background: rgba(26,26,10,0.12); }
+
+  .btn-submit {
+    flex: 1.6;
+    padding: 11px 16px;
+    background: var(--submit-bg);
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--submit-text);
+    cursor: pointer;
+    transition: opacity 120ms, transform 150ms;
+    box-shadow: 0 4px 14px rgba(216,30,30,0.25);
+  }
+  .btn-submit:hover { opacity: 0.92; }
+  .btn-submit:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+<div class="modal">
+
+  <!-- Header -->
+  <div class="modal-header">
+    <div class="header-left">
+      <div class="icon-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      </div>
+      <div>
+        <div class="header-title">Adicionar Novo Produto</div>
+        <div class="header-subtitle">Preencha os dados para cadastrar no inventário</div>
+      </div>
+    </div>
+    <button class="close-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="modal-body">
+    <div class="field-grid">
+
+      <!-- SKU -->
+      <div class="field">
+        <label>SKU (Obrigatório)</label>
+        <input type="text" placeholder="ex: BM-500-A4" />
+      </div>
+
+      <!-- Nome -->
+      <div class="field">
+        <label>Nome do Produto (Obrigatório)</label>
+        <input type="text" placeholder="ex: Batedeira Prática Master" />
+      </div>
+
+      <!-- EAN -->
+      <div class="field">
+        <label>Código EAN</label>
+        <div class="input-row">
+          <input type="text" placeholder="789..." />
+          <button class="add-ean-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quantidade -->
+      <div class="field">
+        <label>Quantidade Inicial</label>
+        <input type="number" value="0" />
+      </div>
+
+      <!-- Preço -->
+      <div class="field">
+        <label>Preço (R$)</label>
+        <input type="number" value="0" />
+      </div>
+
+      <!-- Localização -->
+      <div class="field">
+        <label>Localização</label>
+        <div class="searchable-select">
+          <input type="text" placeholder="Pesquisar localização..." />
+          <button class="select-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="field">
+        <label>Status</label>
+        <select>
+          <option>Em Estoque</option>
+          <option>Estoque em Alta</option>
+          <option>Estoque Baixo</option>
+          <option>Fora de Estoque</option>
+        </select>
+      </div>
+
+      <!-- Espaço vazio no grid -->
+      <div></div>
+
+      <!-- Mãe/Filho -->
+      <div class="field span-2">
+        <div class="mother-section">
+          <div class="mother-header">
+            <div class="mother-label-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Relacionamento Mãe/Filho
+            </div>
+            <div class="toggle-row">
+              <div class="toggle"></div>
+              <span class="toggle-label">Produto Mãe</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categoria -->
+      <div class="field">
+        <label>Categoria</label>
+        <div class="searchable-select">
+          <input type="text" placeholder="Pesquisar categoria..." />
+          <button class="select-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Subcategoria -->
+      <div class="field">
+        <label>Subcategoria</label>
+        <div class="searchable-select">
+          <input type="text" placeholder="Pesquisar subcategoria..." />
+          <button class="select-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Marca -->
+      <div class="field">
+        <label>Marca</label>
+        <div class="searchable-select">
+          <input type="text" placeholder="Pesquisar marca..." />
+          <button class="select-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- URL da Imagem -->
+      <div class="field">
+        <label>URL da Imagem</label>
+        <input type="text" placeholder="https://..." />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="modal-footer">
+    <button class="btn-cancel">Cancelar</button>
+    <button class="btn-submit">Adicionar Produto</button>
+  </div>
+
+</div>
+</body>
+</html>
