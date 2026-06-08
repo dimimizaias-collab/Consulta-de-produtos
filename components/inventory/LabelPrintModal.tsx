@@ -186,7 +186,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       // Barcode
       if (code) {
         try {
-          const bcH = LABEL_H - PAD - (cy - y) - 3.5; // remaining height minus code number space
+          const bcH = LABEL_H - PAD - (cy - y) - 5.0;
           const bcDataUrl = generateBarcodeDataUrl(code);
           doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(4, bcH));
           cy += bcH + 0.5;
@@ -197,7 +197,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       doc.setFontSize(4);
       doc.setFont('courier', 'normal');
       doc.setTextColor(60, 60, 60);
-      doc.text(code, x + LABEL_W / 2, y + LABEL_H - PAD, { align: 'center' });
+      doc.text(code, x + LABEL_W / 2, y + LABEL_H - 3.0, { align: 'center' });
 
     } else {
       // Prateleira: name (1 line, 5pt)
@@ -218,7 +218,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       // Barcode
       if (code) {
         try {
-          const bcH = LABEL_H - PAD - (cy - y) - 3.5;
+          const bcH = LABEL_H - PAD - (cy - y) - 5.0;
           const bcDataUrl = generateBarcodeDataUrl(code);
           doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(3, bcH));
         } catch { /* skip */ }
@@ -228,7 +228,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       doc.setFontSize(4);
       doc.setFont('courier', 'normal');
       doc.setTextColor(60, 60, 60);
-      doc.text(code, x + LABEL_W / 2, y + LABEL_H - PAD, { align: 'center' });
+      doc.text(code, x + LABEL_W / 2, y + LABEL_H - 3.0, { align: 'center' });
     }
   };
 
