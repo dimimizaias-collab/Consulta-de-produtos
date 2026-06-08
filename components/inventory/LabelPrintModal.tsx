@@ -7,13 +7,13 @@ import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import JsBarcode from 'jsbarcode';
 
-// A4351 sheet constants (mm)
-const LABEL_W    = 38.2;
+// A4351 sheet constants (mm) — from official Pimaco template
+const LABEL_W    = 38.1;
 const LABEL_H    = 21.2;
-const MARGIN_L   = 4.0;
-const MARGIN_T   = 4.5;
-const COL_GAP    = 2.6;
-const ROW_GAP    = 1.1;
+const MARGIN_L   = 4.7;
+const MARGIN_T   = 10.7;
+const COL_GAP    = 2.5;
+const ROW_GAP    = 0.0;
 const PAD        = 1.5;
 const COLS       = 5;
 const ROWS       = 13;
