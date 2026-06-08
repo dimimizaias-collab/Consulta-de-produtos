@@ -6,7 +6,7 @@ import {
   Search,
   Filter,
   RefreshCw,
-  FileUp,
+  Tag,
   Edit2,
   Package,
   TrendingUp,
@@ -17,6 +17,7 @@ import {
   Rows3,
   Smartphone,
 } from 'lucide-react';
+import { LabelPrintModal } from './LabelPrintModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
@@ -35,10 +36,8 @@ interface InventoryManagerProps {
   onEdit: (product: any) => void;
   onViewLink: (mother: any, child: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onFileImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
   setShowStockUpdateChoiceModal: (val: boolean) => void;
 }
 
@@ -54,14 +53,13 @@ export function InventoryManager({
   onEdit,
   onViewLink,
   onStockUpdate,
-  onFileImport,
   onOpenMobileBulkTable,
   stockFileInputRef,
-  fileInputRef,
   setShowStockUpdateChoiceModal
 }: InventoryManagerProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -140,7 +138,6 @@ export function InventoryManager({
       <div className="flex flex-col gap-3">
 
         <input type="file" ref={stockFileInputRef} onChange={onStockUpdate} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
-        <input type="file" ref={fileInputRef} onChange={onFileImport} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
 
         {/* Mobile layout: count chip + icon buttons in one row */}
         <div className="flex items-center gap-2 lg:hidden">
@@ -167,6 +164,15 @@ export function InventoryManager({
             className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] dark:border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
           >
             <Smartphone size={17} />
+          </button>
+
+          {/* Etiquetas — ícone */}
+          <button
+            onClick={() => setShowLabelModal(true)}
+            title="Etiquetas"
+            className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
+          >
+            <Tag size={17} />
           </button>
 
           {/* Filtros — ícone */}
@@ -221,12 +227,6 @@ export function InventoryManager({
             </AnimatePresence>
           </div>
 
-          {/* Bulk Import — hidden on mobile */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="hidden"
-          />
         </div>
 
         {/* Desktop layout — original, preservado */}
@@ -314,18 +314,11 @@ export function InventoryManager({
               </AnimatePresence>
             </div>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 disabled:opacity-50 active:scale-95"
+              onClick={() => setShowLabelModal(true)}
+              className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 active:scale-95"
             >
-              {importing ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-              ) : (
-                <>
-                  <FileUp size={16} />
-                  Bulk Import
-                </>
-              )}
+              <Tag size={16} />
+              Etiquetas
             </button>
           </div>
         </div>
@@ -510,6 +503,12 @@ export function InventoryManager({
           )}
         </AnimatePresence>
       </div>
+
+      <LabelPrintModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        products={products}
+      />
     </div>
   );
 }

@@ -431,7 +431,6 @@ export default function Page() {
   const [editError, setEditError] = useState('');
   const [isConfigured, setIsConfigured] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
   const noteItemImageInputRef = useRef<HTMLInputElement>(null);
@@ -2193,7 +2192,7 @@ export default function Page() {
     const name = viewingReviewNote?.supplierName;
     if (!name) return null;
     // Normaliza para comparação robusta (remove acentos, lowercase, trim)
-    const normalize = (s: string) => s?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim() ?? '';
+    const normalize = (s: string) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/gu, '').toLowerCase().trim();
     const nameNorm = normalize(name);
     const matchSupplier = (s: any) =>
       s.name === name || s.nome_fantasia?.trim() === name ||
@@ -2964,180 +2963,6 @@ export default function Page() {
     XLSX.writeFile(wb, "modelo_importacao_estoque.xlsx");
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!isConfigured) {
-      setNotification({ type: 'error', message: 'O banco de dados não está configurado. Por favor, adicione as chaves no menu Settings.' });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setNotification(null), 5000);
-      return;
-    }
-
-    if (file.size === 0) {
-      setNotification({ type: 'error', message: 'O arquivo selecionado está vazio.' });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setNotification(null), 5000);
-      return;
-    }
-
-    // Validação de tipo de arquivo para evitar upload de imagens no botão de importar planilha
-    if (file.type.startsWith('image/')) {
-      setNotification({ type: 'error', message: 'Este botão é para importar planilhas (.csv, .xlsx, .xml). Para carregar uma imagem de produto, use o botão de imagem dentro do cadastro do produto.' });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setNotification(null), 5000);
-      return;
-    }
-
-    setImporting(true);
-    const reader = new FileReader();
-    const fileName = file.name.toLowerCase();
-    
-    reader.onerror = () => {
-      console.error('FileReader error:', reader.error);
-      setNotification({ type: 'error', message: 'Erro ao ler o arquivo do seu computador.' });
-      setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setNotification(null), 5000);
-    };
-
-    reader.onload = async (e) => {
-      try {
-        let rawData: any[] = [];
-
-        if (fileName.endsWith('.xml')) {
-          const xmlContent = e.target?.result as string;
-          const parser = new XMLParser({
-            ignoreAttributes: false,
-            attributeNamePrefix: "@_"
-          });
-          const jsonObj = parser.parse(xmlContent);
-          
-          if (jsonObj.products && jsonObj.products.product) {
-            rawData = Array.isArray(jsonObj.products.product) ? jsonObj.products.product : [jsonObj.products.product];
-          } else if (jsonObj.root && jsonObj.root.product) {
-            rawData = Array.isArray(jsonObj.root.product) ? jsonObj.root.product : [jsonObj.root.product];
-          } else if (Array.isArray(jsonObj.product)) {
-            rawData = jsonObj.product;
-          } else if (jsonObj.product) {
-            rawData = [jsonObj.product];
-          }
-        } else if (fileName.endsWith('.csv')) {
-          const csvContent = e.target?.result as string;
-          const results = Papa.parse(csvContent, { header: true, skipEmptyLines: true });
-          rawData = results.data;
-        } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          rawData = XLSX.utils.sheet_to_json(worksheet);
-        }
-
-        if (rawData.length === 0) {
-          throw new Error('Nenhum dado encontrado no arquivo. Verifique o formato e as colunas.');
-        }
-
-        const mappedProducts = rawData.map((p: any, index: number) => {
-          // Normalização ultra-robusta: remove acentos, caracteres especiais e espaços
-          const normalize = (str: any) => {
-            if (str === null || str === undefined) return "";
-            return String(str)
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-              .replace(/[^a-z0-9]/g, "") // Remove tudo que não for letra ou número (espaços, traços, etc)
-              .trim();
-          };
-
-          const getVal = (keys: string[], defaultVal: string = "") => {
-            const normalizedTargets = keys.map(normalize);
-            // Procura uma chave que, quando normalizada, esteja na nossa lista de alvos
-            const foundKey = Object.keys(p).find(k => 
-              normalizedTargets.includes(normalize(k))
-            );
-            
-            const val = foundKey ? p[foundKey] : undefined;
-            if (val === undefined || val === null || val === "") return defaultVal;
-            return String(val).trim();
-          };
-
-          const sku = getVal(['código interno', 'codigo interno', 'sku', 'code', 'internal_code', 'referencia', 'cod interno'], `SKU-${Math.random().toString(36).substr(2, 9)}`);
-          const countStr = getVal(['estoque', 'quantidade', 'count', 'quantity', 'stock', 'qtd'], '0');
-          const count = parseInt(countStr);
-          
-          const mapped = {
-            sku: sku,
-            name: getVal(['nome', 'name', 'title', 'description', 'produto', 'item'], 'Produto Sem Nome'),
-            image: getVal(['imagem', 'image', 'img', 'url', 'foto'], ''),
-            status: getVal(['status'], (count > 0 ? 'Em Estoque' : 'Fora de Estoque')),
-            count: isNaN(count) ? 0 : count,
-            price: (() => {
-              const pStr = getVal(['preço', 'preco', 'price', 'valor', 'venda'], '0').replace(',', '.');
-              const pVal = parseFloat(pStr);
-              return isNaN(pVal) ? 0 : pVal;
-            })(),
-            location: getVal(['localização', 'localizacao', 'location', 'warehouse', 'posicao', 'endereco'], 'Não atribuído'),
-            ean: getVal(['código ean', 'codigo ean', 'ean', 'barcode', 'gtin', 'ean13', 'cod ean', 'cod barras'], ''),
-            internal_code: sku,
-            category: getVal(['categoria', 'category', 'grupo', 'departamento', 'secao'], 'Geral'),
-            subcategory: getVal(['subcategoria', 'subcategory', 'subgrupo', 'sessao', 'subsecao'], 'Geral'),
-            brand: getVal(['marca', 'brand', 'fabricante', 'brand_name'], 'Geral'),
-            is_featured: false,
-            is_side: false,
-            is_low: count < 5
-          };
-
-          if (index === 0) {
-            console.log('--- DEBUG IMPORTAÇÃO (LINHA 1) ---');
-            console.log('Colunas detectadas no arquivo:', Object.keys(p));
-            console.log('Dados mapeados:', mapped);
-          }
-          return mapped;
-        });
-
-        console.log(`Importando ${mappedProducts.length} produtos...`, mappedProducts);
-
-        const { error } = await supabase
-          .from('products')
-          .upsert(mappedProducts, { onConflict: 'sku' });
-
-        if (error) throw error;
-
-        setNotification({ 
-          type: 'success', 
-          message: `SUCESSO: ${mappedProducts.length} produtos importados ou atualizados com sucesso!` 
-        });
-        fetchProducts();
-      } catch (err: any) {
-        console.error('Erro ao importar arquivo:', err);
-        setNotification({ 
-          type: 'error', 
-          message: `ERRO NA IMPORTAÇÃO: ${err.message || 'Verifique o formato e as colunas da planilha.'}` 
-        });
-      } finally {
-        setImporting(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setTimeout(() => setNotification(null), 5000);
-      }
-    };
-
-    try {
-      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-        reader.readAsArrayBuffer(file);
-      } else if (fileName.endsWith('.csv') || fileName.endsWith('.xml')) {
-        reader.readAsText(file);
-      } else {
-        throw new Error('Formato de arquivo não suportado. Use .xlsx, .xls, .csv ou .xml');
-      }
-    } catch (err: any) {
-      console.error('Error starting file read:', err);
-      setImporting(false);
-      setNotification({ type: 'error', message: `Erro ao ler o arquivo: ${err.message}` });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -3227,10 +3052,8 @@ export default function Page() {
                   onEdit={openEditModal}
                   onViewLink={handleViewLink}
                   onStockUpdate={handleStockUpdate}
-                  onFileImport={handleFileImport}
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
-                  fileInputRef={fileInputRef}
                   setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
                 />
             ) : activeTab === 'Requisições' ? (
