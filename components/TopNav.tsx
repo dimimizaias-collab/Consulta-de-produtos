@@ -73,7 +73,7 @@ export function TopNav({
       >
         <Search size={14} className="text-primary/70 shrink-0" strokeWidth={2.5} />
         <input
-          className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+          className="flex-1 !bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
           placeholder="EAN, SKU..."
           type="text"
           value={searchQuery}
