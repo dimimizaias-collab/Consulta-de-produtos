@@ -241,6 +241,7 @@ export default function Page() {
   const [linkSearchResults, setLinkSearchResults] = useState<any[]>([]);
   const [isLinking, setIsLinking] = useState(false);
   const [isRequestingNewProduct, setIsRequestingNewProduct] = useState(false);
+  const [isReviewingExistingRequest, setIsReviewingExistingRequest] = useState(false);
   const [requestSearchQuery, setRequestSearchQuery] = useState({ sku: '', ean: '' });
   const [foundProductForRequest, setFoundProductForRequest] = useState<any>(null);
   const [requestDraftChanges, setRequestDraftChanges] = useState<any>({});
@@ -3072,6 +3073,7 @@ export default function Page() {
                   requests={requests}
                   onAddRequest={() => {
                     setShowAddRequestModal(true);
+                    setIsReviewingExistingRequest(false);
                     setFoundProductForRequest(null);
                     setRequestSearchQuery({ sku: '', ean: '' });
                     setRequestDraftChanges({});
@@ -3085,10 +3087,12 @@ export default function Page() {
                       setShowBulkDraftReviewModal(true);
                     } else if (changes.is_new_product) {
                       setIsRequestingNewProduct(true);
+                      setIsReviewingExistingRequest(true);
                       setNewProductRequest(changes);
                       setShowAddRequestModal(true);
                     } else {
                       setIsRequestingNewProduct(false);
+                      setIsReviewingExistingRequest(true);
                       setFoundProductForRequest(request.products);
                       setRequestDraftChanges(changes);
                       setShowAddRequestModal(true);
@@ -3645,13 +3649,19 @@ export default function Page() {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">Nova Requisição</h2>
+                  <h2 className="text-xl font-black text-slate-900">
+                    {isReviewingExistingRequest ? "Revisão de Requisição" : "Nova Requisição"}
+                  </h2>
                   <p className="text-xs text-slate-500 font-medium">
-                    {isRequestingNewProduct ? "Cadastre um novo produto para requisição" : "Busque um produto para solicitar alterações"}
+                    {isReviewingExistingRequest
+                      ? "Visualizando detalhes da solicitação"
+                      : isRequestingNewProduct
+                        ? "Cadastre um novo produto para requisição"
+                        : "Busque um produto para solicitar alterações"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button 
+                  {!isReviewingExistingRequest && <button
                     onClick={() => setIsRequestingNewProduct(!isRequestingNewProduct)}
                     className={cn(
                       "p-2 rounded-full transition-all flex items-center gap-2 px-3",
@@ -3661,7 +3671,7 @@ export default function Page() {
                   >
                     <Plus size={20} />
                     {isRequestingNewProduct && <span className="text-xs font-bold">Novo Produto</span>}
-                  </button>
+                  </button>}
                   <button onClick={() => setShowAddRequestModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                     <X size={20} className="text-slate-400" />
                   </button>
