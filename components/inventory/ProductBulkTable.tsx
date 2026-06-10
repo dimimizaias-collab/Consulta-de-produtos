@@ -23,6 +23,7 @@ type BulkRow = {
   count: string;
   price: string;
   status: string;
+  checked: boolean;
 };
 
 type SaveResult = { saved: number; errors: number };
@@ -59,11 +60,12 @@ const emptyRow = (): BulkRow => ({
   category: '', subcategory: '', brand: '',
   location: '', count: '', price: '',
   status: 'Em Estoque',
+  checked: false,
 });
 
 // Column definitions
 type ColDef = {
-  key: keyof Omit<BulkRow, 'id'>;
+  key: keyof Omit<BulkRow, 'id' | 'checked'>;
   label: string;
   placeholder: string;
   w: string;
@@ -130,14 +132,8 @@ export function ProductBulkTable({
   // Combobox: `${rowId}:${colKey}` of the currently open dropdown
   const [openComboKey, setOpenComboKey] = useState<string | null>(null);
   const comboRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [checkedRowIds, setCheckedRowIds] = useState<Set<string>>(new Set());
-
   const toggleRowCheck = (id: string) =>
-    setCheckedRowIds(prev => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
+    setRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r));
 
   // EAN duplicate detection
   const duplicateEanRowIds = useMemo(() => {
@@ -173,6 +169,7 @@ export function ProductBulkTable({
           count: r.count != null ? String(r.count) : '',
           price: r.price != null ? String(r.price) : '',
           status: r.status ?? 'Em Estoque',
+          checked: (r as any).checked ?? false,
         })));
       } else {
         setRows([emptyRow()]);
@@ -224,7 +221,7 @@ export function ProductBulkTable({
     setRows(prev => [...prev, emptyRow()]);
   }, []);
 
-  const updateRow = useCallback((id: string, key: keyof Omit<BulkRow, 'id'>, value: string) => {
+  const updateRow = useCallback((id: string, key: keyof Omit<BulkRow, 'id' | 'checked'>, value: string) => {
     setRows(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
     setInvalidIds(prev => { const s = new Set(prev); s.delete(id); return s; });
   }, []);
@@ -285,7 +282,7 @@ export function ProductBulkTable({
     e: React.ClipboardEvent<HTMLInputElement>,
     rowIdx: number,
     colIdx: number,
-    colKey: keyof Omit<BulkRow, 'id'>,
+    colKey: keyof Omit<BulkRow, 'id' | 'checked'>,
   ) => {
     const text = e.clipboardData.getData('text');
     const lines = text.split(/\r?\n/).filter(l => l.trim());
@@ -754,7 +751,7 @@ export function ProductBulkTable({
                           onClick={() => toggleRowCheck(row.id)}
                           className={cn(
                             'w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center mx-auto shrink-0 transition-all',
-                            checkedRowIds.has(row.id)
+                            row.checked
                               ? 'bg-emerald-500 border-emerald-500 text-white'
                               : 'border-[#1A1A0E]/25 dark:border-white/25 text-transparent hover:border-emerald-400'
                           )}

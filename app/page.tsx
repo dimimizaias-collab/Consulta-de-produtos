@@ -881,6 +881,7 @@ export default function Page() {
       count: parseFloat(r.count) || 0,
       price: parseFloat(String(r.price).replace(',', '.')) || null,
       status: r.status || 'Em Estoque',
+      checked: r.checked ?? false,
     }));
     const { error } = await supabase.from('requests')
       .update({
