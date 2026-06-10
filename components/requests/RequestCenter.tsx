@@ -211,7 +211,7 @@ export function RequestCenter({
                 </div>
                 <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
                   <button onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-white border border-on-surface/[0.04] text-on-surface/60 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
                     <Edit2 size={12} /> Ver
                   </button>
                   <button onClick={() => onApproveRequest(request.id)}
@@ -292,7 +292,7 @@ export function RequestCenter({
                 <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
                   <button
                     onClick={() => onEditRequest(request)}
-                    className="flex-1 h-9 bg-white border border-on-surface/[0.04] text-on-surface/60 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Edit2 size={12} />
                     Review
@@ -375,7 +375,7 @@ export function RequestCenter({
               <div className="px-8 py-6 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-3">
                 <button 
                   onClick={() => onEditRequest(request)}
-                  className="flex-1 h-12 bg-white border border-on-surface/[0.03] text-on-surface/60 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
+                  className="flex-1 h-12 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Edit2 size={14} />
                   Refine
