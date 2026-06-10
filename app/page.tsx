@@ -10,6 +10,7 @@ import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
+import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
@@ -270,6 +271,9 @@ export default function Page() {
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
   const [bulkDraftUnderReview, setBulkDraftUnderReview] = useState<any>(null);
   const [bulkDraftEditedItems, setBulkDraftEditedItems] = useState<any[]>([]);
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
+  const [taskDetailRequest, setTaskDetailRequest] = useState<any>(null);
+  const [taskDetailData, setTaskDetailData] = useState<any>(null);
   const [eanProblems, setEanProblems] = useState<EanProblem[]>([]);
   const [showManualStockModal, setShowManualStockModal] = useState(false);
   const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
@@ -3081,7 +3085,11 @@ export default function Page() {
                   }}
                   onEditRequest={(request) => {
                     const changes = JSON.parse(request.requested_changes);
-                    if (changes.is_bulk_products) {
+                    if (changes.is_task) {
+                      setTaskDetailRequest(request);
+                      setTaskDetailData(changes);
+                      setShowTaskDetailModal(true);
+                    } else if (changes.is_bulk_products) {
                       setBulkDraftUnderReview(request);
                       setBulkDraftEditedItems(changes.items || []);
                       setShowBulkDraftReviewModal(true);
@@ -4007,6 +4015,18 @@ export default function Page() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Task Request Detail Modal */}
+      {showTaskDetailModal && taskDetailRequest && taskDetailData && (
+        <TaskRequestDetailModal
+          open={showTaskDetailModal}
+          request={taskDetailRequest}
+          taskData={taskDetailData}
+          onClose={() => { setShowTaskDetailModal(false); setTaskDetailRequest(null); setTaskDetailData(null); }}
+          onApprove={(id) => { setShowRequestConfirmModal({ show: true, requestId: id }); setShowTaskDetailModal(false); }}
+          onDelete={(id) => { handleDeleteRequest(id); setShowTaskDetailModal(false); setTaskDetailRequest(null); setTaskDetailData(null); }}
+        />
+      )}
 
       {/* Bulk Draft Review — ProductBulkTable em modo revisão */}
       <ProductBulkTable
