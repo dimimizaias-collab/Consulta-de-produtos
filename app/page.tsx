@@ -1133,6 +1133,9 @@ export default function Page() {
           }]);
         if (insertError) throw insertError;
         setNotification({ type: 'success', message: 'Novo produto cadastrado com sucesso!' });
+      } else if (changes.is_task) {
+        // Tarefas não atualizam products — apenas o status da requisição é marcado como approved abaixo
+        setNotification({ type: 'success', message: 'Tarefa aprovada com sucesso!' });
       } else {
         // Update the product in Inventory
         const { error: updateError } = await supabase
