@@ -13,6 +13,7 @@ import {
   ImageOff,
   Search,
   ClipboardList,
+  FilePenLine,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -150,7 +151,8 @@ export function RequestCenter({
           const requestedChanges = JSON.parse(request.requested_changes);
           const isBulkProducts = requestedChanges.is_bulk_products;
           const isTask = requestedChanges.is_task;
-          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask;
+          const isProductAlteration = requestedChanges.is_product_alteration;
+          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask && !isProductAlteration;
           const productData = isNewProduct ? requestedChanges : request.products;
 
           // ── Task card ──
@@ -217,6 +219,65 @@ export function RequestCenter({
                   <button onClick={() => onApproveRequest(request.id)}
                     className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20">
                     <CheckCircle2 size={13} /> Aprovar
+                  </button>
+                  <button onClick={() => onDeleteRequest(request.id)}
+                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          }
+
+          // ── Product Alteration card ──
+          if (isProductAlteration) {
+            const changedFields: string[] = requestedChanges.changed_fields || [];
+            const FIELD_LABELS: Record<string, string> = {
+              name: 'Nome', sku: 'SKU', price: 'Preço', count: 'Estoque',
+              location: 'Localização', ean: 'EAN', category: 'Categoria',
+              subcategory: 'Subcategoria', brand: 'Marca', status: 'Status',
+            };
+            return (
+              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className="bg-surface-container-lowest rounded-[1.5rem] border border-purple-400/30 hover:border-purple-400/60 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all">
+                <div className="p-5 flex-1 space-y-3">
+                  <div className="flex gap-3 items-start">
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0 flex items-center justify-center">
+                      <FilePenLine size={22} className="text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-purple-500/15 text-purple-700 dark:text-purple-300 inline-block mb-1">
+                        Produtos alterados
+                      </span>
+                      <h3 className="text-sm font-black text-on-surface leading-tight truncate">
+                        {requestedChanges.product_name || 'Produto'}
+                      </h3>
+                      {requestedChanges.product_sku && (
+                        <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest mt-0.5">
+                          {requestedChanges.product_sku}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {changedFields.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {changedFields.map((field) => (
+                        <span key={field}
+                          className="text-[8px] font-black px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 uppercase tracking-widest">
+                          {FIELD_LABELS[field] ?? field}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
+                  <button onClick={() => onEditRequest(request)}
+                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    <Edit2 size={12} /> Ver
+                  </button>
+                  <button onClick={() => onApproveRequest(request.id)}
+                    className="flex-1 h-9 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/20">
+                    <CheckCircle2 size={13} /> Sincronizado
                   </button>
                   <button onClick={() => onDeleteRequest(request.id)}
                     className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">

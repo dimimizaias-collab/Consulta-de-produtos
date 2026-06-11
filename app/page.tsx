@@ -11,6 +11,7 @@ import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
+import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
@@ -275,6 +276,9 @@ export default function Page() {
   const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
   const [taskDetailRequest, setTaskDetailRequest] = useState<any>(null);
   const [taskDetailData, setTaskDetailData] = useState<any>(null);
+  const [showAlterationDetailModal, setShowAlterationDetailModal] = useState(false);
+  const [alterationDetailData, setAlterationDetailData] = useState<any>(null);
+  const [originalProductSnapshot, setOriginalProductSnapshot] = useState<any>(null);
   const [eanProblems, setEanProblems] = useState<EanProblem[]>([]);
   const [showManualStockModal, setShowManualStockModal] = useState(false);
   const [manualStockSearchQuery, setManualStockSearchQuery] = useState({ ean: '', sku: '', name: '' });
@@ -1347,6 +1351,39 @@ export default function Page() {
 
       if (error) throw error;
 
+      // Detectar campos alterados e criar requisição de auditoria
+      if (originalProductSnapshot) {
+        const TRACKED_FIELDS = ['name', 'sku', 'price', 'count', 'location', 'ean', 'category', 'subcategory', 'brand', 'status'];
+        const changedFields: string[] = [];
+        const before: Record<string, any> = {};
+        const after: Record<string, any> = {};
+
+        for (const field of TRACKED_FIELDS) {
+          const oldVal = String(originalProductSnapshot[field] ?? '');
+          const newVal = String((productToUpdate as any)[field] ?? '');
+          if (oldVal !== newVal) {
+            changedFields.push(field);
+            before[field] = originalProductSnapshot[field];
+            after[field] = (productToUpdate as any)[field];
+          }
+        }
+
+        if (changedFields.length > 0) {
+          await supabase.from('requests').insert({
+            product_id: editingProduct.id,
+            requested_changes: JSON.stringify({
+              is_product_alteration: true,
+              product_name: productToUpdate.name,
+              product_sku: productToUpdate.sku,
+              changed_fields: changedFields,
+              before,
+              after,
+            }),
+            status: 'pending',
+          });
+        }
+      }
+
       // Logic for Mother/Child stock update
       if (editingProduct.is_mother && editingProduct.linked_product_id) {
         const newCount = isNaN(editingProduct.count) ? 0 : editingProduct.count;
@@ -1383,6 +1420,7 @@ export default function Page() {
         setShowEditModal(false);
         setEditStatus('idle');
         fetchProducts();
+        fetchRequests();
         setNotification(null);
       }, 1500);
 
@@ -2919,12 +2957,24 @@ export default function Page() {
   };
 
   const openEditModal = (product: any) => {
-    setEditingProduct({ 
+    setEditingProduct({
       ...product,
       eans: product.ean ? product.ean.split(',').map((e: string) => e.trim()) : [''],
       originalCount: product.count || 0,
       is_mother: product.is_mother || false,
       units_per_mother: product.units_per_mother || 1
+    });
+    setOriginalProductSnapshot({
+      name: product.name,
+      sku: product.sku,
+      price: isNaN(product.price) ? 0 : (product.price || 0),
+      count: isNaN(product.count) ? 0 : (product.count || 0),
+      location: product.location || '',
+      ean: product.ean || '',
+      category: product.category || '',
+      subcategory: product.subcategory || '',
+      brand: product.brand || '',
+      status: product.status || '',
     });
     setIsAddingNew({
       location: false,
@@ -3094,6 +3144,9 @@ export default function Page() {
                       setTaskDetailRequest(request);
                       setTaskDetailData(changes);
                       setShowTaskDetailModal(true);
+                    } else if (changes.is_product_alteration) {
+                      setAlterationDetailData(changes);
+                      setShowAlterationDetailModal(true);
                     } else if (changes.is_bulk_products) {
                       setBulkDraftUnderReview(request);
                       setBulkDraftEditedItems(changes.items || []);
@@ -4020,6 +4073,15 @@ export default function Page() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Product Alteration Detail Modal */}
+      {showAlterationDetailModal && alterationDetailData && (
+        <ProductAlterationModal
+          open={showAlterationDetailModal}
+          data={alterationDetailData}
+          onClose={() => { setShowAlterationDetailModal(false); setAlterationDetailData(null); }}
+        />
+      )}
 
       {/* Task Request Detail Modal */}
       {showTaskDetailModal && taskDetailRequest && taskDetailData && (

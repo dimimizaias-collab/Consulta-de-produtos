@@ -539,42 +539,48 @@ export function MobileBulkTable({
                       >
                         <div className="grid grid-cols-3 gap-2">
                           {['7','8','9','4','5','6','1','2','3',',','0','.'].map(key => (
-                            <button
+                            <motion.button
                               key={key}
                               type="button"
                               onMouseDown={e => {
                                 e.preventDefault();
                                 updateField(selectedIdx, 'price', (selectedRow?.price ?? '') + key);
                               }}
-                              className="h-12 rounded-xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-base font-black text-on-surface hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-all active:scale-95"
+                              whileTap={{ scale: 0.82 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                              className="h-12 rounded-xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-base font-black text-on-surface hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors"
                             >
                               {key}
-                            </button>
+                            </motion.button>
                           ))}
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-2">
-                          <button
+                          <motion.button
                             type="button"
                             onMouseDown={e => {
                               e.preventDefault();
                               const cur = selectedRow?.price ?? '';
                               updateField(selectedIdx, 'price', cur.slice(0, -1));
                             }}
-                            className="h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-all active:scale-95"
+                            whileTap={{ scale: 0.88 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                            className="h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-colors"
                           >
                             <Delete size={16} />
                             ⌫
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             type="button"
                             onMouseDown={e => {
                               e.preventDefault();
                               updateField(selectedIdx, 'price', '');
                             }}
-                            className="h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-all active:scale-95"
+                            whileTap={{ scale: 0.88 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                            className="h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-colors"
                           >
                             Limpar
-                          </button>
+                          </motion.button>
                         </div>
                       </motion.div>
                     )}
@@ -848,12 +854,14 @@ export function MobileBulkTable({
                     ? (nameKbdShift ? key.toUpperCase() : key)
                     : key;
                   return (
-                    <button
+                    <motion.button
                       key={key + ri}
                       type="button"
                       onMouseDown={e => { e.preventDefault(); handleNameKey(key); }}
+                      whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                       className={cn(
-                        'h-[42px] rounded-[8px] flex items-center justify-center transition-opacity active:opacity-50',
+                        'h-[42px] rounded-[8px] flex items-center justify-center',
                         'shadow-[0_1px_0_rgba(0,0,0,0.28)] dark:shadow-[0_1px_0_rgba(0,0,0,0.55)]',
                         isSpace ? 'flex-1 text-sm font-medium' :
                         isModeKey ? 'w-[42px] text-[11px] font-bold' :
@@ -874,7 +882,7 @@ export function MobileBulkTable({
                         : isReturn  ? '↵'
                         : displayKey
                       }
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>

@@ -131,22 +131,28 @@ function NumericKeyboard({
     >
       <div className="grid grid-cols-3 gap-2">
         {['7','8','9','4','5','6','1','2','3',',','0','.'].map(key => (
-          <button key={key} type="button"
+          <motion.button key={key} type="button"
             onMouseDown={e => { e.preventDefault(); onKey(key); }}
-            className="h-12 rounded-xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-base font-black text-on-surface hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-all active:scale-95">
+            whileTap={{ scale: 0.82 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+            className="h-12 rounded-xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-base font-black text-on-surface hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors">
             {key}
-          </button>
+          </motion.button>
         ))}
       </div>
       <div className="grid grid-cols-2 gap-2 mt-2">
-        <button type="button" onMouseDown={e => { e.preventDefault(); onDelete(); }}
-          className="h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-all active:scale-95">
+        <motion.button type="button" onMouseDown={e => { e.preventDefault(); onDelete(); }}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+          className="h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-colors">
           <Delete size={16} /> ⌫
-        </button>
-        <button type="button" onMouseDown={e => { e.preventDefault(); onClear(); }}
-          className="h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-all active:scale-95">
+        </motion.button>
+        <motion.button type="button" onMouseDown={e => { e.preventDefault(); onClear(); }}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+          className="h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-colors">
           Limpar
-        </button>
+        </motion.button>
       </div>
     </motion.div>
   );
@@ -177,10 +183,12 @@ function QwertyKeyboard({
             const isShiftActive = key === 'SHIFT' && shift;
             const displayKey = mode === 'abc' && !isSpecial ? (shift ? key.toUpperCase() : key) : key;
             return (
-              <button key={key + ri} type="button"
+              <motion.button key={key + ri} type="button"
                 onMouseDown={e => { e.preventDefault(); onKey(key); }}
+                whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 className={cn(
-                  'h-[42px] rounded-[8px] flex items-center justify-center transition-opacity active:opacity-50',
+                  'h-[42px] rounded-[8px] flex items-center justify-center',
                   'shadow-[0_1px_0_rgba(0,0,0,0.28)] dark:shadow-[0_1px_0_rgba(0,0,0,0.55)]',
                   key === 'SPACE' ? 'flex-1 text-sm font-medium' :
                   ['123','ABC','#+=','↵'].includes(key) ? 'w-[42px] text-[11px] font-bold' :
@@ -193,7 +201,7 @@ function QwertyKeyboard({
                   : key === '⌫' ? <Delete size={15} />
                   : key === 'SPACE' ? 'espaço'
                   : displayKey}
-              </button>
+              </motion.button>
             );
           })}
         </div>
