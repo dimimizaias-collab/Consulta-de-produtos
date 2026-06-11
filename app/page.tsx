@@ -16,6 +16,7 @@ import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
+import { MobileFinancePage } from '@/components/finance/MobileFinancePage';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
@@ -3278,7 +3279,7 @@ export default function Page() {
             ) : activeTab === 'Pedidos de Compra' ? (
                 <PurchaseOrderManager />
             ) : activeTab === 'Controle Financeiro' ? (
-                <FinanceManager />
+                isMobileView ? <MobileFinancePage /> : <FinanceManager />
             ) : activeTab === 'Notificações' ? (
                 <NotificationsPage
                   notifications={appNotifications}
