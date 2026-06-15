@@ -395,12 +395,16 @@ export default function Page() {
   const [nfNoteNumber, setNfNoteNumber] = useState('');
   const [nfAccessKey, setNfAccessKey] = useState('');
   const [nfItemDistribuicao, setNfItemDistribuicao] = useState<string[]>([]);
+  const [nfDistribDropdownIdx, setNfDistribDropdownIdx] = useState<number | null>(null);
+  const [nfDistribMode, setNfDistribMode] = useState<string[]>([]);
 
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<number[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
+  const [viewingDistribDropdownIdx, setViewingDistribDropdownIdx] = useState<number | null>(null);
+  const [viewingDistribMode, setViewingDistribMode] = useState<string[]>([]);
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
   // Undo/Redo history
@@ -2115,6 +2119,7 @@ export default function Page() {
       setNfNoteNumber('');
       setNfAccessKey('');
       setNfItemDistribuicao([]);
+      setNfDistribMode([]);
       setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
       fetchProducts();
     } catch (err: any) {
@@ -2197,6 +2202,7 @@ export default function Page() {
     setViewingNoteUnits(snap.viewingNoteUnits);
     setViewingNoteMultipliers(snap.viewingNoteMultipliers);
     setViewingNoteDistribuicao(snap.viewingNoteDistribuicao);
+    setViewingDistribMode([]); // Presets não participam do undo/redo
     setViewingNoteSellPrices(snap.viewingNoteSellPrices);
     setViewingNoteVerified(snap.viewingNoteVerified);
     setViewingNoteReviewTimestamps(snap.viewingNoteReviewTimestamps);
@@ -2233,6 +2239,40 @@ export default function Page() {
     setCanUndo(false);
     setCanRedo(false);
   }, []);
+
+  // Auto-sync distribuição na seção Revisões quando QTD muda e há preset ativo
+  useEffect(() => {
+    if (!nfDistribMode.some(m => m)) return;
+    setNfItemDistribuicao(prev => {
+      const next = [...prev];
+      pendingNfItems.forEach((item: any, idx: number) => {
+        const mode = nfDistribMode[idx];
+        if (!mode) return;
+        const qty = nfItemQtys[idx] ?? item.qty ?? 0;
+        if (mode === 'inteiro')      next[idx] = String(qty);
+        else if (mode === 'metade')  next[idx] = String(Math.floor(qty / 2));
+        else if (mode === 'nada')    next[idx] = '0';
+      });
+      return next;
+    });
+  }, [nfItemQtys, nfDistribMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-sync distribuição na seção Aprovados quando QTD muda e há preset ativo
+  useEffect(() => {
+    if (!viewingReviewNote || !viewingDistribMode.some(m => m)) return;
+    setViewingNoteDistribuicao(prev => {
+      const next = [...prev];
+      (viewingReviewNote.items as any[]).forEach((item: any, idx: number) => {
+        const mode = viewingDistribMode[idx];
+        if (!mode) return;
+        const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+        if (mode === 'inteiro')      next[idx] = String(qty);
+        else if (mode === 'metade')  next[idx] = String(Math.floor(qty / 2));
+        else if (mode === 'nada')    next[idx] = '0';
+      });
+      return next;
+    });
+  }, [viewingNoteQtys, viewingDistribMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Atalhos Ctrl+Z / Ctrl+Y enquanto nota estiver aberta
   useEffect(() => {
@@ -3196,6 +3236,7 @@ export default function Page() {
                     setViewingNoteQtys([]);
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
+                    setViewingDistribMode([]);
                     setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
                     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
                     setReviewUnitMenuIdx(null);
@@ -3264,6 +3305,7 @@ export default function Page() {
                     setViewingNoteQtys([]);
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
+                    setViewingDistribMode([]);
                     setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
                     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
                     setReviewUnitMenuIdx(null);
@@ -5552,19 +5594,50 @@ export default function Page() {
                             </button>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={nfItemDistribuicao[idx] ?? ''}
-                              onChange={e => {
-                                const val = e.target.value.replace(/[^0-9]/g, '');
-                                const u = [...nfItemDistribuicao];
-                                u[idx] = val;
-                                setNfItemDistribuicao(u);
-                              }}
-                              placeholder="—"
-                              className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                            />
+                            <div className="relative inline-flex items-center">
+                              {/* Botão preset — canto superior direito */}
+                              <button
+                                className="absolute -top-2.5 -right-2.5 z-10 w-4 h-4 rounded-full bg-slate-200 hover:bg-primary hover:text-white text-slate-400 flex items-center justify-center transition-all shadow-sm"
+                                onClick={() => setNfDistribDropdownIdx(nfDistribDropdownIdx === idx ? null : idx)}
+                                title="Preencher distribuição"
+                              >
+                                <ChevronDown size={8} />
+                              </button>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={nfItemDistribuicao[idx] ?? ''}
+                                onChange={e => {
+                                  const val = e.target.value.replace(/[^0-9]/g, '');
+                                  const u = [...nfItemDistribuicao]; u[idx] = val; setNfItemDistribuicao(u);
+                                  const m = [...nfDistribMode]; m[idx] = ''; setNfDistribMode(m);
+                                }}
+                                placeholder="—"
+                                className="w-14 text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                              />
+                              {nfDistribDropdownIdx === idx && (
+                                <>
+                                  <div className="fixed inset-0 z-[150]" onClick={() => setNfDistribDropdownIdx(null)} />
+                                  <div className="absolute top-full mt-1 right-0 z-[200] bg-slate-800 rounded-xl shadow-2xl border border-white/10 overflow-hidden min-w-[100px]">
+                                    {(['Inteiro', 'Metade', 'Nada'] as const).map((label, i) => {
+                                      const preset = label.toLowerCase() as 'inteiro' | 'metade' | 'nada';
+                                      return (
+                                        <button key={label}
+                                          onClick={() => {
+                                            const qty = nfItemQtys[idx] ?? pendingNfItems[idx]?.qty ?? 0;
+                                            const val = preset === 'inteiro' ? String(qty) : preset === 'metade' ? String(Math.floor(qty / 2)) : '0';
+                                            const d = [...nfItemDistribuicao]; d[idx] = val; setNfItemDistribuicao(d);
+                                            const m = [...nfDistribMode]; m[idx] = preset; setNfDistribMode(m);
+                                            setNfDistribDropdownIdx(null);
+                                          }}
+                                          className={cn("w-full px-4 py-2.5 text-left text-xs font-bold text-white/80 hover:bg-white/10 transition-colors", i > 0 && "border-t border-white/5")}
+                                        >{label}</button>
+                                      );
+                                    })}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -5697,6 +5770,7 @@ export default function Page() {
                     setNfNoteNumber('');
                     setNfAccessKey('');
                     setNfItemDistribuicao([]);
+                    setNfDistribMode([]);
                   }}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                 >
@@ -6713,7 +6787,15 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ justifyContent: 'center', padding: '0 8px' })}>
+                            <div data-cell style={cell({ justifyContent: 'center', padding: '0 8px', position: 'relative', overflow: 'visible' })}>
+                              {/* Botão preset — canto superior direito */}
+                              <button
+                                style={{ position: 'absolute', top: -7, right: -7, zIndex: 10, width: 16, height: 16, borderRadius: '50%', background: 'var(--rn-cell-inner)', border: '1px solid var(--rn-cell-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--rn-text-subtle)', flexShrink: 0 }}
+                                onClick={() => setViewingDistribDropdownIdx(viewingDistribDropdownIdx === idx ? null : idx)}
+                                title="Preencher distribuição"
+                              >
+                                <ChevronDown size={8} />
+                              </button>
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -6721,15 +6803,39 @@ export default function Page() {
                                 value={viewingNoteDistribuicao[idx] ?? ''}
                                 onChange={e => {
                                   const val = e.target.value.replace(/[^0-9]/g, '');
-                                  const u = [...viewingNoteDistribuicao];
-                                  u[idx] = val;
-                                  setViewingNoteDistribuicao(u);
+                                  const u = [...viewingNoteDistribuicao]; u[idx] = val; setViewingNoteDistribuicao(u);
+                                  const m = [...viewingDistribMode]; m[idx] = ''; setViewingDistribMode(m);
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 8)}
                                 onBlur={captureSnapshot}
                                 placeholder="—"
                                 className="w-10 text-center text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                               />
+                              {viewingDistribDropdownIdx === idx && (
+                                <>
+                                  <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setViewingDistribDropdownIdx(null)} />
+                                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 200, background: '#2e2e28', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', minWidth: 100 }}>
+                                    {(['Inteiro', 'Metade', 'Nada'] as const).map((label, i) => {
+                                      const preset = label.toLowerCase() as 'inteiro' | 'metade' | 'nada';
+                                      return (
+                                        <button key={label}
+                                          onClick={() => {
+                                            const qty = viewingNoteQtys[idx] ?? (viewingReviewNote?.items[idx] as any)?.qty ?? 0;
+                                            const val = preset === 'inteiro' ? String(qty) : preset === 'metade' ? String(Math.floor(qty / 2)) : '0';
+                                            const d = [...viewingNoteDistribuicao]; d[idx] = val; setViewingNoteDistribuicao(d);
+                                            const m = [...viewingDistribMode]; m[idx] = preset; setViewingDistribMode(m);
+                                            setViewingDistribDropdownIdx(null);
+                                            captureSnapshot();
+                                          }}
+                                          style={{ width: '100%', padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)', background: 'transparent', border: 'none', cursor: 'pointer', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : undefined }}
+                                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                        >{label}</button>
+                                      );
+                                    })}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </td>
                           {/* Botão excluir item */}
@@ -6751,6 +6857,7 @@ export default function Page() {
                                     setViewingNoteMultipliers(remove(viewingNoteMultipliers));
                                     setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
+                                    setViewingDistribMode(remove(viewingDistribMode));
                                     setItemDiscounts(remove(itemDiscounts));
                                     setItemSurcharges(remove(itemSurcharges));
                                     setViewingNoteDiscrepancies(remove(viewingNoteDiscrepancies));
