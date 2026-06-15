@@ -418,6 +418,11 @@ export function ProductBulkTable({
 
           {/* ── Table ──────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-auto px-6 md:px-8 pt-3 pb-2 bg-[#FDFAF0] dark:bg-[#1E1E18]">
+            {/* Blur strip acima do cabeçalho sticky */}
+            <div
+              className="sticky top-0 z-[15] h-3 -mx-6 md:-mx-8 pointer-events-none backdrop-blur-sm bg-[#FDFAF0]/70 dark:bg-[#1E1E18]/70"
+              style={{ marginBottom: -12 }}
+            />
             <table
               className="w-full"
               style={{
