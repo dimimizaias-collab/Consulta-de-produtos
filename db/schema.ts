@@ -2,7 +2,7 @@ import { pgTable, text, integer, boolean, timestamp, uuid, numeric } from 'drizz
 
 export const products = pgTable('products', {
   id: uuid('id').defaultRandom().primaryKey(),
-  sku: text('sku').notNull().unique(),
+  sku: text('sku'),
   name: text('name').notNull(),
   image: text('image'),
   status: text('status'),

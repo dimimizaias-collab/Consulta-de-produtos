@@ -45,6 +45,7 @@ function formatPrice(value: number): string {
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
+  const [codeField, setCodeField] = useState<'ean' | 'sku'>('ean');
   // map productId → { qty, type }
   const [selections, setSelections] = useState<Record<string, Selection>>({});
   // set of block indices (0-based) that are already used on the sheet
@@ -132,6 +133,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const handleClose = () => {
     setStep(1);
     setSearch('');
+    setCodeField('ean');
     setSelections({});
     setUsedBlocks(new Set());
     onClose();
@@ -167,7 +169,9 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
   const drawLabel = (doc: jsPDF, x: number, y: number, entry: { product: any; type: LabelType }) => {
     const { product, type } = entry;
-    const code = product.ean || product.sku || '';
+    const code = codeField === 'sku'
+      ? (product.sku || product.ean || '')
+      : (product.ean || product.sku || '');
 
     const cx = x + PAD;
     const cw = LABEL_W - PAD * 2;
@@ -296,6 +300,35 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                       placeholder="Buscar por nome, SKU ou EAN…"
                       className="w-full h-11 pl-10 pr-4 bg-on-surface/[0.04] border border-on-surface/[0.06] rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/20 transition-colors"
                     />
+                  </div>
+
+                  {/* Code field choice */}
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-semibold text-on-surface/50">Código a imprimir na etiqueta</span>
+                    <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
+                      <button
+                        onClick={() => setCodeField('ean')}
+                        className={cn(
+                          'px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all',
+                          codeField === 'ean'
+                            ? 'bg-on-surface text-surface-container shadow-sm'
+                            : 'text-on-surface/40 hover:text-on-surface/70'
+                        )}
+                      >
+                        EAN
+                      </button>
+                      <button
+                        onClick={() => setCodeField('sku')}
+                        className={cn(
+                          'px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all',
+                          codeField === 'sku'
+                            ? 'bg-on-surface text-surface-container shadow-sm'
+                            : 'text-on-surface/40 hover:text-on-surface/70'
+                        )}
+                      >
+                        SKU
+                      </button>
+                    </div>
                   </div>
 
                   {/* List header */}

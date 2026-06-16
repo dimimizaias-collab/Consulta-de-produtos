@@ -1216,9 +1216,9 @@ export default function Page() {
     
     console.log('Iniciando adição de produto:', newProduct);
 
-    if (!newProduct.sku || !newProduct.name) {
+    if (!newProduct.name) {
       setAddStatus('error');
-      setAddError('SKU e Nome são obrigatórios.');
+      setAddError('Nome é obrigatório.');
       return;
     }
 
@@ -1226,7 +1226,7 @@ export default function Page() {
       setAdding(true);
       
       const productToInsert = {
-        sku: newProduct.sku,
+        sku: newProduct.sku?.trim() || null,
         name: newProduct.name,
         image: newProduct.image || '',
         status: newProduct.status,
@@ -4322,9 +4322,8 @@ export default function Page() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">SKU (Obrigatório)</label>
+                    <label className="text-[10px] font-bold text-secondary uppercase">SKU (Opcional)</label>
                     <input
-                      required
                       type="text"
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
