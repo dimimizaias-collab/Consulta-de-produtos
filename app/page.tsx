@@ -1155,6 +1155,10 @@ export default function Page() {
       } else if (changes.is_task) {
         // Tarefas não atualizam products — apenas o status da requisição é marcado como approved abaixo
         setNotification({ type: 'success', message: 'Tarefa aprovada com sucesso!' });
+      } else if (changes.is_product_alteration) {
+        // Registro de auditoria: o produto já foi atualizado no momento da edição.
+        // Aqui só confirmamos a requisição, sem reaplicar updates no products.
+        setNotification({ type: 'success', message: 'Alteração confirmada com sucesso!' });
       } else {
         // Update the product in Inventory
         const { error: updateError } = await supabase
