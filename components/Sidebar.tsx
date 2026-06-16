@@ -6,9 +6,9 @@ import {
   BarChart3,
   Settings,
   LogIn,
-  ShoppingCart,
   Wallet,
-  Bell
+  Bell,
+  Users
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -25,10 +25,12 @@ interface SidebarProps {
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard' },
   { icon: Package2,        label: 'Inventory' },
-  { icon: ShoppingCart,    label: 'Pedidos de Compra' },
+  // Pedidos de Compra — DESATIVADO da navegação (componente/schema mantidos em components/orders/ e db/schema.ts).
+  // { icon: ShoppingCart, label: 'Pedidos de Compra' },
   { icon: BarChart3,       label: 'Requisições' },
   { icon: LogIn,           label: 'Entrada de Mercadoria' },
   { icon: Wallet,          label: 'Controle Financeiro' },
+  { icon: Users,           label: 'Recursos Humanos' },
   { icon: Bell,            label: 'Notificações', hasBadge: true },
   { icon: Settings,        label: 'Configurações' },
 ] as const;

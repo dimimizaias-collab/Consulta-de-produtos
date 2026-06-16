@@ -56,3 +56,15 @@ export const purchaseOrderItems = pgTable('purchase_order_items', {
   supplierDescription: text('supplier_description'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const hrEvents = pgTable('hr_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  data: text('data').notNull(), // ISO date (YYYY-MM-DD)
+  titulo: text('titulo').notNull(),
+  descricao: text('descricao'),
+  categoria: text('categoria').notNull().default('Outro'), // 'Reunião' | 'Treinamento' | 'Férias' | 'Aniversário' | 'Outro'
+  responsavel: text('responsavel'),
+  cor: text('cor').notNull().default('#4F46E5'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});

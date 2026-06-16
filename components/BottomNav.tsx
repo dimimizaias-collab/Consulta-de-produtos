@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, Package2, BarChart3, LogIn, Wallet, Settings } from 'lucide-react';
+import { LayoutDashboard, Package2, BarChart3, LogIn, Wallet, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import { useViewMode } from '@/lib/view-mode';
@@ -16,6 +16,7 @@ const navItems = [
   { icon: BarChart3,       label: 'Requisições', key: 'Requisições' },
   { icon: LogIn,           label: 'Entrada',     key: 'Entrada de Mercadoria' },
   { icon: Wallet,          label: 'Finanças',    key: 'Controle Financeiro' },
+  { icon: Users,           label: 'RH',          key: 'Recursos Humanos' },
   { icon: Settings,        label: 'Config.',     key: 'Configurações' },
 ];
 

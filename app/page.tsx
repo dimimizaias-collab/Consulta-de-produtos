@@ -15,12 +15,15 @@ import { ProductAlterationModal } from '@/components/requests/ProductAlterationM
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { MobileManifestPage } from '@/components/requests/MobileManifestPage';
+// Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { MobileFinancePage } from '@/components/finance/MobileFinancePage';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { DespesasPage } from '@/components/finance/DespesasPage';
+import { HRManager } from '@/components/hr/HRManager';
+import { MobileHRPage } from '@/components/hr/MobileHRPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
@@ -3378,9 +3381,32 @@ export default function Page() {
                   onDeleteBulkDraft={handleDeleteBulkDraft}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
+                // Inalcançável: item removido da navegação (ver components/Sidebar.tsx). Bloco mantido para reativação futura.
                 <PurchaseOrderManager />
             ) : activeTab === 'Controle Financeiro' ? (
                 isMobileView ? <MobileFinancePage /> : <FinanceManager />
+            ) : activeTab === 'Recursos Humanos' ? (
+                isMobileView ? (
+                  <MobileHRPage
+                    requests={requests}
+                    onOpenTask={(request, taskData) => {
+                      setTaskDetailRequest(request);
+                      setTaskDetailData(taskData);
+                      setShowTaskDetailModal(true);
+                    }}
+                    onGoToFinance={() => setActiveTab('Controle Financeiro')}
+                  />
+                ) : (
+                  <HRManager
+                    requests={requests}
+                    onOpenTask={(request, taskData) => {
+                      setTaskDetailRequest(request);
+                      setTaskDetailData(taskData);
+                      setShowTaskDetailModal(true);
+                    }}
+                    onGoToFinance={() => setActiveTab('Controle Financeiro')}
+                  />
+                )
             ) : activeTab === 'Notificações' ? (
                 <NotificationsPage
                   notifications={appNotifications}
