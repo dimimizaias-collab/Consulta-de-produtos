@@ -381,14 +381,14 @@ export function LogisticsCenter({
               <div
                 key={note.id}
                 onClick={() => (onViewMobile ?? onViewReviewNote)(note)}
-                className="bg-[#2A2A24] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Avatar */}
                 <div className={cn(
                   'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
                   note.approved
-                    ? 'bg-[rgba(52,211,153,0.18)] text-[#34D399]'
-                    : 'bg-[rgba(216,30,30,0.18)] text-[#D81E1E]'
+                    ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
+                    : 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
                 )}>
                   {note.approved
                     ? <CheckCircle2 size={22} />
@@ -398,17 +398,17 @@ export function LogisticsCenter({
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 flex flex-col gap-1">
-                  <p className="text-[12px] font-black text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
+                  <p className="text-[12px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
                     {note.supplierName
                       ? `${note.supplierName} — ${note.timestamp}`
                       : note.fileName}
                   </p>
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgba(242,240,227,0.40)]">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#1A1A0E]/40 dark:text-white/35">
                     <span className="truncate">{note.supplierName || '—'}</span>
-                    <span className="text-[rgba(242,240,227,0.18)]">·</span>
+                    <span className="text-[#1A1A0E]/18 dark:text-white/18">·</span>
                     <span className="whitespace-nowrap shrink-0">{note.timestamp}</span>
                   </div>
-                  <span className="self-start bg-[rgba(242,240,227,0.08)] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[rgba(242,240,227,0.50)] tracking-[0.04em]">
+                  <span className="self-start bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
                     {note.noteNumber || note.fileName}
                   </span>
                 </div>
@@ -418,7 +418,7 @@ export function LogisticsCenter({
                   <span className={cn(
                     'text-[12px] font-black px-2.5 py-1 rounded-full',
                     note.verifiedCount === note.itemCount && note.itemCount > 0
-                      ? 'bg-[rgba(52,211,153,0.20)] text-[#34D399]'
+                      ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
                       : 'bg-[#D97706] text-white'
                   )}>
                     {String(note.verifiedCount).padStart(2, '0')}/{String(note.itemCount).padStart(2, '0')}
@@ -426,7 +426,7 @@ export function LogisticsCenter({
                   {!note.approved && (
                     <button
                       onClick={e => { e.stopPropagation(); setConfirmApproveId(note.id); }}
-                      className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
+                      className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
                     >
                       <CheckCircle2 size={14} />
                     </button>

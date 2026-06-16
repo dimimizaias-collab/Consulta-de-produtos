@@ -3154,7 +3154,7 @@ export default function Page() {
           <div className={cn(
             'pb-8 max-w-[1400px]',
             isMobileView ? 'px-5 space-y-4' : 'px-7 space-y-8',
-            activeTab === 'Inventory' ? 'pt-[74px]' : 'pt-5'
+            isMobileView || activeTab === 'Inventory' ? 'pt-[74px]' : 'pt-5'
           )}>
             {activeTab === 'Inventory' ? (
                 <InventoryManager 
