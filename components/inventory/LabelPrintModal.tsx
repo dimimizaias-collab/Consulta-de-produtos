@@ -200,27 +200,28 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       doc.text(code, x + LABEL_W / 2, y + LABEL_H - 3.0, { align: 'center' });
 
     } else {
-      // Prateleira: name (1 line, 5pt)
-      doc.setFontSize(5);
+      // Prateleira: name (1 line, 6.5pt)
+      doc.setFontSize(6.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(20, 20, 20);
       const nameLines = doc.splitTextToSize(product.name || '—', cw);
-      doc.text(nameLines.slice(0, 1), x + LABEL_W / 2, cy + 2, { align: 'center' });
-      cy += 3;
+      doc.text(nameLines.slice(0, 1), x + LABEL_W / 2, cy + 2.3, { align: 'center' });
+      cy += 3.2;
 
-      // Price (9pt bold, centered)
+      // Price (13pt bold, centered)
       const price = formatPrice(product.price ?? 0);
-      doc.setFontSize(9);
+      doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text(price, x + LABEL_W / 2, cy + 4, { align: 'center' });
-      cy += 6;
+      doc.text(price, x + LABEL_W / 2, cy + 5, { align: 'center' });
+      cy += 6.5;
 
-      // Barcode
+      // Barcode (pushed further down)
+      cy += 1.5;
       if (code) {
         try {
-          const bcH = LABEL_H - PAD - (cy - y) - 5.0;
+          const bcH = LABEL_H - PAD - (cy - y) - 4.0;
           const bcDataUrl = generateBarcodeDataUrl(code);
-          doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(3, bcH));
+          doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(2.5, bcH));
         } catch { /* skip */ }
       }
 
