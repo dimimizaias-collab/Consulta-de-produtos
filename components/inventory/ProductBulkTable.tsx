@@ -829,7 +829,7 @@ export function ProductBulkTable({
               {duplicateEanRowIds.size > 0 && (
                 <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                   <AlertCircle size={13} />
-                  {duplicateEanRowIds.size} EAN{duplicateEanRowIds.size !== 1 ? 's' : ''} já cadastrado{duplicateEanRowIds.size !== 1 ? 's' : ''}
+                  {duplicateEanRowIds.size} EAN{duplicateEanRowIds.size !== 1 ? 's' : ''} já cadastrado{duplicateEanRowIds.size !== 1 ? 's' : ''} — produto será atualizado
                 </span>
               )}
               {invalidIds.size > 0 && (

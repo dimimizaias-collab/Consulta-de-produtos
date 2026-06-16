@@ -837,19 +837,29 @@ export default function Page() {
   };
 
   const handleSaveBulkDraft = async (rows: any[], title: string) => {
-    const items = rows.filter((r: any) => r.name?.trim() || r.ean?.trim()).map((r: any, idx: number) => ({
-      seq: idx + 1,
-      name: r.name?.trim() || '',
-      sku: r.sku || null,
-      ean: r.ean || null,
-      category: r.category || null,
-      subcategory: r.subcategory || null,
-      brand: r.brand || null,
-      location: r.location || null,
-      count: parseFloat(r.count) || 0,
-      price: parseFloat(String(r.price).replace(',', '.')) || null,
-      status: r.status || 'Em Estoque',
-    }));
+    const eanToProductId = new Map<string, string>();
+    products.forEach((p: any) => {
+      if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id);
+    });
+
+    const items = rows.filter((r: any) => r.name?.trim() || r.ean?.trim()).map((r: any, idx: number) => {
+      const ean = r.ean?.trim() || null;
+      const existingProductId = ean ? eanToProductId.get(ean) : undefined;
+      return {
+        seq: idx + 1,
+        name: r.name?.trim() || '',
+        sku: r.sku || null,
+        ean,
+        category: r.category || null,
+        subcategory: r.subcategory || null,
+        brand: r.brand || null,
+        location: r.location || null,
+        count: parseFloat(r.count) || 0,
+        price: parseFloat(String(r.price).replace(',', '.')) || null,
+        status: r.status || 'Em Estoque',
+        ...(existingProductId ? { existingProductId } : {}),
+      };
+    });
 
     const { error } = await supabase.from('requests').insert([{
       product_id: null,
@@ -1120,25 +1130,46 @@ export default function Page() {
       const isNewProduct = changes.is_new_product && !isBulkProducts;
 
       if (isBulkProducts) {
-        // Insert multiple products from bulk draft - use edited items if available
+        // Insert new products from bulk draft, or update existing ones when the EAN already exists
         const items = bulkDraftEditedItems.length > 0 ? bulkDraftEditedItems : (changes.items || []);
+        const eanToProductId = new Map<string, string>();
+        products.forEach((p: any) => { if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id); });
+
+        const isUpdate = items.map((item: any) => {
+          const ean = item.ean?.trim();
+          return !!(ean && eanToProductId.has(ean));
+        });
+
         const results = await Promise.allSettled(
-          items.map((item: any) => supabase.from('products').insert([{
-            name: item.name,
-            sku: item.sku || null,
-            ean: item.ean || null,
-            category: item.category || null,
-            subcategory: item.subcategory || null,
-            brand: item.brand || null,
-            location: item.location || null,
-            count: item.count || 0,
-            price: item.price || null,
-            status: item.status || 'Em Estoque',
-          }]))
+          items.map((item: any, i: number) => {
+            const ean = item.ean?.trim() || null;
+            const payload = {
+              name: item.name,
+              sku: item.sku || null,
+              ean,
+              category: item.category || null,
+              subcategory: item.subcategory || null,
+              brand: item.brand || null,
+              location: item.location || null,
+              count: item.count || 0,
+              price: item.price || null,
+              status: item.status || 'Em Estoque',
+            };
+            return isUpdate[i]
+              ? supabase.from('products').update(payload).eq('id', eanToProductId.get(ean!))
+              : supabase.from('products').insert([payload]);
+          })
         );
-        const saved = results.filter(r => r.status === 'fulfilled' && !(r as any).value?.error).length;
-        const errors = results.length - saved;
-        setNotification({ type: 'success', message: `${saved} produto(s) cadastrado(s)${errors > 0 ? ` · ${errors} com erro` : ''}` });
+
+        let created = 0, updated = 0, errors = 0;
+        results.forEach((r, i) => {
+          const ok = r.status === 'fulfilled' && !(r as any).value?.error;
+          if (ok) { isUpdate[i] ? updated++ : created++; } else errors++;
+        });
+        const parts = [];
+        if (created > 0) parts.push(`${created} cadastrado(s)`);
+        if (updated > 0) parts.push(`${updated} atualizado(s)`);
+        setNotification({ type: 'success', message: `${parts.join(' · ') || 'Nenhum produto processado'}${errors > 0 ? ` · ${errors} com erro` : ''}` });
         setBulkDraftEditedItems([]);
         setBulkDraftUnderReview(null);
       } else if (isNewProduct) {
@@ -4196,19 +4227,29 @@ export default function Page() {
         secondaryActionLabel="Salvar revisão"
         onSecondaryAction={handleSaveReviewProgress}
         onSave={async (rows) => {
+          const eanToProductId = new Map<string, string>();
+          products.forEach((p: any) => { if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id); });
+
           const results = await Promise.allSettled(
-            rows.map(r => supabase.from('products').insert([{
-              name: r.name || null,
-              sku: r.sku || null,
-              ean: r.ean || null,
-              category: r.category || null,
-              subcategory: r.subcategory || null,
-              brand: r.brand || null,
-              location: r.location || null,
-              count: parseFloat(r.count) || 0,
-              price: parseFloat(String(r.price).replace(',', '.')) || null,
-              status: r.status || 'Em Estoque',
-            }]))
+            rows.map(r => {
+              const ean = r.ean?.trim() || null;
+              const existingProductId = ean ? eanToProductId.get(ean) : undefined;
+              const payload = {
+                name: r.name || null,
+                sku: r.sku || null,
+                ean,
+                category: r.category || null,
+                subcategory: r.subcategory || null,
+                brand: r.brand || null,
+                location: r.location || null,
+                count: parseFloat(r.count) || 0,
+                price: parseFloat(String(r.price).replace(',', '.')) || null,
+                status: r.status || 'Em Estoque',
+              };
+              return existingProductId
+                ? supabase.from('products').update(payload).eq('id', existingProductId)
+                : supabase.from('products').insert([payload]);
+            })
           );
           const saved = results.filter(r => r.status === 'fulfilled' && !(r as any).value?.error).length;
           const errors = results.length - saved;
