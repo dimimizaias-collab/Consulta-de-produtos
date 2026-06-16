@@ -20,10 +20,12 @@ const ROWS       = 13;
 const TOTAL      = COLS * ROWS; // 65
 
 type LabelType = 'estoque' | 'prateleira';
+type CodeField = 'ean' | 'sku';
 
 interface Selection {
   qty: number;
   type: LabelType;
+  codeField: CodeField;
 }
 
 interface LabelPrintModalProps {
@@ -45,8 +47,7 @@ function formatPrice(value: number): string {
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
-  const [codeField, setCodeField] = useState<'ean' | 'sku'>('ean');
-  // map productId → { qty, type }
+  // map productId → { qty, type, codeField }
   const [selections, setSelections] = useState<Record<string, Selection>>({});
   // set of block indices (0-based) that are already used on the sheet
   const [usedBlocks, setUsedBlocks] = useState<Set<number>>(new Set());
@@ -68,14 +69,14 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     [selectedIds, selections]
   );
 
-  // Flat label list: [{productId, type}] repeated qty times
+  // Flat label list: [{productId, type, codeField}] repeated qty times
   const labelQueue = useMemo(() => {
-    const queue: { product: any; type: LabelType }[] = [];
+    const queue: { product: any; type: LabelType; codeField: CodeField }[] = [];
     selectedIds.forEach(id => {
       const p = products.find(x => x.id === id);
       if (!p) return;
-      const { qty, type } = selections[id];
-      for (let i = 0; i < qty; i++) queue.push({ product: p, type });
+      const { qty, type, codeField } = selections[id];
+      for (let i = 0; i < qty; i++) queue.push({ product: p, type, codeField });
     });
     return queue;
   }, [selectedIds, selections, products]);
@@ -95,6 +96,8 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
   const firstPrintBlock = printBlocks[0] ?? -1;
 
+  const defaultCodeField = (p: any): CodeField => (p?.ean ? 'ean' : 'sku');
+
   const toggleProduct = useCallback((id: string) => {
     setSelections(prev => {
       if (prev[id]) {
@@ -102,9 +105,10 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
         delete next[id];
         return next;
       }
-      return { ...prev, [id]: { qty: 1, type: 'estoque' } };
+      const p = products.find(x => x.id === id);
+      return { ...prev, [id]: { qty: 1, type: 'estoque', codeField: defaultCodeField(p) } };
     });
-  }, []);
+  }, [products]);
 
   const setQty = useCallback((id: string, qty: number) => {
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], qty: Math.max(1, qty) } }));
@@ -114,9 +118,15 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], type } }));
   }, []);
 
+  const setCodeFieldFor = useCallback((id: string, codeField: CodeField) => {
+    setSelections(prev => ({ ...prev, [id]: { ...prev[id], codeField } }));
+  }, []);
+
   const selectAll = useCallback(() => {
     const next: Record<string, Selection> = {};
-    products.forEach(p => { next[p.id] = selections[p.id] ?? { qty: 1, type: 'estoque' }; });
+    products.forEach(p => {
+      next[p.id] = selections[p.id] ?? { qty: 1, type: 'estoque', codeField: defaultCodeField(p) };
+    });
     setSelections(next);
   }, [products, selections]);
 
@@ -133,7 +143,6 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const handleClose = () => {
     setStep(1);
     setSearch('');
-    setCodeField('ean');
     setSelections({});
     setUsedBlocks(new Set());
     onClose();
@@ -167,8 +176,8 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     doc.save('etiquetas.pdf');
   };
 
-  const drawLabel = (doc: jsPDF, x: number, y: number, entry: { product: any; type: LabelType }) => {
-    const { product, type } = entry;
+  const drawLabel = (doc: jsPDF, x: number, y: number, entry: { product: any; type: LabelType; codeField: CodeField }) => {
+    const { product, type, codeField } = entry;
     const code = codeField === 'sku'
       ? (product.sku || product.ean || '')
       : (product.ean || product.sku || '');
@@ -302,35 +311,6 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                     />
                   </div>
 
-                  {/* Code field choice */}
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[11px] font-semibold text-on-surface/50">Código a imprimir na etiqueta</span>
-                    <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
-                      <button
-                        onClick={() => setCodeField('ean')}
-                        className={cn(
-                          'px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all',
-                          codeField === 'ean'
-                            ? 'bg-on-surface text-surface-container shadow-sm'
-                            : 'text-on-surface/40 hover:text-on-surface/70'
-                        )}
-                      >
-                        EAN
-                      </button>
-                      <button
-                        onClick={() => setCodeField('sku')}
-                        className={cn(
-                          'px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all',
-                          codeField === 'sku'
-                            ? 'bg-on-surface text-surface-container shadow-sm'
-                            : 'text-on-surface/40 hover:text-on-surface/70'
-                        )}
-                      >
-                        SKU
-                      </button>
-                    </div>
-                  </div>
-
                   {/* List header */}
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Produtos</span>
@@ -408,6 +388,34 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                                   )}
                                 >
                                   Prat.
+                                </button>
+                              </div>
+
+                              {/* Code field toggle */}
+                              <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
+                                <button
+                                  onClick={() => setCodeFieldFor(product.id, 'ean')}
+                                  disabled={!product.ean}
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
+                                    sel.codeField === 'ean'
+                                      ? 'bg-on-surface text-surface-container shadow-sm'
+                                      : 'text-on-surface/40 hover:text-on-surface/70'
+                                  )}
+                                >
+                                  EAN
+                                </button>
+                                <button
+                                  onClick={() => setCodeFieldFor(product.id, 'sku')}
+                                  disabled={!product.sku}
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
+                                    sel.codeField === 'sku'
+                                      ? 'bg-on-surface text-surface-container shadow-sm'
+                                      : 'text-on-surface/40 hover:text-on-surface/70'
+                                  )}
+                                >
+                                  SKU
                                 </button>
                               </div>
 
