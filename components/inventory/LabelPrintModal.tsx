@@ -38,8 +38,8 @@ function generateBarcodeDataUrl(code: string): string {
   return canvas.toDataURL('image/png');
 }
 
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+function formatPrice(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
