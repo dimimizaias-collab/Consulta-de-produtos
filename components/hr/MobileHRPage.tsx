@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet } from 'lucide-react';
+import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -10,6 +10,11 @@ import {
   type CalendarEvent, type HREvent,
 } from '@/lib/hrCalendarEvents';
 import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
+import { EmployeeCard } from '@/components/hr/EmployeeCard';
+import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { type Employee } from '@/lib/hrEmployees';
+
+type HRView = 'calendario' | 'colaboradores';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 
@@ -36,6 +41,7 @@ interface MobileHRPageProps {
 }
 
 export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPageProps) {
+  const [activeView, setActiveView] = useState<HRView>('calendario');
   const [hrEvents, setHrEvents] = useState<HREvent[]>([]);
   const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
   const [viewDate, setViewDate] = useState(() => new Date());
@@ -45,6 +51,10 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   const [form, setForm] = useState<EventForm>(() => emptyForm(new Date()));
   const [saving, setSaving] = useState(false);
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showEmployeeSheet, setShowEmployeeSheet] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
   const fetchHrEvents = async () => {
     const { data } = await supabase.from('hr_events').select('*').order('data', { ascending: true });
     setHrEvents(data || []);
@@ -53,11 +63,26 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     const { data } = await supabase.from('finance_transactions').select('*');
     setFinanceTransactions(data || []);
   };
+  const fetchEmployees = async () => {
+    const { data } = await supabase.from('hr_employees').select('*').order('nome', { ascending: true });
+    setEmployees(data || []);
+  };
 
   useEffect(() => {
     fetchHrEvents();
     fetchFinanceTransactions();
+    fetchEmployees();
   }, []);
+
+  const openCreateEmployeeSheet = () => {
+    setEditingEmployee(null);
+    setShowEmployeeSheet(true);
+  };
+
+  const openEditEmployeeSheet = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setShowEmployeeSheet(true);
+  };
 
   const allEvents: CalendarEvent[] = useMemo(() => [
     ...buildHrEvents(hrEvents),
@@ -129,88 +154,139 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     <div className="fixed inset-0 z-40 flex flex-col bg-[#FDFAF0] dark:bg-[#1E1E18] pb-[72px]">
 
       {/* Header */}
-      <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] pt-14 px-4 pb-4 flex items-end justify-between">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] mb-0.5">Planejamento</p>
-          <h1 className="text-[19px] font-black text-[#1A1A0E] tracking-tight leading-none">Recursos Humanos</h1>
-        </div>
+      <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] pt-14 px-4 pb-4">
+        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] mb-0.5">Planejamento</p>
+        <h1 className="text-[19px] font-black text-[#1A1A0E] tracking-tight leading-none">Recursos Humanos</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="shrink-0 flex gap-2 px-3 pt-3">
         <button
-          onClick={openCreateSheet}
-          className="w-[38px] h-[38px] bg-[#D81E1E] rounded-[14px] flex items-center justify-center shadow-[0_4px_14px_rgba(216,30,30,0.32)] active:scale-95 transition-transform"
+          onClick={() => setActiveView('calendario')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[13px] text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            activeView === 'calendario'
+              ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+              : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
+          )}
         >
-          <Plus size={18} color="white" strokeWidth={2.8} />
+          <CalendarRange size={13} strokeWidth={2.5} />
+          Calendário
+        </button>
+        <button
+          onClick={() => setActiveView('colaboradores')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[13px] text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            activeView === 'colaboradores'
+              ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+              : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
+          )}
+        >
+          <Users size={13} strokeWidth={2.5} />
+          Colaboradores
         </button>
       </div>
 
+      {/* Primary action */}
+      <button
+        onClick={activeView === 'calendario' ? openCreateSheet : openCreateEmployeeSheet}
+        className="shrink-0 mx-3 mt-2.5 bg-[#D81E1E] text-white font-extrabold text-[11.5px] uppercase tracking-wide py-3 rounded-[13px] shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5"
+      >
+        <Plus size={14} strokeWidth={2.8} />
+        {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
+      </button>
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="px-3 pt-3">
-          <CalendarLegend size="compact" />
-        </div>
+        {activeView === 'calendario' ? (
+          <>
+            <div className="px-3 pt-3">
+              <CalendarLegend size="compact" />
+            </div>
 
-        <div className="mx-3 mt-3 bg-white dark:bg-[#252520] border border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[18px] p-4">
-          <MonthCalendar
-            viewDate={viewDate} setViewDate={setViewDate}
-            selectedDate={selectedDate} setSelectedDate={setSelectedDate}
-            eventsByDate={eventsByDate} size="compact"
-          />
-        </div>
+            <div className="mx-3 mt-3 bg-white dark:bg-[#252520] border border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[18px] p-4">
+              <MonthCalendar
+                viewDate={viewDate} setViewDate={setViewDate}
+                selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+                eventsByDate={eventsByDate} size="compact"
+              />
+            </div>
 
-        <div className="px-4 pt-4 pb-2 text-[9px] font-black uppercase tracking-[0.18em] text-[rgba(26,26,10,0.25)] dark:text-white/22">
-          Eventos · {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-        </div>
+            <div className="px-4 pt-4 pb-2 text-[9px] font-black uppercase tracking-[0.18em] text-[rgba(26,26,10,0.25)] dark:text-white/22">
+              Eventos · {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+            </div>
 
-        {selectedDayEvents.length === 0 ? (
-          <p className="text-sm text-on-surface/35 py-6 text-center px-4">Nenhum evento neste dia.</p>
+            {selectedDayEvents.length === 0 ? (
+              <p className="text-sm text-on-surface/35 py-6 text-center px-4">Nenhum evento neste dia.</p>
+            ) : (
+              <div className="px-3 pb-6 flex flex-col gap-2">
+                {selectedDayEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => handleEventClick(ev)}
+                    className="flex items-center justify-between gap-2.5 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] rounded-2xl px-3.5 py-3 text-left"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={cn(
+                        'w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0',
+                        ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.14)] text-[#4F46E5] dark:text-[#A5B4FC]',
+                        ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.14)] text-[#EA580C] dark:text-[#FDBA74]',
+                        ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.14)] text-[#B45309] dark:text-[#FCD34D]',
+                      )}>
+                        {ev.origin === 'hr' && <CalendarDays size={14} strokeWidth={2.3} />}
+                        {ev.origin === 'task' && <ClipboardCheck size={14} strokeWidth={2.3} />}
+                        {ev.origin === 'finance' && <Wallet size={14} strokeWidth={2.3} />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{ev.title}</div>
+                        <div className="text-[9.5px] font-semibold text-[rgba(26,26,10,0.38)] dark:text-white/28 truncate">{ev.subtitle}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {ev.classificacao && (
+                        <span className={cn(
+                          'text-[8.5px] font-extrabold uppercase tracking-wide px-[7px] py-[3px] rounded-[7px]',
+                          ev.classificacao === 'Alta' && 'bg-red-500/15 text-red-600 dark:text-red-400',
+                          ev.classificacao === 'Média' && 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+                          ev.classificacao === 'Baixa' && 'bg-green-500/15 text-green-700 dark:text-green-400',
+                        )}>
+                          {ev.classificacao}
+                        </span>
+                      )}
+                      {ev.amount != null && (
+                        <span className={cn(
+                          "font-['DM_Mono',monospace] text-[12.5px] font-bold",
+                          ev.amountKind === 'rec' ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]',
+                        )}>
+                          {ev.amountKind === 'rec' ? '+' : '−'}{fmtShort(ev.amount)}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="px-3 pb-6 flex flex-col gap-2">
-            {selectedDayEvents.map(ev => (
-              <button
-                key={ev.id}
-                onClick={() => handleEventClick(ev)}
-                className="flex items-center justify-between gap-2.5 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] rounded-2xl px-3.5 py-3 text-left"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={cn(
-                    'w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0',
-                    ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.14)] text-[#4F46E5] dark:text-[#A5B4FC]',
-                    ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.14)] text-[#EA580C] dark:text-[#FDBA74]',
-                    ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.14)] text-[#B45309] dark:text-[#FCD34D]',
-                  )}>
-                    {ev.origin === 'hr' && <CalendarDays size={14} strokeWidth={2.3} />}
-                    {ev.origin === 'task' && <ClipboardCheck size={14} strokeWidth={2.3} />}
-                    {ev.origin === 'finance' && <Wallet size={14} strokeWidth={2.3} />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{ev.title}</div>
-                    <div className="text-[9.5px] font-semibold text-[rgba(26,26,10,0.38)] dark:text-white/28 truncate">{ev.subtitle}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {ev.classificacao && (
-                    <span className={cn(
-                      'text-[8.5px] font-extrabold uppercase tracking-wide px-[7px] py-[3px] rounded-[7px]',
-                      ev.classificacao === 'Alta' && 'bg-red-500/15 text-red-600 dark:text-red-400',
-                      ev.classificacao === 'Média' && 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-                      ev.classificacao === 'Baixa' && 'bg-green-500/15 text-green-700 dark:text-green-400',
-                    )}>
-                      {ev.classificacao}
-                    </span>
-                  )}
-                  {ev.amount != null && (
-                    <span className={cn(
-                      "font-['DM_Mono',monospace] text-[12.5px] font-bold",
-                      ev.amountKind === 'rec' ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]',
-                    )}>
-                      {ev.amountKind === 'rec' ? '+' : '−'}{fmtShort(ev.amount)}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+          <div className="px-3 pt-3 pb-6 flex flex-col gap-2.5">
+            {employees.length === 0 ? (
+              <p className="text-sm text-on-surface/35 py-10 text-center">Nenhum colaborador cadastrado ainda.</p>
+            ) : (
+              employees.map(emp => (
+                <EmployeeCard key={emp.id} employee={emp} onClick={() => openEditEmployeeSheet(emp)} size="compact" />
+              ))
+            )}
           </div>
         )}
       </div>
+
+      <EmployeeModal
+        open={showEmployeeSheet}
+        employee={editingEmployee}
+        onClose={() => setShowEmployeeSheet(false)}
+        onSaved={fetchEmployees}
+        variant="sheet"
+      />
 
       {/* Bottom sheet criar/editar evento */}
       <AnimatePresence>

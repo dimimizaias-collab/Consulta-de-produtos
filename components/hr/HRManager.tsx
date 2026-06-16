@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, X, Trash2, ChevronRight, CalendarDays, ClipboardCheck, Wallet } from 'lucide-react';
+import { Users, Plus, X, Trash2, ChevronRight, CalendarDays, ClipboardCheck, Wallet, CalendarRange } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -10,6 +10,11 @@ import {
   type CalendarEvent, type HREvent,
 } from '@/lib/hrCalendarEvents';
 import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
+import { EmployeeCard } from '@/components/hr/EmployeeCard';
+import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { type Employee } from '@/lib/hrEmployees';
+
+type HRView = 'calendario' | 'colaboradores';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 const COLORS = ['#4F46E5', '#EA580C', '#059669', '#B45309', '#DB2777', '#D81E1E'];
@@ -40,6 +45,7 @@ interface HRManagerProps {
 }
 
 export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProps) {
+  const [activeView, setActiveView] = useState<HRView>('calendario');
   const [hrEvents, setHrEvents] = useState<HREvent[]>([]);
   const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
   const [viewDate, setViewDate] = useState(() => new Date());
@@ -49,6 +55,10 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
   const [form, setForm] = useState<EventForm>(() => emptyForm(new Date()));
   const [saving, setSaving] = useState(false);
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
   const fetchHrEvents = async () => {
     const { data } = await supabase.from('hr_events').select('*').order('data', { ascending: true });
     setHrEvents(data || []);
@@ -57,11 +67,26 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     const { data } = await supabase.from('finance_transactions').select('*');
     setFinanceTransactions(data || []);
   };
+  const fetchEmployees = async () => {
+    const { data } = await supabase.from('hr_employees').select('*').order('nome', { ascending: true });
+    setEmployees(data || []);
+  };
 
   useEffect(() => {
     fetchHrEvents();
     fetchFinanceTransactions();
+    fetchEmployees();
   }, []);
+
+  const openCreateEmployeeModal = () => {
+    setEditingEmployee(null);
+    setShowEmployeeModal(true);
+  };
+
+  const openEditEmployeeModal = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setShowEmployeeModal(true);
+  };
 
   const allEvents: CalendarEvent[] = useMemo(() => [
     ...buildHrEvents(hrEvents),
@@ -134,98 +159,144 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
 
   return (
     <div className="max-w-[1300px]">
-      <div className="flex items-center justify-between mb-7">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
-            <Users size={28} strokeWidth={2.2} />
-          </div>
-          <div>
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-on-surface/45">Planejamento Interno</div>
-            <h1 className="text-3xl font-black text-on-surface tracking-tight">Recursos Humanos</h1>
-          </div>
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
+          <Users size={28} strokeWidth={2.2} />
+        </div>
+        <div>
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-on-surface/45">Planejamento Interno</div>
+          <h1 className="text-3xl font-black text-on-surface tracking-tight">Recursos Humanos</h1>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setActiveView('calendario')}
+            className={cn(
+              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              activeView === 'calendario' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
+            )}
+          >
+            <CalendarRange size={14} strokeWidth={2.5} />
+            Calendário
+          </button>
+          <button
+            onClick={() => setActiveView('colaboradores')}
+            className={cn(
+              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              activeView === 'colaboradores' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
+            )}
+          >
+            <Users size={14} strokeWidth={2.5} />
+            Colaboradores
+          </button>
         </div>
         <button
-          onClick={openCreateModal}
+          onClick={activeView === 'calendario' ? openCreateModal : openCreateEmployeeModal}
           className="bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wide text-[13px] flex items-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
         >
           <Plus size={16} strokeWidth={2.8} />
-          Novo Evento
+          {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
         </button>
       </div>
 
-      <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
-        <div className="flex items-center justify-between mb-3">
-          <CalendarLegend size="full" />
-        </div>
-        <MonthCalendar
-          viewDate={viewDate} setViewDate={setViewDate}
-          selectedDate={selectedDate} setSelectedDate={setSelectedDate}
-          eventsByDate={eventsByDate} size="full"
-        />
-      </div>
-
-      <div className="mt-6 bg-surface-container border border-on-surface/[0.07] rounded-[20px] p-5">
-        <div className="flex items-center justify-between mb-3.5">
-          <span className="text-[15px] font-extrabold text-on-surface">
-            Eventos · {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-          </span>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface/35">
-            {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
-          </span>
-        </div>
-
-        {selectedDayEvents.length === 0 ? (
-          <p className="text-sm text-on-surface/35 py-6 text-center">Nenhum evento neste dia.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {selectedDayEvents.map(ev => (
-              <button
-                key={ev.id}
-                onClick={() => handleEventClick(ev)}
-                className="flex items-center justify-between gap-3.5 px-3.5 py-3 rounded-[14px] bg-surface border border-on-surface/[0.07] hover:border-on-surface/[0.14] transition-colors text-left"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={cn(
-                    'w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0',
-                    ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.14)] text-[#4F46E5] dark:text-[#A5B4FC]',
-                    ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.14)] text-[#EA580C] dark:text-[#FDBA74]',
-                    ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.14)] text-[#B45309] dark:text-[#FCD34D]',
-                  )}>
-                    {ev.origin === 'hr' && <CalendarDays size={17} strokeWidth={2.3} />}
-                    {ev.origin === 'task' && <ClipboardCheck size={17} strokeWidth={2.3} />}
-                    {ev.origin === 'finance' && <Wallet size={17} strokeWidth={2.3} />}
-                  </div>
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-[13.5px] font-extrabold text-on-surface truncate">{ev.title}</span>
-                    <span className="text-[11px] font-semibold text-on-surface/40 truncate">{ev.subtitle}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 flex-shrink-0">
-                  {ev.classificacao && (
-                    <span className={cn(
-                      'text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg',
-                      ev.classificacao === 'Alta' && 'bg-red-500/15 text-red-600 dark:text-red-400',
-                      ev.classificacao === 'Média' && 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-                      ev.classificacao === 'Baixa' && 'bg-green-500/15 text-green-700 dark:text-green-400',
-                    )}>
-                      {ev.classificacao}
-                    </span>
-                  )}
-                  {ev.amount != null && (
-                    <span className={cn(
-                      'font-mono text-[13.5px] font-bold',
-                      ev.amountKind === 'rec' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
-                    )}>
-                      {ev.amountKind === 'rec' ? '+' : '−'}{fmt(ev.amount)}
-                    </span>
-                  )}
-                  <ChevronRight size={16} className="text-on-surface/25" />
-                </div>
-              </button>
-            ))}
+      {activeView === 'calendario' ? (
+        <>
+          <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
+            <div className="flex items-center justify-between mb-3">
+              <CalendarLegend size="full" />
+            </div>
+            <MonthCalendar
+              viewDate={viewDate} setViewDate={setViewDate}
+              selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+              eventsByDate={eventsByDate} size="full"
+            />
           </div>
-        )}
-      </div>
+
+          <div className="mt-6 bg-surface-container border border-on-surface/[0.07] rounded-[20px] p-5">
+            <div className="flex items-center justify-between mb-3.5">
+              <span className="text-[15px] font-extrabold text-on-surface">
+                Eventos · {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface/35">
+                {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'evento' : 'eventos'}
+              </span>
+            </div>
+
+            {selectedDayEvents.length === 0 ? (
+              <p className="text-sm text-on-surface/35 py-6 text-center">Nenhum evento neste dia.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {selectedDayEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => handleEventClick(ev)}
+                    className="flex items-center justify-between gap-3.5 px-3.5 py-3 rounded-[14px] bg-surface border border-on-surface/[0.07] hover:border-on-surface/[0.14] transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn(
+                        'w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0',
+                        ev.origin === 'hr' && 'bg-[rgba(79,70,229,0.10)] dark:bg-[rgba(129,140,248,0.14)] text-[#4F46E5] dark:text-[#A5B4FC]',
+                        ev.origin === 'task' && 'bg-[rgba(234,88,12,0.10)] dark:bg-[rgba(251,146,60,0.14)] text-[#EA580C] dark:text-[#FDBA74]',
+                        ev.origin === 'finance' && 'bg-[rgba(180,83,9,0.10)] dark:bg-[rgba(251,191,36,0.14)] text-[#B45309] dark:text-[#FCD34D]',
+                      )}>
+                        {ev.origin === 'hr' && <CalendarDays size={17} strokeWidth={2.3} />}
+                        {ev.origin === 'task' && <ClipboardCheck size={17} strokeWidth={2.3} />}
+                        {ev.origin === 'finance' && <Wallet size={17} strokeWidth={2.3} />}
+                      </div>
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[13.5px] font-extrabold text-on-surface truncate">{ev.title}</span>
+                        <span className="text-[11px] font-semibold text-on-surface/40 truncate">{ev.subtitle}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 flex-shrink-0">
+                      {ev.classificacao && (
+                        <span className={cn(
+                          'text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg',
+                          ev.classificacao === 'Alta' && 'bg-red-500/15 text-red-600 dark:text-red-400',
+                          ev.classificacao === 'Média' && 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+                          ev.classificacao === 'Baixa' && 'bg-green-500/15 text-green-700 dark:text-green-400',
+                        )}>
+                          {ev.classificacao}
+                        </span>
+                      )}
+                      {ev.amount != null && (
+                        <span className={cn(
+                          'font-mono text-[13.5px] font-bold',
+                          ev.amountKind === 'rec' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                        )}>
+                          {ev.amountKind === 'rec' ? '+' : '−'}{fmt(ev.amount)}
+                        </span>
+                      )}
+                      <ChevronRight size={16} className="text-on-surface/25" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
+          {employees.length === 0 ? (
+            <p className="text-sm text-on-surface/35 py-10 text-center">Nenhum colaborador cadastrado ainda.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {employees.map(emp => (
+                <EmployeeCard key={emp.id} employee={emp} onClick={() => openEditEmployeeModal(emp)} size="full" />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <EmployeeModal
+        open={showEmployeeModal}
+        employee={editingEmployee}
+        onClose={() => setShowEmployeeModal(false)}
+        onSaved={fetchEmployees}
+      />
 
       {/* Modal criar/editar evento */}
       <AnimatePresence>

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Recursos Humanos — Colaboradores — Dark Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{
+    font-family:'DM Sans',sans-serif;background:#0E0E0C;color:#F2F0E3;
+    padding:48px 16px 96px;display:flex;flex-direction:column;align-items:center;gap:64px;
+  }
+  .section-label{
+    font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.22em;
+    color:rgba(242,240,227,0.32);margin-bottom:18px;text-align:center;
+  }
+  h1,h2{font-family:'Manrope',sans-serif;}
+
+  /* ════════ DESKTOP SHELL ════════ */
+  .dsk{ width:1100px; background:#141410; border-radius:28px; padding:36px 40px 40px;
+    border:1px solid rgba(242,240,227,0.06); box-shadow:0 40px 100px rgba(0,0,0,0.5); }
+  .dsk-header{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
+  .dsk-icon{ width:64px; height:64px; border-radius:24px; background:#D81E1E;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    box-shadow:0 12px 28px rgba(216,30,30,0.30); flex-shrink:0; }
+  .dsk-eyebrow{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:rgba(242,240,227,0.35); }
+  .dsk-title{ font-size:30px; font-weight:900; letter-spacing:-0.02em; color:#F2F0E3; line-height:1.15; }
+
+  /* Action row */
+  .action-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .tab-row{ display:flex; gap:10px; }
+  .tab-pill{
+    display:flex; align-items:center; gap:8px; padding:13px 22px; border-radius:15px;
+    font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+    border:1.5px solid rgba(242,240,227,0.10); color:rgba(242,240,227,0.45); cursor:pointer;
+    background:transparent; transition:all .15s;
+  }
+  .tab-pill.active{ background:rgba(216,30,30,0.14); border-color:rgba(216,30,30,0.30); color:#F87171; }
+  .btn-primary{
+    background:#D81E1E; color:#fff; padding:15px 26px; border-radius:16px; border:none;
+    font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em;
+    display:flex; align-items:center; gap:9px; cursor:pointer; box-shadow:0 10px 24px rgba(216,30,30,0.30);
+  }
+
+  .legend{ display:flex; gap:18px; margin-bottom:18px; }
+  .legend-item{ display:flex; align-items:center; gap:7px; font-size:11px; font-weight:800;
+    text-transform:uppercase; letter-spacing:0.08em; color:rgba(242,240,227,0.40); }
+  .legend-dot{ width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+  .legend-dot.hr{ background:#818CF8; }
+  .legend-dot.task{ background:#FB923C; }
+  .legend-dot.fin{ background:#FBBF24; }
+
+  .month-nav{ display:flex; align-items:center; gap:14px; justify-content:center; margin-bottom:18px; }
+  .nav-btn{ width:34px; height:34px; border-radius:11px; background:rgba(242,240,227,0.06);
+    border:1.5px solid rgba(242,240,227,0.08); display:flex; align-items:center; justify-content:center;
+    color:rgba(242,240,227,0.45); cursor:pointer; }
+  .month-label{ font-size:17px; font-weight:800; color:#F2F0E3; min-width:160px; text-align:center; }
+
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .dow{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em;
+    color:rgba(242,240,227,0.25); text-align:center; padding-bottom:8px; }
+  .day-cell{
+    background:#1c1c16; border:1.5px solid rgba(242,240,227,0.07); border-radius:14px;
+    min-height:96px; padding:9px; display:flex; flex-direction:column; gap:5px; cursor:pointer;
+  }
+  .day-cell.other{ opacity:0.35; }
+  .day-cell.selected{ border-color:#D81E1E; box-shadow:0 0 0 1px #D81E1E inset; }
+  .day-num{ font-size:12px; font-weight:700; color:rgba(242,240,227,0.55); }
+  .day-num.today{
+    background:#FFE500; color:#1A1A0E; width:22px; height:22px; border-radius:7px;
+    display:flex; align-items:center; justify-content:center; font-weight:900;
+  }
+  .day-chip{ font-size:9px; font-weight:800; padding:3px 6px; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .day-chip.hr{ background:rgba(129,140,248,0.16); color:#A5B4FC; }
+  .day-chip.task{ background:rgba(251,146,60,0.16); color:#FDBA74; }
+  .day-chip.fin{ background:rgba(251,191,36,0.16); color:#FCD34D; }
+
+  .day-panel{ margin-top:24px; background:#1c1c16; border:1.5px solid rgba(242,240,227,0.08);
+    border-radius:20px; padding:20px 22px; }
+  .day-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .day-panel-title{ font-size:15px; font-weight:800; color:#F2F0E3; }
+  .day-panel-count{ font-size:11px; font-weight:700; color:rgba(242,240,227,0.32); text-transform:uppercase; letter-spacing:0.08em; }
+  .ev-row{ display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:13px 14px; border-radius:14px; background:#252520; border:1.5px solid rgba(242,240,227,0.07);
+    margin-bottom:8px; }
+  .ev-row:last-child{ margin-bottom:0; }
+  .ev-left{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .ev-icon{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ev-icon.hr{ background:rgba(129,140,248,0.14); color:#A5B4FC; }
+  .ev-icon.task{ background:rgba(251,146,60,0.14); color:#FDBA74; }
+  .ev-name{ font-size:13.5px; font-weight:800; color:#F2F0E3; }
+  .ev-sub{ font-size:11px; font-weight:600; color:rgba(242,240,227,0.32); }
+
+  /* ════════ EMPLOYEE GRID ════════ */
+  .emp-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .emp-card{
+    display:flex; align-items:center; gap:16px; background:#1c1c16;
+    border:1.5px solid rgba(242,240,227,0.07); border-radius:20px; padding:16px;
+    cursor:pointer; transition:border-color .15s;
+  }
+  .emp-card:hover{ border-color:rgba(242,240,227,0.16); }
+  .emp-photo{ width:76px; height:76px; border-radius:16px; flex-shrink:0; object-fit:cover;
+    background:#252520; display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,0.25);
+    font-size:24px; font-weight:900; }
+  .emp-info{ flex:1; min-width:0; }
+  .emp-name{ font-size:15px; font-weight:800; color:#F2F0E3; margin-bottom:1px; }
+  .emp-role{ font-size:11.5px; font-weight:700; color:#FDBA74; margin-bottom:8px; }
+  .emp-stats{ display:flex; gap:14px; flex-wrap:wrap; }
+  .emp-stat{ display:flex; flex-direction:column; gap:1px; }
+  .emp-stat-lbl{ font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:rgba(242,240,227,0.28); }
+  .emp-stat-val{ font-size:11.5px; font-weight:700; color:rgba(242,240,227,0.75); }
+  .emp-stat-val.money{ font-family:'DM Mono',monospace; color:#34D399; }
+
+  /* ════════ MODAL ════════ */
+  .modal-card{
+    width:440px; background:#1c1c16; border:1.5px solid rgba(242,240,227,0.08);
+    border-radius:24px; padding:26px 26px 22px; box-shadow:0 30px 70px rgba(0,0,0,0.45);
+  }
+  .modal-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .modal-title{ font-size:16px; font-weight:800; color:#F2F0E3; }
+  .modal-close{ width:30px; height:30px; border-radius:10px; background:rgba(242,240,227,0.06);
+    display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,0.40); cursor:pointer; }
+  .photo-edit{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:20px; }
+  .photo-big{ width:96px; height:96px; border-radius:24px; background:#252520; display:flex;
+    align-items:center; justify-content:center; color:rgba(242,240,227,0.55); font-size:30px; font-weight:900;
+    position:relative; overflow:hidden; }
+  .photo-edit-btn{ display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800;
+    color:#F87171; text-transform:uppercase; letter-spacing:0.05em; cursor:pointer; }
+  .field{ margin-bottom:16px; }
+  .field-label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;
+    color:rgba(242,240,227,0.35); margin-bottom:7px; display:block; }
+  .field-input{
+    width:100%; background:#252520; border:1.5px solid rgba(242,240,227,0.08); border-radius:12px;
+    padding:11px 13px; font-size:13px; color:#F2F0E3; font-family:'DM Sans',sans-serif; outline:none;
+  }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn-cancel{ flex:1; background:rgba(242,240,227,0.06); border:1.5px solid rgba(242,240,227,0.10);
+    color:rgba(242,240,227,0.55); font-weight:800; font-size:12.5px; text-transform:uppercase; letter-spacing:0.05em;
+    padding:13px 0; border-radius:13px; cursor:pointer; }
+  .btn-save{ flex:1.4; background:#D81E1E; color:#fff; font-weight:800; font-size:12.5px;
+    text-transform:uppercase; letter-spacing:0.05em; padding:13px 0; border-radius:13px; border:none; cursor:pointer;
+    box-shadow:0 10px 22px rgba(216,30,30,0.28); }
+  .btn-delete{ font-size:11px; font-weight:800; color:#F87171; text-transform:uppercase; letter-spacing:0.05em;
+    text-align:center; margin-top:14px; cursor:pointer; }
+
+  /* ════════ PHONE SHELLS ════════ */
+  .phones-row{ display:flex; gap:32px; flex-wrap:wrap; justify-content:center; }
+  .phone{
+    width:390px; height:844px; background:#1E1E18; border-radius:52px; overflow:hidden;
+    box-shadow:0 48px 120px rgba(0,0,0,0.60), 0 8px 32px rgba(0,0,0,0.40), inset 0 0 0 1.5px rgba(255,255,255,0.08);
+    display:flex; flex-direction:column; position:relative;
+  }
+  .status-bar{ background:#252520; padding:16px 28px 0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+  .status-time{ font-size:15px; font-weight:700; color:#F2F0E3; letter-spacing:-0.3px; }
+  .status-icons{ display:flex; gap:6px; align-items:center; }
+  .status-icons svg{ color:#F2F0E3; }
+  .app-header{ background:#252520; border-bottom:1.5px solid rgba(242,240,227,0.07); padding:8px 16px 14px;
+    flex-shrink:0; }
+  .header-eyebrow{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:rgba(242,240,227,0.28); line-height:1; }
+  .header-title{ font-size:19px; font-weight:900; color:#F2F0E3; line-height:1.1; letter-spacing:-0.4px; }
+  .scroll-area{ flex:1; overflow-y:auto; overflow-x:hidden; }
+  .scroll-area::-webkit-scrollbar{ display:none; }
+
+  .m-tab-row{ display:flex; gap:8px; padding:12px 12px 0; }
+  .m-tab-pill{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 0; border-radius:13px; font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:0.05em; border:1.5px solid rgba(242,240,227,0.10); color:rgba(242,240,227,0.40); }
+  .m-tab-pill.active{ background:rgba(216,30,30,0.14); border-color:rgba(216,30,30,0.30); color:#F87171; }
+  .m-btn-primary{ margin:10px 12px 0; background:#D81E1E; color:#fff; font-weight:800; font-size:11.5px;
+    text-transform:uppercase; letter-spacing:0.05em; padding:12px 0; border-radius:13px; border:none;
+    display:flex; align-items:center; justify-content:center; gap:7px; box-shadow:0 8px 18px rgba(216,30,30,0.30); }
+
+  .m-legend{ display:flex; gap:12px; padding:12px 16px 0; }
+  .m-legend-item{ display:flex; align-items:center; gap:5px; font-size:9px; font-weight:800;
+    text-transform:uppercase; letter-spacing:0.06em; color:rgba(242,240,227,0.30); }
+  .m-legend-dot{ width:7px; height:7px; border-radius:2px; }
+
+  .m-cal-card{ margin:12px 12px 0; background:#252520; border:1.5px solid rgba(242,240,227,0.08);
+    border-radius:18px; padding:14px; }
+  .m-cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .m-cal-nav{ width:26px; height:26px; border-radius:8px; background:rgba(242,240,227,0.07);
+    display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,0.40); }
+  .m-cal-month{ font-size:13px; font-weight:800; color:#F2F0E3; }
+  .m-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .m-cal-dow{ font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;
+    color:rgba(242,240,227,0.22); text-align:center; padding-bottom:4px; }
+  .m-cal-day{ width:100%; aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-size:11px; font-weight:700;
+    color:rgba(242,240,227,0.45); position:relative; gap:1px; }
+  .m-cal-day.today{ background:#FFE500; color:#1A1A0E; font-weight:900; }
+  .m-cal-day.other{ color:rgba(242,240,227,0.14); }
+  .m-cal-day.selected{ box-shadow:0 0 0 1.5px #D81E1E inset; border-radius:8px; }
+  .m-dots{ display:flex; gap:2px; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); }
+  .m-dot{ width:3.5px; height:3.5px; border-radius:50%; }
+  .m-dot.hr{ background:#818CF8; }
+  .m-dot.task{ background:#FB923C; }
+  .m-dot.fin{ background:#FBBF24; }
+
+  .m-section-label{ font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:0.18em;
+    color:rgba(242,240,227,0.25); padding:16px 14px 8px; }
+
+  .m-emp-card{ margin:0 12px 10px; display:flex; align-items:center; gap:12px; background:#252520;
+    border:1.5px solid rgba(242,240,227,0.08); border-radius:18px; padding:13px; }
+  .m-emp-photo{ width:58px; height:58px; border-radius:14px; flex-shrink:0; background:#1c1c16;
+    display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,0.30); font-size:18px; font-weight:900; }
+  .m-emp-name{ font-size:13.5px; font-weight:800; color:#F2F0E3; }
+  .m-emp-role{ font-size:10.5px; font-weight:700; color:#FDBA74; margin-bottom:6px; }
+  .m-emp-stats{ display:flex; gap:10px; flex-wrap:wrap; }
+  .m-emp-stat-lbl{ font-size:7.5px; font-weight:800; text-transform:uppercase; color:rgba(242,240,227,0.26); }
+  .m-emp-stat-val{ font-size:10.5px; font-weight:700; color:rgba(242,240,227,0.70); }
+  .m-emp-stat-val.money{ font-family:'DM Mono',monospace; color:#34D399; }
+
+  /* bottom sheet */
+  .sheet-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.55); }
+  .sheet{ position:absolute; bottom:0; left:0; right:0; background:#1c1c16; border-radius:26px 26px 0 0;
+    padding:10px 18px 26px; max-height:84%; overflow-y:auto; }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:rgba(242,240,227,0.20); margin:0 auto 14px; }
+  .sheet-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .sheet-title{ font-size:15px; font-weight:800; color:#F2F0E3; }
+  .sheet-close{ width:28px; height:28px; border-radius:9px; background:rgba(242,240,227,0.07);
+    display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,0.40); }
+  .sheet-photo{ display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:16px; }
+  .sheet-photo-circle{ width:80px; height:80px; border-radius:20px; background:#252520; display:flex;
+    align-items:center; justify-content:center; color:rgba(242,240,227,0.45); font-size:26px; font-weight:900; }
+  .sheet-field{ margin-bottom:13px; }
+  .sheet-label{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em;
+    color:rgba(242,240,227,0.35); margin-bottom:6px; display:block; }
+  .sheet-input{ width:100%; background:#252520; border:1.5px solid rgba(242,240,227,0.08);
+    border-radius:11px; padding:10px 12px; font-size:12.5px; color:#F2F0E3; font-family:'DM Sans',sans-serif; outline:none; }
+  .sheet-row{ display:flex; gap:10px; }
+  .sheet-row .sheet-field{ flex:1; }
+  .sheet-save{ width:100%; background:#D81E1E; color:#fff; font-weight:800; font-size:12.5px;
+    text-transform:uppercase; letter-spacing:0.05em; padding:14px 0; border-radius:13px; border:none;
+    margin-top:8px; box-shadow:0 10px 22px rgba(216,30,30,0.28); }
+
+  .page-label{ text-align:center; margin-top:18px; font-size:12px; font-weight:700;
+    color:rgba(242,240,227,0.25); text-transform:uppercase; letter-spacing:0.12em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ DESKTOP — ABA CALENDÁRIO (reorganizada) ═══════ -->
+<div>
+  <div class="section-label">Desktop — Aba Calendário (reorganizada)</div>
+  <div class="dsk">
+    <div class="dsk-header">
+      <div class="dsk-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div>
+        <div class="dsk-eyebrow">Planejamento Interno</div>
+        <h1 class="dsk-title">Recursos Humanos</h1>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <div class="tab-row">
+        <button class="tab-pill active">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+          Calendário
+        </button>
+        <button class="tab-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Colaboradores
+        </button>
+      </div>
+      <button class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo Evento
+      </button>
+    </div>
+
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot hr"></span>RH</span>
+      <span class="legend-item"><span class="legend-dot task"></span>Tarefa</span>
+      <span class="legend-item"><span class="legend-dot fin"></span>Finanças</span>
+    </div>
+
+    <div class="month-nav">
+      <div class="nav-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <span class="month-label">Junho 2026</span>
+      <div class="nav-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+    </div>
+
+    <div class="cal-grid">
+      <div class="dow">Dom</div><div class="dow">Seg</div><div class="dow">Ter</div><div class="dow">Qua</div><div class="dow">Qui</div><div class="dow">Sex</div><div class="dow">Sáb</div>
+      <div class="day-cell other"><span class="day-num">31</span></div>
+      <div class="day-cell"><span class="day-num">1</span></div>
+      <div class="day-cell"><span class="day-num">2</span><div class="day-chip fin">Vencto. Aluguel</div></div>
+      <div class="day-cell"><span class="day-num">3</span></div>
+      <div class="day-cell"><span class="day-num">4</span><div class="day-chip task">Revisão Estoque</div></div>
+      <div class="day-cell"><span class="day-num">5</span></div>
+      <div class="day-cell"><span class="day-num">6</span></div>
+      <div class="day-cell"><span class="day-num">7</span></div>
+      <div class="day-cell"><span class="day-num">8</span></div>
+      <div class="day-cell"><span class="day-num">9</span><div class="day-chip hr">Treinamento PDV</div></div>
+      <div class="day-cell"><span class="day-num">10</span></div>
+      <div class="day-cell"><span class="day-num">11</span></div>
+      <div class="day-cell"><span class="day-num">12</span><div class="day-chip fin">Pagto. Fornecedor</div></div>
+      <div class="day-cell"><span class="day-num">13</span></div>
+      <div class="day-cell"><span class="day-num">14</span></div>
+      <div class="day-cell selected"><span class="day-num today">15</span><div class="day-chip hr">Reunião de Equipe</div><div class="day-chip task">Tarefa Livre — Caixa</div></div>
+      <div class="day-cell"><span class="day-num">16</span></div>
+      <div class="day-cell"><span class="day-num">17</span></div>
+      <div class="day-cell"><span class="day-num">18</span><div class="day-chip hr">Aniversário — Ana</div></div>
+      <div class="day-cell"><span class="day-num">19</span></div>
+      <div class="day-cell"><span class="day-num">20</span><div class="day-chip task">Revisão Mercadoria</div><div class="day-chip fin">Vencto. XYZ</div></div>
+      <div class="day-cell"><span class="day-num">21</span></div>
+      <div class="day-cell"><span class="day-num">22</span></div>
+      <div class="day-cell"><span class="day-num">23</span></div>
+      <div class="day-cell"><span class="day-num">24</span><div class="day-chip hr">Férias — Marcos</div></div>
+      <div class="day-cell"><span class="day-num">25</span></div>
+      <div class="day-cell"><span class="day-num">26</span></div>
+      <div class="day-cell"><span class="day-num">27</span></div>
+      <div class="day-cell"><span class="day-num">28</span></div>
+      <div class="day-cell"><span class="day-num">29</span></div>
+      <div class="day-cell"><span class="day-num">30</span></div>
+      <div class="day-cell other"><span class="day-num">1</span></div>
+      <div class="day-cell other"><span class="day-num">2</span></div>
+      <div class="day-cell other"><span class="day-num">3</span></div>
+      <div class="day-cell other"><span class="day-num">4</span></div>
+    </div>
+
+    <div class="day-panel">
+      <div class="day-panel-head"><span class="day-panel-title">Eventos · 15 de Junho</span><span class="day-panel-count">2 eventos</span></div>
+      <div class="ev-row">
+        <div class="ev-left"><div class="ev-icon hr"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+        <div><div class="ev-name">Reunião de Equipe</div><div class="ev-sub">RH · Responsável: Camila</div></div></div>
+      </div>
+      <div class="ev-row">
+        <div class="ev-left"><div class="ev-icon task"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div><div class="ev-name">Tarefa Livre — Conferir Caixa</div><div class="ev-sub">Requisição · Aberta em 15/06</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DESKTOP — ABA COLABORADORES ═══════ -->
+<div>
+  <div class="section-label">Desktop — Aba Colaboradores</div>
+  <div class="dsk">
+    <div class="dsk-header">
+      <div class="dsk-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div><div class="dsk-eyebrow">Planejamento Interno</div><h1 class="dsk-title">Recursos Humanos</h1></div>
+    </div>
+
+    <div class="action-row">
+      <div class="tab-row">
+        <button class="tab-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+          Calendário
+        </button>
+        <button class="tab-pill active">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Colaboradores
+        </button>
+      </div>
+      <button class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo Colaborador
+      </button>
+    </div>
+
+    <div class="emp-grid">
+      <div class="emp-card">
+        <div class="emp-photo">CF</div>
+        <div class="emp-info">
+          <div class="emp-name">Camila Ferreira</div>
+          <div class="emp-role">Gerente de Loja</div>
+          <div class="emp-stats">
+            <div class="emp-stat"><span class="emp-stat-lbl">Loja</span><span class="emp-stat-val">Castelo Real</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Idade</span><span class="emp-stat-val">34 anos</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Tempo de Casa</span><span class="emp-stat-val">3 anos e 7 meses</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Salário</span><span class="emp-stat-val money">R$ 3.200,00</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="emp-card">
+        <div class="emp-photo">JS</div>
+        <div class="emp-info">
+          <div class="emp-name">João Silva</div>
+          <div class="emp-role">Estoquista</div>
+          <div class="emp-stats">
+            <div class="emp-stat"><span class="emp-stat-lbl">Loja</span><span class="emp-stat-val">Universo R$1,99</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Idade</span><span class="emp-stat-val">27 anos</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Tempo de Casa</span><span class="emp-stat-val">1 ano e 2 meses</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Salário</span><span class="emp-stat-val money">R$ 1.850,00</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="emp-card">
+        <div class="emp-photo">FS</div>
+        <div class="emp-info">
+          <div class="emp-name">Felipe Souza</div>
+          <div class="emp-role">Caixa</div>
+          <div class="emp-stats">
+            <div class="emp-stat"><span class="emp-stat-lbl">Loja</span><span class="emp-stat-val">Castelo Real</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Idade</span><span class="emp-stat-val">22 anos</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Tempo de Casa</span><span class="emp-stat-val">8 meses</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Salário</span><span class="emp-stat-val money">R$ 1.650,00</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="emp-card">
+        <div class="emp-photo">AM</div>
+        <div class="emp-info">
+          <div class="emp-name">Ana Martins</div>
+          <div class="emp-role">Atendimento</div>
+          <div class="emp-stats">
+            <div class="emp-stat"><span class="emp-stat-lbl">Loja</span><span class="emp-stat-val">Universo R$1,99</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Idade</span><span class="emp-stat-val">31 anos</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Tempo de Casa</span><span class="emp-stat-val">2 anos e 3 meses</span></div>
+            <div class="emp-stat"><span class="emp-stat-lbl">Salário</span><span class="emp-stat-val money">R$ 1.900,00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DESKTOP — MODAL COLABORADOR ═══════ -->
+<div>
+  <div class="section-label">Desktop — Modal Detalhe / Edição de Colaborador</div>
+  <div class="modal-card">
+    <div class="modal-top"><span class="modal-title">Editar Colaborador</span><div class="modal-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div></div>
+    <div class="photo-edit">
+      <div class="photo-big">CF</div>
+      <div class="photo-edit-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4H9.5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        Trocar Foto
+      </div>
+    </div>
+    <div class="field"><label class="field-label">Nome</label><input class="field-input" value="Camila Ferreira" /></div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">Idade</label><input class="field-input" value="34" /></div>
+      <div class="field"><label class="field-label">Cargo</label><input class="field-input" value="Gerente de Loja" /></div>
+    </div>
+    <div class="field"><label class="field-label">Loja</label><input class="field-input" value="Castelo Real" /></div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">Data de Admissão</label><input class="field-input" type="date" value="2022-11-03" /></div>
+      <div class="field"><label class="field-label">Salário</label><input class="field-input" value="R$ 3.200,00" /></div>
+    </div>
+    <div class="modal-actions"><button class="btn-cancel">Cancelar</button><button class="btn-save">Salvar Colaborador</button></div>
+    <div class="btn-delete">Excluir Colaborador</div>
+  </div>
+</div>
+
+<!-- ═══════ MOBILE ═══════ -->
+<div>
+  <div class="section-label">Mobile — Calendário Reorganizado · Colaboradores · Editar Colaborador</div>
+  <div class="phones-row">
+
+    <!-- Phone 1: Calendário reorganizado -->
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".8"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="app-header">
+        <span class="header-eyebrow">Planejamento</span>
+        <div class="header-title">Recursos Humanos</div>
+      </div>
+      <div class="m-tab-row">
+        <button class="m-tab-pill active">Calendário</button>
+        <button class="m-tab-pill">Colaboradores</button>
+      </div>
+      <button class="m-btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo Evento
+      </button>
+      <div class="scroll-area">
+        <div class="m-legend">
+          <span class="m-legend-item"><span class="m-legend-dot" style="background:#818CF8"></span>RH</span>
+          <span class="m-legend-item"><span class="m-legend-dot" style="background:#FB923C"></span>Tarefa</span>
+          <span class="m-legend-item"><span class="m-legend-dot" style="background:#FBBF24"></span>Finanças</span>
+        </div>
+        <div class="m-cal-card">
+          <div class="m-cal-header">
+            <div class="m-cal-nav"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <span class="m-cal-month">Junho 2026</span>
+            <div class="m-cal-nav"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          </div>
+          <div class="m-cal-grid">
+            <div class="m-cal-dow">D</div><div class="m-cal-dow">S</div><div class="m-cal-dow">T</div><div class="m-cal-dow">Q</div><div class="m-cal-dow">Q</div><div class="m-cal-dow">S</div><div class="m-cal-dow">S</div>
+            <div class="m-cal-day other">31</div><div class="m-cal-day">1</div><div class="m-cal-day">2<div class="m-dots"><span class="m-dot fin"></span></div></div><div class="m-cal-day">3</div><div class="m-cal-day">4<div class="m-dots"><span class="m-dot task"></span></div></div><div class="m-cal-day">5</div><div class="m-cal-day">6</div>
+            <div class="m-cal-day">7</div><div class="m-cal-day">8</div><div class="m-cal-day">9<div class="m-dots"><span class="m-dot hr"></span></div></div><div class="m-cal-day">10</div><div class="m-cal-day">11</div><div class="m-cal-day">12<div class="m-dots"><span class="m-dot fin"></span></div></div><div class="m-cal-day">13</div>
+            <div class="m-cal-day">14</div><div class="m-cal-day selected today">15<div class="m-dots"><span class="m-dot hr"></span><span class="m-dot task"></span></div></div><div class="m-cal-day">16</div><div class="m-cal-day">17</div><div class="m-cal-day">18<div class="m-dots"><span class="m-dot hr"></span></div></div><div class="m-cal-day">19</div><div class="m-cal-day">20<div class="m-dots"><span class="m-dot task"></span><span class="m-dot fin"></span></div></div>
+            <div class="m-cal-day">21</div><div class="m-cal-day">22</div><div class="m-cal-day">23</div><div class="m-cal-day">24<div class="m-dots"><span class="m-dot hr"></span></div></div><div class="m-cal-day">25</div><div class="m-cal-day">26</div><div class="m-cal-day">27</div>
+            <div class="m-cal-day">28</div><div class="m-cal-day">29</div><div class="m-cal-day">30</div><div class="m-cal-day other">1</div><div class="m-cal-day other">2</div><div class="m-cal-day other">3</div><div class="m-cal-day other">4</div>
+          </div>
+        </div>
+        <div class="m-section-label">Eventos · 15 de Junho</div>
+        <div class="m-emp-card" style="border-radius:16px;">
+          <div class="m-emp-photo" style="border-radius:10px;width:32px;height:32px;font-size:13px;">👥</div>
+          <div><div style="font-size:13px;font-weight:800;color:#F2F0E3;">Reunião de Equipe</div><div style="font-size:9.5px;font-weight:600;color:rgba(242,240,227,0.32);">RH · Camila</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone 2: Aba Colaboradores -->
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".8"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="app-header">
+        <span class="header-eyebrow">Planejamento</span>
+        <div class="header-title">Recursos Humanos</div>
+      </div>
+      <div class="m-tab-row">
+        <button class="m-tab-pill">Calendário</button>
+        <button class="m-tab-pill active">Colaboradores</button>
+      </div>
+      <button class="m-btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo Colaborador
+      </button>
+      <div class="scroll-area">
+        <div class="m-section-label">4 Colaboradores</div>
+        <div class="m-emp-card">
+          <div class="m-emp-photo">CF</div>
+          <div>
+            <div class="m-emp-name">Camila Ferreira</div>
+            <div class="m-emp-role">Gerente de Loja</div>
+            <div class="m-emp-stats">
+              <div><div class="m-emp-stat-lbl">Loja</div><div class="m-emp-stat-val">Castelo Real</div></div>
+              <div><div class="m-emp-stat-lbl">Tempo</div><div class="m-emp-stat-val">3a 7m</div></div>
+              <div><div class="m-emp-stat-lbl">Salário</div><div class="m-emp-stat-val money">R$3.200</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-emp-card">
+          <div class="m-emp-photo">JS</div>
+          <div>
+            <div class="m-emp-name">João Silva</div>
+            <div class="m-emp-role">Estoquista</div>
+            <div class="m-emp-stats">
+              <div><div class="m-emp-stat-lbl">Loja</div><div class="m-emp-stat-val">Universo R$1,99</div></div>
+              <div><div class="m-emp-stat-lbl">Tempo</div><div class="m-emp-stat-val">1a 2m</div></div>
+              <div><div class="m-emp-stat-lbl">Salário</div><div class="m-emp-stat-val money">R$1.850</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-emp-card">
+          <div class="m-emp-photo">FS</div>
+          <div>
+            <div class="m-emp-name">Felipe Souza</div>
+            <div class="m-emp-role">Caixa</div>
+            <div class="m-emp-stats">
+              <div><div class="m-emp-stat-lbl">Loja</div><div class="m-emp-stat-val">Castelo Real</div></div>
+              <div><div class="m-emp-stat-lbl">Tempo</div><div class="m-emp-stat-val">8m</div></div>
+              <div><div class="m-emp-stat-lbl">Salário</div><div class="m-emp-stat-val money">R$1.650</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone 3: Bottom sheet editar colaborador -->
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".8"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="app-header">
+        <span class="header-eyebrow">Planejamento</span>
+        <div class="header-title">Recursos Humanos</div>
+      </div>
+      <div class="scroll-area" style="opacity:.45;">
+        <div class="m-section-label">Colaboradores</div>
+        <div class="m-emp-card"><div class="m-emp-photo">CF</div><div><div class="m-emp-name">Camila Ferreira</div><div class="m-emp-role">Gerente de Loja</div></div></div>
+      </div>
+      <div class="sheet-backdrop"></div>
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head"><span class="sheet-title">Editar Colaborador</span><div class="sheet-close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div></div>
+        <div class="sheet-photo">
+          <div class="sheet-photo-circle">CF</div>
+          <div class="photo-edit-btn" style="font-size:10px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4H9.5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Trocar Foto
+          </div>
+        </div>
+        <div class="sheet-field"><label class="sheet-label">Nome</label><input class="sheet-input" value="Camila Ferreira" /></div>
+        <div class="sheet-row">
+          <div class="sheet-field"><label class="sheet-label">Idade</label><input class="sheet-input" value="34" /></div>
+          <div class="sheet-field"><label class="sheet-label">Cargo</label><input class="sheet-input" value="Gerente" /></div>
+        </div>
+        <div class="sheet-field"><label class="sheet-label">Loja</label><input class="sheet-input" value="Castelo Real" /></div>
+        <div class="sheet-row">
+          <div class="sheet-field"><label class="sheet-label">Admissão</label><input class="sheet-input" type="date" value="2022-11-03" /></div>
+          <div class="sheet-field"><label class="sheet-label">Salário</label><input class="sheet-input" value="R$ 3.200,00" /></div>
+        </div>
+        <button class="sheet-save">Salvar Colaborador</button>
+      </div>
+    </div>
+
+  </div>
+  <p class="page-label">Dark Mode · 1100px desktop · 390 × 844 mobile</p>
+</div>
+
+</body>
+</html>

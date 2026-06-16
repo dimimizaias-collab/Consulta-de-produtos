@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, timestamp, uuid, numeric } from 'drizzle-orm/pg-core';
 
 export const products = pgTable('products', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -65,6 +65,19 @@ export const hrEvents = pgTable('hr_events', {
   categoria: text('categoria').notNull().default('Outro'), // 'Reunião' | 'Treinamento' | 'Férias' | 'Aniversário' | 'Outro'
   responsavel: text('responsavel'),
   cor: text('cor').notNull().default('#4F46E5'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const hrEmployees = pgTable('hr_employees', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  nome: text('nome').notNull(),
+  idade: integer('idade'),
+  cargo: text('cargo').notNull().default(''),
+  loja: text('loja').notNull().default(''),
+  dataAdmissao: text('data_admissao').notNull(), // ISO date (YYYY-MM-DD)
+  salario: numeric('salario', { precision: 12, scale: 2 }).default('0'),
+  fotoUrl: text('foto_url'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
