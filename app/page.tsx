@@ -14,6 +14,7 @@ import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailM
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
+import { MobileManifestPage } from '@/components/requests/MobileManifestPage';
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
@@ -5141,14 +5142,27 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {/* Manual Manifest Modal */}
+      {/* Manual Manifest — desktop */}
       <ManualManifestModal
-        isOpen={showManualNoteModal}
+        isOpen={showManualNoteModal && !isMobileView}
         onClose={() => setShowManualNoteModal(false)}
         suppliers={supplierNames}
         setNotification={setNotification}
         onManifestSaved={(note) => setReviewNotes(prev => [note, ...prev])}
       />
+
+      {/* Manual Manifest — mobile */}
+      <AnimatePresence>
+        {showManualNoteModal && isMobileView && (
+          <MobileManifestPage
+            isOpen={showManualNoteModal}
+            onClose={() => setShowManualNoteModal(false)}
+            suppliers={supplierNames}
+            setNotification={setNotification}
+            onManifestSaved={(note) => setReviewNotes(prev => [note, ...prev])}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Import Supplier Selection Modal */}
       <AnimatePresence>
