@@ -133,7 +133,7 @@ export const ProductCard = memo(function ProductCard({
             </div>
 
             {/* Price — visível no md+, no mobile fica no footer */}
-            {price !== undefined && (
+            {price != null && (
               <div className="hidden md:flex items-baseline gap-[3px] mb-3">
                 <span className="text-[14px] font-black text-primary">R$</span>
                 <span className="text-[32px] font-black text-primary leading-none tracking-[-1px]">
@@ -174,7 +174,7 @@ export const ProductCard = memo(function ProductCard({
 
         {/* ── Rodapé mobile: preço + estoque + localização em linha ── */}
         <div className="flex items-center justify-between px-3 pb-3 md:hidden border-t border-on-surface/[0.06] mt-1 pt-2">
-          {price !== undefined ? (
+          {price != null ? (
             <div className="flex items-baseline gap-[2px]">
               <span className="text-[11px] font-black text-primary">R$</span>
               <span className="text-[20px] font-black text-primary leading-none tracking-[-0.5px]">
