@@ -446,6 +446,11 @@ export default function Page() {
   const [editError, setEditError] = useState('');
   const [isConfigured, setIsConfigured] = useState(true);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  useEffect(() => {
+    if (notification?.type !== 'success') return;
+    const timer = setTimeout(() => setNotification(null), 2000);
+    return () => clearTimeout(timer);
+  }, [notification]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
   const noteItemImageInputRef = useRef<HTMLInputElement>(null);
