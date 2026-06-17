@@ -14,6 +14,9 @@ import {
   Monitor,
   Pencil,
   Building2,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +26,7 @@ interface StoreInfo {
   cnpj: string;
   address: string;
   logo: string;
+  hr_password: string;
 }
 
 const STORE_KEY = 'store_info';
@@ -44,7 +48,8 @@ function hasData(info: StoreInfo) {
 }
 
 export function SettingsPage() {
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ name: '', cnpj: '', address: '', logo: '' });
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ name: '', cnpj: '', address: '', logo: '', hr_password: '' });
+  const [showHrPassword, setShowHrPassword] = useState(false);
   const [theme, setTheme]         = useState<'light' | 'dark'>('light');
   const [isEditing, setIsEditing] = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -72,6 +77,7 @@ export function SettingsPage() {
           cnpj: data.cnpj || '',
           address: data.address || '',
           logo: data.logo || '',
+          hr_password: data.hr_password || '',
         };
         setStoreInfo(info);
         if (hasData(info)) setIsEditing(false);
@@ -412,6 +418,59 @@ export function SettingsPage() {
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Segurança */}
+      <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
+            <Lock size={22} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-on-surface tracking-tight">Segurança</h3>
+            <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Acesso a áreas restritas</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-on-surface/50 leading-relaxed">
+          Define a senha para acessar as abas <strong className="text-on-surface/70">Colaboradores</strong> e <strong className="text-on-surface/70">Caderninho</strong> no módulo de Recursos Humanos. Deixe em branco para desativar a proteção.
+        </p>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest flex items-center gap-1.5">
+            <Lock size={11} /> Senha — Recursos Humanos
+          </label>
+          <div className="relative">
+            <input
+              type={showHrPassword ? 'text' : 'password'}
+              value={storeInfo.hr_password}
+              onChange={e => setStoreInfo(prev => ({ ...prev, hr_password: e.target.value }))}
+              placeholder="Digite uma senha..."
+              className={cn(field, 'pr-12')}
+            />
+            <button
+              type="button"
+              onClick={() => setShowHrPassword(v => !v)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface/60 transition-colors"
+            >
+              {showHrPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center justify-center gap-2 bg-primary text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-[colors,transform] shadow-xl shadow-primary/20 uppercase tracking-widest active:scale-95 disabled:opacity-60"
+        >
+          {saved ? (
+            <><CheckCircle2 size={18} /> Salvo!</>
+          ) : saving ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+          ) : (
+            <><Save size={18} /> Salvar Senha</>
+          )}
+        </button>
       </div>
     </div>
   );

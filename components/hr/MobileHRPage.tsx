@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users } from 'lucide-react';
+import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -12,9 +12,10 @@ import {
 import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
 import { EmployeeCard } from '@/components/hr/EmployeeCard';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
 import { type Employee } from '@/lib/hrEmployees';
 
-type HRView = 'calendario' | 'colaboradores';
+type HRView = 'calendario' | 'colaboradores' | 'caderninho';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 
@@ -55,6 +56,13 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   const [showEmployeeSheet, setShowEmployeeSheet] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
+  const [isHRUnlocked, setIsHRUnlocked] = useState(false);
+  const [showPasswordSheet, setShowPasswordSheet] = useState(false);
+  const [pendingView, setPendingView] = useState<HRView | null>(null);
+  const [hrPassword, setHrPassword] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const fetchHrEvents = async () => {
     const { data } = await supabase.from('hr_events').select('*').order('data', { ascending: true });
     setHrEvents(data || []);
@@ -68,11 +76,44 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     setEmployees(data || []);
   };
 
+  const fetchHrPassword = async () => {
+    const { data } = await supabase.from('store_settings').select('hr_password').eq('id', 'default').maybeSingle();
+    setHrPassword(data?.hr_password || '');
+  };
+
   useEffect(() => {
     fetchHrEvents();
     fetchFinanceTransactions();
     fetchEmployees();
+    fetchHrPassword();
   }, []);
+
+  const handleProtectedTabClick = (view: HRView) => {
+    if (isHRUnlocked) {
+      setActiveView(view);
+    } else {
+      setPendingView(view);
+      setPasswordInput('');
+      setPasswordError('');
+      setShowPasswordSheet(true);
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    if (!hrPassword) {
+      setPasswordError('Configure uma senha em Configurações para acessar esta área.');
+      return;
+    }
+    if (passwordInput === hrPassword) {
+      setIsHRUnlocked(true);
+      if (pendingView) setActiveView(pendingView);
+      setShowPasswordSheet(false);
+      setPasswordInput('');
+      setPasswordError('');
+    } else {
+      setPasswordError('Senha incorreta.');
+    }
+  };
 
   const openCreateEmployeeSheet = () => {
     setEditingEmployee(null);
@@ -160,41 +201,57 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
       </div>
 
       {/* Tabs */}
-      <div className="shrink-0 flex gap-2 px-3 pt-3">
+      <div className="shrink-0 flex gap-1.5 px-3 pt-3">
         <button
           onClick={() => setActiveView('calendario')}
           className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[13px] text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
             activeView === 'calendario'
               ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
               : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
           )}
         >
-          <CalendarRange size={13} strokeWidth={2.5} />
+          <CalendarRange size={12} strokeWidth={2.5} />
           Calendário
         </button>
         <button
-          onClick={() => setActiveView('colaboradores')}
+          onClick={() => handleProtectedTabClick('colaboradores')}
           className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[13px] text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
             activeView === 'colaboradores'
               ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
               : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
           )}
         >
-          <Users size={13} strokeWidth={2.5} />
+          <Users size={12} strokeWidth={2.5} />
           Colaboradores
+          {!isHRUnlocked && <Lock size={9} strokeWidth={2.5} className="opacity-40" />}
+        </button>
+        <button
+          onClick={() => handleProtectedTabClick('caderninho')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            activeView === 'caderninho'
+              ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+              : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
+          )}
+        >
+          <BookText size={12} strokeWidth={2.5} />
+          Caderninho
+          {!isHRUnlocked && <Lock size={9} strokeWidth={2.5} className="opacity-40" />}
         </button>
       </div>
 
       {/* Primary action */}
-      <button
-        onClick={activeView === 'calendario' ? openCreateSheet : openCreateEmployeeSheet}
-        className="shrink-0 mx-3 mt-2.5 bg-[#D81E1E] text-white font-extrabold text-[11.5px] uppercase tracking-wide py-3 rounded-[13px] shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5"
-      >
-        <Plus size={14} strokeWidth={2.8} />
-        {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
-      </button>
+      {activeView !== 'caderninho' && (
+        <button
+          onClick={activeView === 'calendario' ? openCreateSheet : openCreateEmployeeSheet}
+          className="shrink-0 mx-3 mt-2.5 bg-[#D81E1E] text-white font-extrabold text-[11.5px] uppercase tracking-wide py-3 rounded-[13px] shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5"
+        >
+          <Plus size={14} strokeWidth={2.8} />
+          {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
+        </button>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -267,7 +324,7 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
               </div>
             )}
           </>
-        ) : (
+        ) : activeView === 'colaboradores' ? (
           <div className="px-3 pt-3 pb-6 flex flex-col gap-2.5">
             {employees.length === 0 ? (
               <p className="text-sm text-on-surface/35 py-10 text-center">Nenhum colaborador cadastrado ainda.</p>
@@ -277,6 +334,8 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
               ))
             )}
           </div>
+        ) : (
+          <CaderninhoTable employees={employees} compact />
         )}
       </div>
 
@@ -287,6 +346,74 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
         onSaved={fetchEmployees}
         variant="sheet"
       />
+
+      {/* Bottom sheet de senha */}
+      <AnimatePresence>
+        {showPasswordSheet && (
+          <>
+            <motion.div
+              key="pwd-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/45 z-[59]" onClick={() => setShowPasswordSheet(false)}
+            />
+            <motion.div
+              key="pwd-sheet"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+              style={{ maxHeight: '60svh' }}
+            >
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 pb-6 pt-3 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-[1.2rem] bg-[rgba(216,30,30,0.10)] text-[#D81E1E] flex items-center justify-center">
+                  <Lock size={24} strokeWidth={2.2} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[16px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Área Restrita</p>
+                  <p className="text-[12px] text-[rgba(26,26,10,0.45)] dark:text-white/40 font-medium mt-0.5">
+                    {hrPassword ? 'Digite a senha para continuar' : 'Configure uma senha em Configurações'}
+                  </p>
+                </div>
+
+                {hrPassword && (
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handlePasswordSubmit()}
+                    placeholder="Senha"
+                    autoFocus
+                    className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[14px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                  />
+                )}
+
+                {passwordError && (
+                  <p className="text-[11.5px] text-red-500 font-semibold self-start">{passwordError}</p>
+                )}
+
+                <div className="flex gap-2 w-full mt-1">
+                  <button
+                    onClick={() => setShowPasswordSheet(false)}
+                    className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
+                  >
+                    Cancelar
+                  </button>
+                  {hrPassword && (
+                    <button
+                      onClick={handlePasswordSubmit}
+                      className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
+                    >
+                      Entrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Bottom sheet criar/editar evento */}
       <AnimatePresence>
