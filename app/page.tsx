@@ -7026,14 +7026,32 @@ export default function Page() {
                           const mapping = getItemMapping(linkItem);
                           if (!mapping) return null;
                           const mappedProduct = products.find((p: any) => p.id === mapping.internal_product_id);
-                          return (
+                          if (!mappedProduct) return (
                             <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
                               <Bookmark size={13} className="text-amber-500 shrink-0 fill-amber-200" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">Tradução permanente já existe</p>
-                                <p className="text-xs font-bold text-amber-800 truncate">{mappedProduct?.name || 'Produto removido'}</p>
+                                <p className="text-xs font-bold text-amber-800 truncate">Produto removido</p>
                               </div>
                             </div>
+                          );
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const i = linkingItemIdx!;
+                                const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
+                                setNoteItemSelectedProduct(mappedProduct);
+                                setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (mappedProduct.price ? String(mappedProduct.price) : ''));
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 rounded-xl transition-all text-left group"
+                            >
+                              <Bookmark size={13} className="text-amber-500 shrink-0 fill-amber-200" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">Tradução permanente já existe — clique para usar</p>
+                                <p className="text-xs font-bold text-amber-800 truncate group-hover:text-amber-900">{mappedProduct.name}</p>
+                              </div>
+                            </button>
                           );
                         })()}
                         {!noteItemShowCreate ? (

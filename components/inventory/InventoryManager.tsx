@@ -18,6 +18,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { LabelPrintModal } from './LabelPrintModal';
+import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ export function InventoryManager({
   stockFileInputRef,
   setShowStockUpdateChoiceModal
 }: InventoryManagerProps) {
+  const [activeInventoryTab, setActiveInventoryTab] = useState<'produtos' | 'estoque'>('produtos');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -118,6 +120,32 @@ export function InventoryManager({
 
   return (
     <div className="space-y-8">
+      {/* Sub-tab bar: Produtos | Estoque */}
+      <div className="flex items-center gap-2">
+        {(['produtos', 'estoque'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveInventoryTab(tab)}
+            className={cn(
+              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              activeInventoryTab === tab
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'border-on-surface/[0.10] text-on-surface/50 hover:text-on-surface/70 hover:border-on-surface/[0.18]'
+            )}
+          >
+            {tab === 'produtos' ? 'Produtos' : 'Estoque'}
+          </button>
+        ))}
+      </div>
+
+      {/* Estoque tab content */}
+      {activeInventoryTab === 'estoque' && (
+        <EstoqueManager products={products} />
+      )}
+
+      {/* Produtos tab content */}
+      {activeInventoryTab === 'produtos' && <>
+
       {!isConfigured && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
@@ -509,6 +537,7 @@ export function InventoryManager({
         onClose={() => setShowLabelModal(false)}
         products={products}
       />
+      </> /* end produtos tab */}
     </div>
   );
 }

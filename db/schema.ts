@@ -81,3 +81,31 @@ export const hrEmployees = pgTable('hr_employees', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
+
+// ─── Estoque físico ───────────────────────────────────────────────────────────
+
+export const shelves = pgTable('shelves', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const storageBoxes = pgTable('storage_boxes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  code: text('code').notNull().unique(),
+  shelfId: uuid('shelf_id').references(() => shelves.id),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const boxContents = pgTable('box_contents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  boxId: uuid('box_id').references(() => storageBoxes.id).notNull(),
+  productId: uuid('product_id').references(() => products.id).notNull(),
+  quantity: integer('quantity').default(1).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
