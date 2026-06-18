@@ -408,7 +408,7 @@ export function MobileBulkTable({
             </div>
 
             {/* form */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className={cn("flex-1 overflow-y-auto p-4 space-y-4", showNameKeyboard && "pb-56")}>
 
               {/* EAN + problem button */}
               <div>
@@ -836,57 +836,85 @@ export function MobileBulkTable({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="shrink-0 bg-[#CDD0D6] dark:bg-[#1C1C1E] pt-2 pb-1 px-0.5 space-y-1 select-none"
+            className="absolute bottom-0 left-0 right-0 z-50 bg-[#CDD0D6] dark:bg-[#1C1C1E] select-none"
           >
-            {NAME_KBD[nameKbdMode].map((row, ri) => (
-              <div key={ri} className={cn(
-                'flex gap-1 justify-center',
-                ri === 0 ? 'px-0.5' : ri === 1 ? 'px-3' : 'px-0.5',
-              )}>
-                {row.map(key => {
-                  const isShiftKey  = key === 'SHIFT';
-                  const isDelete    = key === '⌫';
-                  const isSpace     = key === 'SPACE';
-                  const isModeKey   = ['123','ABC','#+='].includes(key);
-                  const isReturn    = key === '↵';
-                  const isSpecial   = isShiftKey || isDelete || isSpace || isModeKey || isReturn;
-                  const displayKey  = nameKbdMode === 'abc' && !isSpecial
-                    ? (nameKbdShift ? key.toUpperCase() : key)
-                    : key;
-                  return (
-                    <motion.button
-                      key={key + ri}
-                      type="button"
-                      onMouseDown={e => { e.preventDefault(); handleNameKey(key); }}
-                      whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                      className={cn(
-                        'h-[42px] rounded-[8px] flex items-center justify-center',
-                        'shadow-[0_1px_0_rgba(0,0,0,0.28)] dark:shadow-[0_1px_0_rgba(0,0,0,0.55)]',
-                        isSpace ? 'flex-1 text-sm font-medium' :
-                        isModeKey ? 'w-[42px] text-[11px] font-bold' :
-                        isReturn ? 'w-[42px] text-base' :
-                        (isShiftKey || isDelete) ? 'w-[42px]' : 'flex-1 text-[17px] font-normal',
-                        // colors
-                        (isShiftKey && nameKbdShift)
-                          ? 'bg-white dark:bg-[#4A9EFF] text-[#4A9EFF] dark:text-white'
-                          : isSpecial
-                            ? 'bg-[#AEB3BB] dark:bg-[#2E2E2E] text-[#1A1A0E] dark:text-[#F2F0E3]'
-                            : 'bg-white dark:bg-[#3D3D3D] text-[#1A1A0E] dark:text-[#F2F0E3]',
-                      )}
-                    >
-                      {isShiftKey
-                        ? <span className={cn('text-lg leading-none', nameKbdShift ? 'font-black' : 'font-light')}>⇧</span>
-                        : isDelete  ? <Delete size={15} />
-                        : isSpace   ? 'espaço'
-                        : isReturn  ? '↵'
-                        : displayKey
-                      }
-                    </motion.button>
-                  );
-                })}
-              </div>
-            ))}
+            {/* Barra de sugestões (QuickType) */}
+            <div className="flex items-stretch h-11 bg-[#B8BCC5] dark:bg-[#2C2C2E] border-b border-black/10 dark:border-white/[0.08]">
+              {['', selectedRow?.name?.trim().split(' ').pop() ?? '', ''].map((word, i, arr) => (
+                <button
+                  key={i}
+                  type="button"
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    if (word) updateField(selectedIdx, 'name', (selectedRow?.name ?? '') + word + ' ');
+                  }}
+                  className={cn(
+                    'flex-1 flex items-center justify-center text-sm text-[#1A1A0E] dark:text-[#F2F0E3] relative',
+                    i === 1 ? 'italic text-[#1A1A0E]/55 dark:text-[#F2F0E3]/45' : '',
+                    'active:bg-black/[0.06] dark:active:bg-white/[0.05]',
+                  )}
+                >
+                  {i !== arr.length - 1 && (
+                    <span className="absolute right-0 top-2 bottom-2 w-px bg-black/[0.18] dark:bg-white/[0.14]" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Teclas */}
+            <div className="pt-2 pb-2 px-0.5 space-y-[6px]">
+              {NAME_KBD[nameKbdMode].map((row, ri) => (
+                <div key={ri} className={cn(
+                  'flex gap-[6px] justify-center',
+                  ri === 0 ? 'px-0.5' : ri === 1 ? 'px-3' : 'px-0.5',
+                )}>
+                  {row.map(key => {
+                    const isShiftKey  = key === 'SHIFT';
+                    const isDelete    = key === '⌫';
+                    const isSpace     = key === 'SPACE';
+                    const isModeKey   = ['123','ABC','#+='].includes(key);
+                    const isReturn    = key === '↵';
+                    const isSpecial   = isShiftKey || isDelete || isSpace || isModeKey || isReturn;
+                    const displayKey  = nameKbdMode === 'abc' && !isSpecial
+                      ? (nameKbdShift ? key.toUpperCase() : key)
+                      : key;
+                    return (
+                      <motion.button
+                        key={key + ri}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); handleNameKey(key); }}
+                        whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                        className={cn(
+                          'h-[43px] rounded-[10px] flex items-center justify-center',
+                          'shadow-[0_1px_0_rgba(0,0,0,0.28)] dark:shadow-[0_1px_0_rgba(0,0,0,0.55)]',
+                          isSpace ? 'flex-1 text-sm font-medium' :
+                          isModeKey ? 'w-[44px] text-[11px] font-bold' :
+                          isReturn ? 'w-[44px] text-base' :
+                          (isShiftKey || isDelete) ? 'w-[44px]' : 'flex-1 text-[17px] font-normal',
+                          (isShiftKey && nameKbdShift)
+                            ? 'bg-white dark:bg-[#4A9EFF] text-[#4A9EFF] dark:text-white'
+                            : isSpecial
+                              ? 'bg-[#AEB3BB] dark:bg-[#2E2E2E] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                              : 'bg-white dark:bg-[#3D3D3D] text-[#1A1A0E] dark:text-[#F2F0E3]',
+                        )}
+                      >
+                        {isShiftKey
+                          ? <span className={cn('text-lg leading-none', nameKbdShift ? 'font-black' : 'font-light')}>⇧</span>
+                          : isDelete  ? <Delete size={15} />
+                          : isSpace   ? 'espaço'
+                          : isReturn  ? '↵'
+                          : displayKey
+                        }
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Barra vazia no lugar da tab bar — evita toque acidental */}
+            <div className="h-[54px] bg-[#FFE500] dark:bg-[#252520] border-t border-[#D4C000] dark:border-white/[0.07]" />
           </motion.div>
         )}
       </AnimatePresence>

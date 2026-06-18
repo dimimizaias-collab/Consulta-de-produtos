@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup Teclado Virtual — Dark</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'DM Sans', sans-serif;
+    background: #111110;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    gap: 32px;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(242,240,227,0.35);
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: rgba(242,240,227,0.30);
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .phones-row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Phone shell */
+  .phone {
+    width: 320px;
+    background: #1E1E18;
+    border-radius: 44px;
+    border: 2px solid rgba(242,240,227,0.08);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.35);
+    position: relative;
+  }
+
+  .phone-screen {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 42px;
+  }
+
+  /* Fake form content */
+  .form-area {
+    background: #1E1E18;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(242,240,227,0.05);
+  }
+  .form-label {
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgba(242,240,227,0.35);
+    margin-bottom: 4px;
+  }
+  .form-input {
+    width: 100%;
+    background: #252520;
+    border: 1.5px solid #D81E1E;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #F2F0E3;
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.18);
+    outline: none;
+  }
+  .form-input::placeholder { color: rgba(242,240,227,0.22); }
+
+  /* ═══ TECLADO ATUAL ════════════════════════════ */
+  .kbd-current {
+    background: #1C1C1E;
+    padding: 8px 2px 8px 2px;
+  }
+
+  .kbd-current .row {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .kbd-current .row:last-child { margin-bottom: 0; }
+  .kbd-current .row.r1 { padding: 0 2px; }
+  .kbd-current .row.r2 { padding: 0 12px; }
+  .kbd-current .row.r3 { padding: 0 2px; }
+  .kbd-current .row.r4 { padding: 0 2px; }
+
+  .kbd-current .key {
+    height: 42px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 400;
+    color: #F2F0E3;
+    background: #3D3D3D;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    flex: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .kbd-current .key.special {
+    background: #2E2E2E;
+    font-size: 11px;
+    font-weight: 700;
+    color: #F2F0E3;
+  }
+  .kbd-current .key.w42 { flex: 0 0 42px; }
+  .kbd-current .key.space { font-size: 14px; font-weight: 500; }
+
+  /* Bottom tab bar */
+  .tab-bar {
+    background: #252520;
+    border-top: 1px solid rgba(242,240,227,0.07);
+    display: flex;
+    height: 54px;
+  }
+  .tab-bar .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.30);
+    cursor: pointer;
+  }
+  .tab-bar .tab.active {
+    color: #D81E1E;
+    position: relative;
+  }
+  .tab-bar .tab.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 12px; right: 12px;
+    height: 2px;
+    background: #D81E1E;
+    border-radius: 2px;
+  }
+  .tab-bar .tab svg { width: 18px; height: 18px; }
+
+  /* ═══ TECLADO NOVO ════════════════════════════ */
+  .kbd-new {
+    background: #1C1C1E;
+    padding: 0 0 8px 0;
+  }
+
+  /* Barra de sugestões */
+  .suggestion-bar {
+    background: #2C2C2E;
+    height: 44px;
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .suggestion-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 400;
+    color: #F2F0E3;
+    cursor: pointer;
+    position: relative;
+  }
+  .suggestion-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 8px; bottom: 8px;
+    width: 1px;
+    background: rgba(255,255,255,0.14);
+  }
+  .suggestion-item:hover { background: rgba(255,255,255,0.05); }
+  .suggestion-item em {
+    font-style: normal;
+    color: rgba(242,240,227,0.45);
+  }
+
+  .kbd-new .keys-area {
+    padding: 8px 3px 0 3px;
+  }
+
+  .kbd-new .row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+  .kbd-new .row:last-child { margin-bottom: 0; }
+  .kbd-new .row.r1 { padding: 0 3px; }
+  .kbd-new .row.r2 { padding: 0 14px; }
+  .kbd-new .row.r3 { padding: 0 3px; }
+  .kbd-new .row.r4 { padding: 0 3px; }
+
+  .kbd-new .key {
+    height: 43px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 400;
+    color: #F2F0E3;
+    background: #3D3D3D;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    flex: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .kbd-new .key.special {
+    background: #2E2E2E;
+    font-size: 11px;
+    font-weight: 700;
+    color: #F2F0E3;
+  }
+  .kbd-new .key.w44 { flex: 0 0 44px; }
+  .kbd-new .key.space { font-size: 14px; font-weight: 500; }
+
+  /* Badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .badge-atual { background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.45); }
+  .badge-novo  { background: #D81E1E; color: #fff; }
+  .badge-dot   { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .badge-dot-atual { background: rgba(242,240,227,0.30); }
+  .badge-dot-novo  { background: rgba(255,255,255,0.70); }
+
+  /* Change callouts */
+  .changes {
+    background: #252520;
+    border-radius: 16px;
+    border: 1px solid rgba(242,240,227,0.06);
+    padding: 14px 16px;
+    max-width: 320px;
+    width: 100%;
+  }
+  .changes h3 {
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(242,240,227,0.35);
+    margin-bottom: 10px;
+  }
+  .change-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(242,240,227,0.05);
+  }
+  .change-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .change-icon {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .change-icon-add { background: rgba(216,30,30,0.18); }
+  .change-icon-mod { background: rgba(242,240,227,0.07); }
+  .change-text strong { display: block; font-size: 12px; font-weight: 700; color: #F2F0E3; margin-bottom: 1px; }
+  .change-text span { font-size: 11px; color: rgba(242,240,227,0.45); line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<h1>Mockup — Teclado Virtual · Dark Mode</h1>
+
+<div class="phones-row">
+
+  <!-- TECLADO ATUAL -->
+  <div class="phone-wrap">
+    <div class="label">
+      <span class="badge badge-atual"><span class="badge-dot badge-dot-atual"></span>Atual</span>
+    </div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="form-area">
+          <div class="form-label">Nome *</div>
+          <input class="form-input" type="text" placeholder="Nome do produto" value="Leite integral" readonly>
+        </div>
+
+        <div class="kbd-current">
+          <div class="row r1">
+            <div class="key">Q</div><div class="key">W</div><div class="key">E</div>
+            <div class="key">R</div><div class="key">T</div><div class="key">Y</div>
+            <div class="key">U</div><div class="key">I</div><div class="key">O</div>
+            <div class="key">P</div>
+          </div>
+          <div class="row r2">
+            <div class="key">A</div><div class="key">S</div><div class="key">D</div>
+            <div class="key">F</div><div class="key">G</div><div class="key">H</div>
+            <div class="key">J</div><div class="key">K</div><div class="key">L</div>
+          </div>
+          <div class="row r3">
+            <div class="key special w42">⇧</div>
+            <div class="key">Z</div><div class="key">X</div><div class="key">C</div>
+            <div class="key">V</div><div class="key">B</div><div class="key">N</div>
+            <div class="key">M</div>
+            <div class="key special w42" style="font-size:14px;">⌫</div>
+          </div>
+          <div class="row r4">
+            <div class="key special w42">123</div>
+            <div class="key space">espaço</div>
+            <div class="key special w42">↵</div>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Itens
+          </div>
+          <div class="tab active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Detalhe
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Resumo
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TECLADO NOVO -->
+  <div class="phone-wrap">
+    <div class="label">
+      <span class="badge badge-novo"><span class="badge-dot badge-dot-novo"></span>Novo</span>
+    </div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="form-area">
+          <div class="form-label">Nome *</div>
+          <input class="form-input" type="text" placeholder="Nome do produto" value="Leite integral" readonly>
+        </div>
+
+        <div class="kbd-new">
+          <!-- ★ Barra de sugestões -->
+          <div class="suggestion-bar">
+            <div class="suggestion-item">Leite</div>
+            <div class="suggestion-item"><em>integral</em></div>
+            <div class="suggestion-item">desnatado</div>
+          </div>
+
+          <div class="keys-area">
+            <div class="row r1">
+              <div class="key">Q</div><div class="key">W</div><div class="key">E</div>
+              <div class="key">R</div><div class="key">T</div><div class="key">Y</div>
+              <div class="key">U</div><div class="key">I</div><div class="key">O</div>
+              <div class="key">P</div>
+            </div>
+            <div class="row r2">
+              <div class="key">A</div><div class="key">S</div><div class="key">D</div>
+              <div class="key">F</div><div class="key">G</div><div class="key">H</div>
+              <div class="key">J</div><div class="key">K</div><div class="key">L</div>
+            </div>
+            <div class="row r3">
+              <div class="key special w44">⇧</div>
+              <div class="key">Z</div><div class="key">X</div><div class="key">C</div>
+              <div class="key">V</div><div class="key">B</div><div class="key">N</div>
+              <div class="key">M</div>
+              <div class="key special w44" style="font-size:14px;">⌫</div>
+            </div>
+            <div class="row r4">
+              <div class="key special w44">123</div>
+              <div class="key space">espaço</div>
+              <div class="key special w44">↵</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- barra vazia — teclado aberto bloqueia a tab bar -->
+        <div style="height:54px; background:#252520; border-top:1px solid rgba(242,240,227,0.07);"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Changelog -->
+<div class="changes">
+  <h3>O que muda</h3>
+  <div class="change-item">
+    <div class="change-icon change-icon-add">✦</div>
+    <div class="change-text">
+      <strong>Barra de sugestões (QuickType)</strong>
+      <span>44px, fundo #2C2C2E no dark. 3 sugestões com divisores rgba(255,255,255,0.14).</span>
+    </div>
+  </div>
+  <div class="change-item">
+    <div class="change-icon change-icon-mod">↔</div>
+    <div class="change-text">
+      <strong>Gap entre teclas: 4px → 6px</strong>
+      <span>Espaçamento proporcional ao teclado padrão do iOS.</span>
+    </div>
+  </div>
+  <div class="change-item">
+    <div class="change-icon change-icon-mod">◻</div>
+    <div class="change-text">
+      <strong>Border-radius: 8px → 10px</strong>
+      <span>Cantos mais arredondados, fiel ao estilo iPhone.</span>
+    </div>
+  </div>
+  <div class="change-item">
+    <div class="change-icon change-icon-mod">↕</div>
+    <div class="change-text">
+      <strong>Altura da tecla: 42px → 43px</strong>
+      <span>Compensa o gap maior sem encolher as teclas.</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
