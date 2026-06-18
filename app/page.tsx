@@ -475,6 +475,7 @@ export default function Page() {
     units_per_mother: 1,
     linked_product_id: null as string | null
   });
+  const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
   // Memoized derived values
@@ -1321,6 +1322,7 @@ export default function Page() {
       setNotification({ type: 'success', message: 'Produto adicionado com sucesso!' });
       
       // Limpa o formulário
+      setNewProductPriceDisplay('');
       setNewProduct({
         sku: '',
         name: '',
@@ -4439,11 +4441,23 @@ export default function Page() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
                     <input
-                      type="number"
-                      step="0.01"
-                      value={isNaN(newProduct.price) ? 0 : newProduct.price}
-                      onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value || '0') || 0})}
-                      className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
+                      type="text"
+                      inputMode="numeric"
+                      value={newProductPriceDisplay}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '');
+                        if (!digits) {
+                          setNewProductPriceDisplay('');
+                          setNewProduct({...newProduct, price: 0});
+                          return;
+                        }
+                        const cents = parseInt(digits, 10);
+                        const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        setNewProductPriceDisplay(display);
+                        setNewProduct({...newProduct, price: cents / 100});
+                      }}
+                      placeholder="0,00"
+                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                     />
                   </div>
                   <div className="space-y-1.5">
