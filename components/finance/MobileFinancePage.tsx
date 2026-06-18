@@ -13,6 +13,8 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useFinanceTags, FinanceTag } from '@/hooks/useFinanceTags';
+import { TagSelector } from './TagSelector';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ interface Transaction {
   pago: boolean;
   numero_cheque: string | null;
   account_id?: string | null;
+  tag_ids: string[];
 }
 
 interface BankAccount {
@@ -54,6 +57,7 @@ type TxForm = {
   data: string;
   valor_final: string;
   pago: boolean;
+  tag_ids: string[];
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -78,6 +82,7 @@ const emptyForm = (): TxForm => ({
   data: new Date().toISOString().split('T')[0],
   valor_final: '0',
   pago: false,
+  tag_ids: [],
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -293,12 +298,16 @@ function TxSheet({
   onSave,
   onClose,
   saving,
+  tags,
+  onCreateTag,
 }: {
   form: TxForm;
   setForm: (f: TxForm) => void;
   onSave: () => void;
   onClose: () => void;
   saving: boolean;
+  tags: FinanceTag[];
+  onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
 }) {
   const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
@@ -438,6 +447,14 @@ function TxSheet({
           </div>
         </div>
 
+        {/* Tags */}
+        <TagSelector
+          tags={tags}
+          value={form.tag_ids}
+          onChange={ids => setForm({ ...form, tag_ids: ids })}
+          onCreateTag={onCreateTag}
+        />
+
         {/* Pago toggle */}
         <div className="flex items-center gap-3 py-1">
           <button
@@ -495,6 +512,7 @@ export function MobileFinancePage() {
   const [txForm, setTxForm] = useState<TxForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [dashPeriod, setDashPeriod] = useState<DashPeriod>('30d');
+  const { tags, createTag } = useFinanceTags();
   const [calViewDate, setCalViewDate] = useState(() => {
     const d = new Date(); d.setDate(1); return d;
   });
@@ -611,6 +629,7 @@ export function MobileFinancePage() {
       total_pago: txForm.pago ? valorNum : 0,
       pago: txForm.pago,
       numero_cheque: null,
+      tag_ids: txForm.tag_ids ?? [],
     }]);
     setSaving(false);
     setShowAddSheet(false);
@@ -1082,6 +1101,8 @@ export function MobileFinancePage() {
               onSave={handleSave}
               onClose={() => setShowAddSheet(false)}
               saving={saving}
+              tags={tags}
+              onCreateTag={(nome, cor) => createTag(nome, cor, '')}
             />
           </>
         )}

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Tags Financeiro (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #131310;
+    color: #F2F0E3;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  .section-label {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(242,240,227,.28);
+    margin-bottom: 14px;
+  }
+  .section-wrap { margin-bottom: 52px; }
+
+  /* ── MODAL OVERLAY ── */
+  .overlay {
+    background: rgba(0,0,0,0.60);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px;
+  }
+  .modal {
+    background: #1E1E18;
+    border-radius: 24px;
+    width: 100%; max-width: 460px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.55), 0 8px 24px rgba(0,0,0,.30);
+    overflow: hidden;
+    border: 1.5px solid rgba(242,240,227,.07);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px 16px;
+  }
+  .modal-title { font-size: 17px; font-weight: 800; color: #F2F0E3; }
+  .close-btn {
+    width: 30px; height: 30px; border-radius: 10px;
+    background: rgba(242,240,227,.06);
+    border: 1px solid rgba(242,240,227,.08);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: rgba(242,240,227,.35); font-size: 14px;
+  }
+
+  .tipo-row { display: flex; gap: 8px; padding: 0 24px 16px; }
+  .tipo-btn {
+    flex: 1; padding: 9px 0; border-radius: 12px;
+    font-size: 13px; font-weight: 700; border: none;
+    cursor: pointer; font-family: inherit;
+    transition: all 160ms cubic-bezier(.23,1,.32,1);
+  }
+  .tipo-btn.receita { background: rgba(242,240,227,.08); color: rgba(242,240,227,.35); }
+  .tipo-btn.despesa { background: #ef4444; color: #fff; box-shadow: 0 4px 14px rgba(239,68,68,.30); }
+
+  .fields { display: flex; flex-direction: column; gap: 14px; padding: 0 24px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field label {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .10em; text-transform: uppercase;
+    color: rgba(242,240,227,.28);
+  }
+  .field input, .field select {
+    padding: 9px 12px;
+    background: rgba(242,240,227,.06);
+    border-radius: 12px;
+    border: 1.5px solid rgba(242,240,227,.08);
+    font-size: 13px; color: #F2F0E3;
+    font-family: inherit; outline: none;
+  }
+  .field input::placeholder { color: rgba(242,240,227,.22); }
+
+  /* ── TAG SECTION ── */
+  .tag-section { padding: 16px 24px 0; }
+  .tag-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 9px;
+  }
+  .tag-section-head span {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .10em; text-transform: uppercase;
+    color: rgba(242,240,227,.28);
+  }
+  .tag-section-head small { font-size: 11px; color: rgba(242,240,227,.20); }
+  .tag-chips-wrap {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    padding: 10px;
+    background: rgba(242,240,227,.04);
+    border: 1.5px solid rgba(242,240,227,.07);
+    border-radius: 14px; min-height: 46px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; border: 1.5px solid transparent;
+    transition: all 140ms cubic-bezier(.23,1,.32,1);
+  }
+  .chip svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  /* tag colors — dark */
+  .chip.blue   { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
+  .chip.purple { background: #2e1a5e; color: #c4b5fd; border-color: #5b21b6; }
+  .chip.amber  { background: #451a03; color: #fcd34d; border-color: #92400e; }
+  .chip.red    { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+  .chip.teal   { background: #022c22; color: #6ee7b7; border-color: #065f46; }
+  .chip.green  { background: #052e16; color: #86efac; border-color: #14532d; }
+  .chip.blue.sel { background: #2563eb; color: #fff; border-color: #3b82f6; }
+  .chip.add {
+    background: none;
+    border: 1.5px dashed rgba(242,240,227,.18);
+    color: rgba(242,240,227,.28);
+  }
+
+  .parcela-notice {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px;
+    background: rgba(251,191,36,.10); border-radius: 10px;
+    font-size: 11px; color: #fcd34d; font-weight: 500;
+  }
+  .parcela-notice svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 20px 24px;
+  }
+  .btn-cancel {
+    height: 38px; padding: 0 18px; border-radius: 12px;
+    background: rgba(242,240,227,.07);
+    border: 1px solid rgba(242,240,227,.10);
+    color: rgba(242,240,227,.40);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-save {
+    height: 38px; padding: 0 22px; border-radius: 12px;
+    background: #D81E1E; border: none; color: #fff;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(216,30,30,.35);
+  }
+
+  /* ── FILTER + TABLE ── */
+  .page-block {
+    background: #1E1E18;
+    border-radius: 20px; overflow: hidden;
+    border: 1.5px solid rgba(242,240,227,.07);
+  }
+  .filter-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 14px 18px;
+    border-bottom: 1.5px solid rgba(242,240,227,.06);
+  }
+  .filter-bar input, .filter-bar select {
+    height: 34px; padding: 0 12px; border-radius: 10px;
+    background: rgba(242,240,227,.06);
+    border: 1.5px solid rgba(242,240,227,.07);
+    font-size: 12px; color: #F2F0E3; font-family: inherit;
+  }
+  .filter-bar input { padding-left: 32px; width: 170px; }
+  .search-wrap { position: relative; }
+  .search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: rgba(242,240,227,.25); font-size: 13px;
+  }
+
+  .tag-filter-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    border-bottom: 1.5px solid rgba(242,240,227,.06);
+    overflow-x: auto;
+  }
+  .tf-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: rgba(242,240,227,.24);
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .tf-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+    white-space: nowrap; border: 1.5px solid transparent;
+    font-family: inherit; transition: all 130ms;
+  }
+  .tf-chip .count { font-size: 10px; opacity: .55; font-weight: 700; }
+  .tf-chip.blue   { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
+  .tf-chip.purple { background: #2e1a5e; color: #c4b5fd; border-color: #5b21b6; }
+  .tf-chip.amber  { background: #451a03; color: #fcd34d; border-color: #92400e; }
+  .tf-chip.red    { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+  .tf-chip.teal   { background: #022c22; color: #6ee7b7; border-color: #065f46; }
+  .tf-chip.green  { background: #052e16; color: #86efac; border-color: #14532d; }
+  .tf-chip.blue.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
+
+  .guide-btn {
+    margin-left: auto; flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px; border-radius: 9px;
+    background: rgba(242,240,227,.06);
+    border: 1.5px solid rgba(242,240,227,.09);
+    font-size: 11px; font-weight: 700;
+    color: rgba(242,240,227,.40); cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 2px solid #C8B800; }
+  th {
+    padding: 10px 16px; text-align: left;
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .10em; text-transform: uppercase;
+    color: rgba(26,26,10,.55); background: #FFE500;
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 16px; font-size: 12px; color: #F2F0E3;
+    border-bottom: 1px solid rgba(242,240,227,.05);
+    vertical-align: middle;
+  }
+  tr:nth-child(odd) td  { background: #252520; }
+  tr:nth-child(even) td { background: #1E1E18; }
+  tr:hover td { background: rgba(242,240,227,.03); }
+
+  .badge-d { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 800; background: #450a0a; color: #fca5a5; }
+  .badge-r { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 800; background: #052e16; color: #86efac; }
+
+  .tx-tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 600; margin-right: 3px;
+  }
+  .tx-tag.blue { background: #1e3a5f; color: #93c5fd; border: 1px solid #1e40af; }
+  .no-tag { font-style: italic; font-size: 10px; color: rgba(242,240,227,.22); }
+
+  .val-neg { color: #fca5a5; font-family: 'DM Mono', monospace; }
+  .val-pos { color: #86efac; font-family: 'DM Mono', monospace; }
+
+  /* ── GUIA DE TAGS ── */
+  .guide-modal {
+    background: #1E1E18;
+    border-radius: 22px; width: 100%; max-width: 440px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.55), 0 8px 24px rgba(0,0,0,.30);
+    overflow: hidden;
+    border: 1.5px solid rgba(242,240,227,.07);
+  }
+  .guide-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 22px 14px;
+    border-bottom: 1.5px solid rgba(242,240,227,.06);
+  }
+  .guide-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: rgba(216,30,30,.13);
+    border: 1.5px solid rgba(216,30,30,.20);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .guide-title { font-size: 15px; font-weight: 800; color: #F2F0E3; flex: 1; }
+  .guide-body { padding: 18px 22px; }
+  .list-section-title {
+    font-size: 10px; font-weight: 800; letter-spacing: .10em;
+    text-transform: uppercase; color: rgba(242,240,227,.24);
+    margin-bottom: 10px;
+  }
+  .tag-list-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+  .tag-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 12px;
+    background: rgba(242,240,227,.04);
+    border: 1.5px solid rgba(242,240,227,.06);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot.blue   { background: #3b82f6; }
+  .dot.purple { background: #8b5cf6; }
+  .dot.amber  { background: #f59e0b; }
+  .dot.red    { background: #ef4444; }
+  .dot.teal   { background: #10b981; }
+  .dot.green  { background: #22c55e; }
+  .dot.gray   { background: #6b7280; }
+  .tag-info { flex: 1; min-width: 0; }
+  .tag-name { font-size: 13px; font-weight: 700; color: #F2F0E3; }
+  .tag-desc { font-size: 11px; color: rgba(242,240,227,.30); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .use-count {
+    font-size: 11px; padding: 2px 9px; border-radius: 20px;
+    background: rgba(242,240,227,.07);
+    border: 1px solid rgba(242,240,227,.08);
+    color: rgba(242,240,227,.35); white-space: nowrap; font-weight: 600;
+  }
+  .use-count.zero { background: rgba(216,30,30,.15); border-color: rgba(216,30,30,.25); color: #fca5a5; }
+  .row-actions { display: flex; gap: 4px; }
+  .icon-btn {
+    width: 26px; height: 26px; border-radius: 8px;
+    border: 1.5px solid rgba(242,240,227,.09);
+    background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(242,240,227,.28); font-size: 13px;
+  }
+  .icon-btn.del { border-color: rgba(216,30,30,.30); color: #fca5a5; }
+
+  .new-form {
+    border: 1.5px solid rgba(242,240,227,.08);
+    border-radius: 14px; padding: 16px;
+    background: rgba(242,240,227,.03);
+  }
+  .new-form-title { font-size: 13px; font-weight: 700; color: #F2F0E3; margin-bottom: 12px; }
+  .new-form .field { margin-bottom: 10px; }
+  .new-form .field input {
+    background: rgba(242,240,227,.06);
+    border: 1.5px solid rgba(242,240,227,.08);
+    border-radius: 10px; padding: 8px 11px;
+    font-size: 12px; width: 100%;
+    font-family: inherit; color: #F2F0E3;
+    outline: none;
+  }
+  .new-form .field input::placeholder { color: rgba(242,240,227,.22); }
+  .new-form .field label {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: rgba(242,240,227,.28);
+    display: block; margin-bottom: 5px;
+  }
+  .color-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 6px; }
+  .cdot {
+    width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+    border: 2.5px solid transparent; transition: transform 120ms;
+  }
+  .cdot.sel { border-color: #F2F0E3; transform: scale(1.15); }
+  .btn-add {
+    display: flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 16px; margin-top: 12px;
+    border-radius: 10px; border: none;
+    background: #2563eb; color: #fff;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SEÇÃO 1: Modal Nova Movimentação ─────────────────────────────────── -->
+<div class="section-wrap">
+  <p class="section-label">1 — Modal: Nova movimentação com campo de tags</p>
+  <div class="overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Nova Movimentação</span>
+        <div class="close-btn">✕</div>
+      </div>
+      <div class="tipo-row">
+        <button class="tipo-btn receita">Receita</button>
+        <button class="tipo-btn despesa">Despesa</button>
+      </div>
+      <div class="fields">
+        <div class="row2">
+          <div class="field">
+            <label>Data</label>
+            <input type="text" value="27/07/2026">
+          </div>
+          <div class="field">
+            <label>Tipo de pagamento</label>
+            <select style="color:#F2F0E3;background:rgba(242,240,227,.06)"><option>Boleto</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Favorecido</label>
+          <input type="text" value="RAINHA">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Estabelecimento</label>
+            <select style="color:#F2F0E3;background:rgba(242,240,227,.06)"><option>Universo do R$1,99</option></select>
+          </div>
+          <div class="field">
+            <label>Valor Final (R$)</label>
+            <input type="text" value="1.040,00">
+          </div>
+        </div>
+      </div>
+
+      <div style="height:1px;background:rgba(242,240,227,.07);margin:16px 0"></div>
+
+      <div class="tag-section">
+        <div class="tag-section-head">
+          <span>Tags</span>
+          <small>Selecione uma ou mais</small>
+        </div>
+        <div class="tag-chips-wrap">
+          <span class="chip blue sel">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2.5H13.5V6.5L7 13L3 9L9.5 2.5Z"/><circle cx="11" cy="5" r="1" fill="currentColor" stroke="none"/></svg>
+            Fornecedor
+          </span>
+          <span class="chip purple">Fixo Mensal</span>
+          <span class="chip amber">Variável</span>
+          <span class="chip red">Imposto / Tributo</span>
+          <span class="chip teal">Folha de Pagamento</span>
+          <span class="chip green">Investimento</span>
+          <span class="chip add">+ Nova tag</span>
+        </div>
+        <div class="parcela-notice">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5l2 1.5"/></svg>
+          Esta tag será aplicada a todas as <strong style="margin:0 3px">6 parcelas</strong> automaticamente.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel">Cancelar</button>
+        <button class="btn-save">Salvar despesa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SEÇÃO 2: Tabela com filtros de tag ──────────────────────────────── -->
+<div class="section-wrap">
+  <p class="section-label">2 — Controle Financeiro: filtros e tabela com tags</p>
+  <div class="page-block">
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Buscar favorecido...">
+      </div>
+      <select style="color:#F2F0E3;background:rgba(242,240,227,.06)"><option>Todos os tipos</option></select>
+      <select style="color:#F2F0E3;background:rgba(242,240,227,.06)"><option>Todos os estabelecimentos</option></select>
+    </div>
+    <div class="tag-filter-row">
+      <span class="tf-label">Filtrar por tag</span>
+      <span class="tf-chip blue active">Fornecedor <span class="count">12</span></span>
+      <span class="tf-chip purple">Fixo Mensal <span class="count">8</span></span>
+      <span class="tf-chip amber">Variável <span class="count">5</span></span>
+      <span class="tf-chip red">Imposto / Tributo <span class="count">3</span></span>
+      <span class="tf-chip teal">Folha <span class="count">2</span></span>
+      <span class="tf-chip green">Investimento <span class="count">1</span></span>
+      <button class="guide-btn">📓 Guia de tags</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>Tipo</th><th>Favorecido</th><th>Pagamento</th>
+            <th>Tags</th><th style="text-align:right">Valor Final</th><th style="text-align:right">Restante</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>27/07/2026</td>
+            <td><span class="badge-d">DESPESA</span></td>
+            <td><strong>RAINHA</strong></td>
+            <td>Boleto</td>
+            <td><span class="tx-tag blue">🏷 Fornecedor</span></td>
+            <td style="text-align:right" class="val-neg">R$ 1.040,00</td>
+            <td style="text-align:right" class="val-neg">R$ 1.040,00</td>
+          </tr>
+          <tr>
+            <td>20/07/2026</td>
+            <td><span class="badge-d">DESPESA</span></td>
+            <td><strong>RAINHA</strong></td>
+            <td>Boleto</td>
+            <td><span class="tx-tag blue">🏷 Fornecedor</span></td>
+            <td style="text-align:right" class="val-neg">R$ 1.040,00</td>
+            <td style="text-align:right" class="val-neg">R$ 1.040,00</td>
+          </tr>
+          <tr>
+            <td>03/07/2026</td>
+            <td><span class="badge-d">DESPESA</span></td>
+            <td><strong>sacos de presente</strong></td>
+            <td>Cheque #288</td>
+            <td><span class="no-tag">sem tag</span></td>
+            <td style="text-align:right" class="val-neg">R$ 1.922,00</td>
+            <td style="text-align:right" class="val-neg">R$ 1.922,00</td>
+          </tr>
+          <tr>
+            <td>01/07/2026</td>
+            <td><span class="badge-r">RECEITA</span></td>
+            <td><strong>Venda Balcão</strong></td>
+            <td>PIX</td>
+            <td><span class="no-tag">sem tag</span></td>
+            <td style="text-align:right" class="val-pos">R$ 5.812,82</td>
+            <td style="text-align:right">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── SEÇÃO 3: Guia de Tags ──────────────────────────────────────────── -->
+<div class="section-wrap">
+  <p class="section-label">3 — Modal: Guia de tags</p>
+  <div class="overlay">
+    <div class="guide-modal">
+      <div class="guide-header">
+        <div class="guide-icon">📓</div>
+        <span class="guide-title">Guia de tags</span>
+        <div class="close-btn">✕</div>
+      </div>
+      <div class="guide-body">
+        <p class="list-section-title">Tags existentes</p>
+        <div class="tag-list-items">
+          <div class="tag-row">
+            <div class="dot blue"></div>
+            <div class="tag-info">
+              <div class="tag-name">Fornecedor</div>
+              <div class="tag-desc">Pagamentos a fornecedores de mercadoria</div>
+            </div>
+            <span class="use-count">12 usos</span>
+            <div class="row-actions">
+              <button class="icon-btn">✏</button>
+              <button class="icon-btn del">🗑</button>
+            </div>
+          </div>
+          <div class="tag-row">
+            <div class="dot purple"></div>
+            <div class="tag-info">
+              <div class="tag-name">Fixo Mensal</div>
+              <div class="tag-desc">Despesas recorrentes todo mês</div>
+            </div>
+            <span class="use-count">8 usos</span>
+            <div class="row-actions">
+              <button class="icon-btn">✏</button>
+              <button class="icon-btn del">🗑</button>
+            </div>
+          </div>
+          <div class="tag-row">
+            <div class="dot amber"></div>
+            <div class="tag-info">
+              <div class="tag-name">Variável</div>
+              <div class="tag-desc">Despesas sem valor ou data fixos</div>
+            </div>
+            <span class="use-count">5 usos</span>
+            <div class="row-actions">
+              <button class="icon-btn">✏</button>
+              <button class="icon-btn del">🗑</button>
+            </div>
+          </div>
+          <div class="tag-row">
+            <div class="dot red"></div>
+            <div class="tag-info">
+              <div class="tag-name">Imposto / Tributo</div>
+              <div class="tag-desc">Impostos, taxas e tributos governamentais</div>
+            </div>
+            <span class="use-count">3 usos</span>
+            <div class="row-actions">
+              <button class="icon-btn">✏</button>
+              <button class="icon-btn del">🗑</button>
+            </div>
+          </div>
+          <div class="tag-row">
+            <div class="dot gray"></div>
+            <div class="tag-info">
+              <div class="tag-name">Embalagem</div>
+              <div class="tag-desc">—</div>
+            </div>
+            <span class="use-count zero">Não usada</span>
+            <div class="row-actions">
+              <button class="icon-btn">✏</button>
+              <button class="icon-btn del">🗑</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:rgba(242,240,227,.07);margin-bottom:16px"></div>
+
+        <div class="new-form">
+          <p class="new-form-title">Adicionar nova tag</p>
+          <div class="field">
+            <label>Nome</label>
+            <input type="text" placeholder="Ex: Aluguel, Frete, Marketing...">
+          </div>
+          <div class="field">
+            <label>Descrição (opcional)</label>
+            <input type="text" placeholder="Para que serve essa tag?">
+          </div>
+          <div class="field">
+            <label>Cor</label>
+            <div class="color-row">
+              <div class="cdot sel" style="background:#3b82f6"></div>
+              <div class="cdot" style="background:#8b5cf6"></div>
+              <div class="cdot" style="background:#f59e0b"></div>
+              <div class="cdot" style="background:#ef4444"></div>
+              <div class="cdot" style="background:#10b981"></div>
+              <div class="cdot" style="background:#22c55e"></div>
+              <div class="cdot" style="background:#6b7280"></div>
+            </div>
+          </div>
+          <button class="btn-add">+ Adicionar tag</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

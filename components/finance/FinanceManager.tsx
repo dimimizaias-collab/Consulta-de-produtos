@@ -5,11 +5,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users, FileUp, CheckSquare,
+  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useFinanceTags, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
+import { TagSelector } from './TagSelector';
+import { TagGuide } from './TagGuide';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +33,7 @@ interface Transaction {
   numero_cheque: string | null;
   import_id?: string | null;
   account_id?: string | null;
+  tag_ids: string[];
 }
 
 interface BankAccount {
@@ -77,6 +81,7 @@ const emptyTxForm = (): TxForm => ({
   total_pago: 0,
   pago: false,
   numero_cheque: null,
+  tag_ids: [],
 });
 
 const emptyAccountForm = (): AccountForm => ({
@@ -220,6 +225,11 @@ export function FinanceManager() {
   const [deletingSelected, setDeletingSelected] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // tags
+  const { tags, createTag, updateTag, deleteTag } = useFinanceTags();
+  const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [showTagGuide, setShowTagGuide] = useState(false);
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchAll = async () => {
@@ -319,7 +329,7 @@ export function FinanceManager() {
 
   const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
-    setTxForm({ ...t, vencimento: t.vencimento ?? '' });
+    setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
     setVencimentoEnabled(!!t.vencimento);
     setParcelasEnabled(false);
     setParcelas([]);
@@ -344,6 +354,7 @@ export function FinanceManager() {
           pago: false,
           account_id: txForm.account_id ?? null,
           import_id: null,
+          tag_ids: txForm.tag_ids ?? [],
         };
         await supabase.from('finance_transactions').insert(
           // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
@@ -663,6 +674,7 @@ export function FinanceManager() {
           account_id: importAccountId || null,
           pago: true,
           numero_cheque: null,
+          tag_ids: [],
         });
       }
 
@@ -735,13 +747,24 @@ export function FinanceManager() {
     return transactions.filter(t => {
       if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
       if (filterEstab !== 'Todos' && t.estabelecimento !== filterEstab) return false;
+      if (filterTagId && !(t.tag_ids ?? []).includes(filterTagId)) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [transactions, filterTipo, filterEstab, search]);
+  }, [transactions, filterTipo, filterEstab, filterTagId, search]);
+
+  const tagUseCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of transactions) {
+      for (const id of (t.tag_ids ?? [])) {
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [transactions]);
 
   const totals = useMemo(() => {
     const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
@@ -913,6 +936,43 @@ export function FinanceManager() {
         </select>
       </div>
 
+      {/* Tag filter chips */}
+      {tags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-black uppercase tracking-[0.10em] text-on-surface/30 shrink-0">Tags</span>
+          {tags
+            .filter(t => (tagUseCounts[t.id] ?? 0) > 0)
+            .sort((a, b) => (tagUseCounts[b.id] ?? 0) - (tagUseCounts[a.id] ?? 0))
+            .map(tag => {
+              const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+              const active = filterTagId === tag.id;
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => setFilterTagId(active ? null : tag.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all duration-[130ms]',
+                    active
+                      ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
+                      : cn(c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark)
+                  )}
+                >
+                  {active && <Tag size={9} strokeWidth={2.5} />}
+                  {tag.nome}
+                  <span className="opacity-60 text-[10px] font-bold">{tagUseCounts[tag.id] ?? 0}</span>
+                </button>
+              );
+            })}
+          <button
+            onClick={() => setShowTagGuide(true)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold border border-on-surface/10 bg-surface-container-low text-on-surface/50 hover:bg-on-surface/5 transition-colors"
+          >
+            <BookOpen size={13} />
+            Guia de tags
+          </button>
+        </div>
+      )}
+
       {/* Selection action bar */}
       <AnimatePresence>
         {deleteError && (
@@ -975,7 +1035,7 @@ export function FinanceManager() {
                   {selectionMode && (
                     <th className="px-4 py-3 w-10" />
                   )}
-                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
+                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Tags', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 whitespace-nowrap">
                       {h}
                     </th>
@@ -985,7 +1045,7 @@ export function FinanceManager() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={selectionMode ? 12 : 11} className="px-4 py-16 text-center">
+                    <td colSpan={selectionMode ? 13 : 12} className="px-4 py-16 text-center">
                       <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
                       <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
                     </td>
@@ -1035,6 +1095,27 @@ export function FinanceManager() {
                         </td>
                         <td className="px-4 py-3 font-semibold text-on-surface">{t.favorecido}</td>
                         <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
+                        <td className="px-4 py-3">
+                          {(t.tag_ids ?? []).length === 0 ? (
+                            <span className="text-[10px] italic text-on-surface/25">sem tag</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {(t.tag_ids ?? []).map(tid => {
+                                const tag = tags.find(tg => tg.id === tid);
+                                if (!tag) return null;
+                                const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+                                return (
+                                  <span key={tid} className={cn(
+                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border',
+                                    c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark
+                                  )}>
+                                    {tag.nome}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">{fmt(t.valor_final)}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">{fmt(t.total_pago)}</td>
@@ -1453,7 +1534,18 @@ export function FinanceManager() {
                 </>)}
               </div>
 
-              <div className="flex gap-3 mt-6">
+              {/* Tags */}
+              <div className="mt-4">
+                <TagSelector
+                  tags={tags}
+                  value={txForm.tag_ids ?? []}
+                  onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
+                  onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+                  parcelCount={parcelasEnabled ? parcelas.length : undefined}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                   Cancelar
                 </button>
@@ -1464,6 +1556,20 @@ export function FinanceManager() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── TagGuide Modal ─────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showTagGuide && (
+          <TagGuide
+            tags={tags}
+            useCounts={tagUseCounts}
+            onCreate={createTag}
+            onUpdate={updateTag}
+            onDelete={deleteTag}
+            onClose={() => setShowTagGuide(false)}
+          />
         )}
       </AnimatePresence>
 
