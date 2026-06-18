@@ -132,6 +132,19 @@ export function ProductBulkTable({
   // Combobox: `${rowId}:${colKey}` of the currently open dropdown
   const [openComboKey, setOpenComboKey] = useState<string | null>(null);
   const comboRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Local options created during this table session (available immediately in all rows)
+  const [localOptions, setLocalOptions] = useState<Record<string, string[]>>({
+    categories: [], subcategories: [], brands: [], locations: [],
+  });
+  type CreateModal = {
+    field: 'categories' | 'subcategories' | 'brands' | 'locations';
+    label: string;
+    rowId: string;
+    colKey: string;
+  };
+  const [createModal, setCreateModal] = useState<CreateModal | null>(null);
+  const [createValue, setCreateValue] = useState('');
   const toggleRowCheck = (id: string) =>
     setRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r));
 
@@ -145,12 +158,12 @@ export function ProductBulkTable({
     return set;
   }, [rows, existingEans]);
 
-  // Options map
+  // Options map (props merged with locally created values so new items are immediately available)
   const optionsMap: Record<string, string[]> = {
-    categories,
-    subcategories,
-    brands,
-    locations,
+    categories:    [...new Set([...categories,    ...localOptions.categories])].sort(),
+    subcategories: [...new Set([...subcategories, ...localOptions.subcategories])].sort(),
+    brands:        [...new Set([...brands,        ...localOptions.brands])].sort(),
+    locations:     [...new Set([...locations,     ...localOptions.locations])].sort(),
   };
 
   // Reset on open
@@ -178,6 +191,9 @@ export function ProductBulkTable({
       setSaveResult(null);
       setDeleteConfirmId(null);
       setOpenComboKey(null);
+      setLocalOptions({ categories: [], subcategories: [], brands: [], locations: [] });
+      setCreateModal(null);
+      setCreateValue('');
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -216,6 +232,18 @@ export function ProductBulkTable({
       setSavingSecondary(false);
     }
   }, [rows, onSecondaryAction]);
+
+  const handleCreateOption = useCallback(() => {
+    const val = createValue.trim();
+    if (!val || !createModal) return;
+    setLocalOptions(prev => ({
+      ...prev,
+      [createModal.field]: [...prev[createModal.field], val],
+    }));
+    updateRow(createModal.rowId, createModal.colKey as keyof Omit<BulkRow, 'id' | 'checked'>, val);
+    setCreateModal(null);
+    setCreateValue('');
+  }, [createValue, createModal]); // updateRow is stable
 
   const addRow = useCallback(() => {
     setRows(prev => [...prev, emptyRow()]);
@@ -307,6 +335,7 @@ export function ProductBulkTable({
   if (!isOpen) return null;
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -624,16 +653,20 @@ export function ProductBulkTable({
                                       onPaste={e => handleCellPaste(e as any, rowIdx, colIdx, col.key)}
                                       className={cn(inputCls, 'pr-[2px]')}
                                     />
-                                    {/* "+" button */}
+                                    {/* "+" button — opens quick-create modal */}
                                     <button
                                       tabIndex={-1}
-                                      title="Digitar novo valor"
+                                      title="Criar novo valor"
                                       onMouseDown={e => {
                                         e.preventDefault();
                                         setOpenComboKey(null);
-                                        // focus input so user can type freely
-                                        const inp = (e.currentTarget as HTMLElement).previousSibling as HTMLInputElement | null;
-                                        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+                                        setCreateValue('');
+                                        setCreateModal({
+                                          field: col.optionsKey as CreateModal['field'],
+                                          label: col.label,
+                                          rowId: row.id,
+                                          colKey: col.key,
+                                        });
                                       }}
                                       className="absolute right-[6px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-[5px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-black/[0.05] dark:bg-white/[0.06] text-[#1A1A0E]/22 dark:text-white/25 flex items-center justify-center cursor-pointer shrink-0 transition-all duration-[120ms] p-0 leading-none hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.35)] hover:bg-[rgba(216,30,30,0.07)]"
                                     >
@@ -847,5 +880,61 @@ export function ProductBulkTable({
         </motion.div>
       )}
     </AnimatePresence>
+
+    {/* ── Quick-create modal ── */}
+
+    <AnimatePresence>
+      {createModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40"
+          onMouseDown={() => setCreateModal(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, y: 8 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.95, y: 8 }}
+            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+            onMouseDown={e => e.stopPropagation()}
+            className="bg-[#FDFAF0] dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 w-[320px] flex flex-col gap-4"
+          >
+            <p className="text-sm font-semibold text-[#1A1A0E] dark:text-white">
+              Nova {createModal.label}
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={createValue}
+              onChange={e => setCreateValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleCreateOption();
+                if (e.key === 'Escape') setCreateModal(null);
+              }}
+              placeholder={`Nome da ${createModal.label.toLowerCase()}...`}
+              className="w-full rounded-lg border border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-3 py-2 text-sm text-[#1A1A0E] dark:text-white placeholder:text-[#1A1A0E]/30 dark:placeholder:text-white/30 outline-none focus:border-[#D81E1E] focus:ring-2 focus:ring-[rgba(216,30,30,0.15)]"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setCreateModal(null)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-[#E0D8BF] dark:border-white/[0.08] text-[#1A1A0E]/50 dark:text-white/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateOption}
+                disabled={!createValue.trim()}
+                className="px-3 py-1.5 text-xs rounded-lg bg-[#D81E1E] text-white font-semibold disabled:opacity-40 hover:bg-[#b91c1c] transition-colors"
+              >
+                Adicionar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
