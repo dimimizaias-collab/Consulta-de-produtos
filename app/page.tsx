@@ -476,6 +476,7 @@ export default function Page() {
     linked_product_id: null as string | null
   });
   const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
+  const [editProductPriceDisplay, setEditProductPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
   // Memoized derived values
@@ -3050,6 +3051,8 @@ export default function Page() {
       is_mother: product.is_mother || false,
       units_per_mother: product.units_per_mother || 1
     });
+    const initialPrice = isNaN(product.price) ? 0 : (product.price || 0);
+    setEditProductPriceDisplay(initialPrice > 0 ? initialPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
     setOriginalProductSnapshot({
       name: product.name,
       sku: product.sku,
@@ -3597,11 +3600,23 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0)}
-                      onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value || '0') || 0})}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={editProductPriceDisplay}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '');
+                        if (!digits) {
+                          setEditProductPriceDisplay('');
+                          setEditingProduct({...editingProduct, price: 0});
+                          return;
+                        }
+                        const cents = parseInt(digits, 10);
+                        const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        setEditProductPriceDisplay(display);
+                        setEditingProduct({...editingProduct, price: cents / 100});
+                      }}
+                      placeholder="0,00"
                       className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                   </div>
@@ -4394,14 +4409,15 @@ export default function Page() {
                     <div className="space-y-2">
                       {(newProduct.eans || [newProduct.ean || '']).map((ean: string, index: number) => (
                         <div key={index} className="flex gap-2">
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={ean}
                             onChange={(e) => {
                               const newEans = [...(newProduct.eans || [newProduct.ean || ''])];
                               newEans[index] = e.target.value;
                               setNewProduct({...newProduct, eans: newEans});
                             }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                             className="flex-1 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                             placeholder="789..."
                           />
