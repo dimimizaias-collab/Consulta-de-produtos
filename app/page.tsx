@@ -21,7 +21,6 @@ import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { MobileFinancePage } from '@/components/finance/MobileFinancePage';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
-import { DespesasPage } from '@/components/finance/DespesasPage';
 import { HRManager } from '@/components/hr/HRManager';
 import { MobileHRPage } from '@/components/hr/MobileHRPage';
 import { MobileNoteView } from '@/components/MobileNoteView';
@@ -3455,10 +3454,7 @@ export default function Page() {
                   notifications={appNotifications}
                   onGoToNote={handleGoToNote}
                   onMarkAllRead={handleMarkAllNotificationsRead}
-                  onGoToFinancas={() => setActiveTab('Despesas')}
                 />
-            ) : activeTab === 'Despesas' ? (
-                <DespesasPage onBack={() => setActiveTab('Notificações')} />
             ) : activeTab === 'Configurações' ? (
                 <SettingsPage />
             ) : activeTab === 'Dashboard' ? (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, X, Trash2, ChevronRight, CalendarDays, ClipboardCheck, Wallet, CalendarRange, BookText, Lock } from 'lucide-react';
+import { Users, Plus, X, Trash2, ChevronRight, CalendarDays, ClipboardCheck, Wallet, CalendarRange, BookText, Lock, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -13,9 +13,10 @@ import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
 import { EmployeeCard } from '@/components/hr/EmployeeCard';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
 import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
+import { DespesasPage } from '@/components/finance/DespesasPage';
 import { type Employee } from '@/lib/hrEmployees';
 
-type HRView = 'calendario' | 'colaboradores' | 'caderninho';
+type HRView = 'calendario' | 'colaboradores' | 'caderninho' | 'financas';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 const COLORS = ['#4F46E5', '#EA580C', '#059669', '#B45309', '#DB2777', '#D81E1E'];
@@ -223,6 +224,16 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
             Calendário
           </button>
           <button
+            onClick={() => setActiveView('financas')}
+            className={cn(
+              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              activeView === 'financas' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
+            )}
+          >
+            <TrendingDown size={14} strokeWidth={2.5} />
+            Finanças
+          </button>
+          <button
             onClick={() => handleProtectedTabClick('colaboradores')}
             className={cn(
               'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
@@ -245,7 +256,7 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
             {!isHRUnlocked && <Lock size={11} strokeWidth={2.5} className="opacity-40" />}
           </button>
         </div>
-        {activeView !== 'caderninho' && (
+        {activeView !== 'caderninho' && activeView !== 'financas' && (
           <button
             onClick={activeView === 'calendario' ? openCreateModal : openCreateEmployeeModal}
             className="bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wide text-[13px] flex items-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
@@ -332,6 +343,8 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
             )}
           </div>
         </>
+      ) : activeView === 'financas' ? (
+        <DespesasPage onBack={() => setActiveView('calendario')} />
       ) : activeView === 'colaboradores' ? (
         <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
           {employees.length === 0 ? (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock } from 'lucide-react';
+import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -13,9 +13,10 @@ import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
 import { EmployeeCard } from '@/components/hr/EmployeeCard';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
 import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
+import { DespesasPage } from '@/components/finance/DespesasPage';
 import { type Employee } from '@/lib/hrEmployees';
 
-type HRView = 'calendario' | 'colaboradores' | 'caderninho';
+type HRView = 'calendario' | 'colaboradores' | 'caderninho' | 'financas';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 
@@ -215,6 +216,18 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
           Calendário
         </button>
         <button
+          onClick={() => setActiveView('financas')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+            activeView === 'financas'
+              ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+              : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
+          )}
+        >
+          <TrendingDown size={12} strokeWidth={2.5} />
+          Finanças
+        </button>
+        <button
           onClick={() => handleProtectedTabClick('colaboradores')}
           className={cn(
             'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
@@ -243,7 +256,7 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
       </div>
 
       {/* Primary action */}
-      {activeView !== 'caderninho' && (
+      {activeView !== 'caderninho' && activeView !== 'financas' && (
         <button
           onClick={activeView === 'calendario' ? openCreateSheet : openCreateEmployeeSheet}
           className="shrink-0 mx-3 mt-2.5 bg-[#D81E1E] text-white font-extrabold text-[11.5px] uppercase tracking-wide py-3 rounded-[13px] shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5"
@@ -334,6 +347,8 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
               ))
             )}
           </div>
+        ) : activeView === 'financas' ? (
+          <DespesasPage onBack={() => setActiveView('calendario')} />
         ) : (
           <CaderninhoTable employees={employees} compact />
         )}
