@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Plus, Trash2, Search, CheckCircle2, Package,
   ArrowRight, FileSpreadsheet, Save, ChevronLeft,
@@ -155,7 +156,9 @@ export function ManualManifestModal({
 
   // Unit menu (small dropdown per row)
   const [unitMenuRowId, setUnitMenuRowId] = useState<string | null>(null);
+  const [unitMenuPos, setUnitMenuPos] = useState<{ top: number; left: number } | null>(null);
   const unitMenuRef = useRef<HTMLDivElement>(null);
+  const unitTriggerRef = useRef<HTMLButtonElement | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Import invoice modal
@@ -189,8 +192,10 @@ export function ManualManifestModal({
   useEffect(() => {
     if (!unitMenuRowId) return;
     const handler = (e: MouseEvent) => {
-      if (unitMenuRef.current && !unitMenuRef.current.contains(e.target as Node))
-        setUnitMenuRowId(null);
+      const target = e.target as Node;
+      const inPortal = unitMenuRef.current?.contains(target);
+      const inTrigger = unitTriggerRef.current?.contains(target);
+      if (!inPortal && !inTrigger) setUnitMenuRowId(null);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -1057,7 +1062,6 @@ export function ManualManifestModal({
                       {/* Unid. — input + "+" menu */}
                       <td className="px-2 py-1.5 align-middle border-b border-r border-[#E0D8BF] dark:border-white/[0.06]">
                         <div
-                          ref={unitMenuRowId === row.id ? unitMenuRef : undefined}
                           className="relative flex items-center gap-0.5"
                           onClick={e => e.stopPropagation()}
                         >
@@ -1077,7 +1081,23 @@ export function ManualManifestModal({
                           )}
                           {/* "+" trigger */}
                           <button
-                            onClick={() => setUnitMenuRowId(unitMenuRowId === row.id ? null : row.id)}
+                            ref={unitMenuRowId === row.id ? unitTriggerRef : undefined}
+                            onClick={(e) => {
+                              const next = unitMenuRowId === row.id ? null : row.id;
+                              if (next) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const dropdownH = 120;
+                                const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
+                                setUnitMenuPos({
+                                  top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4,
+                                  left: Math.max(8, rect.right - 176),
+                                });
+                                unitTriggerRef.current = e.currentTarget;
+                              } else {
+                                setUnitMenuPos(null);
+                              }
+                              setUnitMenuRowId(next);
+                            }}
                             className={cn(
                               'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
                               unitMenuRowId === row.id
@@ -1087,45 +1107,6 @@ export function ManualManifestModal({
                           >
                             <Plus size={10} />
                           </button>
-
-                          {/* Dropdown menu */}
-                          <AnimatePresence>
-                            {unitMenuRowId === row.id && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                                transition={{ duration: 0.12 }}
-                                className="absolute left-0 top-full mt-1 z-30 rounded-xl shadow-2xl overflow-hidden w-44 bg-white dark:bg-[#2E2E28] border border-black/[0.12] dark:border-white/[0.10]"
-                              >
-                                <button
-                                  onClick={() => { openAddMeasure(row); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 text-[#1A1A0E]/70 dark:text-white/70 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                                >
-                                  <Ruler size={12} className="shrink-0" />
-                                  Adicionar medida
-                                </button>
-                                <button
-                                  onClick={() => { handleUseTranslation(row); setUnitMenuRowId(null); }}
-                                  disabled={isLoadingTranslation}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 disabled:opacity-50 text-[#1A1A0E]/70 dark:text-white/70 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                                >
-                                  {isLoadingTranslation
-                                    ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
-                                    : <Zap size={12} className="shrink-0" />
-                                  }
-                                  Usar tradução
-                                </button>
-                                <button
-                                  onClick={() => { updateRow(row.id, { unitTranslated: false, unitMultiplier: undefined }); setUnitMenuRowId(null); }}
-                                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 text-[#1A1A0E]/40 dark:text-white/30 border-t border-black/[0.08] dark:border-white/[0.08] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                                >
-                                  <Pencil size={12} className="shrink-0" />
-                                  Manual
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
                         </div>
                       </td>
 
@@ -1704,6 +1685,54 @@ export function ManualManifestModal({
         onClose={() => setShowImport(false)}
         onImport={handleImportRows}
       />
+
+      {/* ── Unit Menu Portal (escapes overflow-hidden/auto do modal) ─────────── */}
+      {typeof window !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {unitMenuRowId && unitMenuPos && (() => {
+            const activeRow = rows.find(r => r.id === unitMenuRowId);
+            if (!activeRow) return null;
+            return (
+              <motion.div
+                ref={unitMenuRef}
+                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                transition={{ duration: 0.12 }}
+                style={{ position: 'fixed', top: unitMenuPos.top, left: unitMenuPos.left, zIndex: 9999 }}
+                className="rounded-xl shadow-2xl overflow-hidden w-44 bg-white dark:bg-[#2E2E28] border border-black/[0.12] dark:border-white/[0.10]"
+              >
+                <button
+                  onClick={() => { openAddMeasure(activeRow); setUnitMenuRowId(null); }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 text-[#1A1A0E]/70 dark:text-white/70 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                >
+                  <Ruler size={12} className="shrink-0" />
+                  Adicionar medida
+                </button>
+                <button
+                  onClick={() => { handleUseTranslation(activeRow); setUnitMenuRowId(null); }}
+                  disabled={isLoadingTranslation}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 disabled:opacity-50 text-[#1A1A0E]/70 dark:text-white/70 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                >
+                  {isLoadingTranslation
+                    ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
+                    : <Zap size={12} className="shrink-0" />
+                  }
+                  Usar tradução
+                </button>
+                <button
+                  onClick={() => { updateRow(activeRow.id, { unitTranslated: false, unitMultiplier: undefined }); setUnitMenuRowId(null); }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 text-[#1A1A0E]/40 dark:text-white/30 border-t border-black/[0.08] dark:border-white/[0.08] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                >
+                  <Pencil size={12} className="shrink-0" />
+                  Manual
+                </button>
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }
