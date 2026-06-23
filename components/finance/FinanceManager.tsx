@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
-  Wallet, Search, ChevronDown, Building2, CreditCard, Upload,
+  Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -229,6 +229,9 @@ export function FinanceManager() {
   const { tags, createTag, updateTag, deleteTag } = useFinanceTags();
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [showTagGuide, setShowTagGuide] = useState(false);
+
+  // mini calendar
+  const [calViewDate, setCalViewDate] = useState(() => new Date());
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -785,18 +788,48 @@ export function FinanceManager() {
     });
   }, [accounts, transactions]);
 
+  const calDays = useMemo(() => {
+    const year = calViewDate.getFullYear();
+    const month = calViewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const txDays = new Set(
+      transactions
+        .filter(t => { const d = new Date(t.data + 'T00:00:00'); return d.getFullYear() === year && d.getMonth() === month; })
+        .map(t => new Date(t.data + 'T00:00:00').getDate()),
+    );
+    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[] = [];
+    for (let i = firstDay - 1; i >= 0; i--)
+      cells.push({ day: prevMonthDays - i, type: 'prev', hasEvent: false });
+    for (let d = 1; d <= daysInMonth; d++)
+      cells.push({ day: d, type: 'curr', hasEvent: txDays.has(d) });
+    for (let d = 1; cells.length < 42; d++)
+      cells.push({ day: d, type: 'next', hasEvent: false });
+    return cells;
+  }, [calViewDate, transactions]);
+
+  const today = new Date();
+  const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    + ' ' + calViewDate.getFullYear();
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-manrope font-extrabold text-on-surface">Controle Financeiro</h1>
-          <p className="text-sm text-on-surface/50 mt-0.5">Receitas, despesas e fluxo de caixa</p>
+      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <Wallet size={24} strokeWidth={2} />
+          </div>
+          <div>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Gestão Financeira</div>
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Controle Financeiro</h1>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Nova Movimentação — kept first so it is never clipped by TopNav overlay */}
           <button
             onClick={openAddTx}
@@ -873,23 +906,79 @@ export function FinanceManager() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Receitas', value: totals.receitas, color: 'emerald', icon: TrendingUp },
-          { label: 'Despesas', value: totals.despesas, color: 'rose',    icon: TrendingDown },
-          { label: 'Saldo',    value: totals.saldo,    color: totals.saldo >= 0 ? 'emerald' : 'rose', icon: Wallet },
-        ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="bg-surface-container-low/80 rounded-2xl p-5 border border-on-surface/5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-9 h-9 rounded-xl bg-${color}-500/10 flex items-center justify-center`}>
-                <Icon size={18} className={`text-${color}-500`} />
-              </div>
-              <p className="text-xs font-bold uppercase tracking-wider text-on-surface/40">{label}</p>
+      {/* Calendar + Summary */}
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: '260px 1fr' }}>
+
+        {/* Mini Calendar */}
+        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
+          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-3 flex items-center justify-between">
+            <span className="text-[13px] font-black text-[#1A1A0E] capitalize">{calMonthLabel}</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+              >
+                <ChevronLeft size={12} strokeWidth={2.5} />
+              </button>
+              <button
+                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+              >
+                <ChevronRight size={12} strokeWidth={2.5} />
+              </button>
             </div>
-            <p className={`text-2xl font-extrabold font-manrope text-${color}-500`}>{fmt(value)}</p>
           </div>
-        ))}
+          <div className="p-3">
+            <div className="grid grid-cols-7 mb-1">
+              {['D','S','T','Q','Q','S','S'].map((d, i) => (
+                <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+              {calDays.map((cell, i) => {
+                const isToday = cell.type === 'curr'
+                  && cell.day === today.getDate()
+                  && calViewDate.getMonth() === today.getMonth()
+                  && calViewDate.getFullYear() === today.getFullYear();
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      'aspect-square flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative',
+                      cell.type !== 'curr' && 'text-on-surface/20',
+                      cell.type === 'curr' && !isToday && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
+                      isToday && 'bg-primary text-white font-black',
+                    )}
+                  >
+                    {cell.day}
+                    {cell.hasEvent && !isToday && (
+                      <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Summary stacked */}
+        <div className="flex flex-col gap-2.5">
+          {[
+            { label: 'Receitas', value: totals.receitas, icon: TrendingUp,   iconCls: 'bg-emerald-500/10 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400', valCls: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Despesas', value: totals.despesas, icon: TrendingDown,  iconCls: 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]',    iconColor: 'text-rose-600 dark:text-[#D81E1E]',    valCls: 'text-rose-600 dark:text-[#D81E1E]' },
+            { label: 'Saldo',    value: totals.saldo,   icon: Wallet,         iconCls: totals.saldo >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10', iconColor: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400', valCls: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' },
+          ].map(({ label, value, icon: Icon, iconCls, iconColor, valCls }) => (
+            <div key={label} className="flex-1 bg-surface-container-low border border-on-surface/[0.07] rounded-[16px] px-[18px] py-[14px] flex items-center gap-3.5">
+              <div className={cn('w-[40px] h-[40px] rounded-[12px] flex items-center justify-center shrink-0', iconCls)}>
+                <Icon size={18} strokeWidth={2.3} className={iconColor} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[8.5px] font-black uppercase tracking-[0.13em] text-on-surface/40 mb-0.5">{label}</div>
+                <div className={cn('text-[17px] font-black tracking-tight leading-none', valCls)}>{fmt(value)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Per-account balance cards */}
@@ -1028,16 +1117,20 @@ export function FinanceManager() {
             <span className="text-sm font-semibold">Carregando...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-on-surface/5">
+                <tr className="border-b border-on-surface/[0.07]">
                   {selectionMode && (
-                    <th className="px-4 py-3 w-10" />
+                    <th className="px-3 py-3 w-10" />
                   )}
-                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelecimento', 'Tags', 'Vencimento', 'Valor Final', 'Total Pago', 'Restante', 'Pago', ''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 whitespace-nowrap">
-                      {h}
+                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelec.', 'TAGS', 'Vencimento', 'Valor final', 'Total pago', 'Restante', 'Pago', ''].map(h => (
+                    <th key={h} className="px-3 py-3 text-left whitespace-nowrap">
+                      {h ? (
+                        <span className="inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] border-[1.5px] border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap">
+                          {h}
+                        </span>
+                      ) : null}
                     </th>
                   ))}
                 </tr>
