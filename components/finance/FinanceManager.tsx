@@ -1001,8 +1001,8 @@ export function FinanceManager() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filters + Tag chips (mesma linha) */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40" />
           <input
@@ -1023,35 +1023,32 @@ export function FinanceManager() {
           <option value="Todos">Todos os estabelecimentos</option>
           {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
-      </div>
 
-      {/* Tag filter chips */}
-      {tags.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-black uppercase tracking-[0.10em] text-on-surface/30 shrink-0">Tags</span>
-          {tags
-            .filter(t => (tagUseCounts[t.id] ?? 0) > 0)
-            .sort((a, b) => (tagUseCounts[b.id] ?? 0) - (tagUseCounts[a.id] ?? 0))
-            .map(tag => {
-              const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
-              const active = filterTagId === tag.id;
-              return (
-                <button
-                  key={tag.id}
-                  onClick={() => setFilterTagId(active ? null : tag.id)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all duration-[130ms]',
-                    active
-                      ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
-                      : cn(c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark)
-                  )}
-                >
-                  {active && <Tag size={9} strokeWidth={2.5} />}
-                  {tag.nome}
-                  <span className="opacity-60 text-[10px] font-bold">{tagUseCounts[tag.id] ?? 0}</span>
-                </button>
-              );
-            })}
+        {tags
+          .filter(t => (tagUseCounts[t.id] ?? 0) > 0)
+          .sort((a, b) => (tagUseCounts[b.id] ?? 0) - (tagUseCounts[a.id] ?? 0))
+          .map(tag => {
+            const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+            const active = filterTagId === tag.id;
+            return (
+              <button
+                key={tag.id}
+                onClick={() => setFilterTagId(active ? null : tag.id)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all duration-[130ms]',
+                  active
+                    ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
+                    : cn(c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark)
+                )}
+              >
+                {active && <Tag size={9} strokeWidth={2.5} />}
+                {tag.nome}
+                <span className="opacity-60 text-[10px] font-bold">{tagUseCounts[tag.id] ?? 0}</span>
+              </button>
+            );
+          })}
+
+        {tags.length > 0 && (
           <button
             onClick={() => setShowTagGuide(true)}
             className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold border border-on-surface/10 bg-surface-container-low text-on-surface/50 hover:bg-on-surface/5 transition-colors"
@@ -1059,8 +1056,8 @@ export function FinanceManager() {
             <BookOpen size={13} />
             Guia de tags
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Selection action bar */}
       <AnimatePresence>
