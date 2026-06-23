@@ -33,6 +33,7 @@ import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image a
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
@@ -419,6 +420,8 @@ export default function Page() {
   const [noteSupplierMappings, setNoteSupplierMappings] = useState<any[]>([]);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
+  const [reviewUnitMenuPos, setReviewUnitMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const reviewUnitTriggerRef = useRef<HTMLElement | null>(null);
   const [reviewLoadingUnitIdx, setReviewLoadingUnitIdx] = useState<number | null>(null);
   const [reviewMeasureIdx, setReviewMeasureIdx] = useState<number | null>(null);
   const [reviewMeasureUnit, setReviewMeasureUnit] = useState('');
@@ -6546,7 +6549,17 @@ export default function Page() {
                                     </span>
                                   )}
                                   <button
-                                    onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
+                                    onClick={(e) => {
+                                      const next = reviewUnitMenuIdx === idx ? null : idx;
+                                      if (next !== null) {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const dropdownH = 120;
+                                        const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
+                                        setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+                                        reviewUnitTriggerRef.current = e.currentTarget;
+                                      } else { setReviewUnitMenuPos(null); }
+                                      setReviewUnitMenuIdx(next);
+                                    }}
                                     className={cn(
                                       'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
                                       reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-white/30 hover:text-primary hover:bg-primary/10'
@@ -6554,43 +6567,6 @@ export default function Page() {
                                   >
                                     <Plus size={10} />
                                   </button>
-                                  <AnimatePresence>
-                                    {reviewUnitMenuIdx === idx && (
-                                      <motion.div
-                                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                                        transition={{ duration: 0.12 }}
-                                        className="absolute left-0 top-full mt-1 z-50 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden w-44"
-                                      >
-                                        <button
-                                          onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
-                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2"
-                                        >
-                                          <Ruler size={12} className="shrink-0" />
-                                          Adicionar medida
-                                        </button>
-                                        <button
-                                          onClick={() => { handleReviewUseTranslation(idx); setReviewUnitMenuIdx(null); }}
-                                          disabled={reviewLoadingUnitIdx === idx}
-                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
-                                        >
-                                          {reviewLoadingUnitIdx === idx
-                                            ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
-                                            : <Zap size={12} className="shrink-0" />
-                                          }
-                                          Usar tradução
-                                        </button>
-                                        <button
-                                          onClick={() => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); }}
-                                          className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
-                                        >
-                                          <Pencil size={12} className="shrink-0" />
-                                          Manual
-                                        </button>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
                                 </div>
                                 <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
@@ -6602,7 +6578,17 @@ export default function Page() {
                             ) : (
                               /* ── VIEW MODE: single gray box [UN  qty] ── */
                               <button
-                                onClick={() => setReviewUnitMenuIdx(reviewUnitMenuIdx === idx ? null : idx)}
+                                onClick={(e) => {
+                                  const next = reviewUnitMenuIdx === idx ? null : idx;
+                                  if (next !== null) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const dropdownH = 100;
+                                    const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
+                                    setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+                                    reviewUnitTriggerRef.current = e.currentTarget;
+                                  } else { setReviewUnitMenuPos(null); }
+                                  setReviewUnitMenuIdx(next);
+                                }}
                                 className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
                               >
                                 <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
@@ -6614,37 +6600,6 @@ export default function Page() {
                                     return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
                                   })()}
                                 </span>
-                                <AnimatePresence>
-                                  {reviewUnitMenuIdx === idx && (
-                                    <motion.div
-                                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                                      transition={{ duration: 0.12 }}
-                                      className="absolute left-0 top-full mt-1 z-50 bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden w-44"
-                                      onClick={e => e.stopPropagation()}
-                                    >
-                                      <button
-                                        onClick={() => { setReviewMeasureIdx(idx); setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); }}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2"
-                                      >
-                                        <Ruler size={12} className="shrink-0" />
-                                        Adicionar medida
-                                      </button>
-                                      <button
-                                        onClick={() => { handleReviewUseTranslation(idx); setReviewUnitMenuIdx(null); }}
-                                        disabled={reviewLoadingUnitIdx === idx}
-                                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
-                                      >
-                                        {reviewLoadingUnitIdx === idx
-                                          ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
-                                          : <Zap size={12} className="shrink-0" />
-                                        }
-                                        Usar tradução
-                                      </button>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
                               </button>
                             )}
                             {/* Discrepancy trigger button */}
@@ -8568,6 +8523,55 @@ export default function Page() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Unit Menu Portal — escapa overflow-hidden/auto da tabela de notas ── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {reviewUnitMenuIdx !== null && reviewUnitMenuPos && (() => {
+            const activeIdx = reviewUnitMenuIdx;
+            const activeItem = viewingReviewNote?.items?.[activeIdx];
+            if (!activeItem) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                transition={{ duration: 0.12 }}
+                style={{ position: 'fixed', top: reviewUnitMenuPos.top, left: reviewUnitMenuPos.left, zIndex: 9999 }}
+                className="rounded-xl shadow-2xl overflow-hidden w-44 bg-[#2e2e28] border border-white/[0.08]"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => { setReviewMeasureIdx(activeIdx); setReviewMeasureUnit(viewingNoteUnits[activeIdx] ?? activeItem.unit ?? ''); setReviewMeasureMultiplier(''); setReviewUnitMenuIdx(null); setReviewUnitMenuPos(null); }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2"
+                >
+                  <Ruler size={12} className="shrink-0" />
+                  Adicionar medida
+                </button>
+                <button
+                  onClick={() => { handleReviewUseTranslation(activeIdx); setReviewUnitMenuIdx(null); setReviewUnitMenuPos(null); }}
+                  disabled={reviewLoadingUnitIdx === activeIdx}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/75 hover:bg-primary/10 hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {reviewLoadingUnitIdx === activeIdx
+                    ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
+                    : <Zap size={12} className="shrink-0" />
+                  }
+                  Usar tradução
+                </button>
+                <button
+                  onClick={() => { const m = [...viewingNoteMultipliers]; m[activeIdx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); setReviewUnitMenuPos(null); }}
+                  className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
+                >
+                  <Pencil size={12} className="shrink-0" />
+                  Manual
+                </button>
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
