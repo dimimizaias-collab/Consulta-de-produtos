@@ -232,6 +232,8 @@ export function FinanceManager() {
 
   // mini calendar
   const [calViewDate, setCalViewDate] = useState(() => new Date());
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
+  const [calFilterField, setCalFilterField] = useState<'data' | 'vencimento'>('data');
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -746,6 +748,9 @@ export function FinanceManager() {
 
   const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
 
+  const toIsoDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
       if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
@@ -755,9 +760,17 @@ export function FinanceManager() {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
+      if (calSelectedDate) {
+        const key = toIsoDay(calSelectedDate);
+        if (calFilterField === 'data') {
+          if (t.data !== key) return false;
+        } else {
+          if (!t.vencimento || t.vencimento !== key) return false;
+        }
+      }
       return true;
     });
-  }, [transactions, filterTipo, filterEstab, filterTagId, search]);
+  }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calFilterField]);
 
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -796,8 +809,16 @@ export function FinanceManager() {
     const prevMonthDays = new Date(year, month, 0).getDate();
     const txDays = new Set(
       transactions
-        .filter(t => { const d = new Date(t.data + 'T00:00:00'); return d.getFullYear() === year && d.getMonth() === month; })
-        .map(t => new Date(t.data + 'T00:00:00').getDate()),
+        .filter(t => {
+          const dateStr = calFilterField === 'data' ? t.data : t.vencimento;
+          if (!dateStr) return false;
+          const d = new Date(dateStr + 'T00:00:00');
+          return d.getFullYear() === year && d.getMonth() === month;
+        })
+        .map(t => {
+          const dateStr = calFilterField === 'data' ? t.data : t.vencimento!;
+          return new Date(dateStr + 'T00:00:00').getDate();
+        }),
     );
     const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[] = [];
     for (let i = firstDay - 1; i >= 0; i--)
@@ -807,7 +828,7 @@ export function FinanceManager() {
     for (let d = 1; cells.length < 42; d++)
       cells.push({ day: d, type: 'next', hasEvent: false });
     return cells;
-  }, [calViewDate, transactions]);
+  }, [calViewDate, transactions, calFilterField]);
 
   const today = new Date();
   const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
@@ -910,7 +931,7 @@ export function FinanceManager() {
       <div className="grid gap-3.5" style={{ gridTemplateColumns: '260px 1fr' }}>
 
         {/* Mini Calendar */}
-        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
+        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
           <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-3 flex items-center justify-between">
             <span className="text-[13px] font-black text-[#1A1A0E] capitalize">{calMonthLabel}</span>
             <div className="flex gap-1">
@@ -928,7 +949,28 @@ export function FinanceManager() {
               </button>
             </div>
           </div>
-          <div className="p-3">
+
+          {/* Filter field toggle */}
+          <div className="px-3 pt-3 pb-1">
+            <div className="flex gap-0.5 bg-on-surface/[0.05] dark:bg-white/[0.04] rounded-full p-[3px]">
+              {(['data', 'vencimento'] as const).map(field => (
+                <button
+                  key={field}
+                  onClick={() => { setCalFilterField(field); setCalSelectedDate(null); }}
+                  className={cn(
+                    'flex-1 px-2 py-[5px] rounded-full text-[9px] font-black uppercase tracking-[0.08em] transition-all duration-150',
+                    calFilterField === field
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface/40 hover:text-on-surface/60',
+                  )}
+                >
+                  {field === 'data' ? 'Data' : 'Vencimento'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-3 flex-1">
             <div className="grid grid-cols-7 mb-1">
               {['D','S','T','Q','Q','S','S'].map((d, i) => (
                 <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
@@ -940,24 +982,54 @@ export function FinanceManager() {
                   && cell.day === today.getDate()
                   && calViewDate.getMonth() === today.getMonth()
                   && calViewDate.getFullYear() === today.getFullYear();
+                const isSelected = calSelectedDate !== null
+                  && cell.type === 'curr'
+                  && cell.day === calSelectedDate.getDate()
+                  && calViewDate.getMonth() === calSelectedDate.getMonth()
+                  && calViewDate.getFullYear() === calSelectedDate.getFullYear();
                 return (
-                  <div
+                  <button
                     key={i}
+                    disabled={cell.type !== 'curr'}
+                    onClick={() => {
+                      if (cell.type !== 'curr') return;
+                      const cellDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day);
+                      setCalSelectedDate(isSelected ? null : cellDate);
+                    }}
                     className={cn(
-                      'aspect-square flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative',
-                      cell.type !== 'curr' && 'text-on-surface/20',
-                      cell.type === 'curr' && !isToday && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
-                      isToday && 'bg-primary text-white font-black',
+                      'aspect-square flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
+                      cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
+                      cell.type === 'curr' && !isToday && !isSelected && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
+                      isToday && !isSelected && 'bg-primary/10 text-primary font-black',
+                      isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
                     )}
                   >
                     {cell.day}
-                    {cell.hasEvent && !isToday && (
-                      <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                    {cell.hasEvent && !isSelected && (
+                      <span className={cn(
+                        'absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full',
+                        isToday ? 'bg-white/70' : 'bg-primary',
+                      )} />
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+
+            {/* Active filter badge */}
+            {calSelectedDate && (
+              <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] dark:bg-primary/[0.12] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
+                <span className="text-[9.5px] font-bold text-primary leading-none">
+                  {calFilterField === 'data' ? 'Data' : 'Vencimento'}: {calSelectedDate.toLocaleDateString('pt-BR')}
+                </span>
+                <button
+                  onClick={() => setCalSelectedDate(null)}
+                  className="text-primary/60 hover:text-primary transition-colors shrink-0"
+                >
+                  <X size={11} strokeWidth={2.5} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
