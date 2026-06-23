@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dicionário de Fornecedores — Mobile Dark</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0D0D0A;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    padding: 24px 16px;
+  }
+
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: #1A1A14;
+    border-radius: 48px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 12px #0A0A08, 0 0 0 13px #222;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .status-bar {
+    height: 48px;
+    background: #1A1A14;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #F2F0E3;
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+
+  .page-bg {
+    position: absolute;
+    inset: 0;
+    background: #1A1A14;
+    overflow: hidden;
+  }
+  .page-bg-content {
+    padding: 16px;
+    padding-top: 8px;
+    filter: blur(3px);
+    opacity: 0.4;
+  }
+  .bg-row {
+    height: 56px;
+    background: #252520;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(242,240,227,0.07);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .bg-dot { width: 32px; height: 32px; border-radius: 8px; background: rgba(242,240,227,0.08); }
+  .bg-line { height: 12px; background: rgba(242,240,227,0.08); border-radius: 6px; flex: 1; }
+  .bg-badge { width: 48px; height: 20px; background: #FFE500; border-radius: 20px; opacity: 0.7; }
+
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.60);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    top: 48px;
+  }
+
+  .sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 92%;
+    background: #1E1E18;
+    border-radius: 28px 28px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.40);
+  }
+
+  .handle {
+    width: 36px; height: 4px;
+    background: rgba(242,240,227,0.12);
+    border-radius: 100px;
+    margin: 12px auto 0;
+    flex-shrink: 0;
+  }
+
+  .sheet-header {
+    padding: 12px 20px 0;
+    flex-shrink: 0;
+  }
+  .sheet-header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .icon-chip {
+    width: 40px; height: 40px;
+    background: #D81E1E;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(216,30,30,0.35);
+  }
+  .icon-chip svg { width: 20px; height: 20px; color: white; }
+  .header-title {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 900;
+    color: #F2F0E3;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .header-subtitle {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.28);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 1px;
+  }
+  .close-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(242,240,227,0.06);
+    border: 1.5px solid rgba(242,240,227,0.08);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .close-btn svg { width: 18px; height: 18px; color: rgba(242,240,227,0.35); }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 12px 20px 0;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-align: center;
+    cursor: pointer;
+    transition: all 130ms;
+    border: none;
+    background: transparent;
+    color: rgba(242,240,227,0.25);
+  }
+  .tab.active {
+    background: #D81E1E;
+    color: white;
+    box-shadow: 0 4px 14px rgba(216,30,30,0.30);
+  }
+
+  .divider { height: 1px; background: rgba(242,240,227,0.06); margin: 12px 0 0; flex-shrink: 0; }
+
+  .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .sheet-body::-webkit-scrollbar { display: none; }
+
+  .supplier-section {
+    padding: 16px 20px 0;
+    flex-shrink: 0;
+  }
+  .section-label {
+    font-size: 9.5px;
+    font-weight: 900;
+    color: rgba(242,240,227,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .new-btn {
+    font-size: 9px;
+    font-weight: 900;
+    color: #D81E1E;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(216,30,30,0.10);
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .supplier-combo {
+    width: 100%;
+    height: 52px;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 130ms;
+  }
+  .combo-icon { width: 20px; height: 20px; color: rgba(242,240,227,0.20); flex-shrink: 0; }
+  .combo-text { flex: 1; font-size: 14px; font-weight: 500; color: rgba(242,240,227,0.25); }
+  .combo-text.selected { color: #F2F0E3; font-weight: 700; }
+  .combo-arrow { color: rgba(242,240,227,0.20); flex-shrink: 0; }
+
+  .supplier-selected {
+    width: 100%;
+    height: 52px;
+    background: rgba(216,30,30,0.10);
+    border: 1.5px solid rgba(216,30,30,0.25);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+  }
+  .supplier-selected-name { flex: 1; font-size: 14px; font-weight: 800; color: #D81E1E; }
+  .supplier-clear { background: none; border: none; color: rgba(216,30,30,0.35); cursor: pointer; padding: 4px; }
+
+  .dict-section {
+    padding: 16px 20px 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .dict-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .dict-label {
+    font-size: 9.5px;
+    font-weight: 900;
+    color: rgba(242,240,227,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+  .dict-count {
+    background: #D81E1E;
+    color: white;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 7px;
+    border-radius: 100px;
+    box-shadow: 0 2px 8px rgba(216,30,30,0.30);
+  }
+
+  .dict-search {
+    position: relative;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .dict-search input {
+    width: 100%;
+    height: 40px;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 12px;
+    padding: 0 14px 0 38px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #F2F0E3;
+    outline: none;
+    font-family: inherit;
+  }
+  .dict-search input::placeholder { color: rgba(242,240,227,0.20); }
+  .dict-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(242,240,227,0.18);
+    width: 16px; height: 16px;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 12px;
+  }
+  .empty-icon { opacity: 0.10; }
+  .empty-icon svg { width: 56px; height: 56px; color: #F2F0E3; }
+  .empty-text {
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: rgba(242,240,227,0.18);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .mapping-list { flex: 1; overflow-y: auto; padding-bottom: 100px; }
+  .mapping-list::-webkit-scrollbar { display: none; }
+
+  .mapping-card {
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    position: relative;
+    transition: all 130ms;
+  }
+  .mapping-card:nth-child(even) { background: #1E1E18; }
+  .mapping-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .mapping-sku {
+    font-size: 10px;
+    font-weight: 900;
+    background: rgba(242,240,227,0.07);
+    color: rgba(242,240,227,0.40);
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .mapping-desc {
+    font-size: 13px;
+    font-weight: 800;
+    color: #F2F0E3;
+    line-height: 1.3;
+  }
+  .mapping-divider { height: 1px; background: rgba(242,240,227,0.06); margin-bottom: 10px; }
+  .mapping-bottom {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .arrow-chip {
+    width: 28px; height: 28px;
+    background: rgba(216,30,30,0.12);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .arrow-chip svg { width: 14px; height: 14px; color: #D81E1E; }
+  .mapping-product { flex: 1; min-width: 0; }
+  .mapping-product-label {
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(216,30,30,0.55);
+    margin-bottom: 2px;
+  }
+  .mapping-product-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-actions { display: flex; gap: 4px; }
+  .card-btn {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .card-btn.edit { background: rgba(216,30,30,0.12); color: #D81E1E; }
+  .card-btn.delete { background: rgba(242,240,227,0.05); color: rgba(242,240,227,0.25); }
+  .card-btn svg { width: 13px; height: 13px; }
+
+  .fab {
+    position: absolute;
+    bottom: 28px;
+    right: 20px;
+    width: 56px; height: 56px;
+    background: #D81E1E;
+    border-radius: 18px;
+    box-shadow: 0 8px 28px rgba(216,30,30,0.40), 0 2px 10px rgba(216,30,30,0.20);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: all 150ms cubic-bezier(0.23,1,0.32,1);
+    z-index: 10;
+  }
+  .fab:active { transform: scale(0.93); }
+  .fab svg { width: 24px; height: 24px; color: white; }
+
+  .add-form-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: #1E1E18;
+    border-radius: 24px 24px 0 0;
+    display: none;
+    flex-direction: column;
+    max-height: 88%;
+    box-shadow: 0 -12px 40px rgba(0,0,0,0.35);
+    z-index: 20;
+    border-top: 1px solid rgba(242,240,227,0.06);
+  }
+  .add-form-overlay.visible { display: flex; }
+
+  .add-form-handle {
+    width: 36px; height: 4px;
+    background: rgba(242,240,227,0.12);
+    border-radius: 100px;
+    margin: 12px auto 0;
+  }
+  .add-form-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid rgba(242,240,227,0.06);
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    background: rgba(242,240,227,0.06);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; flex-shrink: 0;
+  }
+  .back-btn svg { width: 18px; height: 18px; color: rgba(242,240,227,0.40); }
+  .add-form-title { font-size: 16px; font-weight: 900; color: #F2F0E3; flex: 1; }
+  .add-form-supplier {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.28);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .add-form-body {
+    padding: 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .add-form-body::-webkit-scrollbar { display: none; }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-size: 9.5px;
+    font-weight: 900;
+    color: rgba(242,240,227,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-label .required { color: #D81E1E; font-size: 12px; }
+  .field-label .optional { color: rgba(242,240,227,0.18); font-weight: 500; font-size: 9px; text-transform: none; letter-spacing: 0; }
+
+  .field-input {
+    width: 100%;
+    height: 52px;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #F2F0E3;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 130ms, box-shadow 130ms;
+  }
+  .field-input::placeholder { color: rgba(242,240,227,0.22); font-weight: 400; }
+  .field-input:focus { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.12); }
+
+  .two-cols { display: grid; grid-template-columns: 1fr 1.8fr; gap: 10px; }
+
+  .product-search-wrap { position: relative; }
+  .product-search-input {
+    width: 100%;
+    height: 52px;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    padding: 0 50px 0 46px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #F2F0E3;
+    outline: none;
+    font-family: inherit;
+  }
+  .product-search-input::placeholder { color: rgba(242,240,227,0.22); }
+  .product-search-icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: rgba(242,240,227,0.18);
+    width: 20px; height: 20px;
+  }
+  .product-search-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 36px; height: 36px;
+    background: rgba(242,240,227,0.06);
+    border-radius: 10px;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(242,240,227,0.30);
+  }
+  .product-search-btn svg { width: 16px; height: 16px; }
+
+  .product-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 130ms;
+  }
+  .product-result:hover { border-color: rgba(216,30,30,0.30); }
+  .product-thumb {
+    width: 44px; height: 44px;
+    background: rgba(242,240,227,0.05);
+    border-radius: 10px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .product-thumb svg { width: 18px; height: 18px; color: rgba(242,240,227,0.15); }
+  .product-result-info { flex: 1; min-width: 0; }
+  .product-result-name { font-size: 13px; font-weight: 800; color: #F2F0E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-result-ean { font-size: 10px; font-weight: 700; color: rgba(242,240,227,0.28); text-transform: uppercase; margin-top: 1px; }
+
+  .save-btn {
+    width: 100%;
+    height: 54px;
+    background: #D81E1E;
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(216,30,30,0.35);
+    transition: all 150ms;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .save-btn:active { transform: scale(0.97); }
+  .save-btn svg { width: 18px; height: 18px; }
+
+  .state-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: #252520;
+    border-radius: 100px;
+    padding: 6px 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.40);
+    z-index: 100;
+    border: 1px solid rgba(242,240,227,0.07);
+  }
+  .state-btn {
+    padding: 5px 12px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 800;
+    background: transparent;
+    color: rgba(242,240,227,0.30);
+    transition: all 120ms;
+    font-family: inherit;
+  }
+  .state-btn.active { background: #D81E1E; color: white; }
+
+  .import-btn {
+    height: 44px;
+    background: rgba(242,240,227,0.03);
+    border: 1.5px dashed rgba(242,240,227,0.12);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(242,240,227,0.25);
+    cursor: pointer;
+    transition: all 130ms;
+    margin-top: 8px;
+  }
+  .import-btn svg { width: 15px; height: 15px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>15:24</span>
+    <div class="status-icons">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="15" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="19" y="10" width="3" height="4" rx="1"/><rect x="3.5" y="8.5" width="5" height="7" rx="1"/></svg>
+    </div>
+  </div>
+
+  <div class="page-bg">
+    <div class="page-bg-content" style="padding-top:4px;">
+      <div style="height:40px; background:#FFE500; border-radius:12px; margin-bottom:12px; display:flex;align-items:center;padding:0 16px; gap:8px; opacity:0.7;">
+        <div style="width:24px;height:24px;background:rgba(26,26,10,0.20);border-radius:6px;"></div>
+        <div style="height:10px;background:rgba(26,26,10,0.25);border-radius:4px;width:80px;"></div>
+      </div>
+      <div class="bg-row"><div class="bg-dot"></div><div class="bg-line"></div><div class="bg-badge"></div></div>
+      <div class="bg-row"><div class="bg-dot"></div><div class="bg-line" style="width:55%;flex:none;"></div></div>
+      <div class="bg-row"><div class="bg-dot"></div><div class="bg-line"></div><div class="bg-badge" style="opacity:0.3;"></div></div>
+      <div class="bg-row"><div class="bg-dot"></div><div class="bg-line" style="width:70%;flex:none;"></div></div>
+      <div class="bg-row"><div class="bg-dot"></div><div class="bg-line"></div><div class="bg-badge"></div></div>
+    </div>
+  </div>
+
+  <div class="backdrop"></div>
+
+  <div class="sheet">
+    <div class="handle"></div>
+
+    <div class="sheet-header">
+      <div class="sheet-header-row">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </div>
+        <div style="flex:1;">
+          <div class="header-title">Dicionário de Fornecedores</div>
+          <div class="header-subtitle">Mapeamentos & Unidades</div>
+        </div>
+        <div class="close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="setTab(this)">Mapeamentos</button>
+        <button class="tab" onclick="setTab(this)">Unidades de Medida</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sheet-body" id="sheet-body">
+      <!-- State 1: No supplier -->
+      <div id="state-no-supplier" style="display:flex; flex-direction:column; flex:1;">
+        <div class="supplier-section">
+          <div class="section-label">
+            <span>Selecionar Fornecedor</span>
+            <button class="new-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+              Novo Fornecedor
+            </button>
+          </div>
+          <div class="supplier-combo" onclick="setState('has-supplier')">
+            <svg class="combo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="combo-text">Buscar fornecedor...</span>
+            <svg class="combo-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <div class="dict-section">
+          <div class="dict-label-row">
+            <span class="dict-label">Dicionário Ativo</span>
+          </div>
+          <div class="empty-state" style="flex:1;">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div class="empty-text">Selecione um fornecedor<br>para ver o dicionário</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- State 2: Supplier selected with mappings -->
+      <div id="state-has-supplier" style="display:none; flex-direction:column; flex:1;">
+        <div class="supplier-section">
+          <div class="section-label">
+            <span>Fornecedor Selecionado</span>
+            <button class="new-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+              Novo Fornecedor
+            </button>
+          </div>
+          <div class="supplier-selected">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="supplier-selected-name">Distribuidora Castelo Real</span>
+            <button class="supplier-clear" onclick="setState('no-supplier')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="import-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+            Importar Planilha
+          </div>
+        </div>
+
+        <div class="dict-section">
+          <div class="dict-label-row">
+            <span class="dict-label">Dicionário Ativo</span>
+            <span class="dict-count">4</span>
+          </div>
+          <div class="dict-search">
+            <svg class="dict-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" placeholder="Pesquisar mapeamentos...">
+          </div>
+          <div class="mapping-list">
+            <div class="mapping-card">
+              <div class="mapping-card-top">
+                <span class="mapping-sku">CAS-001</span>
+                <span class="mapping-desc">CHOCOLATE LACTA AO LEITE 170G</span>
+              </div>
+              <div class="mapping-divider"></div>
+              <div class="mapping-bottom">
+                <div class="arrow-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+                <div class="mapping-product">
+                  <div class="mapping-product-label">Produto Interno</div>
+                  <div class="mapping-product-name">CHOCOLATE LACTA AO LEITE 170G</div>
+                </div>
+                <div class="card-actions">
+                  <button class="card-btn edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <button class="card-btn delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mapping-card">
+              <div class="mapping-card-top">
+                <span class="mapping-sku">CAS-014</span>
+                <span class="mapping-desc">BISCOITO OREO BAUNILHA 90G UN</span>
+              </div>
+              <div class="mapping-divider"></div>
+              <div class="mapping-bottom">
+                <div class="arrow-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+                <div class="mapping-product">
+                  <div class="mapping-product-label">Produto Interno</div>
+                  <div class="mapping-product-name">BISCOITO OREO RECHEADO BAUNILHA 90G</div>
+                </div>
+                <div class="card-actions">
+                  <button class="card-btn edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <button class="card-btn delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mapping-card">
+              <div class="mapping-card-top">
+                <span class="mapping-desc">REFRIGERANTE COCA COLA LT 350ML</span>
+              </div>
+              <div class="mapping-divider"></div>
+              <div class="mapping-bottom">
+                <div class="arrow-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+                <div class="mapping-product">
+                  <div class="mapping-product-label">Produto Interno</div>
+                  <div class="mapping-product-name">COCA COLA LATA 350ML</div>
+                </div>
+                <div class="card-actions">
+                  <button class="card-btn edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <button class="card-btn delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mapping-card">
+              <div class="mapping-card-top">
+                <span class="mapping-sku">CAS-089</span>
+                <span class="mapping-desc">AZEITE EXTRAVIRGEM GALLO 500ML</span>
+              </div>
+              <div class="mapping-divider"></div>
+              <div class="mapping-bottom">
+                <div class="arrow-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+                <div class="mapping-product">
+                  <div class="mapping-product-label">Produto Interno</div>
+                  <div class="mapping-product-name">AZEITE DE OLIVA EXTRA VIRGEM GALLO 500ML</div>
+                </div>
+                <div class="card-actions">
+                  <button class="card-btn edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <button class="card-btn delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="fab" id="fab-btn" style="display:none;" onclick="setState('add-form')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <div class="add-form-overlay" id="add-form-overlay">
+      <div class="add-form-handle"></div>
+      <div class="add-form-header">
+        <button class="back-btn" onclick="setState('has-supplier')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div style="flex:1;">
+          <div class="add-form-title">Novo Mapeamento</div>
+          <div class="add-form-supplier">Distribuidora Castelo Real</div>
+        </div>
+      </div>
+      <div class="add-form-body">
+        <div class="two-cols">
+          <div class="field-group">
+            <div class="field-label">
+              Código
+              <span class="optional">(opcional)</span>
+            </div>
+            <input class="field-input" type="text" placeholder="Ref/SKU">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              Descrição
+              <span class="required">*</span>
+            </div>
+            <input class="field-input" type="text" placeholder="Ex: CHOCOLATE LACTA...">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Produto Interno</div>
+          <div class="product-search-wrap">
+            <svg class="product-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input class="product-search-input" type="text" placeholder="Nome, EAN ou SKU...">
+            <button class="product-search-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+          </div>
+          <div class="product-result">
+            <div class="product-thumb">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            </div>
+            <div class="product-result-info">
+              <div class="product-result-name">CHOCOLATE LACTA AO LEITE 170G</div>
+              <div class="product-result-ean">EAN: 7622210671103</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(242,240,227,0.18)" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+        </div>
+
+        <button class="save-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Salvar Mapeamento
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="state-controls">
+  <span style="color:rgba(242,240,227,0.25); font-size:9px; text-transform:uppercase; letter-spacing:0.1em; padding-right:4px;">Estado:</span>
+  <button class="state-btn active" onclick="setState('no-supplier'); setActiveBtn(this)">Vazio</button>
+  <button class="state-btn" onclick="setState('has-supplier'); setActiveBtn(this)">Com Lista</button>
+  <button class="state-btn" onclick="setState('add-form'); setActiveBtn(this)">Novo Mapeamento</button>
+</div>
+
+<script>
+function setState(state) {
+  const noSupplier = document.getElementById('state-no-supplier');
+  const hasSupplier = document.getElementById('state-has-supplier');
+  const addForm = document.getElementById('add-form-overlay');
+  const fab = document.getElementById('fab-btn');
+
+  noSupplier.style.display = 'none';
+  hasSupplier.style.display = 'none';
+  addForm.classList.remove('visible');
+  fab.style.display = 'none';
+
+  if (state === 'no-supplier') {
+    noSupplier.style.display = 'flex';
+  } else if (state === 'has-supplier') {
+    hasSupplier.style.display = 'flex';
+    fab.style.display = 'flex';
+  } else if (state === 'add-form') {
+    hasSupplier.style.display = 'flex';
+    addForm.classList.add('visible');
+    fab.style.display = 'flex';
+  }
+}
+
+function setTab(btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setActiveBtn(btn) {
+  document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+setState('no-supplier');
+</script>
+</body>
+</html>

@@ -131,6 +131,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   const [editProductSearch, setEditProductSearch] = useState('');
   const [editProductResults, setEditProductResults] = useState<Product[]>([]);
   const [isSavingMapping, setIsSavingMapping] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const dictionaryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Combobox state for supplier selector
@@ -529,25 +530,63 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     }
   };
 
+  const resetAddForm = () => {
+    setShowAddForm(false);
+    setSupplierMappingDescription('');
+    setSupplierMappingCode('');
+    setSelectedSupplierMappingProduct(null);
+    setSupplierMappingSearchResults([]);
+    setSupplierMappingSearchQuery('');
+  };
+
   return (
     <>
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 overflow-hidden">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/45 md:bg-on-surface/40 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-surface-container-lowest rounded-[2.5rem] shadow-2xl w-[95vw] max-w-[1400px] max-h-[92vh] flex flex-col overflow-hidden ring-1 ring-on-surface/5"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className={cn(
+                "relative flex flex-col overflow-hidden shadow-2xl",
+                "w-full h-[92dvh] rounded-t-[28px] bg-[#FDFAF0] dark:bg-[#1E1E18]",
+                "md:w-[95vw] md:max-w-[1400px] md:h-auto md:max-h-[92vh] md:rounded-[2.5rem] md:bg-surface-container-lowest md:ring-1 md:ring-on-surface/5"
+              )}
             >
-              <div className="p-8 border-b border-on-surface/[0.03] flex items-center justify-between shrink-0 bg-surface-container-low/30">
+              {/* ── Handle (mobile only) ── */}
+              <div className="md:hidden w-9 h-1 bg-[#1A1A0E]/15 dark:bg-white/12 rounded-full mx-auto mt-3 shrink-0" />
+
+              {/* ── Mobile header ── */}
+              <div className="md:hidden px-5 pt-3 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#D81E1E] rounded-xl flex items-center justify-center shadow-lg shadow-[#D81E1E]/25 shrink-0">
+                    <BookText size={20} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[17px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Dicionário de Fornecedores</h3>
+                    <p className="text-[11px] font-bold text-[#1A1A0E]/40 dark:text-white/28 uppercase tracking-[0.08em]">Mapeamentos & Unidades</p>
+                  </div>
+                  <button onClick={onClose} className="w-9 h-9 rounded-full bg-[#1A1A0E]/[0.07] dark:bg-white/[0.06] border border-[#1A1A0E]/[0.09] dark:border-white/[0.08] flex items-center justify-center shrink-0 transition-all active:scale-90">
+                    <X size={18} className="text-[#1A1A0E]/45 dark:text-white/35" />
+                  </button>
+                </div>
+                <div className="flex gap-1 mt-3">
+                  <button onClick={() => setActiveTab('mappings')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'mappings' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Mapeamentos</button>
+                  <button onClick={() => setActiveTab('units')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'units' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Unidades</button>
+                </div>
+              </div>
+
+              {/* ── Desktop header ── */}
+              <div className="hidden md:flex p-8 border-b border-on-surface/[0.03] items-center justify-between shrink-0 bg-surface-container-low/30">
                 <div className="flex items-center gap-6">
                   <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-xl shadow-amber-500/20">
                     <BookText size={28} />
@@ -555,38 +594,363 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                   <div className="flex flex-col">
                     <h3 className="text-2xl font-black text-on-surface tracking-tight">Dicionário de Fornecedores</h3>
                     <div className="flex items-center gap-4 mt-2">
-                      <button 
-                        onClick={() => setActiveTab('mappings')}
-                        className={cn(
-                          "text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all",
-                          activeTab === 'mappings' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5"
-                        )}
-                      >
-                        Mapeamentos
-                      </button>
-                      <button 
-                        onClick={() => setActiveTab('units')}
-                        className={cn(
-                          "text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all",
-                          activeTab === 'units' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5"
-                        )}
-                      >
-                        Unidades de Medida
-                      </button>
+                      <button onClick={() => setActiveTab('mappings')} className={cn("text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all", activeTab === 'mappings' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5")}>Mapeamentos</button>
+                      <button onClick={() => setActiveTab('units')} className={cn("text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all", activeTab === 'units' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5")}>Unidades de Medida</button>
                     </div>
                   </div>
                 </div>
-                <button 
-                  onClick={onClose}
-                  className="p-3 hover:bg-on-surface/5 rounded-full transition-colors text-on-surface/20 hover:text-on-surface"
-                >
-                  <X size={24} />
-                </button>
+                <button onClick={onClose} className="p-3 hover:bg-on-surface/5 rounded-full transition-colors text-on-surface/20 hover:text-on-surface"><X size={24} /></button>
               </div>
 
-              <div className="flex-1 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-on-surface/[0.03]">
+              {/* ── Mobile divider ── */}
+              <div className="md:hidden h-px bg-[#1A1A0E]/[0.06] dark:bg-white/[0.06] mt-3 shrink-0" />
+
+              {/* ══════════════════════════════════════
+                  MOBILE BODY (single column bottom sheet)
+                  ══════════════════════════════════════ */}
+              <div className="md:hidden flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
+                {activeTab === 'mappings' ? (
+                  <>
+                    {/* Supplier selector */}
+                    <div className="px-5 pt-4 shrink-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">
+                          {selectedSupplierId ? 'Fornecedor Selecionado' : 'Selecionar Fornecedor'}
+                        </span>
+                        <button onClick={() => setShowAddSupplierModal(true)} className="text-[9px] font-black text-[#D81E1E] uppercase tracking-[0.1em] flex items-center gap-1 bg-[#D81E1E]/[0.07] dark:bg-[#D81E1E]/10 px-2.5 py-1 rounded-full border-none cursor-pointer">
+                          <Plus size={10} />Novo Fornecedor
+                        </button>
+                      </div>
+
+                      <div className="relative" ref={supplierComboRef}>
+                        {selectedSupplier ? (
+                          <div className="w-full h-[52px] bg-[#D81E1E]/[0.06] dark:bg-[#D81E1E]/10 border border-[#D81E1E]/20 dark:border-[#D81E1E]/25 rounded-2xl flex items-center px-4 gap-2.5">
+                            <CheckCircle2 size={18} className="text-[#D81E1E] shrink-0" />
+                            <span className="flex-1 text-sm font-bold text-[#D81E1E] truncate">{selectedSupplier.name}</span>
+                            <button onClick={() => { setSelectedSupplierId(''); setSupplierMappings([]); setMappingListSearch(''); setSupplierComboQuery(''); setShowAddForm(false); }} className="text-[#D81E1E]/40 hover:text-[#D81E1E] shrink-0 transition-colors"><X size={16} /></button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20 pointer-events-none" />
+                            <input type="text" value={supplierComboQuery} onChange={(e) => { setSupplierComboQuery(e.target.value); setSupplierComboOpen(true); }} onFocus={() => setSupplierComboOpen(true)} placeholder="Buscar fornecedor..." className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl pl-11 pr-10 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/30 dark:placeholder:text-white/22 outline-none transition-all focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.10)]" />
+                            <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20 pointer-events-none" />
+                          </div>
+                        )}
+                        {supplierComboOpen && !selectedSupplier && (
+                          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.07] rounded-2xl shadow-xl overflow-hidden">
+                            <div className="max-h-52 overflow-y-auto py-1">
+                              {filteredSuppliers.length === 0
+                                ? <p className="px-4 py-3 text-xs text-[#1A1A0E]/30 dark:text-white/25 font-medium">Nenhum fornecedor encontrado</p>
+                                : filteredSuppliers.map(s => (
+                                  <button key={s.id} onMouseDown={(e) => e.preventDefault()} onClick={() => { setSelectedSupplierId(s.id); fetchSupplierMappings(s.id); setMappingListSearch(''); setSupplierComboOpen(false); setSupplierComboQuery(''); }} className="w-full text-left px-4 py-3 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#D81E1E]/[0.05] hover:text-[#D81E1E] transition-colors">{s.name}</button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedSupplierId && (
+                        <>
+                          <input type="file" ref={dictionaryFileInputRef} onChange={handleImportDictionary} accept=".xlsx,.xls" className="hidden" />
+                          <button onClick={() => dictionaryFileInputRef.current?.click()} disabled={isImporting} className="mt-2 w-full h-11 bg-[#1A1A0E]/[0.04] dark:bg-white/[0.03] border border-dashed border-[#1A1A0E]/15 dark:border-white/12 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/35 dark:text-white/25 transition-all hover:border-[#D81E1E] hover:text-[#D81E1E] dark:hover:text-[#D81E1E] disabled:opacity-50">
+                            {isImporting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-[#D81E1E] border-r-transparent" /> : <><FileUp size={14} />Importar Planilha</>}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Dict list */}
+                    <div className="px-5 pt-4 flex flex-col pb-28">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">Dicionário Ativo</span>
+                        {selectedSupplierId && supplierMappings.length > 0 && (
+                          <span className="bg-[#D81E1E] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm shadow-[#D81E1E]/25">{supplierMappings.length}</span>
+                        )}
+                      </div>
+                      {selectedSupplierId && supplierMappings.length > 0 && (
+                        <div className="relative mb-3">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/18" />
+                          <input type="text" value={mappingListSearch} onChange={(e) => setMappingListSearch(e.target.value)} placeholder="Pesquisar mapeamentos..." className="w-full h-10 bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 text-xs font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/20 outline-none" />
+                        </div>
+                      )}
+
+                      {!selectedSupplierId ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-14">
+                          <Users size={52} className="text-[#1A1A0E]/10 dark:text-white/10" />
+                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#1A1A0E]/20 dark:text-white/18 text-center">Selecione um fornecedor<br/>para ver o dicionário</p>
+                        </div>
+                      ) : supplierMappings.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-14">
+                          <BookText size={52} className="text-[#1A1A0E]/10 dark:text-white/10" />
+                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#1A1A0E]/20 dark:text-white/18 text-center">Dicionário vazio</p>
+                        </div>
+                      ) : (() => {
+                        const filteredMappings = mappingListSearch.trim()
+                          ? supplierMappings.filter(m =>
+                              (m.supplier_description ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()) ||
+                              (m.supplier_sku ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()) ||
+                              (m.products?.name ?? '').toLowerCase().includes(mappingListSearch.toLowerCase()))
+                          : supplierMappings;
+
+                        return filteredMappings.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-10 gap-2">
+                            <Search size={36} className="text-[#1A1A0E]/10 dark:text-white/10" />
+                            <p className="text-xs font-black uppercase tracking-widest text-[#1A1A0E]/20 dark:text-white/18">Nenhum resultado</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {filteredMappings.map(mapping => {
+                              const isEditing = editingMappingId === mapping.id;
+                              return (
+                                <div key={mapping.id} className={cn("rounded-2xl border p-3.5 transition-all", isEditing ? "border-[#D81E1E]/40 ring-2 ring-[#D81E1E]/10 bg-white dark:bg-[#252520]" : "border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520]")}>
+                                  {isEditing ? (
+                                    <div className="space-y-3">
+                                      <p className="text-[10px] font-black text-[#D81E1E] uppercase tracking-[0.2em]">Editando mapeamento</p>
+                                      <div className="flex gap-2">
+                                        <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} placeholder="Código (opcional)" className="w-24 bg-[#FAF7EE] dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.05] rounded-xl px-3 py-2 text-xs font-bold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none placeholder:text-[#1A1A0E]/20 dark:placeholder:text-white/20 focus:border-[#D81E1E]" />
+                                        <input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Descrição" className="flex-1 bg-[#FAF7EE] dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.05] rounded-xl px-3 py-2 text-xs font-bold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none placeholder:text-[#1A1A0E]/20 dark:placeholder:text-white/20 focus:border-[#D81E1E]" />
+                                      </div>
+                                      {editProduct ? (
+                                        <div className="flex items-center gap-2 p-2.5 bg-[#D81E1E]/[0.05] border border-[#D81E1E]/20 rounded-xl">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-[#D81E1E]/50 uppercase tracking-widest mb-0.5">Produto interno</p>
+                                            <p className="text-xs font-black text-[#D81E1E] truncate">{editProduct.name}</p>
+                                          </div>
+                                          <button onClick={() => { setEditProduct(null); setEditProductSearch(''); setEditProductResults([]); }} className="text-[#D81E1E]/30 hover:text-[#D81E1E] transition-colors"><X size={14} /></button>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1.5">
+                                          <div className="relative">
+                                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20" />
+                                            <input type="text" value={editProductSearch} onChange={(e) => handleEditProductSearch(e.target.value)} placeholder="Buscar produto interno..." className="w-full bg-[#FAF7EE] dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.05] rounded-xl pl-7 pr-3 py-2 text-xs font-medium text-[#1A1A0E] dark:text-[#F2F0E3] outline-none placeholder:text-[#1A1A0E]/20 dark:placeholder:text-white/20 focus:border-[#D81E1E]" />
+                                          </div>
+                                          {editProductResults.length > 0 && (
+                                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                                              {editProductResults.map(p => (
+                                                <button key={p.id} onClick={() => { setEditProduct(p); setEditProductSearch(''); setEditProductResults([]); }} className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-[#E0D8BF] dark:border-white/[0.05] hover:border-[#D81E1E]/30 hover:bg-[#D81E1E]/[0.05] transition-all text-left bg-white dark:bg-[#252520]">
+                                                  <div className="w-7 h-7 bg-[#FAF7EE] dark:bg-[#1E1E18] rounded-lg overflow-hidden shrink-0"><ProductImage src={p.image} alt={p.name} /></div>
+                                                  <p className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{p.name}</p>
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      <div className="flex gap-2 pt-1">
+                                        <button onClick={() => handleSaveMapping(mapping.id)} disabled={isSavingMapping} className="flex-1 bg-[#D81E1E] text-white font-black text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-[#D81E1E]/20">
+                                          {isSavingMapping ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <><Save size={13} />Salvar</>}
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="px-3 py-2.5 rounded-xl text-xs font-black text-[#1A1A0E]/40 dark:text-white/35 hover:bg-[#1A1A0E]/[0.05] dark:hover:bg-white/[0.05] transition-all">Cancelar</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-start gap-2 mb-2.5">
+                                        {mapping.supplier_sku && <span className="text-[10px] font-black bg-[#1A1A0E]/[0.06] dark:bg-white/[0.07] text-[#1A1A0E]/50 dark:text-white/40 px-2 py-0.5 rounded-md uppercase shrink-0">{mapping.supplier_sku}</span>}
+                                        <p className="text-[13px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{mapping.supplier_description}</p>
+                                      </div>
+                                      <div className="h-px bg-[#1A1A0E]/[0.06] dark:bg-white/[0.06] mb-2.5" />
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-7 h-7 bg-[#D81E1E]/[0.07] dark:bg-[#D81E1E]/12 rounded-lg flex items-center justify-center shrink-0">
+                                          <ArrowRight size={14} className="text-[#D81E1E]" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[9px] font-black text-[#D81E1E]/60 uppercase tracking-[0.15em] mb-0.5">Produto Interno</p>
+                                          <p className="text-[12px] font-bold text-[#1A1A0E]/65 dark:text-white/55 truncate">{mapping.products?.name || '—'}</p>
+                                        </div>
+                                        <div className="flex gap-1 shrink-0">
+                                          <button onClick={() => handleStartEdit(mapping)} className="w-7 h-7 rounded-lg bg-[#D81E1E]/[0.08] dark:bg-[#D81E1E]/12 text-[#D81E1E] flex items-center justify-center hover:bg-[#D81E1E] hover:text-white transition-all"><Pencil size={13} /></button>
+                                          <button onClick={() => handleDeleteMapping(mapping.id)} className="w-7 h-7 rounded-lg bg-[#1A1A0E]/[0.05] dark:bg-white/[0.05] text-[#1A1A0E]/35 dark:text-white/25 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"><Trash2 size={13} /></button>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </>
+                ) : (
+                  /* ── Mobile Units Tab ── */
+                  <div className="px-5 pt-4 flex flex-col gap-5 pb-10">
+                    <div className="space-y-2">
+                      <label className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">1. Produto</label>
+                      {!selectedUnitProduct ? (
+                        <div className="space-y-2">
+                          <div className="flex gap-1 bg-[#FAF7EE] dark:bg-[#252520] rounded-2xl p-1.5">
+                            {([{ key: 'name', label: 'Desc.' }, { key: 'ean', label: 'EAN' }, { key: 'sku', label: 'SKU' }, { key: 'brand', label: 'Marca' }] as const).map(opt => (
+                              <button key={opt.key} onClick={() => { setUnitSearchType(opt.key); if (unitSearchQuery.trim()) handleUnitSearch(unitSearchQuery, opt.key); }} className={cn("flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer", unitSearchType === opt.key ? "bg-white dark:bg-[#1E1E18] text-[#D81E1E] shadow-sm" : "text-[#1A1A0E]/30 dark:text-white/25 bg-transparent")}>{opt.label}</button>
+                            ))}
+                          </div>
+                          <div className="relative">
+                            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20" />
+                            <input type="text" value={unitSearchQuery} onChange={(e) => { setUnitSearchQuery(e.target.value); handleUnitSearch(e.target.value, unitSearchType); }} placeholder="Buscar produto..." className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl pl-11 pr-4 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/22 outline-none transition-all focus:border-[#D81E1E]" />
+                          </div>
+                          <div className="space-y-2 max-h-44 overflow-y-auto">
+                            {unitSearchResults.map(p => (
+                              <button key={p.id} onClick={() => { setSelectedUnitProduct(p); setUnitSearchResults([]); setUnitSearchQuery(''); }} className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[#E0D8BF] dark:border-white/[0.08] hover:border-[#D81E1E]/30 hover:bg-[#D81E1E]/[0.03] transition-all text-left bg-white dark:bg-[#252520]">
+                                <div className="w-10 h-10 bg-[#FAF7EE] dark:bg-[#1E1E18] rounded-xl overflow-hidden shrink-0"><ProductImage src={p.image} alt={p.name} /></div>
+                                <p className="text-sm font-black text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{p.name}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 p-3.5 bg-[#D81E1E]/[0.05] dark:bg-[#D81E1E]/08 border border-[#D81E1E]/20 rounded-2xl">
+                          <div className="w-11 h-11 bg-white dark:bg-[#1E1E18] rounded-xl overflow-hidden border border-[#D81E1E]/10 shrink-0"><ProductImage src={selectedUnitProduct.image} alt={selectedUnitProduct.name} /></div>
+                          <p className="text-sm font-black text-[#D81E1E] flex-1 truncate">{selectedUnitProduct.name}</p>
+                          <button onClick={() => { setSelectedUnitProduct(null); setUnitSearchQuery(''); setUnitSearchResults([]); }} className="text-[#D81E1E]/40 hover:text-[#D81E1E] shrink-0 transition-colors"><X size={16} /></button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">2. Fornecedor</label>
+                      <div className="relative">
+                        <select value={selectedUnitSupplierId} onChange={(e) => setSelectedUnitSupplierId(e.target.value)} className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl px-4 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none appearance-none transition-all focus:border-[#D81E1E]">
+                          <option value="">Todos os fornecedores</option>
+                          {supplierNames.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">3. Unidade (ex: CX)</label>
+                        <input type="text" value={unitName} onChange={(e) => setUnitName(e.target.value)} placeholder="CX, PT, FD..." className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl px-4 text-sm font-black text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">4. Qtd Real</label>
+                        <input type="number" value={unitMultiplier} onChange={(e) => setUnitMultiplier(e.target.value)} placeholder="12" className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl px-4 text-sm font-black text-[#D81E1E] outline-none focus:border-[#D81E1E]" />
+                      </div>
+                    </div>
+
+                    <button disabled={!selectedUnitProduct || !unitName.trim() || isAddingUnit} onClick={handleAddUnitConversion} className="w-full h-[54px] bg-[#D81E1E] text-white font-black rounded-2xl flex items-center justify-center gap-2.5 text-[13px] uppercase tracking-[0.18em] shadow-xl shadow-[#D81E1E]/25 disabled:opacity-30 transition-all active:scale-[0.97]">
+                      {isAddingUnit ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <><Plus size={18} />Salvar Conversão</>}
+                    </button>
+
+                    {/* Unit conversions list */}
+                    {unitConversions.length > 0 && (
+                      <div className="pt-2">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">Conversões Cadastradas</span>
+                          <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{unitConversions.length}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {unitConversions.map(u => (
+                            <div key={u.id} className="flex items-center gap-3 p-3 bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{u.products?.name ?? '—'}</p>
+                                <p className="text-[10px] text-[#1A1A0E]/40 dark:text-white/30 truncate">{u.suppliers?.name ?? <span className="italic">Todos</span>}</p>
+                              </div>
+                              <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[11px] font-black shrink-0">{u.unit_name}</span>
+                              <span className="font-black text-[#D81E1E] text-sm shrink-0">{u.multiplier}</span>
+                              <button onClick={() => handleDeleteUnit(u.id)} className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shrink-0"><Trash2 size={13} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mobile FAB — add mapping */}
+                {selectedSupplierId && activeTab === 'mappings' && !showAddForm && (
+                  <button onClick={() => setShowAddForm(true)} className="fixed bottom-7 right-5 z-20 w-14 h-14 bg-[#D81E1E] rounded-[18px] shadow-2xl shadow-[#D81E1E]/35 flex items-center justify-center transition-all active:scale-90 md:hidden">
+                    <Plus size={24} className="text-white" />
+                  </button>
+                )}
+
+                {/* Mobile Add Mapping Overlay */}
+                <AnimatePresence>
+                  {showAddForm && (
+                    <motion.div
+                      initial={{ y: '100%' }}
+                      animate={{ y: 0 }}
+                      exit={{ y: '100%' }}
+                      transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+                      className="fixed bottom-0 left-0 right-0 bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[24px] flex flex-col border-t border-[#1A1A0E]/[0.06] dark:border-white/[0.06] shadow-[0_-12px_40px_rgba(0,0,0,0.12)] z-30 max-h-[88dvh] md:hidden"
+                    >
+                      <div className="w-9 h-1 bg-[#1A1A0E]/15 dark:bg-white/12 rounded-full mx-auto mt-3 shrink-0" />
+                      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#1A1A0E]/[0.06] dark:border-white/[0.06] shrink-0">
+                        <button onClick={resetAddForm} className="w-9 h-9 bg-[#1A1A0E]/[0.06] dark:bg-white/[0.06] rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90">
+                          <X size={18} className="text-[#1A1A0E]/50 dark:text-white/40" />
+                        </button>
+                        <div className="flex-1">
+                          <p className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Novo Mapeamento</p>
+                          <p className="text-[10px] font-bold text-[#1A1A0E]/35 dark:text-white/28 uppercase tracking-[0.1em]">{selectedSupplier?.name}</p>
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+                        <div className="grid grid-cols-[1fr_1.8fr] gap-2.5">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">Código</span>
+                              {isDupCode && <span className="text-[8px] font-black bg-amber-500/15 text-amber-500 px-1.5 py-0.5 rounded-full uppercase ml-auto">Existe</span>}
+                            </div>
+                            <input type="text" value={supplierMappingCode} onChange={(e) => setSupplierMappingCode(e.target.value)} placeholder="Ref/SKU" className={cn("h-[52px] bg-white dark:bg-[#252520] border rounded-2xl px-4 text-sm font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/22 dark:placeholder:text-white/22 outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.10)] transition-all", isDupCode ? "border-amber-500/30" : "border-[#E0D8BF] dark:border-white/[0.08]")} />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">Descrição <span className="text-[#D81E1E]">*</span></span>
+                              {isDupDescription && <span className="text-[8px] font-black bg-amber-500/15 text-amber-500 px-1.5 py-0.5 rounded-full uppercase ml-auto">Existe</span>}
+                            </div>
+                            <input type="text" value={supplierMappingDescription} onChange={(e) => setSupplierMappingDescription(e.target.value)} placeholder="CHOCOLATE LACTA..." className={cn("h-[52px] bg-white dark:bg-[#252520] border rounded-2xl px-4 text-sm font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/22 dark:placeholder:text-white/22 outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.10)] transition-all", isDupDescription ? "border-amber-500/30" : "border-[#E0D8BF] dark:border-white/[0.08]")} />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">Produto Interno</span>
+                          {!selectedSupplierMappingProduct ? (
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1A1A0E]/20 dark:text-white/20" />
+                                <input type="text" value={supplierMappingSearchQuery} onChange={(e) => setSupplierMappingSearchQuery(e.target.value)} onKeyUp={(e) => e.key === 'Enter' && handleSupplierMappingSearch()} placeholder="Nome, EAN ou SKU..." className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl pl-12 pr-14 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/22 outline-none focus:border-[#D81E1E] transition-all" />
+                                <button onClick={handleSupplierMappingSearch} className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 bg-[#1A1A0E]/[0.05] dark:bg-white/[0.06] rounded-xl flex items-center justify-center transition-all hover:bg-[#1A1A0E]/10"><Search size={16} className="text-[#1A1A0E]/40 dark:text-white/30" /></button>
+                              </div>
+                              <div className="space-y-2 max-h-44 overflow-y-auto">
+                                {supplierMappingSearchResults.map(p => (
+                                  <button key={p.id} onClick={() => { setSelectedSupplierMappingProduct(p); setSupplierMappingSearchResults([]); setSupplierMappingSearchQuery(''); }} className="w-full flex items-center gap-3 p-3 rounded-2xl border border-[#E0D8BF] dark:border-white/[0.08] hover:border-[#D81E1E]/30 hover:bg-[#D81E1E]/[0.03] transition-all text-left bg-white dark:bg-[#252520]">
+                                    <div className="w-11 h-11 bg-[#FAF7EE] dark:bg-[#1E1E18] rounded-xl overflow-hidden shrink-0"><ProductImage src={p.image} alt={p.name} /></div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[13px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{p.name}</p>
+                                      <p className="text-[10px] font-bold text-[#1A1A0E]/30 dark:text-white/25 uppercase">EAN: {p.ean}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-4 bg-[#D81E1E]/[0.05] dark:bg-[#D81E1E]/08 border border-[#D81E1E]/20 rounded-2xl">
+                              <div className="w-12 h-12 bg-white dark:bg-[#1E1E18] rounded-xl overflow-hidden border border-[#D81E1E]/10 shrink-0"><ProductImage src={selectedSupplierMappingProduct.image} alt={selectedSupplierMappingProduct.name} /></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-black text-[#D81E1E] leading-tight truncate">{selectedSupplierMappingProduct.name}</p>
+                                <p className="text-[10px] font-black text-[#D81E1E]/40 uppercase tracking-[0.15em] mt-0.5">EAN: {selectedSupplierMappingProduct.ean || selectedSupplierMappingProduct.sku}</p>
+                              </div>
+                              <button onClick={() => setSelectedSupplierMappingProduct(null)} className="text-[#D81E1E]/40 hover:text-[#D81E1E] shrink-0 transition-colors"><X size={16} /></button>
+                            </div>
+                          )}
+                        </div>
+
+                        <button disabled={!selectedSupplierMappingProduct || !supplierMappingDescription || isAddingMapping} onClick={async () => { await handleAddMapping(); setShowAddForm(false); }} className="w-full h-[54px] bg-[#D81E1E] text-white font-black rounded-2xl flex items-center justify-center gap-2.5 text-[13px] uppercase tracking-[0.18em] shadow-xl shadow-[#D81E1E]/25 disabled:opacity-30 transition-all active:scale-[0.97]">
+                          {isAddingMapping ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <><CheckCircle2 size={18} />Salvar Mapeamento</>}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* ══════════════════════════════════════
+                  DESKTOP BODY (two panels)
+                  ══════════════════════════════════════ */}
+              <div className="hidden md:flex flex-1 overflow-hidden flex-row divide-x divide-on-surface/[0.03]">
                 {/* Form Panel */}
-                <div className="w-full md:w-1/2 p-10 flex flex-col space-y-6">
+                <div className="w-1/2 p-10 flex flex-col space-y-6 overflow-y-auto">
                   {activeTab === 'mappings' ? (
                     <>
                       <div className="space-y-4">
@@ -965,7 +1329,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                 </div>
 
                 {/* List Panel */}
-                <div className="w-full md:w-1/2 bg-surface-container-low/30 flex flex-col overflow-hidden">
+                <div className="w-1/2 bg-surface-container-low/30 flex flex-col overflow-hidden">
                   <div className="p-10 border-b border-on-surface/[0.03] bg-surface-container-lowest shrink-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.3em] flex items-center gap-4">
