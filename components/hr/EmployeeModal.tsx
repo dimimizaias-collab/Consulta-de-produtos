@@ -70,7 +70,7 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
         cargo: form.cargo.trim(),
         loja: form.loja.trim(),
         data_admissao: form.data_admissao,
-        salario: form.salario ? parseFloat(form.salario.replace(',', '.')) : 0,
+        salario: form.salario ? parseFloat(form.salario.replace(/\./g, '').replace(',', '.')) : 0,
         foto_url: fotoUrl,
         updated_at: new Date().toISOString(),
       };

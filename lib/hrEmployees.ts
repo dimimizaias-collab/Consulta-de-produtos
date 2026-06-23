@@ -13,7 +13,7 @@ export interface Employee {
   foto_url: string | null;
 }
 
-export const fmtSalario = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export const fmtSalario = (v: number | string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 // Calcula o tempo de casa a partir da data de admissão, ex: "2 anos e 3 meses", "8 meses", "Hoje".
 export function tempoDeCasa(dataAdmissao: string): string {
