@@ -928,7 +928,7 @@ export function FinanceManager() {
       </div>
 
       {/* Calendar + Summary + Accounts */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px 330px', alignItems: 'start' }}>
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px 330px', alignItems: 'start', flexShrink: 0 }}>
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
@@ -970,7 +970,7 @@ export function FinanceManager() {
             </div>
           </div>
 
-          <div className="p-3 flex-1">
+          <div className="p-3">
             <div className="grid grid-cols-7 mb-1">
               {['D','S','T','Q','Q','S','S'].map((d, i) => (
                 <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
@@ -997,7 +997,7 @@ export function FinanceManager() {
                       setCalSelectedDate(isSelected ? null : cellDate);
                     }}
                     className={cn(
-                      'aspect-square flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
+                      'h-[26px] flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
                       cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
                       cell.type === 'curr' && !isToday && !isSelected && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
                       isToday && !isSelected && 'bg-primary/10 text-primary font-black',
