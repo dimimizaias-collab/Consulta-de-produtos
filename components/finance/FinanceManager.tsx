@@ -928,7 +928,7 @@ export function FinanceManager() {
       </div>
 
       {/* Calendar + Summary + Accounts */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: '400px minmax(0,1fr) 330px', alignItems: 'start' }}>
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px 330px', alignItems: 'start' }}>
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
