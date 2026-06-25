@@ -124,6 +124,7 @@ export function MobileManifestPage({
   // Keyboards
   const [showQtyKeyboard, setShowQtyKeyboard] = useState(false);
   const [showPriceKeyboard, setShowPriceKeyboard] = useState(false);
+  const [showDescKeyboard, setShowDescKeyboard] = useState(false);
 
   // Link panel
   const [linkingRowId, setLinkingRowId] = useState<string | null>(null);
@@ -443,6 +444,17 @@ export function MobileManifestPage({
     }
   };
 
+  const handleDescKey = (key: string) => {
+    const cur = selectedRow?.description ?? '';
+    if (key === '⌫') {
+      updateRow(selectedRow.id, { description: cur.slice(0, -1) });
+    } else if (key === 'limpar') {
+      updateRow(selectedRow.id, { description: '' });
+    } else {
+      updateRow(selectedRow.id, { description: cur + key });
+    }
+  };
+
   // ── Tab definitions ───────────────────────────────────────────────────────────
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -640,7 +652,7 @@ export function MobileManifestPage({
             <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] border-b border-[#1A1A0E]/[0.05] dark:border-white/[0.04] px-4 py-2 flex items-center gap-2">
               <button
                 disabled={selectedIdx === 0}
-                onClick={() => { setSelectedIdx(i => Math.max(0, i - 1)); setShowQtyKeyboard(false); setShowPriceKeyboard(false); }}
+                onClick={() => { setSelectedIdx(i => Math.max(0, i - 1)); setShowQtyKeyboard(false); setShowPriceKeyboard(false); setShowDescKeyboard(false); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1A1A0E]/[0.05] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/40 disabled:opacity-25 active:bg-[#1A1A0E]/10 transition-colors"
               >
                 <ChevronLeft size={15} />
@@ -652,7 +664,7 @@ export function MobileManifestPage({
               </div>
               <button
                 disabled={selectedIdx === rows.length - 1}
-                onClick={() => { setSelectedIdx(i => Math.min(rows.length - 1, i + 1)); setShowQtyKeyboard(false); setShowPriceKeyboard(false); }}
+                onClick={() => { setSelectedIdx(i => Math.min(rows.length - 1, i + 1)); setShowQtyKeyboard(false); setShowPriceKeyboard(false); setShowDescKeyboard(false); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1A1A0E]/[0.05] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/40 disabled:opacity-25 active:bg-[#1A1A0E]/10 transition-colors"
               >
                 <ChevronRight size={15} />
@@ -682,14 +694,117 @@ export function MobileManifestPage({
                 <label className="block text-[10px] font-black text-[#1A1A0E]/40 dark:text-white/35 uppercase tracking-wider mb-1.5">
                   Descrição {selectedRow?.autoFilledDesc && <Wand2 size={10} className="inline ml-1 text-amber-500" />}
                 </label>
-                <input
-                  type="text"
-                  value={selectedRow?.description ?? ''}
-                  onChange={e => updateRow(selectedRow.id, { description: e.target.value })}
-                  onBlur={e => lookupMapping(selectedRow.id, selectedRow.supplierCode, e.target.value)}
-                  placeholder="Descrição do produto"
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-3 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E] placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/22"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode={showDescKeyboard ? 'none' : 'text'}
+                    value={selectedRow?.description ?? ''}
+                    onChange={e => updateRow(selectedRow.id, { description: e.target.value })}
+                    onBlur={e => lookupMapping(selectedRow.id, selectedRow.supplierCode, e.target.value)}
+                    placeholder="Descrição do produto"
+                    className="flex-1 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-3 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E] placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/22"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setShowDescKeyboard(v => !v); setShowQtyKeyboard(false); setShowPriceKeyboard(false); }}
+                    className={cn(
+                      'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                      showDescKeyboard
+                        ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
+                        : 'bg-[#FDFAF0] dark:bg-[#252520] border-[#E0D8BF] dark:border-white/[0.08] text-[#1A1A0E]/45 dark:text-white/35 hover:text-[#D81E1E] hover:border-[#D81E1E]/40',
+                    )}
+                  >
+                    <Keyboard size={17} />
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {showDescKeyboard && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                      className="mt-2 bg-white dark:bg-[#2e2e28] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl shadow-2xl p-3 space-y-1.5"
+                    >
+                      {/* Row 1: Q–P */}
+                      <div className="grid grid-cols-10 gap-1">
+                        {['Q','W','E','R','T','Y','U','I','O','P'].map(key => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); handleDescKey(key); }}
+                            whileTap={{ scale: 0.82 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                            className="h-10 rounded-lg bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors"
+                          >
+                            {key}
+                          </motion.button>
+                        ))}
+                      </div>
+                      {/* Row 2: A–Ç */}
+                      <div className="grid grid-cols-10 gap-1">
+                        {['A','S','D','F','G','H','J','K','L','Ç'].map(key => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); handleDescKey(key); }}
+                            whileTap={{ scale: 0.82 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                            className="h-10 rounded-lg bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors"
+                          >
+                            {key}
+                          </motion.button>
+                        ))}
+                      </div>
+                      {/* Row 3: Z–M + ⌫ */}
+                      <div className="grid grid-cols-8 gap-1">
+                        {['Z','X','C','V','B','N','M'].map(key => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); handleDescKey(key); }}
+                            whileTap={{ scale: 0.82 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                            className="h-10 rounded-lg bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors"
+                          >
+                            {key}
+                          </motion.button>
+                        ))}
+                        <motion.button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); handleDescKey('⌫'); }}
+                          whileTap={{ scale: 0.88 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                          className="h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-black flex items-center justify-center hover:bg-amber-500/20 transition-colors"
+                        >
+                          <Delete size={14} />
+                        </motion.button>
+                      </div>
+                      {/* Row 4: Espaço + Limpar */}
+                      <div className="grid grid-cols-2 gap-1">
+                        <motion.button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); handleDescKey(' '); }}
+                          whileTap={{ scale: 0.88 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                          className="h-10 rounded-lg bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-xs font-black text-[#1A1A0E]/50 dark:text-white/40 hover:bg-[#FFE500] hover:border-[#D4C000] dark:hover:bg-[#3a3a30] transition-colors"
+                        >
+                          ESPAÇO
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); handleDescKey('limpar'); }}
+                          whileTap={{ scale: 0.88 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                          className="h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-black hover:bg-red-500/20 transition-colors"
+                        >
+                          Limpar
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Unidade */}
@@ -723,7 +838,7 @@ export function MobileManifestPage({
                   />
                   <button
                     type="button"
-                    onClick={() => { setShowQtyKeyboard(v => !v); setShowPriceKeyboard(false); }}
+                    onClick={() => { setShowQtyKeyboard(v => !v); setShowPriceKeyboard(false); setShowDescKeyboard(false); }}
                     className={cn(
                       'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
                       showQtyKeyboard
@@ -799,7 +914,7 @@ export function MobileManifestPage({
                   />
                   <button
                     type="button"
-                    onClick={() => { setShowPriceKeyboard(v => !v); setShowQtyKeyboard(false); }}
+                    onClick={() => { setShowPriceKeyboard(v => !v); setShowQtyKeyboard(false); setShowDescKeyboard(false); }}
                     className={cn(
                       'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
                       showPriceKeyboard
