@@ -928,7 +928,7 @@ export function FinanceManager() {
       </div>
 
       {/* Calendar + Summary + Accounts */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: '300px 1fr 250px', alignItems: 'stretch' }}>
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: '400px minmax(0,1fr) 330px', alignItems: 'start' }}>
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
@@ -1040,14 +1040,14 @@ export function FinanceManager() {
             { label: 'Despesas', value: totals.despesas, icon: TrendingDown,  iconCls: 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]',    iconColor: 'text-rose-600 dark:text-[#D81E1E]',    valCls: 'text-rose-600 dark:text-[#D81E1E]' },
             { label: 'Saldo',    value: totals.saldo,   icon: Wallet,         iconCls: totals.saldo >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10', iconColor: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400', valCls: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' },
           ].map(({ label, value, icon: Icon, iconCls, iconColor, valCls }) => (
-            <div key={label} className="flex-1 bg-surface-container-low border border-on-surface/[0.07] rounded-[16px] px-[18px] py-[14px] flex items-center gap-3.5">
-              <div className={cn('w-[40px] h-[40px] rounded-[12px] flex items-center justify-center shrink-0', iconCls)}>
-                <Icon size={18} strokeWidth={2.3} className={iconColor} />
+            <div key={label} className="bg-surface-container-low border border-on-surface/[0.07] rounded-[16px] px-4 py-3.5 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="text-[8.5px] font-black uppercase tracking-[0.13em] text-on-surface/40">{label}</div>
+                <div className={cn('w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0', iconCls)}>
+                  <Icon size={15} strokeWidth={2.3} className={iconColor} />
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[8.5px] font-black uppercase tracking-[0.13em] text-on-surface/40 mb-0.5">{label}</div>
-                <div className={cn('text-[17px] font-black tracking-tight leading-none', valCls)}>{fmt(value)}</div>
-              </div>
+              <div className={cn('text-[18px] font-black tracking-tight leading-none', valCls)}>{fmt(value)}</div>
             </div>
           ))}
         </div>
