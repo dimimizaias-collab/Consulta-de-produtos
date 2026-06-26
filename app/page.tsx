@@ -2509,6 +2509,8 @@ export default function Page() {
           adj_surcharge_individual_type: leg.surchargeIndividualType,
           adj_surcharge_value: leg.surchargeMode === 'individual' ? (parseFloat(leg.itemSurcharges[idx] ?? '') || null) : null,
         }; })()),
+        // full adj columns serialized on first item for full restore on reload
+        ...(idx === 0 ? { adj_columns_full: adjColumns } : {}),
         discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
       }));
       const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
@@ -3316,18 +3318,22 @@ export default function Page() {
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
-                    const loadedCols: AdjColumn[] = [];
-                    const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                    if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
-                    } else if (savedDiscountMode === 'individual') {
-                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
-                    }
-                    const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                    if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
-                    } else if (savedSurchargeMode === 'individual') {
-                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
+                    let loadedCols: AdjColumn[] = [];
+                    if (Array.isArray(fi?.adj_columns_full) && fi.adj_columns_full.length > 0) {
+                      loadedCols = fi.adj_columns_full as AdjColumn[];
+                    } else {
+                      const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
+                      if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
+                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
+                      } else if (savedDiscountMode === 'individual') {
+                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
+                      }
+                      const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
+                      if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
+                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
+                      } else if (savedSurchargeMode === 'individual') {
+                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
+                      }
                     }
                     setAdjColumns(loadedCols);
                     setAdjColDialog(null);
@@ -3368,18 +3374,22 @@ export default function Page() {
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
-                    const loadedCols: AdjColumn[] = [];
-                    const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                    if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
-                    } else if (savedDiscountMode === 'individual') {
-                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
-                    }
-                    const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                    if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
-                    } else if (savedSurchargeMode === 'individual') {
-                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
+                    let loadedCols: AdjColumn[] = [];
+                    if (Array.isArray(fi?.adj_columns_full) && fi.adj_columns_full.length > 0) {
+                      loadedCols = fi.adj_columns_full as AdjColumn[];
+                    } else {
+                      const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
+                      if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
+                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
+                      } else if (savedDiscountMode === 'individual') {
+                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
+                      }
+                      const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
+                      if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
+                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
+                      } else if (savedSurchargeMode === 'individual') {
+                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
+                      }
                     }
                     setAdjColumns(loadedCols);
                     setAdjColDialog(null);
