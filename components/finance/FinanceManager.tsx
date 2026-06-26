@@ -932,9 +932,28 @@ export function FinanceManager() {
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-3 flex items-center justify-between">
-            <span className="text-[13px] font-black text-[#1A1A0E] capitalize">{calMonthLabel}</span>
-            <div className="flex gap-1">
+          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
+            <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
+
+            {/* Filter field toggle — inline no header */}
+            <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
+              {(['data', 'vencimento'] as const).map(field => (
+                <button
+                  key={field}
+                  onClick={() => { setCalFilterField(field); setCalSelectedDate(null); }}
+                  className={cn(
+                    'flex-1 px-2 py-[4px] rounded-full text-[8.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
+                    calFilterField === field
+                      ? 'bg-[#D81E1E] text-white shadow-sm'
+                      : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
+                  )}
+                >
+                  {field === 'data' ? 'Data' : 'Vencimento'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-1 flex-shrink-0">
               <button
                 onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
                 className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
@@ -947,26 +966,6 @@ export function FinanceManager() {
               >
                 <ChevronRight size={12} strokeWidth={2.5} />
               </button>
-            </div>
-          </div>
-
-          {/* Filter field toggle */}
-          <div className="px-3 pt-3 pb-1">
-            <div className="flex gap-0.5 bg-on-surface/[0.05] dark:bg-white/[0.04] rounded-full p-[3px]">
-              {(['data', 'vencimento'] as const).map(field => (
-                <button
-                  key={field}
-                  onClick={() => { setCalFilterField(field); setCalSelectedDate(null); }}
-                  className={cn(
-                    'flex-1 px-2 py-[5px] rounded-full text-[9px] font-black uppercase tracking-[0.08em] transition-all duration-150',
-                    calFilterField === field
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'text-on-surface/40 hover:text-on-surface/60',
-                  )}
-                >
-                  {field === 'data' ? 'Data' : 'Vencimento'}
-                </button>
-              ))}
             </div>
           </div>
 
