@@ -6678,6 +6678,7 @@ export default function Page() {
                                     <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{col.individualType === 'pct' ? '%' : col.individualType === 'fixed_total' ? 'R$∑' : 'R$'}</span>
                                     <input
                                       type="number" min="0" step="0.01"
+                                      data-nav-table="review-note" data-nav-row={idx} data-nav-col={5 + colIdx}
                                       value={col.items[idx] ?? ''}
                                       onChange={e => {
                                         setAdjColumns(prev => prev.map((c, ci) => {
@@ -6687,6 +6688,7 @@ export default function Page() {
                                           return { ...c, items };
                                         }));
                                       }}
+                                      onKeyDown={tableCellKeyDown('review-note', idx, 5 + colIdx)}
                                       placeholder="0"
                                       className={`w-12 text-right text-xs font-bold ${colorClass} bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
                                     />
