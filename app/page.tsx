@@ -28,7 +28,7 @@ import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
-import { Filter, Plus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -369,25 +369,46 @@ export default function Page() {
   const [multiLinkItemNewSku, setMultiLinkItemNewSku] = useState('');
   const [multiLinkItemNewEan, setMultiLinkItemNewEan] = useState('');
   const [multiLinkItemCreating, setMultiLinkItemCreating] = useState(false);
-  // Discount/surcharge column states
+  // Adj column states (multiple discount/surcharge columns)
   type AdjType = 'pct' | 'fixed' | 'fixed_total';
   type AdjMode = 'none' | 'geral' | 'individual';
-  const [discountDropdown, setDiscountDropdown] = useState(false);
-  const [discountDialog, setDiscountDialog] = useState<'geral' | 'individual' | null>(null);
-  const [discountMode, setDiscountMode] = useState<AdjMode>('none');
-  const [discountGeralValue, setDiscountGeralValue] = useState('');
-  const [discountGeralType, setDiscountGeralType] = useState<AdjType>('pct');
-  const [discountApplied, setDiscountApplied] = useState<{ value: number; type: AdjType } | null>(null);
-  const [discountIndividualType, setDiscountIndividualType] = useState<AdjType>('pct');
-  const [itemDiscounts, setItemDiscounts] = useState<string[]>([]);
-  const [surchargeDropdown, setSurchargeDropdown] = useState(false);
-  const [surchargeDialog, setSurchargeDialog] = useState<'geral' | 'individual' | null>(null);
-  const [surchargeMode, setSurchargeMode] = useState<AdjMode>('none');
-  const [surchargeGeralValue, setSurchargeGeralValue] = useState('');
-  const [surchargeGeralType, setSurchargeGeralType] = useState<AdjType>('pct');
-  const [surchargeApplied, setSurchargeApplied] = useState<{ value: number; type: AdjType } | null>(null);
-  const [surchargeIndividualType, setSurchargeIndividualType] = useState<AdjType>('pct');
-  const [itemSurcharges, setItemSurcharges] = useState<string[]>([]);
+  type AdjColumn = { id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual'; geralValue: number; geralType: AdjType; individualType: AdjType; items: string[] };
+  type AdjColDialog = { kind: 'desconto' | 'acrescimo'; name: string; method: 'geral' | 'individual' | null; geralValue: string; geralType: AdjType; individualType: AdjType };
+  const [adjColumns, setAdjColumns] = useState<AdjColumn[]>([]);
+  const [adjColDialog, setAdjColDialog] = useState<AdjColDialog | null>(null);
+  // helpers to compute total disc/sur amounts from adjColumns for a single row
+  const calcAdjAmounts = (cost: number, qty: number, idx: number, cols: AdjColumn[]) => {
+    let disc = 0, sur = 0;
+    for (const col of cols) {
+      let amt = 0;
+      if (col.mode === 'geral') {
+        amt = col.geralType === 'pct' ? cost * col.geralValue / 100 : col.geralValue;
+      } else {
+        const v = parseFloat(col.items[idx] ?? '');
+        if (!isNaN(v) && v > 0) {
+          amt = col.individualType === 'pct' ? cost * v / 100
+            : col.individualType === 'fixed_total' ? v / (qty || 1) : v;
+        }
+      }
+      if (col.kind === 'desconto') disc += amt; else sur += amt;
+    }
+    return { disc, sur };
+  };
+  // legacy compat: derive single-column adj object from adjColumns (for export functions)
+  const adjLegacy = () => {
+    const dCol = adjColumns.find(c => c.kind === 'desconto');
+    const sCol = adjColumns.find(c => c.kind === 'acrescimo');
+    return {
+      discountMode: dCol ? dCol.mode : 'none' as AdjMode,
+      discountApplied: dCol && dCol.mode === 'geral' ? { value: dCol.geralValue, type: dCol.geralType } : null,
+      discountIndividualType: dCol ? dCol.individualType : 'pct' as AdjType,
+      itemDiscounts: dCol ? dCol.items : [],
+      surchargeMode: sCol ? sCol.mode : 'none' as AdjMode,
+      surchargeApplied: sCol && sCol.mode === 'geral' ? { value: sCol.geralValue, type: sCol.geralType } : null,
+      surchargeIndividualType: sCol ? sCol.individualType : 'pct' as AdjType,
+      itemSurcharges: sCol ? sCol.items : [],
+    };
+  };
   const [nfItemPrices, setNfItemPrices] = useState<number[]>([]);
   const [nfItemSellPrices, setNfItemSellPrices] = useState<number[]>([]);
   const [nfItemVerified, setNfItemVerified] = useState<boolean[]>([]);
@@ -2228,10 +2249,7 @@ export default function Page() {
       viewingNoteVerified: [...viewingNoteVerified],
       viewingNoteReviewTimestamps: [...viewingNoteReviewTimestamps],
       viewingNoteDiscrepancies: [...viewingNoteDiscrepancies],
-      discountMode, discountApplied, discountIndividualType,
-      itemDiscounts: [...itemDiscounts],
-      surchargeMode, surchargeApplied, surchargeIndividualType,
-      itemSurcharges: [...itemSurcharges],
+      adjColumns: adjColumns.map(c => ({ ...c, items: [...c.items] })),
     };
     const newStack = noteHistoryRef.current.slice(0, noteHistoryIdxRef.current + 1);
     newStack.push(snap);
@@ -2240,7 +2258,7 @@ export default function Page() {
     noteHistoryIdxRef.current = newStack.length - 1;
     setCanUndo(noteHistoryIdxRef.current > 0);
     setCanRedo(false);
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
 
   const applySnapshot = useCallback((snap: any) => {
     setViewingReviewNote(snap.viewingReviewNote);
@@ -2256,14 +2274,7 @@ export default function Page() {
     setViewingNoteVerified(snap.viewingNoteVerified);
     setViewingNoteReviewTimestamps(snap.viewingNoteReviewTimestamps);
     setViewingNoteDiscrepancies(snap.viewingNoteDiscrepancies);
-    setDiscountMode(snap.discountMode);
-    setDiscountApplied(snap.discountApplied);
-    setDiscountIndividualType(snap.discountIndividualType);
-    setItemDiscounts(snap.itemDiscounts);
-    setSurchargeMode(snap.surchargeMode);
-    setSurchargeApplied(snap.surchargeApplied);
-    setSurchargeIndividualType(snap.surchargeIndividualType);
-    setItemSurcharges(snap.itemSurcharges);
+    setAdjColumns(snap.adjColumns ?? []);
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -2488,14 +2499,16 @@ export default function Page() {
         distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
           ? parseInt(viewingNoteDistribuicao[idx]) || null
           : (item.distribuicao ?? null),
-        adj_discount_mode: discountMode,
-        adj_discount_applied: discountMode === 'geral' ? discountApplied : null,
-        adj_discount_individual_type: discountIndividualType,
-        adj_discount_value: discountMode === 'individual' ? (parseFloat(itemDiscounts[idx] ?? '') || null) : null,
-        adj_surcharge_mode: surchargeMode,
-        adj_surcharge_applied: surchargeMode === 'geral' ? surchargeApplied : null,
-        adj_surcharge_individual_type: surchargeIndividualType,
-        adj_surcharge_value: surchargeMode === 'individual' ? (parseFloat(itemSurcharges[idx] ?? '') || null) : null,
+        ...((() => { const leg = adjLegacy(); return {
+          adj_discount_mode: leg.discountMode,
+          adj_discount_applied: leg.discountMode === 'geral' ? leg.discountApplied : null,
+          adj_discount_individual_type: leg.discountIndividualType,
+          adj_discount_value: leg.discountMode === 'individual' ? (parseFloat(leg.itemDiscounts[idx] ?? '') || null) : null,
+          adj_surcharge_mode: leg.surchargeMode,
+          adj_surcharge_applied: leg.surchargeMode === 'geral' ? leg.surchargeApplied : null,
+          adj_surcharge_individual_type: leg.surchargeIndividualType,
+          adj_surcharge_value: leg.surchargeMode === 'individual' ? (parseFloat(leg.itemSurcharges[idx] ?? '') || null) : null,
+        }; })()),
         discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
       }));
       const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
@@ -2524,7 +2537,7 @@ export default function Page() {
       setSavingNote(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges, viewingNoteDiscrepancies]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -2626,8 +2639,8 @@ export default function Page() {
     const pU = pad(viewingNoteUnits, (i) => viewingReviewNote.items[i]?.unit || 'UN');
     const pM = pad(viewingNoteMultipliers, (i) => viewingReviewNote.items[i]?.multiplier || 1);
     const pT = pad(viewingNoteReviewTimestamps, () => null as string | null);
-    const pDisc = pad(itemDiscounts, () => '');
-    const pSur = pad(itemSurcharges, () => '');
+    const pDisc = pad(adjColumns[0]?.items ?? [], () => '');
+    const pSur = pad(adjColumns[1]?.items ?? [], () => '');
     const pDiscr = pad(viewingNoteDiscrepancies, () => null as DiscrepancyData | null);
     const pIP = pad(viewingNoteItemPrices, (i) => viewingReviewNote.items[i]?.price ?? 0);
 
@@ -2661,8 +2674,10 @@ export default function Page() {
     setViewingNoteUnits(sp(pU, newItems.map(() => pU[srcIdx])));
     setViewingNoteMultipliers(sp(pM, newItems.map(() => pM[srcIdx])));
     setViewingNoteReviewTimestamps(sp(pT, newItems.map(() => null)));
-    setItemDiscounts(sp(pDisc, newItems.map(() => pDisc[srcIdx])));
-    setItemSurcharges(sp(pSur, newItems.map(() => pSur[srcIdx])));
+    setAdjColumns(prev => prev.map((col, ci) => {
+      const pItems = ci === 0 ? pDisc : ci === 1 ? pSur : col.items;
+      return { ...col, items: sp(pItems, newItems.map(() => pItems[srcIdx] ?? '')) };
+    }));
     setViewingNoteDiscrepancies(sp(pDiscr, newItems.map(() => null)));
     setViewingNoteItemPrices(sp(pIP, multiLinkItemEntries.map(e => {
       const mult = parseFloat(e.multiplier) || 1;
@@ -3301,38 +3316,21 @@ export default function Page() {
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
+                    const loadedCols: AdjColumn[] = [];
                     const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                    setDiscountMode(savedDiscountMode);
                     if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                      setDiscountApplied(fi.adj_discount_applied);
-                      setDiscountGeralValue(String(fi.adj_discount_applied.value));
-                      setDiscountGeralType(fi.adj_discount_applied.type);
-                    } else {
-                      setDiscountApplied(null);
+                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
+                    } else if (savedDiscountMode === 'individual') {
+                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
                     }
-                    if (savedDiscountMode === 'individual') {
-                      setDiscountIndividualType(fi?.adj_discount_individual_type ?? 'pct');
-                      setItemDiscounts(note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : ''));
-                    } else {
-                      setItemDiscounts([]);
-                    }
-                    setDiscountDropdown(false); setDiscountDialog(null);
                     const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                    setSurchargeMode(savedSurchargeMode);
                     if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                      setSurchargeApplied(fi.adj_surcharge_applied);
-                      setSurchargeGeralValue(String(fi.adj_surcharge_applied.value));
-                      setSurchargeGeralType(fi.adj_surcharge_applied.type);
-                    } else {
-                      setSurchargeApplied(null);
+                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
+                    } else if (savedSurchargeMode === 'individual') {
+                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
                     }
-                    if (savedSurchargeMode === 'individual') {
-                      setSurchargeIndividualType(fi?.adj_surcharge_individual_type ?? 'pct');
-                      setItemSurcharges(note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : ''));
-                    } else {
-                      setItemSurcharges([]);
-                    }
-                    setSurchargeDropdown(false); setSurchargeDialog(null);
+                    setAdjColumns(loadedCols);
+                    setAdjColDialog(null);
                     resetNoteHistory();
                     setTimeout(() => captureSnapshot(), 0);
                     // Busca mapeamentos permanentes do fornecedor desta nota
@@ -3370,38 +3368,21 @@ export default function Page() {
                     setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
                     setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
                     const fi = note.items[0] as any;
+                    const loadedCols: AdjColumn[] = [];
                     const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                    setDiscountMode(savedDiscountMode);
                     if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                      setDiscountApplied(fi.adj_discount_applied);
-                      setDiscountGeralValue(String(fi.adj_discount_applied.value));
-                      setDiscountGeralType(fi.adj_discount_applied.type);
-                    } else {
-                      setDiscountApplied(null);
+                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
+                    } else if (savedDiscountMode === 'individual') {
+                      loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
                     }
-                    if (savedDiscountMode === 'individual') {
-                      setDiscountIndividualType(fi?.adj_discount_individual_type ?? 'pct');
-                      setItemDiscounts(note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : ''));
-                    } else {
-                      setItemDiscounts([]);
-                    }
-                    setDiscountDropdown(false); setDiscountDialog(null);
                     const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                    setSurchargeMode(savedSurchargeMode);
                     if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                      setSurchargeApplied(fi.adj_surcharge_applied);
-                      setSurchargeGeralValue(String(fi.adj_surcharge_applied.value));
-                      setSurchargeGeralType(fi.adj_surcharge_applied.type);
-                    } else {
-                      setSurchargeApplied(null);
+                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
+                    } else if (savedSurchargeMode === 'individual') {
+                      loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
                     }
-                    if (savedSurchargeMode === 'individual') {
-                      setSurchargeIndividualType(fi?.adj_surcharge_individual_type ?? 'pct');
-                      setItemSurcharges(note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : ''));
-                    } else {
-                      setItemSurcharges([]);
-                    }
-                    setSurchargeDropdown(false); setSurchargeDialog(null);
+                    setAdjColumns(loadedCols);
+                    setAdjColDialog(null);
                     resetNoteHistory();
                     const sidForNote2 = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
                     if (sidForNote2) {
@@ -5527,21 +5508,21 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), adjLegacy())}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
+                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adjLegacy(), { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
-                    onClick={() => { setEstoquePickerArgs({ items: pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adj: { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges }, meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
+                    onClick={() => { setEstoquePickerArgs({ items: pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adj: adjLegacy(), meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -5991,8 +5972,32 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5">
+                    {/* Adj column buttons */}
                     <button
-                      onClick={() => exportTranslatedToExcel(viewingReviewNote.items, { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges })}
+                      onClick={() => setAdjColDialog({ kind: 'desconto', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
+                      className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border", adjColumns.some(c => c.kind === 'desconto') ? "bg-red-500/15 text-red-400 border-red-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/15")}
+                      title="Adicionar coluna de Desconto"
+                    >
+                      <Minus size={12} />
+                      Desconto
+                      {adjColumns.filter(c => c.kind === 'desconto').length > 0 && (
+                        <span className="bg-red-400/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'desconto').length}</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setAdjColDialog({ kind: 'acrescimo', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
+                      className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border", adjColumns.some(c => c.kind === 'acrescimo') ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/15")}
+                      title="Adicionar coluna de Acréscimo"
+                    >
+                      <Plus size={12} />
+                      Acréscimo
+                      {adjColumns.filter(c => c.kind === 'acrescimo').length > 0 && (
+                        <span className="bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
+                      )}
+                    </button>
+                    <div className="w-px h-5 bg-on-surface/10" />
+                    <button
+                      onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjLegacy())}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
                     >
                       <Download size={16} />
@@ -6021,7 +6026,7 @@ export default function Page() {
                     onClick={() => {
                       setEstoquePickerArgs({
                         items: viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })),
-                        adj: { discountMode, discountApplied, discountIndividualType, itemDiscounts, surchargeMode, surchargeApplied, surchargeIndividualType, itemSurcharges },
+                        adj: adjLegacy(),
                         meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
                       });
                       setShowEstoqueLayoutPicker(true);
@@ -6068,12 +6073,7 @@ export default function Page() {
                         const _computeNumerics = (it: any, i: number) => {
                           const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
                           const q = viewingNoteQtys[i] ?? it.qty ?? 0;
-                          let dsc = 0;
-                          if (discountMode === 'geral' && discountApplied) dsc = discountApplied.type === 'pct' ? c * discountApplied.value / 100 : discountApplied.value;
-                          else if (discountMode === 'individual') { const v = parseFloat(itemDiscounts[i] ?? ''); if (!isNaN(v) && v > 0) dsc = discountIndividualType === 'pct' ? c * v / 100 : v; }
-                          let sur = 0;
-                          if (surchargeMode === 'geral' && surchargeApplied) sur = surchargeApplied.type === 'pct' ? c * surchargeApplied.value / 100 : surchargeApplied.value;
-                          else if (surchargeMode === 'individual') { const v = parseFloat(itemSurcharges[i] ?? ''); if (!isNaN(v) && v > 0) sur = surchargeIndividualType === 'pct' ? c * v / 100 : v; }
+                          const { disc: dsc, sur } = calcAdjAmounts(c, q, i, adjColumns);
                           const adj = c - dsc + sur;
                           const sp = viewingNoteSellPrices[i] ?? it.product_price ?? 0;
                           return { adj, q, total: adj * q, markup: adj > 0 && sp > 0 ? ((sp - adj) / adj * 100) : null };
@@ -6219,48 +6219,21 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('valor_total')}
                           </th>
-                          {/* Desconto header */}
-                          <th style={{ ...thBar, position: 'relative' }}>
-                            <div style={lbl()}>
-                              <button
-                                onClick={() => { setDiscountDropdown(v => !v); setSurchargeDropdown(false); }}
-                                className="flex items-center gap-1.5 ml-auto hover:text-red-400 transition-colors"
-                                style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
-                              >
-                                Desconto
-                                <ChevronDown size={10} className={cn("transition-transform", discountDropdown && "rotate-180")} />
-                                {discountMode !== 'none' && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
-                              </button>
-                            </div>
-                            {discountDropdown && (
-                              <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
-                                <button onClick={() => { setDiscountDropdown(false); setDiscountGeralValue(''); setDiscountDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
-                                <button onClick={() => { setDiscountDropdown(false); setDiscountDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
-                                {discountMode !== 'none' && <button onClick={() => { setDiscountDropdown(false); setDiscountMode('none'); setDiscountApplied(null); setItemDiscounts([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
+                          {/* Dynamic adj column headers */}
+                          {adjColumns.map(col => (
+                            <th key={col.id} style={{ ...thBar, position: 'relative' }}>
+                              <div style={lbl()}>
+                                <span className="text-[9px] font-black uppercase tracking-[0.12em]" style={{ color: col.kind === 'desconto' ? 'rgba(248,113,113,0.8)' : 'rgba(52,211,153,0.8)' }}>{col.name}</span>
+                                <button
+                                  onClick={() => setAdjColumns(prev => prev.filter(c => c.id !== col.id))}
+                                  className="ml-1 w-4 h-4 rounded flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                  title={`Remover coluna "${col.name}"`}
+                                >
+                                  <X size={9} />
+                                </button>
                               </div>
-                            )}
-                          </th>
-                          {/* Acréscimo header */}
-                          <th style={{ ...thBar, position: 'relative' }}>
-                            <div style={lbl()}>
-                              <button
-                                onClick={() => { setSurchargeDropdown(v => !v); setDiscountDropdown(false); }}
-                                className="flex items-center gap-1.5 ml-auto hover:text-green-500 transition-colors"
-                                style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'inherit' }}
-                              >
-                                Acréscimo
-                                <ChevronDown size={10} className={cn("transition-transform", surchargeDropdown && "rotate-180")} />
-                                {surchargeMode !== 'none' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
-                              </button>
-                            </div>
-                            {surchargeDropdown && (
-                              <div className="absolute right-0 top-full mt-1 z-[200] bg-[#2e2e28] rounded-xl shadow-2xl border border-white/[0.08] overflow-hidden min-w-[150px]">
-                                <button onClick={() => { setSurchargeDropdown(false); setSurchargeGeralValue(''); setSurchargeDialog('geral'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors">Geral</button>
-                                <button onClick={() => { setSurchargeDropdown(false); setSurchargeDialog('individual'); }} className="w-full px-4 py-3 text-left text-sm font-bold text-white/75 hover:bg-white/[0.06] transition-colors border-t border-white/[0.05]">Individual</button>
-                                {surchargeMode !== 'none' && <button onClick={() => { setSurchargeDropdown(false); setSurchargeMode('none'); setSurchargeApplied(null); setItemSurcharges([]); }} className="w-full px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/[0.05]">Limpar</button>}
-                              </div>
-                            )}
-                          </th>
+                            </th>
+                          ))}
                           <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
@@ -6301,12 +6274,7 @@ export default function Page() {
                         if (key === 'preco_custo' || key === 'valor_total' || key === 'markup') {
                           const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
                           const q = viewingNoteQtys[i] ?? it.qty ?? 0;
-                          let dsc = 0;
-                          if (discountMode === 'geral' && discountApplied) dsc = discountApplied.type === 'pct' ? c * discountApplied.value / 100 : discountApplied.value;
-                          else if (discountMode === 'individual') { const v = parseFloat(itemDiscounts[i] ?? ''); if (!isNaN(v) && v > 0) dsc = discountIndividualType === 'pct' ? c * v / 100 : v; }
-                          let sur = 0;
-                          if (surchargeMode === 'geral' && surchargeApplied) sur = surchargeApplied.type === 'pct' ? c * surchargeApplied.value / 100 : surchargeApplied.value;
-                          else if (surchargeMode === 'individual') { const v = parseFloat(itemSurcharges[i] ?? ''); if (!isNaN(v) && v > 0) sur = surchargeIndividualType === 'pct' ? c * v / 100 : v; }
+                          const { disc: dsc, sur } = calcAdjAmounts(c, q, i, adjColumns);
                           const adj = c - dsc + sur;
                           if (key === 'preco_custo') return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-';
                           if (key === 'valor_total') { const t = adj * q; return t > 0 ? `R$ ${t.toFixed(2)}` : '-'; }
@@ -6344,26 +6312,7 @@ export default function Page() {
                       const focusCell = (el: HTMLElement | null) => { if (el) { el.style.borderColor = 'rgba(216,30,30,0.55)'; el.style.boxShadow = '0 0 0 3px rgba(216,30,30,0.12)'; } };
                       const blurCell  = (el: HTMLElement | null) => { if (el) { el.style.borderColor = ''; el.style.boxShadow = ''; } };
 
-                      let discountAmt = 0;
-                      if (discountMode === 'geral' && discountApplied) {
-                        discountAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
-                      } else if (discountMode === 'individual') {
-                        const v = parseFloat(itemDiscounts[idx] ?? '');
-                        if (!isNaN(v) && v > 0) discountAmt = discountIndividualType === 'pct' ? cost * v / 100
-                          : discountIndividualType === 'fixed_total' ? v / (displayQty || 1)
-                          : v;
-                      }
-                      let surchargeAmt = 0;
-                      if (surchargeMode === 'geral' && surchargeApplied) {
-                        surchargeAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
-                      } else if (surchargeMode === 'individual') {
-                        const v = parseFloat(itemSurcharges[idx] ?? '');
-                        if (!isNaN(v) && v > 0) {
-                          surchargeAmt = surchargeIndividualType === 'pct' ? cost * v / 100
-                            : surchargeIndividualType === 'fixed_total' ? v / (displayQty || 1)
-                            : v;
-                        }
-                      }
+                      const { disc: discountAmt, sur: surchargeAmt } = calcAdjAmounts(cost, displayQty, idx, adjColumns);
                       const hasDiscount = discountAmt > 0;
                       const hasSurcharge = surchargeAmt > 0;
                       const adjCost = cost - discountAmt + surchargeAmt;
@@ -6704,60 +6653,48 @@ export default function Page() {
                               </span>
                             </div>
                           </td>
-                          {/* Desconto cell */}
-                          <td style={tdP}
-                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                          >
-                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
-                              {discountMode === 'geral' && discountApplied ? (
-                                <span className="text-red-400 font-bold text-xs">
-                                  - R$ {(discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value).toFixed(2)}
-                                </span>
-                              ) : discountMode === 'individual' ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{discountIndividualType === 'pct' ? '%' : discountIndividualType === 'fixed_total' ? 'R$∑' : 'R$'}</span>
-                                  <input
-                                    type="number" min="0" step="0.01"
-                                    data-nav-table="review-note" data-nav-row={idx} data-nav-col={5}
-                                    value={itemDiscounts[idx] ?? ''}
-                                    onChange={e => { const u = [...itemDiscounts]; u[idx] = e.target.value; setItemDiscounts(u); }}
-                                    onKeyDown={tableCellKeyDown('review-note', idx, 5)}
-                                    placeholder="0"
-                                    className="w-12 text-right text-xs font-bold text-red-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                                  />
+                          {/* Dynamic adj column cells */}
+                          {adjColumns.map((col, colIdx) => {
+                            const isDisc = col.kind === 'desconto';
+                            const colorClass = isDisc ? 'text-red-400' : 'text-emerald-400';
+                            const prefix = isDisc ? '- R$' : '+ R$';
+                            if (col.mode === 'geral') {
+                              const amt = col.geralType === 'pct' ? cost * col.geralValue / 100 : col.geralValue;
+                              return (
+                                <td key={col.id} style={tdP}>
+                                  <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                                    <span className={`${colorClass} font-bold text-xs`}>{prefix} {amt.toFixed(2)}</span>
+                                  </div>
+                                </td>
+                              );
+                            }
+                            return (
+                              <td key={col.id} style={tdP}
+                                onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                                onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                              >
+                                <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{col.individualType === 'pct' ? '%' : col.individualType === 'fixed_total' ? 'R$∑' : 'R$'}</span>
+                                    <input
+                                      type="number" min="0" step="0.01"
+                                      value={col.items[idx] ?? ''}
+                                      onChange={e => {
+                                        setAdjColumns(prev => prev.map((c, ci) => {
+                                          if (ci !== colIdx) return c;
+                                          const items = [...c.items];
+                                          items[idx] = e.target.value;
+                                          return { ...c, items };
+                                        }));
+                                      }}
+                                      placeholder="0"
+                                      className={`w-12 text-right text-xs font-bold ${colorClass} bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
+                                    />
+                                  </div>
                                 </div>
-                              ) : <span className="text-xs" style={{ color: 'var(--rn-text-subtle)' }}>—</span>}
-                            </div>
-                          </td>
-                          {/* Acréscimo cell */}
-                          <td style={tdP}
-                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                          >
-                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
-                              {surchargeMode === 'geral' && surchargeApplied ? (
-                                <span className="text-emerald-400 font-bold text-xs">
-                                  + R$ {(surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value).toFixed(2)}
-                                </span>
-                              ) : surchargeMode === 'individual' ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>
-                                    {surchargeIndividualType === 'pct' ? '%' : surchargeIndividualType === 'fixed_total' ? 'R$∑' : 'R$'}
-                                  </span>
-                                  <input
-                                    type="number" min="0" step="0.01"
-                                    data-nav-table="review-note" data-nav-row={idx} data-nav-col={6}
-                                    value={itemSurcharges[idx] ?? ''}
-                                    onChange={e => { const u = [...itemSurcharges]; u[idx] = e.target.value; setItemSurcharges(u); }}
-                                    onKeyDown={tableCellKeyDown('review-note', idx, 6)}
-                                    placeholder="0"
-                                    className="w-12 text-right text-xs font-bold text-emerald-400 bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                                  />
-                                </div>
-                              ) : <span className="text-xs" style={{ color: 'var(--rn-text-subtle)' }}>—</span>}
-                            </div>
-                          </td>
+                              </td>
+                            );
+                          })}
                           {/* Preço Venda */}
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -6928,8 +6865,7 @@ export default function Page() {
                                     setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
                                     setViewingDistribMode(remove(viewingDistribMode));
-                                    setItemDiscounts(remove(itemDiscounts));
-                                    setItemSurcharges(remove(itemSurcharges));
+                                    setAdjColumns(prev => prev.map(col => ({ ...col, items: remove(col.items) })));
                                     setViewingNoteDiscrepancies(remove(viewingNoteDiscrepancies));
                                     setDeleteConfirmIdx(null);
                                   }}
@@ -7459,25 +7395,7 @@ export default function Page() {
                         (acc: { noteTotalCost: number; markupCost: number; markupRevenue: number }, item: any, idx: number) => {
                           const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                           const qty  = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                          let discAmt = 0;
-                          if (discountMode === 'geral' && discountApplied) {
-                            discAmt = discountApplied.type === 'pct' ? cost * discountApplied.value / 100 : discountApplied.value;
-                          } else if (discountMode === 'individual') {
-                            const v = parseFloat(itemDiscounts[idx] ?? '');
-                            if (!isNaN(v) && v > 0) discAmt = discountIndividualType === 'pct' ? cost * v / 100 : v;
-                          }
-                          let surAmt = 0;
-                          if (surchargeMode === 'geral' && surchargeApplied) {
-                            surAmt = surchargeApplied.type === 'pct' ? cost * surchargeApplied.value / 100 : surchargeApplied.value;
-                          } else if (surchargeMode === 'individual') {
-                            const v = parseFloat(itemSurcharges[idx] ?? '');
-                            if (!isNaN(v) && v > 0) {
-                              const qty = viewingNoteQtys[idx] ?? item.qty ?? 1;
-                              surAmt = surchargeIndividualType === 'pct' ? cost * v / 100
-                                : surchargeIndividualType === 'fixed_total' ? v / (qty || 1)
-                                : v;
-                            }
-                          }
+                          const { disc: discAmt, sur: surAmt } = calcAdjAmounts(cost, qty, idx, adjColumns);
                           const adjCost   = cost - discAmt + surAmt;
                           const sellPrice = viewingNoteSellPrices[idx] ?? (item as any).product_price ?? 0;
                           const hasMarkup = adjCost > 0 && sellPrice > 0;
@@ -7814,100 +7732,134 @@ export default function Page() {
                 })()}
               </AnimatePresence>
 
-              {/* Desconto Geral dialog */}
-              {discountDialog === 'geral' && (
+              {/* Adj column creation dialog */}
+              {adjColDialog && (
                 <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
                   <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
-                    <h4 className="text-base font-black text-slate-900 mb-1">Desconto Geral</h4>
-                    <p className="text-xs text-slate-400 mb-4">Aplicado a todos os itens da nota</p>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <input type="number" min="0" step="0.01" value={discountGeralValue} onChange={e => setDiscountGeralValue(e.target.value)} placeholder="0" autoFocus
-                          className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" />
-                        <div className="flex border border-slate-200 rounded-xl overflow-hidden">
-                          <button onClick={() => setDiscountGeralType('pct')} className={cn("px-4 text-sm font-black transition-colors", discountGeralType === 'pct' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>%</button>
-                          <button onClick={() => setDiscountGeralType('fixed')} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", discountGeralType === 'fixed' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>R$</button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                        <button onClick={() => { const v = parseFloat(discountGeralValue); if (!isNaN(v) && v > 0) { captureSnapshot(); setDiscountApplied({ value: v, type: discountGeralType }); setDiscountMode('geral'); } setDiscountDialog(null); }}
-                          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Desconto Individual dialog */}
-              {discountDialog === 'individual' && (
-                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
-                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
-                    <h4 className="text-base font-black text-slate-900 mb-1">Desconto Individual</h4>
-                    <p className="text-xs text-slate-400 mb-4">Escolha o tipo e a base de cálculo para cada item</p>
+                    {(() => {
+                      const isDisc = adjColDialog.kind === 'desconto';
+                      const accentColor = isDisc ? 'text-red-500' : 'text-emerald-600';
+                      const accentBg = isDisc ? 'bg-red-500' : 'bg-emerald-600';
+                      const title = isDisc ? 'Nova coluna de Desconto' : 'Nova coluna de Acréscimo';
+                      const update = (patch: Partial<typeof adjColDialog>) => setAdjColDialog(prev => prev ? { ...prev, ...patch } : null);
+                      const confirmCol = () => {
+                        if (!adjColDialog.name.trim() || !adjColDialog.method) return;
+                        const itemCount = viewingReviewNote?.items.length ?? 0;
+                        const newCol: AdjColumn = {
+                          id: `${adjColDialog.kind}-${Date.now()}`,
+                          name: adjColDialog.name.trim(),
+                          kind: adjColDialog.kind,
+                          mode: adjColDialog.method,
+                          geralValue: adjColDialog.method === 'geral' ? (parseFloat(adjColDialog.geralValue) || 0) : 0,
+                          geralType: adjColDialog.geralType,
+                          individualType: adjColDialog.individualType,
+                          items: new Array(itemCount).fill(''),
+                        };
+                        captureSnapshot();
+                        setAdjColumns(prev => [...prev, newCol]);
+                        setAdjColDialog(null);
+                      };
+                      return (
+                        <>
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className={`text-base font-black text-slate-900`}>{title}</h4>
+                            <button onClick={() => setAdjColDialog(null)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><X size={16} className="text-slate-400" /></button>
+                          </div>
 
-                    {/* Tipo: % ou R$ */}
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</p>
-                    <div className="flex gap-3 mb-4">
-                      <button onClick={() => setDiscountIndividualType('pct')} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
-                        <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
-                      </button>
-                      <button onClick={() => { if (discountIndividualType === 'pct') setDiscountIndividualType('fixed'); }} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", discountIndividualType !== 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
-                        <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
-                      </button>
-                    </div>
+                          {/* Step 1: Name */}
+                          <div className="mb-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Nome da coluna</label>
+                            <input
+                              type="text"
+                              value={adjColDialog.name}
+                              onChange={e => update({ name: e.target.value })}
+                              placeholder={isDisc ? 'Ex: Desconto Frete' : 'Ex: Acréscimo ICMS'}
+                              autoFocus
+                              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary"
+                            />
+                          </div>
 
-                    {/* Base: apenas quando R$ selecionado */}
-                    {discountIndividualType !== 'pct' && (
-                      <>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar sobre</p>
-                        <div className="flex gap-3 mb-4">
-                          <button
-                            onClick={() => setDiscountIndividualType('fixed')}
-                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", discountIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
-                          >
-                            <span className="text-sm">R$/un</span>
-                            <span className="text-[10px] font-medium leading-tight">Preço Custo<br/>(por unidade)</span>
-                          </button>
-                          <button
-                            onClick={() => setDiscountIndividualType('fixed_total')}
-                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", discountIndividualType === 'fixed_total' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
-                          >
-                            <span className="text-sm">R$∑</span>
-                            <span className="text-[10px] font-medium leading-tight">Valor Total<br/>(rateado por qtd.)</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button onClick={() => setDiscountDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                      <button onClick={() => { setDiscountMode('individual'); if (viewingReviewNote) setItemDiscounts(new Array(viewingReviewNote.items.length).fill('')); setDiscountDialog(null); }}
-                        className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Confirmar</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Acréscimo Geral dialog */}
-              {surchargeDialog === 'geral' && (
-                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
-                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
-                    <h4 className="text-base font-black text-slate-900 mb-1">Acréscimo Geral</h4>
-                    <p className="text-xs text-slate-400 mb-4">Aplicado a todos os itens da nota</p>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <input type="number" min="0" step="0.01" value={surchargeGeralValue} onChange={e => setSurchargeGeralValue(e.target.value)} placeholder="0" autoFocus
-                          className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" />
-                        <div className="flex border border-slate-200 rounded-xl overflow-hidden">
-                          <button onClick={() => setSurchargeGeralType('pct')} className={cn("px-4 text-sm font-black transition-colors", surchargeGeralType === 'pct' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>%</button>
-                          <button onClick={() => setSurchargeGeralType('fixed')} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", surchargeGeralType === 'fixed' ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50")}>R$</button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                        <button onClick={() => { const v = parseFloat(surchargeGeralValue); if (!isNaN(v) && v > 0) { captureSnapshot(); setSurchargeApplied({ value: v, type: surchargeGeralType }); setSurchargeMode('geral'); } setSurchargeDialog(null); }}
-                          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Aplicar</button>
-                      </div>
-                    </div>
+                          {/* Step 2: Method */}
+                          {!adjColDialog.method ? (
+                            <>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Método</label>
+                              <div className="flex gap-3 mb-4">
+                                <button
+                                  onClick={() => update({ method: 'geral' })}
+                                  disabled={!adjColDialog.name.trim()}
+                                  className="flex-1 py-4 rounded-xl border-2 border-slate-200 text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 font-black transition-all flex flex-col items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <span className="text-xl">=</span>
+                                  <span className="text-xs font-medium">Geral</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Mesmo valor para todos</span>
+                                </button>
+                                <button
+                                  onClick={() => { update({ method: 'individual' }); }}
+                                  disabled={!adjColDialog.name.trim()}
+                                  className="flex-1 py-4 rounded-xl border-2 border-slate-200 text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 font-black transition-all flex flex-col items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <span className="text-xl">≠</span>
+                                  <span className="text-xs font-medium">Individual</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Valor por item</span>
+                                </button>
+                              </div>
+                              <button onClick={() => setAdjColDialog(null)} className="w-full py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+                            </>
+                          ) : adjColDialog.method === 'geral' ? (
+                            <>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Valor</label>
+                              <div className="flex gap-2 mb-4">
+                                <input type="number" min="0" step="0.01"
+                                  value={adjColDialog.geralValue}
+                                  onChange={e => update({ geralValue: e.target.value })}
+                                  placeholder="0"
+                                  className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                />
+                                <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                                  <button onClick={() => update({ geralType: 'pct' })} className={cn("px-4 text-sm font-black transition-colors", adjColDialog.geralType === 'pct' ? `${accentBg} text-white` : "text-slate-500 hover:bg-slate-50")}>%</button>
+                                  <button onClick={() => update({ geralType: 'fixed' })} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", adjColDialog.geralType === 'fixed' ? `${accentBg} text-white` : "text-slate-500 hover:bg-slate-50")}>R$</button>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => update({ method: null })} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">← Voltar</button>
+                                <button onClick={confirmCol} disabled={!adjColDialog.geralValue || parseFloat(adjColDialog.geralValue) <= 0}
+                                  className={cn("flex-1 py-3 rounded-xl text-sm font-black text-white transition-colors disabled:opacity-40", accentBg, isDisc ? "hover:bg-red-600" : "hover:bg-emerald-700")}>Adicionar</button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Tipo do valor</label>
+                              <div className="flex gap-3 mb-4">
+                                <button onClick={() => update({ individualType: 'pct' })} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", adjColDialog.individualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                                  <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
+                                </button>
+                                <button onClick={() => update({ individualType: adjColDialog.individualType === 'pct' ? 'fixed' : adjColDialog.individualType })} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", adjColDialog.individualType !== 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                                  <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
+                                </button>
+                              </div>
+                              {adjColDialog.individualType !== 'pct' && (
+                                <>
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Aplicar sobre</label>
+                                  <div className="flex gap-3 mb-4">
+                                    <button onClick={() => update({ individualType: 'fixed' })} className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", adjColDialog.individualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                                      <span className="text-sm">R$/un</span><span className="text-[10px] font-medium leading-tight">Preço Custo<br/>(por unidade)</span>
+                                    </button>
+                                    <button onClick={() => update({ individualType: 'fixed_total' })} className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", adjColDialog.individualType === 'fixed_total' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
+                                      <span className="text-sm">R$∑</span><span className="text-[10px] font-medium leading-tight">Valor Total<br/>(rateado por qtd.)</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex gap-2">
+                                <button onClick={() => update({ method: null })} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">← Voltar</button>
+                                <button onClick={confirmCol}
+                                  className={cn("flex-1 py-3 rounded-xl text-sm font-black text-white transition-colors", accentBg, isDisc ? "hover:bg-red-600" : "hover:bg-emerald-700")}>Adicionar</button>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -8188,55 +8140,6 @@ export default function Page() {
                 </div>
               )}
 
-              {/* Acréscimo Individual dialog */}
-              {surchargeDialog === 'individual' && (
-                <div className="absolute inset-0 z-[150] bg-slate-900/50 flex items-center justify-center rounded-3xl">
-                  <div className="bg-white rounded-2xl p-6 w-80 shadow-2xl">
-                    <h4 className="text-base font-black text-slate-900 mb-1">Acréscimo Individual</h4>
-                    <p className="text-xs text-slate-400 mb-4">Escolha o tipo e a base de cálculo para cada item</p>
-
-                    {/* Tipo: % ou R$ */}
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</p>
-                    <div className="flex gap-3 mb-4">
-                      <button onClick={() => setSurchargeIndividualType('pct')} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType === 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
-                        <span className="text-2xl">%</span><span className="text-xs font-medium">Percentual</span>
-                      </button>
-                      <button onClick={() => { if (surchargeIndividualType === 'pct') setSurchargeIndividualType('fixed'); }} className={cn("flex-1 py-4 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1", surchargeIndividualType !== 'pct' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}>
-                        <span className="text-2xl">R$</span><span className="text-xs font-medium">Valor fixo</span>
-                      </button>
-                    </div>
-
-                    {/* Base: apenas quando R$ selecionado */}
-                    {surchargeIndividualType !== 'pct' && (
-                      <>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar sobre</p>
-                        <div className="flex gap-3 mb-4">
-                          <button
-                            onClick={() => setSurchargeIndividualType('fixed')}
-                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", surchargeIndividualType === 'fixed' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
-                          >
-                            <span className="text-sm">R$/un</span>
-                            <span className="text-[10px] font-medium leading-tight">Preço Custo<br/>(por unidade)</span>
-                          </button>
-                          <button
-                            onClick={() => setSurchargeIndividualType('fixed_total')}
-                            className={cn("flex-1 py-3 rounded-xl border-2 font-black transition-all flex flex-col items-center gap-1 text-center", surchargeIndividualType === 'fixed_total' ? "border-primary text-primary bg-primary/5" : "border-slate-200 text-slate-400 hover:border-slate-300")}
-                          >
-                            <span className="text-sm">R$∑</span>
-                            <span className="text-[10px] font-medium leading-tight">Valor Total<br/>(rateado por qtd.)</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button onClick={() => setSurchargeDialog(null)} className="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
-                      <button onClick={() => { setSurchargeMode('individual'); if (viewingReviewNote) setItemSurcharges(new Array(viewingReviewNote.items.length).fill('')); setSurchargeDialog(null); }}
-                        className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors">Confirmar</button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </motion.div>
           </div>
         )}
