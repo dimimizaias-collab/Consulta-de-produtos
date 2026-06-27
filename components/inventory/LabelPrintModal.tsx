@@ -51,6 +51,8 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const [selections, setSelections] = useState<Record<string, Selection>>({});
   // set of block indices (0-based) that are already used on the sheet
   const [usedBlocks, setUsedBlocks] = useState<Set<number>>(new Set());
+  // range-select mode: null = off, number = first point chosen, 'picking' = waiting for first click
+  const [rangeMode, setRangeMode] = useState<false | 'first' | number>(false);
 
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase();
@@ -423,9 +425,13 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                               <input
                                 type="number"
                                 min={1}
-                                value={sel.qty}
-                                onChange={e => setQty(product.id, parseInt(e.target.value) || 1)}
-                                className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                                value={sel.qty === 1 ? '' : sel.qty}
+                                placeholder="0"
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  setQty(product.id, val > 0 ? val : 1);
+                                }}
+                                className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <span className="text-[10px] text-on-surface/35 font-medium">un.</span>
                             </div>
@@ -482,12 +488,29 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                         <> · iniciando no bloco <span className="font-black text-on-surface">{firstPrintBlock + 1}</span></>
                       )}
                     </p>
-                    <button
-                      onClick={() => setUsedBlocks(new Set())}
-                      className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
-                    >
-                      Limpar seleção
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setRangeMode(rangeMode === false ? 'first' : false)}
+                        className={cn(
+                          'text-[11px] font-semibold transition-colors px-2.5 py-1 rounded-lg border',
+                          rangeMode !== false
+                            ? 'bg-on-surface text-surface-container border-on-surface'
+                            : 'text-on-surface/50 hover:text-on-surface border-on-surface/20 hover:border-on-surface/40'
+                        )}
+                      >
+                        {rangeMode === false
+                          ? 'Selecionar'
+                          : rangeMode === 'first'
+                          ? 'Clique no 1º bloco…'
+                          : 'Clique no 2º bloco…'}
+                      </button>
+                      <button
+                        onClick={() => setUsedBlocks(new Set())}
+                        className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
+                      >
+                        Limpar seleção
+                      </button>
+                    </div>
                   </div>
 
                   {/* Legend */}
@@ -520,7 +543,22 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                         return (
                           <button
                             key={i}
-                            onClick={() => toggleBlock(i)}
+                            onClick={() => {
+                              if (rangeMode === 'first') {
+                                setRangeMode(i);
+                              } else if (typeof rangeMode === 'number') {
+                                const from = Math.min(rangeMode, i);
+                                const to   = Math.max(rangeMode, i);
+                                setUsedBlocks(prev => {
+                                  const next = new Set(prev);
+                                  for (let b = from; b <= to; b++) next.add(b);
+                                  return next;
+                                });
+                                setRangeMode(false);
+                              } else {
+                                toggleBlock(i);
+                              }
+                            }}
                             title={`Bloco ${i + 1}`}
                             className={cn(
                               'h-[33px] rounded-md text-[6px] font-bold transition-all flex items-center justify-center cursor-pointer',
