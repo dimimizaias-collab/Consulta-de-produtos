@@ -427,7 +427,7 @@ export default function Page() {
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteEanVariants, setViewingNoteEanVariants] = useState<EanVariant[][]>([]);
-  const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<number[]>([]);
+  const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<(number | null)[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingDistribDropdownIdx, setViewingDistribDropdownIdx] = useState<number | null>(null);
   const [viewingDistribMode, setViewingDistribMode] = useState<string[]>([]);
@@ -6650,8 +6650,8 @@ export default function Page() {
                                         min="0"
                                         step="0.01"
                                         data-nav-table="review-note" data-nav-row={idx} data-nav-col={4}
-                                        value={viewingNoteItemPrices[idx] ?? item.price ?? ''}
-                                        onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = parseFloat(e.target.value) || 0; setViewingNoteItemPrices(u); }}
+                                        value={viewingNoteItemPrices[idx] === null ? '' : (viewingNoteItemPrices[idx] ?? item.price ?? '')}
+                                        onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = e.target.value === '' ? null : parseFloat(e.target.value); setViewingNoteItemPrices(u); }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
                                         onBlur={captureSnapshot}
                                         className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
