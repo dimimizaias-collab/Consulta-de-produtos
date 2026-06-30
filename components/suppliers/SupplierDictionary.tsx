@@ -492,8 +492,8 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
   };
 
   const handleSaveMapping = async (mappingId: string) => {
-    if (!editDescription.trim() || !editProduct) {
-      setNotification({ type: 'error', message: 'Descrição e produto interno são obrigatórios.' });
+    if ((!editDescription.trim() && !editSku.trim()) || !editProduct) {
+      setNotification({ type: 'error', message: 'Informe a descrição ou o código do fornecedor, e o produto interno.' });
       return;
     }
     setIsSavingMapping(true);
