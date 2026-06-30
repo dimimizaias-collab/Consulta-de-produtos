@@ -23,7 +23,7 @@ import { MobileFinancePage } from '@/components/finance/MobileFinancePage';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { HRManager } from '@/components/hr/HRManager';
 import { MobileHRPage } from '@/components/hr/MobileHRPage';
-import { MobileNoteView } from '@/components/MobileNoteView';
+import { MobileNoteView, type EanVariant } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
@@ -426,6 +426,7 @@ export default function Page() {
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
+  const [viewingNoteEanVariants, setViewingNoteEanVariants] = useState<EanVariant[][]>([]);
   const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<number[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingDistribDropdownIdx, setViewingDistribDropdownIdx] = useState<number | null>(null);
@@ -2488,6 +2489,7 @@ export default function Page() {
       const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
         ...item,
         ean: viewingNoteEans[idx] ?? item.ean,
+        eanVariants: (viewingNoteEanVariants[idx]?.length ?? 0) > 0 ? viewingNoteEanVariants[idx] : undefined,
         sku: viewingNoteSkus[idx] ?? item.sku,
         qty: viewingNoteQtys[idx] ?? item.qty,
         price: viewingNoteItemPrices[idx] ?? item.price,
@@ -2539,7 +2541,7 @@ export default function Page() {
       setSavingNote(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -3302,6 +3304,7 @@ export default function Page() {
                     setViewingNoteEans([]);
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
+                    setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setViewingDistribMode([]);
@@ -3358,6 +3361,7 @@ export default function Page() {
                     setViewingNoteEans([]);
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
+                    setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setViewingDistribMode([]);
@@ -6300,7 +6304,7 @@ export default function Page() {
                             sel.size === 0 || sel.has(_getVal(key, item, origIdx))
                           )
                         );
-                      return _filtered.map(({ item, origIdx: idx }) => {
+                      return _filtered.flatMap(({ item, origIdx: idx }) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
 
@@ -6332,8 +6336,12 @@ export default function Page() {
                       const markup = adjCost > 0 && sellPrice > 0
                         ? ((sellPrice - adjCost) / adjCost * 100)
                         : null;
-                      return (
-                        <tr key={idx} className={`transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}>
+                      const _itemVariantsCheck: EanVariant[] = (viewingNoteEanVariants[idx]?.length ?? 0) > 0
+                        ? viewingNoteEanVariants[idx]
+                        : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
+                      const _hasVariants = _itemVariantsCheck.length > 0;
+                      const parentRow = (
+                        <tr key={idx} className={`transition-colors ${_hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]' : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}`}>
                           {/* # */}
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
@@ -6904,7 +6912,94 @@ export default function Page() {
                           </td>
                         </tr>
                       );
-                      }); // end _filtered.map
+
+                      // EAN variant child rows
+                      const itemVariants = _itemVariantsCheck;
+                      if (itemVariants.length === 0) return [parentRow];
+
+                      const totalVariantQty = itemVariants.reduce((s, v) => s + (v.qty || 0), 0);
+                      const childRows = itemVariants.map((variant, vi) => {
+                        const isLastChild = vi === itemVariants.length - 1;
+                        const childTotal = totalVariantQty > 0 ? totalValue * (variant.qty || 0) / totalVariantQty : 0;
+                        const childUnitCost = (variant.qty || 0) > 0 ? childTotal / variant.qty : 0;
+                        const seqLabel = `${item.seq ?? idx + 1}${String.fromCharCode(97 + vi)}`;
+                        return (
+                          <tr key={`${idx}-v${vi}`}
+                            className="bg-[#141412] dark:bg-[#141412]"
+                            style={isLastChild ? { borderBottom: '2px solid #2a2000' } : {}}
+                          >
+                            <td style={tdP}>
+                              <div style={{ ...cell({ justifyContent: 'center', overflow: 'visible' }), position: 'relative' }}>
+                                <svg width="18" height="40" viewBox="0 0 18 40" fill="none" aria-hidden="true"
+                                  style={{ position: 'absolute', left: -3, top: 0, overflow: 'visible' }}>
+                                  <line x1="9" y1="0" x2="9" y2={isLastChild ? 20 : 40} stroke="#2a2000" strokeWidth="1.5" />
+                                  <line x1="9" y1="20" x2="18" y2="20" stroke="#2a2000" strokeWidth="1.5" />
+                                </svg>
+                                <span className="text-[10px] font-black" style={{ color: '#555', paddingLeft: 10 }}>{seqLabel}</span>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{item.supplier_code || '—'}</span>
+                              </div>
+                            </td>
+                            <td style={{ ...tdP, maxWidth: '220px' }}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--rn-text-muted)' }}>
+                                  {item.original_description || '-'}
+                                  {variant.desc && <span style={{ color: '#555' }}> — {variant.desc}</span>}
+                                </p>
+                              </div>
+                            </td>
+                            <td style={{ ...tdP, maxWidth: '200px' }}>
+                              <div style={cell({ padding: '0 8px' })}>
+                                <span className="text-[10px]" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{variant.ean || '—'}</p>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{variant.sku || '—'}</p>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-muted)' }}>
+                                  {(viewingNoteUnits[idx] ?? item.unit ?? 'UN')} × {variant.qty || 0}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <span className="text-[11px] font-mono" style={{ color: 'var(--rn-text-muted)' }}>R$ {childUnitCost.toFixed(4)}</span>
+                              </div>
+                            </td>
+                            <td style={tdP}>
+                              <div style={cell({ padding: '0 10px' })}>
+                                <span className="text-[11px] font-mono" style={{ color: 'var(--rn-text-muted)' }}>R$ {childTotal.toFixed(2)}</span>
+                              </div>
+                            </td>
+                            {/* adj column placeholders */}
+                            {adjColumns.map(col => (
+                              <td key={col.id} style={tdP}><div style={cell({ padding: '0 10px' })}><span style={{ color: 'var(--rn-text-subtle)' }}>—</span></div></td>
+                            ))}
+                            {/* Preço Venda, Markup, Status, Ok, Revisão, Distribuição, Delete */}
+                            <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
+                            <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
+                            <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
+                            <td style={tdP}><div style={cell({ justifyContent: 'center' })}></div></td>
+                            <td style={tdP}><div style={cell({ justifyContent: 'center' })}></div></td>
+                            <td style={tdP}><div style={cell({ justifyContent: 'center' })}></div></td>
+                            <td style={{ ...tdP, borderRight: 'none' }}><div style={cell({ justifyContent: 'center' })}></div></td>
+                          </tr>
+                        );
+                      });
+                      return [parentRow, ...childRows];
+                      }); // end _filtered.flatMap
                     })(/* tbody IIFE */)}
                   </tbody>
                 </table>
@@ -8179,6 +8274,8 @@ export default function Page() {
             onVarios={(idx) => { setShowMobileNoteView(false); setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
             eanProblems={eanProblems}
             onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}
+            eanVariants={viewingNoteEanVariants}
+            setEanVariants={setViewingNoteEanVariants}
           />
         )}
       </AnimatePresence>

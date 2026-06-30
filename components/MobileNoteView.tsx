@@ -13,6 +13,13 @@ import { EanProblemButton, type EanProblem } from '@/components/shared/EanProble
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
+export interface EanVariant {
+  desc: string;
+  ean: string;
+  sku: string;
+  qty: number;
+}
+
 interface MobileNoteViewProps {
   note: ReviewNote;
   products: any[];
@@ -35,6 +42,8 @@ interface MobileNoteViewProps {
   onVarios: (idx: number) => void;
   eanProblems?: EanProblem[];
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
+  eanVariants: EanVariant[][];
+  setEanVariants: React.Dispatch<React.SetStateAction<EanVariant[][]>>;
 }
 
 type Tab = 'itens' | 'detalhe' | 'resumo';
@@ -315,6 +324,7 @@ export function MobileNoteView({
   setNote, onClose, onSave, savingNote, onDelete, onVarios,
   eanProblems = [],
   onReportEanProblem,
+  eanVariants, setEanVariants,
 }: MobileNoteViewProps) {
   const [tab, setTab] = useState<Tab>('itens');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -353,6 +363,34 @@ export function MobileNoteView({
       || sku(i).toLowerCase().includes(q)
       || (item.name || '').toLowerCase().includes(q);
   });
+
+  const currentVariants: EanVariant[] = eanVariants[activeIdx] ?? [];
+
+  function updateVariant(variantIdx: number, patch: Partial<EanVariant>) {
+    setEanVariants(prev => {
+      const u = [...prev];
+      const vv = [...(u[activeIdx] ?? [])];
+      vv[variantIdx] = { ...vv[variantIdx], ...patch };
+      u[activeIdx] = vv;
+      return u;
+    });
+  }
+
+  function addVariant() {
+    setEanVariants(prev => {
+      const u = [...prev];
+      u[activeIdx] = [...(u[activeIdx] ?? []), { desc: '', ean: '', sku: '', qty: 0 }];
+      return u;
+    });
+  }
+
+  function removeVariant(variantIdx: number) {
+    setEanVariants(prev => {
+      const u = [...prev];
+      u[activeIdx] = (u[activeIdx] ?? []).filter((_, j) => j !== variantIdx);
+      return u;
+    });
+  }
 
   function openDetail(i: number) {
     setActiveIdx(i);
@@ -469,41 +507,103 @@ export function MobileNoteView({
             </div>
             {/* list */}
             <div className="flex-1 overflow-y-auto">
-              {filteredItems.map(({ item, i }) => (
-                <button
-                  key={i} onClick={() => openDetail(i)}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] text-left relative transition-colors active:bg-white/[0.05] bg-transparent"
-                >
-                  {i === activeIdx && (
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#D81E1E] rounded-r" />
-                  )}
-                  <div className={cn('w-11 h-11 rounded-full flex items-center justify-center font-black text-sm shrink-0 border', avatarClass(i))}>
-                    {item.seq ?? i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-black text-[#f2f0e3] truncate leading-tight">
-                        {item.original_description || item.description || item.name || `Item ${i + 1}`}
-                      </p>
-                      <span className="text-xs font-black text-white/50 shrink-0 font-mono">
-                        {sell(i) > 0 ? `R$ ${sell(i).toFixed(2)}` : '—'}
-                      </span>
+              {filteredItems.flatMap(({ item, i }) => {
+                const itemVariants: EanVariant[] = eanVariants[i]?.length > 0
+                  ? eanVariants[i]
+                  : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
+                const hasVariants = itemVariants.length > 0;
+                const desc = item.original_description || item.description || item.name || `Item ${i + 1}`;
+
+                const parentRow = (
+                  <button
+                    key={i} onClick={() => openDetail(i)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] text-left relative transition-colors active:bg-white/[0.05]',
+                      hasVariants ? 'bg-[#1a1402] border-l-2 border-l-[#D81E1E]' : 'bg-transparent'
+                    )}
+                  >
+                    {i === activeIdx && !hasVariants && (
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#D81E1E] rounded-r" />
+                    )}
+                    <div className={cn(
+                      'w-11 h-11 rounded-full flex items-center justify-center font-black text-sm shrink-0 border',
+                      hasVariants
+                        ? 'bg-[#2a1e00] border-[#3a2a00] text-[#b8860b]'
+                        : avatarClass(i)
+                    )}>
+                      {item.seq ?? i + 1}
                     </div>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className="text-[10px] text-white/30 font-medium truncate">
-                        {[item.supplier_code && `Cód. ${item.supplier_code}`, ean(i) && `EAN ${ean(i)}`, `${unit(i)} × ${qty(i)}`].filter(Boolean).join(' · ')}
-                      </p>
-                      <span className={cn(
-                        'text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0',
-                        isVerif(i) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
-                      )}>
-                        {isVerif(i) ? 'OK' : 'Pendente'}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-black text-[#f2f0e3] truncate leading-tight">{desc}</p>
+                        {hasVariants ? (
+                          <span className="text-[9px] font-black text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-md shrink-0">
+                            {itemVariants.length} var.
+                          </span>
+                        ) : (
+                          <span className="text-xs font-black text-white/50 shrink-0 font-mono">
+                            {sell(i) > 0 ? `R$ ${sell(i).toFixed(2)}` : '—'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <p className="text-[10px] text-white/30 font-medium truncate">
+                          {hasVariants
+                            ? `Cód. ${item.supplier_code || '—'} · ${itemVariants.reduce((s, v) => s + (v.qty || 0), 0)} un total`
+                            : [item.supplier_code && `Cód. ${item.supplier_code}`, ean(i) && `EAN ${ean(i)}`, `${unit(i)} × ${qty(i)}`].filter(Boolean).join(' · ')}
+                        </p>
+                        <span className={cn(
+                          'text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0',
+                          isVerif(i) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
+                        )}>
+                          {isVerif(i) ? 'OK' : 'Pendente'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <ChevronRight size={14} className="text-white/15 shrink-0" />
-                </button>
-              ))}
+                    <ChevronRight size={14} className="text-white/15 shrink-0" />
+                  </button>
+                );
+
+                if (!hasVariants) return [parentRow];
+
+                const childRows = itemVariants.map((variant, vi) => {
+                  const isLast = vi === itemVariants.length - 1;
+                  return (
+                    <button
+                      key={`${i}-v${vi}`}
+                      onClick={() => openDetail(i)}
+                      className={cn(
+                        'w-full flex items-center gap-2 text-left transition-colors active:bg-white/[0.03] bg-[#130f00] border-l-2 border-l-[#3a2a00]',
+                        isLast ? 'border-b-2 border-b-[#2a2000]' : 'border-b border-b-[#1e1c14]'
+                      )}
+                      style={{ paddingTop: 8, paddingBottom: 8, paddingRight: 16 }}
+                    >
+                      <div className="flex items-center shrink-0" style={{ width: 38, paddingLeft: 6 }}>
+                        <svg width="28" height="40" viewBox="0 0 28 40" fill="none" aria-hidden="true">
+                          <line x1="14" y1="0" x2="14" y2={isLast ? 20 : 40} stroke="#3a2a00" strokeWidth="1.5" />
+                          <line x1="14" y1="20" x2="28" y2="20" stroke="#3a2a00" strokeWidth="1.5" />
+                        </svg>
+                      </div>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border bg-[#161200] border-[#2a2000] text-white/30">
+                        {(item.seq ?? i + 1)}{String.fromCharCode(97 + vi)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-white/60 truncate leading-tight">
+                          {desc}{variant.desc && <span className="text-white/30 font-medium"> — {variant.desc}</span>}
+                        </p>
+                        <p className="text-[10px] text-white/25 font-medium mt-0.5">
+                          {[variant.ean && `EAN ${variant.ean}`, `${unit(i)} × ${variant.qty || 0}`].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 bg-[#D81E1E]/10 text-[#f87171]">
+                        Pendente
+                      </span>
+                    </button>
+                  );
+                });
+
+                return [parentRow, ...childRows];
+              })}
               {filteredItems.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-white/15">
                   <Search size={36} className="mb-3 opacity-30" />
@@ -578,29 +678,111 @@ export function MobileNoteView({
               {/* Identificação */}
               <SectionLabel>Identificação</SectionLabel>
               <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] overflow-hidden">
+                {/* EAN row */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
                   <span className="text-[10px] font-black text-white/40 w-10 shrink-0">EAN</span>
-                  <input
-                    value={ean(activeIdx)}
-                    onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
-                    placeholder="—"
-                    className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
-                  />
-                  <button
-                    onClick={() => setScannerOpen(true)}
-                    className="w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
-                  >
-                    <Camera size={18} />
-                  </button>
-                  {ean(activeIdx).trim() && onReportEanProblem && (
-                    <EanProblemButton
-                      ean={ean(activeIdx)}
-                      problems={eanProblems}
-                      onReport={(e, desc, obs) => onReportEanProblem(e, desc, obs)}
-                      size="sm"
+                  {currentVariants.length > 0 ? (
+                    <span className="flex-1 text-sm font-bold text-white/20 italic">— (com variações)</span>
+                  ) : (
+                    <input
+                      value={ean(activeIdx)}
+                      onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
+                      placeholder="—"
+                      className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
                     />
                   )}
+                  <button
+                    onClick={addVariant}
+                    className="w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
+                  >
+                    <Plus size={18} />
+                  </button>
                 </div>
+
+                {/* Variant blocks */}
+                {currentVariants.map((variant, vi) => {
+                  const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
+                  const parentTotal = cost(activeIdx) * qty(activeIdx);
+                  const childUnitCost = totalVariantQty > 0 && variant.qty > 0
+                    ? (parentTotal / totalVariantQty)
+                    : 0;
+                  return (
+                    <div key={vi} className="border-b border-white/[0.05]">
+                      <div className="flex items-center gap-2 px-4 pt-2 pb-1">
+                        <span className="w-5 h-5 bg-[#D81E1E] rounded-md flex items-center justify-center text-white text-[10px] font-black shrink-0">
+                          {vi + 1}
+                        </span>
+                        <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">Variação {vi + 1}</span>
+                        <button
+                          onClick={() => removeVariant(vi)}
+                          className="ml-auto w-5 h-5 bg-white/[0.06] rounded-md flex items-center justify-center text-white/30 active:bg-white/10 transition-colors"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                      <div className="px-4 pb-1">
+                        <span className="text-[9px] font-black text-white/25 uppercase tracking-wider">Desc.</span>
+                        <input
+                          value={variant.desc}
+                          onChange={e => updateVariant(vi, { desc: e.target.value })}
+                          placeholder="ex: azul 42"
+                          className="w-full bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 pb-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 border-t border-white/[0.04]">
+                        <div className="px-4 py-2 border-r border-white/[0.04]">
+                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">EAN</span>
+                          <input
+                            value={variant.ean}
+                            onChange={e => updateVariant(vi, { ean: e.target.value })}
+                            placeholder="0000000000000"
+                            className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 font-mono"
+                          />
+                        </div>
+                        <div className="px-4 py-2">
+                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">SKU</span>
+                          <input
+                            value={variant.sku}
+                            onChange={e => updateVariant(vi, { sku: e.target.value })}
+                            placeholder="SKU-001"
+                            className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 border-t border-white/[0.04]">
+                        <div className="px-4 py-2 border-r border-white/[0.04]">
+                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">QTDE</span>
+                          <input
+                            type="number"
+                            value={variant.qty || ''}
+                            onChange={e => updateVariant(vi, { qty: parseFloat(e.target.value) || 0 })}
+                            placeholder="0"
+                            min="0"
+                            className="w-full bg-transparent text-sm font-black text-[#f2f0e3] outline-none placeholder:text-white/15 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                          />
+                        </div>
+                        <div className="px-4 py-2">
+                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">Custo unit.</span>
+                          <span className="text-xs font-bold font-mono text-white/40">
+                            {childUnitCost > 0 ? `R$ ${childUnitCost.toFixed(4)}` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add more variants */}
+                {currentVariants.length > 0 && (
+                  <button
+                    onClick={addVariant}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border-b border-white/[0.05] text-[#D81E1E] text-xs font-black active:bg-white/[0.03] transition-colors"
+                  >
+                    <Plus size={13} /> Adicionar variação
+                  </button>
+                )}
+
+                {/* SKU row */}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="text-[10px] font-black text-white/40 w-10 shrink-0">SKU</span>
                   <input
@@ -611,6 +793,40 @@ export function MobileNoteView({
                   />
                 </div>
               </div>
+
+              {/* Cost rateio panel */}
+              {currentVariants.length > 0 && (() => {
+                const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
+                const parentTotal = cost(activeIdx) * qty(activeIdx);
+                const qtyMismatch = totalVariantQty !== qty(activeIdx);
+                return (
+                  <div className="mx-4 mb-3 bg-[#141410] rounded-2xl border border-white/[0.05] p-3">
+                    <p className="text-[9px] font-black text-white/25 uppercase tracking-wider mb-2">
+                      Rateio de custo — total R$ {parentTotal.toFixed(2)}
+                    </p>
+                    {currentVariants.map((v, vi) => {
+                      const childTotal = totalVariantQty > 0 ? parentTotal * (v.qty || 0) / totalVariantQty : 0;
+                      return (
+                        <div key={vi} className="flex items-center justify-between py-1">
+                          <span className="text-xs text-white/40">{v.desc || `Variação ${vi + 1}`} ({v.qty || 0} un)</span>
+                          <span className="text-xs font-bold text-white/60 font-mono">R$ {childTotal.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.05] mt-1">
+                      <span className="text-[10px] font-black text-white/40">Total gerado</span>
+                      <span className="text-sm font-black text-white/80 font-mono">R$ {parentTotal.toFixed(2)}</span>
+                    </div>
+                    {qtyMismatch && (
+                      <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5">
+                        <p className="text-[10px] font-black text-amber-400">
+                          Qtde total ({totalVariantQty}) ≠ qtde da nota ({qty(activeIdx)})
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Identificação Interna */}
               <SectionLabel>Identificação Interna</SectionLabel>
