@@ -332,7 +332,10 @@ export function MobileNoteView({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [linkingPanel, setLinkingPanel] = useState(false);
+  const [numpadTarget, setNumpadTarget] = useState<'search' | 'venda' | null>(null);
+  const [numpadValue, setNumpadValue] = useState('');
   const detailScrollRef = useRef<HTMLDivElement>(null);
+  const eanInputRef = useRef<HTMLInputElement>(null);
 
   const items = note.items as any[];
   const totalItems = items.length;
@@ -366,6 +369,40 @@ export function MobileNoteView({
 
   const currentVariants: EanVariant[] = eanVariants[activeIdx] ?? [];
 
+  // Auto-focus EAN when entering Detalhe or navigating between items
+  useEffect(() => {
+    if (tab !== 'detalhe') return;
+    if ((eanVariants[activeIdx]?.length ?? 0) > 0) return;
+    const t = setTimeout(() => eanInputRef.current?.focus(), 150);
+    return () => clearTimeout(t);
+  }, [tab, activeIdx]);
+
+  function handleNumpadKey(key: string) {
+    setNumpadValue(prev => {
+      let next: string;
+      if (key === '⌫') {
+        next = prev.slice(0, -1);
+      } else if (key === '.' && prev.includes('.')) {
+        return prev;
+      } else {
+        next = prev + key;
+      }
+      if (numpadTarget === 'search') {
+        setQuery(next);
+      } else if (numpadTarget === 'venda') {
+        const num = parseFloat(next) || 0;
+        setSellPrices(p => { const u = [...p]; u[activeIdx] = num; return u; });
+      }
+      return next;
+    });
+  }
+
+  function openNumpad(target: 'search' | 'venda') {
+    const initial = target === 'search' ? query : (sell(activeIdx) > 0 ? sell(activeIdx).toFixed(2) : '');
+    setNumpadValue(initial);
+    setNumpadTarget(target);
+  }
+
   function updateVariant(variantIdx: number, patch: Partial<EanVariant>) {
     setEanVariants(prev => {
       const u = [...prev];
@@ -395,6 +432,7 @@ export function MobileNoteView({
   function openDetail(i: number) {
     setActiveIdx(i);
     setLinkingPanel(false);
+    setNumpadTarget(null);
     setTab('detalhe');
     setTimeout(() => detailScrollRef.current?.scrollTo({ top: 0 }), 50);
   }
@@ -452,6 +490,51 @@ export function MobileNoteView({
         {scannerOpen && <BarcodeScanner onScan={handleScan} onClose={() => setScannerOpen(false)} />}
       </AnimatePresence>
 
+      {/* ── NUMPAD ──────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {numpadTarget && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute bottom-0 left-0 right-0 z-30 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-white/[0.05]">
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-0.5">
+                  {numpadTarget === 'search' ? 'Buscar' : 'Preço de venda'}
+                </p>
+                <p className="text-2xl font-black text-[#f2f0e3] font-mono tracking-wider truncate">
+                  {numpadValue || (numpadTarget === 'venda' ? '0,00' : '—')}
+                </p>
+              </div>
+              <button
+                onClick={() => setNumpadTarget(null)}
+                className="ml-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.07] text-white/50 active:bg-white/10 transition-colors shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="grid grid-cols-3">
+              {(['1','2','3','4','5','6','7','8','9','.','0','⌫'] as const).map(key => (
+                <button
+                  key={key}
+                  onPointerDown={e => { e.preventDefault(); handleNumpadKey(key); }}
+                  className={cn(
+                    'h-14 flex items-center justify-center text-xl font-bold border-b border-r border-white/[0.04] active:bg-white/[0.08] transition-colors select-none',
+                    key === '⌫' ? 'text-white/40 text-lg' : 'text-[#f2f0e3]'
+                  )}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+            <div className="pb-6" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── TOP BAR ─────────────────────────────────────────────────── */}
       <div className="shrink-0 bg-[#1a1a14] border-b border-white/[0.07] px-4 pt-4 pb-3">
         <div className="flex items-center justify-between">
@@ -498,7 +581,10 @@ export function MobileNoteView({
               <div className="flex items-center gap-2 bg-white/[0.06] rounded-xl px-3 py-2 border border-white/[0.06]">
                 <Search size={13} className="text-white/25 shrink-0" />
                 <input
-                  value={query} onChange={e => setQuery(e.target.value)}
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  onFocus={() => openNumpad('search')}
+                  inputMode="none"
                   placeholder="Buscar produto ou código..."
                   className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none font-medium"
                 />
@@ -685,6 +771,7 @@ export function MobileNoteView({
                     <span className="flex-1 text-sm font-bold text-white/20 italic">— (com variações)</span>
                   ) : (
                     <input
+                      ref={eanInputRef}
                       value={ean(activeIdx)}
                       onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
                       placeholder="—"
@@ -904,10 +991,11 @@ export function MobileNoteView({
                   <span className="text-[10px] font-black text-white/40 w-10 shrink-0">Venda</span>
                   <span className="text-[10px] font-bold text-white/30">R$</span>
                   <input
-                    type="number"
-                    value={sell(activeIdx) || ''}
-                    onChange={e => setSellPrices(prev => { const u = [...prev]; u[activeIdx] = parseFloat(e.target.value) || 0; return u; })}
-                    placeholder="0,00" step="0.01"
+                    inputMode="none"
+                    value={numpadTarget === 'venda' ? numpadValue : (sell(activeIdx) > 0 ? sell(activeIdx).toFixed(2) : '')}
+                    onFocus={() => openNumpad('venda')}
+                    onChange={() => {}}
+                    placeholder="0,00"
                     className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                   />
                   {markup(activeIdx) !== null && (
