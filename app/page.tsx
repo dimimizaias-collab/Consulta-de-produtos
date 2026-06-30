@@ -6054,22 +6054,21 @@ export default function Page() {
               </div>
 
               <div
-                className="flex-1 overflow-auto [--rn-th-bg:#FFE500] [--rn-th-color:rgba(26,26,20,0.55)] [--rn-th-pill:rgba(0,0,0,0.1)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FFFCEC] [--rn-cell-border:rgba(180,165,120,0.35)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,20,0.85)] [--rn-text-muted:rgba(26,26,20,0.5)] [--rn-text-subtle:rgba(26,26,20,0.28)] dark:[--rn-th-bg:#2e2e28] dark:[--rn-th-color:rgba(242,240,227,0.45)] dark:[--rn-th-pill:rgba(255,255,255,0.06)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#111110] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.5)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                className="flex-1 overflow-auto [--rn-th-bg:#FFE500] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFE500] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
                 style={{ padding: '12px 14px 0' }}
               >
-                <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 4px', minWidth: '1400px' }}>
+                <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: '1400px' }}>
                   <thead className="sticky top-0 z-10">
-                    <tr className="text-left">
+                    <tr className="text-left" style={{ borderBottom: '1.5px solid #D4C000' }}>
                       {/* Single connected header bar — all th share bg, radius only on corners */}
                       {(() => {
-                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '5px 4px', verticalAlign: 'middle', height: '40px' };
-                        const thFirst: React.CSSProperties = { ...thBar, borderRadius: '9px 0 0 9px', paddingLeft: '6px' };
-                        const thLast: React.CSSProperties = { ...thBar, borderRadius: '0 9px 9px 0', paddingRight: '6px', width: '36px' };
+                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 10px', verticalAlign: 'middle', height: '36px', borderRight: '1px solid rgba(0,0,0,0.08)' };
+                        const thFirst: React.CSSProperties = { ...thBar, paddingLeft: '10px' };
+                        const thLast: React.CSSProperties = { ...thBar, borderRight: 'none', width: '36px' };
                         const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
                           display: 'inline-flex', alignItems: 'center', gap: '4px',
-                          background: 'var(--rn-th-pill)', borderRadius: '5px',
-                          padding: '3px 7px', fontSize: '9px', fontWeight: 800,
-                          letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+                          fontSize: '9px', fontWeight: 900,
+                          letterSpacing: '0.10em', textTransform: 'uppercase' as const,
                           color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, ...extra,
                         });
                         // ── Filter helpers (used when reviewFilterActive) ──
@@ -6307,10 +6306,10 @@ export default function Page() {
 
                       /* ── Rounded-cell style tokens (per-row) ── */
                       const cellBg = idx % 2 === 0 ? 'var(--rn-cell-bg)' : 'var(--rn-cell-bg-alt)';
-                      const tdP: React.CSSProperties = { padding: '0 2px' };
+                      const tdP: React.CSSProperties = { padding: '3px 3px', borderBottom: '1px solid var(--rn-cell-border)', borderRight: '1px solid var(--rn-cell-border)' };
                       const cell = (extra?: React.CSSProperties): React.CSSProperties => ({
                         borderRadius: '9px',
-                        background: cellBg,
+                        background: 'transparent',
                         border: '1.5px solid var(--rn-cell-border)',
                         height: '40px',
                         display: 'flex',
@@ -6334,11 +6333,11 @@ export default function Page() {
                         ? ((sellPrice - adjCost) / adjCost * 100)
                         : null;
                       return (
-                        <tr key={idx}>
+                        <tr key={idx} className={`transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}>
                           {/* # */}
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black" style={{ background: 'var(--rn-seq-bg)', color: 'var(--rn-text-subtle)' }}>
+                              <span className="text-[10px] font-black" style={{ color: 'var(--rn-text-subtle)' }}>
                                 {item.seq ?? idx + 1}
                               </span>
                             </div>
@@ -6858,7 +6857,7 @@ export default function Page() {
                             </div>
                           </td>
                           {/* Botão excluir item */}
-                          <td style={tdP}>
+                          <td style={{ ...tdP, borderRight: 'none' }}>
                             <div style={cell({ justifyContent: 'center', overflow: 'visible' })}>
                             {deleteConfirmIdx === idx ? (
                               <div className="flex items-center gap-1">
