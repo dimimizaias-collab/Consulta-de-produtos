@@ -6189,7 +6189,15 @@ export default function Page() {
                           </th>
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl()}>
-                              Código
+                              <span style={{ color: reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit' }}>Código</span>
+                              <button
+                                onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has('Código') ? s.delete('Código') : s.add('Código'); return s; })}
+                                title={reviewEditableCols.has('Código') ? 'Bloquear coluna' : 'Editar coluna'}
+                                style={{ color: reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit', opacity: reviewEditableCols.has('Código') ? 1 : 0.5 }}
+                                className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
+                              >
+                                <Pencil size={9} />
+                              </button>
                               {filterBtn('codigo')}
                             </div>
                             {renderFilterDropdown('codigo')}
@@ -6351,9 +6359,17 @@ export default function Page() {
                             </div>
                           </td>
                           {/* Código fornecedor */}
-                          <td style={tdP}>
-                            <div style={cell({ padding: '0 10px' })}>
-                              {item.supplier_code ? (
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px' })}>
+                              {reviewEditableCols.has('Código') ? (
+                                <input type="text" value={item.supplier_code || ''}
+                                  onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], supplier_code: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                  onBlur={captureSnapshot}
+                                  className="w-full font-mono text-xs font-bold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                              ) : item.supplier_code ? (
                                 <span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code}</span>
                               ) : (
                                 <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
