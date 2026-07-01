@@ -423,6 +423,17 @@ export default function Page() {
   const [nfDistribDropdownIdx, setNfDistribDropdownIdx] = useState<number | null>(null);
   const [nfDistribMode, setNfDistribMode] = useState<string[]>([]);
 
+  const getPendingNfExportItems = () => pendingNfItems.map((item: any, idx: number) => ({
+    ...item,
+    ean: nfItemEans[idx] ?? item.ean,
+    sku: nfItemSkus[idx] ?? item.sku,
+    qty: nfItemQtys[idx] ?? item.qty,
+    price: nfItemPrices[idx] ?? item.price,
+    product_price: nfItemSellPrices[idx] ?? item.product_price,
+    verified: nfItemVerified[idx] ?? item.verified,
+    distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null,
+  }));
+
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
@@ -2146,16 +2157,7 @@ export default function Page() {
       }
 
       const nfSupplierName = supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '';
-      const itemsWithFinalPrices = pendingNfItems.map((item: any, idx: number) => ({
-        ...item,
-        ean: nfItemEans[idx] ?? item.ean,
-        sku: nfItemSkus[idx] ?? item.sku,
-        qty: nfItemQtys[idx] ?? item.qty,
-        price: nfItemPrices[idx] ?? item.price,
-        product_price: nfItemSellPrices[idx] ?? item.product_price,
-        verified: nfItemVerified[idx] ?? item.verified,
-        distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null,
-      }));
+      const itemsWithFinalPrices = getPendingNfExportItems();
       const newNote: ReviewNote = {
         id: Date.now().toString(),
         timestamp: currentNfTimestamp,
@@ -5522,21 +5524,21 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price })), adjLegacy())}
+                    onClick={() => exportTranslatedToExcel(getPendingNfExportItems(), adjLegacy())}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adjLegacy(), { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
+                    onClick={() => exportTranslatedToPDF(getPendingNfExportItems(), adjLegacy(), { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
-                    onClick={() => { setEstoquePickerArgs({ items: pendingNfItems.map((item, idx) => ({ ...item, price: nfItemPrices[idx] ?? item.price, distribuicao: nfItemDistribuicao[idx] ? parseInt(nfItemDistribuicao[idx]) || null : null })), adj: adjLegacy(), meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
+                    onClick={() => { setEstoquePickerArgs({ items: getPendingNfExportItems(), adj: adjLegacy(), meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
