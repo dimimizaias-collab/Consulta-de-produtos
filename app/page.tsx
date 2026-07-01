@@ -7937,9 +7937,9 @@ export default function Page() {
                                   value={adjColDialog.geralValue}
                                   onChange={e => update({ geralValue: e.target.value })}
                                   placeholder="0"
-                                  className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                  className="flex-1 min-w-0 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
-                                <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+                                <div className="flex shrink-0 border border-slate-200 rounded-xl overflow-hidden">
                                   <button onClick={() => update({ geralType: 'pct' })} className={cn("px-4 text-sm font-black transition-colors", adjColDialog.geralType === 'pct' ? `${accentBg} text-white` : "text-slate-500 hover:bg-slate-50")}>%</button>
                                   <button onClick={() => update({ geralType: 'fixed' })} className={cn("px-4 text-sm font-black transition-colors border-l border-slate-200", adjColDialog.geralType === 'fixed' ? `${accentBg} text-white` : "text-slate-500 hover:bg-slate-50")}>R$</button>
                                 </div>
