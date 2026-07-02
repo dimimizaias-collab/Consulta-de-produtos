@@ -28,6 +28,7 @@ import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
+import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -231,6 +232,27 @@ function SearchableSelect({
   );
 }
 
+// Constrói um mapa EAN -> product_id considerando tanto o EAN principal
+// (products.ean) quanto os EANs adicionais (product_ean_codes). Aceita tanto
+// produtos já vindos de fetchProducts() (com `extraEans` anexado) quanto uma
+// lista de produtos "crua" (select('*') direto) acompanhada de `extraEanRows`
+// buscados separadamente — usado pelos fluxos que fazem fetch próprio.
+function buildEanToProductId(products: any[], extraEanRows?: { ean: string; product_id: string }[]): Map<string, string> {
+  const map = new Map<string, string>();
+  products.forEach((p: any) => {
+    if (p.ean?.trim()) map.set(p.ean.trim(), p.id);
+  });
+  products.forEach((p: any) => {
+    (p.extraEans || []).forEach((e: { ean: string }) => {
+      if (e.ean?.trim() && !map.has(e.ean.trim())) map.set(e.ean.trim(), p.id);
+    });
+  });
+  (extraEanRows || []).forEach(r => {
+    if (r.ean?.trim() && !map.has(r.ean.trim())) map.set(r.ean.trim(), r.product_id);
+  });
+  return map;
+}
+
 export default function Page() {
   const { isMobileView } = useViewMode();
   const [activeTab, setActiveTab] = useState('Inventory');
@@ -256,7 +278,6 @@ export default function Page() {
     sku: '',
     name: '',
     ean: '',
-    eans: [''],
     category: '',
     subcategory: '',
     brand: '',
@@ -268,6 +289,7 @@ export default function Page() {
     is_mother: false,
     units_per_mother: 1
   });
+  const [newProductRequestExtraEans, setNewProductRequestExtraEans] = useState<EanCodeEntry[]>([]);
   const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
   const [showProductBulkTable, setShowProductBulkTable] = useState(false);
   const [showMobileTypeModal, setShowMobileTypeModal] = useState(false);
@@ -349,6 +371,7 @@ export default function Page() {
   const [noteItemNewName, setNoteItemNewName] = useState('');
   const [noteItemNewSku, setNoteItemNewSku] = useState('');
   const [noteItemNewEan, setNoteItemNewEan] = useState('');
+  const [noteItemExtraEans, setNoteItemExtraEans] = useState<EanCodeEntry[]>([]);
   const [noteItemNewSellPrice, setNoteItemNewSellPrice] = useState('');
   const [noteItemCreating, setNoteItemCreating] = useState(false);
   const [noteItemNewImage, setNoteItemNewImage] = useState('');
@@ -502,7 +525,6 @@ export default function Page() {
     price: 0,
     location: '',
     ean: '',
-    eans: [''],
     category: '',
     subcategory: '',
     brand: '',
@@ -510,9 +532,11 @@ export default function Page() {
     units_per_mother: 1,
     linked_product_id: null as string | null
   });
+  const [newProductExtraEans, setNewProductExtraEans] = useState<EanCodeEntry[]>([]);
   const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
   const [editProductPriceDisplay, setEditProductPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProductExtraEans, setEditingProductExtraEans] = useState<EanCodeEntry[]>([]);
 
   // Memoized derived values
   const unreadNotificationCount = useMemo(
@@ -661,6 +685,8 @@ export default function Page() {
         // Get all current products to check against
         const { data: currentProducts, error: fetchError } = await supabase.from('products').select('*');
         if (fetchError) throw fetchError;
+        const { data: extraEanRows } = await supabase.from('product_ean_codes').select('ean, product_id');
+        const eanToProductId = buildEanToProductId(currentProducts || [], extraEanRows || []);
 
         let updatedCount = 0;
         let errors = 0;
@@ -673,9 +699,10 @@ export default function Page() {
 
           if (isNaN(qtyToSubtract) || qtyToSubtract === 0) continue;
 
-          // Find product by SKU or EAN
-          const product = currentProducts.find(p => 
-            (sku && p.sku === sku) || (ean && p.ean === ean)
+          // Find product by SKU or EAN (principal ou adicional)
+          const eanProductId = ean ? eanToProductId.get(ean) : undefined;
+          const product = currentProducts.find(p =>
+            (sku && p.sku === sku) || (eanProductId && p.id === eanProductId)
           );
 
           if (product) {
@@ -766,20 +793,35 @@ export default function Page() {
         from += PAGE;
       }
 
+      // EANs adicionais (além do principal em products.ean) — usados para que
+      // busca e matching automático reconheçam qualquer código do produto.
+      const { data: extraEanData } = await supabase.from('product_ean_codes').select('product_id, ean, description');
+      const extraEansByProduct = new Map<string, { ean: string; description: string | null }[]>();
+      (extraEanData || []).forEach((r: any) => {
+        const list = extraEansByProduct.get(r.product_id) || [];
+        list.push({ ean: r.ean, description: r.description });
+        extraEansByProduct.set(r.product_id, list);
+      });
+
       // Sempre mapeia, mesmo que vazio, para limpar dados estáticos se necessário
-      const mappedData = allData.map((p: any) => ({
-        ...p,
-        ean: p.ean || '',
-        category: p.category || 'Geral',
-        subcategory: p.subcategory || 'Geral',
-        brand: p.brand || 'Geral',
-        isFeatured: p.is_featured,
-        isSide: p.is_side,
-        isLow: p.is_low,
-        internalCode: p.internal_code,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
+      const mappedData = allData.map((p: any) => {
+        const extraEans = extraEansByProduct.get(p.id) || [];
+        return {
+          ...p,
+          ean: p.ean || '',
+          extraEans,
+          allEans: [p.ean, ...extraEans.map(e => e.ean)].filter((e): e is string => !!e && e.trim() !== ''),
+          category: p.category || 'Geral',
+          subcategory: p.subcategory || 'Geral',
+          brand: p.brand || 'Geral',
+          isFeatured: p.is_featured,
+          isSide: p.is_side,
+          isLow: p.is_low,
+          internalCode: p.internal_code,
+          createdAt: p.created_at,
+          updatedAt: p.updated_at
+        };
+      });
 
       setProducts(mappedData);
     } catch (err) {
@@ -874,10 +916,7 @@ export default function Page() {
   };
 
   const handleSaveBulkDraft = async (rows: any[], title: string) => {
-    const eanToProductId = new Map<string, string>();
-    products.forEach((p: any) => {
-      if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id);
-    });
+    const eanToProductId = buildEanToProductId(products);
 
     const items = rows.filter((r: any) => r.name?.trim() || r.ean?.trim()).map((r: any, idx: number) => {
       const ean = r.ean?.trim() || null;
@@ -1067,9 +1106,9 @@ export default function Page() {
       return;
     }
 
-    const product = products.find(p => 
-      (type === 'sku' && p.sku === value) || 
-      (type === 'ean' && p.ean === value)
+    const product = products.find(p =>
+      (type === 'sku' && p.sku === value) ||
+      (type === 'ean' && (p.allEans || [p.ean]).includes(value))
     );
 
     if (product) {
@@ -1106,7 +1145,8 @@ export default function Page() {
         product_id: null,
         requested_changes: JSON.stringify({
           ...newProductRequest,
-          ean: newProductRequest.eans ? newProductRequest.eans.filter((e: string) => e.trim()).join(', ') : (newProductRequest.ean || ''),
+          ean: newProductRequest.ean || '',
+          extraEans: newProductRequestExtraEans.filter(e => e.ean.trim()),
           is_new_product: true,
           is_mother: newProductRequest.is_mother,
           units_per_mother: newProductRequest.units_per_mother
@@ -1128,10 +1168,11 @@ export default function Page() {
       setShowAddRequestModal(false);
       setIsRequestingNewProduct(false);
       setNewProductRequest({
-        sku: '', name: '', ean: '', eans: [''], category: '', subcategory: '', brand: '',
+        sku: '', name: '', ean: '', category: '', subcategory: '', brand: '',
         count: 0, price: 0, location: '', image: '', observation: '',
         is_mother: false, units_per_mother: 1
       });
+      setNewProductRequestExtraEans([]);
       fetchRequests();
     } catch (err: any) {
       console.error('Erro ao salvar requisição:', err);
@@ -1169,8 +1210,7 @@ export default function Page() {
       if (isBulkProducts) {
         // Insert new products from bulk draft, or update existing ones when the EAN already exists
         const items = bulkDraftEditedItems.length > 0 ? bulkDraftEditedItems : (changes.items || []);
-        const eanToProductId = new Map<string, string>();
-        products.forEach((p: any) => { if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id); });
+        const eanToProductId = buildEanToProductId(products);
 
         const isUpdate = items.map((item: any) => {
           const ean = item.ean?.trim();
@@ -1211,14 +1251,24 @@ export default function Page() {
         setBulkDraftUnderReview(null);
       } else if (isNewProduct) {
         // Create new product
-        const { is_new_product, observation, ...productData } = changes;
-        const { error: insertError } = await supabase
+        const { is_new_product, observation, extraEans, ...productData } = changes;
+        const { data: newProductData, error: insertError } = await supabase
           .from('products')
           .insert([{
             ...productData,
             status: 'Ativo'
-          }]);
+          }])
+          .select('id')
+          .single();
         if (insertError) throw insertError;
+        if (newProductData && Array.isArray(extraEans) && extraEans.length > 0) {
+          const extraEanRows = extraEans
+            .filter((e: any) => e.ean?.trim())
+            .map((e: any) => ({ product_id: newProductData.id, ean: e.ean.trim(), description: e.description?.trim() || null }));
+          if (extraEanRows.length > 0) {
+            await supabase.from('product_ean_codes').insert(extraEanRows);
+          }
+        }
         setNotification({ type: 'success', message: 'Novo produto cadastrado com sucesso!' });
       } else if (changes.is_task) {
         // Tarefas não atualizam products — apenas o status da requisição é marcado como approved abaixo
@@ -1305,7 +1355,7 @@ export default function Page() {
         count: isNaN(newProduct.count) ? 0 : newProduct.count,
         price: isNaN(newProduct.price) ? 0 : newProduct.price,
         location: newProduct.location || 'Não atribuído',
-        ean: newProduct.eans ? newProduct.eans.filter((e: string) => e.trim()).join(', ') : (newProduct.ean || ''),
+        ean: newProduct.ean || '',
         category: newProduct.category || 'Geral',
         subcategory: newProduct.subcategory || 'Geral',
         brand: newProduct.brand || 'Geral',
@@ -1328,6 +1378,16 @@ export default function Page() {
       if (error) {
         console.log('Erro Supabase:', error);
         throw error;
+      }
+
+      const createdProductId = data?.[0]?.id;
+      const extraEanRows = newProductExtraEans.filter(ei => ei.ean.trim()).map(ei => ({
+        product_id: createdProductId,
+        ean: ei.ean.trim(),
+        description: ei.description.trim() || null,
+      }));
+      if (createdProductId && extraEanRows.length > 0) {
+        await supabase.from('product_ean_codes').insert(extraEanRows);
       }
 
       // Logic for Mother/Child stock update on creation
@@ -1368,7 +1428,6 @@ export default function Page() {
         price: 0,
         location: '',
         ean: '',
-        eans: [''],
         category: '',
         subcategory: '',
         brand: '',
@@ -1376,6 +1435,7 @@ export default function Page() {
         units_per_mother: 1,
         linked_product_id: null
       });
+      setNewProductExtraEans([]);
 
       // Fecha o modal após um pequeno delay
       setTimeout(() => {
@@ -1418,7 +1478,7 @@ export default function Page() {
         count: isNaN(editingProduct.count) ? 0 : editingProduct.count,
         price: isNaN(editingProduct.price) ? 0 : editingProduct.price,
         location: editingProduct.location,
-        ean: editingProduct.eans ? editingProduct.eans.filter((e: string) => e.trim()).join(', ') : (editingProduct.ean || ''),
+        ean: editingProduct.ean || '',
         category: editingProduct.category || '',
         subcategory: editingProduct.subcategory || '',
         brand: editingProduct.brand || '',
@@ -1436,6 +1496,17 @@ export default function Page() {
         .eq('id', editingProduct.id);
 
       if (error) throw error;
+
+      // Sincroniza EANs adicionais: remove os antigos e grava os atuais
+      await supabase.from('product_ean_codes').delete().eq('product_id', editingProduct.id);
+      const extraEanRows = editingProductExtraEans.filter(e => e.ean.trim()).map(e => ({
+        product_id: editingProduct.id,
+        ean: e.ean.trim(),
+        description: e.description.trim() || null,
+      }));
+      if (extraEanRows.length > 0) {
+        await supabase.from('product_ean_codes').insert(extraEanRows);
+      }
 
       // Detectar campos alterados e criar requisição de auditoria
       if (originalProductSnapshot) {
@@ -2447,6 +2518,19 @@ export default function Page() {
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
+        const extraEanRows = noteItemExtraEans.filter(e => e.ean.trim()).map(e => ({
+          product_id: created.id,
+          ean: e.ean.trim(),
+          description: e.description.trim() || null,
+        }));
+        let eanInsertFailed = false;
+        if (extraEanRows.length > 0) {
+          const { error: eanErr } = await supabase.from('product_ean_codes').insert(extraEanRows);
+          if (eanErr) {
+            eanInsertFailed = true;
+            setNotification({ type: 'error', message: 'Produto criado, mas houve erro ao salvar EANs adicionais: ' + eanErr.message });
+          }
+        }
         if (noteItemSaveTranslation) {
           const supplierId = await resolveNoteSupplierId();
           const sourceItem = viewingReviewNote.items[linkingItemIdx];
@@ -2466,9 +2550,11 @@ export default function Page() {
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
-        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
+        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
         setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
-        setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
+        if (extraEanRows.length === 0 || !eanInsertFailed) {
+          setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
+        }
         fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
       }
     } catch (err: any) {
@@ -2757,8 +2843,10 @@ export default function Page() {
         };
 
         const { data: currentProducts } = await supabase.from('products').select('*');
+        const { data: extraEanRows } = await supabase.from('product_ean_codes').select('ean, product_id');
+        const eanToProductId = buildEanToProductId(currentProducts || [], extraEanRows || []);
         const { data: unitConversions } = await supabase.from('supplier_units').select('*');
-        
+
         // Filter mappings by supplier if selected
         let mappingQuery = supabase.from('supplier_mappings').select('*');
         if (selectedImportSupplierId) {
@@ -2782,8 +2870,9 @@ export default function Page() {
 
           if (isNaN(qty) || qty <= 0) continue;
 
-          // Try to find product by SKU, EAN or mapping
-          let product = currentProducts?.find(p => (sku && p.sku === sku) || (finalEan && p.ean === finalEan));
+          // Try to find product by SKU, EAN (principal ou adicional) ou mapping
+          const finalEanProductId = finalEan ? eanToProductId.get(finalEan) : undefined;
+          let product = currentProducts?.find(p => (sku && p.sku === sku) || (finalEanProductId && p.id === finalEanProductId));
           let statusTranslation = 'Identificado (SKU/EAN)';
           let verified = !!product;
           
@@ -2954,11 +3043,11 @@ export default function Page() {
     }
 
     let query = supabase.from('products').select('*');
-    
+
     if (linkSearchQuery.ean) query = query.ilike('ean', `%${linkSearchQuery.ean}%`);
     if (linkSearchQuery.sku) query = query.ilike('sku', `%${linkSearchQuery.sku}%`);
     if (linkSearchQuery.name) query = query.ilike('name', `%${linkSearchQuery.name}%`);
-    
+
     // Exclude the current product
     if (editingProduct) {
       query = query.neq('id', editingProduct.id);
@@ -2969,7 +3058,23 @@ export default function Page() {
       console.error('Erro na busca de vínculo:', error);
       return;
     }
-    setLinkSearchResults(data || []);
+    let results = data || [];
+
+    // Quando busca por EAN, também considera EANs adicionais (product_ean_codes)
+    if (linkSearchQuery.ean) {
+      const { data: extraMatches } = await supabase
+        .from('product_ean_codes')
+        .select('product_id')
+        .ilike('ean', `%${linkSearchQuery.ean}%`);
+      const extraProductIds = [...new Set((extraMatches || []).map(r => r.product_id))]
+        .filter(id => id !== editingProduct?.id && !results.some(p => p.id === id));
+      if (extraProductIds.length > 0) {
+        const { data: extraProducts } = await supabase.from('products').select('*').in('id', extraProductIds);
+        results = [...results, ...(extraProducts || [])];
+      }
+    }
+
+    setLinkSearchResults(results);
   };
 
   const handleViewLink = async (product: any) => {
@@ -3069,11 +3174,11 @@ export default function Page() {
   const openEditModal = (product: any) => {
     setEditingProduct({
       ...product,
-      eans: product.ean ? product.ean.split(',').map((e: string) => e.trim()) : [''],
       originalCount: product.count || 0,
       is_mother: product.is_mother || false,
       units_per_mother: product.units_per_mother || 1
     });
+    setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
     const initialPrice = isNaN(product.price) ? 0 : (product.price || 0);
     setEditProductPriceDisplay(initialPrice > 0 ? initialPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
     setOriginalProductSnapshot({
@@ -3156,6 +3261,7 @@ export default function Page() {
         p.sku?.toLowerCase().includes(query) ||
         p.location?.toLowerCase().includes(query) ||
         (p.ean && p.ean.includes(query)) ||
+        (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(query)) ||
         (p.internalCode && p.internalCode.toLowerCase().includes(query)) ||
         (p.category && p.category.toLowerCase().includes(query)) ||
         (p.subcategory && p.subcategory.toLowerCase().includes(query)) ||
@@ -3547,42 +3653,15 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Código EAN</label>
-                    <div className="space-y-2">
-                      {(editingProduct.eans || [editingProduct.ean || '']).map((ean: string, index: number) => (
-                        <div key={index} className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={ean}
-                            onChange={(e) => {
-                              const newEans = [...(editingProduct.eans || [editingProduct.ean || ''])];
-                              newEans[index] = e.target.value;
-                              setEditingProduct({...editingProduct, eans: newEans});
-                            }}
-                            className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                            placeholder="Código de barras..."
-                          />
-                          {index === 0 ? (
-                            <button 
-                              type="button"
-                              onClick={() => setEditingProduct({...editingProduct, eans: [...(editingProduct.eans || [editingProduct.ean || '']), '']})}
-                              className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
-                            >
-                              <Plus size={18} />
-                            </button>
-                          ) : (
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                const newEans = (editingProduct.eans || [editingProduct.ean || '']).filter((_: any, i: number) => i !== index);
-                                setEditingProduct({...editingProduct, eans: newEans});
-                              }}
-                              className="w-10 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-100 transition-all"
-                            >
-                              <X size={18} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editingProduct.ean || ''}
+                        onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
+                        className="flex-1 min-w-0 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        placeholder="Código de barras..."
+                      />
+                      <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -3983,50 +4062,23 @@ export default function Page() {
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-secondary uppercase">Código EAN (Obrigatório se SKU vazio)</label>
-                      <div className="space-y-2">
-                        {(newProductRequest.eans || [newProductRequest.ean || '']).map((ean: string, index: number) => (
-                          <div key={index} className="flex gap-2">
-                            <input
-                              type="text"
-                              value={ean}
-                              onChange={(e) => {
-                                const newEans = [...(newProductRequest.eans || [newProductRequest.ean || ''])];
-                                newEans[index] = e.target.value;
-                                setNewProductRequest({...newProductRequest, eans: newEans});
-                              }}
-                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="789..."
-                            />
-                            {ean.trim() && (
-                              <EanProblemButton
-                                ean={ean}
-                                problems={eanProblems}
-                                onReport={(e, desc, obs) => handleReportEanProblem(e, desc, obs, 'new_product')}
-                                size="sm"
-                              />
-                            )}
-                            {index === 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => setNewProductRequest({...newProductRequest, eans: [...(newProductRequest.eans || [newProductRequest.ean || '']), '']})}
-                                className="w-10 bg-primary/10 dark:bg-primary text-primary dark:text-white rounded-lg flex items-center justify-center hover:bg-primary/20 dark:hover:bg-primary/80 transition-all"
-                              >
-                                <Plus size={18} />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newEans = (newProductRequest.eans || [newProductRequest.ean || '']).filter((_: any, i: number) => i !== index);
-                                  setNewProductRequest({...newProductRequest, eans: newEans});
-                                }}
-                                className="w-10 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-100 transition-all"
-                              >
-                                <X size={18} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newProductRequest.ean || ''}
+                          onChange={(e) => setNewProductRequest({...newProductRequest, ean: e.target.value})}
+                          className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          placeholder="789..."
+                        />
+                        {newProductRequest.ean?.trim() && (
+                          <EanProblemButton
+                            ean={newProductRequest.ean}
+                            problems={eanProblems}
+                            onReport={(e, desc, obs) => handleReportEanProblem(e, desc, obs, 'new_product')}
+                            size="sm"
+                          />
+                        )}
+                        <EanCodesEditor entries={newProductRequestExtraEans} onChange={setNewProductRequestExtraEans} />
                       </div>
                     </div>
                     <div className="space-y-1.5 md:col-span-2">
@@ -4240,8 +4292,7 @@ export default function Page() {
         secondaryActionLabel="Salvar revisão"
         onSecondaryAction={handleSaveReviewProgress}
         onSave={async (rows) => {
-          const eanToProductId = new Map<string, string>();
-          products.forEach((p: any) => { if (p.ean?.trim()) eanToProductId.set(p.ean.trim(), p.id); });
+          const eanToProductId = buildEanToProductId(products);
 
           const results = await Promise.allSettled(
             rows.map(r => {
@@ -4402,43 +4453,16 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Código EAN</label>
-                    <div className="space-y-2">
-                      {(newProduct.eans || [newProduct.ean || '']).map((ean: string, index: number) => (
-                        <div key={index} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={ean}
-                            onChange={(e) => {
-                              const newEans = [...(newProduct.eans || [newProduct.ean || ''])];
-                              newEans[index] = e.target.value;
-                              setNewProduct({...newProduct, eans: newEans});
-                            }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                            className="flex-1 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                            placeholder="789..."
-                          />
-                          {index === 0 ? (
-                            <button 
-                              type="button"
-                              onClick={() => setNewProduct({...newProduct, eans: [...(newProduct.eans || [newProduct.ean || '']), '']})}
-                              className="w-10 bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.13)] border-[1.5px] border-[rgba(216,30,30,0.22)] dark:border-[rgba(216,30,30,0.28)] text-[#D81E1E] rounded-[10px] flex items-center justify-center hover:bg-[rgba(216,30,30,0.18)] transition-colors shrink-0"
-                            >
-                              <Plus size={18} />
-                            </button>
-                          ) : (
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                const newEans = (newProduct.eans || [newProduct.ean || '']).filter((_: any, i: number) => i !== index);
-                                setNewProduct({...newProduct, eans: newEans});
-                              }}
-                              className="w-10 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-100 transition-all"
-                            >
-                              <X size={18} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newProduct.ean || ''}
+                        onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                        className="flex-1 min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
+                        placeholder="789..."
+                      />
+                      <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -7266,7 +7290,8 @@ export default function Page() {
                                     const filtered = products.filter((p: any) =>
                                       p.name?.toLowerCase().includes(q) ||
                                       p.sku?.toLowerCase().includes(q) ||
-                                      (p.ean && p.ean.toLowerCase().includes(q))
+                                      (p.ean && p.ean.toLowerCase().includes(q)) ||
+                                      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
                                     ).slice(0, 12);
                                     if (filtered.length === 0) return (
                                       <p className="text-xs text-slate-400 text-center py-8">
@@ -7347,9 +7372,12 @@ export default function Page() {
                               </div>
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
-                                <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  placeholder="Cód. barras" />
+                                <div className="flex gap-2">
+                                  <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
+                                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    placeholder="Cód. barras" />
+                                  <EanCodesEditor entries={noteItemExtraEans} onChange={setNoteItemExtraEans} />
+                                </div>
                               </div>
                             </div>
                             {/* ── Preço de venda + Foto do produto ── */}
