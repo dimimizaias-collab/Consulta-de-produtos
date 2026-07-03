@@ -7380,6 +7380,43 @@ export default function Page() {
                                 </div>
                               </div>
                             </div>
+                            {/* Aviso: EAN já cadastrado em outro produto (evita duplicidade) */}
+                            {(() => {
+                              const eanMap = buildEanToProductId(products);
+                              const candidateEans = Array.from(new Set(
+                                [noteItemNewEan.trim(), ...noteItemExtraEans.map(e => e.ean.trim())].filter(Boolean)
+                              ));
+                              const matches = candidateEans
+                                .map(ean => ({ ean, product: products.find((p: any) => p.id === eanMap.get(ean)) }))
+                                .filter((m): m is { ean: string; product: any } => !!m.product);
+                              if (matches.length === 0) return null;
+                              return (
+                                <div className="space-y-1.5">
+                                  {matches.map(m => (
+                                    <div key={m.ean} className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                                      <AlertTriangle size={13} className="text-red-500 shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-wider">EAN {m.ean} já cadastrado — evite duplicar</p>
+                                        <p className="text-xs font-bold text-red-700 truncate">{m.product.name}</p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const i = linkingItemIdx!;
+                                          const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
+                                          setNoteItemSelectedProduct(m.product);
+                                          setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (m.product.price ? String(m.product.price) : ''));
+                                          setNoteItemShowCreate(false);
+                                        }}
+                                        className="text-[10px] font-black text-red-600 hover:text-red-800 underline shrink-0"
+                                      >
+                                        Usar este
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                             {/* ── Preço de venda + Foto do produto ── */}
                             <div className="grid grid-cols-2 gap-3">
                               <div>
