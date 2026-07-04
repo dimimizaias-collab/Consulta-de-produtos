@@ -1570,9 +1570,24 @@ export default function Page() {
         }
       }
 
+      // Reflete as mudanças na nota aberta, se o produto editado estiver vinculado a algum item dela
+      if (viewingReviewNote) {
+        let touched = false;
+        const updatedItems = viewingReviewNote.items.map((it: any) => {
+          if (it.product_id !== editingProduct.id) return it;
+          touched = true;
+          return { ...it, name: productToUpdate.name, sku: productToUpdate.sku, ean: productToUpdate.ean };
+        });
+        if (touched) {
+          setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+          setViewingNoteEans(prev => viewingReviewNote.items.map((it: any, i: number) => it.product_id === editingProduct.id ? productToUpdate.ean : (prev[i] ?? it.ean ?? '')));
+          setViewingNoteSkus(prev => viewingReviewNote.items.map((it: any, i: number) => it.product_id === editingProduct.id ? productToUpdate.sku : (prev[i] ?? it.sku ?? '')));
+        }
+      }
+
       setNotification({ type: 'success', message: 'Produto atualizado com sucesso!' });
       setEditStatus('success');
-      
+
       setTimeout(() => {
         setShowEditModal(false);
         setEditStatus('idle');
@@ -3579,7 +3594,7 @@ export default function Page() {
       {/* Edit Product Modal */}
       <AnimatePresence>
         {showEditModal && editingProduct && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -6438,7 +6453,16 @@ export default function Page() {
                               {item.verified ? (
                                 /* Produto vinculado: nome truncado + botão icon para trocar */
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="text-[11px] font-bold text-emerald-400 truncate max-w-[120px]" title={item.name}>{item.name}</span>
+                                  <span
+                                    onClick={() => {
+                                      const linkedProduct = products.find((p: any) => p.id === item.product_id);
+                                      if (linkedProduct) openEditModal(linkedProduct);
+                                    }}
+                                    className="text-[11px] font-bold text-emerald-400 truncate max-w-[120px] cursor-pointer hover:underline underline-offset-2"
+                                    title={`${item.name} — clique para editar produto`}
+                                  >
+                                    {item.name}
+                                  </span>
                                   <div className="relative group shrink-0">
                                     <button
                                       onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
