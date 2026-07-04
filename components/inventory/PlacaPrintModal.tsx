@@ -219,9 +219,12 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.setFontSize(15);
     const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
 
-    // Block heights (mm), used to vertically center the whole stack in the placa
-    const nameBlockH = nameLines.length * 6 + 4;
-    const priceBlockH = hasBarcode ? 10 : 14;
+    // Block heights (mm), used to vertically center the whole stack in the placa.
+    // When there's no barcode there's a lot of spare room, so give name/price
+    // more breathing room instead of packing them tight at their old spacing.
+    const nameGapAfter = hasBarcode ? 4 : 12;
+    const nameBlockH = nameLines.length * 6 + nameGapAfter;
+    const priceBlockH = hasBarcode ? 10 : 16;
     const promoBlockH = text ? 8 : 0;
     const barcodeBlockH = hasBarcode ? 9 + 3 + 6 : 0;
     const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
@@ -234,7 +237,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(28, 28, 26);
     doc.text(nameLines, centerX, cy, { align: 'center' });
-    cy += nameLines.length * 6 + 4;
+    cy += nameBlockH;
 
     // Price — "R$" prefix + big number, both centered as one line.
     // Measure and draw each part at the SAME font size, or the reserved
