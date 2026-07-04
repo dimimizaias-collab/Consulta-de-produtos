@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Printer, Check } from 'lucide-react';
+import { X, Search, Printer, Check, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
-import { generateBarcodeDataUrl, formatPrice, defaultCodeField, type CodeField } from './labelPrintUtils';
+import { generateBarcodeDataUrl, defaultCodeField, type CodeField } from './labelPrintUtils';
 
 function loadImageAsDataUrl(src: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,6 +46,22 @@ interface PlacaSelection {
   qty: number;
   codeField: CodeField;
   priceOverride?: number;
+  nameOverride?: string;
+  customText?: string;
+}
+
+interface CustomPlaca {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+  customText?: string;
+}
+
+interface QueueEntry {
+  name: string;
+  price: number;
+  code: string;
   customText?: string;
 }
 
@@ -55,9 +71,16 @@ interface PlacaPrintModalProps {
   products: any[];
 }
 
+let customPlacaIdCounter = 0;
+function nextCustomPlacaId(): string {
+  customPlacaIdCounter += 1;
+  return `custom-${Date.now()}-${customPlacaIdCounter}`;
+}
+
 export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalProps) {
   const [search, setSearch] = useState('');
   const [selections, setSelections] = useState<Record<string, PlacaSelection>>({});
+  const [customPlacas, setCustomPlacas] = useState<CustomPlaca[]>([]);
   const [batchText, setBatchText] = useState('');
   const [showBarcode, setShowBarcode] = useState(true);
   const [showOferta, setShowOferta] = useState(false);
@@ -74,24 +97,33 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
   const selectedIds = useMemo(() => Object.keys(selections), [selections]);
 
-  const totalPlacas = useMemo(
-    () => selectedIds.reduce((acc, id) => acc + (selections[id]?.qty ?? 1), 0),
-    [selectedIds, selections]
-  );
+  const totalPlacas = useMemo(() => {
+    const fromProducts = selectedIds.reduce((acc, id) => acc + (selections[id]?.qty ?? 1), 0);
+    const fromCustom = customPlacas.reduce((acc, cp) => acc + (cp.qty ?? 1), 0);
+    return fromProducts + fromCustom;
+  }, [selectedIds, selections, customPlacas]);
 
   const totalPages = totalPlacas > 0 ? Math.ceil(totalPlacas / TOTAL_PER_PAGE) : 0;
 
-  // Flat placa list: [{product, codeField, priceOverride, customText}] repeated qty times
+  // Flat placa list — uniform shape, works for both product-linked and custom (unlinked) placas
   const placaQueue = useMemo(() => {
-    const queue: { product: any; codeField: CodeField; priceOverride?: number; customText?: string }[] = [];
+    const queue: QueueEntry[] = [];
     selectedIds.forEach(id => {
       const p = products.find(x => x.id === id);
       if (!p) return;
-      const { qty, codeField, priceOverride, customText } = selections[id];
-      for (let i = 0; i < qty; i++) queue.push({ product: p, codeField, priceOverride, customText });
+      const { qty, codeField, priceOverride, nameOverride, customText } = selections[id];
+      const code = codeField === 'sku' ? (p.sku || p.ean || '') : (p.ean || p.sku || '');
+      for (let i = 0; i < qty; i++) {
+        queue.push({ name: nameOverride || p.name, price: priceOverride ?? p.price ?? 0, code, customText });
+      }
+    });
+    customPlacas.forEach(cp => {
+      for (let i = 0; i < (cp.qty || 1); i++) {
+        queue.push({ name: cp.name, price: cp.price, code: '', customText: cp.customText });
+      }
     });
     return queue;
-  }, [selectedIds, selections, products]);
+  }, [selectedIds, selections, products, customPlacas]);
 
   const toggleProduct = useCallback((id: string) => {
     setSelections(prev => {
@@ -117,8 +149,24 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], priceOverride } }));
   }, []);
 
+  const setNameOverrideFor = useCallback((id: string, nameOverride: string) => {
+    setSelections(prev => ({ ...prev, [id]: { ...prev[id], nameOverride: nameOverride || undefined } }));
+  }, []);
+
   const setCustomTextFor = useCallback((id: string, customText: string) => {
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], customText: customText || undefined } }));
+  }, []);
+
+  const addCustomPlaca = useCallback(() => {
+    setCustomPlacas(prev => [...prev, { id: nextCustomPlacaId(), name: '', price: 0, qty: 1 }]);
+  }, []);
+
+  const removeCustomPlaca = useCallback((id: string) => {
+    setCustomPlacas(prev => prev.filter(cp => cp.id !== id));
+  }, []);
+
+  const updateCustomPlaca = useCallback((id: string, patch: Partial<CustomPlaca>) => {
+    setCustomPlacas(prev => prev.map(cp => cp.id === id ? { ...cp, ...patch } : cp));
   }, []);
 
   const selectAll = useCallback(() => {
@@ -134,6 +182,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   const handleClose = () => {
     setSearch('');
     setSelections({});
+    setCustomPlacas([]);
     setBatchText('');
     setShowBarcode(true);
     setShowOferta(false);
@@ -144,17 +193,14 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc: jsPDF,
     x: number,
     y: number,
-    entry: { product: any; codeField: CodeField; priceOverride?: number; customText?: string },
+    entry: QueueEntry,
     logoDataUrl: string | null
   ) => {
-    const { product, codeField, priceOverride, customText } = entry;
-    const code = codeField === 'sku'
-      ? (product.sku || product.ean || '')
-      : (product.ean || product.sku || '');
+    const { name, price: priceValue, code, customText } = entry;
 
     const centerX = x + PLACA_W / 2;
     const cw = PLACA_W - PAD * 2;
-    const price = formatPrice(priceOverride ?? product.price ?? 0);
+    const price = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const text = customText || batchText;
 
     // cut guides (dashed rect) — plain paper, user cuts by hand
@@ -170,7 +216,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(28, 28, 26);
-    const nameLines = doc.splitTextToSize(product.name || '—', cw).slice(0, 2);
+    const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
     doc.text(nameLines, centerX, cy, { align: 'center' });
     cy += nameLines.length * 6 + 4;
 
@@ -443,26 +489,35 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
                       {isSelected && (
                         <div
-                          className="flex items-center gap-2 pl-8"
+                          className="flex flex-col gap-2 pl-8"
                           onClick={e => e.stopPropagation()}
                         >
                           <input
                             type="text"
-                            value={sel.priceOverride !== undefined ? sel.priceOverride : (product.price ?? 0)}
-                            onChange={e => {
-                              const val = parseFloat(e.target.value.replace(',', '.'));
-                              setPriceOverrideFor(product.id, isNaN(val) ? undefined : val);
-                            }}
-                            placeholder="Preço"
-                            className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                            value={sel.nameOverride ?? product.name ?? ''}
+                            onChange={e => setNameOverrideFor(product.id, e.target.value)}
+                            placeholder="Nome exibido na placa"
+                            className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
                           />
-                          <input
-                            type="text"
-                            value={sel.customText ?? ''}
-                            onChange={e => setCustomTextFor(product.id, e.target.value)}
-                            placeholder="Personalizar texto desta placa (opcional)"
-                            className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={sel.priceOverride !== undefined ? sel.priceOverride : (product.price ?? 0)}
+                              onChange={e => {
+                                const val = parseFloat(e.target.value.replace(',', '.'));
+                                setPriceOverrideFor(product.id, isNaN(val) ? undefined : val);
+                              }}
+                              placeholder="Preço"
+                              className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                            />
+                            <input
+                              type="text"
+                              value={sel.customText ?? ''}
+                              onChange={e => setCustomTextFor(product.id, e.target.value)}
+                              placeholder="Personalizar texto desta placa (opcional)"
+                              className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -475,14 +530,87 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                   </div>
                 )}
               </div>
+
+              {/* Placas sem produto vinculado */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Placas sem produto</span>
+                  <button
+                    onClick={addCustomPlaca}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors"
+                  >
+                    <Plus size={12} />
+                    Adicionar placa
+                  </button>
+                </div>
+
+                {customPlacas.map(cp => (
+                  <div
+                    key={cp.id}
+                    className="flex flex-col gap-2 p-3.5 rounded-2xl border border-on-surface/10 bg-on-surface/[0.03]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={cp.name}
+                        onChange={e => updateCustomPlaca(cp.id, { name: e.target.value })}
+                        placeholder="Nome exibido na placa"
+                        className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        value={cp.qty === 1 ? '' : cp.qty}
+                        placeholder="1"
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });
+                        }}
+                        className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => removeCustomPlaca(cp.id)}
+                        className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-on-surface/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={cp.price === 0 ? '' : cp.price}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value.replace(',', '.'));
+                          updateCustomPlaca(cp.id, { price: isNaN(val) ? 0 : val });
+                        }}
+                        placeholder="Preço"
+                        className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={cp.customText ?? ''}
+                        onChange={e => updateCustomPlaca(cp.id, { customText: e.target.value || undefined })}
+                        placeholder="Personalizar texto desta placa (opcional)"
+                        className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {customPlacas.length === 0 && (
+                  <p className="text-[11px] text-on-surface/30 font-medium px-1">
+                    Placas com nome e preço digitados na hora, sem vincular a um produto do estoque.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between px-7 py-5 border-t border-on-surface/[0.06] flex-shrink-0">
               <span className="text-sm text-on-surface/40 font-medium">
-                {selectedIds.length > 0
-                  ? `${selectedIds.length} produto${selectedIds.length > 1 ? 's' : ''} · ${totalPlacas} placa${totalPlacas > 1 ? 's' : ''} · ${totalPages} folha${totalPages !== 1 ? 's' : ''} A4`
-                  : 'Nenhum produto selecionado'}
+                {totalPlacas > 0
+                  ? `${totalPlacas} placa${totalPlacas > 1 ? 's' : ''} · ${totalPages} folha${totalPages !== 1 ? 's' : ''} A4`
+                  : 'Nenhuma placa selecionada'}
               </span>
               <div className="flex gap-2">
                 <button
