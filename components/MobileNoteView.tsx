@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
-  ChevronRight, FileText, Layers, Link as LinkIcon,
+  AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
+  ChevronRight, FileText, Filter, Layers, Link as LinkIcon,
   List, Minus, Plus, Save, Search, Trash2, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -329,6 +329,8 @@ export function MobileNoteView({
   const [tab, setTab] = useState<Tab>('itens');
   const [activeIdx, setActiveIdx] = useState(0);
   const [query, setQuery] = useState('');
+  const [itemFilter, setItemFilter] = useState<'todos' | 'sem_ean' | 'pendentes' | 'duplicados'>('todos');
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [linkingPanel, setLinkingPanel] = useState(false);
@@ -357,7 +359,35 @@ export function MobileNoteView({
   const totalMarkup = totalRevenue > 0 && totalCost > 0
     ? ((totalRevenue - totalCost) / totalCost * 100).toFixed(1) : null;
 
+  // EANs (do item ou de suas variantes) que aparecem em mais de um item da nota
+  const duplicateEanSet = useMemo(() => {
+    const count: Record<string, number> = {};
+    items.forEach((_, i) => {
+      const variants = eanVariants[i] ?? [];
+      const codes = variants.length > 0 ? variants.map(v => v.ean) : [ean(i)];
+      codes.forEach(e => { const v = (e || '').trim(); if (v) count[v] = (count[v] ?? 0) + 1; });
+    });
+    return new Set(Object.entries(count).filter(([, n]) => n > 1).map(([e]) => e));
+  }, [items, eans, eanVariants]);
+
+  const itemHasNoEan = (i: number) => {
+    const variants = eanVariants[i] ?? [];
+    return variants.length > 0 ? variants.every(v => !v.ean?.trim()) : !ean(i).trim();
+  };
+  const itemHasDupEan = (i: number) => {
+    const variants = eanVariants[i] ?? [];
+    const codes = variants.length > 0 ? variants.map(v => v.ean) : [ean(i)];
+    return codes.some(e => (e || '').trim() && duplicateEanSet.has(e.trim()));
+  };
+
+  const semEanCount = items.reduce((s, _, i) => s + (itemHasNoEan(i) ? 1 : 0), 0);
+  const pendentesCount = items.reduce((s, _, i) => s + (!isVerif(i) ? 1 : 0), 0);
+  const duplicadosCount = items.reduce((s, _, i) => s + (itemHasDupEan(i) ? 1 : 0), 0);
+
   const filteredItems = items.map((item, i) => ({ item, i })).filter(({ item, i }) => {
+    if (itemFilter === 'sem_ean' && !itemHasNoEan(i)) return false;
+    if (itemFilter === 'pendentes' && isVerif(i)) return false;
+    if (itemFilter === 'duplicados' && !itemHasDupEan(i)) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (item.original_description || item.description || '').toLowerCase().includes(q)
@@ -577,19 +607,74 @@ export function MobileNoteView({
         {tab === 'itens' && (
           <div className="flex flex-col h-full">
             {/* search */}
-            <div className="shrink-0 px-4 py-2.5 bg-[#141410] border-b border-white/[0.05]">
-              <div className="flex items-center gap-2 bg-white/[0.06] rounded-xl px-3 py-2 border border-white/[0.06]">
-                <Search size={13} className="text-white/25 shrink-0" />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  onFocus={() => openNumpad('search')}
-                  inputMode="none"
-                  placeholder="Buscar produto ou código..."
-                  className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none font-medium"
-                />
-                {query && <button onClick={() => setQuery('')}><X size={13} className="text-white/30" /></button>}
+            <div className="shrink-0 px-4 py-2.5 bg-[#141410] border-b border-white/[0.05] relative">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 bg-white/[0.06] rounded-xl px-3 py-2 border border-white/[0.06] min-w-0">
+                  <Search size={13} className="text-white/25 shrink-0" />
+                  <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    onFocus={() => openNumpad('search')}
+                    inputMode="none"
+                    placeholder="Buscar produto ou código..."
+                    className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none font-medium min-w-0"
+                  />
+                  {query && <button onClick={() => setQuery('')}><X size={13} className="text-white/30" /></button>}
+                </div>
+                <button
+                  onClick={() => setFilterPanelOpen(v => !v)}
+                  className={cn(
+                    'relative shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-xl border transition-colors',
+                    itemFilter !== 'todos'
+                      ? 'bg-[#D81E1E]/15 border-[#D81E1E]/30 text-[#f87171]'
+                      : 'bg-white/[0.06] border-white/[0.06] text-white/40'
+                  )}
+                >
+                  <Filter size={14} />
+                  {itemFilter !== 'todos' && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#D81E1E]" />
+                  )}
+                </button>
               </div>
+
+              <AnimatePresence>
+                {filterPanelOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setFilterPanelOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                      className="absolute right-4 top-full mt-1 z-50 w-56 bg-[#1c1c16] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+                    >
+                      {([
+                        { id: 'todos', label: 'Todos', count: totalItems },
+                        { id: 'sem_ean', label: 'Sem EAN', count: semEanCount },
+                        { id: 'pendentes', label: 'Pendentes', count: pendentesCount },
+                        { id: 'duplicados', label: 'EAN duplicado', count: duplicadosCount },
+                      ] as const).map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => { setItemFilter(opt.id); setFilterPanelOpen(false); }}
+                          className={cn(
+                            'w-full flex items-center justify-between px-4 py-2.5 text-left border-b border-white/[0.05] last:border-b-0 transition-colors active:bg-white/[0.05]',
+                            itemFilter === opt.id ? 'bg-[#D81E1E]/10' : 'bg-transparent'
+                          )}
+                        >
+                          <span className={cn(
+                            'text-xs font-bold',
+                            itemFilter === opt.id ? 'text-[#f87171]' : 'text-[#f2f0e3]'
+                          )}>
+                            {opt.label}
+                          </span>
+                          <span className="text-[10px] font-black text-white/30">{opt.count}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
             {/* list */}
             <div className="flex-1 overflow-y-auto">
@@ -599,6 +684,7 @@ export function MobileNoteView({
                   : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
                 const hasVariants = itemVariants.length > 0;
                 const desc = item.original_description || item.description || item.name || `Item ${i + 1}`;
+                const isDup = itemHasDupEan(i);
 
                 const parentRow = (
                   <button
@@ -638,11 +724,18 @@ export function MobileNoteView({
                             ? `Cód. ${item.supplier_code || '—'} · ${itemVariants.reduce((s, v) => s + (v.qty || 0), 0)} un total`
                             : [item.supplier_code && `Cód. ${item.supplier_code}`, ean(i) && `EAN ${ean(i)}`, `${unit(i)} × ${qty(i)}`].filter(Boolean).join(' · ')}
                         </p>
-                        <span className={cn(
-                          'text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0',
-                          isVerif(i) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
-                        )}>
-                          {isVerif(i) ? 'OK' : 'Pendente'}
+                        <span className="flex items-center gap-1 shrink-0">
+                          {isDup && (
+                            <span title="EAN repetido nesta nota" className="text-[#f87171]">
+                              <AlertTriangle size={12} />
+                            </span>
+                          )}
+                          <span className={cn(
+                            'text-[9px] font-black px-1.5 py-0.5 rounded-md',
+                            isVerif(i) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
+                          )}>
+                            {isVerif(i) ? 'OK' : 'Pendente'}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -681,8 +774,15 @@ export function MobileNoteView({
                           {[variant.ean && `EAN ${variant.ean}`, `${unit(i)} × ${variant.qty || 0}`].filter(Boolean).join(' · ')}
                         </p>
                       </div>
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 bg-[#D81E1E]/10 text-[#f87171]">
-                        Pendente
+                      <span className="flex items-center gap-1 shrink-0">
+                        {variant.ean?.trim() && duplicateEanSet.has(variant.ean.trim()) && (
+                          <span title="EAN repetido nesta nota" className="text-[#f87171]">
+                            <AlertTriangle size={11} />
+                          </span>
+                        )}
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-[#D81E1E]/10 text-[#f87171]">
+                          Pendente
+                        </span>
                       </span>
                     </button>
                   );
@@ -785,6 +885,9 @@ export function MobileNoteView({
                     <Plus size={18} />
                   </button>
                 </div>
+                {currentVariants.length === 0 && ean(activeIdx).trim() && duplicateEanSet.has(ean(activeIdx).trim()) && (
+                  <p className="px-4 pb-2 -mt-1 text-[10px] text-[#f87171] font-medium">EAN repetido nesta nota</p>
+                )}
 
                 {/* Variant blocks */}
                 {currentVariants.map((variant, vi) => {
@@ -825,6 +928,9 @@ export function MobileNoteView({
                             placeholder="0000000000000"
                             className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 font-mono"
                           />
+                          {variant.ean?.trim() && duplicateEanSet.has(variant.ean.trim()) && (
+                            <p className="text-[9px] text-[#f87171] font-medium mt-0.5">Repetido nesta nota</p>
+                          )}
                         </div>
                         <div className="px-4 py-2">
                           <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">SKU</span>
