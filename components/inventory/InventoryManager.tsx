@@ -16,8 +16,10 @@ import {
   ChevronDown,
   Rows3,
   Smartphone,
+  StickyNote,
 } from 'lucide-react';
 import { LabelPrintModal } from './LabelPrintModal';
+import { PlacaPrintModal } from './PlacaPrintModal';
 import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
@@ -62,7 +64,11 @@ export function InventoryManager({
   const [showFilters, setShowFilters] = useState(false);
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
+  const [showPlacaModal, setShowPlacaModal] = useState(false);
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
+  const printMenuRefMobile = useRef<HTMLDivElement>(null);
+  const printMenuRefDesktop = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -73,6 +79,19 @@ export function InventoryManager({
     if (showNewDropdown) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNewDropdown]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const insideMobile = printMenuRefMobile.current?.contains(target);
+      const insideDesktop = printMenuRefDesktop.current?.contains(target);
+      if (!insideMobile && !insideDesktop) {
+        setShowPrintMenu(false);
+      }
+    }
+    if (showPrintMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPrintMenu]);
 
   const [filters, setFilters] = useState({
     ean: '',
@@ -194,14 +213,43 @@ export function InventoryManager({
             <Smartphone size={17} />
           </button>
 
-          {/* Etiquetas — ícone */}
-          <button
-            onClick={() => setShowLabelModal(true)}
-            title="Etiquetas"
-            className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
-          >
-            <Tag size={17} />
-          </button>
+          {/* Etiquetas / Placas — ícone com menu */}
+          <div ref={printMenuRefMobile} className="relative">
+            <button
+              onClick={() => setShowPrintMenu(v => !v)}
+              title="Imprimir"
+              className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
+            >
+              <Tag size={17} />
+            </button>
+            <AnimatePresence>
+              {showPrintMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Tag size={14} className="text-primary" />
+                    Etiquetas
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                  <button
+                    onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <StickyNote size={14} className="text-primary" />
+                    Placas
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Filtros — ícone */}
           <button
@@ -341,13 +389,49 @@ export function InventoryManager({
                 )}
               </AnimatePresence>
             </div>
-            <button
-              onClick={() => setShowLabelModal(true)}
-              className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 active:scale-95"
-            >
-              <Tag size={16} />
-              Etiquetas
-            </button>
+            <div ref={printMenuRefDesktop} className="relative">
+              <button
+                onClick={() => setShowPrintMenu(v => !v)}
+                className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 active:scale-95"
+              >
+                <Tag size={16} />
+                Imprimir
+                <motion.span
+                  animate={{ rotate: showPrintMenu ? 180 : 0 }}
+                  transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                  style={{ display: 'flex' }}
+                >
+                  <ChevronDown size={13} />
+                </motion.span>
+              </button>
+              <AnimatePresence>
+                {showPrintMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Tag size={14} className="text-primary" />
+                      Etiquetas
+                    </button>
+                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                    <button
+                      onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <StickyNote size={14} className="text-primary" />
+                      Placas
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
@@ -535,6 +619,11 @@ export function InventoryManager({
       <LabelPrintModal
         isOpen={showLabelModal}
         onClose={() => setShowLabelModal(false)}
+        products={products}
+      />
+      <PlacaPrintModal
+        isOpen={showPlacaModal}
+        onClose={() => setShowPlacaModal(false)}
         products={products}
       />
       </> /* end produtos tab */}

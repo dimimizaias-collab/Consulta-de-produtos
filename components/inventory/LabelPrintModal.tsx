@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Tag, Printer, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
-import JsBarcode from 'jsbarcode';
+import { generateBarcodeDataUrl, formatPrice, defaultCodeField, type CodeField } from './labelPrintUtils';
 
 // A4351 sheet constants (mm) — from official Pimaco template
 const LABEL_W    = 38.1;
@@ -20,7 +20,6 @@ const ROWS       = 13;
 const TOTAL      = COLS * ROWS; // 65
 
 type LabelType = 'estoque' | 'prateleira';
-type CodeField = 'ean' | 'sku';
 
 interface Selection {
   qty: number;
@@ -32,16 +31,6 @@ interface LabelPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   products: any[];
-}
-
-function generateBarcodeDataUrl(code: string): string {
-  const canvas = document.createElement('canvas');
-  JsBarcode(canvas, code, { format: 'CODE128', displayValue: false, width: 1.5, height: 50, margin: 0 });
-  return canvas.toDataURL('image/png');
-}
-
-function formatPrice(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
@@ -97,8 +86,6 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   }, [usedBlocks, labelQueue.length]);
 
   const firstPrintBlock = printBlocks[0] ?? -1;
-
-  const defaultCodeField = (p: any): CodeField => (p?.ean ? 'ean' : 'sku');
 
   const toggleProduct = useCallback((id: string) => {
     setSelections(prev => {
