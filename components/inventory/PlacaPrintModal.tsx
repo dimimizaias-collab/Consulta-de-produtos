@@ -210,29 +210,49 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.rect(x, y, PLACA_W, PLACA_H);
     doc.setLineDashPattern([], 0);
 
-    let cy = y + PAD + 6;
+    const hasBarcode = showBarcode && !!code;
+    // Bigger price when there's no barcode taking up space at the bottom
+    const priceMainSize = hasBarcode ? 24 : 32;
+    const pricePrefixSize = hasBarcode ? 14 : 18;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
+
+    // Block heights (mm), used to vertically center the whole stack in the placa
+    const nameBlockH = nameLines.length * 6 + 4;
+    const priceBlockH = hasBarcode ? 10 : 14;
+    const promoBlockH = text ? 8 : 0;
+    const barcodeBlockH = hasBarcode ? 9 + 3 + 6 : 0;
+    const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
+    const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
+
+    let cy = startY + 6;
 
     // Product name (1-2 lines, centered)
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(28, 28, 26);
-    const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
     doc.text(nameLines, centerX, cy, { align: 'center' });
     cy += nameLines.length * 6 + 4;
 
-    // Price — "R$" prefix + big number, both centered as one line
-    doc.setFontSize(22);
+    // Price — "R$" prefix + big number, both centered as one line.
+    // Measure and draw each part at the SAME font size, or the reserved
+    // width won't match what's actually painted (leaves a visible gap).
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLOR_RED_DARK);
+    doc.setFontSize(pricePrefixSize);
     const prefixW = doc.getTextWidth('R$ ');
-    doc.setFontSize(15);
+    doc.setFontSize(priceMainSize);
     const priceW = doc.getTextWidth(price);
     const totalW = prefixW + priceW;
+
+    doc.setFontSize(pricePrefixSize);
+    doc.setTextColor(...COLOR_RED_DARK);
     doc.text('R$ ', centerX - totalW / 2, cy, { align: 'left' });
-    doc.setFontSize(24);
+    doc.setFontSize(priceMainSize);
     doc.setTextColor(...COLOR_RED);
     doc.text(price, centerX - totalW / 2 + prefixW, cy, { align: 'left' });
-    cy += 10;
+    cy += priceBlockH;
 
     // Promo text, if any
     if (text) {
@@ -240,11 +260,11 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...COLOR_RED);
       doc.text(text, centerX, cy, { align: 'center' });
-      cy += 6;
+      cy += promoBlockH;
     }
 
     // Barcode + code
-    if (showBarcode && code) {
+    if (hasBarcode) {
       try {
         const bcW = Math.min(45, cw);
         const bcH = 9;
