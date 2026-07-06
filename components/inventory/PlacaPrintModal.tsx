@@ -413,12 +413,21 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
               {/* List header */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Produtos</span>
-                <button
-                  onClick={selectedIds.length === products.length ? clearAll : selectAll}
-                  className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
-                >
-                  {selectedIds.length === products.length ? 'Limpar seleção' : 'Selecionar todos'}
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={addCustomPlaca}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors"
+                  >
+                    <Plus size={12} />
+                    Adicionar placa
+                  </button>
+                  <button
+                    onClick={selectedIds.length === products.length ? clearAll : selectAll}
+                    className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
+                  >
+                    {selectedIds.length === products.length ? 'Limpar seleção' : 'Selecionar todos'}
+                  </button>
+                </div>
               </div>
 
               {/* Product rows */}
@@ -558,13 +567,6 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Placas sem produto</span>
-                  <button
-                    onClick={addCustomPlaca}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors"
-                  >
-                    <Plus size={12} />
-                    Adicionar placa
-                  </button>
                 </div>
 
                 {customPlacas.map(cp => (
