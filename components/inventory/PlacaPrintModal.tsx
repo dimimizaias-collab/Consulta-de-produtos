@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Printer, Check, Plus, Trash2 } from 'lucide-react';
+import { X, Search, Printer, Check, Plus, Trash2, ChevronDown, ChevronLeft, ChevronRight, FileText, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import { generateBarcodeDataUrl, defaultCodeField, type CodeField } from './labelPrintUtils';
@@ -50,7 +50,8 @@ interface PlacaSelection {
   customText?: string;
 }
 
-interface CustomPlaca {
+interface CustomPlacaComum {
+  kind: 'comum';
   id: string;
   name: string;
   price: string;
@@ -58,12 +59,20 @@ interface CustomPlaca {
   customText?: string;
 }
 
-interface QueueEntry {
-  name: string;
-  price: number;
-  code: string;
-  customText?: string;
+interface CustomPlacaInformativa {
+  kind: 'informativa';
+  id: string;
+  principal: string;
+  secundaria: string;
+  terciaria: string;
+  qty: number;
 }
+
+type CustomPlaca = CustomPlacaComum | CustomPlacaInformativa;
+
+type QueueEntry =
+  | { kind: 'comum'; name: string; price: number; code: string; customText?: string }
+  | { kind: 'informativa'; principal: string; secundaria: string; terciaria: string };
 
 interface PlacaPrintModalProps {
   isOpen: boolean;
@@ -77,6 +86,66 @@ function nextCustomPlacaId(): string {
   return `custom-${Date.now()}-${customPlacaIdCounter}`;
 }
 
+interface PlacaCardPreviewProps {
+  entry: QueueEntry;
+  showBarcode: boolean;
+  showOferta: boolean;
+  batchText: string;
+}
+
+function PlacaCardPreview({ entry, showBarcode, showOferta, batchText }: PlacaCardPreviewProps) {
+  let mainText: string;
+  let priceNode: React.ReactNode;
+  let promoText: string | undefined;
+  let hasBarcode = false;
+  let barcodeCode = '';
+
+  if (entry.kind === 'comum') {
+    hasBarcode = showBarcode && !!entry.code;
+    barcodeCode = entry.code;
+    mainText = entry.name || '—';
+    promoText = entry.customText || batchText || undefined;
+    priceNode = (
+      <>
+        <span style={{ color: '#8A241C' }} className="text-[6cqw] align-top">R$ </span>
+        {entry.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </>
+    );
+  } else {
+    mainText = entry.principal || '—';
+    promoText = entry.terciaria || undefined;
+    priceNode = entry.secundaria || '';
+  }
+
+  const barcodeDataUrl = hasBarcode ? generateBarcodeDataUrl(barcodeCode) : null;
+
+  return (
+    <div className="relative aspect-[2/1] rounded-lg border border-dashed border-on-surface/25 bg-white overflow-hidden [container-type:inline-size]">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[1cqw] px-[4cqw] text-center">
+        <p className="text-[7cqw] font-black leading-tight text-[#1C1C1A] line-clamp-2">{mainText}</p>
+        <p className="text-[12cqw] font-black leading-none" style={{ color: '#EE2B2B' }}>{priceNode}</p>
+        {promoText && (
+          <p className="text-[4cqw] font-black" style={{ color: '#EE2B2B' }}>{promoText}</p>
+        )}
+        {hasBarcode && barcodeDataUrl && (
+          <div className="flex flex-col items-center gap-[0.5cqw] mt-[1cqw]">
+            <img src={barcodeDataUrl} alt="" className="h-[9cqw] w-auto" />
+            <span className="text-[3cqw] font-mono text-on-surface/50">{barcodeCode}</span>
+          </div>
+        )}
+      </div>
+
+      {showOferta && (
+        <div className="absolute top-0 right-0 bg-[#FFE500] text-[#7A4A00] text-[4cqw] font-black px-[3cqw] py-[1cqw]">
+          OFERTA
+        </div>
+      )}
+
+      <img src="/brand/logo.png" alt="" className="absolute bottom-[2cqw] right-[2cqw] w-[10cqw] opacity-90" />
+    </div>
+  );
+}
+
 export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalProps) {
   const [search, setSearch] = useState('');
   const [selections, setSelections] = useState<Record<string, PlacaSelection>>({});
@@ -84,8 +153,12 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   const [batchText, setBatchText] = useState('');
   const [showBarcode, setShowBarcode] = useState(true);
   const [showOferta, setShowOferta] = useState(false);
+  const [activeTab, setActiveTab] = useState<'busca' | 'cards' | 'visualizacao'>('busca');
+  const [showAddPlacaMenu, setShowAddPlacaMenu] = useState(false);
+  const [previewPage, setPreviewPage] = useState(0);
   const lastCustomPlacaRef = useRef<HTMLDivElement | null>(null);
   const prevCustomPlacaCountRef = useRef(0);
+  const addPlacaMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (customPlacas.length > prevCustomPlacaCountRef.current) {
@@ -93,6 +166,17 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     }
     prevCustomPlacaCountRef.current = customPlacas.length;
   }, [customPlacas.length]);
+
+  useEffect(() => {
+    if (!showAddPlacaMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (addPlacaMenuRef.current && !addPlacaMenuRef.current.contains(e.target as Node)) {
+        setShowAddPlacaMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAddPlacaMenu]);
 
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase();
@@ -124,17 +208,26 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       const code = codeField === 'sku' ? (p.sku || p.ean || '') : (p.ean || p.sku || '');
       const price = priceOverride !== undefined ? (parseFloat(priceOverride.replace(',', '.')) || 0) : (p.price ?? 0);
       for (let i = 0; i < qty; i++) {
-        queue.push({ name: nameOverride || p.name, price, code, customText });
+        queue.push({ kind: 'comum', name: nameOverride || p.name, price, code, customText });
       }
     });
     customPlacas.forEach(cp => {
-      const price = parseFloat(cp.price.replace(',', '.')) || 0;
-      for (let i = 0; i < (cp.qty || 1); i++) {
-        queue.push({ name: cp.name, price, code: '', customText: cp.customText });
+      if (cp.kind === 'comum') {
+        const price = parseFloat(cp.price.replace(',', '.')) || 0;
+        for (let i = 0; i < (cp.qty || 1); i++) {
+          queue.push({ kind: 'comum', name: cp.name, price, code: '', customText: cp.customText });
+        }
+      } else {
+        for (let i = 0; i < (cp.qty || 1); i++) {
+          queue.push({ kind: 'informativa', principal: cp.principal, secundaria: cp.secundaria, terciaria: cp.terciaria });
+        }
       }
     });
     return queue;
   }, [selectedIds, selections, products, customPlacas]);
+
+  const clampedPreviewPage = totalPages > 0 ? Math.min(previewPage, totalPages - 1) : 0;
+  const previewEntries = placaQueue.slice(clampedPreviewPage * TOTAL_PER_PAGE, clampedPreviewPage * TOTAL_PER_PAGE + TOTAL_PER_PAGE);
 
   const toggleProduct = useCallback((id: string) => {
     setSelections(prev => {
@@ -168,8 +261,14 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], customText: customText || undefined } }));
   }, []);
 
-  const addCustomPlaca = useCallback(() => {
-    setCustomPlacas(prev => [...prev, { id: nextCustomPlacaId(), name: '', price: '', qty: 1 }]);
+  const addCustomPlaca = useCallback((kind: 'comum' | 'informativa') => {
+    setCustomPlacas(prev => [
+      ...prev,
+      kind === 'comum'
+        ? { kind: 'comum' as const, id: nextCustomPlacaId(), name: '', price: '', qty: 1 }
+        : { kind: 'informativa' as const, id: nextCustomPlacaId(), principal: '', secundaria: '', terciaria: '', qty: 1 }
+    ]);
+    setShowAddPlacaMenu(false);
   }, []);
 
   const removeCustomPlaca = useCallback((id: string) => {
@@ -177,7 +276,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   }, []);
 
   const updateCustomPlaca = useCallback((id: string, patch: Partial<CustomPlaca>) => {
-    setCustomPlacas(prev => prev.map(cp => cp.id === id ? { ...cp, ...patch } : cp));
+    setCustomPlacas(prev => prev.map(cp => cp.id === id ? { ...cp, ...patch } as CustomPlaca : cp));
   }, []);
 
   const selectAll = useCallback(() => {
@@ -197,6 +296,9 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     setBatchText('');
     setShowBarcode(true);
     setShowOferta(false);
+    setActiveTab('busca');
+    setShowAddPlacaMenu(false);
+    setPreviewPage(0);
     onClose();
   };
 
@@ -207,12 +309,8 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     entry: QueueEntry,
     logoDataUrl: string | null
   ) => {
-    const { name, price: priceValue, code, customText } = entry;
-
     const centerX = x + PLACA_W / 2;
     const cw = PLACA_W - PAD * 2;
-    const price = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const text = customText || batchText;
 
     // cut guides (dashed rect) — plain paper, user cuts by hand
     doc.setDrawColor(180, 180, 180);
@@ -221,78 +319,123 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.rect(x, y, PLACA_W, PLACA_H);
     doc.setLineDashPattern([], 0);
 
-    const hasBarcode = showBarcode && !!code;
-    // Bigger price when there's no barcode taking up space at the bottom
-    const priceMainSize = hasBarcode ? 24 : 32;
-    const pricePrefixSize = hasBarcode ? 14 : 18;
+    if (entry.kind === 'comum') {
+      const { name, price: priceValue, code, customText } = entry;
+      const price = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const text = customText || batchText;
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
+      const hasBarcode = showBarcode && !!code;
+      // Bigger price when there's no barcode taking up space at the bottom
+      const priceMainSize = hasBarcode ? 24 : 32;
+      const pricePrefixSize = hasBarcode ? 14 : 18;
 
-    // Block heights (mm), used to vertically center the whole stack in the placa.
-    // When there's no barcode there's a lot of spare room, so give name/price
-    // more breathing room instead of packing them tight at their old spacing.
-    const nameGapAfter = hasBarcode ? 4 : 12;
-    const nameBlockH = nameLines.length * 6 + nameGapAfter;
-    const priceBlockH = hasBarcode ? 10 : 16;
-    const promoBlockH = text ? 8 : 0;
-    const barcodeBlockH = hasBarcode ? 9 + 3 + 6 : 0;
-    const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
-    const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
-
-    let cy = startY + 6;
-
-    // Product name (1-2 lines, centered)
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(28, 28, 26);
-    doc.text(nameLines, centerX, cy, { align: 'center' });
-    cy += nameBlockH;
-
-    // Price — "R$" prefix + big number, both centered as one line.
-    // Measure and draw each part at the SAME font size, or the reserved
-    // width won't match what's actually painted (leaves a visible gap).
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(pricePrefixSize);
-    const prefixW = doc.getTextWidth('R$ ');
-    doc.setFontSize(priceMainSize);
-    const priceW = doc.getTextWidth(price);
-    const totalW = prefixW + priceW;
-
-    doc.setFontSize(pricePrefixSize);
-    doc.setTextColor(...COLOR_RED_DARK);
-    doc.text('R$ ', centerX - totalW / 2, cy, { align: 'left' });
-    doc.setFontSize(priceMainSize);
-    doc.setTextColor(...COLOR_RED);
-    doc.text(price, centerX - totalW / 2 + prefixW, cy, { align: 'left' });
-    cy += priceBlockH;
-
-    // Promo text, if any
-    if (text) {
-      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
+
+      // Block heights (mm), used to vertically center the whole stack in the placa.
+      // When there's no barcode there's a lot of spare room, so give name/price
+      // more breathing room instead of packing them tight at their old spacing.
+      const nameGapAfter = hasBarcode ? 4 : 12;
+      const nameBlockH = nameLines.length * 6 + nameGapAfter;
+      const priceBlockH = hasBarcode ? 10 : 16;
+      const promoBlockH = text ? 8 : 0;
+      const barcodeBlockH = hasBarcode ? 9 + 3 + 6 : 0;
+      const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
+      const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
+
+      let cy = startY + 6;
+
+      // Product name (1-2 lines, centered)
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(28, 28, 26);
+      doc.text(nameLines, centerX, cy, { align: 'center' });
+      cy += nameBlockH;
+
+      // Price — "R$" prefix + big number, both centered as one line.
+      // Measure and draw each part at the SAME font size, or the reserved
+      // width won't match what's actually painted (leaves a visible gap).
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(pricePrefixSize);
+      const prefixW = doc.getTextWidth('R$ ');
+      doc.setFontSize(priceMainSize);
+      const priceW = doc.getTextWidth(price);
+      const totalW = prefixW + priceW;
+
+      doc.setFontSize(pricePrefixSize);
+      doc.setTextColor(...COLOR_RED_DARK);
+      doc.text('R$ ', centerX - totalW / 2, cy, { align: 'left' });
+      doc.setFontSize(priceMainSize);
       doc.setTextColor(...COLOR_RED);
-      doc.text(text, centerX, cy, { align: 'center' });
-      cy += promoBlockH;
+      doc.text(price, centerX - totalW / 2 + prefixW, cy, { align: 'left' });
+      cy += priceBlockH;
+
+      // Promo text, if any
+      if (text) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLOR_RED);
+        doc.text(text, centerX, cy, { align: 'center' });
+        cy += promoBlockH;
+      }
+
+      // Barcode + code
+      if (hasBarcode) {
+        try {
+          const bcW = Math.min(45, cw);
+          const bcH = 9;
+          const bcDataUrl = generateBarcodeDataUrl(code);
+          doc.addImage(bcDataUrl, 'PNG', centerX - bcW / 2, cy, bcW, bcH);
+          cy += bcH + 3;
+          doc.setFontSize(6);
+          doc.setFont('courier', 'normal');
+          doc.setTextColor(95, 94, 90);
+          doc.text(code, centerX, cy, { align: 'center' });
+        } catch { /* skip barcode on error */ }
+      }
+    } else {
+      // Informativa — no linked product, so no barcode. The three fields reuse
+      // the same font/position as name → price → promo, just with free text.
+      const { principal, secundaria, terciaria } = entry;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      const principalLines = doc.splitTextToSize(principal || '—', cw).slice(0, 2);
+
+      const nameBlockH = principalLines.length * 6 + 12;
+      const priceBlockH = 16;
+      const promoBlockH = terciaria ? 8 : 0;
+      const totalBlockH = nameBlockH + priceBlockH + promoBlockH;
+      const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
+
+      let cy = startY + 6;
+
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(28, 28, 26);
+      doc.text(principalLines, centerX, cy, { align: 'center' });
+      cy += nameBlockH;
+
+      if (secundaria) {
+        doc.setFontSize(32);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLOR_RED);
+        const secLine = doc.splitTextToSize(secundaria, cw)[0] || '';
+        doc.text(secLine, centerX, cy, { align: 'center' });
+      }
+      cy += priceBlockH;
+
+      if (terciaria) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLOR_RED);
+        doc.text(terciaria, centerX, cy, { align: 'center' });
+        cy += promoBlockH;
+      }
     }
 
-    // Barcode + code
-    if (hasBarcode) {
-      try {
-        const bcW = Math.min(45, cw);
-        const bcH = 9;
-        const bcDataUrl = generateBarcodeDataUrl(code);
-        doc.addImage(bcDataUrl, 'PNG', centerX - bcW / 2, cy, bcW, bcH);
-        cy += bcH + 3;
-        doc.setFontSize(6);
-        doc.setFont('courier', 'normal');
-        doc.setTextColor(95, 94, 90);
-        doc.text(code, centerX, cy, { align: 'center' });
-      } catch { /* skip barcode on error */ }
-    }
-
-    // Oferta badge — top-right corner
+    // Oferta badge — top-right corner (applies to any placa kind)
     if (showOferta) {
       const badgeW = 24, badgeH = 8;
       doc.setFillColor(...COLOR_YELLOW);
@@ -340,6 +483,12 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.save('placas.pdf');
   };
 
+  const TABS = [
+    { id: 'busca' as const, label: 'Busca' },
+    { id: 'cards' as const, label: 'Cards' },
+    { id: 'visualizacao' as const, label: 'Visualização' },
+  ];
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -377,265 +526,431 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
               </button>
             </div>
 
+            {/* ── TABS ── */}
+            <div className="flex items-center gap-2 px-7 pt-4 pb-3 border-b border-on-surface/[0.06] flex-shrink-0">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all',
+                    activeTab === tab.id
+                      ? 'bg-on-surface text-surface-container shadow-lg shadow-black/10'
+                      : 'text-on-surface/40 hover:bg-on-surface/5'
+                  )}
+                >
+                  {tab.label}
+                  {tab.id === 'cards' && (selectedIds.length + customPlacas.length) > 0 && (
+                    <span className={cn(
+                      'px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none',
+                      activeTab === tab.id ? 'bg-surface-container/25 text-surface-container' : 'bg-on-surface/10 text-on-surface/60'
+                    )}>
+                      {selectedIds.length + customPlacas.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             <div className="flex-1 overflow-y-auto px-7 py-5 flex flex-col gap-4 min-h-0">
-              {/* Search */}
-              <div className="relative">
-                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar por nome, SKU ou EAN…"
-                  className="w-full h-11 pl-10 pr-4 bg-on-surface/[0.04] border border-on-surface/[0.06] rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/20 transition-colors"
-                />
-              </div>
-
-              {/* Batch options */}
-              <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-on-surface/[0.06] bg-on-surface/[0.02]">
-                <input
-                  type="text"
-                  value={batchText}
-                  onChange={e => setBatchText(e.target.value)}
-                  placeholder="Texto adicional para todas as placas desta impressão (opcional)"
-                  className="w-full h-10 px-3.5 bg-transparent border border-on-surface/[0.10] rounded-xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors"
-                />
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setShowBarcode(v => !v)}
-                    className="flex items-center gap-2"
-                  >
-                    <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all', showBarcode ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent')}>
-                      {showBarcode && <Check size={11} strokeWidth={3} className="text-surface-container" />}
-                    </div>
-                    <span className="text-[11px] font-semibold text-on-surface/60">Código de barras</span>
-                  </button>
-                  <button
-                    onClick={() => setShowOferta(v => !v)}
-                    className="flex items-center gap-2"
-                  >
-                    <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all', showOferta ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent')}>
-                      {showOferta && <Check size={11} strokeWidth={3} className="text-surface-container" />}
-                    </div>
-                    <span className="text-[11px] font-semibold text-on-surface/60">Selo "OFERTA"</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* List header */}
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Produtos</span>
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={addCustomPlaca}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors"
-                  >
-                    <Plus size={12} />
-                    Adicionar placa
-                  </button>
-                  <button
-                    onClick={selectedIds.length === products.length ? clearAll : selectAll}
-                    className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
-                  >
-                    {selectedIds.length === products.length ? 'Limpar seleção' : 'Selecionar todos'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Product rows */}
-              <div className="flex flex-col gap-2">
-                {filteredProducts.map(product => {
-                  const sel = selections[product.id];
-                  const isSelected = !!sel;
-                  return (
-                    <div
-                      key={product.id}
-                      className={cn(
-                        'flex flex-col gap-2.5 p-3.5 rounded-2xl border transition-all cursor-pointer',
-                        isSelected
-                          ? 'border-on-surface/10 bg-on-surface/[0.03]'
-                          : 'border-on-surface/[0.05] bg-transparent hover:border-on-surface/10'
-                      )}
-                      onClick={() => toggleProduct(product.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Checkbox */}
-                        <div
-                          className={cn(
-                            'w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all',
-                            isSelected ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent'
-                          )}
-                        >
-                          {isSelected && <Check size={11} strokeWidth={3} className="text-surface-container" />}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-on-surface truncate">{product.name}</p>
-                          <p className="text-[11px] text-on-surface/40 mt-0.5">
-                            {product.sku && `SKU: ${product.sku}`}
-                            {product.sku && product.ean && ' · '}
-                            {product.ean && `EAN: ${product.ean}`}
-                            {!product.sku && !product.ean && 'Sem código'}
-                          </p>
-                        </div>
-
-                        {/* Controls — only when selected */}
-                        {isSelected && (
-                          <div
-                            className="flex items-center gap-2 flex-shrink-0"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            {/* Code field toggle */}
-                            <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
-                              <button
-                                onClick={() => setCodeFieldFor(product.id, 'ean')}
-                                disabled={!product.ean}
-                                className={cn(
-                                  'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
-                                  sel.codeField === 'ean'
-                                    ? 'bg-on-surface text-surface-container shadow-sm'
-                                    : 'text-on-surface/40 hover:text-on-surface/70'
-                                )}
-                              >
-                                EAN
-                              </button>
-                              <button
-                                onClick={() => setCodeFieldFor(product.id, 'sku')}
-                                disabled={!product.sku}
-                                className={cn(
-                                  'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
-                                  sel.codeField === 'sku'
-                                    ? 'bg-on-surface text-surface-container shadow-sm'
-                                    : 'text-on-surface/40 hover:text-on-surface/70'
-                                )}
-                              >
-                                SKU
-                              </button>
-                            </div>
-
-                            {/* Quantity */}
-                            <input
-                              type="number"
-                              min={1}
-                              value={sel.qty === 1 ? '' : sel.qty}
-                              placeholder="0"
-                              onChange={e => {
-                                const val = parseInt(e.target.value);
-                                setQty(product.id, val > 0 ? val : 1);
-                              }}
-                              className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <span className="text-[10px] text-on-surface/35 font-medium">un.</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {isSelected && (
-                        <div
-                          className="flex flex-col gap-2 pl-8"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <input
-                            type="text"
-                            value={sel.nameOverride ?? product.name ?? ''}
-                            onChange={e => setNameOverrideFor(product.id, e.target.value)}
-                            placeholder="Nome exibido na placa"
-                            className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
-                          />
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={sel.priceOverride !== undefined ? sel.priceOverride : String(product.price ?? 0)}
-                              onChange={e => setPriceOverrideFor(product.id, e.target.value)}
-                              placeholder="Preço"
-                              className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
-                            />
-                            <input
-                              type="text"
-                              value={sel.customText ?? ''}
-                              onChange={e => setCustomTextFor(product.id, e.target.value)}
-                              placeholder="Personalizar texto desta placa (opcional)"
-                              className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {filteredProducts.length === 0 && (
-                  <div className="py-12 text-center text-on-surface/30 text-sm font-medium">
-                    Nenhum produto encontrado
+              {/* ══════════ BUSCA ══════════ */}
+              {activeTab === 'busca' && (
+                <>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Buscar por nome, SKU ou EAN…"
+                      className="w-full h-11 pl-10 pr-4 bg-on-surface/[0.04] border border-on-surface/[0.06] rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/20 transition-colors"
+                    />
                   </div>
-                )}
-              </div>
 
-              {/* Placas sem produto vinculado */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Placas sem produto</span>
-                </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Produtos</span>
+                    <button
+                      onClick={selectedIds.length === products.length ? clearAll : selectAll}
+                      className="text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors underline underline-offset-2"
+                    >
+                      {selectedIds.length === products.length ? 'Limpar seleção' : 'Selecionar todos'}
+                    </button>
+                  </div>
 
-                {customPlacas.map((cp, i) => (
-                  <div
-                    key={cp.id}
-                    ref={i === customPlacas.length - 1 ? lastCustomPlacaRef : undefined}
-                    className="flex flex-col gap-2 p-3.5 rounded-2xl border border-on-surface/10 bg-on-surface/[0.03]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={cp.name}
-                        onChange={e => updateCustomPlaca(cp.id, { name: e.target.value })}
-                        placeholder="Nome exibido na placa"
-                        className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
-                      />
-                      <input
-                        type="number"
-                        min={1}
-                        value={cp.qty === 1 ? '' : cp.qty}
-                        placeholder="1"
-                        onChange={e => {
-                          const val = parseInt(e.target.value);
-                          updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });
-                        }}
-                        className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
+                  <div className="flex flex-col gap-2">
+                    {filteredProducts.map(product => {
+                      const isSelected = !!selections[product.id];
+                      return (
+                        <div
+                          key={product.id}
+                          className={cn(
+                            'flex items-center gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer',
+                            isSelected
+                              ? 'border-on-surface/10 bg-on-surface/[0.03]'
+                              : 'border-on-surface/[0.05] bg-transparent hover:border-on-surface/10'
+                          )}
+                          onClick={() => toggleProduct(product.id)}
+                        >
+                          <div
+                            className={cn(
+                              'w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all',
+                              isSelected ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent'
+                            )}
+                          >
+                            {isSelected && <Check size={11} strokeWidth={3} className="text-surface-container" />}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-on-surface truncate">{product.name}</p>
+                            <p className="text-[11px] text-on-surface/40 mt-0.5">
+                              {product.sku && `SKU: ${product.sku}`}
+                              {product.sku && product.ean && ' · '}
+                              {product.ean && `EAN: ${product.ean}`}
+                              {!product.sku && !product.ean && 'Sem código'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {filteredProducts.length === 0 && (
+                      <div className="py-12 text-center text-on-surface/30 text-sm font-medium">
+                        Nenhum produto encontrado
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* ══════════ CARDS ══════════ */}
+              {activeTab === 'cards' && (
+                <>
+                  {/* Global print options */}
+                  <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-on-surface/[0.06] bg-on-surface/[0.02]">
+                    <input
+                      type="text"
+                      value={batchText}
+                      onChange={e => setBatchText(e.target.value)}
+                      placeholder="Texto adicional para todas as placas desta impressão (opcional)"
+                      className="w-full h-10 px-3.5 bg-transparent border border-on-surface/[0.10] rounded-xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors"
+                    />
+                    <div className="flex items-center gap-4">
                       <button
-                        onClick={() => removeCustomPlaca(cp.id)}
-                        className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-on-surface/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        onClick={() => setShowBarcode(v => !v)}
+                        className="flex items-center gap-2"
                       >
-                        <Trash2 size={14} />
+                        <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all', showBarcode ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent')}>
+                          {showBarcode && <Check size={11} strokeWidth={3} className="text-surface-container" />}
+                        </div>
+                        <span className="text-[11px] font-semibold text-on-surface/60">Código de barras</span>
+                      </button>
+                      <button
+                        onClick={() => setShowOferta(v => !v)}
+                        className="flex items-center gap-2"
+                      >
+                        <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all', showOferta ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent')}>
+                          {showOferta && <Check size={11} strokeWidth={3} className="text-surface-container" />}
+                        </div>
+                        <span className="text-[11px] font-semibold text-on-surface/60">Selo "OFERTA"</span>
                       </button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={cp.price}
-                        onChange={e => updateCustomPlaca(cp.id, { price: e.target.value })}
-                        placeholder="Preço"
-                        className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
-                      />
-                      <input
-                        type="text"
-                        value={cp.customText ?? ''}
-                        onChange={e => updateCustomPlaca(cp.id, { customText: e.target.value || undefined })}
-                        placeholder="Personalizar texto desta placa (opcional)"
-                        className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
-                      />
+                  </div>
+
+                  {/* Header + add menu */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Cards</span>
+                    <div ref={addPlacaMenuRef} className="relative">
+                      <button
+                        onClick={() => setShowAddPlacaMenu(v => !v)}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold text-on-surface/50 hover:text-on-surface transition-colors"
+                      >
+                        <Plus size={12} />
+                        Adicionar placa
+                        <ChevronDown size={12} className={cn('transition-transform', showAddPlacaMenu && 'rotate-180')} />
+                      </button>
+                      <AnimatePresence>
+                        {showAddPlacaMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                            className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[190px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                          >
+                            <button
+                              onClick={() => addCustomPlaca('comum')}
+                              className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                            >
+                              <FileText size={14} className="text-primary" />
+                              Placa comum
+                            </button>
+                            <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                            <button
+                              onClick={() => addCustomPlaca('informativa')}
+                              className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                            >
+                              <Info size={14} className="text-primary" />
+                              Placa informativa
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
-                ))}
 
-                {customPlacas.length === 0 && (
-                  <p className="text-[11px] text-on-surface/30 font-medium px-1">
-                    Placas com nome e preço digitados na hora, sem vincular a um produto do estoque.
-                  </p>
-                )}
-              </div>
+                  <div className="flex flex-col gap-2">
+                    {selectedIds.map(id => {
+                      const product = products.find(p => p.id === id);
+                      const sel = selections[id];
+                      if (!product || !sel) return null;
+                      return (
+                        <div
+                          key={id}
+                          className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-on-surface/10 bg-on-surface/[0.03]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-on-surface truncate">{product.name}</p>
+                              <p className="text-[11px] text-on-surface/40 mt-0.5">
+                                {product.sku && `SKU: ${product.sku}`}
+                                {product.sku && product.ean && ' · '}
+                                {product.ean && `EAN: ${product.ean}`}
+                                {!product.sku && !product.ean && 'Sem código'}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
+                                <button
+                                  onClick={() => setCodeFieldFor(id, 'ean')}
+                                  disabled={!product.ean}
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
+                                    sel.codeField === 'ean'
+                                      ? 'bg-on-surface text-surface-container shadow-sm'
+                                      : 'text-on-surface/40 hover:text-on-surface/70'
+                                  )}
+                                >
+                                  EAN
+                                </button>
+                                <button
+                                  onClick={() => setCodeFieldFor(id, 'sku')}
+                                  disabled={!product.sku}
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed',
+                                    sel.codeField === 'sku'
+                                      ? 'bg-on-surface text-surface-container shadow-sm'
+                                      : 'text-on-surface/40 hover:text-on-surface/70'
+                                  )}
+                                >
+                                  SKU
+                                </button>
+                              </div>
+
+                              <input
+                                type="number"
+                                min={1}
+                                value={sel.qty === 1 ? '' : sel.qty}
+                                placeholder="0"
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  setQty(id, val > 0 ? val : 1);
+                                }}
+                                className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <span className="text-[10px] text-on-surface/35 font-medium">un.</span>
+
+                              <button
+                                onClick={() => toggleProduct(id)}
+                                className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-on-surface/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <input
+                              type="text"
+                              value={sel.nameOverride ?? product.name ?? ''}
+                              onChange={e => setNameOverrideFor(id, e.target.value)}
+                              placeholder="Nome exibido na placa"
+                              className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                            />
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={sel.priceOverride !== undefined ? sel.priceOverride : String(product.price ?? 0)}
+                                onChange={e => setPriceOverrideFor(id, e.target.value)}
+                                placeholder="Preço"
+                                className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                              />
+                              <input
+                                type="text"
+                                value={sel.customText ?? ''}
+                                onChange={e => setCustomTextFor(id, e.target.value)}
+                                placeholder="Personalizar texto desta placa (opcional)"
+                                className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {customPlacas.map((cp, i) => (
+                      <div
+                        key={cp.id}
+                        ref={i === customPlacas.length - 1 ? lastCustomPlacaRef : undefined}
+                        className="flex flex-col gap-2 p-3.5 rounded-2xl border border-on-surface/10 bg-on-surface/[0.03]"
+                      >
+                        {cp.kind === 'comum' ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={cp.name}
+                                onChange={e => updateCustomPlaca(cp.id, { name: e.target.value })}
+                                placeholder="Nome exibido na placa"
+                                className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={cp.qty === 1 ? '' : cp.qty}
+                                placeholder="1"
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });
+                                }}
+                                className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                onClick={() => removeCustomPlaca(cp.id)}
+                                className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-on-surface/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={cp.price}
+                                onChange={e => updateCustomPlaca(cp.id, { price: e.target.value })}
+                                placeholder="Preço"
+                                className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                              />
+                              <input
+                                type="text"
+                                value={cp.customText ?? ''}
+                                onChange={e => updateCustomPlaca(cp.id, { customText: e.target.value || undefined })}
+                                placeholder="Personalizar texto desta placa (opcional)"
+                                className="flex-1 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 text-[10px] font-black uppercase tracking-widest text-on-surface/30">Placa informativa</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={cp.qty === 1 ? '' : cp.qty}
+                                placeholder="1"
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });
+                                }}
+                                className="w-12 h-8 border border-on-surface/[0.10] rounded-lg text-center text-sm font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                onClick={() => removeCustomPlaca(cp.id)}
+                                className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-on-surface/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={cp.principal}
+                              onChange={e => updateCustomPlaca(cp.id, { principal: e.target.value })}
+                              placeholder="Informação principal"
+                              className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-semibold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                            />
+                            <input
+                              type="text"
+                              value={cp.secundaria}
+                              onChange={e => updateCustomPlaca(cp.id, { secundaria: e.target.value })}
+                              placeholder="Informação secundária"
+                              className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
+                            />
+                            <input
+                              type="text"
+                              value={cp.terciaria}
+                              onChange={e => updateCustomPlaca(cp.id, { terciaria: e.target.value })}
+                              placeholder="Informação terciária"
+                              className="w-full h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors placeholder:text-on-surface/30"
+                            />
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {selectedIds.length === 0 && customPlacas.length === 0 && (
+                      <div className="py-12 text-center text-on-surface/30 text-sm font-medium">
+                        Nenhum card ainda — selecione produtos na aba Busca ou use "Adicionar placa".
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* ══════════ VISUALIZAÇÃO ══════════ */}
+              {activeTab === 'visualizacao' && (
+                placaQueue.length === 0 ? (
+                  <div className="py-12 text-center text-on-surface/30 text-sm font-medium">
+                    Nenhuma placa selecionada para visualizar.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {previewEntries.map((entry, i) => (
+                        <PlacaCardPreview
+                          key={i}
+                          entry={entry}
+                          showBarcode={showBarcode}
+                          showOferta={showOferta}
+                          batchText={batchText}
+                        />
+                      ))}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-4 pt-2">
+                        <button
+                          onClick={() => setPreviewPage(p => Math.max(0, p - 1))}
+                          disabled={clampedPreviewPage === 0}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface/40 hover:text-on-surface disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-[11px] font-semibold text-on-surface/50">
+                          Página {clampedPreviewPage + 1} de {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setPreviewPage(p => Math.min(totalPages - 1, p + 1))}
+                          disabled={clampedPreviewPage === totalPages - 1}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface/40 hover:text-on-surface disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )
+              )}
             </div>
 
             {/* Footer */}
