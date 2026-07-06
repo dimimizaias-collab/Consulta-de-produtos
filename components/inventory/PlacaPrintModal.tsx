@@ -45,7 +45,7 @@ const COLOR_YELLOW_TEXT = [122, 74, 0] as const; // dark brown text on yellow
 interface PlacaSelection {
   qty: number;
   codeField: CodeField;
-  priceOverride?: number;
+  priceOverride?: string;
   nameOverride?: string;
   customText?: string;
 }
@@ -53,7 +53,7 @@ interface PlacaSelection {
 interface CustomPlaca {
   id: string;
   name: string;
-  price: number;
+  price: string;
   qty: number;
   customText?: string;
 }
@@ -113,13 +113,15 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       if (!p) return;
       const { qty, codeField, priceOverride, nameOverride, customText } = selections[id];
       const code = codeField === 'sku' ? (p.sku || p.ean || '') : (p.ean || p.sku || '');
+      const price = priceOverride !== undefined ? (parseFloat(priceOverride.replace(',', '.')) || 0) : (p.price ?? 0);
       for (let i = 0; i < qty; i++) {
-        queue.push({ name: nameOverride || p.name, price: priceOverride ?? p.price ?? 0, code, customText });
+        queue.push({ name: nameOverride || p.name, price, code, customText });
       }
     });
     customPlacas.forEach(cp => {
+      const price = parseFloat(cp.price.replace(',', '.')) || 0;
       for (let i = 0; i < (cp.qty || 1); i++) {
-        queue.push({ name: cp.name, price: cp.price, code: '', customText: cp.customText });
+        queue.push({ name: cp.name, price, code: '', customText: cp.customText });
       }
     });
     return queue;
@@ -145,7 +147,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], codeField } }));
   }, []);
 
-  const setPriceOverrideFor = useCallback((id: string, priceOverride: number | undefined) => {
+  const setPriceOverrideFor = useCallback((id: string, priceOverride: string) => {
     setSelections(prev => ({ ...prev, [id]: { ...prev[id], priceOverride } }));
   }, []);
 
@@ -158,7 +160,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   }, []);
 
   const addCustomPlaca = useCallback(() => {
-    setCustomPlacas(prev => [...prev, { id: nextCustomPlacaId(), name: '', price: 0, qty: 1 }]);
+    setCustomPlacas(prev => [...prev, { id: nextCustomPlacaId(), name: '', price: '', qty: 1 }]);
   }, []);
 
   const removeCustomPlaca = useCallback((id: string) => {
@@ -534,11 +536,9 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
-                              value={sel.priceOverride !== undefined ? sel.priceOverride : (product.price ?? 0)}
-                              onChange={e => {
-                                const val = parseFloat(e.target.value.replace(',', '.'));
-                                setPriceOverrideFor(product.id, isNaN(val) ? undefined : val);
-                              }}
+                              inputMode="decimal"
+                              value={sel.priceOverride !== undefined ? sel.priceOverride : String(product.price ?? 0)}
+                              onChange={e => setPriceOverrideFor(product.id, e.target.value)}
                               placeholder="Preço"
                               className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
                             />
@@ -603,11 +603,9 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        value={cp.price === 0 ? '' : cp.price}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value.replace(',', '.'));
-                          updateCustomPlaca(cp.id, { price: isNaN(val) ? 0 : val });
-                        }}
+                        inputMode="decimal"
+                        value={cp.price}
+                        onChange={e => updateCustomPlaca(cp.id, { price: e.target.value })}
                         placeholder="Preço"
                         className="w-24 h-8 px-2.5 border border-on-surface/[0.10] rounded-lg text-xs font-bold text-on-surface bg-transparent outline-none focus:border-on-surface/30 transition-colors"
                       />
