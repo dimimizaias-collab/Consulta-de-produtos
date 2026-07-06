@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Printer, Check, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -84,6 +84,15 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   const [batchText, setBatchText] = useState('');
   const [showBarcode, setShowBarcode] = useState(true);
   const [showOferta, setShowOferta] = useState(false);
+  const lastCustomPlacaRef = useRef<HTMLDivElement | null>(null);
+  const prevCustomPlacaCountRef = useRef(0);
+
+  useEffect(() => {
+    if (customPlacas.length > prevCustomPlacaCountRef.current) {
+      lastCustomPlacaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    prevCustomPlacaCountRef.current = customPlacas.length;
+  }, [customPlacas.length]);
 
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase();
@@ -569,9 +578,10 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                   <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface/35">Placas sem produto</span>
                 </div>
 
-                {customPlacas.map(cp => (
+                {customPlacas.map((cp, i) => (
                   <div
                     key={cp.id}
+                    ref={i === customPlacas.length - 1 ? lastCustomPlacaRef : undefined}
                     className="flex flex-col gap-2 p-3.5 rounded-2xl border border-on-surface/10 bg-on-surface/[0.03]"
                   >
                     <div className="flex items-center gap-2">
