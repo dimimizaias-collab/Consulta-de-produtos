@@ -498,7 +498,6 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           className="fixed inset-0 z-[600] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
