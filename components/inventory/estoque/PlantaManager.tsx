@@ -43,6 +43,7 @@ interface PlantaManagerProps {
   productBoxMap: Record<string, StorageBox[]>;
   onSelectBox: (box: StorageBox) => void;
   onEditShelf: (shelf: Shelf) => void;
+  onCreateShelf: () => void;
 }
 
 const CANVAS_HEIGHT = 720;
@@ -53,7 +54,7 @@ function defaultShelfSize(boxCount: number) {
   return Math.max(130, Math.min(220, 130 + boxCount * 15));
 }
 
-export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelectBox, onEditShelf }: PlantaManagerProps) {
+export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelectBox, onEditShelf, onCreateShelf }: PlantaManagerProps) {
   const [rawBlocks, setRawBlocks] = useState<FloorBlockRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -286,6 +287,9 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
         {editMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#D81E1E] pl-4 pr-2 py-1.5 rounded-full shadow-lg shadow-[#D81E1E]/30">
             <span className="text-[9.5px] font-black uppercase tracking-wide text-white whitespace-nowrap">Adicionar:</span>
+            <button onClick={onCreateShelf} className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 border border-white/30 text-white text-[10.5px] font-extrabold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
+              🗄️ Prateleira
+            </button>
             <button onClick={() => addBlock('wall')} className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 border border-white/30 text-white text-[10.5px] font-extrabold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
               🧱 Parede
             </button>

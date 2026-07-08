@@ -221,6 +221,7 @@ export function EstoqueManager({ products }: EstoqueManagerProps) {
           productBoxMap={productBoxMap}
           onSelectBox={setDetailBox}
           onEditShelf={(shelf) => { setEditingShelf(shelf); setShowAddShelf(true); }}
+          onCreateShelf={() => { setEditingShelf(null); setShowAddShelf(true); }}
         />
       )}
 
