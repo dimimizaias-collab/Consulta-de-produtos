@@ -138,27 +138,15 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
     return ids;
   }, [search, products, productBoxMap]);
 
-  const persistPosition = useCallback(async (block: Block, x: number, y: number) => {
+  const persistGeometry = useCallback(async (block: Block, x: number, y: number, w: number, h: number) => {
     if (block.unplaced) {
       const { data } = await supabase.from('floor_blocks').insert([{
-        type: 'shelf', shelf_id: block.shelfId, pos_x: x, pos_y: y, width: block.w, height: block.h,
+        type: 'shelf', shelf_id: block.shelfId, pos_x: x, pos_y: y, width: w, height: h,
       }]).select().single();
       if (data) setRawBlocks(prev => [...(prev ?? []), data]);
     } else {
-      await supabase.from('floor_blocks').update({ pos_x: x, pos_y: y, updated_at: new Date().toISOString() }).eq('id', block.id);
-      setRawBlocks(prev => (prev ?? []).map(r => r.id === block.id ? { ...r, pos_x: x, pos_y: y } : r));
-    }
-  }, []);
-
-  const persistSize = useCallback(async (block: Block, w: number, h: number) => {
-    if (block.unplaced) {
-      const { data } = await supabase.from('floor_blocks').insert([{
-        type: 'shelf', shelf_id: block.shelfId, pos_x: block.x, pos_y: block.y, width: w, height: h,
-      }]).select().single();
-      if (data) setRawBlocks(prev => [...(prev ?? []), data]);
-    } else {
-      await supabase.from('floor_blocks').update({ width: w, height: h, updated_at: new Date().toISOString() }).eq('id', block.id);
-      setRawBlocks(prev => (prev ?? []).map(r => r.id === block.id ? { ...r, width: w, height: h } : r));
+      await supabase.from('floor_blocks').update({ pos_x: x, pos_y: y, width: w, height: h, updated_at: new Date().toISOString() }).eq('id', block.id);
+      setRawBlocks(prev => (prev ?? []).map(r => r.id === block.id ? { ...r, pos_x: x, pos_y: y, width: w, height: h } : r));
     }
   }, []);
 
@@ -207,39 +195,52 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      persistPosition(block, parseFloat(el.style.left), parseFloat(el.style.top));
+      persistGeometry(block, parseFloat(el.style.left), parseFloat(el.style.top), block.w, block.h);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   };
 
-  const handleResizeStart = (e: React.MouseEvent, block: Block) => {
+  type Corner = 'nw' | 'ne' | 'sw' | 'se';
+
+  const handleResizeStart = (e: React.MouseEvent, block: Block, corner: Corner) => {
     e.stopPropagation();
     e.preventDefault();
     const el = blockRefs.current.get(block.id);
     if (!el) return;
     const startX = e.clientX, startY = e.clientY;
     const startW = el.offsetWidth, startH = el.offsetHeight;
+    const startLeft = parseFloat(el.style.left) || block.x;
+    const startTop = parseFloat(el.style.top) || block.y;
+    const fromLeft = corner === 'nw' || corner === 'sw';
+    const fromTop = corner === 'nw' || corner === 'ne';
 
     const onMove = (ev: MouseEvent) => {
-      const dw = ev.clientX - startX;
-      const dh = ev.clientY - startY;
+      let dw = ev.clientX - startX;
+      let dh = ev.clientY - startY;
+      if (fromLeft) dw = -dw;
+      if (fromTop) dh = -dh;
+
+      let newW: number, newH: number;
       if (block.type === 'shelf') {
         const d = Math.max(dw, dh);
-        const size = Math.max(90, startW + d);
-        el.style.width = size + 'px';
-        el.style.height = size + 'px';
+        newW = newH = Math.max(90, startW + d);
       } else {
         const minW = block.type === 'wall' ? 12 : 50;
         const minH = block.type === 'wall' ? 12 : 40;
-        el.style.width = Math.max(minW, startW + dw) + 'px';
-        el.style.height = Math.max(minH, startH + dh) + 'px';
+        newW = Math.max(minW, startW + dw);
+        newH = Math.max(minH, startH + dh);
       }
+
+      el.style.width = newW + 'px';
+      el.style.height = newH + 'px';
+      if (fromLeft) el.style.left = (startLeft + (startW - newW)) + 'px';
+      if (fromTop) el.style.top = (startTop + (startH - newH)) + 'px';
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      persistSize(block, el.offsetWidth, el.offsetHeight);
+      persistGeometry(block, parseFloat(el.style.left), parseFloat(el.style.top), el.offsetWidth, el.offsetHeight);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -276,7 +277,7 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       <div
         ref={canvasRef}
         className={cn(
-          'relative rounded-[28px] border-[1.5px] overflow-hidden bg-white dark:bg-[#1c1c16] transition-colors',
+          'relative rounded-none border-[1.5px] overflow-hidden bg-white dark:bg-[#1c1c16] transition-colors',
           editMode ? 'border-dashed border-[#D81E1E]' : 'border-on-surface/[0.10]'
         )}
         style={{
@@ -318,10 +319,9 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
               key={block.id}
               ref={(el) => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
               className={cn(
-                'absolute overflow-hidden flex flex-col transition-[box-shadow,opacity] select-none',
-                block.type === 'shelf' ? 'rounded-none' : 'rounded-2xl',
+                'absolute rounded-none overflow-hidden flex flex-col transition-[box-shadow,opacity] select-none',
                 editMode ? 'cursor-grab active:cursor-grabbing' : block.type === 'shelf' ? 'cursor-pointer' : 'cursor-default',
-                block.type === 'shelf' && 'bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.10] shadow-sm hover:shadow-md',
+                block.type === 'shelf' && 'bg-[#FFE500] border-[1.5px] border-[#D4C000] shadow-sm hover:shadow-md',
                 block.type === 'shelf' && block.unplaced && 'border-dashed',
                 isMatch && 'floor-block-match',
                 isDim && 'opacity-30',
@@ -333,21 +333,11 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
             >
               {block.type === 'shelf' && (
                 <>
-                  <div className="bg-[#FFE500] border-b border-[#D4C000] px-2.5 py-2 flex items-center justify-between gap-1.5 shrink-0">
+                  <div className="w-full h-full flex items-center justify-center px-2 text-center">
                     <span className="text-[11px] font-black text-[#1A1A0E] leading-tight">{block.name}</span>
-                    <span className="text-[8.5px] font-black bg-black/10 text-[#1A1A0E] px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0">{block.boxes.length} cx</span>
-                  </div>
-                  <div className="p-2 flex flex-wrap gap-1.5 content-start flex-1 overflow-hidden">
-                    {block.boxes.length
-                      ? block.boxes.map(bx => (
-                          <span key={bx.id} className="font-mono text-[10px] font-extrabold bg-on-surface/[0.04] border border-on-surface/[0.10] text-on-surface/55 px-1.5 py-0.5 rounded-md">
-                            {bx.code}
-                          </span>
-                        ))
-                      : <span className="text-[10px] italic text-on-surface/30 font-semibold">Vazia</span>}
                   </div>
                   {block.unplaced && editMode && (
-                    <span className="absolute bottom-1 left-1 text-[8px] font-black uppercase tracking-wide text-on-surface/30">Posicionar →</span>
+                    <span className="absolute bottom-1 left-1 text-[8px] font-black uppercase tracking-wide text-[#1A1A0E]/50">Posicionar →</span>
                   )}
                 </>
               )}
@@ -377,18 +367,35 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
 
               {editMode && (
                 <>
-                  <span className="absolute top-1 right-1.5 text-[11px] text-on-surface/30 pointer-events-none">⠿</span>
                   {block.type !== 'shelf' && (
                     <button
                       onMouseDown={e => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); deleteBlock(block); }}
-                      className="block-del absolute top-1 left-1 w-4 h-4 rounded-md bg-[#D81E1E] text-white text-[9px] font-black flex items-center justify-center hover:bg-[#A30E0E] transition-colors"
+                      className="block-del absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-[#D81E1E] text-white text-[10px] font-black flex items-center justify-center hover:bg-[#A30E0E] transition-colors z-10"
                     >
                       ✕
                     </button>
                   )}
                   <span
-                    onMouseDown={(e) => handleResizeStart(e, block)}
+                    onMouseDown={(e) => handleResizeStart(e, block, 'nw')}
+                    className="resize-handle absolute top-0 left-0 w-4 h-4 cursor-nwse-resize"
+                  >
+                    <span className="absolute left-0.5 top-0.5 w-2 h-2 border-l-2 border-t-2 border-on-surface/40" />
+                  </span>
+                  <span
+                    onMouseDown={(e) => handleResizeStart(e, block, 'ne')}
+                    className="resize-handle absolute top-0 right-0 w-4 h-4 cursor-nesw-resize"
+                  >
+                    <span className="absolute right-0.5 top-0.5 w-2 h-2 border-r-2 border-t-2 border-on-surface/40" />
+                  </span>
+                  <span
+                    onMouseDown={(e) => handleResizeStart(e, block, 'sw')}
+                    className="resize-handle absolute bottom-0 left-0 w-4 h-4 cursor-nesw-resize"
+                  >
+                    <span className="absolute left-0.5 bottom-0.5 w-2 h-2 border-l-2 border-b-2 border-on-surface/40" />
+                  </span>
+                  <span
+                    onMouseDown={(e) => handleResizeStart(e, block, 'se')}
                     className="resize-handle absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"
                   >
                     <span className="absolute right-0.5 bottom-0.5 w-2 h-2 border-r-2 border-b-2 border-on-surface/40" />
