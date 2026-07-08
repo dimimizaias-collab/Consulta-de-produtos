@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   X, Plus, Trash2, ChevronLeft, ChevronRight,
   Keyboard, Delete, CheckCircle2, Send, AlertTriangle,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,7 @@ export function MobileTaskPage({
   // ── State ──
   const [taskType, setTaskType] = useState<'revisao' | 'tarefa_livre' | null>(null);
   const [responsavel, setResponsavel] = useState('');
+  const [colaboradores, setColaboradores] = useState<{ id: string; nome: string }[]>([]);
   const [classificacao, setClassificacao] = useState<Classificacao>('');
   const [observacaoGeral, setObservacaoGeral] = useState('');
   const [items, setItems] = useState<TaskItemDraft[]>([]);
@@ -246,6 +248,14 @@ export function MobileTaskPage({
   const [itemObsKbdShift, setItemObsKbdShift] = useState(true);
 
   const eanInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    supabase
+      .from('hr_employees')
+      .select('id, nome')
+      .order('nome', { ascending: true })
+      .then(({ data }) => setColaboradores(data || []));
+  }, []);
 
   if (!isOpen) return null;
 
@@ -623,6 +633,9 @@ export function MobileTaskPage({
           <select value={responsavel} onChange={e => setResponsavel(e.target.value)}
             className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]">
             <option value="">Selecionar responsável...</option>
+            {colaboradores.map(c => (
+              <option key={c.id} value={c.nome}>{c.nome}</option>
+            ))}
           </select>
         </div>
 
