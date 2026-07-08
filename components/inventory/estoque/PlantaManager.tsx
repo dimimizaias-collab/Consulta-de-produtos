@@ -47,11 +47,17 @@ interface PlantaManagerProps {
 }
 
 const CANVAS_HEIGHT = 720;
-const GAP = 20;
+const GRID_SIZE = 28; // mesma medida da grade de fundo da planta
+const SLOT = GRID_SIZE * 9; // espaço reservado por prateleira no layout automático
 const PER_ROW = 5;
 
+function snap(value: number) {
+  return Math.round(value / GRID_SIZE) * GRID_SIZE;
+}
+
 function defaultShelfSize(boxCount: number) {
-  return Math.max(130, Math.min(220, 130 + boxCount * 15));
+  const raw = Math.max(130, Math.min(220, 130 + boxCount * 15));
+  return snap(raw);
 }
 
 export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelectBox, onEditShelf, onCreateShelf }: PlantaManagerProps) {
@@ -119,8 +125,8 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
         shelfId: shelf.id,
         name: shelf.name,
         icon: null,
-        x: 40 + col * (220 + GAP),
-        y: 40 + row * (220 + GAP),
+        x: GRID_SIZE + col * SLOT,
+        y: GRID_SIZE + row * SLOT,
         w: size, h: size,
         boxes: shelfBoxes,
         unplaced: true,
@@ -154,8 +160,8 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
 
   const addBlock = async (type: 'wall' | 'object') => {
     const extraCount = blocks.filter(b => b.type !== 'shelf').length;
-    const x = 40 + ((extraCount * 170) % 900);
-    const y = CANVAS_HEIGHT - 140;
+    const x = snap(40 + ((extraCount * 170) % 900));
+    const y = snap(CANVAS_HEIGHT - 140);
     const payload = type === 'wall'
       ? { type, name: 'Parede', icon: null, pos_x: x, pos_y: y, width: 160, height: 14 }
       : { type, name: 'Objeto', icon: '📦', pos_x: x, pos_y: y, width: 110, height: 70 };
@@ -189,6 +195,8 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       const cRect = canvasRef.current!.getBoundingClientRect();
       let nx = ev.clientX - cRect.left - offsetX;
       let ny = ev.clientY - cRect.top - offsetY;
+      nx = snap(nx);
+      ny = snap(ny);
       nx = Math.max(0, Math.min(nx, canvasRef.current!.clientWidth - el.offsetWidth));
       ny = Math.max(0, Math.min(ny, canvasRef.current!.clientHeight - el.offsetHeight));
       el.style.left = nx + 'px';
@@ -225,8 +233,12 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
 
       const minW = block.type === 'wall' ? 12 : 60;
       const minH = block.type === 'wall' ? 12 : 50;
-      const newW = Math.max(minW, startW + dw);
-      const newH = Math.max(minH, startH + dh);
+      let newW = Math.max(minW, startW + dw);
+      let newH = Math.max(minH, startH + dh);
+      if (block.type === 'shelf') {
+        newW = Math.max(GRID_SIZE * 3, snap(newW));
+        newH = Math.max(GRID_SIZE * 3, snap(newH));
+      }
 
       el.style.width = newW + 'px';
       el.style.height = newH + 'px';
