@@ -250,12 +250,16 @@ export function MobileTaskPage({
   const eanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
     supabase
       .from('hr_employees')
       .select('id, nome')
       .order('nome', { ascending: true })
-      .then(({ data }) => setColaboradores(data || []));
-  }, []);
+      .then(({ data, error }) => {
+        if (error) console.error('Erro ao buscar colaboradores:', error);
+        setColaboradores(data || []);
+      });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
