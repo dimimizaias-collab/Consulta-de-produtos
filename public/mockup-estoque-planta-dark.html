@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup Planta do Estoque — Dark</title>
+<style>
+  :root{
+    --bg:#141410; --surface:#1c1c16; --surface-2:#252519; --surface-alt:#1e1e15;
+    --ink:#f2f0e3; --ink-2:#c8c6be; --line: rgba(255,255,255,0.10);
+    --yellow:#FFE500; --yellow-deep:#C8B800; --red:#D81E1E; --red-deep:#A30E0E;
+    --ink-04: rgba(255,255,255,0.04); --ink-06: rgba(255,255,255,0.06); --ink-10: rgba(255,255,255,0.09);
+    --ink-30: rgba(242,240,227,0.30); --ink-40: rgba(242,240,227,0.40); --ink-55: rgba(242,240,227,0.55);
+    --object-bg:#16202e; --object-border:rgba(120,160,255,0.35); --object-ink:#9DC0FF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: 'DM Sans', system-ui, sans-serif; color: var(--ink); padding: 28px; min-height: 100vh; }
+  .page { max-width: 1180px; margin: 0 auto; }
+
+  /* Toolbar (contexto real da página Estoque) */
+  .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .scan { flex:1; min-width:220px; display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--ink-10); border-radius:16px; padding:12px 16px; color: var(--ink-30); font-size:13px; font-weight:600; }
+  .btn-outline { display:flex; align-items:center; gap:8px; padding:12px 18px; border-radius:16px; border:1px solid var(--ink-10); background:var(--surface); color:var(--ink-55); font-size:12px; font-weight:800; white-space:nowrap; }
+  .btn-yellow { display:flex; align-items:center; gap:8px; padding:12px 20px; border-radius:16px; background:var(--yellow); border:1px solid var(--yellow-deep); color:#1A1A0E; font-size:12px; font-weight:900; white-space:nowrap; }
+
+  /* Toggle de visão */
+  .view-toggle { display:inline-flex; gap:4px; background:var(--ink-06); border-radius:14px; padding:4px; margin-bottom:18px; }
+  .view-btn { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:10px; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-40); cursor:pointer; }
+  .view-btn.on { background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+  .view-btn .new-dot { width:5px; height:5px; border-radius:999px; background:var(--red); }
+
+  /* Sub-toolbar da Planta */
+  .planta-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .edit-btn { display:flex; align-items:center; gap:7px; padding:9px 15px; border-radius:12px; border:1.5px solid var(--ink-10); background:var(--surface); color:var(--ink-55); font-size:11.5px; font-weight:800; cursor:pointer; transition:.15s; }
+  .edit-btn.active { background:var(--yellow); color:#1A1A0E; border-color:var(--yellow-deep); }
+  .map-search { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--ink-10); border-radius:12px; padding:9px 14px; min-width:260px; }
+  .map-search input { border:none; outline:none; background:transparent; font-size:12.5px; font-weight:600; color:var(--ink); width:100%; }
+  .hint { font-size:10.5px; font-weight:700; color:var(--ink-30); }
+
+  /* Canvas da planta */
+  .canvas-wrap { position:relative; background:
+      linear-gradient(var(--surface-2) 1px, transparent 1px),
+      linear-gradient(90deg, var(--surface-2) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-color: var(--surface);
+    border:1.5px solid var(--line); border-radius:24px; height:700px; overflow:hidden;
+    transition: border-color .2s;
+  }
+  .canvas-wrap.edit-mode { border:1.5px dashed var(--red); }
+
+  /* Toolbar flutuante do modo edição */
+  .edit-toolbar { display:none; position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:20;
+    align-items:center; gap:8px; background:var(--red); padding:7px 10px 7px 16px; border-radius:999px; box-shadow:0 6px 18px rgba(216,30,30,0.45); }
+  .canvas-wrap.edit-mode .edit-toolbar { display:flex; }
+  .et-label { color:#fff; font-size:9.5px; font-weight:900; letter-spacing:0.07em; text-transform:uppercase; white-space:nowrap; }
+  .et-btn { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.20); border:1px solid rgba(255,255,255,0.34); color:#fff; font-size:10.5px; font-weight:800; padding:6px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; transition:.15s; }
+  .et-btn:hover { background:rgba(255,255,255,0.34); }
+
+  /* Bloco genérico (prateleira, parede, objeto) */
+  .block { position:absolute; border-radius:16px; display:flex; flex-direction:column; overflow:hidden; transition: box-shadow .15s, border-color .2s, opacity .2s; cursor:pointer; }
+  .block:hover { box-shadow:0 6px 18px rgba(0,0,0,0.45); }
+  .canvas-wrap.edit-mode .block { cursor:grab; }
+  .canvas-wrap.edit-mode .block:active { cursor:grabbing; }
+
+  /* Prateleira — sempre quadrada */
+  .block-shelf { background:var(--surface); border:1.5px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,0.35); }
+  .shelf-head { background:var(--yellow); border-bottom:1px solid var(--yellow-deep); padding:8px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .shelf-name { font-size:11px; font-weight:900; color:#1A1A0E; line-height:1.15; }
+  .shelf-count { font-size:8.5px; font-weight:900; background:rgba(26,18,8,0.12); color:#1A1A0E; padding:2px 6px; border-radius:6px; white-space:nowrap; }
+  .shelf-body { padding:9px; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; flex:1; overflow:hidden; }
+  .box-chip { font-family: 'DM Mono', monospace; font-size:10px; font-weight:800; background:var(--ink-04); border:1px solid var(--ink-10); color:var(--ink-55); padding:3px 7px; border-radius:7px; }
+  .empty-hint { font-size:10px; font-weight:700; font-style:italic; color:var(--ink-30); }
+
+  .block-shelf.match { border-color:var(--red); box-shadow:0 0 0 3px rgba(216,30,30,0.28), 0 8px 22px rgba(216,30,30,0.25); animation: pulse 1.4s ease-in-out infinite; z-index:10; }
+  .block-shelf.dim { opacity:0.28; }
+  @keyframes pulse { 0%,100%{ box-shadow:0 0 0 3px rgba(216,30,30,0.28), 0 8px 22px rgba(216,30,30,0.25);} 50%{ box-shadow:0 0 0 7px rgba(216,30,30,0.12), 0 8px 22px rgba(216,30,30,0.16);} }
+  .found-badge { position:absolute; top:-11px; left:50%; transform:translateX(-50%); background:var(--red); color:#fff; font-size:8.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; padding:2px 8px; border-radius:999px; white-space:nowrap; z-index:11; }
+
+  /* zona não-prateleira (caixas soltas) */
+  .zone-dashed { border:1.5px dashed var(--ink-10) !important; }
+  .zone-dashed .shelf-head { background:var(--surface-alt); border-bottom:1px dashed var(--ink-10); }
+  .zone-dashed .shelf-name { color:var(--ink-40); }
+
+  /* Parede */
+  .block-wall { background-color: var(--ink-10);
+    background-image: repeating-linear-gradient(45deg, var(--ink-30) 0, var(--ink-30) 3px, transparent 3px, transparent 9px);
+    border:1.5px solid var(--ink-30); align-items:center; justify-content:center; }
+  .block-wall .block-label { font-size:8.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-55); background:var(--surface); padding:2px 6px; border-radius:6px; }
+
+  /* Objeto / móvel */
+  .block-object { background:var(--object-bg); border:1.5px dashed var(--object-border); align-items:center; justify-content:center; gap:2px; }
+  .block-object .block-icon { font-size:20px; line-height:1; }
+  .block-object .block-label { font-size:9.5px; font-weight:900; color:var(--object-ink); text-align:center; padding:0 6px; }
+
+  /* Controles do modo edição (sobre qualquer bloco) */
+  .block-handle, .block-del, .resize-handle { display:none; }
+  .canvas-wrap.edit-mode .block-handle { display:block; position:absolute; top:4px; right:7px; font-size:12px; color:var(--ink-30); z-index:4; }
+  .canvas-wrap.edit-mode .block-del { display:flex; position:absolute; top:4px; left:4px; width:17px; height:17px; border-radius:6px; background:var(--red); color:#fff; font-size:9px; font-weight:900; align-items:center; justify-content:center; cursor:pointer; z-index:5; }
+  .canvas-wrap.edit-mode .resize-handle { display:block; position:absolute; bottom:0; right:0; width:16px; height:16px; cursor:nwse-resize; z-index:5; }
+  .canvas-wrap.edit-mode .resize-handle::after { content:''; position:absolute; right:3px; bottom:3px; width:8px; height:8px; border-right:2px solid var(--ink-40); border-bottom:2px solid var(--ink-40); }
+
+  /* painel lateral de detalhe */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); opacity:0; pointer-events:none; transition:opacity .2s; z-index:40; }
+  .overlay.show { opacity:1; pointer-events:auto; }
+  .panel { position:fixed; top:0; right:0; height:100%; width:340px; background:#1E1E18; border-left:1px solid var(--line); box-shadow:-12px 0 32px rgba(0,0,0,0.5); transform:translateX(100%); transition:transform .25s cubic-bezier(.23,1,.32,1); z-index:41; display:flex; flex-direction:column; }
+  .panel.open { transform:translateX(0); }
+  .panel-head { background:var(--yellow); border-bottom:1px solid var(--yellow-deep); padding:20px; display:flex; align-items:center; justify-content:space-between; }
+  .panel-head h3 { font-size:17px; font-weight:900; color:#1A1A0E; }
+  .panel-close { width:30px; height:30px; border-radius:9px; background:rgba(26,18,8,0.10); border:none; font-size:14px; font-weight:900; cursor:pointer; color:#1A1A0E; }
+  .panel-body { padding:18px 20px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; }
+  .panel-lbl { font-size:9.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em; color:var(--ink-30); margin-bottom:4px; }
+  .panel-box { display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .pb-code { font-family:'DM Mono', monospace; font-weight:900; font-size:14px; color:var(--ink); }
+  .pb-count { font-size:10.5px; font-weight:800; color:var(--ink-40); background:var(--ink-04); padding:3px 8px; border-radius:8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="toolbar">
+    <div class="scan">🔍 Digite ou escaneie o código da caixa…</div>
+    <div class="btn-outline">＋ Nova Prateleira</div>
+    <div class="btn-yellow">＋ Nova Caixa</div>
+  </div>
+
+  <div class="view-toggle">
+    <div class="view-btn on">🗺️ Planta <span class="new-dot"></span></div>
+    <div class="view-btn">▦ Mapa</div>
+    <div class="view-btn">🔎 Buscar</div>
+  </div>
+
+  <div class="planta-toolbar">
+    <button class="edit-btn" id="editBtn">✎ Editar Planta</button>
+    <div class="map-search">
+      🔎 <input id="searchInput" placeholder="Buscar produto no mapa… (ex: chocolate, pilha, papel)">
+    </div>
+  </div>
+
+  <div class="canvas-wrap" id="canvas">
+    <div class="edit-toolbar">
+      <span class="et-label">Adicionar:</span>
+      <button class="et-btn" id="addShelfBtn">🗄️ Prateleira</button>
+      <button class="et-btn" id="addWallBtn">🧱 Parede</button>
+      <button class="et-btn" id="addObjectBtn">📦 Objeto</button>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-top:10px;">💡 Ao buscar um produto, a prateleira correspondente pulsa na planta. No modo edição, arraste os blocos para reposicionar, use a alça no canto para redimensionar, e adicione paredes/objetos para representar o layout real da loja.</p>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <div class="panel-head">
+    <h3 id="panelTitle">Prateleira</h3>
+    <button class="panel-close" id="panelClose">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-lbl">Caixas nesta prateleira</div>
+    <div id="panelBoxes"></div>
+  </div>
+</div>
+
+<script>
+  const blocks = [
+    { id:'s1', type:'shelf', name:'Prateleira A · Limpeza', x:40, y:40, w:170, h:170,
+      boxes:[{code:'A-01',count:6},{code:'A-02',count:4},{code:'A-03',count:5},{code:'A-04',count:3}],
+      products:['Detergente','Sabão em Pó','Amaciante','Água Sanitária'] },
+    { id:'s2', type:'shelf', name:'Prateleira B · Bebidas', x:230, y:40, w:150, h:150,
+      boxes:[{code:'B-01',count:8},{code:'B-02',count:5},{code:'B-03',count:2}],
+      products:['Refrigerante 2L','Suco de Uva','Água Mineral'] },
+    { id:'s3', type:'shelf', name:'Prateleira C · Alimentos', x:400, y:40, w:190, h:190,
+      boxes:[{code:'C-01',count:9},{code:'C-02',count:6},{code:'C-03',count:4},{code:'C-04',count:7},{code:'C-05',count:2}],
+      products:['Bolacha Recheada','Salgadinho','Chocolate','Macarrão','Arroz'] },
+    { id:'s4', type:'shelf', name:'Prateleira D · Higiene', x:40, y:260, w:140, h:140,
+      boxes:[{code:'D-01',count:5},{code:'D-02',count:3}],
+      products:['Papel Higiênico','Absorvente','Fralda'] },
+    { id:'s5', type:'shelf', name:'Prateleira E · Bazar/Elétrica', x:200, y:260, w:150, h:150,
+      boxes:[{code:'E-01',count:4},{code:'E-02',count:2},{code:'E-03',count:3}],
+      products:['Pilha AA','Lâmpada LED','Extensão Elétrica'] },
+    { id:'s6', type:'shelf', name:'Prateleira F · Papelaria', x:370, y:260, w:170, h:170,
+      boxes:[{code:'F-01',count:3},{code:'F-02',count:5},{code:'F-03',count:2},{code:'F-04',count:4}],
+      products:['Caderno','Caneta','Lápis','Cola'] },
+    { id:'s7', type:'shelf', name:'Sem prateleira', x:610, y:40, w:140, h:140, dashed:true,
+      boxes:[{code:'X-01',count:2},{code:'X-02',count:1}],
+      products:['Caixa de Embalagens Diversas'] },
+    { id:'w1', type:'wall', name:'Parede', x:598, y:30, w:10, h:210 },
+    { id:'o1', type:'object', name:'Freezer', icon:'🧊', x:610, y:260, w:140, h:100 },
+    { id:'o2', type:'object', name:'Caixa / Balcão', icon:'🧾', x:40, y:460, w:220, h:60 },
+    { id:'o3', type:'object', name:'Entrada', icon:'🚪', x:300, y:460, w:140, h:60 },
+  ];
+
+  const canvas = document.getElementById('canvas');
+  const editBtn = document.getElementById('editBtn');
+  const searchInput = document.getElementById('searchInput');
+  const overlay = document.getElementById('overlay');
+  const panel = document.getElementById('panel');
+  const panelTitle = document.getElementById('panelTitle');
+  const panelBoxes = document.getElementById('panelBoxes');
+  const panelClose = document.getElementById('panelClose');
+
+  let editMode = false;
+  let newBlockCount = 0;
+
+  function shelfInnerHTML(b) {
+    return `
+      <div class="shelf-head">
+        <span class="shelf-name">${b.name}</span>
+        <span class="shelf-count">${b.boxes.length} cx</span>
+      </div>
+      <div class="shelf-body">
+        ${b.boxes.length
+          ? b.boxes.map(x => `<span class="box-chip">${x.code}</span>`).join('')
+          : '<span class="empty-hint">Vazia</span>'}
+      </div>
+      <span class="block-handle">⠿</span>
+      <span class="block-del">✕</span>
+      <span class="resize-handle"></span>`;
+  }
+  function wallInnerHTML(b) {
+    return `
+      <span class="block-label">${b.name}</span>
+      <span class="block-handle">⠿</span>
+      <span class="block-del">✕</span>
+      <span class="resize-handle"></span>`;
+  }
+  function objectInnerHTML(b) {
+    return `
+      <span class="block-icon">${b.icon || '📦'}</span>
+      <span class="block-label">${b.name}</span>
+      <span class="block-handle">⠿</span>
+      <span class="block-del">✕</span>
+      <span class="resize-handle"></span>`;
+  }
+
+  function createBlockEl(b) {
+    const el = document.createElement('div');
+    el.className = 'block block-' + b.type + (b.dashed ? ' zone-dashed' : '');
+    el.id = b.id;
+    el.style.left = b.x + 'px';
+    el.style.top = b.y + 'px';
+    el.style.width = b.w + 'px';
+    el.style.height = b.h + 'px';
+    el.innerHTML = b.type === 'shelf' ? shelfInnerHTML(b) : b.type === 'wall' ? wallInnerHTML(b) : objectInnerHTML(b);
+    canvas.appendChild(el);
+    attachInteractions(el, b);
+    return el;
+  }
+
+  function attachInteractions(el, b) {
+    let dragged = false, offsetX = 0, offsetY = 0;
+
+    el.addEventListener('mousedown', (e) => {
+      if (!editMode) return;
+      if (e.target.closest('.resize-handle') || e.target.closest('.block-del')) return;
+      dragged = false;
+      const rect = el.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+
+      function onMove(ev) {
+        dragged = true;
+        const cRect = canvas.getBoundingClientRect();
+        let nx = ev.clientX - cRect.left - offsetX;
+        let ny = ev.clientY - cRect.top - offsetY;
+        nx = Math.max(0, Math.min(nx, canvas.clientWidth - el.offsetWidth));
+        ny = Math.max(0, Math.min(ny, canvas.clientHeight - el.offsetHeight));
+        el.style.left = nx + 'px';
+        el.style.top = ny + 'px';
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    el.addEventListener('click', () => {
+      if (editMode || dragged) return;
+      if (b.type === 'shelf') openPanel(b);
+    });
+
+    const resizeHandle = el.querySelector('.resize-handle');
+    resizeHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      if (!editMode) return;
+      const startX = e.clientX, startY = e.clientY;
+      const startW = el.offsetWidth, startH = el.offsetHeight;
+
+      function onMove(ev) {
+        const dw = ev.clientX - startX;
+        const dh = ev.clientY - startY;
+        if (b.type === 'shelf') {
+          const d = Math.max(dw, dh);
+          const size = Math.max(90, startW + d);
+          el.style.width = size + 'px';
+          el.style.height = size + 'px';
+        } else {
+          const minW = b.type === 'wall' ? 12 : 50;
+          const minH = b.type === 'wall' ? 12 : 40;
+          el.style.width = Math.max(minW, startW + dw) + 'px';
+          el.style.height = Math.max(minH, startH + dh) + 'px';
+        }
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    const delBtn = el.querySelector('.block-del');
+    delBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = blocks.findIndex(x => x.id === b.id);
+      if (idx > -1) blocks.splice(idx, 1);
+      el.remove();
+    });
+  }
+
+  blocks.forEach(b => createBlockEl(b));
+
+  editBtn.addEventListener('click', () => {
+    editMode = !editMode;
+    canvas.classList.toggle('edit-mode', editMode);
+    editBtn.classList.toggle('active', editMode);
+    editBtn.textContent = editMode ? '✓ Concluir edição' : '✎ Editar Planta';
+  });
+
+  function addBlock(type) {
+    newBlockCount++;
+    const id = 'new-' + Date.now() + '-' + newBlockCount;
+    const baseX = 40 + ((newBlockCount * 170) % 900);
+    const baseY = 560 + (Math.floor(newBlockCount / 6) * 90);
+    let b;
+    if (type === 'shelf') {
+      b = { id, type, name: 'Nova Prateleira', x: baseX, y: baseY, w: 150, h: 150, boxes: [], products: [] };
+    } else if (type === 'wall') {
+      b = { id, type, name: 'Parede', x: baseX, y: baseY, w: 160, h: 14 };
+    } else {
+      b = { id, type, name: 'Objeto', icon: '📦', x: baseX, y: baseY, w: 110, h: 70 };
+    }
+    blocks.push(b);
+    createBlockEl(b);
+  }
+  document.getElementById('addShelfBtn').addEventListener('click', () => addBlock('shelf'));
+  document.getElementById('addWallBtn').addEventListener('click', () => addBlock('wall'));
+  document.getElementById('addObjectBtn').addEventListener('click', () => addBlock('object'));
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    blocks.filter(b => b.type === 'shelf').forEach(s => {
+      const el = document.getElementById(s.id);
+      el.querySelector('.found-badge')?.remove();
+      if (!q) { el.classList.remove('match', 'dim'); return; }
+      const hit = (s.products || []).some(p => p.toLowerCase().includes(q));
+      el.classList.toggle('match', hit);
+      el.classList.toggle('dim', !hit);
+      if (hit) {
+        const badge = document.createElement('span');
+        badge.className = 'found-badge';
+        badge.textContent = 'Encontrado aqui';
+        el.appendChild(badge);
+      }
+    });
+  });
+
+  function openPanel(shelf) {
+    panelTitle.textContent = shelf.name;
+    panelBoxes.innerHTML = shelf.boxes.length
+      ? shelf.boxes.map(b =>
+          `<div class="panel-box"><span class="pb-code">${b.code}</span><span class="pb-count">${b.count} produto${b.count !== 1 ? 's' : ''}</span></div>`
+        ).join('')
+      : '<p class="empty-hint">Nenhuma caixa cadastrada ainda.</p>';
+    panel.classList.add('open');
+    overlay.classList.add('show');
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    overlay.classList.remove('show');
+  }
+  panelClose.addEventListener('click', closePanel);
+  overlay.addEventListener('click', closePanel);
+</script>
+</body>
+</html>

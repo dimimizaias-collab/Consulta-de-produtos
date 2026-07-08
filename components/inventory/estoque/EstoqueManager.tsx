@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ScanLine, Plus, Edit2, Trash2, Printer, Package, Search, LayoutGrid,
+  ScanLine, Plus, Edit2, Trash2, Printer, Package, Search, LayoutGrid, Map,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -11,15 +11,16 @@ import { AddEditShelfModal, type Shelf } from './AddEditShelfModal';
 import { AddEditBoxModal, type StorageBox } from './AddEditBoxModal';
 import { BoxDetailModal } from './BoxDetailModal';
 import { BoxLabelModal } from './BoxLabelModal';
+import { PlantaManager } from './PlantaManager';
 
-type EstoqueView = 'mapa' | 'buscar';
+type EstoqueView = 'planta' | 'mapa' | 'buscar';
 
 interface EstoqueManagerProps {
   products: any[];
 }
 
 export function EstoqueManager({ products }: EstoqueManagerProps) {
-  const [view, setView] = useState<EstoqueView>('mapa');
+  const [view, setView] = useState<EstoqueView>('planta');
 
   // Data
   const [shelves, setShelves] = useState<Shelf[]>([]);
@@ -194,7 +195,7 @@ export function EstoqueManager({ products }: EstoqueManagerProps) {
 
       {/* View toggle */}
       <div className="flex gap-1 bg-on-surface/[0.05] rounded-xl p-1 w-fit">
-        {(['mapa', 'buscar'] as EstoqueView[]).map(v => (
+        {(['planta', 'mapa', 'buscar'] as EstoqueView[]).map(v => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -205,11 +206,22 @@ export function EstoqueManager({ products }: EstoqueManagerProps) {
                 : 'text-on-surface/40 hover:text-on-surface/70'
             )}
           >
-            {v === 'mapa' ? <LayoutGrid size={13} strokeWidth={2.5} /> : <Search size={13} strokeWidth={2.5} />}
-            {v === 'mapa' ? 'Mapa' : 'Buscar Produto'}
+            {v === 'planta' ? <Map size={13} strokeWidth={2.5} /> : v === 'mapa' ? <LayoutGrid size={13} strokeWidth={2.5} /> : <Search size={13} strokeWidth={2.5} />}
+            {v === 'planta' ? 'Planta' : v === 'mapa' ? 'Mapa' : 'Buscar Produto'}
           </button>
         ))}
       </div>
+
+      {/* ─── PLANTA VIEW ─── */}
+      {view === 'planta' && (
+        <PlantaManager
+          shelves={shelves}
+          boxes={boxes}
+          products={products}
+          productBoxMap={productBoxMap}
+          onSelectBox={setDetailBox}
+        />
+      )}
 
       {/* ─── MAPA VIEW ─── */}
       {view === 'mapa' && (
