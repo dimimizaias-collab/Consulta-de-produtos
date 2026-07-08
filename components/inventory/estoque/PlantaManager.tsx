@@ -221,16 +221,10 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       if (fromLeft) dw = -dw;
       if (fromTop) dh = -dh;
 
-      let newW: number, newH: number;
-      if (block.type === 'shelf') {
-        const d = Math.max(dw, dh);
-        newW = newH = Math.max(90, startW + d);
-      } else {
-        const minW = block.type === 'wall' ? 12 : 50;
-        const minH = block.type === 'wall' ? 12 : 40;
-        newW = Math.max(minW, startW + dw);
-        newH = Math.max(minH, startH + dh);
-      }
+      const minW = block.type === 'wall' ? 12 : 60;
+      const minH = block.type === 'wall' ? 12 : 50;
+      const newW = Math.max(minW, startW + dw);
+      const newH = Math.max(minH, startH + dh);
 
       el.style.width = newW + 'px';
       el.style.height = newH + 'px';
@@ -276,16 +270,17 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       {/* Canvas */}
       <div
         ref={canvasRef}
-        className={cn(
-          'relative rounded-none border-[1.5px] overflow-hidden bg-white dark:bg-[#1c1c16] transition-colors',
-          editMode ? 'border-dashed border-[#D81E1E]' : 'border-on-surface/[0.10]'
-        )}
-        style={{
-          height: CANVAS_HEIGHT,
-          backgroundImage:
-            'linear-gradient(rgba(120,110,70,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(120,110,70,0.07) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-        }}
+        className={
+          cn(
+            'relative rounded-none border-[1.5px] overflow-hidden transition-colors',
+            editMode ? 'border-dashed border-[#D81E1E]' : 'border-on-surface/[0.10]'
+          ) +
+          ' bg-white dark:bg-[#1c1c16]' +
+          ' bg-[image:linear-gradient(rgba(90,80,50,0.28)_1px,transparent_1px),linear-gradient(90deg,rgba(90,80,50,0.28)_1px,transparent_1px)]' +
+          ' dark:bg-[image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)]' +
+          ' bg-[length:28px_28px]'
+        }
+        style={{ height: CANVAS_HEIGHT }}
       >
         {editMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#D81E1E] pl-4 pr-2 py-1.5 rounded-full shadow-lg shadow-[#D81E1E]/30">
