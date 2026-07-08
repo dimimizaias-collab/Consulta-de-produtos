@@ -195,8 +195,6 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       const cRect = canvasRef.current!.getBoundingClientRect();
       let nx = ev.clientX - cRect.left - offsetX;
       let ny = ev.clientY - cRect.top - offsetY;
-      nx = snap(nx);
-      ny = snap(ny);
       nx = Math.max(0, Math.min(nx, canvasRef.current!.clientWidth - el.offsetWidth));
       ny = Math.max(0, Math.min(ny, canvasRef.current!.clientHeight - el.offsetHeight));
       el.style.left = nx + 'px';
@@ -236,8 +234,8 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
       let newW = Math.max(minW, startW + dw);
       let newH = Math.max(minH, startH + dh);
       if (block.type === 'shelf') {
-        newW = Math.max(GRID_SIZE * 3, snap(newW));
-        newH = Math.max(GRID_SIZE * 3, snap(newH));
+        newW = Math.max(GRID_SIZE, snap(newW));
+        newH = Math.max(GRID_SIZE, snap(newH));
       }
 
       el.style.width = newW + 'px';
