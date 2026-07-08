@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Pencil, Check, Search, Package, X } from 'lucide-react';
+import { Pencil, Check, Search, Package, X, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { type Shelf } from './AddEditShelfModal';
@@ -42,6 +42,7 @@ interface PlantaManagerProps {
   products: any[];
   productBoxMap: Record<string, StorageBox[]>;
   onSelectBox: (box: StorageBox) => void;
+  onEditShelf: (shelf: Shelf) => void;
 }
 
 const CANVAS_HEIGHT = 720;
@@ -52,7 +53,7 @@ function defaultShelfSize(boxCount: number) {
   return Math.max(130, Math.min(220, 130 + boxCount * 15));
 }
 
-export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelectBox }: PlantaManagerProps) {
+export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelectBox, onEditShelf }: PlantaManagerProps) {
   const [rawBlocks, setRawBlocks] = useState<FloorBlockRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -324,7 +325,15 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
               style={{ left: block.x, top: block.y, width: block.w, height: block.h }}
               onMouseDown={(e) => editMode && handleDragStart(e, block)}
               onClick={() => { if (!editMode && block.type === 'shelf') setPanelBlock(block); }}
-              onDoubleClick={() => { if (editMode && block.type !== 'shelf') renameBlock(block); }}
+              onDoubleClick={() => {
+                if (!editMode) return;
+                if (block.type === 'shelf') {
+                  const shelf = shelves.find(s => s.id === block.shelfId);
+                  if (shelf) onEditShelf(shelf);
+                } else {
+                  renameBlock(block);
+                }
+              }}
             >
               {block.type === 'shelf' && (
                 <>
@@ -413,19 +422,33 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="fixed inset-0 z-40 bg-black/35 dark:bg-black/55"
+              className="fixed inset-0 z-[110] bg-black/35 dark:bg-black/55"
               onClick={() => setPanelBlock(null)}
             />
             <motion.div
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-              className="fixed top-0 right-0 h-full w-full max-w-[360px] z-40 bg-[#FDFAF0] dark:bg-[#1E1E18] border-l border-on-surface/[0.06] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-full max-w-[360px] z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] border-l border-on-surface/[0.06] shadow-2xl flex flex-col"
             >
               <div className="bg-[#FFE500] border-b border-[#D4C000] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
                 <p className="text-base font-black text-[#1A1A0E]">{panelBlock.name}</p>
-                <button onClick={() => setPanelBlock(null)} className="w-7 h-7 rounded-[9px] bg-black/[0.08] border border-black/[0.10] flex items-center justify-center text-[#1A1A0E]/40 hover:bg-red-500/10 hover:text-red-600 transition-colors shrink-0">
-                  <X size={13} strokeWidth={2.5} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {panelBlock.shelfId && (
+                    <button
+                      onClick={() => {
+                        const shelf = shelves.find(s => s.id === panelBlock.shelfId);
+                        if (shelf) onEditShelf(shelf);
+                      }}
+                      className="w-7 h-7 rounded-[9px] bg-black/[0.08] border border-black/[0.10] flex items-center justify-center text-[#1A1A0E]/40 hover:bg-black/[0.14] hover:text-[#1A1A0E] transition-colors"
+                      title="Editar nome/descrição"
+                    >
+                      <Edit2 size={12} strokeWidth={2.5} />
+                    </button>
+                  )}
+                  <button onClick={() => setPanelBlock(null)} className="w-7 h-7 rounded-[9px] bg-black/[0.08] border border-black/[0.10] flex items-center justify-center text-[#1A1A0E]/40 hover:bg-red-500/10 hover:text-red-600 transition-colors">
+                    <X size={13} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
               <div className="p-4 flex flex-col gap-2 overflow-y-auto">
                 <p className="text-[9.5px] font-black uppercase tracking-[0.1em] text-on-surface/30 mb-1">Caixas nesta prateleira</p>
