@@ -318,7 +318,8 @@ export function PlantaManager({ shelves, boxes, products, productBoxMap, onSelec
               key={block.id}
               ref={(el) => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
               className={cn(
-                'absolute rounded-2xl overflow-hidden flex flex-col transition-[box-shadow,opacity] select-none',
+                'absolute overflow-hidden flex flex-col transition-[box-shadow,opacity] select-none',
+                block.type === 'shelf' ? 'rounded-none' : 'rounded-2xl',
                 editMode ? 'cursor-grab active:cursor-grabbing' : block.type === 'shelf' ? 'cursor-pointer' : 'cursor-default',
                 block.type === 'shelf' && 'bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.10] shadow-sm hover:shadow-md',
                 block.type === 'shelf' && block.unplaced && 'border-dashed',
