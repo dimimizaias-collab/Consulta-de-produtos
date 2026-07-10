@@ -25,17 +25,56 @@ function loadImageAsDataUrl(src: string): Promise<string> {
   });
 }
 
-// Placa sheet constants (mm) — plain A4 sulfite paper, 10cm x 5cm per placa
-const PLACA_W  = 100;
-const PLACA_H  = 50;
-const MARGIN_L = 5;
-const MARGIN_T = 15;
-const COL_GAP  = 0;
-const ROW_GAP  = 0;
-const PAD      = 4;
-const COLS     = 2;
-const ROWS     = 5;
-const TOTAL_PER_PAGE = COLS * ROWS; // 10
+// Placa sheet models (mm) — plain A4 sulfite paper. Font sizes in drawPlaca stay
+// identical across models; only spacing/geometry is tuned per model so the
+// smaller "compacta" card doesn't overflow, and the logo shrinks with it.
+type PlacaModelId = 'padrao' | 'compacta';
+
+interface PlacaModelConfig {
+  label: string;
+  width: number;
+  height: number;
+  marginL: number;
+  marginT: number;
+  colGap: number;
+  rowGap: number;
+  pad: number;
+  cols: number;
+  rows: number;
+  logoW: number;
+  lineH: number; // mm per name text line
+  nameGapAfter: { barcode: number; noBarcode: number };
+  priceBlockH: { barcode: number; noBarcode: number };
+  promoBlockH: number;
+  barcode: { h: number; gap: number; codeGap: number };
+}
+
+const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
+  padrao: {
+    label: 'Padrão · 10×5cm',
+    width: 100, height: 50,
+    marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 4,
+    cols: 2, rows: 5,
+    logoW: 18,
+    lineH: 6,
+    nameGapAfter: { barcode: 4, noBarcode: 12 },
+    priceBlockH: { barcode: 10, noBarcode: 16 },
+    promoBlockH: 8,
+    barcode: { h: 9, gap: 3, codeGap: 6 },
+  },
+  compacta: {
+    label: 'Compacta · 8×4cm',
+    width: 80, height: 40,
+    marginL: 25, marginT: 15, colGap: 0, rowGap: 0, pad: 2.5,
+    cols: 2, rows: 6,
+    logoW: 12,
+    lineH: 4.6,
+    nameGapAfter: { barcode: 1.5, noBarcode: 5 },
+    priceBlockH: { barcode: 7, noBarcode: 11 },
+    promoBlockH: 5,
+    barcode: { h: 6, gap: 1.5, codeGap: 3.5 },
+  },
+};
 
 const COLOR_RED_DARK = [138, 36, 28] as const;   // #8A241C — "R$" prefix
 const COLOR_RED      = [238, 43, 43] as const;   // #EE2B2B — price / promo text
@@ -91,9 +130,10 @@ interface PlacaCardPreviewProps {
   showBarcode: boolean;
   showOferta: boolean;
   batchText: string;
+  model: PlacaModelId;
 }
 
-function PlacaCardPreview({ entry, showBarcode, showOferta, batchText }: PlacaCardPreviewProps) {
+function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: PlacaCardPreviewProps) {
   let mainText: string;
   let priceNode: React.ReactNode;
   let promoText: string | undefined;
@@ -141,7 +181,11 @@ function PlacaCardPreview({ entry, showBarcode, showOferta, batchText }: PlacaCa
         </div>
       )}
 
-      <img src="/brand/logo.png" alt="" className="absolute bottom-[2cqw] right-[2cqw] w-[10cqw] opacity-90" />
+      <img
+        src="/brand/logo.png"
+        alt=""
+        className={cn('absolute bottom-[2cqw] right-[2cqw] opacity-90', model === 'compacta' ? 'w-[7cqw]' : 'w-[10cqw]')}
+      />
     </div>
   );
 }
@@ -153,6 +197,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   const [batchText, setBatchText] = useState('');
   const [showBarcode, setShowBarcode] = useState(true);
   const [showOferta, setShowOferta] = useState(false);
+  const [placaModel, setPlacaModel] = useState<PlacaModelId>('padrao');
   const [activeTab, setActiveTab] = useState<'busca' | 'cards' | 'visualizacao'>('busca');
   const [showAddPlacaMenu, setShowAddPlacaMenu] = useState(false);
   const [previewPage, setPreviewPage] = useState(0);
@@ -196,7 +241,8 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     return fromProducts + fromCustom;
   }, [selectedIds, selections, customPlacas]);
 
-  const totalPages = totalPlacas > 0 ? Math.ceil(totalPlacas / TOTAL_PER_PAGE) : 0;
+  const totalPerPage = PLACA_MODELS[placaModel].cols * PLACA_MODELS[placaModel].rows;
+  const totalPages = totalPlacas > 0 ? Math.ceil(totalPlacas / totalPerPage) : 0;
 
   // Flat placa list — uniform shape, works for both product-linked and custom (unlinked) placas
   const placaQueue = useMemo(() => {
@@ -227,7 +273,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   }, [selectedIds, selections, products, customPlacas]);
 
   const clampedPreviewPage = totalPages > 0 ? Math.min(previewPage, totalPages - 1) : 0;
-  const previewEntries = placaQueue.slice(clampedPreviewPage * TOTAL_PER_PAGE, clampedPreviewPage * TOTAL_PER_PAGE + TOTAL_PER_PAGE);
+  const previewEntries = placaQueue.slice(clampedPreviewPage * totalPerPage, clampedPreviewPage * totalPerPage + totalPerPage);
 
   const toggleProduct = useCallback((id: string) => {
     setSelections(prev => {
@@ -296,6 +342,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     setBatchText('');
     setShowBarcode(true);
     setShowOferta(false);
+    setPlacaModel('padrao');
     setActiveTab('busca');
     setShowAddPlacaMenu(false);
     setPreviewPage(0);
@@ -307,16 +354,18 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     x: number,
     y: number,
     entry: QueueEntry,
-    logoDataUrl: string | null
+    logoDataUrl: string | null,
+    model: PlacaModelConfig
   ) => {
-    const centerX = x + PLACA_W / 2;
-    const cw = PLACA_W - PAD * 2;
+    const { width: placaW, height: placaH, pad, lineH } = model;
+    const centerX = x + placaW / 2;
+    const cw = placaW - pad * 2;
 
     // cut guides (dashed rect) — plain paper, user cuts by hand
     doc.setDrawColor(180, 180, 180);
     doc.setLineWidth(0.15);
     doc.setLineDashPattern([1, 1], 0);
-    doc.rect(x, y, PLACA_W, PLACA_H);
+    doc.rect(x, y, placaW, placaH);
     doc.setLineDashPattern([], 0);
 
     if (entry.kind === 'comum') {
@@ -336,15 +385,15 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       // Block heights (mm), used to vertically center the whole stack in the placa.
       // When there's no barcode there's a lot of spare room, so give name/price
       // more breathing room instead of packing them tight at their old spacing.
-      const nameGapAfter = hasBarcode ? 4 : 12;
-      const nameBlockH = nameLines.length * 6 + nameGapAfter;
-      const priceBlockH = hasBarcode ? 10 : 16;
-      const promoBlockH = text ? 8 : 0;
-      const barcodeBlockH = hasBarcode ? 9 + 3 + 6 : 0;
+      const nameGapAfter = hasBarcode ? model.nameGapAfter.barcode : model.nameGapAfter.noBarcode;
+      const nameBlockH = nameLines.length * lineH + nameGapAfter;
+      const priceBlockH = hasBarcode ? model.priceBlockH.barcode : model.priceBlockH.noBarcode;
+      const promoBlockH = text ? model.promoBlockH : 0;
+      const barcodeBlockH = hasBarcode ? model.barcode.h + model.barcode.gap + model.barcode.codeGap : 0;
       const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
-      const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
+      const startY = y + pad + Math.max(0, (placaH - pad * 2 - totalBlockH) / 2);
 
-      let cy = startY + 6;
+      let cy = startY + lineH;
 
       // Product name (1-2 lines, centered)
       doc.setFontSize(15);
@@ -384,10 +433,10 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       if (hasBarcode) {
         try {
           const bcW = Math.min(45, cw);
-          const bcH = 9;
+          const bcH = model.barcode.h;
           const bcDataUrl = generateBarcodeDataUrl(code);
           doc.addImage(bcDataUrl, 'PNG', centerX - bcW / 2, cy, bcW, bcH);
-          cy += bcH + 3;
+          cy += bcH + model.barcode.gap;
           doc.setFontSize(6);
           doc.setFont('courier', 'normal');
           doc.setTextColor(95, 94, 90);
@@ -403,13 +452,13 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       doc.setFontSize(15);
       const principalLines = doc.splitTextToSize(principal || '—', cw).slice(0, 2);
 
-      const nameBlockH = principalLines.length * 6 + 12;
-      const priceBlockH = 16;
-      const promoBlockH = terciaria ? 8 : 0;
+      const nameBlockH = principalLines.length * lineH + model.nameGapAfter.noBarcode;
+      const priceBlockH = model.priceBlockH.noBarcode;
+      const promoBlockH = terciaria ? model.promoBlockH : 0;
       const totalBlockH = nameBlockH + priceBlockH + promoBlockH;
-      const startY = y + PAD + Math.max(0, (PLACA_H - PAD * 2 - totalBlockH) / 2);
+      const startY = y + pad + Math.max(0, (placaH - pad * 2 - totalBlockH) / 2);
 
-      let cy = startY + 6;
+      let cy = startY + lineH;
 
       doc.setFontSize(15);
       doc.setFont('helvetica', 'bold');
@@ -439,19 +488,19 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     if (showOferta) {
       const badgeW = 24, badgeH = 8;
       doc.setFillColor(...COLOR_YELLOW);
-      doc.rect(x + PLACA_W - badgeW, y, badgeW, badgeH, 'F');
+      doc.rect(x + placaW - badgeW, y, badgeW, badgeH, 'F');
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...COLOR_YELLOW_TEXT);
-      doc.text('OFERTA', x + PLACA_W - badgeW / 2, y + badgeH / 2 + 1.5, { align: 'center' });
+      doc.text('OFERTA', x + placaW - badgeW / 2, y + badgeH / 2 + 1.5, { align: 'center' });
     }
 
     // Brand logo — bottom-right corner (real asset, not redrawn)
     if (logoDataUrl) {
       try {
-        const logoW = 18;
+        const logoW = model.logoW;
         const logoH = logoW * (79 / 140); // aspect ratio of public/brand/logo.png
-        doc.addImage(logoDataUrl, 'PNG', x + PLACA_W - logoW - 3, y + PLACA_H - logoH - 3, logoW, logoH);
+        doc.addImage(logoDataUrl, 'PNG', x + placaW - logoW - 3, y + placaH - logoH - 3, logoW, logoH);
       } catch { /* skip logo on error */ }
     }
   };
@@ -462,21 +511,23 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       logoDataUrl = await loadImageAsDataUrl('/brand/logo.png');
     } catch { /* proceed without logo if it fails to load */ }
 
+    const model = PLACA_MODELS[placaModel];
+    const perPage = model.cols * model.rows;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     let printIdx = 0;
 
     for (let qIdx = 0; qIdx < placaQueue.length; qIdx++) {
-      if (printIdx >= TOTAL_PER_PAGE) {
+      if (printIdx >= perPage) {
         doc.addPage();
         printIdx = 0;
       }
 
-      const col = printIdx % COLS;
-      const row = Math.floor(printIdx / COLS);
-      const x = MARGIN_L + col * (PLACA_W + COL_GAP);
-      const y = MARGIN_T + row * (PLACA_H + ROW_GAP);
+      const col = printIdx % model.cols;
+      const row = Math.floor(printIdx / model.cols);
+      const x = model.marginL + col * (model.width + model.colGap);
+      const y = model.marginT + row * (model.height + model.rowGap);
 
-      drawPlaca(doc, x, y, placaQueue[qIdx], logoDataUrl);
+      drawPlaca(doc, x, y, placaQueue[qIdx], logoDataUrl, model);
       printIdx++;
     }
 
@@ -626,6 +677,25 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                 <>
                   {/* Global print options */}
                   <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-on-surface/[0.06] bg-on-surface/[0.02]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-semibold text-on-surface/60">Modelo de impressão</span>
+                      <div className="flex bg-on-surface/[0.06] rounded-lg p-0.5 gap-0.5">
+                        {(Object.keys(PLACA_MODELS) as PlacaModelId[]).map(id => (
+                          <button
+                            key={id}
+                            onClick={() => setPlacaModel(id)}
+                            className={cn(
+                              'px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all',
+                              placaModel === id
+                                ? 'bg-on-surface text-surface-container shadow-sm'
+                                : 'text-on-surface/40 hover:text-on-surface/70'
+                            )}
+                          >
+                            {PLACA_MODELS[id].label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <input
                       type="text"
                       value={batchText}
@@ -923,6 +993,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                           showBarcode={showBarcode}
                           showOferta={showOferta}
                           batchText={batchText}
+                          model={placaModel}
                         />
                       ))}
                     </div>
