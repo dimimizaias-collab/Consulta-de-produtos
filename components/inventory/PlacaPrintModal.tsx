@@ -28,7 +28,7 @@ function loadImageAsDataUrl(src: string): Promise<string> {
 // Placa sheet models (mm) — plain A4 sulfite paper. Font sizes in drawPlaca stay
 // identical across models; only spacing/geometry is tuned per model so the
 // smaller "compacta" card doesn't overflow, and the logo shrinks with it.
-type PlacaModelId = 'padrao' | 'compacta';
+type PlacaModelId = 'padrao' | 'compacta' | 'diminuta';
 
 interface PlacaModelConfig {
   label: string;
@@ -73,6 +73,18 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     priceBlockH: { barcode: 7, noBarcode: 11 },
     promoBlockH: 5,
     barcode: { h: 6, gap: 1.5, codeGap: 3.5 },
+  },
+  diminuta: {
+    label: 'Diminuta · 4×2cm',
+    width: 40, height: 20,
+    marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 1.2,
+    cols: 5, rows: 12,
+    logoW: 6,
+    lineH: 3.6,
+    nameGapAfter: { barcode: 0.5, noBarcode: 1.5 },
+    priceBlockH: { barcode: 6, noBarcode: 10 },
+    promoBlockH: 3,
+    barcode: { h: 3.5, gap: 1, codeGap: 2 },
   },
 };
 
@@ -184,7 +196,10 @@ function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: 
       <img
         src="/brand/logo.png"
         alt=""
-        className={cn('absolute bottom-[2cqw] right-[2cqw] opacity-90', model === 'compacta' ? 'w-[7cqw]' : 'w-[10cqw]')}
+        className={cn(
+          'absolute bottom-[2cqw] right-[2cqw] opacity-90',
+          model === 'diminuta' ? 'w-[5cqw]' : model === 'compacta' ? 'w-[7cqw]' : 'w-[10cqw]'
+        )}
       />
     </div>
   );
