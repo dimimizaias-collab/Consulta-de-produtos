@@ -78,7 +78,11 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     nameGapAfter: { barcode: 4, noBarcode: 12 },
     priceBlockH: { barcode: 10, noBarcode: 16 },
     promoBlockH: 8,
-    barcode: { h: 9, gap: 3, codeGap: 6 },
+    // codeGap is a bottom-clearance buffer for centering math (the code
+    // text's own descender), not a real inter-element gap — keep it close
+    // to that real need so the whole stack centers accurately instead of
+    // reserving far more room than the code number actually uses.
+    barcode: { h: 9, gap: 3, codeGap: 1.5 },
   },
   compacta: {
     label: 'Compacta · 8×4cm',
@@ -98,11 +102,15 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     lineH: 6,
     // Gaps sized so every transition (name→price, price→promo, barcode
     // image→code) keeps at least ~2mm of clear whitespace, not just enough
-    // to avoid literal glyph overlap.
+    // to avoid literal glyph overlap. priceBlockH.barcode is sized for the
+    // stricter of its two possible "next" elements (promo text), not
+    // padded far beyond that, so the barcode+price+name stack actually
+    // fits the 40mm card instead of relying on the centering math to mask
+    // an overflow.
     nameGapAfter: { barcode: 4, noBarcode: 6 },
-    priceBlockH: { barcode: 10, noBarcode: 14 },
+    priceBlockH: { barcode: 7, noBarcode: 14 },
     promoBlockH: 4,
-    barcode: { h: 6, gap: 4, codeGap: 3 },
+    barcode: { h: 6, gap: 4, codeGap: 1.5 },
   },
   diminuta: {
     label: 'Diminuta · 4×2cm',
@@ -126,12 +134,12 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     // the other models. The name→price→barcode stack with barcode ON can't
     // quite reach the full 2mm on a card this small without crowding out
     // name/price (20mm total height just doesn't leave room) — those two
-    // gaps land around ~1.3-1.5mm instead. Expect the barcode option to
+    // gaps land around ~0.9-1.2mm instead. Expect the barcode option to
     // look tighter on this format than the other two.
-    nameGapAfter: { barcode: 2.2, noBarcode: 4.2 },
-    priceBlockH: { barcode: 5, noBarcode: 7 },
+    nameGapAfter: { barcode: 2, noBarcode: 4.2 },
+    priceBlockH: { barcode: 4.5, noBarcode: 7 },
     promoBlockH: 2.7,
-    barcode: { h: 3, gap: 2.3, codeGap: 2 },
+    barcode: { h: 3, gap: 2, codeGap: 1 },
   },
 };
 
@@ -202,7 +210,8 @@ function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: 
   if (entry.kind === 'comum') {
     hasBarcode = showBarcode && !!entry.code;
     barcodeCode = entry.code;
-    mainText = entry.name || '—';
+    const rawName = entry.name || '—';
+    mainText = rawName.length > 20 ? rawName.slice(0, 19).trimEnd() + '…' : rawName;
     promoText = entry.customText || batchText || undefined;
     priceNode = (
       <>
@@ -431,7 +440,9 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.setLineDashPattern([], 0);
 
     if (entry.kind === 'comum') {
-      const { name, price: priceValue, code, customText } = entry;
+      const { price: priceValue, code, customText } = entry;
+      const rawName = entry.name || '—';
+      const name = rawName.length > 20 ? rawName.slice(0, 19).trimEnd() + '…' : rawName;
       const price = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const text = customText || batchText;
 
@@ -442,7 +453,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(fonts.name);
-      const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
+      const nameLines = doc.splitTextToSize(name, cw).slice(0, 2);
 
       // Block heights (mm), used to vertically center the whole stack in the placa.
       // When there's no barcode there's a lot of spare room, so give name/price
@@ -452,7 +463,11 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       const priceBlockH = hasBarcode ? model.priceBlockH.barcode : model.priceBlockH.noBarcode;
       const promoBlockH = text ? model.promoBlockH : 0;
       const barcodeBlockH = hasBarcode ? model.barcode.h + model.barcode.gap + model.barcode.codeGap : 0;
-      const totalBlockH = nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
+      // lineH is included here because cy starts at startY + lineH (the first
+      // name line's own baseline offset) — leaving it out of the centering sum
+      // understated the stack's true height, so the whole thing rendered
+      // shifted down and could run past the bottom padding.
+      const totalBlockH = lineH + nameBlockH + priceBlockH + promoBlockH + barcodeBlockH;
       const startY = y + pad + Math.max(0, (placaH - pad * 2 - totalBlockH) / 2);
 
       let cy = startY + lineH;
@@ -517,7 +532,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       const nameBlockH = principalLines.length * lineH + model.nameGapAfter.noBarcode;
       const priceBlockH = model.priceBlockH.noBarcode;
       const promoBlockH = terciaria ? model.promoBlockH : 0;
-      const totalBlockH = nameBlockH + priceBlockH + promoBlockH;
+      const totalBlockH = lineH + nameBlockH + priceBlockH + promoBlockH;
       const startY = y + pad + Math.max(0, (placaH - pad * 2 - totalBlockH) / 2);
 
       let cy = startY + lineH;
