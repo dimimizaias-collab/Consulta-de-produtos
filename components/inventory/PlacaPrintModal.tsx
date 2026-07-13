@@ -25,9 +25,13 @@ function loadImageAsDataUrl(src: string): Promise<string> {
   });
 }
 
-// Placa sheet models (mm) — plain A4 sulfite paper. Font sizes in drawPlaca stay
-// identical across models; only spacing/geometry is tuned per model so the
-// smaller "compacta" card doesn't overflow, and the logo shrinks with it.
+// Placa sheet models (mm) — plain A4 sulfite paper. Padrão and Compacta share
+// the exact same font sizes; only spacing/geometry is tuned per model. lineH
+// and priceBlockH are tied to the font's actual rendered height (not free
+// design knobs) — shrinking them below what the font needs makes lines
+// overlap. Diminuta's card is too small to fit the padrão/compacta type
+// scale at all (15pt name + 32pt price alone exceed 20mm), so it gets its
+// own smaller font scale instead of just tighter spacing.
 type PlacaModelId = 'padrao' | 'compacta' | 'diminuta';
 
 interface PlacaModelConfig {
@@ -42,9 +46,16 @@ interface PlacaModelConfig {
   cols: number;
   rows: number;
   logoW: number;
-  lineH: number; // mm per name text line
+  fonts: {
+    name: number;
+    pricePrefix: { barcode: number; noBarcode: number };
+    priceMain: { barcode: number; noBarcode: number };
+    promo: number;
+    barcodeCode: number;
+  };
+  lineH: number; // mm per name text line — must fit fonts.name, not a free spacing knob
   nameGapAfter: { barcode: number; noBarcode: number };
-  priceBlockH: { barcode: number; noBarcode: number };
+  priceBlockH: { barcode: number; noBarcode: number }; // must fit fonts.priceMain
   promoBlockH: number;
   barcode: { h: number; gap: number; codeGap: number };
 }
@@ -56,6 +67,13 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 4,
     cols: 2, rows: 5,
     logoW: 18,
+    fonts: {
+      name: 15,
+      pricePrefix: { barcode: 14, noBarcode: 18 },
+      priceMain: { barcode: 24, noBarcode: 32 },
+      promo: 9,
+      barcodeCode: 6,
+    },
     lineH: 6,
     nameGapAfter: { barcode: 4, noBarcode: 12 },
     priceBlockH: { barcode: 10, noBarcode: 16 },
@@ -68,23 +86,43 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     marginL: 25, marginT: 15, colGap: 0, rowGap: 0, pad: 2.5,
     cols: 2, rows: 6,
     logoW: 12,
-    lineH: 4.6,
+    // Same type scale as padrão — only spacing shrinks, and only down to
+    // what a 15pt/32pt/24pt font actually needs to avoid overlapping.
+    fonts: {
+      name: 15,
+      pricePrefix: { barcode: 14, noBarcode: 18 },
+      priceMain: { barcode: 24, noBarcode: 32 },
+      promo: 9,
+      barcodeCode: 6,
+    },
+    lineH: 6,
     nameGapAfter: { barcode: 1.5, noBarcode: 5 },
-    priceBlockH: { barcode: 7, noBarcode: 11 },
-    promoBlockH: 5,
-    barcode: { h: 6, gap: 1.5, codeGap: 3.5 },
+    priceBlockH: { barcode: 10, noBarcode: 14 },
+    promoBlockH: 4,
+    barcode: { h: 6, gap: 1.5, codeGap: 3 },
   },
   diminuta: {
     label: 'Diminuta · 4×2cm',
     width: 40, height: 20,
-    marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 1.2,
+    marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 1,
     cols: 5, rows: 12,
     logoW: 6,
-    lineH: 3.6,
-    nameGapAfter: { barcode: 0.5, noBarcode: 1.5 },
-    priceBlockH: { barcode: 6, noBarcode: 10 },
-    promoBlockH: 3,
-    barcode: { h: 3.5, gap: 1, codeGap: 2 },
+    // Card is only 20mm tall — the padrão/compacta type scale physically
+    // doesn't fit (15pt name + 32pt price alone need ~19mm with zero
+    // padding), so this model uses a smaller scale instead of just
+    // tighter spacing.
+    fonts: {
+      name: 7,
+      pricePrefix: { barcode: 7, noBarcode: 9 },
+      priceMain: { barcode: 12, noBarcode: 16 },
+      promo: 5,
+      barcodeCode: 4,
+    },
+    lineH: 3,
+    nameGapAfter: { barcode: 0.5, noBarcode: 1 },
+    priceBlockH: { barcode: 5, noBarcode: 7 },
+    promoBlockH: 2.5,
+    barcode: { h: 3, gap: 0.5, codeGap: 2 },
   },
 };
 
@@ -372,7 +410,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     logoDataUrl: string | null,
     model: PlacaModelConfig
   ) => {
-    const { width: placaW, height: placaH, pad, lineH } = model;
+    const { width: placaW, height: placaH, pad, lineH, fonts } = model;
     const centerX = x + placaW / 2;
     const cw = placaW - pad * 2;
 
@@ -390,11 +428,11 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
       const hasBarcode = showBarcode && !!code;
       // Bigger price when there's no barcode taking up space at the bottom
-      const priceMainSize = hasBarcode ? 24 : 32;
-      const pricePrefixSize = hasBarcode ? 14 : 18;
+      const priceMainSize = hasBarcode ? fonts.priceMain.barcode : fonts.priceMain.noBarcode;
+      const pricePrefixSize = hasBarcode ? fonts.pricePrefix.barcode : fonts.pricePrefix.noBarcode;
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
+      doc.setFontSize(fonts.name);
       const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
 
       // Block heights (mm), used to vertically center the whole stack in the placa.
@@ -411,7 +449,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       let cy = startY + lineH;
 
       // Product name (1-2 lines, centered)
-      doc.setFontSize(15);
+      doc.setFontSize(fonts.name);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(28, 28, 26);
       doc.text(nameLines, centerX, cy, { align: 'center' });
@@ -437,7 +475,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
       // Promo text, if any
       if (text) {
-        doc.setFontSize(9);
+        doc.setFontSize(fonts.promo);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...COLOR_RED);
         doc.text(text, centerX, cy, { align: 'center' });
@@ -452,7 +490,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
           const bcDataUrl = generateBarcodeDataUrl(code);
           doc.addImage(bcDataUrl, 'PNG', centerX - bcW / 2, cy, bcW, bcH);
           cy += bcH + model.barcode.gap;
-          doc.setFontSize(6);
+          doc.setFontSize(fonts.barcodeCode);
           doc.setFont('courier', 'normal');
           doc.setTextColor(95, 94, 90);
           doc.text(code, centerX, cy, { align: 'center' });
@@ -464,7 +502,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       const { principal, secundaria, terciaria } = entry;
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
+      doc.setFontSize(fonts.name);
       const principalLines = doc.splitTextToSize(principal || '—', cw).slice(0, 2);
 
       const nameBlockH = principalLines.length * lineH + model.nameGapAfter.noBarcode;
@@ -475,14 +513,14 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
       let cy = startY + lineH;
 
-      doc.setFontSize(15);
+      doc.setFontSize(fonts.name);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(28, 28, 26);
       doc.text(principalLines, centerX, cy, { align: 'center' });
       cy += nameBlockH;
 
       if (secundaria) {
-        doc.setFontSize(32);
+        doc.setFontSize(fonts.priceMain.noBarcode);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...COLOR_RED);
         const secLine = doc.splitTextToSize(secundaria, cw)[0] || '';
@@ -491,7 +529,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       cy += priceBlockH;
 
       if (terciaria) {
-        doc.setFontSize(9);
+        doc.setFontSize(fonts.promo);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...COLOR_RED);
         doc.text(terciaria, centerX, cy, { align: 'center' });
