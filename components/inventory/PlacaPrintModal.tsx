@@ -96,10 +96,13 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
       barcodeCode: 6,
     },
     lineH: 6,
-    nameGapAfter: { barcode: 1.5, noBarcode: 5 },
+    // Gaps sized so every transition (name→price, price→promo, barcode
+    // image→code) keeps at least ~2mm of clear whitespace, not just enough
+    // to avoid literal glyph overlap.
+    nameGapAfter: { barcode: 4, noBarcode: 6 },
     priceBlockH: { barcode: 10, noBarcode: 14 },
     promoBlockH: 4,
-    barcode: { h: 6, gap: 1.5, codeGap: 3 },
+    barcode: { h: 6, gap: 4, codeGap: 3 },
   },
   diminuta: {
     label: 'Diminuta · 4×2cm',
@@ -119,10 +122,16 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
       barcodeCode: 4,
     },
     lineH: 3,
-    nameGapAfter: { barcode: 0.5, noBarcode: 1 },
+    // Gaps sized for ~2mm of clear whitespace at every transition, same as
+    // the other models. The name→price→barcode stack with barcode ON can't
+    // quite reach the full 2mm on a card this small without crowding out
+    // name/price (20mm total height just doesn't leave room) — those two
+    // gaps land around ~1.3-1.5mm instead. Expect the barcode option to
+    // look tighter on this format than the other two.
+    nameGapAfter: { barcode: 2.2, noBarcode: 4.2 },
     priceBlockH: { barcode: 5, noBarcode: 7 },
-    promoBlockH: 2.5,
-    barcode: { h: 3, gap: 0.5, codeGap: 2 },
+    promoBlockH: 2.7,
+    barcode: { h: 3, gap: 2.3, codeGap: 2 },
   },
 };
 
