@@ -98,7 +98,7 @@ const ZONE_BASE = {
   pricePadX: 0.8,           // mm — left/right inset for the price zone
   fonts: {
     desc: 8.25, custom: 6.75,             // pt
-    priceMain: 14.63, pricePrefix: 4.31,  // pt — common case ("R$ 15,00")
+    priceMain: 17, pricePrefix: 5,        // pt — common case ("R$ 15,00"), ~96% of the price zone's width
     priceMainTight: 9.94, pricePrefixTight: 3, // pt — auto-shrink target for long prices
     barcodeCode: 3.38,                    // pt
   },
@@ -321,9 +321,9 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
         {priceStr && (
           <p className="font-black leading-none whitespace-nowrap" style={{ color: '#EE2B2B' }}>
             {entry.kind === 'comum' && (
-              <span style={{ color: '#8A241C', fontSize: priceTight ? '2.12cqw' : '3.04cqw' }}>R$ </span>
+              <span style={{ color: '#8A241C', fontSize: priceTight ? '2.12cqw' : '3.53cqw' }}>R$ </span>
             )}
-            <span style={{ fontSize: priceTight ? '7.01cqw' : '10.32cqw' }}>{priceStr}</span>
+            <span style={{ fontSize: priceTight ? '7.01cqw' : '12cqw' }}>{priceStr}</span>
           </p>
         )}
       </div>
@@ -779,7 +779,13 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     const startY = Math.max(y, y + infoH - infoBottomPad - totalBlockH);
 
     doc.setTextColor(28, 28, 26);
+    // jsPDF's standard fonts only go up to Helvetica-Bold — no heavier
+    // "black" weight to reach for — so at this small a point size the bold
+    // strokes print thin. Redraw with a hairline offset to thicken them into
+    // a visibly bolder weight instead.
+    const descBoldOffset = 0.09 * scale; // mm
     doc.text(descLines, x + padX, startY + descLineH, { align: 'left' });
+    doc.text(descLines, x + padX + descBoldOffset, startY + descLineH, { align: 'left' });
 
     if (hasCustom) {
       const customTrunc = truncateToWidth(doc, customText, textMaxW);
