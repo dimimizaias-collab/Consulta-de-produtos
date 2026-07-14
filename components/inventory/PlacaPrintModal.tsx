@@ -99,7 +99,7 @@ const ZONE_BASE = {
   barcodePad: { top: 0.53, right: 0.53, bottom: 0.53, left: 1.06, gap: 0.4 }, // mm
   barcodeFillW: 0.96,       // fraction of the barcode zone's padded content box
   barcodeFillH: 0.78,
-  pricePadX: 0.6,           // mm — left/right inset for the price zone
+  pricePadX: 0.9,           // mm — left/right inset for the price zone
   fonts: {
     desc: 8.25, custom: 6.75, // pt
     // Price is NOT a fixed size — priceMaxPt is a generous ceiling and the
@@ -107,7 +107,7 @@ const ZONE_BASE = {
     // actual text and grows the font as large as the zone allows (down to
     // priceMinPt only for pathologically long values). At this ceiling/
     // ratio, a short price like "R$ 2,00" lands at a ~0.8cm digit height.
-    priceMaxPt: 40, priceMinPt: 6, pricePrefixRatio: 0.10,
+    priceMaxPt: 40, priceMinPt: 6, pricePrefixRatio: 0.13,
     barcodeCode: 3.38,        // pt
   },
 } as const;
