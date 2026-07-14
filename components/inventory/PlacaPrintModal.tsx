@@ -59,13 +59,15 @@ interface PlacaStackModelConfig {
   barcode: { h: number; gap: number; codeGap: number };
 }
 
-// "Zonas" layout (Diminuta / Ampla): 4 fixed, non-overlapping regions —
-// description (top), custom text (below it, both bottom-left aligned),
-// barcode (bottom-left row) and price (bottom-right row) — approved via
-// mockup. Ampla is the exact same design at 2x the physical size, so every
-// absolute measurement (mm paddings, pt fonts) is `ZONE_BASE value * scale`
-// instead of a second hand-tuned config; only the proportional splits
-// (percentages) are shared as-is between every zone model.
+// "Zonas" layout (Diminuta / Ampla): name pinned near the TOP (single line,
+// truncated with "…" rather than wrapped), barcode+code pinned as a unit
+// against the BOTTOM, and price sitting immediately to the right of the
+// barcode — not centered in its own fixed-width box. This geometry was
+// reverse-engineered mm-for-mm from a reference PDF the user provided as the
+// target look (measured via PyMuPDF: card 50×25mm, name 9.5pt, barcode
+// 25.1×9.29mm, code 3.38pt, price auto-fit next to it). Ampla is the exact
+// same design at 2x the physical size, so every absolute measurement (mm,
+// pt) is `ZONE_BASE value * scale` instead of a second hand-tuned config.
 interface PlacaZoneModelConfig {
   layout: 'zonas';
   label: string;
@@ -82,34 +84,25 @@ interface PlacaZoneModelConfig {
 
 type PlacaAnyModelConfig = PlacaStackModelConfig | PlacaZoneModelConfig;
 
-// Base geometry for the zone layout, tuned at the 50×25mm ("Diminuta") size
-// and scaled by `model.scale` for every other zone model. Percentages are
-// scale-invariant; mm/pt values are multiplied by scale.
+// Base geometry for the zone layout, measured at the 50×25mm ("Diminuta")
+// size from the reference PDF and scaled by `model.scale` for every other
+// zone model.
 const ZONE_BASE = {
-  infoHeightPct: 0.44,      // description + custom text band (top)
-  // 50/50 instead of 60/40 — a price that reads at ~0.8cm digit height for
-  // a typical short value ("R$ 2,00") needs more width than a 40%-wide
-  // zone can give it on a 50mm-wide card; this was widened specifically to
-  // fit that, trading some barcode width for it.
-  barcodeWidthPct: 0.50,
-  padX: 1.06,               // mm — left/right inset for every zone
-  padBottomInfo: 0.53,      // mm — gap from custom text (or lone description) to the barcode row
-  padBottomInfoSolo: 2.5,   // mm — extra lift so a lone description (no custom text) isn't glued to the barcode row
-  gapInfo: 0.4,             // mm — gap between description and custom text lines
-  barcodePad: { top: 0.53, right: 0.53, bottom: 0.53, left: 1.06, gap: 0.4 }, // mm
-  barcodeFillW: 0.96,       // fraction of the barcode zone's padded content box
-  barcodeFillH: 0.78,
-  pricePadX: 0.8,           // mm — left/right inset for the price zone
-  fonts: {
-    desc: 8.25, custom: 6.75, // pt
-    // Price is NOT a fixed size — priceMaxPt is a generous ceiling and the
-    // real per-string size is found by fitZonePriceFont, which measures the
-    // actual text and grows the font as large as the zone allows (down to
-    // priceMinPt only for pathologically long values). At this ceiling/
-    // ratio, a short price like "R$ 2,00" lands at a ~0.8cm digit height.
-    priceMaxPt: 40, priceMinPt: 6, pricePrefixRatio: 0.12,
-    barcodeCode: 3.38,        // pt
-  },
+  padLeft: 3.31, padRight: 2.25,   // mm — name/barcode share the left inset; price is bounded by the right inset
+  nameFont: 9.5, customFont: 6.75, // pt
+  nameTopMm: 4.16,                 // mm — distance from the card's top edge to the name's line
+  customGapMm: 1.0,                // mm — gap between name and custom text, when present
+  barcodeW: 25.11, barcodeH: 9.29, // mm — FIXED size (not a % of card width): this is what made the barcode+price
+                                    // combination in the reference read right, rather than stretching to fill a zone
+  barcodeGapToCodeMm: 0.74,        // mm
+  codeFont: 3.38,                  // pt
+  bottomMarginMm: 2.17,             // mm — from the code text's bottom to the card's bottom edge
+  priceGapFromBarcodeMm: 1.34,      // mm — gap between the barcode's right edge and the price
+  // Price is NOT a fixed size — priceMaxPt is a generous ceiling and the
+  // real per-string size is found by fitZonePriceFont, which measures the
+  // actual text and grows the font as large as the available width allows
+  // (down to priceMinPt only for pathologically long values).
+  priceMaxPt: 40, priceMinPt: 6, pricePrefixRatio: 0.37,
 } as const;
 
 const ptToMm = (pt: number) => pt * 0.352778;
@@ -320,71 +313,60 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
 
   // Same fitZonePriceFont the PDF uses, measured with a real jsPDF instance
   // (see getZoneMeasureDoc) so the preview's price size matches the print
-  // exactly instead of guessing from string length.
+  // exactly instead of guessing from string length. The available width
+  // mirrors drawPlacaZoned: whatever's left after the barcode (or the full
+  // row, when there's no barcode to sit next to).
   const { mainCqw, prefixCqw } = useMemo(() => {
     if (!priceStr) return { mainCqw: 0, prefixCqw: 0 };
     const prefixText = priceIsMoney ? 'R$ ' : '';
-    const priceZoneWmm = 50 * (1 - ZONE_BASE.barcodeWidthPct);
-    const maxWmm = priceZoneWmm - ZONE_BASE.pricePadX * 2;
+    const priceLeftMm = hasBarcode
+      ? ZONE_BASE.padLeft + ZONE_BASE.barcodeW + ZONE_BASE.priceGapFromBarcodeMm
+      : ZONE_BASE.padLeft;
+    const maxWmm = 50 - ZONE_BASE.padRight - priceLeftMm;
     const { mainPt, prefixPt } = fitZonePriceFont(
       getZoneMeasureDoc(), prefixText, priceStr, maxWmm,
-      ZONE_BASE.fonts.priceMaxPt, ZONE_BASE.fonts.priceMinPt, ZONE_BASE.fonts.pricePrefixRatio
+      ZONE_BASE.priceMaxPt, ZONE_BASE.priceMinPt, ZONE_BASE.pricePrefixRatio
     );
     return { mainCqw: (ptToMm(mainPt) / 50) * 100, prefixCqw: (ptToMm(prefixPt) / 50) * 100 };
-  }, [priceStr, priceIsMoney]);
+  }, [priceStr, priceIsMoney, hasBarcode]);
 
   return (
     <div className="relative aspect-[2/1] rounded-lg border border-dashed border-on-surface/25 bg-white overflow-hidden [container-type:inline-size]">
-      {/* Description + custom text — bottom-packed, left-aligned */}
-      <div
-        className="absolute left-0 right-0 top-0 flex flex-col items-start justify-end text-left"
-        style={{
-          height: '22cqw',
-          paddingLeft: '2.12cqw', paddingRight: '2.12cqw',
-          paddingBottom: hasCustom ? '1.06cqw' : '5cqw',
-          gap: '0.8cqw',
-        }}
+      {/* Name — top-anchored, single line, ellipsis (not wrapped) */}
+      <p
+        className="absolute font-black text-[#1C1C1A] leading-none whitespace-nowrap overflow-hidden text-ellipsis"
+        style={{ top: '8.32cqw', left: '6.62cqw', right: '4.5cqw', fontSize: '6.7cqw' }}
       >
-        <p className="font-black text-[#1C1C1A] leading-[1.05] line-clamp-2" style={{ fontSize: '5.82cqw' }}>
-          {descText}
+        {descText}
+      </p>
+
+      {/* Custom text — directly below the name */}
+      {hasCustom && (
+        <p
+          className="absolute font-bold leading-none whitespace-nowrap overflow-hidden text-ellipsis"
+          style={{ top: '19.9cqw', left: '6.62cqw', right: '4.5cqw', fontSize: '4.76cqw', color: '#EE2B2B' }}
+        >
+          {customText}
         </p>
-        {hasCustom && (
-          <p
-            className="font-bold leading-none whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
-            style={{ fontSize: '4.76cqw', color: '#EE2B2B' }}
-          >
-            {customText}
-          </p>
-        )}
-      </div>
+      )}
 
-      {/* Barcode — bottom-left row, left-aligned */}
-      <div
-        className="absolute left-0 flex flex-col items-start justify-center"
-        style={{
-          top: '22cqw', height: '28cqw', width: '50%',
-          paddingTop: '1.06cqw', paddingRight: '1.06cqw', paddingBottom: '1.06cqw', paddingLeft: '2.12cqw',
-          gap: '0.8cqw',
-        }}
-      >
+      {/* Barcode + price — pinned together against the bottom edge, price
+          sitting immediately right of the barcode (not centered in a box) */}
+      <div className="absolute left-0 right-0 flex items-center" style={{ bottom: '4.34cqw' }}>
         {hasBarcode && barcodeDataUrl && (
-          <>
-            <img src={barcodeDataUrl} alt="" style={{ width: '96%', height: '78%' }} />
-            <span className="font-mono text-on-surface/50" style={{ fontSize: '2.38cqw' }}>{barcodeCode}</span>
-          </>
+          <div className="flex flex-col items-start flex-shrink-0" style={{ marginLeft: '6.62cqw', width: '50.2%' }}>
+            <img src={barcodeDataUrl} alt="" style={{ width: '100%', height: '18.58cqw' }} />
+            <span className="font-mono text-on-surface/50" style={{ fontSize: '2.38cqw', marginTop: '1.48cqw' }}>
+              {barcodeCode}
+            </span>
+          </div>
         )}
-      </div>
-
-      {/* Price — bottom-right row, centered */}
-      <div
-        className="absolute right-0 flex items-center justify-center text-center"
-        style={{ top: '22cqw', height: '28cqw', width: '50%', paddingLeft: '1.6cqw', paddingRight: '1.6cqw' }}
-      >
         {priceStr && (
-          <p className="font-black leading-none whitespace-nowrap" style={{ color: '#EE2B2B' }}>
-            {priceIsMoney && (
-              <span style={{ color: '#8A241C', fontSize: prefixCqw + 'cqw' }}>R$ </span>
-            )}
+          <p
+            className="font-black leading-none whitespace-nowrap"
+            style={{ color: '#EE2B2B', marginLeft: hasBarcode ? '2.68cqw' : '6.62cqw', marginRight: '4.5cqw' }}
+          >
+            {priceIsMoney && <span style={{ fontSize: prefixCqw + 'cqw' }}>R$ </span>}
             <span style={{ fontSize: mainCqw + 'cqw' }}>{priceStr}</span>
           </p>
         )}
@@ -796,16 +778,8 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.rect(x, y, W, H);
     doc.setLineDashPattern([], 0);
 
-    const padX = B.padX * scale;
-    const padBottomInfo = B.padBottomInfo * scale;
-    const padBottomInfoSolo = B.padBottomInfoSolo * scale;
-    const gapInfo = B.gapInfo * scale;
-
-    const infoH = H * B.infoHeightPct;
-    const rowTop = y + infoH;
-    const rowH = H - infoH;
-    const barcodeW = W * B.barcodeWidthPct;
-    const priceW = W - barcodeW;
+    const padLeft = B.padLeft * scale;
+    const padRight = B.padRight * scale;
 
     let descText: string, customText: string;
     let hasBarcode = false, barcodeCode = '';
@@ -824,87 +798,83 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       priceIsMoney = false;
     }
     const hasCustom = !!customText;
-    const textMaxW = W - padX * 2;
+    const textMaxW = W - padLeft - padRight;
 
-    // ── Description + custom text: bottom-packed, left-aligned ──
-    const descFontPt = B.fonts.desc * scale;
-    const customFontPt = B.fonts.custom * scale;
-    const descLineH = ptToMm(descFontPt) * 1.15;
-    const customLineH = ptToMm(customFontPt) * 1.15;
-
+    // ── Name: single line, top-anchored, truncated with "…" (not wrapped) ──
+    const nameFontPt = B.nameFont * scale;
+    const nameLineH = ptToMm(nameFontPt) * 1.15;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(descFontPt);
-    const descLines = doc.splitTextToSize(descText, textMaxW).slice(0, 2);
-    const descBlockH = descLines.length * descLineH;
-    const infoBottomPad = hasCustom ? padBottomInfo : padBottomInfoSolo;
-    const totalBlockH = descBlockH + (hasCustom ? gapInfo + customLineH : 0);
-    const startY = Math.max(y, y + infoH - infoBottomPad - totalBlockH);
-
+    doc.setFontSize(nameFontPt);
+    const nameTrunc = truncateToWidth(doc, descText, textMaxW);
+    const nameBaselineY = y + B.nameTopMm * scale + nameLineH * 0.8;
     doc.setTextColor(28, 28, 26);
-    doc.text(descLines, x + padX, startY + descLineH, { align: 'left' });
+    doc.text(nameTrunc, x + padLeft, nameBaselineY, { align: 'left' });
 
+    // ── Custom text: optional second line, directly below the name ──
     if (hasCustom) {
-      const customTrunc = truncateToWidth(doc, customText, textMaxW);
+      const customFontPt = B.customFont * scale;
+      const customLineH = ptToMm(customFontPt) * 1.15;
       doc.setFontSize(customFontPt);
+      const customTrunc = truncateToWidth(doc, customText, textMaxW);
+      const customBaselineY = nameBaselineY + nameLineH * 0.35 + B.customGapMm * scale + customLineH * 0.8;
       doc.setTextColor(...COLOR_RED);
-      doc.text(customTrunc, x + padX, startY + descBlockH + gapInfo + customLineH, { align: 'left' });
+      doc.text(customTrunc, x + padLeft, customBaselineY, { align: 'left' });
     }
 
-    // ── Barcode: bottom-left row, left-aligned ──
+    // ── Barcode + code: pinned together against the BOTTOM edge ──
+    const barcodeW = B.barcodeW * scale;
+    const barcodeH = B.barcodeH * scale;
+    const codeFontPt = B.codeFont * scale;
+    const codeLineH = ptToMm(codeFontPt) * 1.15;
+    const stackBottom = y + H - B.bottomMarginMm * scale;
+    const barcodeBottom = stackBottom - codeLineH;
+    const barcodeTop = barcodeBottom - barcodeH;
+    const barcodeLeft = x + padLeft;
+
     if (hasBarcode) {
-      const bp = B.barcodePad;
-      const contentX = x + bp.left * scale;
-      const contentY = rowTop + bp.top * scale;
-      const contentW = barcodeW - (bp.left + bp.right) * scale;
-      const contentH = rowH - (bp.top + bp.bottom) * scale;
       try {
         const bcDataUrl = generateBarcodeDataUrl(barcodeCode);
-        const bcW = contentW * B.barcodeFillW;
-        const bcH = contentH * B.barcodeFillH;
-        doc.addImage(bcDataUrl, 'PNG', contentX, contentY, bcW, bcH);
-        const codeFontPt = B.fonts.barcodeCode * scale;
+        doc.addImage(bcDataUrl, 'PNG', barcodeLeft, barcodeTop, barcodeW, barcodeH);
         doc.setFont('courier', 'normal');
         doc.setFontSize(codeFontPt);
         doc.setTextColor(95, 94, 90);
-        doc.text(barcodeCode, contentX, contentY + bcH + bp.gap * scale + ptToMm(codeFontPt), { align: 'left' });
+        doc.text(barcodeCode, barcodeLeft, barcodeBottom + B.barcodeGapToCodeMm * scale + codeLineH * 0.8, { align: 'left' });
       } catch { /* skip barcode on error */ }
     }
 
-    // ── Price: bottom-right row, centered. Font is NOT a fixed size — it's
-    // the largest size that fits this specific string (see fitZonePriceFont),
-    // so a short price ("R$ 2,00") reads at ~0.8cm digit height instead of
-    // being capped to whatever a worst-case long price would need. ──
+    // ── Price: sits immediately right of the barcode (not centered in its
+    // own box), auto-fit to the largest size that fits the space actually
+    // left over — this, not a fixed font size, is what makes a short price
+    // like "R$ 2,00" read big instead of being capped for the worst case. ──
     if (priceMainText) {
-      const zoneX = x + barcodeW;
-      const pricePadX = B.pricePadX * scale;
-      const maxW = priceW - pricePadX * 2;
+      const priceLeft = hasBarcode
+        ? barcodeLeft + barcodeW + B.priceGapFromBarcodeMm * scale
+        : x + padLeft;
+      const maxW = (x + W - padRight) - priceLeft;
       const prefixText = priceIsMoney ? 'R$ ' : '';
 
       const { mainPt, prefixPt } = fitZonePriceFont(
         doc, prefixText, priceMainText, maxW,
-        B.fonts.priceMaxPt * scale, B.fonts.priceMinPt * scale, B.fonts.pricePrefixRatio
+        B.priceMaxPt * scale, B.priceMinPt * scale, B.pricePrefixRatio
       );
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(prefixPt);
       const prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
-      doc.setFontSize(mainPt);
-      const mainW = doc.getTextWidth(priceMainText);
-      const totalW = prefixW + mainW;
-      const centerX = zoneX + priceW / 2;
-      // Optical baseline offset: a bold font's baseline sits ~30-35% of its
-      // size below the true vertical center of its line box.
-      const centerY = rowTop + rowH / 2 + ptToMm(mainPt) * 0.35;
-      let cx = centerX - totalW / 2;
 
+      // Vertically centered on the barcode+code block (or the name's line,
+      // when there's no barcode to align next to).
+      const rowCenterY = hasBarcode ? (barcodeTop + stackBottom) / 2 : nameBaselineY - nameLineH * 0.3;
+      const centerY = rowCenterY + ptToMm(mainPt) * 0.35;
+      let cx = priceLeft;
+
+      doc.setTextColor(...COLOR_RED);
       if (prefixText) {
         doc.setFontSize(prefixPt);
-        doc.setTextColor(...COLOR_RED_DARK);
         doc.text(prefixText, cx, centerY, { align: 'left' });
         cx += prefixW;
       }
       doc.setFontSize(mainPt);
-      doc.setTextColor(...COLOR_RED);
       doc.text(priceMainText, cx, centerY, { align: 'left' });
     }
   };
