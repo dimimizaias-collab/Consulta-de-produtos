@@ -87,7 +87,11 @@ type PlacaAnyModelConfig = PlacaStackModelConfig | PlacaZoneModelConfig;
 // scale-invariant; mm/pt values are multiplied by scale.
 const ZONE_BASE = {
   infoHeightPct: 0.44,      // description + custom text band (top)
-  barcodeWidthPct: 0.60,    // barcode zone's share of the bottom row width
+  // 50/50 instead of 60/40 — a price that reads at ~0.8cm digit height for
+  // a typical short value ("R$ 2,00") needs more width than a 40%-wide
+  // zone can give it on a 50mm-wide card; this was widened specifically to
+  // fit that, trading some barcode width for it.
+  barcodeWidthPct: 0.50,
   padX: 1.06,               // mm — left/right inset for every zone
   padBottomInfo: 0.53,      // mm — gap from custom text (or lone description) to the barcode row
   padBottomInfoSolo: 2.5,   // mm — extra lift so a lone description (no custom text) isn't glued to the barcode row
@@ -97,10 +101,14 @@ const ZONE_BASE = {
   barcodeFillH: 0.78,
   pricePadX: 0.8,           // mm — left/right inset for the price zone
   fonts: {
-    desc: 8.25, custom: 6.75,             // pt
-    priceMain: 14.63, pricePrefix: 4.31,  // pt — common case ("R$ 15,00")
-    priceMainTight: 9.94, pricePrefixTight: 3, // pt — auto-shrink target for long prices
-    barcodeCode: 3.38,                    // pt
+    desc: 8.25, custom: 6.75, // pt
+    // Price is NOT a fixed size — priceMaxPt is a generous ceiling and the
+    // real per-string size is found by fitZonePriceFont, which measures the
+    // actual text and grows the font as large as the zone allows (down to
+    // priceMinPt only for pathologically long values). At this ceiling/
+    // ratio, a short price like "R$ 2,00" lands at a ~0.8cm digit height.
+    priceMaxPt: 40, priceMinPt: 6, pricePrefixRatio: 0.12,
+    barcodeCode: 3.38,        // pt
   },
 } as const;
 
@@ -115,6 +123,47 @@ function truncateToWidth(doc: jsPDF, text: string, maxWidth: number): string {
     if (doc.getTextWidth(text.slice(0, mid) + '…') <= maxWidth) lo = mid; else hi = mid - 1;
   }
   return lo > 0 ? text.slice(0, lo) + '…' : '…';
+}
+
+// Finds the largest price font (mainPt, with prefixPt = mainPt*prefixRatio)
+// that fits prefixText+mainText within maxWidth, measured with the SAME
+// jsPDF instance that will actually render it — no hand-derived font-metric
+// approximation, so it's exact for whatever the PDF prints. Only shrinks
+// below maxPt when the specific string genuinely needs it.
+function fitZonePriceFont(
+  measureDoc: jsPDF,
+  prefixText: string,
+  mainText: string,
+  maxWidth: number,
+  maxPt: number,
+  minPt: number,
+  prefixRatio: number
+): { mainPt: number; prefixPt: number } {
+  measureDoc.setFont('helvetica', 'bold');
+  const widthAt = (pt: number) => {
+    const prefixPt = pt * prefixRatio;
+    measureDoc.setFontSize(prefixPt);
+    const w1 = prefixText ? measureDoc.getTextWidth(prefixText) : 0;
+    measureDoc.setFontSize(pt);
+    const w2 = measureDoc.getTextWidth(mainText);
+    return w1 + w2;
+  };
+  if (widthAt(maxPt) <= maxWidth) return { mainPt: maxPt, prefixPt: maxPt * prefixRatio };
+  let lo = minPt, hi = maxPt;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    if (widthAt(mid) <= maxWidth) lo = mid; else hi = mid;
+  }
+  return { mainPt: lo, prefixPt: lo * prefixRatio };
+}
+
+// Shared singleton purely for text-width measurement in the live preview —
+// lets the React card use the exact same font-metric source as the PDF
+// instead of a separate approximation, so preview and print agree.
+let zoneMeasureDoc: jsPDF | null = null;
+function getZoneMeasureDoc(): jsPDF {
+  if (!zoneMeasureDoc) zoneMeasureDoc = new jsPDF({ unit: 'mm' });
+  return zoneMeasureDoc;
 }
 
 const PLACA_MODELS: Record<PlacaModelId, PlacaAnyModelConfig> = {
@@ -267,9 +316,22 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
   const priceStr = entry.kind === 'comum'
     ? entry.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : (entry.secundaria || '');
-  // Live-preview heuristic for the auto-shrink; the PDF export measures the
-  // real rendered text width instead (see fitZonePriceFont).
-  const priceTight = priceStr.length > 6;
+  const priceIsMoney = entry.kind === 'comum';
+
+  // Same fitZonePriceFont the PDF uses, measured with a real jsPDF instance
+  // (see getZoneMeasureDoc) so the preview's price size matches the print
+  // exactly instead of guessing from string length.
+  const { mainCqw, prefixCqw } = useMemo(() => {
+    if (!priceStr) return { mainCqw: 0, prefixCqw: 0 };
+    const prefixText = priceIsMoney ? 'R$ ' : '';
+    const priceZoneWmm = 50 * (1 - ZONE_BASE.barcodeWidthPct);
+    const maxWmm = priceZoneWmm - ZONE_BASE.pricePadX * 2;
+    const { mainPt, prefixPt } = fitZonePriceFont(
+      getZoneMeasureDoc(), prefixText, priceStr, maxWmm,
+      ZONE_BASE.fonts.priceMaxPt, ZONE_BASE.fonts.priceMinPt, ZONE_BASE.fonts.pricePrefixRatio
+    );
+    return { mainCqw: (ptToMm(mainPt) / 50) * 100, prefixCqw: (ptToMm(prefixPt) / 50) * 100 };
+  }, [priceStr, priceIsMoney]);
 
   return (
     <div className="relative aspect-[2/1] rounded-lg border border-dashed border-on-surface/25 bg-white overflow-hidden [container-type:inline-size]">
@@ -300,7 +362,7 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
       <div
         className="absolute left-0 flex flex-col items-start justify-center"
         style={{
-          top: '22cqw', height: '28cqw', width: '60%',
+          top: '22cqw', height: '28cqw', width: '50%',
           paddingTop: '1.06cqw', paddingRight: '1.06cqw', paddingBottom: '1.06cqw', paddingLeft: '2.12cqw',
           gap: '0.8cqw',
         }}
@@ -316,14 +378,14 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
       {/* Price — bottom-right row, centered */}
       <div
         className="absolute right-0 flex items-center justify-center text-center"
-        style={{ top: '22cqw', height: '28cqw', width: '40%', paddingLeft: '1.6cqw', paddingRight: '1.6cqw' }}
+        style={{ top: '22cqw', height: '28cqw', width: '50%', paddingLeft: '1.6cqw', paddingRight: '1.6cqw' }}
       >
         {priceStr && (
           <p className="font-black leading-none whitespace-nowrap" style={{ color: '#EE2B2B' }}>
-            {entry.kind === 'comum' && (
-              <span style={{ color: '#8A241C', fontSize: priceTight ? '2.12cqw' : '3.04cqw' }}>R$ </span>
+            {priceIsMoney && (
+              <span style={{ color: '#8A241C', fontSize: prefixCqw + 'cqw' }}>R$ </span>
             )}
-            <span style={{ fontSize: priceTight ? '7.01cqw' : '10.32cqw' }}>{priceStr}</span>
+            <span style={{ fontSize: mainCqw + 'cqw' }}>{priceStr}</span>
           </p>
         )}
       </div>
@@ -808,29 +870,26 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       } catch { /* skip barcode on error */ }
     }
 
-    // ── Price: bottom-right row, centered, auto-shrinks to fit ──
+    // ── Price: bottom-right row, centered. Font is NOT a fixed size — it's
+    // the largest size that fits this specific string (see fitZonePriceFont),
+    // so a short price ("R$ 2,00") reads at ~0.8cm digit height instead of
+    // being capped to whatever a worst-case long price would need. ──
     if (priceMainText) {
       const zoneX = x + barcodeW;
       const pricePadX = B.pricePadX * scale;
       const maxW = priceW - pricePadX * 2;
       const prefixText = priceIsMoney ? 'R$ ' : '';
 
-      doc.setFont('helvetica', 'bold');
-      let prefixPt = B.fonts.pricePrefix * scale;
-      let mainPt = B.fonts.priceMain * scale;
-      doc.setFontSize(prefixPt);
-      let prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
-      doc.setFontSize(mainPt);
-      let mainW = doc.getTextWidth(priceMainText);
-      if (prefixW + mainW > maxW) {
-        prefixPt = B.fonts.pricePrefixTight * scale;
-        mainPt = B.fonts.priceMainTight * scale;
-        doc.setFontSize(prefixPt);
-        prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
-        doc.setFontSize(mainPt);
-        mainW = doc.getTextWidth(priceMainText);
-      }
+      const { mainPt, prefixPt } = fitZonePriceFont(
+        doc, prefixText, priceMainText, maxW,
+        B.fonts.priceMaxPt * scale, B.fonts.priceMinPt * scale, B.fonts.pricePrefixRatio
+      );
 
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(prefixPt);
+      const prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
+      doc.setFontSize(mainPt);
+      const mainW = doc.getTextWidth(priceMainText);
       const totalW = prefixW + mainW;
       const centerX = zoneX + priceW / 2;
       // Optical baseline offset: a bold font's baseline sits ~30-35% of its
