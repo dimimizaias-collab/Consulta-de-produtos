@@ -210,8 +210,7 @@ function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: 
   if (entry.kind === 'comum') {
     hasBarcode = showBarcode && !!entry.code;
     barcodeCode = entry.code;
-    const rawName = entry.name || '—';
-    mainText = rawName.length > 20 ? rawName.slice(0, 19).trimEnd() + '…' : rawName;
+    mainText = entry.name || '—';
     promoText = entry.customText || batchText || undefined;
     priceNode = (
       <>
@@ -440,9 +439,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     doc.setLineDashPattern([], 0);
 
     if (entry.kind === 'comum') {
-      const { price: priceValue, code, customText } = entry;
-      const rawName = entry.name || '—';
-      const name = rawName.length > 20 ? rawName.slice(0, 19).trimEnd() + '…' : rawName;
+      const { name, price: priceValue, code, customText } = entry;
       const price = priceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const text = customText || batchText;
 
@@ -453,7 +450,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(fonts.name);
-      const nameLines = doc.splitTextToSize(name, cw).slice(0, 2);
+      const nameLines = doc.splitTextToSize(name || '—', cw).slice(0, 2);
 
       // Block heights (mm), used to vertically center the whole stack in the placa.
       // When there's no barcode there's a lot of spare room, so give name/price
