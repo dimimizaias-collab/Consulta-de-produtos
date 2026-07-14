@@ -29,12 +29,11 @@ function loadImageAsDataUrl(src: string): Promise<string> {
 // the exact same font sizes; only spacing/geometry is tuned per model. lineH
 // and priceBlockH are tied to the font's actual rendered height (not free
 // design knobs) — shrinking them below what the font needs makes lines
-// overlap. Diminuta's card is too small to fit the padrão/compacta type
-// scale at all (15pt name + 32pt price alone exceed 20mm), so it gets its
-// own smaller font scale instead of just tighter spacing.
-type PlacaModelId = 'padrao' | 'compacta' | 'diminuta';
+// overlap.
+type PlacaModelId = 'padrao' | 'compacta' | 'diminuta' | 'ampla';
 
-interface PlacaModelConfig {
+interface PlacaStackModelConfig {
+  layout: 'stack';
   label: string;
   width: number;
   height: number;
@@ -60,8 +59,67 @@ interface PlacaModelConfig {
   barcode: { h: number; gap: number; codeGap: number };
 }
 
-const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
+// "Zonas" layout (Diminuta / Ampla): 4 fixed, non-overlapping regions —
+// description (top), custom text (below it, both bottom-left aligned),
+// barcode (bottom-left row) and price (bottom-right row) — approved via
+// mockup. Ampla is the exact same design at 2x the physical size, so every
+// absolute measurement (mm paddings, pt fonts) is `ZONE_BASE value * scale`
+// instead of a second hand-tuned config; only the proportional splits
+// (percentages) are shared as-is between every zone model.
+interface PlacaZoneModelConfig {
+  layout: 'zonas';
+  label: string;
+  width: number;
+  height: number;
+  marginL: number;
+  marginT: number;
+  colGap: number;
+  rowGap: number;
+  cols: number;
+  rows: number;
+  scale: number; // multiplier over the 50×25mm base geometry below
+}
+
+type PlacaAnyModelConfig = PlacaStackModelConfig | PlacaZoneModelConfig;
+
+// Base geometry for the zone layout, tuned at the 50×25mm ("Diminuta") size
+// and scaled by `model.scale` for every other zone model. Percentages are
+// scale-invariant; mm/pt values are multiplied by scale.
+const ZONE_BASE = {
+  infoHeightPct: 0.44,      // description + custom text band (top)
+  barcodeWidthPct: 0.60,    // barcode zone's share of the bottom row width
+  padX: 1.06,               // mm — left/right inset for every zone
+  padBottomInfo: 0.53,      // mm — gap from custom text (or lone description) to the barcode row
+  padBottomInfoSolo: 2.5,   // mm — extra lift so a lone description (no custom text) isn't glued to the barcode row
+  gapInfo: 0.4,             // mm — gap between description and custom text lines
+  barcodePad: { top: 0.53, right: 0.53, bottom: 0.53, left: 1.06, gap: 0.4 }, // mm
+  barcodeFillW: 0.96,       // fraction of the barcode zone's padded content box
+  barcodeFillH: 0.78,
+  pricePadX: 0.8,           // mm — left/right inset for the price zone
+  fonts: {
+    desc: 8.25, custom: 6.75,             // pt
+    priceMain: 14.63, pricePrefix: 4.31,  // pt — common case ("R$ 15,00")
+    priceMainTight: 9.94, pricePrefixTight: 3, // pt — auto-shrink target for long prices
+    barcodeCode: 3.38,                    // pt
+  },
+} as const;
+
+const ptToMm = (pt: number) => pt * 0.352778;
+
+// Manual ellipsis truncation — jsPDF has no CSS text-overflow equivalent.
+function truncateToWidth(doc: jsPDF, text: string, maxWidth: number): string {
+  if (doc.getTextWidth(text) <= maxWidth) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (doc.getTextWidth(text.slice(0, mid) + '…') <= maxWidth) lo = mid; else hi = mid - 1;
+  }
+  return lo > 0 ? text.slice(0, lo) + '…' : '…';
+}
+
+const PLACA_MODELS: Record<PlacaModelId, PlacaAnyModelConfig> = {
   padrao: {
+    layout: 'stack',
     label: 'Padrão · 10×5cm',
     width: 100, height: 50,
     marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 4,
@@ -85,6 +143,7 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     barcode: { h: 9, gap: 3, codeGap: 1.5 },
   },
   compacta: {
+    layout: 'stack',
     label: 'Compacta · 8×4cm',
     width: 80, height: 40,
     marginL: 25, marginT: 15, colGap: 0, rowGap: 0, pad: 2.5,
@@ -112,34 +171,24 @@ const PLACA_MODELS: Record<PlacaModelId, PlacaModelConfig> = {
     promoBlockH: 4,
     barcode: { h: 6, gap: 4, codeGap: 1.5 },
   },
+  // "Zonas" layout — 4 fixed regions instead of a centered stack. Ampla is
+  // the same design as Diminuta at exactly 2x the physical size (see
+  // ZONE_BASE), not a separately tuned config.
   diminuta: {
-    label: 'Diminuta · 4×2cm',
-    width: 40, height: 20,
-    marginL: 5, marginT: 15, colGap: 0, rowGap: 0, pad: 1,
-    cols: 5, rows: 12,
-    logoW: 6,
-    // Card is only 20mm tall — the padrão/compacta type scale physically
-    // doesn't fit (15pt name + 32pt price alone need ~19mm with zero
-    // padding), so this model uses a smaller scale instead of just
-    // tighter spacing.
-    fonts: {
-      name: 7,
-      pricePrefix: { barcode: 7, noBarcode: 9 },
-      priceMain: { barcode: 12, noBarcode: 16 },
-      promo: 5,
-      barcodeCode: 4,
-    },
-    lineH: 3,
-    // Gaps sized for ~2mm of clear whitespace at every transition, same as
-    // the other models. The name→price→barcode stack with barcode ON can't
-    // quite reach the full 2mm on a card this small without crowding out
-    // name/price (20mm total height just doesn't leave room) — those two
-    // gaps land around ~0.9-1.2mm instead. Expect the barcode option to
-    // look tighter on this format than the other two.
-    nameGapAfter: { barcode: 2, noBarcode: 4.2 },
-    priceBlockH: { barcode: 4.5, noBarcode: 7 },
-    promoBlockH: 2.7,
-    barcode: { h: 3, gap: 2, codeGap: 1 },
+    layout: 'zonas',
+    label: 'Diminuta · 5×2,5cm',
+    width: 50, height: 25,
+    marginL: 5, marginT: 11, colGap: 0, rowGap: 0,
+    cols: 4, rows: 11,
+    scale: 1,
+  },
+  ampla: {
+    layout: 'zonas',
+    label: 'Ampla · 10×5cm',
+    width: 100, height: 50,
+    marginL: 5, marginT: 15, colGap: 0, rowGap: 0,
+    cols: 2, rows: 5,
+    scale: 2,
   },
 };
 
@@ -200,7 +249,93 @@ interface PlacaCardPreviewProps {
   model: PlacaModelId;
 }
 
+// Zone-layout preview (Diminuta / Ampla). Every measurement below is
+// expressed as a fraction of the card's WIDTH (cqw) — since both zone
+// models share the same 2:1 aspect ratio and are literally the same design
+// at different physical scales, a width-relative fraction is scale- and
+// model-invariant, so this single component serves every zone model with
+// no per-model props needed. Values mirror ZONE_BASE (mm/pt) converted to
+// "% of the 50mm base width" — see ZONE_BASE for the source numbers.
+function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueEntry; showBarcode: boolean; batchText: string }) {
+  const descText = entry.kind === 'comum' ? (entry.name || '—') : (entry.principal || '—');
+  const customText = entry.kind === 'comum' ? (entry.customText || batchText || '') : (entry.terciaria || '');
+  const hasCustom = !!customText;
+  const hasBarcode = entry.kind === 'comum' && showBarcode && !!entry.code;
+  const barcodeCode = entry.kind === 'comum' ? entry.code : '';
+  const barcodeDataUrl = hasBarcode ? generateBarcodeDataUrl(barcodeCode) : null;
+
+  const priceStr = entry.kind === 'comum'
+    ? entry.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : (entry.secundaria || '');
+  // Live-preview heuristic for the auto-shrink; the PDF export measures the
+  // real rendered text width instead (see fitZonePriceFont).
+  const priceTight = priceStr.length > 6;
+
+  return (
+    <div className="relative aspect-[2/1] rounded-lg border border-dashed border-on-surface/25 bg-white overflow-hidden [container-type:inline-size]">
+      {/* Description + custom text — bottom-packed, left-aligned */}
+      <div
+        className="absolute left-0 right-0 top-0 flex flex-col items-start justify-end text-left"
+        style={{
+          height: '22cqw',
+          paddingLeft: '2.12cqw', paddingRight: '2.12cqw',
+          paddingBottom: hasCustom ? '1.06cqw' : '5cqw',
+          gap: '0.8cqw',
+        }}
+      >
+        <p className="font-black text-[#1C1C1A] leading-[1.05] line-clamp-2" style={{ fontSize: '5.82cqw' }}>
+          {descText}
+        </p>
+        {hasCustom && (
+          <p
+            className="font-bold leading-none whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+            style={{ fontSize: '4.76cqw', color: '#EE2B2B' }}
+          >
+            {customText}
+          </p>
+        )}
+      </div>
+
+      {/* Barcode — bottom-left row, left-aligned */}
+      <div
+        className="absolute left-0 flex flex-col items-start justify-center"
+        style={{
+          top: '22cqw', height: '28cqw', width: '60%',
+          paddingTop: '1.06cqw', paddingRight: '1.06cqw', paddingBottom: '1.06cqw', paddingLeft: '2.12cqw',
+          gap: '0.8cqw',
+        }}
+      >
+        {hasBarcode && barcodeDataUrl && (
+          <>
+            <img src={barcodeDataUrl} alt="" style={{ width: '96%', height: '78%' }} />
+            <span className="font-mono text-on-surface/50" style={{ fontSize: '2.38cqw' }}>{barcodeCode}</span>
+          </>
+        )}
+      </div>
+
+      {/* Price — bottom-right row, centered */}
+      <div
+        className="absolute right-0 flex items-center justify-center text-center"
+        style={{ top: '22cqw', height: '28cqw', width: '40%', paddingLeft: '1.6cqw', paddingRight: '1.6cqw' }}
+      >
+        {priceStr && (
+          <p className="font-black leading-none whitespace-nowrap" style={{ color: '#EE2B2B' }}>
+            {entry.kind === 'comum' && (
+              <span style={{ color: '#8A241C', fontSize: priceTight ? '2.12cqw' : '3.04cqw' }}>R$ </span>
+            )}
+            <span style={{ fontSize: priceTight ? '7.01cqw' : '10.32cqw' }}>{priceStr}</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: PlacaCardPreviewProps) {
+  if (PLACA_MODELS[model].layout === 'zonas') {
+    return <PlacaZoneCardPreview entry={entry} showBarcode={showBarcode} batchText={batchText} />;
+  }
+
   let mainText: string;
   let priceNode: React.ReactNode;
   let promoText: string | undefined;
@@ -253,7 +388,7 @@ function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: 
         alt=""
         className={cn(
           'absolute bottom-[2cqw] right-[2cqw] opacity-90',
-          model === 'diminuta' ? 'w-[5cqw]' : model === 'compacta' ? 'w-[7cqw]' : 'w-[10cqw]'
+          model === 'compacta' ? 'w-[7cqw]' : 'w-[10cqw]'
         )}
       />
     </div>
@@ -419,13 +554,13 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
     onClose();
   };
 
-  const drawPlaca = (
+  const drawPlacaStack = (
     doc: jsPDF,
     x: number,
     y: number,
     entry: QueueEntry,
     logoDataUrl: string | null,
-    model: PlacaModelConfig
+    model: PlacaStackModelConfig
   ) => {
     const { width: placaW, height: placaH, pad, lineH, fonts } = model;
     const centerX = x + placaW / 2;
@@ -576,6 +711,157 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
         const logoH = logoW * (79 / 140); // aspect ratio of public/brand/logo.png
         doc.addImage(logoDataUrl, 'PNG', x + placaW - logoW - 3, y + placaH - logoH - 3, logoW, logoH);
       } catch { /* skip logo on error */ }
+    }
+  };
+
+  // Zone layout (Diminuta / Ampla) — 4 fixed, non-overlapping regions instead
+  // of a centered stack. No oferta badge / logo: the approved design fills
+  // the card edge-to-edge and has no space reserved for either.
+  const drawPlacaZoned = (
+    doc: jsPDF,
+    x: number,
+    y: number,
+    entry: QueueEntry,
+    model: PlacaZoneModelConfig
+  ) => {
+    const { width: W, height: H, scale } = model;
+    const B = ZONE_BASE;
+
+    // cut guides (dashed rect) — plain paper, user cuts by hand
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.15);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.rect(x, y, W, H);
+    doc.setLineDashPattern([], 0);
+
+    const padX = B.padX * scale;
+    const padBottomInfo = B.padBottomInfo * scale;
+    const padBottomInfoSolo = B.padBottomInfoSolo * scale;
+    const gapInfo = B.gapInfo * scale;
+
+    const infoH = H * B.infoHeightPct;
+    const rowTop = y + infoH;
+    const rowH = H - infoH;
+    const barcodeW = W * B.barcodeWidthPct;
+    const priceW = W - barcodeW;
+
+    let descText: string, customText: string;
+    let hasBarcode = false, barcodeCode = '';
+    let priceMainText = '', priceIsMoney = true;
+
+    if (entry.kind === 'comum') {
+      descText = entry.name || '—';
+      customText = entry.customText || batchText || '';
+      hasBarcode = showBarcode && !!entry.code;
+      barcodeCode = entry.code;
+      priceMainText = entry.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      descText = entry.principal || '—';
+      customText = entry.terciaria || '';
+      priceMainText = entry.secundaria || '';
+      priceIsMoney = false;
+    }
+    const hasCustom = !!customText;
+    const textMaxW = W - padX * 2;
+
+    // ── Description + custom text: bottom-packed, left-aligned ──
+    const descFontPt = B.fonts.desc * scale;
+    const customFontPt = B.fonts.custom * scale;
+    const descLineH = ptToMm(descFontPt) * 1.15;
+    const customLineH = ptToMm(customFontPt) * 1.15;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(descFontPt);
+    const descLines = doc.splitTextToSize(descText, textMaxW).slice(0, 2);
+    const descBlockH = descLines.length * descLineH;
+    const infoBottomPad = hasCustom ? padBottomInfo : padBottomInfoSolo;
+    const totalBlockH = descBlockH + (hasCustom ? gapInfo + customLineH : 0);
+    const startY = Math.max(y, y + infoH - infoBottomPad - totalBlockH);
+
+    doc.setTextColor(28, 28, 26);
+    doc.text(descLines, x + padX, startY + descLineH, { align: 'left' });
+
+    if (hasCustom) {
+      const customTrunc = truncateToWidth(doc, customText, textMaxW);
+      doc.setFontSize(customFontPt);
+      doc.setTextColor(...COLOR_RED);
+      doc.text(customTrunc, x + padX, startY + descBlockH + gapInfo + customLineH, { align: 'left' });
+    }
+
+    // ── Barcode: bottom-left row, left-aligned ──
+    if (hasBarcode) {
+      const bp = B.barcodePad;
+      const contentX = x + bp.left * scale;
+      const contentY = rowTop + bp.top * scale;
+      const contentW = barcodeW - (bp.left + bp.right) * scale;
+      const contentH = rowH - (bp.top + bp.bottom) * scale;
+      try {
+        const bcDataUrl = generateBarcodeDataUrl(barcodeCode);
+        const bcW = contentW * B.barcodeFillW;
+        const bcH = contentH * B.barcodeFillH;
+        doc.addImage(bcDataUrl, 'PNG', contentX, contentY, bcW, bcH);
+        const codeFontPt = B.fonts.barcodeCode * scale;
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(codeFontPt);
+        doc.setTextColor(95, 94, 90);
+        doc.text(barcodeCode, contentX, contentY + bcH + bp.gap * scale + ptToMm(codeFontPt), { align: 'left' });
+      } catch { /* skip barcode on error */ }
+    }
+
+    // ── Price: bottom-right row, centered, auto-shrinks to fit ──
+    if (priceMainText) {
+      const zoneX = x + barcodeW;
+      const pricePadX = B.pricePadX * scale;
+      const maxW = priceW - pricePadX * 2;
+      const prefixText = priceIsMoney ? 'R$ ' : '';
+
+      doc.setFont('helvetica', 'bold');
+      let prefixPt = B.fonts.pricePrefix * scale;
+      let mainPt = B.fonts.priceMain * scale;
+      doc.setFontSize(prefixPt);
+      let prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
+      doc.setFontSize(mainPt);
+      let mainW = doc.getTextWidth(priceMainText);
+      if (prefixW + mainW > maxW) {
+        prefixPt = B.fonts.pricePrefixTight * scale;
+        mainPt = B.fonts.priceMainTight * scale;
+        doc.setFontSize(prefixPt);
+        prefixW = prefixText ? doc.getTextWidth(prefixText) : 0;
+        doc.setFontSize(mainPt);
+        mainW = doc.getTextWidth(priceMainText);
+      }
+
+      const totalW = prefixW + mainW;
+      const centerX = zoneX + priceW / 2;
+      // Optical baseline offset: a bold font's baseline sits ~30-35% of its
+      // size below the true vertical center of its line box.
+      const centerY = rowTop + rowH / 2 + ptToMm(mainPt) * 0.35;
+      let cx = centerX - totalW / 2;
+
+      if (prefixText) {
+        doc.setFontSize(prefixPt);
+        doc.setTextColor(...COLOR_RED_DARK);
+        doc.text(prefixText, cx, centerY, { align: 'left' });
+        cx += prefixW;
+      }
+      doc.setFontSize(mainPt);
+      doc.setTextColor(...COLOR_RED);
+      doc.text(priceMainText, cx, centerY, { align: 'left' });
+    }
+  };
+
+  const drawPlaca = (
+    doc: jsPDF,
+    x: number,
+    y: number,
+    entry: QueueEntry,
+    logoDataUrl: string | null,
+    model: PlacaAnyModelConfig
+  ) => {
+    if (model.layout === 'stack') {
+      drawPlacaStack(doc, x, y, entry, logoDataUrl, model);
+    } else {
+      drawPlacaZoned(doc, x, y, entry, model);
     }
   };
 
