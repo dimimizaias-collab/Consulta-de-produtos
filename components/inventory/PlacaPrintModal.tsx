@@ -96,6 +96,10 @@ const ZONE_BASE = {
   barcodeFillW: 0.96,       // fraction of the barcode zone's padded content box
   barcodeFillH: 0.78,
   pricePadX: 0.8,           // mm — left/right inset for the price zone
+  // Oferta badge — top-right corner overlay, same 24×8mm-at-100×50mm ratio
+  // as the stack layout's badge (padrão/compacta), expressed at the 50×25mm
+  // base and scaled by `model.scale` like every other zone measurement.
+  oferta: { badgeW: 12, badgeH: 4, font: 4.5 }, // mm/mm/pt
   fonts: {
     desc: 8.25, custom: 6.75,             // pt
     priceMain: 17, pricePrefix: 5,        // pt — common case ("R$ 15,00"), ~96% of the price zone's width
@@ -256,7 +260,7 @@ interface PlacaCardPreviewProps {
 // model-invariant, so this single component serves every zone model with
 // no per-model props needed. Values mirror ZONE_BASE (mm/pt) converted to
 // "% of the 50mm base width" — see ZONE_BASE for the source numbers.
-function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueEntry; showBarcode: boolean; batchText: string }) {
+function PlacaZoneCardPreview({ entry, showBarcode, showOferta, batchText }: { entry: QueueEntry; showBarcode: boolean; showOferta: boolean; batchText: string }) {
   const descText = entry.kind === 'comum' ? (entry.name || '—') : (entry.principal || '—');
   const customText = entry.kind === 'comum' ? (entry.customText || batchText || '') : (entry.terciaria || '');
   const hasCustom = !!customText;
@@ -327,13 +331,19 @@ function PlacaZoneCardPreview({ entry, showBarcode, batchText }: { entry: QueueE
           </p>
         )}
       </div>
+
+      {showOferta && (
+        <div className="absolute top-0 right-0 bg-[#FFE500] text-[#7A4A00] text-[4cqw] font-black px-[3cqw] py-[1cqw]">
+          OFERTA
+        </div>
+      )}
     </div>
   );
 }
 
 function PlacaCardPreview({ entry, showBarcode, showOferta, batchText, model }: PlacaCardPreviewProps) {
   if (PLACA_MODELS[model].layout === 'zonas') {
-    return <PlacaZoneCardPreview entry={entry} showBarcode={showBarcode} batchText={batchText} />;
+    return <PlacaZoneCardPreview entry={entry} showBarcode={showBarcode} showOferta={showOferta} batchText={batchText} />;
   }
 
   let mainText: string;
@@ -715,8 +725,10 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
   };
 
   // Zone layout (Diminuta / Ampla) — 4 fixed, non-overlapping regions instead
-  // of a centered stack. No oferta badge / logo: the approved design fills
-  // the card edge-to-edge and has no space reserved for either.
+  // of a centered stack. No logo: the approved design fills the card
+  // edge-to-edge with no space reserved for it. The oferta badge is still an
+  // overlay (like on the stack layout), drawn last on top of the top-right
+  // corner of the description zone.
   const drawPlacaZoned = (
     doc: jsPDF,
     x: number,
@@ -853,6 +865,19 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
       doc.setFontSize(mainPt);
       doc.setTextColor(...COLOR_RED);
       doc.text(priceMainText, cx, centerY, { align: 'left' });
+    }
+
+    // Oferta badge — top-right corner overlay (same treatment as the stack layout)
+    if (showOferta) {
+      const badgeW = B.oferta.badgeW * scale;
+      const badgeH = B.oferta.badgeH * scale;
+      const badgeFontPt = B.oferta.font * scale;
+      doc.setFillColor(...COLOR_YELLOW);
+      doc.rect(x + W - badgeW, y, badgeW, badgeH, 'F');
+      doc.setFontSize(badgeFontPt);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLOR_YELLOW_TEXT);
+      doc.text('OFERTA', x + W - badgeW / 2, y + badgeH / 2 + ptToMm(badgeFontPt) * 0.35, { align: 'center' });
     }
   };
 
