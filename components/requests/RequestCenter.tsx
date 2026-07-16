@@ -14,6 +14,7 @@ import {
   Search,
   ClipboardList,
   FilePenLine,
+  CheckSquare,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -51,6 +52,8 @@ interface RequestCenterProps {
   onApproveRequest: (requestId: string) => void;
   onDeleteRequest: (requestId: string) => void;
   onToggleCheck?: (requestId: string, checkedIndices: number[]) => void;
+  onApproveMultiple?: (requestIds: string[]) => void;
+  onDeleteMultiple?: (requestIds: string[]) => void;
 }
 
 function ProductImage({ src, alt }: { src: string, alt: string }) {
@@ -84,6 +87,8 @@ export function RequestCenter({
   onApproveRequest,
   onDeleteRequest,
   onToggleCheck,
+  onApproveMultiple,
+  onDeleteMultiple,
 }: RequestCenterProps) {
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
 
@@ -102,6 +107,42 @@ export function RequestCenter({
   });
 
   const [filterQuery, setFilterQuery] = useState('');
+
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelectionMode() {
+    setSelectionMode(prev => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  }
+
+  function toggleSelect(requestId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(requestId) ? next.delete(requestId) : next.add(requestId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(prev =>
+      prev.size === pendingRequests.length ? new Set() : new Set(pendingRequests.map(r => r.id))
+    );
+  }
+
+  function handleBulkApprove() {
+    if (selectedIds.size === 0) return;
+    onApproveMultiple?.(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    onDeleteMultiple?.(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }
 
   function toggleCheck(requestId: string, idx: number) {
     setCheckedItems(prev => {
@@ -135,16 +176,74 @@ export function RequestCenter({
       </div>
 
       {/* Campo de filtro */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-        <input
-          type="text"
-          value={filterQuery}
-          onChange={e => setFilterQuery(e.target.value)}
-          placeholder="Filtrar requisições..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+          <input
+            type="text"
+            value={filterQuery}
+            onChange={e => setFilterQuery(e.target.value)}
+            placeholder="Filtrar requisições..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
+          />
+        </div>
+        <button
+          onClick={toggleSelectionMode}
+          className={cn(
+            'shrink-0 h-full px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border',
+            selectionMode
+              ? 'bg-on-surface text-surface-container border-on-surface'
+              : 'bg-surface-container-low/30 text-on-surface/60 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
+          )}
+        >
+          {selectionMode ? <X size={14} /> : <CheckSquare size={14} />}
+          {selectionMode ? 'Cancelar' : 'Selecionar'}
+        </button>
       </div>
+
+      {selectionMode && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="flex items-center justify-between flex-wrap gap-3 bg-surface-container-low/40 border border-on-surface/[0.06] rounded-2xl px-5 py-3"
+        >
+          <button onClick={toggleSelectAll} className="flex items-center gap-2.5 group">
+            <div className={cn(
+              'w-5 h-5 rounded-md border-[1.5px] flex items-center justify-center transition-all shrink-0',
+              pendingRequests.length > 0 && selectedIds.size === pendingRequests.length
+                ? 'bg-primary border-primary text-white'
+                : 'border-on-surface/25 text-transparent group-hover:border-primary/50'
+            )}>
+              <Check size={12} />
+            </div>
+            <span className="text-xs font-black text-on-surface/60 uppercase tracking-widest">
+              Selecionar tudo
+              {selectedIds.size > 0 && (
+                <span className="text-primary ml-1">({selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''})</span>
+              )}
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkApprove}
+              disabled={selectedIds.size === 0}
+              className="h-10 px-4 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20 disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <CheckCircle2 size={14} />
+              Aprovar / Sincronizar
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0}
+              className="h-10 px-4 bg-red-50 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100/50 flex items-center justify-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <Trash2 size={14} />
+              Excluir
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {pendingRequests.map((request) => {
@@ -170,7 +269,15 @@ export function RequestCenter({
             const taskTypeLabel = requestedChanges.task_type === 'revisao' ? 'Revisão de mercadoria' : 'Tarefa';
             return (
               <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className={cn('bg-surface-container-lowest rounded-[1.5rem] border shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all', borderCls)}>
+                onClick={() => selectionMode && toggleSelect(request.id)}
+                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all', borderCls,
+                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
+                {selectionMode && (
+                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
+                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
+                    <Check size={14} />
+                  </div>
+                )}
                 <div className="p-5 flex-1 space-y-3">
                   <div className="flex gap-3 items-start">
                     <div className={cn('w-12 h-12 rounded-xl border shrink-0 flex items-center justify-center p-2', iconBg)}>
@@ -239,7 +346,15 @@ export function RequestCenter({
             };
             return (
               <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-surface-container-lowest rounded-[1.5rem] border border-purple-400/30 hover:border-purple-400/60 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all">
+                onClick={() => selectionMode && toggleSelect(request.id)}
+                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-purple-400/30 hover:border-purple-400/60 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all',
+                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
+                {selectionMode && (
+                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
+                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
+                    <Check size={14} />
+                  </div>
+                )}
                 <div className="p-5 flex-1 space-y-3">
                   <div className="flex gap-3 items-start">
                     <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0 flex items-center justify-center">
@@ -296,8 +411,16 @@ export function RequestCenter({
                 key={request.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-surface-container-lowest rounded-[1.5rem] border border-on-surface/[0.04] shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group hover:border-primary/20 transition-all"
+                onClick={() => selectionMode && toggleSelect(request.id)}
+                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-on-surface/[0.04] shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group hover:border-primary/20 transition-all',
+                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}
               >
+                {selectionMode && (
+                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
+                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
+                    <Check size={14} />
+                  </div>
+                )}
                 <div className="p-5 flex-1 space-y-3">
                   <div className="flex gap-3 items-center">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 shrink-0 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
@@ -382,8 +505,16 @@ export function RequestCenter({
               key={request.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-surface-container-lowest rounded-[2.5rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] overflow-hidden flex flex-col group hover:border-primary/20 transition-all"
+              onClick={() => selectionMode && toggleSelect(request.id)}
+              className={cn('relative bg-surface-container-lowest rounded-[2.5rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] overflow-hidden flex flex-col group hover:border-primary/20 transition-all',
+                selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}
             >
+              {selectionMode && (
+                <div className={cn('absolute top-4 right-4 z-10 w-7 h-7 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
+                  selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
+                  <Check size={16} />
+                </div>
+              )}
               <div className="p-8 flex-1 space-y-6">
                 <div className="flex gap-6">
                   <div className="w-24 h-24 rounded-3xl bg-surface-container-low/50 border border-on-surface/[0.02] overflow-hidden shrink-0 group-hover:scale-105 transition-transform duration-500">

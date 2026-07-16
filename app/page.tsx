@@ -1324,6 +1324,18 @@ export default function Page() {
     }
   };
 
+  const handleBulkApproveRequests = async (requestIds: string[]) => {
+    for (const id of requestIds) {
+      await handleApproveRequest(id);
+    }
+  };
+
+  const handleBulkDeleteRequests = async (requestIds: string[]) => {
+    for (const id of requestIds) {
+      await handleDeleteRequest(id);
+    }
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -3400,6 +3412,8 @@ export default function Page() {
                   onApproveRequest={(id) => setShowRequestConfirmModal({ show: true, requestId: id })}
                   onDeleteRequest={handleDeleteRequest}
                   onToggleCheck={handleToggleCheck}
+                  onApproveMultiple={handleBulkApproveRequests}
+                  onDeleteMultiple={handleBulkDeleteRequests}
                 />
             ) : activeTab === 'Entrada de Mercadoria' ? (
                 <LogisticsCenter
