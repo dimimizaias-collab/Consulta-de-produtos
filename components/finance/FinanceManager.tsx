@@ -1528,9 +1528,31 @@ export function FinanceManager() {
                       </button>
                       <label className={labelCls}>Vencimento</label>
                     </div>
-                    {vencimentoEnabled && (
+                    {vencimentoEnabled && (<>
                       <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
-                    )}
+                      <div className="flex gap-2 mt-2">
+                        <div className="flex-1 flex flex-col gap-1.5">
+                          <label className={labelCls}>Parcela atual</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={txForm.numero_parcela ?? 1}
+                            onChange={e => setTxForm(f => ({ ...f, numero_parcela: parseInt(e.target.value) || 1 }))}
+                            className={inputCls}
+                          />
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1.5">
+                          <label className={labelCls}>Total de parcelas</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={txForm.total_parcelas ?? 1}
+                            onChange={e => setTxForm(f => ({ ...f, total_parcelas: parseInt(e.target.value) || 1 }))}
+                            className={inputCls}
+                          />
+                        </div>
+                      </div>
+                    </>)}
                   </div>
 
                   {/* Favorecido — custom combobox */}
@@ -1644,9 +1666,33 @@ export function FinanceManager() {
                       </button>
                       <label className={labelCls}>Vencimento</label>
                     </div>
-                    {vencimentoEnabled && (
+                    {vencimentoEnabled && (<>
                       <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
-                    )}
+                      {!parcelasEnabled && (
+                        <div className="flex gap-2 mt-2">
+                          <div className="flex-1 flex flex-col gap-1.5">
+                            <label className={labelCls}>Parcela atual</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={txForm.numero_parcela ?? 1}
+                              onChange={e => setTxForm(f => ({ ...f, numero_parcela: parseInt(e.target.value) || 1 }))}
+                              className={inputCls}
+                            />
+                          </div>
+                          <div className="flex-1 flex flex-col gap-1.5">
+                            <label className={labelCls}>Total de parcelas</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={txForm.total_parcelas ?? 1}
+                              onChange={e => setTxForm(f => ({ ...f, total_parcelas: parseInt(e.target.value) || 1 }))}
+                              className={inputCls}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>)}
                   </div>
 
                   {/* Tipo de Pagamento + Parcelas */}
