@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag,
+  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -233,7 +233,9 @@ export function FinanceManager() {
   // mini calendar
   const [calViewDate, setCalViewDate] = useState(() => new Date());
   const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
-  const [calFilterField, setCalFilterField] = useState<'data' | 'vencimento'>('data');
+  const [calRangeMode, setCalRangeMode] = useState(false);
+  const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
+  const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -760,17 +762,14 @@ export function FinanceManager() {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
-      if (calSelectedDate) {
-        const key = toIsoDay(calSelectedDate);
-        if (calFilterField === 'data') {
-          if (t.data !== key) return false;
-        } else {
-          if (!t.vencimento || t.vencimento !== key) return false;
-        }
+      if (calRangeStart && calRangeEnd) {
+        if (t.data < toIsoDay(calRangeStart) || t.data > toIsoDay(calRangeEnd)) return false;
+      } else if (calSelectedDate) {
+        if (t.data !== toIsoDay(calSelectedDate)) return false;
       }
       return true;
     });
-  }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calFilterField]);
+  }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calRangeStart, calRangeEnd]);
 
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -810,15 +809,10 @@ export function FinanceManager() {
     const txDays = new Set(
       transactions
         .filter(t => {
-          const dateStr = calFilterField === 'data' ? t.data : t.vencimento;
-          if (!dateStr) return false;
-          const d = new Date(dateStr + 'T00:00:00');
+          const d = new Date(t.data + 'T00:00:00');
           return d.getFullYear() === year && d.getMonth() === month;
         })
-        .map(t => {
-          const dateStr = calFilterField === 'data' ? t.data : t.vencimento!;
-          return new Date(dateStr + 'T00:00:00').getDate();
-        }),
+        .map(t => new Date(t.data + 'T00:00:00').getDate()),
     );
     const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[] = [];
     for (let i = firstDay - 1; i >= 0; i--)
@@ -828,7 +822,7 @@ export function FinanceManager() {
     for (let d = 1; cells.length < 42; d++)
       cells.push({ day: d, type: 'next', hasEvent: false });
     return cells;
-  }, [calViewDate, transactions, calFilterField]);
+  }, [calViewDate, transactions]);
 
   const today = new Date();
   const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
@@ -932,28 +926,30 @@ export function FinanceManager() {
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
+          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
             <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
 
-            {/* Filter field toggle — inline no header */}
-            <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
-              {(['data', 'vencimento'] as const).map(field => (
-                <button
-                  key={field}
-                  onClick={() => { setCalFilterField(field); setCalSelectedDate(null); }}
-                  className={cn(
-                    'flex-1 px-2 py-[4px] rounded-full text-[8.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
-                    calFilterField === field
-                      ? 'bg-[#D81E1E] text-white shadow-sm'
-                      : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
-                  )}
-                >
-                  {field === 'data' ? 'Data' : 'Vencimento'}
-                </button>
-              ))}
-            </div>
-
             <div className="flex gap-1 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (calRangeMode) {
+                    setCalRangeMode(false);
+                    setCalRangeStart(null);
+                    setCalRangeEnd(null);
+                  } else {
+                    setCalRangeMode(true);
+                    setCalSelectedDate(null);
+                  }
+                }}
+                className={cn(
+                  'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                  calRangeMode
+                    ? 'bg-[#D81E1E] text-white hover:opacity-90'
+                    : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
+                )}
+              >
+                <Filter size={12} strokeWidth={2.5} />
+              </button>
               <button
                 onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
                 className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
@@ -981,11 +977,17 @@ export function FinanceManager() {
                   && cell.day === today.getDate()
                   && calViewDate.getMonth() === today.getMonth()
                   && calViewDate.getFullYear() === today.getFullYear();
-                const isSelected = calSelectedDate !== null
+                const isSelected = !calRangeMode && calSelectedDate !== null
                   && cell.type === 'curr'
                   && cell.day === calSelectedDate.getDate()
                   && calViewDate.getMonth() === calSelectedDate.getMonth()
                   && calViewDate.getFullYear() === calSelectedDate.getFullYear();
+                const cellIso = cell.type === 'curr' ? toIsoDay(new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day)) : null;
+                const rangeStartIso = calRangeStart ? toIsoDay(calRangeStart) : null;
+                const rangeEndIso = calRangeEnd ? toIsoDay(calRangeEnd) : null;
+                const isRangeEndpoint = cellIso !== null && (cellIso === rangeStartIso || cellIso === rangeEndIso);
+                const isInRange = cellIso !== null && rangeStartIso !== null && rangeEndIso !== null
+                  && cellIso > rangeStartIso && cellIso < rangeEndIso;
                 return (
                   <button
                     key={i}
@@ -993,18 +995,36 @@ export function FinanceManager() {
                     onClick={() => {
                       if (cell.type !== 'curr') return;
                       const cellDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day);
+                      if (calRangeMode) {
+                        if (!calRangeStart || (calRangeStart && calRangeEnd)) {
+                          setCalRangeStart(cellDate);
+                          setCalRangeEnd(null);
+                        } else {
+                          const startIso = toIsoDay(calRangeStart);
+                          const clickIso = toIsoDay(cellDate);
+                          if (clickIso < startIso) {
+                            setCalRangeEnd(calRangeStart);
+                            setCalRangeStart(cellDate);
+                          } else {
+                            setCalRangeEnd(cellDate);
+                          }
+                        }
+                        return;
+                      }
                       setCalSelectedDate(isSelected ? null : cellDate);
                     }}
                     className={cn(
                       'h-[26px] flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
                       cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
-                      cell.type === 'curr' && !isToday && !isSelected && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
-                      isToday && !isSelected && 'bg-primary/10 text-primary font-black',
+                      cell.type === 'curr' && !isToday && !isSelected && !isRangeEndpoint && !isInRange && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
+                      isToday && !isSelected && !isRangeEndpoint && !isInRange && 'bg-primary/10 text-primary font-black',
                       isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                      isRangeEndpoint && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                      isInRange && 'bg-primary/15 text-primary font-bold',
                     )}
                   >
                     {cell.day}
-                    {cell.hasEvent && !isSelected && (
+                    {cell.hasEvent && !isSelected && !isRangeEndpoint && (
                       <span className={cn(
                         'absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full',
                         isToday ? 'bg-white/70' : 'bg-primary',
@@ -1015,14 +1035,30 @@ export function FinanceManager() {
               })}
             </div>
 
+            {/* Range selection hint */}
+            {calRangeMode && !(calRangeStart && calRangeEnd) && (
+              <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.05] border border-on-surface/10 rounded-[10px] px-2.5 py-1.5">
+                <span className="text-[9.5px] font-bold text-on-surface/50 leading-none">
+                  {!calRangeStart ? 'Selecione o dia inicial do período' : 'Selecione o dia final do período'}
+                </span>
+              </div>
+            )}
+
             {/* Active filter badge */}
-            {calSelectedDate && (
+            {(calSelectedDate || (calRangeStart && calRangeEnd)) && (
               <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] dark:bg-primary/[0.12] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
                 <span className="text-[9.5px] font-bold text-primary leading-none">
-                  {calFilterField === 'data' ? 'Data' : 'Vencimento'}: {calSelectedDate.toLocaleDateString('pt-BR')}
+                  {calRangeStart && calRangeEnd
+                    ? `Período: ${calRangeStart.toLocaleDateString('pt-BR')} – ${calRangeEnd.toLocaleDateString('pt-BR')}`
+                    : `Data: ${calSelectedDate!.toLocaleDateString('pt-BR')}`}
                 </span>
                 <button
-                  onClick={() => setCalSelectedDate(null)}
+                  onClick={() => {
+                    setCalSelectedDate(null);
+                    setCalRangeMode(false);
+                    setCalRangeStart(null);
+                    setCalRangeEnd(null);
+                  }}
                   className="text-primary/60 hover:text-primary transition-colors shrink-0"
                 >
                   <X size={11} strokeWidth={2.5} />
