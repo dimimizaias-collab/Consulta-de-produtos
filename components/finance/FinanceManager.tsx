@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter,
+  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter, Clock, CheckCircle2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -236,6 +236,9 @@ export function FinanceManager() {
   const [calRangeMode, setCalRangeMode] = useState(false);
   const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
   const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
+
+  // resultados/contas panel
+  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas'>('resultados');
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -753,6 +756,19 @@ export function FinanceManager() {
   const toIsoDay = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+  const hasDatePeriod = !!(calRangeStart && calRangeEnd) || !!calSelectedDate;
+
+  const inSelectedPeriod = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    if (calRangeStart && calRangeEnd) {
+      return dateStr >= toIsoDay(calRangeStart) && dateStr <= toIsoDay(calRangeEnd);
+    }
+    if (calSelectedDate) {
+      return dateStr === toIsoDay(calSelectedDate);
+    }
+    return true;
+  };
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
       if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
@@ -762,11 +778,7 @@ export function FinanceManager() {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
-      if (calRangeStart && calRangeEnd) {
-        if (t.data < toIsoDay(calRangeStart) || t.data > toIsoDay(calRangeEnd)) return false;
-      } else if (calSelectedDate) {
-        if (t.data !== toIsoDay(calSelectedDate)) return false;
-      }
+      if (!inSelectedPeriod(t.data)) return false;
       return true;
     });
   }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calRangeStart, calRangeEnd]);
@@ -782,6 +794,12 @@ export function FinanceManager() {
   }, [transactions]);
 
   const totals = useMemo(() => {
+    if (hasDatePeriod) {
+      const inPeriod = transactions.filter(t => inSelectedPeriod(t.data));
+      const receitas = inPeriod.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
+      const despesas = inPeriod.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
+      return { receitas, despesas, saldo: receitas - despesas };
+    }
     const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
     const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
     const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
@@ -789,7 +807,16 @@ export function FinanceManager() {
     const receitasPagas = transactions.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
     const despesasPagas = transactions.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
     return { receitas, despesas, saldo: saldoInicial + receitasPagas - despesasPagas };
-  }, [transactions, accounts]);
+  }, [transactions, accounts, calRangeStart, calRangeEnd, calSelectedDate]);
+
+  const vencimentoStats = useMemo(() => {
+    const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
+    return {
+      count: despesasVencendo.length,
+      valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
+      totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
+    };
+  }, [transactions, calRangeStart, calRangeEnd, calSelectedDate]);
 
   const accountBalances = useMemo(() => {
     return accounts.map(a => {
@@ -921,8 +948,8 @@ export function FinanceManager() {
         </div>
       </div>
 
-      {/* Calendar + Summary + Accounts */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px 330px', alignItems: 'start', flexShrink: 0 }}>
+      {/* Calendar + Resultados/Contas */}
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'start', flexShrink: 0 }}>
 
         {/* Mini Calendar */}
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
@@ -1068,56 +1095,101 @@ export function FinanceManager() {
           </div>
         </div>
 
-        {/* Summary stacked */}
-        <div className="flex flex-col gap-2.5">
-          {[
-            { label: 'Receitas', value: totals.receitas, icon: TrendingUp,   iconCls: 'bg-emerald-500/10 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400', valCls: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'Despesas', value: totals.despesas, icon: TrendingDown,  iconCls: 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]',    iconColor: 'text-rose-600 dark:text-[#D81E1E]',    valCls: 'text-rose-600 dark:text-[#D81E1E]' },
-            { label: 'Saldo',    value: totals.saldo,   icon: Wallet,         iconCls: totals.saldo >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10', iconColor: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400', valCls: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' },
-          ].map(({ label, value, icon: Icon, iconCls, iconColor, valCls }) => (
-            <div key={label} className="bg-surface-container-low border border-on-surface/[0.07] rounded-[16px] px-4 py-3.5 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[8.5px] font-black uppercase tracking-[0.13em] text-on-surface/40">{label}</div>
-                <div className={cn('w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0', iconCls)}>
-                  <Icon size={15} strokeWidth={2.3} className={iconColor} />
-                </div>
-              </div>
-              <div className={cn('text-[18px] font-black tracking-tight leading-none', valCls)}>{fmt(value)}</div>
+        {/* Painel Resultados / Contas */}
+        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
+            <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
+              {(['resultados', 'contas'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setFinancePanelTab(tab)}
+                  className={cn(
+                    'flex-1 px-2 py-[6px] rounded-full text-[9.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
+                    financePanelTab === tab
+                      ? 'bg-[#D81E1E] text-white shadow-sm'
+                      : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
+                  )}
+                >
+                  {tab === 'resultados' ? 'Resultados' : 'Contas'}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* Accounts column */}
-        <div className="flex flex-col gap-2.5">
-          {/* Contas header */}
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[14px] px-4 py-[10px] flex items-center gap-2.5 shrink-0">
-            <div className="w-[28px] h-[28px] rounded-[8px] bg-on-surface/[0.06] dark:bg-white/[0.06] flex items-center justify-center text-on-surface/45">
-              <CreditCard size={13} strokeWidth={2.2} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.13em] text-on-surface/50">Contas</span>
           </div>
 
-          {/* Per-account cards */}
-          {accountBalances.length === 0 ? (
-            <div className="flex-1 bg-surface-container-low border border-on-surface/[0.07] rounded-[14px] flex items-center justify-center py-8">
-              <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhuma conta cadastrada</p>
-            </div>
-          ) : (
-            accountBalances.map(a => (
-              <div key={a.id} className="bg-surface-container-low border border-on-surface/[0.07] rounded-[14px] px-4 py-[13px] flex items-center gap-3">
-                <div className="w-[34px] h-[34px] rounded-[10px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
-                  <CreditCard size={15} strokeWidth={2} />
+          <div className="p-2.5">
+            {financePanelTab === 'resultados' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { label: 'Receitas', value: totals.receitas, icon: TrendingUp,   iconCls: 'bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400', valCls: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Despesas', value: totals.despesas, icon: TrendingDown, iconCls: 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]', iconColor: 'text-rose-600 dark:text-[#D81E1E]', valCls: 'text-rose-600 dark:text-[#D81E1E]' },
+                  { label: 'Saldo',    value: totals.saldo,   icon: Wallet,        iconCls: totals.saldo >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]', iconColor: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-[#D81E1E]', valCls: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-[#D81E1E]' },
+                ].map(({ label, value, icon: Icon, iconCls, iconColor, valCls }) => (
+                  <div key={label} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                    <div className={cn('w-6 h-6 rounded-[8px] flex items-center justify-center shrink-0', iconCls)}>
+                      <Icon size={12} strokeWidth={2.3} className={iconColor} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">{label}</div>
+                      <div className={cn('text-[13px] font-black tracking-tight leading-tight truncate', valCls)}>{fmt(value)}</div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                    <Clock size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Vencimento</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</div>
+                    <div className="text-[8px] font-bold text-on-surface/35 whitespace-nowrap">
+                      {vencimentoStats.count} {vencimentoStats.count === 1 ? 'movimentação' : 'movimentações'}
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-extrabold text-on-surface truncate">{a.nome}</p>
-                  <p className="text-[9.5px] font-semibold text-on-surface/40 truncate mt-0.5">{a.banco}</p>
+
+                <div className="col-span-2 bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Total Pago</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</div>
+                  </div>
                 </div>
-                <p className={cn('text-[13px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                  {fmt(a.saldo)}
-                </p>
               </div>
-            ))
-          )}
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 px-0.5 pb-0.5">
+                  <div className="w-6 h-6 rounded-[7px] bg-on-surface/[0.06] dark:bg-white/[0.06] flex items-center justify-center text-on-surface/45 shrink-0">
+                    <CreditCard size={12} strokeWidth={2.2} />
+                  </div>
+                  <span className="text-[9.5px] font-black uppercase tracking-[0.13em] text-on-surface/50">Contas</span>
+                </div>
+
+                {accountBalances.length === 0 ? (
+                  <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
+                    <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhuma conta cadastrada</p>
+                  </div>
+                ) : (
+                  accountBalances.map(a => (
+                    <div key={a.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-[9px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
+                        <CreditCard size={13} strokeWidth={2} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10.5px] font-extrabold text-on-surface truncate">{a.nome}</p>
+                        <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">{a.banco}</p>
+                      </div>
+                      <p className={cn('text-[12px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                        {fmt(a.saldo)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
