@@ -31,6 +31,8 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   numero_cheque: string | null;
+  numero_parcela: number | null;
+  total_parcelas: number | null;
   import_id?: string | null;
   account_id?: string | null;
   tag_ids: string[];
@@ -81,6 +83,8 @@ const emptyTxForm = (): TxForm => ({
   total_pago: 0,
   pago: false,
   numero_cheque: null,
+  numero_parcela: null,
+  total_parcelas: null,
   tag_ids: [],
 });
 
@@ -368,7 +372,10 @@ export function FinanceManager() {
         };
         await supabase.from('finance_transactions').insert(
           // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
-          valid.map(p => ({ ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0 }))
+          valid.map(p => ({
+            ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
+            numero_parcela: p.seq, total_parcelas: valid.length,
+          }))
         );
       } else {
         if (txForm.valor_final <= 0) return;
@@ -376,6 +383,8 @@ export function FinanceManager() {
           ...txForm,
           vencimento: vencimentoEnabled ? (txForm.vencimento || null) : null,
           numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+          numero_parcela: vencimentoEnabled ? (txForm.numero_parcela ?? 1) : null,
+          total_parcelas: vencimentoEnabled ? (txForm.total_parcelas ?? 1) : null,
         };
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
@@ -685,6 +694,8 @@ export function FinanceManager() {
           account_id: importAccountId || null,
           pago: true,
           numero_cheque: null,
+          numero_parcela: null,
+          total_parcelas: null,
           tag_ids: [],
         });
       }
@@ -1373,6 +1384,11 @@ export function FinanceManager() {
                           {t.tipo_pagamento === 'Cheque' && t.numero_cheque && (
                             <span className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5">
                               #{t.numero_cheque}
+                            </span>
+                          )}
+                          {t.vencimento && (
+                            <span className="ml-1.5 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-primary/10 dark:bg-primary/15 text-[9.5px] font-black text-primary align-middle">
+                              {t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}
                             </span>
                           )}
                         </td>
