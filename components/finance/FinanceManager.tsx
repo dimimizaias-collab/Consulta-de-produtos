@@ -463,8 +463,9 @@ export function FinanceManager() {
     const t = transactions.find(t => t.id === id);
     if (!t) return;
     const next = !t.pago;
-    await supabase.from('finance_transactions').update({ pago: next }).eq('id', id);
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, pago: next } : t));
+    const nextTotalPago = next ? t.valor_final : 0;
+    await supabase.from('finance_transactions').update({ pago: next, total_pago: nextTotalPago }).eq('id', id);
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, pago: next, total_pago: nextTotalPago } : t));
   };
 
   // ── Bank Accounts ────────────────────────────────────────────────────────
