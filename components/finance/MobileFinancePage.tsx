@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
-  Search, Filter, CheckSquare, ChevronLeft, ChevronRight,
+  Search, Filter, CheckSquare,
   ClipboardList, Check, Loader2, Trash2,
 } from 'lucide-react';
 import {
@@ -20,7 +20,7 @@ import { TagSelector } from './TagSelector';
 
 type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
 type TxType = 'Receita' | 'Despesa';
-type Tab = 'mov' | 'dash' | 'fin';
+type Tab = 'mov' | 'dash';
 type DashPeriod = '7d' | '30d' | '3m' | '6m' | '1y';
 
 interface Transaction {
@@ -39,16 +39,6 @@ interface Transaction {
   tag_ids: string[];
 }
 
-interface BankAccount {
-  id: string;
-  nome: string;
-  banco: string;
-  agencia: string;
-  numero_conta: string;
-  imagem_url: string;
-  saldo_inicial: number;
-}
-
 type TxForm = {
   tipo: TxType;
   tipo_pagamento: PaymentType;
@@ -64,8 +54,6 @@ type TxForm = {
 
 const PAYMENT_TYPES: PaymentType[] = ['PIX', 'Transferência', 'Boleto', 'Crédito', 'Débito', 'Dinheiro', 'Cheque', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
-const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const DAYS_PT = ['D','S','T','Q','Q','S','S'];
 const PERIOD_OPTIONS: { key: DashPeriod; label: string; days: number }[] = [
   { key: '7d',  label: '7 dias',  days: 7   },
   { key: '30d', label: '30 dias', days: 30  },
@@ -93,14 +81,11 @@ const fmtShort = (v: number) => {
   if (Math.abs(v) >= 1_000) return `R$${(v / 1_000).toFixed(0)}k`;
   return `R$${v.toFixed(0)}`;
 };
-const fmtDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR');
-
 function today() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
 }
-function isoToLocal(iso: string) { return new Date(iso + 'T00:00:00'); }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -180,113 +165,6 @@ function NumericKeyboard({
         ))}
       </div>
     </motion.div>
-  );
-}
-
-// ── Calendar (mini) ──────────────────────────────────────────────────────────
-
-function MiniCalendar({
-  expenses,
-  viewDate,
-  setViewDate,
-}: {
-  expenses: Transaction[];
-  viewDate: Date;
-  setViewDate: (d: Date) => void;
-}) {
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrev = new Date(year, month, 0).getDate();
-
-  const expenseDateMap = useMemo(() => {
-    const t = today();
-    const map: Record<string, 'overdue' | 'soon' | 'future'> = {};
-    expenses.forEach(e => {
-      if (!e.vencimento) return;
-      const d = isoToLocal(e.vencimento);
-      const key = d.toDateString();
-      const diff = Math.ceil((d.getTime() - t.getTime()) / 86400000);
-      if (diff < 0) map[key] = 'overdue';
-      else if (diff <= 7) map[key] = map[key] === 'overdue' ? 'overdue' : 'soon';
-      else map[key] = map[key] ?? 'future';
-    });
-    return map;
-  }, [expenses]);
-
-  const cells: { date: Date; current: boolean }[] = [];
-  for (let i = 0; i < firstDay; i++) {
-    cells.push({ date: new Date(year, month - 1, daysInPrev - firstDay + 1 + i), current: false });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ date: new Date(year, month, d), current: true });
-  }
-  while (cells.length < 42) {
-    cells.push({ date: new Date(year, month + 1, cells.length - firstDay - daysInMonth + 1), current: false });
-  }
-
-  const t = today();
-
-  return (
-    <div className="mx-3 bg-white dark:bg-[#252520] border border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[18px] p-4">
-      <div className="flex items-center justify-between mb-3">
-        <button
-          onClick={() => setViewDate(new Date(year, month - 1, 1))}
-          className="w-7 h-7 rounded-lg bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.50)] dark:text-white/40 active:scale-90 transition-transform"
-        >
-          <ChevronLeft size={13} />
-        </button>
-        <span className="text-[13px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
-          {MONTHS_PT[month]} {year}
-        </span>
-        <button
-          onClick={() => setViewDate(new Date(year, month + 1, 1))}
-          className="w-7 h-7 rounded-lg bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.50)] dark:text-white/40 active:scale-90 transition-transform"
-        >
-          <ChevronRight size={13} />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS_PT.map((d, i) => (
-          <div key={i} className="text-center text-[8px] font-black uppercase tracking-wider text-[rgba(26,26,10,0.30)] dark:text-white/22 py-1">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-y-0.5">
-        {cells.map((cell, i) => {
-          const isToday = sameDay(cell.date, t);
-          const dot = expenseDateMap[cell.date.toDateString()];
-          return (
-            <div
-              key={i}
-              className={cn(
-                'aspect-square rounded-[7px] flex flex-col items-center justify-center relative',
-                'text-[10px] font-bold',
-                isToday
-                  ? 'bg-[#FFE500] text-[#1A1A0E] font-black'
-                  : cell.current
-                    ? 'text-[rgba(26,26,10,0.55)] dark:text-white/45'
-                    : 'text-[rgba(26,26,10,0.18)] dark:text-white/14',
-              )}
-            >
-              {cell.date.getDate()}
-              {dot && (
-                <span
-                  className={cn(
-                    'absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[4px] h-[4px] rounded-full',
-                    dot === 'overdue' ? 'bg-[#E11D48] dark:bg-[#F43F5E]'
-                      : dot === 'soon' ? 'bg-[#D97706] dark:bg-[#FCD34D]'
-                        : 'bg-[#059669] dark:bg-[#34D399]',
-                  )}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -504,7 +382,6 @@ function TxSheet({
 
 export function MobileFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('mov');
   const [search, setSearch] = useState('');
@@ -513,9 +390,6 @@ export function MobileFinancePage() {
   const [saving, setSaving] = useState(false);
   const [dashPeriod, setDashPeriod] = useState<DashPeriod>('30d');
   const { tags, createTag } = useFinanceTags();
-  const [calViewDate, setCalViewDate] = useState(() => {
-    const d = new Date(); d.setDate(1); return d;
-  });
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -524,12 +398,8 @@ export function MobileFinancePage() {
 
   async function loadData() {
     setLoading(true);
-    const [txRes, accRes] = await Promise.all([
-      supabase.from('finance_transactions').select('*').order('data', { ascending: false }),
-      supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
-    ]);
-    if (txRes.data) setTransactions(txRes.data as Transaction[]);
-    if (accRes.data) setAccounts(accRes.data as BankAccount[]);
+    const { data } = await supabase.from('finance_transactions').select('*').order('data', { ascending: false });
+    if (data) setTransactions(data as Transaction[]);
     setLoading(false);
   }
 
@@ -549,6 +419,15 @@ export function MobileFinancePage() {
     const desp = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
     return { rec, desp, saldo: rec - desp };
   }, [filtered]);
+
+  const vencimentoStats = useMemo(() => {
+    const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && t.vencimento);
+    return {
+      count: despesasVencendo.length,
+      valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
+      totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
+    };
+  }, [transactions]);
 
   const grouped = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
@@ -594,23 +473,6 @@ export function MobileFinancePage() {
     });
     return Object.entries(map).sort(([, a], [, b]) => b - a).slice(0, 3);
   }, [dashTxs]);
-
-  // ── Computed — Finanças ──────────────────────────────────────────────────
-
-  const expenses = useMemo(() =>
-    transactions.filter(t => t.tipo === 'Despesa' && t.vencimento && !t.pago),
-    [transactions]
-  );
-
-  const urgency = useMemo(() => {
-    const t = today();
-    const week = new Date(t); week.setDate(week.getDate() + 7);
-    return {
-      overdue: expenses.filter(e => e.vencimento && isoToLocal(e.vencimento) < t),
-      soon:    expenses.filter(e => { if (!e.vencimento) return false; const d = isoToLocal(e.vencimento); return d >= t && d <= week; }),
-      future:  expenses.filter(e => e.vencimento && isoToLocal(e.vencimento) > week),
-    };
-  }, [expenses]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -705,7 +567,6 @@ export function MobileFinancePage() {
         {([
           { key: 'mov',  label: 'Movimentações', icon: <ClipboardList size={11} /> },
           { key: 'dash', label: 'Dashboard',      icon: <TrendingUp size={11} /> },
-          { key: 'fin',  label: 'Finanças',       icon: <Wallet size={11} /> },
         ] as { key: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
           <button
             key={tab.key}
@@ -739,14 +600,16 @@ export function MobileFinancePage() {
               transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
               className="pb-6"
             >
-              {/* Summary chips */}
-              <div className="flex gap-2 px-3 pt-3 pb-2 overflow-x-auto [scrollbar-width:none]">
-                {[
+              {/* Summary chips — swipe para o lado (estilo Stories) para ver Vencimento/Total Pago */}
+              <div className="flex gap-2 px-3 pt-3 pb-2 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none]">
+                {([
                   { label: 'Receitas', value: totals.rec,   cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '↑' },
                   { label: 'Despesas', value: totals.desp,  cls: 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: 'bg-[rgba(225,29,72,0.12)] text-[#E11D48] dark:bg-[rgba(244,63,94,0.14)] dark:text-[#F43F5E]', glyph: '↓' },
                   { label: 'Saldo',    value: totals.saldo, cls: totals.saldo >= 0 ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: totals.saldo >= 0 ? 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]' : 'bg-[rgba(225,29,72,0.12)] text-[#E11D48]', glyph: '=' },
-                ].map(chip => (
-                  <div key={chip.label} className="shrink-0 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[20px] px-3.5 py-2.5 flex flex-col gap-1 min-w-[108px]">
+                  { label: 'Vencimento', value: vencimentoStats.valor,    cls: 'text-[#B45309] dark:text-[#FCD34D]', dotCls: 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]', glyph: '⏱', sub: `${vencimentoStats.count} mov.` },
+                  { label: 'Total Pago', value: vencimentoStats.totalPago, cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '✓' },
+                ] as { label: string; value: number; cls: string; dotCls: string; glyph: string; sub?: string }[]).map(chip => (
+                  <div key={chip.label} className="shrink-0 snap-start bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[20px] px-3.5 py-2.5 flex flex-col gap-1 min-w-[108px]">
                     <div className="flex items-center gap-1.5">
                       <span className={cn('w-5 h-5 rounded-[7px] flex items-center justify-center text-[11px] font-black shrink-0', chip.dotCls)}>{chip.glyph}</span>
                       <span className="text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.40)] dark:text-white/30">{chip.label}</span>
@@ -754,6 +617,9 @@ export function MobileFinancePage() {
                     <span className={cn("font-['DM_Mono',monospace] text-[13px] font-bold tracking-tight", chip.cls)}>
                       {fmtShort(chip.value)}
                     </span>
+                    {chip.sub && (
+                      <span className="text-[8px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/25">{chip.sub}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -995,91 +861,6 @@ export function MobileFinancePage() {
             </motion.div>
           )}
 
-          {/* ═══ TAB: FINANÇAS ═══ */}
-          {activeTab === 'fin' && (
-            <motion.div
-              key="fin"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-              className="pb-6"
-            >
-              {/* Account balances */}
-              <p className={sectionLabel}>Contas Bancárias</p>
-              {accounts.length === 0 && !loading && (
-                <div className="mx-3 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl px-4 py-4 text-center text-[11px] font-bold text-[rgba(26,26,10,0.30)] dark:text-white/22">
-                  Nenhuma conta cadastrada
-                </div>
-              )}
-              <div className="flex flex-col gap-2 px-3">
-                {accounts.map(acc => (
-                  <div key={acc.id} className="bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[14px] px-3.5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-[10px] bg-[#FFF8C0] dark:bg-[rgba(255,229,0,0.12)] border-[1.5px] border-[#E8D800] dark:border-[rgba(255,229,0,0.18)] flex items-center justify-center text-[14px]">
-                        🏦
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">{acc.nome}</p>
-                        <p className="text-[10px] font-semibold text-[rgba(26,26,10,0.35)] dark:text-white/30">{acc.banco} · ••• {acc.numero_conta.slice(-4)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-['DM_Mono',monospace] text-[14px] font-bold text-[#059669] dark:text-[#34D399]">{fmt(acc.saldo_inicial)}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-[rgba(26,26,10,0.35)] dark:text-white/28">Saldo inicial</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar */}
-              <p className={cn(sectionLabel, 'pt-5')}>Calendário de Vencimentos</p>
-              <MiniCalendar
-                expenses={expenses}
-                viewDate={calViewDate}
-                setViewDate={setCalViewDate}
-              />
-
-              {/* Urgency chips */}
-              <div className="flex gap-2 px-3 py-3">
-                {[
-                  { label: 'Vencidas', count: urgency.overdue.length, cls: 'bg-[rgba(225,29,72,0.09)] dark:bg-[rgba(244,63,94,0.12)]', cc: 'text-[#E11D48] dark:text-[#F43F5E]' },
-                  { label: 'A Vencer', count: urgency.soon.length,    cls: 'bg-[rgba(245,158,11,0.09)] dark:bg-[rgba(251,191,36,0.10)]', cc: 'text-[#B45309] dark:text-[#FCD34D]' },
-                  { label: 'Futuras',  count: urgency.future.length,  cls: 'bg-[rgba(5,150,105,0.09)] dark:bg-[rgba(52,211,153,0.10)]',  cc: 'text-[#059669] dark:text-[#34D399]'  },
-                ].map(u => (
-                  <div key={u.label} className={cn('flex-1 rounded-[14px] py-2 flex flex-col items-center gap-0.5', u.cls)}>
-                    <span className={cn("font-['DM_Mono',monospace] text-[16px] font-black", u.cc)}>{u.count}</span>
-                    <span className="text-[8px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.40)] dark:text-white/30">{u.label}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Expense sections */}
-              {urgency.overdue.length > 0 && (
-                <>
-                  <p className={sectionLabel}>Vencidas</p>
-                  {urgency.overdue.map(e => <ExpCard key={e.id} tx={e} variant="overdue" />)}
-                </>
-              )}
-              {urgency.soon.length > 0 && (
-                <>
-                  <p className={sectionLabel}>A Vencer</p>
-                  {urgency.soon.map(e => <ExpCard key={e.id} tx={e} variant="soon" />)}
-                </>
-              )}
-              {urgency.future.length > 0 && (
-                <>
-                  <p className={sectionLabel}>Futuras</p>
-                  {urgency.future.map(e => <ExpCard key={e.id} tx={e} variant="future" />)}
-                </>
-              )}
-              {expenses.length === 0 && !loading && (
-                <div className="mx-3 text-center py-6 text-[11px] font-bold text-[rgba(26,26,10,0.22)] dark:text-white/20">
-                  Nenhuma despesa a vencer
-                </div>
-              )}
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
 
@@ -1107,38 +888,6 @@ export function MobileFinancePage() {
           </>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-// ── ExpCard sub-component ───────────────────────────────────────────────────
-
-function ExpCard({ tx, variant }: { tx: Transaction; variant: 'overdue' | 'soon' | 'future' }) {
-  const t = today();
-  const venc = tx.vencimento ? isoToLocal(tx.vencimento) : null;
-  const diff = venc ? Math.ceil((venc.getTime() - t.getTime()) / 86400000) : null;
-
-  const badgeMap = {
-    overdue: { dot: 'bg-[#E11D48] dark:bg-[#F43F5E]', badge: 'bg-[rgba(225,29,72,0.10)] text-[#E11D48] dark:bg-[rgba(244,63,94,0.14)] dark:text-[#F43F5E]', label: 'Vencida' },
-    soon:    { dot: 'bg-[#D97706] dark:bg-[#FCD34D]', badge: 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]', label: diff !== null && diff >= 0 ? `${diff}d` : '—' },
-    future:  { dot: 'bg-[#059669] dark:bg-[#34D399]', badge: 'bg-[rgba(5,150,105,0.10)] text-[#059669] dark:bg-[rgba(52,211,153,0.12)] dark:text-[#34D399]', label: diff !== null ? `${diff}d` : '—' },
-  }[variant];
-
-  return (
-    <div className="mx-3 mb-2 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl px-3.5 py-3 flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2.5">
-        <span className={cn('w-2 h-2 rounded-full shrink-0', badgeMap.dot)} />
-        <div>
-          <p className="text-[13px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">{tx.favorecido || '—'}</p>
-          <p className="text-[10px] font-semibold text-[rgba(26,26,10,0.38)] dark:text-white/28 font-['DM_Mono',monospace]">
-            {venc ? (variant === 'overdue' ? `Venceu ${fmtDate(tx.vencimento!)}` : `Vence ${fmtDate(tx.vencimento!)}`) : '—'}
-          </p>
-        </div>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="font-['DM_Mono',monospace] text-[13px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">{fmt(tx.valor_final)}</p>
-        <span className={cn('text-[9px] font-black uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-[6px]', badgeMap.badge)}>{badgeMap.label}</span>
-      </div>
     </div>
   );
 }
