@@ -222,7 +222,7 @@ function TxSheet({
       </div>
 
       {/* Scrollable form */}
-      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-3">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 pb-3">
         {/* Type toggle */}
         <div>
           <span className={labelCls}>Tipo</span>
@@ -443,7 +443,7 @@ function CalendarSheet({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         {/* Month header */}
         <div className="bg-[#FFE500] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
           <span className="text-[15px] font-black text-[#1A1A0E] capitalize">{monthLabel}</span>
@@ -611,7 +611,7 @@ function FilterFieldSheet({
         Escolha em qual coluna o texto digitado deve ser buscado
       </p>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-2">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
         {FILTER_FIELD_OPTIONS.map(opt => {
           const isActive = value === opt.key;
           return (
@@ -735,7 +735,7 @@ function TxDetailSheet({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-3">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 pb-3">
         {/* Tipo */}
         <div>
           <span className={labelCls}>Tipo</span>
@@ -1026,6 +1026,14 @@ export function MobileFinancePage() {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  // Trava o scroll do body enquanto um sheet está aberto — sem isso, o overscroll
+  // (rubber-band) da página por trás "balança" a janela fixa no mobile.
+  useEffect(() => {
+    const anySheetOpen = showAddSheet || showCalSheet || showFilterSheet || detailTx !== null;
+    document.body.style.overflow = anySheetOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showAddSheet, showCalSheet, showFilterSheet, detailTx]);
 
   // ── Computed — Calendário ────────────────────────────────────────────────
 
