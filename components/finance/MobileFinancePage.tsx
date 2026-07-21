@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
-  Search, Filter, CheckSquare,
+  Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight,
   ClipboardList, Check, Loader2, Trash2,
 } from 'lucide-react';
 import {
@@ -378,6 +378,187 @@ function TxSheet({
   );
 }
 
+// ── Calendar Sheet ──────────────────────────────────────────────────────────
+
+function CalendarSheet({
+  monthLabel,
+  days,
+  today: todayDate,
+  viewDate,
+  onPrevMonth,
+  onNextMonth,
+  rangeMode,
+  onToggleRangeMode,
+  selectedDate,
+  rangeStart,
+  rangeEnd,
+  onDayClick,
+  onClear,
+  onClose,
+  toIsoDay,
+}: {
+  monthLabel: string;
+  days: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[];
+  today: Date;
+  viewDate: Date;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  rangeMode: boolean;
+  onToggleRangeMode: () => void;
+  selectedDate: Date | null;
+  rangeStart: Date | null;
+  rangeEnd: Date | null;
+  onDayClick: (cell: { day: number; type: 'prev' | 'curr' | 'next' }) => void;
+  onClear: () => void;
+  onClose: () => void;
+  toIsoDay: (d: Date) => string;
+}) {
+  const hasPeriod = (rangeStart && rangeEnd) || selectedDate;
+
+  return (
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+      className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      style={{ maxHeight: '90svh' }}
+    >
+      {/* Handle */}
+      <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+        <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Calendário</span>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Month header */}
+        <div className="bg-[#FFE500] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
+          <span className="text-[15px] font-black text-[#1A1A0E] capitalize">{monthLabel}</span>
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={onToggleRangeMode}
+              className={cn(
+                'w-[34px] h-[34px] rounded-[10px] flex items-center justify-center transition-colors',
+                rangeMode
+                  ? 'bg-[#D81E1E] text-white'
+                  : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)]',
+              )}
+            >
+              <Filter size={15} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={onPrevMonth}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)]"
+            >
+              <ChevronLeft size={15} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={onNextMonth}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)]"
+            >
+              <ChevronRight size={15} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+
+        {/* Weekday row */}
+        <div className="grid grid-cols-7 mt-4 mb-1.5">
+          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+            <div key={i} className="text-center text-[10px] font-black uppercase text-[rgba(26,26,10,0.28)] dark:text-white/22 py-1">{d}</div>
+          ))}
+        </div>
+
+        {/* Day grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((cell, i) => {
+            const isToday = cell.type === 'curr'
+              && cell.day === todayDate.getDate()
+              && viewDate.getMonth() === todayDate.getMonth()
+              && viewDate.getFullYear() === todayDate.getFullYear();
+            const isSelected = !rangeMode && selectedDate !== null
+              && cell.type === 'curr'
+              && cell.day === selectedDate.getDate()
+              && viewDate.getMonth() === selectedDate.getMonth()
+              && viewDate.getFullYear() === selectedDate.getFullYear();
+            const cellIso = cell.type === 'curr' ? toIsoDay(new Date(viewDate.getFullYear(), viewDate.getMonth(), cell.day)) : null;
+            const rangeStartIso = rangeStart ? toIsoDay(rangeStart) : null;
+            const rangeEndIso = rangeEnd ? toIsoDay(rangeEnd) : null;
+            const isRangeEndpoint = cellIso !== null && (cellIso === rangeStartIso || cellIso === rangeEndIso);
+            const isInRange = cellIso !== null && rangeStartIso !== null && rangeEndIso !== null
+              && cellIso > rangeStartIso && cellIso < rangeEndIso;
+            return (
+              <button
+                key={i}
+                disabled={cell.type !== 'curr'}
+                onClick={() => onDayClick(cell)}
+                className={cn(
+                  'aspect-square flex items-center justify-center text-[13px] font-bold rounded-xl relative transition-all',
+                  cell.type !== 'curr' && 'text-[rgba(26,26,10,0.18)] dark:text-white/15',
+                  cell.type === 'curr' && !isToday && !isSelected && !isRangeEndpoint && !isInRange && 'text-[rgba(26,26,10,0.60)] dark:text-white/55',
+                  isToday && !isSelected && !isRangeEndpoint && !isInRange && 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E] font-black',
+                  isSelected && 'bg-[#D81E1E] text-white font-black shadow-[0_3px_8px_rgba(216,30,30,0.30)]',
+                  isRangeEndpoint && 'bg-[#D81E1E] text-white font-black shadow-[0_3px_8px_rgba(216,30,30,0.30)]',
+                  isInRange && 'bg-[rgba(216,30,30,0.13)] text-[#D81E1E] font-bold',
+                )}
+              >
+                {cell.day}
+                {cell.hasEvent && !isSelected && !isRangeEndpoint && (
+                  <span className={cn(
+                    'absolute bottom-[4px] left-1/2 -translate-x-1/2 w-[5px] h-[5px] rounded-full',
+                    isToday ? 'bg-[#D81E1E]/70' : 'bg-[#D81E1E]',
+                  )} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Range selection hint */}
+        {rangeMode && !(rangeStart && rangeEnd) && (
+          <div className="mt-3 bg-[rgba(26,26,10,0.05)] dark:bg-white/[0.05] border border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-center">
+            <span className="text-[12px] font-bold text-[rgba(26,26,10,0.50)] dark:text-white/40">
+              {!rangeStart ? 'Selecione o dia inicial do período' : 'Selecione o dia final do período'}
+            </span>
+          </div>
+        )}
+
+        {/* Active filter badge */}
+        {hasPeriod && (
+          <div className="mt-3 flex items-center justify-between gap-2 bg-[rgba(216,30,30,0.07)] dark:bg-[rgba(216,30,30,0.12)] border border-[rgba(216,30,30,0.20)] rounded-2xl px-3.5 py-2.5">
+            <span className="text-[12px] font-bold text-[#D81E1E]">
+              {rangeStart && rangeEnd
+                ? `Período: ${rangeStart.toLocaleDateString('pt-BR')} – ${rangeEnd.toLocaleDateString('pt-BR')}`
+                : `Data: ${selectedDate!.toLocaleDateString('pt-BR')}`}
+            </span>
+            <button onClick={onClear} className="text-[#D81E1E]/60 active:text-[#D81E1E] shrink-0">
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 pb-4 pt-1 shrink-0" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#D81E1E] text-white rounded-2xl py-3.5 text-[13px] font-black uppercase tracking-wide shadow-lg shadow-[#D81E1E]/25 active:scale-[0.98] transition-transform"
+        >
+          Aplicar Filtro
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function MobileFinancePage() {
@@ -394,6 +575,14 @@ export function MobileFinancePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // calendário
+  const [showCalSheet, setShowCalSheet] = useState(false);
+  const [calViewDate, setCalViewDate] = useState(() => new Date());
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
+  const [calRangeMode, setCalRangeMode] = useState(false);
+  const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
+  const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
+
   // ── Data ────────────────────────────────────────────────────────────────
 
   async function loadData() {
@@ -405,14 +594,101 @@ export function MobileFinancePage() {
 
   useEffect(() => { loadData(); }, []);
 
+  // ── Computed — Calendário ────────────────────────────────────────────────
+
+  const toIsoDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const hasDatePeriod = !!(calRangeStart && calRangeEnd) || !!calSelectedDate;
+
+  const inSelectedPeriod = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    if (calRangeStart && calRangeEnd) {
+      return dateStr >= toIsoDay(calRangeStart) && dateStr <= toIsoDay(calRangeEnd);
+    }
+    if (calSelectedDate) {
+      return dateStr === toIsoDay(calSelectedDate);
+    }
+    return true;
+  };
+
+  const calDays = useMemo(() => {
+    const year = calViewDate.getFullYear();
+    const month = calViewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const txDays = new Set(
+      transactions
+        .filter(t => {
+          const d = new Date(t.data + 'T00:00:00');
+          return d.getFullYear() === year && d.getMonth() === month;
+        })
+        .map(t => new Date(t.data + 'T00:00:00').getDate()),
+    );
+    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[] = [];
+    for (let i = firstDay - 1; i >= 0; i--)
+      cells.push({ day: prevMonthDays - i, type: 'prev', hasEvent: false });
+    for (let d = 1; d <= daysInMonth; d++)
+      cells.push({ day: d, type: 'curr', hasEvent: txDays.has(d) });
+    for (let d = 1; cells.length < 42; d++)
+      cells.push({ day: d, type: 'next', hasEvent: false });
+    return cells;
+  }, [calViewDate, transactions]);
+
+  const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    + ' ' + calViewDate.getFullYear();
+
+  function toggleCalRangeMode() {
+    if (calRangeMode) {
+      setCalRangeMode(false);
+      setCalRangeStart(null);
+      setCalRangeEnd(null);
+    } else {
+      setCalRangeMode(true);
+      setCalSelectedDate(null);
+    }
+  }
+
+  function clearCalFilter() {
+    setCalSelectedDate(null);
+    setCalRangeMode(false);
+    setCalRangeStart(null);
+    setCalRangeEnd(null);
+  }
+
+  function handleCalDayClick(cell: { day: number; type: 'prev' | 'curr' | 'next' }) {
+    if (cell.type !== 'curr') return;
+    const cellDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day);
+    if (calRangeMode) {
+      if (!calRangeStart || (calRangeStart && calRangeEnd)) {
+        setCalRangeStart(cellDate);
+        setCalRangeEnd(null);
+      } else {
+        const startIso = toIsoDay(calRangeStart);
+        const clickIso = toIsoDay(cellDate);
+        if (clickIso < startIso) {
+          setCalRangeEnd(calRangeStart);
+          setCalRangeStart(cellDate);
+        } else {
+          setCalRangeEnd(cellDate);
+        }
+      }
+      return;
+    }
+    const isSelected = calSelectedDate !== null && toIsoDay(calSelectedDate) === toIsoDay(cellDate);
+    setCalSelectedDate(isSelected ? null : cellDate);
+  }
+
   // ── Computed — Movimentações ─────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return transactions.filter(t =>
-      !q || t.favorecido.toLowerCase().includes(q) || t.estabelecimento.toLowerCase().includes(q)
+      (!q || t.favorecido.toLowerCase().includes(q) || t.estabelecimento.toLowerCase().includes(q))
+      && inSelectedPeriod(t.data)
     );
-  }, [transactions, search]);
+  }, [transactions, search, calSelectedDate, calRangeStart, calRangeEnd]);
 
   const totals = useMemo(() => {
     const rec  = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
@@ -421,13 +697,13 @@ export function MobileFinancePage() {
   }, [filtered]);
 
   const vencimentoStats = useMemo(() => {
-    const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && t.vencimento);
+    const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
     return {
       count: despesasVencendo.length,
       valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
       totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
     };
-  }, [transactions]);
+  }, [transactions, calSelectedDate, calRangeStart, calRangeEnd]);
 
   const grouped = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
@@ -635,6 +911,19 @@ export function MobileFinancePage() {
                     onChange={e => setSearch(e.target.value)}
                   />
                 </div>
+                {/* Calendar icon */}
+                <button
+                  onClick={() => setShowCalSheet(true)}
+                  className={cn(
+                    'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0',
+                    hasDatePeriod
+                      ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]'
+                      : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40'
+                  )}
+                  title="Calendário"
+                >
+                  <Calendar size={14} />
+                </button>
                 {/* Filter icon */}
                 <button
                   className="w-9 h-9 rounded-xl bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/40 active:scale-90 transition-transform"
@@ -884,6 +1173,39 @@ export function MobileFinancePage() {
               saving={saving}
               tags={tags}
               onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Calendar Sheet backdrop + sheet */}
+      <AnimatePresence>
+        {showCalSheet && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowCalSheet(false)}
+            />
+            <CalendarSheet
+              monthLabel={calMonthLabel}
+              days={calDays}
+              today={today()}
+              viewDate={calViewDate}
+              onPrevMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              onNextMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              rangeMode={calRangeMode}
+              onToggleRangeMode={toggleCalRangeMode}
+              selectedDate={calSelectedDate}
+              rangeStart={calRangeStart}
+              rangeEnd={calRangeEnd}
+              onDayClick={handleCalDayClick}
+              onClear={clearCalFilter}
+              onClose={() => setShowCalSheet(false)}
+              toIsoDay={toIsoDay}
             />
           </>
         )}
