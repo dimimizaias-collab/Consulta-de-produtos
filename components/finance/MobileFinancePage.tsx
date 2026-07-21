@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
-  ClipboardList, Check, Loader2, Trash2, Pencil, Lock,
+  ClipboardList, Check, Loader2, Trash2, Pencil, Lock, CreditCard,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -51,14 +51,15 @@ type TxForm = {
   valor_final: string;
   pago: boolean;
   tag_ids: string[];
-  vencimento: string | null;
-  numero_parcela: number | null;
-  total_parcelas: number | null;
 };
+
+type ParcelaRow = { seq: number; valor: string; validade: string };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['PIX', 'Transferência', 'Boleto', 'Crédito', 'Débito', 'Dinheiro', 'Cheque', 'Outro'];
+// Mesma restrição do FinanceManager.tsx (desktop) — parcelamento múltiplo só para Despesa nesses tipos
+const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const PERIOD_OPTIONS: { key: DashPeriod; label: string; days: number }[] = [
   { key: '7d',  label: '7 dias',  days: 7   },
@@ -77,9 +78,6 @@ const emptyForm = (): TxForm => ({
   valor_final: '0',
   pago: false,
   tag_ids: [],
-  vencimento: null,
-  numero_parcela: null,
-  total_parcelas: null,
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -187,6 +185,8 @@ function TxSheet({
   saving,
   tags,
   onCreateTag,
+  parcelas,
+  onOpenParcelas,
 }: {
   form: TxForm;
   setForm: (f: TxForm) => void;
@@ -195,6 +195,8 @@ function TxSheet({
   saving: boolean;
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
+  parcelas: ParcelaRow[];
+  onOpenParcelas: () => void;
 }) {
   const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
@@ -293,64 +295,6 @@ function TxSheet({
           />
         </div>
 
-        {/* Vencimento / Parcelamento */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5 mb-2">
-            <button
-              onClick={() => setForm(
-                form.vencimento
-                  ? { ...form, vencimento: null, numero_parcela: null, total_parcelas: null }
-                  : { ...form, vencimento: form.data, numero_parcela: 1, total_parcelas: 1 }
-              )}
-              className={cn(
-                'w-9 h-5 rounded-full transition-all relative shrink-0',
-                form.vencimento ? 'bg-[#D81E1E]' : 'bg-[rgba(26,26,10,0.20)] dark:bg-white/20'
-              )}
-            >
-              <span className={cn(
-                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
-                form.vencimento ? 'left-4' : 'left-0.5'
-              )} />
-            </button>
-            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28">Vencimento / Parcelamento</span>
-          </div>
-          {form.vencimento && (
-            <div className="flex flex-col gap-2">
-              <input
-                type="date"
-                className={dateFieldCls}
-                value={form.vencimento}
-                onChange={e => setForm({ ...form, vencimento: e.target.value })}
-                onFocus={() => setShowKbd(false)}
-              />
-              <div className="flex gap-2">
-                <div className="flex-1 min-w-0">
-                  <span className={labelCls}>Parcela atual</span>
-                  <input
-                    type="number"
-                    min={1}
-                    className={cn(fieldCls, 'text-[13px]')}
-                    value={form.numero_parcela ?? 1}
-                    onChange={e => setForm({ ...form, numero_parcela: parseInt(e.target.value) || 1 })}
-                    onFocus={() => setShowKbd(false)}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className={labelCls}>Total de parcelas</span>
-                  <input
-                    type="number"
-                    min={1}
-                    className={cn(fieldCls, 'text-[13px]')}
-                    value={form.total_parcelas ?? 1}
-                    onChange={e => setForm({ ...form, total_parcelas: parseInt(e.target.value) || 1 })}
-                    onFocus={() => setShowKbd(false)}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Tipo Pagamento */}
         <div>
           <span className={labelCls}>Tipo de pagamento</span>
@@ -370,6 +314,20 @@ function TxSheet({
               </button>
             ))}
           </div>
+          {form.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(form.tipo_pagamento) && (
+            <button
+              onClick={onOpenParcelas}
+              className={cn(
+                'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2',
+                parcelas.length > 0
+                  ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.24)] text-[#D81E1E]'
+                  : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35'
+              )}
+            >
+              <CreditCard size={13} />
+              {parcelas.length > 0 ? `${parcelas.length} parcela${parcelas.length > 1 ? 's' : ''} configurada${parcelas.length > 1 ? 's' : ''}` : 'Visualizar pagamento'}
+            </button>
+          )}
         </div>
 
         {/* Estabelecimento */}
@@ -420,7 +378,7 @@ function TxSheet({
         {/* Salvar */}
         <button
           onClick={onSave}
-          disabled={saving || !form.favorecido.trim() || form.valor_final === '0'}
+          disabled={saving || !form.favorecido.trim() || (parcelas.length === 0 && form.valor_final === '0')}
           className={cn(
             'w-full py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-wider text-white',
             'bg-[#D81E1E] active:scale-[0.97] transition-transform',
@@ -737,6 +695,8 @@ function TxDetailSheet({
   saving,
   tags,
   onCreateTag,
+  parcelas,
+  onOpenParcelas,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -748,6 +708,8 @@ function TxDetailSheet({
   saving: boolean;
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
+  parcelas: ParcelaRow[];
+  onOpenParcelas: () => void;
 }) {
   const [showKbd, setShowKbd] = useState(false);
   const isEdit = mode === 'edit';
@@ -895,81 +857,24 @@ function TxDetailSheet({
           )}
         </div>
 
-        {/* Vencimento / Parcelamento */}
-        <div className="min-w-0">
-          <span className={labelCls}>Vencimento / Parcelamento</span>
-          {isEdit ? (
-            <>
-              <div className="flex items-center gap-2.5 mb-2">
-                <button
-                  onClick={() => setForm(
-                    form.vencimento
-                      ? { ...form, vencimento: null, numero_parcela: null, total_parcelas: null }
-                      : { ...form, vencimento: form.data, numero_parcela: 1, total_parcelas: 1 }
-                  )}
-                  className={cn(
-                    'w-9 h-5 rounded-full transition-all relative shrink-0',
-                    form.vencimento ? 'bg-[#D81E1E]' : 'bg-[rgba(26,26,10,0.20)] dark:bg-white/20'
-                  )}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
-                    form.vencimento ? 'left-4' : 'left-0.5'
-                  )} />
-                </button>
-                <span className="text-[11px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
-                  {form.vencimento ? 'Parcelado' : 'À vista'}
+        {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" abaixo) */}
+        {!isEdit && (
+          <div className="min-w-0">
+            <span className={labelCls}>Vencimento / Parcelamento</span>
+            {tx.vencimento ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className={cn(viewBlockCls, 'inline-block w-auto font-semibold')}>
+                  {new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </div>
+                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[11px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
+                  {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
                 </span>
               </div>
-              {form.vencimento && (
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="date"
-                    className={dateFieldCls}
-                    value={form.vencimento}
-                    onChange={e => setForm({ ...form, vencimento: e.target.value })}
-                    onFocus={() => setShowKbd(false)}
-                  />
-                  <div className="flex gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span className={labelCls}>Parcela atual</span>
-                      <input
-                        type="number"
-                        min={1}
-                        className={cn(fieldCls, 'text-[13px]')}
-                        value={form.numero_parcela ?? 1}
-                        onChange={e => setForm({ ...form, numero_parcela: parseInt(e.target.value) || 1 })}
-                        onFocus={() => setShowKbd(false)}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className={labelCls}>Total de parcelas</span>
-                      <input
-                        type="number"
-                        min={1}
-                        className={cn(fieldCls, 'text-[13px]')}
-                        value={form.total_parcelas ?? 1}
-                        onChange={e => setForm({ ...form, total_parcelas: parseInt(e.target.value) || 1 })}
-                        onFocus={() => setShowKbd(false)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : tx.vencimento ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className={cn(viewBlockCls, 'inline-block w-auto font-semibold')}>
-                {new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </div>
-              <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[11px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
-                {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
-              </span>
-            </div>
-          ) : (
-            <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
-          )}
-        </div>
+            ) : (
+              <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
+            )}
+          </div>
+        )}
 
         {/* Tipo Pagamento */}
         <div>
@@ -995,6 +900,20 @@ function TxDetailSheet({
             <span className="inline-block bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08] border-[1.5px] border-[rgba(26,26,10,0.14)] dark:border-white/[0.14] rounded-lg px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#1A1A0E] dark:text-[#F2F0E3]">
               {tx.tipo_pagamento}
             </span>
+          )}
+          {isEdit && form.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(form.tipo_pagamento) && (
+            <button
+              onClick={onOpenParcelas}
+              className={cn(
+                'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2',
+                parcelas.length > 0
+                  ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.24)] text-[#D81E1E]'
+                  : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35'
+              )}
+            >
+              <CreditCard size={13} />
+              {parcelas.length > 0 ? `${parcelas.length} parcela${parcelas.length > 1 ? 's' : ''} configurada${parcelas.length > 1 ? 's' : ''}` : 'Visualizar pagamento'}
+            </button>
           )}
         </div>
 
@@ -1092,7 +1011,7 @@ function TxDetailSheet({
         {isEdit ? (
           <button
             onClick={onSave}
-            disabled={saving || !form.favorecido.trim() || form.valor_final === '0'}
+            disabled={saving || !form.favorecido.trim() || (parcelas.length === 0 && form.valor_final === '0')}
             className={cn(
               'w-full py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-wider text-white',
               'bg-[#D81E1E] active:scale-[0.97] transition-transform',
@@ -1120,6 +1039,144 @@ function TxDetailSheet({
           />
         )}
       </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── Parcelas do Pagamento (parcelamento múltiplo) ───────────────────────────
+
+function ParcelasModal({
+  initialRows,
+  onSave,
+  onClose,
+}: {
+  initialRows: ParcelaRow[];
+  onSave: (rows: ParcelaRow[]) => void;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<ParcelaRow[]>(
+    initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '' }]
+  );
+
+  const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
+  const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
+
+  function updateRow(idx: number, patch: Partial<ParcelaRow>) {
+    setRows(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows(prev => [...prev, { seq: prev.length + 1, valor: '', validade: '' }]);
+  }
+  function removeRow(idx: number) {
+    setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, seq: i + 1 })));
+  }
+
+  const total = rows.reduce((s, r) => s + (parseFloat(r.valor.replace(',', '.')) || 0), 0);
+
+  function handleSave() {
+    const valid = rows
+      .filter(r => r.validade && parseFloat(r.valor.replace(',', '.')) > 0)
+      .map((r, i) => ({ ...r, seq: i + 1 }));
+    onSave(valid);
+    onClose();
+  }
+
+  return (
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+      className="fixed inset-x-0 bottom-0 z-[130] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      style={{ height: '82svh' }}
+    >
+      {/* Handle */}
+      <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+        <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Parcelas do Pagamento</span>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Scrollable rows */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-2.5 pb-3">
+        {rows.map((row, idx) => (
+          <div key={idx} className="border-[1.5px] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] rounded-2xl p-2.5 flex flex-col gap-2 bg-white dark:bg-[#252520]">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.40)] dark:text-white/30">
+                <span className="w-[18px] h-[18px] rounded-[6px] bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.16)] text-[#D81E1E] dark:text-[#F43F5E] flex items-center justify-center text-[10px] font-black">
+                  {row.seq}
+                </span>
+                Parcela {row.seq}
+              </span>
+              {rows.length > 1 && (
+                <button
+                  onClick={() => removeRow(idx)}
+                  className="w-6 h-6 rounded-lg bg-[rgba(216,30,30,0.08)] dark:bg-[rgba(216,30,30,0.14)] text-[#D81E1E] dark:text-[#F43F5E] flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 min-w-0">
+                <span className={labelCls}>Valor</span>
+                <input
+                  className={cn(fieldCls, 'text-[13px]')}
+                  value={row.valor}
+                  onChange={e => updateRow(idx, { valor: e.target.value })}
+                  placeholder="0,00"
+                  inputMode="decimal"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className={labelCls}>Validade</span>
+                <input
+                  type="date"
+                  className={dateFieldCls}
+                  value={row.validade}
+                  onChange={e => updateRow(idx, { validade: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <button
+          onClick={addRow}
+          className="w-full py-2.5 rounded-xl border-[1.5px] border-dashed border-[rgba(26,26,10,0.20)] dark:border-white/[0.18] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+        >
+          <Plus size={13} />
+          Adicionar parcela
+        </button>
+
+        {total > 0 && (
+          <div className="flex items-center justify-between bg-[rgba(216,30,30,0.06)] dark:bg-[rgba(216,30,30,0.12)] border border-[rgba(216,30,30,0.16)] dark:border-[rgba(216,30,30,0.26)] rounded-xl px-3.5 py-2.5">
+            <span className="text-[10.5px] font-extrabold text-[rgba(26,26,10,0.50)] dark:text-white/55">{rows.length} parcela{rows.length > 1 ? 's' : ''} · Total</span>
+            <span className="font-['DM_Mono',monospace] text-[13px] font-extrabold text-[#D81E1E] dark:text-[#F43F5E]">{fmt(total)}</span>
+          </div>
+        )}
+
+        <button
+          onClick={handleSave}
+          className={cn(
+            'w-full py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-wider text-white',
+            'bg-[#D81E1E] active:scale-[0.97] transition-transform',
+            'shadow-[0_4px_14px_rgba(216,30,30,0.30)]'
+          )}
+        >
+          Salvar Parcelas
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -1157,6 +1214,24 @@ export function MobileFinancePage() {
   const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view');
   const [detailForm, setDetailForm] = useState<TxForm>(emptyForm());
   const [savingDetail, setSavingDetail] = useState(false);
+
+  // parcelas do pagamento (Nova Movimentação e Editar)
+  const [txParcelas, setTxParcelas] = useState<ParcelaRow[]>([]);
+  const [detailParcelas, setDetailParcelas] = useState<ParcelaRow[]>([]);
+  const [parcelasModalOpen, setParcelasModalOpen] = useState<'new' | 'edit' | null>(null);
+
+  // limpa parcelas configuradas se o tipo/pagamento deixar de ser elegível
+  useEffect(() => {
+    if (!(txForm.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(txForm.tipo_pagamento))) {
+      setTxParcelas([]);
+    }
+  }, [txForm.tipo, txForm.tipo_pagamento]);
+
+  useEffect(() => {
+    if (!(detailForm.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(detailForm.tipo_pagamento))) {
+      setDetailParcelas([]);
+    }
+  }, [detailForm.tipo, detailForm.tipo_pagamento]);
 
   // ── Data ────────────────────────────────────────────────────────────────
 
@@ -1353,27 +1428,49 @@ export function MobileFinancePage() {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleSave() {
-    if (!txForm.favorecido.trim() || txForm.valor_final === '0') return;
+    if (!txForm.favorecido.trim()) return;
+    if (txParcelas.length === 0 && txForm.valor_final === '0') return;
     setSaving(true);
-    const valorNum = parseFloat(txForm.valor_final.replace(',', '.'));
-    await supabase.from('finance_transactions').insert([{
-      data: txForm.data,
+    const base = {
       tipo: txForm.tipo,
       tipo_pagamento: txForm.tipo_pagamento,
       favorecido: txForm.favorecido.trim(),
       estabelecimento: txForm.estabelecimento,
-      vencimento: txForm.vencimento,
-      valor_final: valorNum,
-      total_pago: txForm.pago ? valorNum : 0,
-      pago: txForm.pago,
       numero_cheque: null,
-      numero_parcela: txForm.vencimento ? (txForm.numero_parcela ?? 1) : null,
-      total_parcelas: txForm.vencimento ? (txForm.total_parcelas ?? 1) : null,
       tag_ids: txForm.tag_ids ?? [],
-    }]);
+    };
+    if (txParcelas.length > 0) {
+      // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
+      // transação, com data/vencimento = a validade da parcela, e pago/total_pago zerados.
+      await supabase.from('finance_transactions').insert(
+        txParcelas.map(p => ({
+          ...base,
+          data: p.validade,
+          vencimento: p.validade,
+          valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
+          total_pago: 0,
+          pago: false,
+          numero_parcela: p.seq,
+          total_parcelas: txParcelas.length,
+        }))
+      );
+    } else {
+      const valorNum = parseFloat(txForm.valor_final.replace(',', '.'));
+      await supabase.from('finance_transactions').insert([{
+        ...base,
+        data: txForm.data,
+        vencimento: null,
+        valor_final: valorNum,
+        total_pago: txForm.pago ? valorNum : 0,
+        pago: txForm.pago,
+        numero_parcela: null,
+        total_parcelas: null,
+      }]);
+    }
     setSaving(false);
     setShowAddSheet(false);
     setTxForm(emptyForm());
+    setTxParcelas([]);
     loadData();
   }
 
@@ -1388,36 +1485,63 @@ export function MobileFinancePage() {
       valor_final: tx.valor_final.toFixed(2).replace('.', ','),
       pago: tx.pago,
       tag_ids: tx.tag_ids ?? [],
-      vencimento: tx.vencimento,
-      numero_parcela: tx.numero_parcela,
-      total_parcelas: tx.total_parcelas,
     });
+    setDetailParcelas([]);
     setDetailMode('view');
   }
 
   function closeDetail() {
     setDetailTx(null);
     setDetailMode('view');
+    setDetailParcelas([]);
   }
 
   async function handleSaveDetail() {
     if (!detailTx) return;
-    if (!detailForm.favorecido.trim() || detailForm.valor_final === '0') return;
+    if (!detailForm.favorecido.trim()) return;
+    if (detailParcelas.length === 0 && detailForm.valor_final === '0') return;
     setSavingDetail(true);
-    const valorNum = parseFloat(detailForm.valor_final.replace(',', '.'));
-    const updates = {
+    const base = {
       tipo: detailForm.tipo,
       tipo_pagamento: detailForm.tipo_pagamento,
       favorecido: detailForm.favorecido.trim(),
       estabelecimento: detailForm.estabelecimento,
+      numero_cheque: null,
+      tag_ids: detailForm.tag_ids ?? [],
+    };
+    if (detailParcelas.length > 0) {
+      // Configurar parcelas numa movimentação existente substitui a linha original por
+      // N novas linhas (uma por parcela) — mais seguro que duplicar como o desktop faz.
+      await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
+      await supabase.from('finance_transactions').insert(
+        detailParcelas.map(p => ({
+          ...base,
+          data: p.validade,
+          vencimento: p.validade,
+          valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
+          total_pago: 0,
+          pago: false,
+          numero_parcela: p.seq,
+          total_parcelas: detailParcelas.length,
+        }))
+      );
+      setSavingDetail(false);
+      setDetailTx(null);
+      setDetailMode('view');
+      setDetailParcelas([]);
+      loadData();
+      return;
+    }
+    const valorNum = parseFloat(detailForm.valor_final.replace(',', '.'));
+    const updates = {
+      ...base,
       data: detailForm.data,
-      vencimento: detailForm.vencimento,
+      vencimento: null,
       valor_final: valorNum,
       pago: detailForm.pago,
       total_pago: detailForm.pago ? valorNum : 0,
-      numero_parcela: detailForm.vencimento ? (detailForm.numero_parcela ?? 1) : null,
-      total_parcelas: detailForm.vencimento ? (detailForm.total_parcelas ?? 1) : null,
-      tag_ids: detailForm.tag_ids ?? [],
+      numero_parcela: null,
+      total_parcelas: null,
     };
     await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
     setSavingDetail(false);
@@ -1457,6 +1581,7 @@ export function MobileFinancePage() {
 
   function openAdd() {
     setTxForm(emptyForm());
+    setTxParcelas([]);
     setShowAddSheet(true);
   }
 
@@ -1864,6 +1989,8 @@ export function MobileFinancePage() {
             saving={saving}
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+            parcelas={txParcelas}
+            onOpenParcelas={() => setParcelasModalOpen('new')}
           />
         </>
       )}
@@ -1946,6 +2073,32 @@ export function MobileFinancePage() {
             saving={savingDetail}
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+            parcelas={detailParcelas}
+            onOpenParcelas={() => setParcelasModalOpen('edit')}
+          />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Parcelas do Pagamento — empilhado acima do sheet de Nova/Editar Movimentação */}
+    <AnimatePresence>
+      {parcelasModalOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[125] bg-black/45 backdrop-blur-sm"
+            onClick={() => setParcelasModalOpen(null)}
+          />
+          <ParcelasModal
+            initialRows={parcelasModalOpen === 'new' ? txParcelas : detailParcelas}
+            onSave={rows => {
+              if (parcelasModalOpen === 'new') setTxParcelas(rows);
+              else setDetailParcelas(rows);
+            }}
+            onClose={() => setParcelasModalOpen(null)}
           />
         </>
       )}
