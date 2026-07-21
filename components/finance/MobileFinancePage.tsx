@@ -102,6 +102,50 @@ function periodCutoff(period: DashPeriod): string {
   return d.toISOString().split('T')[0];
 }
 
+// ── Date field (texto compacto próprio por cima do input nativo) ────────────
+// Safari/iOS renderiza o valor de <input type="date"> por extenso no idioma do
+// aparelho (ex: "27 de jul. de 2026"), bem mais largo que "27/07/2026" — isso
+// estourava a largura da janela mesmo com padding/fonte reduzidos, porque o
+// texto nativo não é nosso pra encolher. Aqui o input nativo continua por
+// baixo (abre o seletor de data do sistema ao toque), mas escondemos o texto
+// dele e sobrepomos um <span> com o formato compacto que controlamos.
+
+function shortDate(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function DateField({
+  value,
+  onChange,
+  onFocus,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onFocus?: () => void;
+  className: string;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={onFocus}
+        className={cn(className, 'text-transparent caret-transparent')}
+        style={{ WebkitTextFillColor: 'transparent' }}
+      />
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[13px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3]">
+        {value
+          ? shortDate(value)
+          : <span className="text-[rgba(26,26,10,0.28)] dark:text-white/25">dd/mm/aaaa</span>}
+      </span>
+    </div>
+  );
+}
+
 // ── Numeric keyboard ────────────────────────────────────────────────────────
 
 const NUM_KEYS = [
@@ -286,11 +330,10 @@ function TxSheet({
         {/* Data */}
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
-          <input
-            type="date"
+          <DateField
             className={dateFieldCls}
             value={form.data}
-            onChange={e => setForm({ ...form, data: e.target.value })}
+            onChange={v => setForm({ ...form, data: v })}
             onFocus={() => setShowKbd(false)}
           />
         </div>
@@ -843,11 +886,10 @@ function TxDetailSheet({
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
           {isEdit ? (
-            <input
-              type="date"
+            <DateField
               className={dateFieldCls}
               value={form.data}
-              onChange={e => setForm({ ...form, data: e.target.value })}
+              onChange={v => setForm({ ...form, data: v })}
               onFocus={() => setShowKbd(false)}
             />
           ) : (
@@ -1140,11 +1182,10 @@ function ParcelasModal({
               </div>
               <div className="flex-1 min-w-0">
                 <span className={labelCls}>Validade</span>
-                <input
-                  type="date"
+                <DateField
                   className={dateFieldCls}
                   value={row.validade}
-                  onChange={e => updateRow(idx, { validade: e.target.value })}
+                  onChange={v => updateRow(idx, { validade: v })}
                 />
               </div>
             </div>
