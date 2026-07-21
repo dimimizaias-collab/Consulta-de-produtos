@@ -102,13 +102,13 @@ function periodCutoff(period: DashPeriod): string {
   return d.toISOString().split('T')[0];
 }
 
-// ── Date field (texto compacto próprio por cima do input nativo) ────────────
+// ── Seletor de data próprio (sem <input type="date"> nativo) ────────────────
 // Safari/iOS renderiza o valor de <input type="date"> por extenso no idioma do
-// aparelho (ex: "27 de jul. de 2026"), bem mais largo que "27/07/2026" — isso
-// estourava a largura da janela mesmo com padding/fonte reduzidos, porque o
-// texto nativo não é nosso pra encolher. Aqui o input nativo continua por
-// baixo (abre o seletor de data do sistema ao toque), mas escondemos o texto
-// dele e sobrepomos um <span> com o formato compacto que controlamos.
+// aparelho (ex: "27 de jul. de 2026") e, em alguns aparelhos, o controle nativo
+// nem respeita a largura em CSS — isso persistiu mesmo depois de esconder o
+// texto nativo e sobrepor um formato compacto. A solução definitiva é não usar
+// o input nativo: um botão com nosso próprio texto (dd/mm/aaaa) que abre uma
+// grade de calendário 100% nossa, sem nenhuma renderização do navegador.
 
 function shortDate(iso: string): string {
   if (!iso) return '';
@@ -116,33 +116,131 @@ function shortDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-function DateField({
+function DateFieldButton({
   value,
-  onChange,
-  onFocus,
+  onOpen,
   className,
 }: {
   value: string;
-  onChange: (v: string) => void;
-  onFocus?: () => void;
+  onOpen: () => void;
   className: string;
 }) {
   return (
-    <div className="relative">
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onFocus={onFocus}
-        className={cn(className, 'text-transparent caret-transparent')}
-        style={{ WebkitTextFillColor: 'transparent' }}
-      />
-      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3]">
-        {value
-          ? shortDate(value)
-          : <span className="text-[rgba(26,26,10,0.28)] dark:text-white/25">dd/mm/aaaa</span>}
-      </span>
-    </div>
+    <button type="button" onClick={onOpen} className={cn(className, 'text-left')}>
+      {value
+        ? <span className="text-sm font-medium">{shortDate(value)}</span>
+        : <span className="text-sm font-medium text-[rgba(26,26,10,0.28)] dark:text-white/25">dd/mm/aaaa</span>}
+    </button>
+  );
+}
+
+function MiniDatePicker({
+  value,
+  onSelect,
+  onClose,
+}: {
+  value: string;
+  onSelect: (iso: string) => void;
+  onClose: () => void;
+}) {
+  const [viewDate, setViewDate] = useState(() => (value ? new Date(value + 'T00:00:00') : new Date()));
+
+  const toIsoDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const days = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const cells: { day: number; type: 'prev' | 'curr' | 'next' }[] = [];
+    for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, type: 'prev' });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: 'curr' });
+    for (let d = 1; cells.length < 42; d++) cells.push({ day: d, type: 'next' });
+    return cells;
+  }, [viewDate]);
+
+  const monthLabel = viewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    + ' ' + viewDate.getFullYear();
+  const todayIso = toIsoDay(new Date());
+
+  function handleDayClick(cell: { day: number; type: 'prev' | 'curr' | 'next' }) {
+    if (cell.type !== 'curr') return;
+    onSelect(toIsoDay(new Date(viewDate.getFullYear(), viewDate.getMonth(), cell.day)));
+    onClose();
+  }
+
+  return (
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+      className="fixed inset-x-0 bottom-0 z-[140] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      style={{ maxHeight: '70svh' }}
+    >
+      <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+      </div>
+      <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+        <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Selecionar Data</span>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+        >
+          <X size={16} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 pb-4">
+        <div className="bg-[#FFE500] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
+          <span className="text-[15px] font-black text-[#1A1A0E] capitalize">{monthLabel}</span>
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)]"
+            >
+              <ChevronLeft size={15} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)]"
+            >
+              <ChevronRight size={15} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 mt-4 mb-1.5">
+          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+            <div key={i} className="text-center text-[10px] font-black uppercase text-[rgba(26,26,10,0.28)] dark:text-white/22 py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((cell, i) => {
+            const cellIso = cell.type === 'curr' ? toIsoDay(new Date(viewDate.getFullYear(), viewDate.getMonth(), cell.day)) : null;
+            const isSelected = cellIso !== null && cellIso === value;
+            const isToday = cellIso !== null && cellIso === todayIso;
+            return (
+              <button
+                key={i}
+                disabled={cell.type !== 'curr'}
+                onClick={() => handleDayClick(cell)}
+                className={cn(
+                  'aspect-square flex items-center justify-center text-[13px] font-bold rounded-xl transition-all',
+                  cell.type !== 'curr' && 'text-[rgba(26,26,10,0.18)] dark:text-white/15',
+                  cell.type === 'curr' && !isToday && !isSelected && 'text-[rgba(26,26,10,0.60)] dark:text-white/55',
+                  isToday && !isSelected && 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E] font-black',
+                  isSelected && 'bg-[#D81E1E] text-white font-black shadow-[0_3px_8px_rgba(216,30,30,0.30)]',
+                )}
+              >
+                {cell.day}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -244,6 +342,7 @@ function TxSheet({
 }) {
   const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
@@ -329,11 +428,10 @@ function TxSheet({
         {/* Data */}
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
-          <DateField
+          <DateFieldButton
             className={fieldCls}
             value={form.data}
-            onChange={v => setForm({ ...form, data: v })}
-            onFocus={() => setShowKbd(false)}
+            onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
           />
         </div>
 
@@ -440,6 +538,27 @@ function TxSheet({
             onChange={v => setForm({ ...form, valor_final: v })}
             onClose={() => setShowKbd(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Seletor de data (Data) */}
+      <AnimatePresence>
+        {showDatePicker && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[135] bg-black/45 backdrop-blur-sm"
+              onClick={() => setShowDatePicker(false)}
+            />
+            <MiniDatePicker
+              value={form.data}
+              onSelect={v => setForm({ ...form, data: v })}
+              onClose={() => setShowDatePicker(false)}
+            />
+          </>
         )}
       </AnimatePresence>
     </motion.div>
@@ -754,6 +873,7 @@ function TxDetailSheet({
   onOpenParcelas: () => void;
 }) {
   const [showKbd, setShowKbd] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const isEdit = mode === 'edit';
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
@@ -884,11 +1004,10 @@ function TxDetailSheet({
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
           {isEdit ? (
-            <DateField
+            <DateFieldButton
               className={fieldCls}
               value={form.data}
-              onChange={v => setForm({ ...form, data: v })}
-              onFocus={() => setShowKbd(false)}
+              onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
             />
           ) : (
             <div className={cn(viewBlockCls, 'font-semibold')}>
@@ -1079,6 +1198,27 @@ function TxDetailSheet({
           />
         )}
       </AnimatePresence>
+
+      {/* Seletor de data (Data, edit mode only) */}
+      <AnimatePresence>
+        {isEdit && showDatePicker && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[135] bg-black/45 backdrop-blur-sm"
+              onClick={() => setShowDatePicker(false)}
+            />
+            <MiniDatePicker
+              value={form.data}
+              onSelect={v => setForm({ ...form, data: v })}
+              onClose={() => setShowDatePicker(false)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -1097,6 +1237,7 @@ function ParcelasModal({
   const [rows, setRows] = useState<ParcelaRow[]>(
     initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '' }]
   );
+  const [datePickerIdx, setDatePickerIdx] = useState<number | null>(null);
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
@@ -1179,10 +1320,10 @@ function ParcelasModal({
               </div>
               <div className="flex-1 min-w-0">
                 <span className={labelCls}>Validade</span>
-                <DateField
+                <DateFieldButton
                   className={fieldCls}
                   value={row.validade}
-                  onChange={v => updateRow(idx, { validade: v })}
+                  onOpen={() => setDatePickerIdx(idx)}
                 />
               </div>
             </div>
@@ -1215,6 +1356,27 @@ function ParcelasModal({
           Salvar Parcelas
         </button>
       </div>
+
+      {/* Seletor de data (Validade da parcela) */}
+      <AnimatePresence>
+        {datePickerIdx !== null && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[135] bg-black/45 backdrop-blur-sm"
+              onClick={() => setDatePickerIdx(null)}
+            />
+            <MiniDatePicker
+              value={rows[datePickerIdx].validade}
+              onSelect={v => updateRow(datePickerIdx, { validade: v })}
+              onClose={() => setDatePickerIdx(null)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
