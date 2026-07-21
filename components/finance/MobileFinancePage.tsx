@@ -51,6 +51,9 @@ type TxForm = {
   valor_final: string;
   pago: boolean;
   tag_ids: string[];
+  vencimento: string | null;
+  numero_parcela: number | null;
+  total_parcelas: number | null;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -74,6 +77,9 @@ const emptyForm = (): TxForm => ({
   valor_final: '0',
   pago: false,
   tag_ids: [],
+  vencimento: null,
+  numero_parcela: null,
+  total_parcelas: null,
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -193,7 +199,8 @@ function TxSheet({
   const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
 
-  const fieldCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   return (
@@ -275,15 +282,73 @@ function TxSheet({
         </div>
 
         {/* Data */}
-        <div>
+        <div className="min-w-0">
           <span className={labelCls}>Data</span>
           <input
             type="date"
-            className={fieldCls}
+            className={dateFieldCls}
             value={form.data}
             onChange={e => setForm({ ...form, data: e.target.value })}
             onFocus={() => setShowKbd(false)}
           />
+        </div>
+
+        {/* Vencimento / Parcelamento */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 mb-2">
+            <button
+              onClick={() => setForm(
+                form.vencimento
+                  ? { ...form, vencimento: null, numero_parcela: null, total_parcelas: null }
+                  : { ...form, vencimento: form.data, numero_parcela: 1, total_parcelas: 1 }
+              )}
+              className={cn(
+                'w-9 h-5 rounded-full transition-all relative shrink-0',
+                form.vencimento ? 'bg-[#D81E1E]' : 'bg-[rgba(26,26,10,0.20)] dark:bg-white/20'
+              )}
+            >
+              <span className={cn(
+                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                form.vencimento ? 'left-4' : 'left-0.5'
+              )} />
+            </button>
+            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28">Vencimento / Parcelamento</span>
+          </div>
+          {form.vencimento && (
+            <div className="flex flex-col gap-2">
+              <input
+                type="date"
+                className={dateFieldCls}
+                value={form.vencimento}
+                onChange={e => setForm({ ...form, vencimento: e.target.value })}
+                onFocus={() => setShowKbd(false)}
+              />
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className={labelCls}>Parcela atual</span>
+                  <input
+                    type="number"
+                    min={1}
+                    className={cn(fieldCls, 'text-[13px]')}
+                    value={form.numero_parcela ?? 1}
+                    onChange={e => setForm({ ...form, numero_parcela: parseInt(e.target.value) || 1 })}
+                    onFocus={() => setShowKbd(false)}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className={labelCls}>Total de parcelas</span>
+                  <input
+                    type="number"
+                    min={1}
+                    className={cn(fieldCls, 'text-[13px]')}
+                    value={form.total_parcelas ?? 1}
+                    onChange={e => setForm({ ...form, total_parcelas: parseInt(e.target.value) || 1 })}
+                    onFocus={() => setShowKbd(false)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tipo Pagamento */}
@@ -687,8 +752,9 @@ function TxDetailSheet({
   const [showKbd, setShowKbd] = useState(false);
   const isEdit = mode === 'edit';
 
-  const fieldCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
-  const viewBlockCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]';
+  const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
+  const viewBlockCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]';
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   const selectedTags = tags.filter(t => tx.tag_ids?.includes(t.id));
@@ -812,12 +878,12 @@ function TxDetailSheet({
         </div>
 
         {/* Data */}
-        <div>
+        <div className="min-w-0">
           <span className={labelCls}>Data</span>
           {isEdit ? (
             <input
               type="date"
-              className={fieldCls}
+              className={dateFieldCls}
               value={form.data}
               onChange={e => setForm({ ...form, data: e.target.value })}
               onFocus={() => setShowKbd(false)}
@@ -826,6 +892,82 @@ function TxDetailSheet({
             <div className={cn(viewBlockCls, 'font-semibold')}>
               {new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
             </div>
+          )}
+        </div>
+
+        {/* Vencimento / Parcelamento */}
+        <div className="min-w-0">
+          <span className={labelCls}>Vencimento / Parcelamento</span>
+          {isEdit ? (
+            <>
+              <div className="flex items-center gap-2.5 mb-2">
+                <button
+                  onClick={() => setForm(
+                    form.vencimento
+                      ? { ...form, vencimento: null, numero_parcela: null, total_parcelas: null }
+                      : { ...form, vencimento: form.data, numero_parcela: 1, total_parcelas: 1 }
+                  )}
+                  className={cn(
+                    'w-9 h-5 rounded-full transition-all relative shrink-0',
+                    form.vencimento ? 'bg-[#D81E1E]' : 'bg-[rgba(26,26,10,0.20)] dark:bg-white/20'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                    form.vencimento ? 'left-4' : 'left-0.5'
+                  )} />
+                </button>
+                <span className="text-[11px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
+                  {form.vencimento ? 'Parcelado' : 'À vista'}
+                </span>
+              </div>
+              {form.vencimento && (
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="date"
+                    className={dateFieldCls}
+                    value={form.vencimento}
+                    onChange={e => setForm({ ...form, vencimento: e.target.value })}
+                    onFocus={() => setShowKbd(false)}
+                  />
+                  <div className="flex gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className={labelCls}>Parcela atual</span>
+                      <input
+                        type="number"
+                        min={1}
+                        className={cn(fieldCls, 'text-[13px]')}
+                        value={form.numero_parcela ?? 1}
+                        onChange={e => setForm({ ...form, numero_parcela: parseInt(e.target.value) || 1 })}
+                        onFocus={() => setShowKbd(false)}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={labelCls}>Total de parcelas</span>
+                      <input
+                        type="number"
+                        min={1}
+                        className={cn(fieldCls, 'text-[13px]')}
+                        value={form.total_parcelas ?? 1}
+                        onChange={e => setForm({ ...form, total_parcelas: parseInt(e.target.value) || 1 })}
+                        onFocus={() => setShowKbd(false)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : tx.vencimento ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className={cn(viewBlockCls, 'inline-block w-auto font-semibold')}>
+                {new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </div>
+              <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[11px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
+                {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
+              </span>
+            </div>
+          ) : (
+            <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
           )}
         </div>
 
@@ -1220,11 +1362,13 @@ export function MobileFinancePage() {
       tipo_pagamento: txForm.tipo_pagamento,
       favorecido: txForm.favorecido.trim(),
       estabelecimento: txForm.estabelecimento,
-      vencimento: null,
+      vencimento: txForm.vencimento,
       valor_final: valorNum,
       total_pago: txForm.pago ? valorNum : 0,
       pago: txForm.pago,
       numero_cheque: null,
+      numero_parcela: txForm.vencimento ? (txForm.numero_parcela ?? 1) : null,
+      total_parcelas: txForm.vencimento ? (txForm.total_parcelas ?? 1) : null,
       tag_ids: txForm.tag_ids ?? [],
     }]);
     setSaving(false);
@@ -1244,6 +1388,9 @@ export function MobileFinancePage() {
       valor_final: tx.valor_final.toFixed(2).replace('.', ','),
       pago: tx.pago,
       tag_ids: tx.tag_ids ?? [],
+      vencimento: tx.vencimento,
+      numero_parcela: tx.numero_parcela,
+      total_parcelas: tx.total_parcelas,
     });
     setDetailMode('view');
   }
@@ -1264,9 +1411,12 @@ export function MobileFinancePage() {
       favorecido: detailForm.favorecido.trim(),
       estabelecimento: detailForm.estabelecimento,
       data: detailForm.data,
+      vencimento: detailForm.vencimento,
       valor_final: valorNum,
       pago: detailForm.pago,
       total_pago: detailForm.pago ? valorNum : 0,
+      numero_parcela: detailForm.vencimento ? (detailForm.numero_parcela ?? 1) : null,
+      total_parcelas: detailForm.vencimento ? (detailForm.total_parcelas ?? 1) : null,
       tag_ids: detailForm.tag_ids ?? [],
     };
     await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
