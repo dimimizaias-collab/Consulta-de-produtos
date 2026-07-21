@@ -137,7 +137,7 @@ function DateField({
         className={cn(className, 'text-transparent caret-transparent')}
         style={{ WebkitTextFillColor: 'transparent' }}
       />
-      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[13px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3]">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3]">
         {value
           ? shortDate(value)
           : <span className="text-[rgba(26,26,10,0.28)] dark:text-white/25">dd/mm/aaaa</span>}
@@ -246,7 +246,6 @@ function TxSheet({
   const [favSearch, setFavSearch] = useState('');
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
-  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   return (
@@ -331,7 +330,7 @@ function TxSheet({
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
           <DateField
-            className={dateFieldCls}
+            className={fieldCls}
             value={form.data}
             onChange={v => setForm({ ...form, data: v })}
             onFocus={() => setShowKbd(false)}
@@ -758,7 +757,6 @@ function TxDetailSheet({
   const isEdit = mode === 'edit';
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
-  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
   const viewBlockCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]';
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
@@ -887,7 +885,7 @@ function TxDetailSheet({
           <span className={labelCls}>Data</span>
           {isEdit ? (
             <DateField
-              className={dateFieldCls}
+              className={fieldCls}
               value={form.data}
               onChange={v => setForm({ ...form, data: v })}
               onFocus={() => setShowKbd(false)}
@@ -1101,7 +1099,6 @@ function ParcelasModal({
   );
 
   const fieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
-  const dateFieldCls = cn(fieldCls, 'text-[13px] px-2.5 py-2');
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   function updateRow(idx: number, patch: Partial<ParcelaRow>) {
@@ -1173,7 +1170,7 @@ function ParcelasModal({
               <div className="flex-1 min-w-0">
                 <span className={labelCls}>Valor</span>
                 <input
-                  className={cn(fieldCls, 'text-[13px]')}
+                  className={fieldCls}
                   value={row.valor}
                   onChange={e => updateRow(idx, { valor: e.target.value })}
                   placeholder="0,00"
@@ -1183,7 +1180,7 @@ function ParcelasModal({
               <div className="flex-1 min-w-0">
                 <span className={labelCls}>Validade</span>
                 <DateField
-                  className={dateFieldCls}
+                  className={fieldCls}
                   value={row.validade}
                   onChange={v => updateRow(idx, { validade: v })}
                 />
