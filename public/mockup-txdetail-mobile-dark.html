@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Detalhes da Movimentação Mobile (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #0f0f0c;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 32px 16px 60px;
+  }
+  .label { text-align: center; margin-bottom: 14px; font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.45); text-transform: uppercase; letter-spacing: 0.06em; }
+  .badge-new { display: inline-block; background: #D81E1E; color: white; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 6px; border-radius: 4px; margin-bottom: 8px; }
+  .hint { max-width: 375px; margin: 18px auto 0; font-size: 11px; font-weight: 600; color: rgba(242,240,227,0.35); text-align: center; line-height: 1.5; }
+
+  .phone { width: 375px; height: 812px; background: #1E1E18; border-radius: 40px; border: 8px solid #000; overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.6); }
+  .screen { width: 100%; height: 100%; position: relative; overflow: hidden; }
+
+  .page-header { background: #252520; padding: 44px 16px 16px; border-bottom: 1px solid rgba(242,240,227,0.07); }
+  .eyebrow { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(242,240,227,0.40); }
+  .title { font-size: 22px; font-weight: 900; color: #F2F0E3; letter-spacing: -0.01em; }
+
+  .tabs { background: #1E1E18; padding: 10px 12px 8px; display: flex; gap: 8px; border-bottom: 1px solid rgba(242,240,227,0.06); }
+  .tab { flex: 1; border: 1.5px solid rgba(242,240,227,0.08); border-radius: 14px; padding: 9px; text-align: center; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tab.active { background: rgba(216,30,30,0.12); border-color: rgba(216,30,30,0.22); color: #F43F5E; }
+  .tab:not(.active) { background: #252520; color: rgba(242,240,227,0.28); }
+
+  .date-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(242,240,227,0.22); padding: 14px 16px 6px; }
+  .tx-card { margin: 0 12px 8px; background: #252520; border: 1.5px solid rgba(242,240,227,0.08); border-radius: 18px; padding: 12px 14px; cursor: pointer; transition: transform 0.1s; }
+  .tx-card:active { transform: scale(0.99); }
+  .tx-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tx-left { display: flex; align-items: center; gap: 10px; }
+  .tx-dot { width: 30px; height: 30px; border-radius: 10px; background: rgba(244,63,94,0.12); color: #F43F5E; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; flex-shrink: 0; }
+  .tx-name { font-size: 14px; font-weight: 900; color: #F2F0E3; }
+  .tx-estab { font-size: 10px; font-weight: 600; color: rgba(242,240,227,0.30); }
+  .tx-val { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 700; color: #F43F5E; flex-shrink: 0; }
+  .tx-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; margin-top: 8px; border-top: 1px solid rgba(242,240,227,0.06); }
+  .tx-pay-badge { background: rgba(242,240,227,0.07); border-radius: 8px; padding: 3px 8px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.35); }
+  .tx-status { font-size: 10px; font-weight: 900; padding: 3px 10px; border-radius: 8px; background: rgba(52,211,153,0.12); color: #34D399; }
+
+  .bottom-nav { position: absolute; left: 0; right: 0; bottom: 0; background: #2E2E28; border-top: 1px solid rgba(242,240,227,0.07); padding: 10px 6px 14px; display: flex; justify-content: space-around; z-index: 5; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 8px; font-weight: 900; text-transform: uppercase; color: rgba(242,240,227,0.30); }
+  .nav-item.active { color: #F43F5E; }
+
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
+  .backdrop.show { opacity: 1; pointer-events: auto; }
+
+  /* Sheet correctly layered ABOVE bottom-nav (z:10/20 > nav z:5) — demonstrates the stacking fix */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; background: #1E1E18; border-radius: 28px 28px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.5); height: 90%; display: flex; flex-direction: column; overflow: hidden; transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.23,1,0.32,1); }
+  .sheet.show { transform: translateY(0); }
+
+  .sheet-handle { display: flex; justify-content: center; padding: 10px 0 4px; flex-shrink: 0; }
+  .sheet-handle span { width: 40px; height: 4px; border-radius: 99px; background: rgba(242,240,227,0.20); }
+
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 12px; flex-shrink: 0; }
+  .sheet-header-left { display: flex; align-items: center; gap: 8px; }
+  .sheet-title { font-size: 15px; font-weight: 900; color: #F2F0E3; transition: color 0.15s; }
+  .sheet-title.edit-mode { color: #F43F5E; }
+  .edit-pill-btn {
+    width: 30px; height: 30px; border-radius: 99px; border: 1.5px solid rgba(242,240,227,0.10);
+    background: rgba(242,240,227,0.06); display: flex; align-items: center; justify-content: center;
+    color: rgba(242,240,227,0.45); cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .edit-pill-btn svg { width: 14px; height: 14px; }
+  .edit-pill-btn.active { background: rgba(216,30,30,0.16); border-color: rgba(216,30,30,0.32); color: #F43F5E; }
+  .edit-pill-btn:active { transform: scale(0.90); }
+  .sheet-close { width: 30px; height: 30px; border-radius: 99px; background: rgba(242,240,227,0.07); display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.35); cursor: pointer; flex-shrink: 0; }
+  .sheet-close svg { width: 15px; height: 15px; }
+  .sheet-close:active { transform: scale(0.90); }
+
+  .sheet-body { flex: 1; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .field-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(242,240,227,0.28); margin-bottom: 5px; display: block; }
+
+  /* READ-ONLY display block */
+  .view-block { width: 100%; background: #252520; border: 1.5px solid rgba(242,240,227,0.08); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; color: #F2F0E3; }
+  .view-block.muted { color: rgba(242,240,227,0.55); font-weight: 600; }
+
+  .view-type-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 12px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
+  .view-type-badge.despesa { background: rgba(216,30,30,0.14); color: #F43F5E; }
+  .view-type-badge.receita { background: rgba(52,211,153,0.14); color: #34D399; }
+
+  .view-value { font-family: 'DM Mono', monospace; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+  .view-value.despesa { color: #F43F5E; }
+
+  .view-pay-badge { display: inline-block; background: rgba(242,240,227,0.08); border: 1.5px solid rgba(242,240,227,0.14); border-radius: 10px; padding: 7px 13px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #F2F0E3; }
+  .view-estab-badge { display: inline-block; background: #FFE500; border: 1.5px solid #C8B800; border-radius: 12px; padding: 7px 14px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(26,26,10,0.78); }
+
+  .view-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .view-tag { padding: 5px 11px; border-radius: 8px; font-size: 11px; font-weight: 800; }
+
+  .view-status-row { display: flex; align-items: center; gap: 10px; padding: 4px 0 2px; }
+  .status-check { width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .status-check.paid { background: #34D399; color: #0f2318; }
+  .status-check svg { width: 13px; height: 13px; }
+  .status-text { font-size: 14px; font-weight: 800; color: #F2F0E3; }
+
+  /* EDIT mode */
+  .edit-input { width: 100%; background: #252520; border: 1.5px solid rgba(242,240,227,0.08); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; color: #F2F0E3; font-family: inherit; }
+  .edit-input:focus { outline: none; border-color: #D81E1E; }
+  .edit-toggle-row { display: flex; gap: 8px; }
+  .edit-toggle { flex: 1; padding: 10px; border-radius: 12px; text-align: center; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; border: 1.5px solid rgba(242,240,227,0.08); color: rgba(242,240,227,0.30); cursor: pointer; }
+  .edit-toggle.selected.despesa { background: rgba(216,30,30,0.14); border-color: rgba(216,30,30,0.32); color: #F43F5E; }
+
+  .only-view { display: block; }
+  .only-edit { display: none; }
+  .sheet.edit-mode .only-view { display: none; }
+  .sheet.edit-mode .only-edit { display: block; }
+  .sheet.edit-mode .only-edit.flex-show { display: flex; }
+
+  .save-bar { padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); flex-shrink: 0; }
+  .save-btn { width: 100%; background: #D81E1E; color: #FFFFFF; border: none; border-radius: 16px; padding: 15px; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; box-shadow: 0 8px 20px rgba(216,30,30,0.35); cursor: pointer; }
+  .save-btn:active { transform: scale(0.97); }
+
+  .locked-note { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; color: rgba(242,240,227,0.25); padding: 2px 2px 4px; }
+  .locked-note svg { width: 12px; height: 12px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div style="text-align:center;">
+  <span class="badge-new">Novo — Detalhes da Movimentação</span>
+  <p class="label">Modo Escuro — toque no card para abrir · toque no lápis para editar</p>
+</div>
+
+<div class="phone">
+  <div class="screen">
+    <div class="page-header">
+      <div class="eyebrow">Finanças</div>
+      <div class="title">Controle Financeiro</div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">📋 Movimentações</div>
+      <div class="tab">📈 Dashboard</div>
+    </div>
+
+    <div class="date-label">Hoje · 21 de Jul.</div>
+    <div class="tx-card" id="openCardDark">
+      <div class="tx-top">
+        <div class="tx-left">
+          <div class="tx-dot">D</div>
+          <div><div class="tx-name">Fornecedor ABC Ltda</div><div class="tx-estab">Castelo Real</div></div>
+        </div>
+        <span class="tx-val">−R$ 1.250,00</span>
+      </div>
+      <div class="tx-bottom">
+        <span class="tx-pay-badge">PIX</span>
+        <span class="tx-status">Pago</span>
+      </div>
+    </div>
+    <div class="date-label">Ontem · 20 de Jul.</div>
+    <div class="tx-card">
+      <div class="tx-top">
+        <div class="tx-left">
+          <div class="tx-dot">D</div>
+          <div><div class="tx-name">Descartáveis Mariana</div><div class="tx-estab">Universo do R$1,99</div></div>
+        </div>
+        <span class="tx-val">−R$ 17,90</span>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item">📊<span>Dashboard</span></div>
+      <div class="nav-item">📦<span>Estoque</span></div>
+      <div class="nav-item">📈<span>Requisições</span></div>
+      <div class="nav-item">↗<span>Entrada</span></div>
+      <div class="nav-item active">💰<span>Finanças</span></div>
+      <div class="nav-item">👥<span>RH</span></div>
+      <div class="nav-item">⚙<span>Config.</span></div>
+    </div>
+
+    <!-- Backdrop + Detail Sheet -->
+    <div class="backdrop" id="backdropDark"></div>
+    <div class="sheet" id="sheetDark">
+      <div class="sheet-handle"><span></span></div>
+      <div class="sheet-header">
+        <div class="sheet-header-left">
+          <span class="sheet-title" id="titleDark">Detalhes da Movimentação</span>
+        </div>
+        <div class="sheet-header-left">
+          <button class="edit-pill-btn" id="editBtnDark" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+          </button>
+          <button class="sheet-close" id="closeDark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <!-- Tipo -->
+        <div>
+          <span class="field-label">Tipo</span>
+          <span class="view-type-badge despesa only-view">Despesa</span>
+          <div class="edit-toggle-row only-edit">
+            <div class="edit-toggle">Receita</div>
+            <div class="edit-toggle selected despesa">Despesa</div>
+          </div>
+        </div>
+
+        <!-- Valor -->
+        <div>
+          <span class="field-label">Valor</span>
+          <div class="view-value despesa only-view">R$ 1.250,00</div>
+          <input class="edit-input only-edit" value="R$ 1.250,00" style="font-family:'DM Mono',monospace; font-weight:800; font-size:18px;">
+        </div>
+
+        <!-- Favorecido -->
+        <div>
+          <span class="field-label">Favorecido / Descrição</span>
+          <div class="view-block only-view">Fornecedor ABC Ltda</div>
+          <input class="edit-input only-edit" value="Fornecedor ABC Ltda">
+        </div>
+
+        <!-- Data -->
+        <div>
+          <span class="field-label">Data</span>
+          <div class="view-block muted only-view">21 de jul. de 2026</div>
+          <input class="edit-input only-edit" value="21/07/2026">
+        </div>
+
+        <!-- Tipo de Pagamento -->
+        <div>
+          <span class="field-label">Tipo de pagamento</span>
+          <span class="view-pay-badge only-view">PIX</span>
+          <input class="edit-input only-edit" value="PIX">
+        </div>
+
+        <!-- Estabelecimento -->
+        <div>
+          <span class="field-label">Estabelecimento</span>
+          <span class="view-estab-badge only-view">Castelo Real</span>
+          <input class="edit-input only-edit" value="Castelo Real">
+        </div>
+
+        <!-- Tags -->
+        <div>
+          <span class="field-label">Tags</span>
+          <div class="view-tags only-view">
+            <span class="view-tag" style="background:rgba(167,139,250,0.18); color:#C4B5FD;">Fixo Mensal</span>
+            <span class="view-tag" style="background:rgba(96,165,250,0.18); color:#93C5FD;">Fornecedor</span>
+          </div>
+          <div class="view-tags only-edit flex-show">
+            <span class="view-tag" style="background:rgba(167,139,250,0.18); color:#C4B5FD;">Fixo Mensal ✕</span>
+            <span class="view-tag" style="background:rgba(96,165,250,0.18); color:#93C5FD;">Fornecedor ✕</span>
+            <span class="view-tag" style="background:transparent; border:1.5px dashed rgba(242,240,227,0.18); color:rgba(242,240,227,0.30);">+ Nova tag</span>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="only-view">
+          <span class="field-label">Status</span>
+          <div class="view-status-row">
+            <div class="status-check paid">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+            </div>
+            <span class="status-text">Já foi pago</span>
+          </div>
+        </div>
+        <div class="only-edit" style="display:none;">
+          <div class="view-status-row">
+            <div class="status-check paid">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+            </div>
+            <span class="status-text">Já foi pago</span>
+          </div>
+        </div>
+
+        <div class="locked-note only-view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Toque no lápis acima para editar
+        </div>
+
+        <div class="only-edit" style="display:none;">
+          <div class="save-bar">
+            <button class="save-btn" id="saveBtnDark">Salvar Alterações</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="hint">O menu inferior agora fica sempre atrás das janelas — mesmo com a folha ocupando 90% da tela, o menu não vaza por cima dos controles.</p>
+
+<script>
+  (function () {
+    var openCard = document.getElementById('openCardDark');
+    var backdrop = document.getElementById('backdropDark');
+    var sheet = document.getElementById('sheetDark');
+    var closeBtn = document.getElementById('closeDark');
+    var editBtn = document.getElementById('editBtnDark');
+    var title = document.getElementById('titleDark');
+    var saveBtn = document.getElementById('saveBtnDark');
+
+    function open() { backdrop.classList.add('show'); sheet.classList.add('show'); }
+    function close() { backdrop.classList.remove('show'); sheet.classList.remove('show'); setViewMode(); }
+    function setViewMode() {
+      sheet.classList.remove('edit-mode');
+      title.textContent = 'Detalhes da Movimentação';
+      title.classList.remove('edit-mode');
+      editBtn.classList.remove('active');
+    }
+    function setEditMode() {
+      sheet.classList.add('edit-mode');
+      title.textContent = 'Editar Movimentação';
+      title.classList.add('edit-mode');
+      editBtn.classList.add('active');
+    }
+
+    openCard.addEventListener('click', open);
+    backdrop.addEventListener('click', close);
+    closeBtn.addEventListener('click', close);
+    editBtn.addEventListener('click', function () {
+      if (sheet.classList.contains('edit-mode')) setViewMode(); else setEditMode();
+    });
+    saveBtn && saveBtn.addEventListener('click', setViewMode);
+
+    setTimeout(open, 500);
+  })();
+</script>
+</body>
+</html>

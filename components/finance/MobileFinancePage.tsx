@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
-  ClipboardList, Check, Loader2, Trash2,
+  ClipboardList, Check, Loader2, Trash2, Pencil, Lock,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import { useFinanceTags, FinanceTag } from '@/hooks/useFinanceTags';
+import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ function TxSheet({
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-      className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
       style={{ maxHeight: '90svh' }}
     >
       {/* Handle */}
@@ -424,7 +424,7 @@ function CalendarSheet({
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-      className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
       style={{ maxHeight: '90svh' }}
     >
       {/* Handle */}
@@ -589,7 +589,7 @@ function FilterFieldSheet({
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-      className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
       style={{ maxHeight: '90svh' }}
     >
       {/* Handle */}
@@ -659,6 +659,329 @@ function FilterFieldSheet({
   );
 }
 
+// ── Transaction Detail Sheet (view + inline edit) ───────────────────────────
+
+function TxDetailSheet({
+  tx,
+  mode,
+  onToggleMode,
+  form,
+  setForm,
+  onSave,
+  onClose,
+  saving,
+  tags,
+  onCreateTag,
+}: {
+  tx: Transaction;
+  mode: 'view' | 'edit';
+  onToggleMode: () => void;
+  form: TxForm;
+  setForm: (f: TxForm) => void;
+  onSave: () => void;
+  onClose: () => void;
+  saving: boolean;
+  tags: FinanceTag[];
+  onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
+}) {
+  const [showKbd, setShowKbd] = useState(false);
+  const isEdit = mode === 'edit';
+
+  const fieldCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const viewBlockCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]';
+  const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
+
+  const selectedTags = tags.filter(t => tx.tag_ids?.includes(t.id));
+
+  return (
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+      className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      style={{ height: '90svh' }}
+    >
+      {/* Handle */}
+      <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+        <span className={cn('text-[15px] font-black', isEdit ? 'text-[#D81E1E]' : 'text-[#1A1A0E] dark:text-[#F2F0E3]')}>
+          {isEdit ? 'Editar Movimentação' : 'Detalhes da Movimentação'}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleMode}
+            className={cn(
+              'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
+              isEdit
+                ? 'bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.28)] text-[#D81E1E]'
+                : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40'
+            )}
+            title="Editar"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-3">
+        {/* Tipo */}
+        <div>
+          <span className={labelCls}>Tipo</span>
+          {isEdit ? (
+            <div className="flex gap-2">
+              {(['Receita', 'Despesa'] as TxType[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setForm({ ...form, tipo: t })}
+                  className={cn(
+                    'flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    form.tipo === t
+                      ? t === 'Receita'
+                        ? 'bg-[rgba(5,150,105,0.10)] border-[rgba(5,150,105,0.30)] text-[#059669]'
+                        : 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+                      : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.40)] dark:text-white/30'
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className={cn(
+              'inline-block px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider',
+              tx.tipo === 'Receita'
+                ? 'bg-[rgba(5,150,105,0.10)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]'
+                : 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E] dark:bg-[rgba(216,30,30,0.14)] dark:text-[#F43F5E]'
+            )}>
+              {tx.tipo}
+            </span>
+          )}
+        </div>
+
+        {/* Valor */}
+        <div>
+          <span className={labelCls}>Valor</span>
+          {isEdit ? (
+            <button
+              onClick={() => setShowKbd(true)}
+              className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
+            >
+              <span className={cn(
+                "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
+                form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
+              )}>
+                R$ {form.valor_final}
+              </span>
+            </button>
+          ) : (
+            <div className={cn(
+              "font-['DM_Mono',monospace] text-[24px] font-black tracking-tight",
+              tx.tipo === 'Receita' ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]'
+            )}>
+              {fmt(tx.valor_final)}
+            </div>
+          )}
+        </div>
+
+        {/* Favorecido */}
+        <div>
+          <span className={labelCls}>Favorecido / Descrição</span>
+          {isEdit ? (
+            <input
+              className={fieldCls}
+              value={form.favorecido}
+              onChange={e => setForm({ ...form, favorecido: e.target.value })}
+              placeholder="Nome do favorecido..."
+              onFocus={() => setShowKbd(false)}
+            />
+          ) : (
+            <div className={viewBlockCls}>{tx.favorecido || '—'}</div>
+          )}
+        </div>
+
+        {/* Data */}
+        <div>
+          <span className={labelCls}>Data</span>
+          {isEdit ? (
+            <input
+              type="date"
+              className={fieldCls}
+              value={form.data}
+              onChange={e => setForm({ ...form, data: e.target.value })}
+              onFocus={() => setShowKbd(false)}
+            />
+          ) : (
+            <div className={cn(viewBlockCls, 'font-semibold')}>
+              {new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </div>
+          )}
+        </div>
+
+        {/* Tipo Pagamento */}
+        <div>
+          <span className={labelCls}>Tipo de pagamento</span>
+          {isEdit ? (
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_TYPES.map(pt => (
+                <button
+                  key={pt}
+                  onClick={() => setForm({ ...form, tipo_pagamento: pt })}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    form.tipo_pagamento === pt
+                      ? 'bg-[rgba(26,26,10,0.09)] dark:bg-white/[0.10] border-[rgba(26,26,10,0.18)] dark:border-white/[0.18] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                      : 'bg-transparent border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] text-[rgba(26,26,10,0.35)] dark:text-white/25'
+                  )}
+                >
+                  {pt}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="inline-block bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08] border-[1.5px] border-[rgba(26,26,10,0.14)] dark:border-white/[0.14] rounded-lg px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#1A1A0E] dark:text-[#F2F0E3]">
+              {tx.tipo_pagamento}
+            </span>
+          )}
+        </div>
+
+        {/* Estabelecimento */}
+        <div>
+          <span className={labelCls}>Estabelecimento</span>
+          {isEdit ? (
+            <div className="flex gap-2">
+              {ESTABLISHMENTS.map(e => (
+                <button
+                  key={e}
+                  onClick={() => setForm({ ...form, estabelecimento: e })}
+                  className={cn(
+                    'flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    form.estabelecimento === e
+                      ? 'bg-[#FFE500] border-[#D4C000] text-[rgba(26,26,10,0.75)]'
+                      : 'bg-transparent border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'
+                  )}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="inline-block bg-[#FFE500] border-[1.5px] border-[#D4C000] rounded-xl px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-[rgba(26,26,10,0.78)]">
+              {tx.estabelecimento}
+            </span>
+          )}
+        </div>
+
+        {/* Tags */}
+        {isEdit ? (
+          <TagSelector
+            tags={tags}
+            value={form.tag_ids}
+            onChange={ids => setForm({ ...form, tag_ids: ids })}
+            onCreateTag={onCreateTag}
+          />
+        ) : (
+          <div>
+            <span className={labelCls}>Tags</span>
+            {selectedTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedTags.map(tag => {
+                  const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+                  return (
+                    <span
+                      key={tag.id}
+                      className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border', c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark)}
+                    >
+                      {tag.nome}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">Nenhuma</span>
+            )}
+          </div>
+        )}
+
+        {/* Pago toggle / status */}
+        <div className="flex items-center gap-3 py-1">
+          {isEdit ? (
+            <>
+              <button
+                onClick={() => setForm({ ...form, pago: !form.pago })}
+                className={cn(
+                  'w-6 h-6 rounded-[7px] border-[1.5px] flex items-center justify-center transition-colors',
+                  form.pago
+                    ? 'bg-[#059669] border-[#059669] text-white'
+                    : 'bg-transparent border-[rgba(26,26,10,0.20)] dark:border-white/20'
+                )}
+              >
+                {form.pago && <Check size={12} strokeWidth={3} />}
+              </button>
+              <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">Já foi pago</span>
+            </>
+          ) : (
+            <>
+              <div className={cn(
+                'w-6 h-6 rounded-[7px] flex items-center justify-center',
+                tx.pago ? 'bg-[#059669] text-white' : 'bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08]'
+              )}>
+                {tx.pago && <Check size={12} strokeWidth={3} />}
+              </div>
+              <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
+                {tx.pago ? 'Já foi pago' : 'Ainda não foi pago'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Footer action */}
+        {isEdit ? (
+          <button
+            onClick={onSave}
+            disabled={saving || !form.favorecido.trim() || form.valor_final === '0'}
+            className={cn(
+              'w-full py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-wider text-white',
+              'bg-[#D81E1E] active:scale-[0.97] transition-transform',
+              'disabled:opacity-40',
+              'shadow-[0_4px_14px_rgba(216,30,30,0.30)]'
+            )}
+          >
+            {saving ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Salvar Alterações'}
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[rgba(26,26,10,0.30)] dark:text-white/22 px-0.5">
+            <Lock size={12} />
+            Toque no lápis acima para editar
+          </div>
+        )}
+      </div>
+
+      {/* Numeric keyboard (edit mode only) */}
+      <AnimatePresence>
+        {isEdit && showKbd && (
+          <NumericKeyboard
+            value={form.valor_final}
+            onChange={v => setForm({ ...form, valor_final: v })}
+            onClose={() => setShowKbd(false)}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function MobileFinancePage() {
@@ -686,6 +1009,12 @@ export function MobileFinancePage() {
   // filtro de busca por coluna
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [searchField, setSearchField] = useState<SearchField | null>(null);
+
+  // detalhes / edição de movimentação
+  const [detailTx, setDetailTx] = useState<Transaction | null>(null);
+  const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view');
+  const [detailForm, setDetailForm] = useState<TxForm>(emptyForm());
+  const [savingDetail, setSavingDetail] = useState(false);
 
   // ── Data ────────────────────────────────────────────────────────────────
 
@@ -896,6 +1225,49 @@ export function MobileFinancePage() {
     loadData();
   }
 
+  function openDetail(tx: Transaction) {
+    setDetailTx(tx);
+    setDetailForm({
+      tipo: tx.tipo,
+      tipo_pagamento: tx.tipo_pagamento,
+      favorecido: tx.favorecido,
+      estabelecimento: tx.estabelecimento,
+      data: tx.data,
+      valor_final: tx.valor_final.toFixed(2).replace('.', ','),
+      pago: tx.pago,
+      tag_ids: tx.tag_ids ?? [],
+    });
+    setDetailMode('view');
+  }
+
+  function closeDetail() {
+    setDetailTx(null);
+    setDetailMode('view');
+  }
+
+  async function handleSaveDetail() {
+    if (!detailTx) return;
+    if (!detailForm.favorecido.trim() || detailForm.valor_final === '0') return;
+    setSavingDetail(true);
+    const valorNum = parseFloat(detailForm.valor_final.replace(',', '.'));
+    const updates = {
+      tipo: detailForm.tipo,
+      tipo_pagamento: detailForm.tipo_pagamento,
+      favorecido: detailForm.favorecido.trim(),
+      estabelecimento: detailForm.estabelecimento,
+      data: detailForm.data,
+      valor_final: valorNum,
+      pago: detailForm.pago,
+      total_pago: detailForm.pago ? valorNum : 0,
+      tag_ids: detailForm.tag_ids ?? [],
+    };
+    await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
+    setSavingDetail(false);
+    setDetailTx({ ...detailTx, ...updates });
+    setDetailMode('view');
+    loadData();
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -954,6 +1326,7 @@ export function MobileFinancePage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="fixed inset-0 z-40 flex flex-col bg-[#FDFAF0] dark:bg-[#1E1E18] pb-[72px]">
 
       {/* Header */}
@@ -1125,7 +1498,7 @@ export function MobileFinancePage() {
                   {txs.map(tx => (
                     <div
                       key={tx.id}
-                      onClick={() => selectionMode && toggleSelect(tx.id)}
+                      onClick={() => selectionMode ? toggleSelect(tx.id) : openDetail(tx)}
                       className={cn(
                         'mx-3 mb-2 bg-white dark:bg-[#252520] border-[1.5px] rounded-[18px] px-3.5 py-3 flex flex-col gap-2',
                         'active:scale-[0.99] transition-all',
@@ -1304,85 +1677,121 @@ export function MobileFinancePage() {
 
         </AnimatePresence>
       </div>
-
-      {/* Add Transaction Sheet backdrop + sheet */}
-      <AnimatePresence>
-        {showAddSheet && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowAddSheet(false)}
-            />
-            <TxSheet
-              form={txForm}
-              setForm={setTxForm}
-              onSave={handleSave}
-              onClose={() => setShowAddSheet(false)}
-              saving={saving}
-              tags={tags}
-              onCreateTag={(nome, cor) => createTag(nome, cor, '')}
-            />
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Calendar Sheet backdrop + sheet */}
-      <AnimatePresence>
-        {showCalSheet && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowCalSheet(false)}
-            />
-            <CalendarSheet
-              monthLabel={calMonthLabel}
-              days={calDays}
-              today={today()}
-              viewDate={calViewDate}
-              onPrevMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-              onNextMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-              rangeMode={calRangeMode}
-              onToggleRangeMode={toggleCalRangeMode}
-              selectedDate={calSelectedDate}
-              rangeStart={calRangeStart}
-              rangeEnd={calRangeEnd}
-              onDayClick={handleCalDayClick}
-              onClear={clearCalFilter}
-              onClose={() => setShowCalSheet(false)}
-              toIsoDay={toIsoDay}
-            />
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Filter Field Sheet backdrop + sheet */}
-      <AnimatePresence>
-        {showFilterSheet && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowFilterSheet(false)}
-            />
-            <FilterFieldSheet
-              value={searchField}
-              onChange={setSearchField}
-              onClose={() => setShowFilterSheet(false)}
-            />
-          </>
-        )}
-      </AnimatePresence>
     </div>
+
+    {/*
+      Os sheets abaixo são renderizados FORA do container `z-40` acima de propósito:
+      esse container fixed+z-index cria um novo contexto de empilhamento, o que prendia
+      os sheets (mesmo com z-index alto) por baixo do BottomNav (z-50, irmão fora desse
+      contexto). Ficando como irmãos no topo, o z-[100] deles vale globalmente.
+    */}
+
+    {/* Add Transaction Sheet backdrop + sheet */}
+    <AnimatePresence>
+      {showAddSheet && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAddSheet(false)}
+          />
+          <TxSheet
+            form={txForm}
+            setForm={setTxForm}
+            onSave={handleSave}
+            onClose={() => setShowAddSheet(false)}
+            saving={saving}
+            tags={tags}
+            onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+          />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Calendar Sheet backdrop + sheet */}
+    <AnimatePresence>
+      {showCalSheet && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowCalSheet(false)}
+          />
+          <CalendarSheet
+            monthLabel={calMonthLabel}
+            days={calDays}
+            today={today()}
+            viewDate={calViewDate}
+            onPrevMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+            onNextMonth={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+            rangeMode={calRangeMode}
+            onToggleRangeMode={toggleCalRangeMode}
+            selectedDate={calSelectedDate}
+            rangeStart={calRangeStart}
+            rangeEnd={calRangeEnd}
+            onDayClick={handleCalDayClick}
+            onClear={clearCalFilter}
+            onClose={() => setShowCalSheet(false)}
+            toIsoDay={toIsoDay}
+          />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Filter Field Sheet backdrop + sheet */}
+    <AnimatePresence>
+      {showFilterSheet && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowFilterSheet(false)}
+          />
+          <FilterFieldSheet
+            value={searchField}
+            onChange={setSearchField}
+            onClose={() => setShowFilterSheet(false)}
+          />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Transaction Detail Sheet backdrop + sheet */}
+    <AnimatePresence>
+      {detailTx && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+            onClick={closeDetail}
+          />
+          <TxDetailSheet
+            tx={detailTx}
+            mode={detailMode}
+            onToggleMode={() => setDetailMode(m => (m === 'view' ? 'edit' : 'view'))}
+            form={detailForm}
+            setForm={setDetailForm}
+            onSave={handleSaveDetail}
+            onClose={closeDetail}
+            saving={savingDetail}
+            tags={tags}
+            onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+          />
+        </>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
