@@ -3340,7 +3340,7 @@ export default function Page() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={unreadNotificationCount}
         />
-        <main className={cn('flex-1', isMobileView ? 'ml-0' : 'ml-[80px]')}>
+        <main className={cn('flex-1 min-w-0 overflow-x-clip', isMobileView ? 'ml-0' : 'ml-[80px]')}>
           <TopNav
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}

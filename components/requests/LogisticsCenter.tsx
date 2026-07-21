@@ -343,7 +343,7 @@ export function LogisticsCenter({
               <div key={draft.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-0.5">Rascunho · Lista</p>
-                  <p className="text-sm font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{draft.file_name || 'Rascunho sem nome'}</p>
+                  <p className="text-sm font-black text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{draft.file_name || 'Rascunho sem nome'}</p>
                   <p className="text-xs text-[#1A1A0E]/40 dark:text-white/35 mt-0.5">{draft.item_count || 0} produto(s)</p>
                 </div>
                 <div className="flex gap-2">
@@ -408,7 +408,7 @@ export function LogisticsCenter({
                     <span className="text-[#1A1A0E]/18 dark:text-white/18">·</span>
                     <span className="whitespace-nowrap shrink-0">{note.timestamp}</span>
                   </div>
-                  <span className="self-start bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
+                  <span className="self-start max-w-full truncate bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
                     {note.noteNumber || note.fileName}
                   </span>
                 </div>
