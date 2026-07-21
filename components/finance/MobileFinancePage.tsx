@@ -22,6 +22,7 @@ type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Tra
 type TxType = 'Receita' | 'Despesa';
 type Tab = 'mov' | 'dash';
 type DashPeriod = '7d' | '30d' | '3m' | '6m' | '1y';
+type SearchField = 'favorecido' | 'estabelecimento' | 'tipo' | 'tipo_pagamento' | 'tags' | 'vencimento';
 
 interface Transaction {
   id: string;
@@ -35,6 +36,8 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   numero_cheque: string | null;
+  numero_parcela: number | null;
+  total_parcelas: number | null;
   account_id?: string | null;
   tag_ids: string[];
 }
@@ -559,6 +562,103 @@ function CalendarSheet({
   );
 }
 
+// ── Filter Field Sheet ───────────────────────────────────────────────────────
+
+const FILTER_FIELD_OPTIONS: { key: SearchField | null; label: string; sub?: string }[] = [
+  { key: null, label: 'Padrão', sub: 'Favorecido + Estabelec.' },
+  { key: 'favorecido', label: 'Favorecido' },
+  { key: 'estabelecimento', label: 'Estabelecimento' },
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'tipo_pagamento', label: 'Pagamento' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'vencimento', label: 'Vencimento' },
+];
+
+function FilterFieldSheet({
+  value,
+  onChange,
+  onClose,
+}: {
+  value: SearchField | null;
+  onChange: (v: SearchField | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+      className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+      style={{ maxHeight: '90svh' }}
+    >
+      {/* Handle */}
+      <div className="flex justify-center pt-3 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pb-1 shrink-0">
+        <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Filtrar Busca</span>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+        >
+          <X size={16} />
+        </button>
+      </div>
+      <p className="px-4 pb-3 text-[11.5px] font-semibold text-[rgba(26,26,10,0.40)] dark:text-white/35">
+        Escolha em qual coluna o texto digitado deve ser buscado
+      </p>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-2">
+        {FILTER_FIELD_OPTIONS.map(opt => {
+          const isActive = value === opt.key;
+          return (
+            <button
+              key={opt.label}
+              onClick={() => onChange(opt.key)}
+              className={cn(
+                'w-full flex items-center justify-between px-4 py-3.5 rounded-2xl mb-2 border-[1.5px] transition-colors text-left',
+                isActive
+                  ? 'bg-[rgba(216,30,30,0.06)] dark:bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.22)] dark:border-[rgba(216,30,30,0.28)]'
+                  : 'bg-white dark:bg-[#252520] border-[rgba(26,26,10,0.08)] dark:border-white/[0.07]',
+              )}
+            >
+              <div>
+                <div className={cn(
+                  'text-[14px] font-extrabold',
+                  isActive ? 'text-[#D81E1E] dark:text-[#F43F5E]' : 'text-[#1A1A0E] dark:text-[#F2F0E3]',
+                )}>
+                  {opt.label}
+                </div>
+                {opt.sub && (
+                  <div className="text-[10.5px] font-semibold text-[rgba(26,26,10,0.35)] dark:text-white/30 mt-0.5">{opt.sub}</div>
+                )}
+              </div>
+              <div className={cn(
+                'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                isActive ? 'border-[#D81E1E] bg-[#D81E1E]' : 'border-[rgba(26,26,10,0.20)] dark:border-white/20',
+              )}>
+                {isActive && <div className="w-2 h-2 rounded-full bg-white" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="px-4 pb-4 pt-1 shrink-0" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#D81E1E] text-white rounded-2xl py-3.5 text-[13px] font-black uppercase tracking-wide shadow-lg shadow-[#D81E1E]/25 active:scale-[0.98] transition-transform"
+        >
+          Aplicar Filtro
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function MobileFinancePage() {
@@ -582,6 +682,10 @@ export function MobileFinancePage() {
   const [calRangeMode, setCalRangeMode] = useState(false);
   const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
   const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
+
+  // filtro de busca por coluna
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [searchField, setSearchField] = useState<SearchField | null>(null);
 
   // ── Data ────────────────────────────────────────────────────────────────
 
@@ -684,11 +788,28 @@ export function MobileFinancePage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return transactions.filter(t =>
-      (!q || t.favorecido.toLowerCase().includes(q) || t.estabelecimento.toLowerCase().includes(q))
-      && inSelectedPeriod(t.data)
-    );
-  }, [transactions, search, calSelectedDate, calRangeStart, calRangeEnd]);
+    return transactions.filter(t => {
+      if (q) {
+        if (searchField === 'favorecido') {
+          if (!t.favorecido.toLowerCase().includes(q)) return false;
+        } else if (searchField === 'estabelecimento') {
+          if (!t.estabelecimento.toLowerCase().includes(q)) return false;
+        } else if (searchField === 'tipo') {
+          if (!t.tipo.toLowerCase().includes(q)) return false;
+        } else if (searchField === 'tipo_pagamento') {
+          if (!t.tipo_pagamento.toLowerCase().includes(q)) return false;
+        } else if (searchField === 'tags') {
+          const nomes = (t.tag_ids ?? []).map(id => tags.find(tg => tg.id === id)?.nome.toLowerCase() ?? '');
+          if (!nomes.some(n => n.includes(q))) return false;
+        } else if (searchField === 'vencimento') {
+          if (!t.vencimento || !new Date(t.vencimento + 'T00:00:00').toLocaleDateString('pt-BR').includes(q)) return false;
+        } else if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      return inSelectedPeriod(t.data);
+    });
+  }, [transactions, search, searchField, tags, calSelectedDate, calRangeStart, calRangeEnd]);
 
   const totals = useMemo(() => {
     const rec  = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
@@ -786,6 +907,19 @@ export function MobileFinancePage() {
   async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
     await supabase.from('finance_transactions').delete().in('id', [...selectedIds]);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+    loadData();
+  }
+
+  async function handleMarkPaidSelected() {
+    if (selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    await Promise.all(ids.map(id => {
+      const t = transactions.find(tx => tx.id === id);
+      if (!t) return null;
+      return supabase.from('finance_transactions').update({ pago: true, total_pago: t.valor_final }).eq('id', id);
+    }));
     setSelectedIds(new Set());
     setSelectionMode(false);
     loadData();
@@ -926,7 +1060,13 @@ export function MobileFinancePage() {
                 </button>
                 {/* Filter icon */}
                 <button
-                  className="w-9 h-9 rounded-xl bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/40 active:scale-90 transition-transform"
+                  onClick={() => setShowFilterSheet(true)}
+                  className={cn(
+                    'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0',
+                    searchField !== null
+                      ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]'
+                      : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40'
+                  )}
                   title="Filtrar"
                 >
                   <Filter size={14} />
@@ -956,9 +1096,14 @@ export function MobileFinancePage() {
                     className="mx-3 mb-2 bg-[rgba(216,30,30,0.10)] border border-[rgba(216,30,30,0.20)] rounded-2xl px-4 py-2.5 flex items-center justify-between overflow-hidden"
                   >
                     <span className="text-[12px] font-bold text-[#D81E1E]">{selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
-                    <button onClick={handleDeleteSelected} className="flex items-center gap-1.5 text-[#D81E1E] text-[12px] font-black">
-                      <Trash2 size={14} /> Excluir
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={handleMarkPaidSelected} className="flex items-center gap-1.5 text-[#059669] dark:text-[#34D399] text-[12px] font-black">
+                        <Check size={14} /> Marcar Pago
+                      </button>
+                      <button onClick={handleDeleteSelected} className="flex items-center gap-1.5 text-[#D81E1E] text-[12px] font-black">
+                        <Trash2 size={14} /> Excluir
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1026,9 +1171,16 @@ export function MobileFinancePage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
-                        <span className="bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] rounded-[8px] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.45)] dark:text-white/35">
-                          {tx.tipo_pagamento}
-                        </span>
+                        <div className="flex items-center">
+                          <span className="bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] rounded-[8px] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.45)] dark:text-white/35">
+                            {tx.tipo_pagamento}
+                          </span>
+                          {tx.vencimento && (
+                            <span className="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[9px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
+                              {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
+                            </span>
+                          )}
+                        </div>
                         <span className={cn(
                           'text-[10px] font-black px-2.5 py-[3px] rounded-[8px]',
                           tx.pago
@@ -1206,6 +1358,27 @@ export function MobileFinancePage() {
               onClear={clearCalFilter}
               onClose={() => setShowCalSheet(false)}
               toIsoDay={toIsoDay}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Filter Field Sheet backdrop + sheet */}
+      <AnimatePresence>
+        {showFilterSheet && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowFilterSheet(false)}
+            />
+            <FilterFieldSheet
+              value={searchField}
+              onChange={setSearchField}
+              onClose={() => setShowFilterSheet(false)}
             />
           </>
         )}
