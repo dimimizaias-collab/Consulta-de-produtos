@@ -275,7 +275,7 @@ function TxSheet({
       </div>
 
       {/* Scrollable form */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 pb-3">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 space-y-3 pb-3">
         {/* Type toggle */}
         <div>
           <span className={labelCls}>Tipo</span>
@@ -509,7 +509,7 @@ function CalendarSheet({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 pb-4">
         {/* Month header */}
         <div className="bg-[#FFE500] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
           <span className="text-[15px] font-black text-[#1A1A0E] capitalize">{monthLabel}</span>
@@ -677,7 +677,7 @@ function FilterFieldSheet({
         Escolha em qual coluna o texto digitado deve ser buscado
       </p>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 pb-2">
         {FILTER_FIELD_OPTIONS.map(opt => {
           const isActive = value === opt.key;
           return (
@@ -806,7 +806,7 @@ function TxDetailSheet({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 pb-3">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 space-y-3 pb-3">
         {/* Tipo */}
         <div>
           <span className={labelCls}>Tipo</span>
@@ -1150,7 +1150,7 @@ function ParcelasModal({
       </div>
 
       {/* Scrollable rows */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 space-y-2.5 pb-3">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 space-y-2.5 pb-3">
         {rows.map((row, idx) => (
           <div key={idx} className="border-[1.5px] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] rounded-2xl p-2.5 flex flex-col gap-2 bg-white dark:bg-[#252520]">
             <div className="flex items-center justify-between">
@@ -1285,13 +1285,35 @@ export function MobileFinancePage() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Trava o scroll do body enquanto um sheet está aberto — sem isso, o overscroll
-  // (rubber-band) da página por trás "balança" a janela fixa no mobile.
+  // Trava o scroll do body enquanto um sheet está aberto. `overflow: hidden` sozinho
+  // não é suficiente no Safari/iOS (ele ainda permite o rubber-band da página por
+  // trás, que "balança" a janela fixa) — a técnica confiável é fixar a posição do
+  // body no scroll atual e restaurar ao fechar.
   useEffect(() => {
-    const anySheetOpen = showAddSheet || showCalSheet || showFilterSheet || detailTx !== null;
-    document.body.style.overflow = anySheetOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [showAddSheet, showCalSheet, showFilterSheet, detailTx]);
+    const anySheetOpen = showAddSheet || showCalSheet || showFilterSheet || detailTx !== null || parcelasModalOpen !== null;
+    if (!anySheetOpen) return;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: document.body.style.position,
+      top: document.body.style.top,
+      left: document.body.style.left,
+      right: document.body.style.right,
+      overflow: document.body.style.overflow,
+    };
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.position = prev.position;
+      document.body.style.top = prev.top;
+      document.body.style.left = prev.left;
+      document.body.style.right = prev.right;
+      document.body.style.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [showAddSheet, showCalSheet, showFilterSheet, detailTx, parcelasModalOpen]);
 
   // ── Computed — Calendário ────────────────────────────────────────────────
 
