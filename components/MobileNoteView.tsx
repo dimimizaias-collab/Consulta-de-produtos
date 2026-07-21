@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
   ChevronRight, FileText, Filter, Layers, Link as LinkIcon,
-  List, Minus, Plus, Save, Search, Trash2, X,
+  List, Minus, Pencil, Plus, Ruler, Save, Search, Trash2, X, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReviewNote } from '@/components/requests/LogisticsCenter';
@@ -27,7 +27,7 @@ interface MobileNoteViewProps {
   eans: string[];              setEans: React.Dispatch<React.SetStateAction<string[]>>;
   skus: string[];              setSkus: React.Dispatch<React.SetStateAction<string[]>>;
   qtys: number[];              setQtys: React.Dispatch<React.SetStateAction<number[]>>;
-  itemPrices: number[];        setItemPrices: React.Dispatch<React.SetStateAction<number[]>>;
+  itemPrices: (number | null)[]; setItemPrices: React.Dispatch<React.SetStateAction<(number | null)[]>>;
   sellPrices: number[];        setSellPrices: React.Dispatch<React.SetStateAction<number[]>>;
   verified: boolean[];         setVerified: React.Dispatch<React.SetStateAction<boolean[]>>;
   units: string[];
@@ -44,6 +44,13 @@ interface MobileNoteViewProps {
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
   eanVariants: EanVariant[][];
   setEanVariants: React.Dispatch<React.SetStateAction<EanVariant[][]>>;
+
+  /** Menu de unidade da Quantidade (paridade com o desktop) */
+  onUseTranslation: (idx: number) => Promise<void> | void;
+  onSaveMeasure: (idx: number, unitName: string, multiplier: string) => Promise<boolean>;
+  onResetMultiplier: (idx: number) => void;
+  loadingUnitIdx?: number | null;
+  savingMeasure?: boolean;
 }
 
 type Tab = 'itens' | 'detalhe' | 'resumo';
@@ -325,6 +332,8 @@ export function MobileNoteView({
   eanProblems = [],
   onReportEanProblem,
   eanVariants, setEanVariants,
+  onUseTranslation, onSaveMeasure, onResetMultiplier,
+  loadingUnitIdx = null, savingMeasure = false,
 }: MobileNoteViewProps) {
   const [tab, setTab] = useState<Tab>('itens');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -336,6 +345,10 @@ export function MobileNoteView({
   const [linkingPanel, setLinkingPanel] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<'search' | 'venda' | null>(null);
   const [numpadValue, setNumpadValue] = useState('');
+  const [unitMenuOpen, setUnitMenuOpen] = useState(false);
+  const [measureFormOpen, setMeasureFormOpen] = useState(false);
+  const [measureUnit, setMeasureUnit] = useState('');
+  const [measureMult, setMeasureMult] = useState('');
   const detailScrollRef = useRef<HTMLDivElement>(null);
   const eanInputRef = useRef<HTMLInputElement>(null);
 
@@ -351,6 +364,7 @@ export function MobileNoteView({
   const sell     = (i: number) => sellPrices[i] ?? items[i]?.product_price ?? 0;
   const isVerif  = (i: number) => verified[i]   ?? items[i]?.verified      ?? false;
   const unit     = (i: number) => units[i]      ?? items[i]?.unit          ?? 'UN';
+  const mult     = (i: number) => multipliers[i] ?? items[i]?.multiplier   ?? 1;
   const markup   = (i: number) => { const c = cost(i); const s = sell(i); return c > 0 && s > 0 ? ((s - c) / c * 100).toFixed(1) : null; };
 
   // totals for Resumo tab
@@ -463,6 +477,8 @@ export function MobileNoteView({
     setActiveIdx(i);
     setLinkingPanel(false);
     setNumpadTarget(null);
+    setUnitMenuOpen(false);
+    setMeasureFormOpen(false);
     setTab('detalhe');
     setTimeout(() => detailScrollRef.current?.scrollTo({ top: 0 }), 50);
   }
@@ -561,6 +577,154 @@ export function MobileNoteView({
               ))}
             </div>
             <div className="pb-6" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── UNIDADE & MEDIDA (sheet) ────────────────────────────────── */}
+      <AnimatePresence>
+        {unitMenuOpen && (
+          <motion.div
+            key="unit-menu-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-40 bg-black/60"
+            onClick={() => { setUnitMenuOpen(false); setMeasureFormOpen(false); }}
+          />
+        )}
+        {unitMenuOpen && (
+          <motion.div
+            key="unit-menu-sheet"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden"
+          >
+              <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.05]">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-0.5">
+                    Unidade &amp; Medida
+                  </p>
+                  <p className="text-sm font-black text-[#f2f0e3] truncate">
+                    {activeItem?.original_description || activeItem?.description || activeItem?.name || `Item ${activeIdx + 1}`}
+                  </p>
+                  <p className="text-[10px] text-white/35 font-medium mt-0.5">
+                    Unidade atual: <span className="font-black text-white/60">{unit(activeIdx)}</span>
+                    {mult(activeIdx) !== 1 && <span className="font-black text-amber-400"> ×{mult(activeIdx)}</span>}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setUnitMenuOpen(false); setMeasureFormOpen(false); }}
+                  className="ml-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.07] text-white/50 active:bg-white/10 transition-colors shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {!measureFormOpen ? (
+                <div className="p-4 pb-8 space-y-2">
+                  <button
+                    onClick={() => {
+                      setMeasureUnit(unit(activeIdx));
+                      setMeasureMult('');
+                      setMeasureFormOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.07] text-left active:bg-white/[0.08] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-[#D81E1E]/10 border border-[#D81E1E]/20 flex items-center justify-center shrink-0">
+                      <Ruler size={16} className="text-[#f87171]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-[#f2f0e3]">Adicionar medida</p>
+                      <p className="text-[10px] text-white/35 font-medium">Definir quantas UN equivalem a 1 unidade do fornecedor</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      await onUseTranslation(activeIdx);
+                      setUnitMenuOpen(false);
+                    }}
+                    disabled={loadingUnitIdx === activeIdx}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.07] text-left active:bg-white/[0.08] transition-colors disabled:opacity-50"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      {loadingUnitIdx === activeIdx
+                        ? <span className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                        : <Zap size={16} className="text-amber-400" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-[#f2f0e3]">Usar tradução</p>
+                      <p className="text-[10px] text-white/35 font-medium">Aplicar medida já cadastrada para o produto vinculado</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onResetMultiplier(activeIdx);
+                      setUnitMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.07] text-left active:bg-white/[0.08] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
+                      <Pencil size={15} className="text-white/40" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-white/70">Manual</p>
+                      <p className="text-[10px] text-white/35 font-medium">Zerar multiplicador (×1) e ajustar valores manualmente</p>
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 pb-8 space-y-3">
+                  <p className="text-[11px] text-white/40 font-medium leading-relaxed">
+                    Defina quantas unidades internas equivalem a 1 unidade do fornecedor.
+                  </p>
+                  <div>
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1 block">Unidade do fornecedor</label>
+                    <input
+                      type="text"
+                      value={measureUnit}
+                      onChange={e => setMeasureUnit(e.target.value)}
+                      placeholder="Ex: CX, PCT, FD..."
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:border-[#D81E1E]/60 placeholder:text-white/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1 block">Multiplicador (qtd. por unidade)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={measureMult}
+                      onChange={e => setMeasureMult(e.target.value)}
+                      placeholder="Ex: 12"
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:border-[#D81E1E]/60 placeholder:text-white/20"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setMeasureFormOpen(false)}
+                      className="flex-1 py-3 bg-white/[0.05] border border-white/[0.07] rounded-xl text-white/60 text-sm font-bold active:bg-white/10 transition-colors"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const ok = await onSaveMeasure(activeIdx, measureUnit, measureMult.replace(',', '.'));
+                        if (ok) { setMeasureFormOpen(false); setUnitMenuOpen(false); }
+                      }}
+                      disabled={savingMeasure}
+                      className="flex-1 py-3 bg-[#D81E1E] rounded-xl text-white text-sm font-black active:scale-[0.97] transition-transform disabled:opacity-50"
+                    >
+                      {savingMeasure ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1083,7 +1247,17 @@ export function MobileNoteView({
                     >
                       <Plus size={14} />
                     </button>
-                    <span className="text-xs font-bold text-white/30">{unit(activeIdx)}</span>
+                    <button
+                      onClick={() => { setUnitMenuOpen(true); setMeasureFormOpen(false); }}
+                      className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.07] text-xs font-black text-white/60 active:bg-white/10 transition-colors shrink-0"
+                    >
+                      <Ruler size={11} className="text-white/30" />
+                      {unit(activeIdx)}
+                      {mult(activeIdx) !== 1 && (
+                        <span className="text-[9px] font-black text-amber-400">×{mult(activeIdx)}</span>
+                      )}
+                      <ChevronRight size={11} className="rotate-90 text-white/30" />
+                    </button>
                   </div>
                 </div>
                 {/* custo (readonly) */}

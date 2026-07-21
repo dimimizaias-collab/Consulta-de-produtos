@@ -1711,10 +1711,10 @@ export function ManualManifestModal({
                 </button>
                 <button
                   onClick={() => { handleUseTranslation(activeRow); setUnitMenuRowId(null); }}
-                  disabled={isLoadingTranslation}
+                  disabled={loadingTranslation === activeRow.id}
                   className="w-full text-left px-3 py-2.5 text-xs font-bold transition-colors flex items-center gap-2 disabled:opacity-50 text-[#1A1A0E]/70 dark:text-white/70 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                 >
-                  {isLoadingTranslation
+                  {loadingTranslation === activeRow.id
                     ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-r-transparent shrink-0" />
                     : <Zap size={12} className="shrink-0" />
                   }

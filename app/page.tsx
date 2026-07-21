@@ -2482,40 +2482,47 @@ export default function Page() {
   }, [noteSupplierMappings]);
   // ────────────────────────────────────────────────────────────────────────────
 
-  const handleReviewSaveMeasure = async () => {
-    if (reviewMeasureIdx === null || !viewingReviewNote) return;
+  const applyReviewMeasure = async (idx: number, unitName: string, multStr: string): Promise<boolean> => {
+    if (!viewingReviewNote) return false;
     captureSnapshot();
-    const mult = parseFloat(reviewMeasureMultiplier);
+    const mult = parseFloat(multStr);
     if (isNaN(mult) || mult <= 0) {
       setNotification({ type: 'error', message: 'Informe um multiplicador válido (maior que 0).' });
-      return;
+      return false;
     }
     setReviewSavingMeasure(true);
     try {
-      const item = viewingReviewNote.items[reviewMeasureIdx];
+      const item = viewingReviewNote.items[idx];
       if (item.product_id) {
         await supabase.from('supplier_units').insert({
           product_id: item.product_id,
-          unit_name: reviewMeasureUnit.trim() || item.unit,
+          unit_name: unitName.trim() || item.unit,
           multiplier: mult,
         });
       }
       const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
       const newQty = originalQty * mult;
-      const u = [...viewingNoteUnits]; u[reviewMeasureIdx] = reviewMeasureUnit.trim() || item.unit || 'UN'; setViewingNoteUnits(u);
+      const u = [...viewingNoteUnits]; u[idx] = unitName.trim() || item.unit || 'UN'; setViewingNoteUnits(u);
       // Divide unit price by multiplier and reset multiplier to 1 to avoid double-division in cost = price/multiplier
-      const currentPrice = viewingNoteItemPrices[reviewMeasureIdx] ?? item.price ?? 0;
+      const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
       const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
-      const p = [...viewingNoteItemPrices]; p[reviewMeasureIdx] = unitPrice; setViewingNoteItemPrices(p);
-      const m = [...viewingNoteMultipliers]; m[reviewMeasureIdx] = 1; setViewingNoteMultipliers(m);
-      const q = [...viewingNoteQtys]; q[reviewMeasureIdx] = newQty; setViewingNoteQtys(q);
-      setNotification({ type: 'success', message: `Medida cadastrada! 1 ${reviewMeasureUnit || item.unit} = ${mult} UN.` });
-      setReviewMeasureIdx(null);
+      const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
+      const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
+      const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
+      setNotification({ type: 'success', message: `Medida cadastrada! 1 ${unitName || item.unit} = ${mult} UN.` });
+      return true;
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao salvar medida.' });
+      return false;
     } finally {
       setReviewSavingMeasure(false);
     }
+  };
+
+  const handleReviewSaveMeasure = async () => {
+    if (reviewMeasureIdx === null) return;
+    const ok = await applyReviewMeasure(reviewMeasureIdx, reviewMeasureUnit, reviewMeasureMultiplier);
+    if (ok) setReviewMeasureIdx(null);
   };
 
   const handleNoteItemCreateAndLink = async () => {
@@ -8397,6 +8404,11 @@ export default function Page() {
             onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}
             eanVariants={viewingNoteEanVariants}
             setEanVariants={setViewingNoteEanVariants}
+            onUseTranslation={handleReviewUseTranslation}
+            onSaveMeasure={applyReviewMeasure}
+            onResetMultiplier={(idx) => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); }}
+            loadingUnitIdx={reviewLoadingUnitIdx}
+            savingMeasure={reviewSavingMeasure}
           />
         )}
       </AnimatePresence>
