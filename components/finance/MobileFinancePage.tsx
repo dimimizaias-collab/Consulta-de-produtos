@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
-  Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight,
+  Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
   ClipboardList, Check, Loader2, Trash2,
 } from 'lucide-react';
 import {
@@ -1011,14 +1011,14 @@ export function MobileFinancePage() {
               className="pb-6"
             >
               {/* Summary chips — swipe para o lado (estilo Stories) para ver Vencimento/Total Pago */}
-              <div className="flex gap-2 px-3 pt-3 pb-2 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none]">
+              <div className="flex gap-2 px-3 pt-3 pb-2 overflow-x-auto snap-x snap-mandatory scroll-pl-3 [scrollbar-width:none]">
                 {([
                   { label: 'Receitas', value: totals.rec,   cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '↑' },
                   { label: 'Despesas', value: totals.desp,  cls: 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: 'bg-[rgba(225,29,72,0.12)] text-[#E11D48] dark:bg-[rgba(244,63,94,0.14)] dark:text-[#F43F5E]', glyph: '↓' },
                   { label: 'Saldo',    value: totals.saldo, cls: totals.saldo >= 0 ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: totals.saldo >= 0 ? 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]' : 'bg-[rgba(225,29,72,0.12)] text-[#E11D48]', glyph: '=' },
-                  { label: 'Vencimento', value: vencimentoStats.valor,    cls: 'text-[#B45309] dark:text-[#FCD34D]', dotCls: 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]', glyph: '⏱', sub: `${vencimentoStats.count} mov.` },
+                  { label: 'Vencimento', value: vencimentoStats.valor,    cls: 'text-[#B45309] dark:text-[#FCD34D]', dotCls: 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]', glyph: <Clock size={11} strokeWidth={2.5} />, sub: `${vencimentoStats.count} mov.` },
                   { label: 'Total Pago', value: vencimentoStats.totalPago, cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '✓' },
-                ] as { label: string; value: number; cls: string; dotCls: string; glyph: string; sub?: string }[]).map(chip => (
+                ] as { label: string; value: number; cls: string; dotCls: string; glyph: React.ReactNode; sub?: string }[]).map(chip => (
                   <div key={chip.label} className="shrink-0 snap-start bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[20px] px-3.5 py-2.5 flex flex-col gap-1 min-w-[108px]">
                     <div className="flex items-center gap-1.5">
                       <span className={cn('w-5 h-5 rounded-[7px] flex items-center justify-center text-[11px] font-black shrink-0', chip.dotCls)}>{chip.glyph}</span>
