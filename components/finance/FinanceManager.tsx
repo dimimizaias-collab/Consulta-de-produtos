@@ -1474,26 +1474,18 @@ export function FinanceManager() {
                       <th key={label || 'actions'} className="px-3 py-3 text-left whitespace-nowrap relative">
                         {label ? (
                           <div className="inline-flex items-center gap-1">
-                            <span className={cn(
-                              'inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap border-[1.5px] transition-colors',
-                              columnFiltersEnabled
-                                ? 'border-[#D81E1E]/45'
-                                : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)]',
-                            )}>
+                            <span
+                              onClick={columnFiltersEnabled && key ? () => { setFilterOpenKey(prev => prev === key ? null : key); setFilterSearchQuery(''); } : undefined}
+                              title={columnFiltersEnabled && key ? (hasFilter ? 'Filtro ativo' : 'Filtrar') : undefined}
+                              className={cn(
+                                'inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap border-[1.5px] transition-colors',
+                                columnFiltersEnabled
+                                  ? cn('border-[#D81E1E]/45', key && 'cursor-pointer', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E]')
+                                  : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)]',
+                              )}
+                            >
                               {label}
                             </span>
-                            {columnFiltersEnabled && key && (
-                              <button
-                                onClick={() => { setFilterOpenKey(prev => prev === key ? null : key); setFilterSearchQuery(''); }}
-                                title={hasFilter ? 'Filtro ativo' : 'Filtrar'}
-                                className={cn(
-                                  'w-4 h-4 rounded flex items-center justify-center transition-opacity hover:opacity-100',
-                                  hasFilter ? 'opacity-100 text-[#D81E1E]' : 'opacity-50 text-on-surface'
-                                )}
-                              >
-                                <Filter size={9} />
-                              </button>
-                            )}
                             {isOpen && key && (<>
                               <div className="fixed inset-0 z-[90]" onClick={() => { setFilterOpenKey(null); setFilterSearchQuery(''); }} />
                               <div className="absolute left-0 top-full mt-1 z-[100] rounded-xl shadow-2xl border border-on-surface/10 bg-surface-container overflow-hidden normal-case" style={{ minWidth: '200px', maxWidth: '280px' }}>
