@@ -40,6 +40,7 @@ interface Transaction {
   total_parcelas: number | null;
   account_id?: string | null;
   tag_ids: string[];
+  observacoes: string | null;
 }
 
 type TxForm = {
@@ -51,6 +52,7 @@ type TxForm = {
   valor_final: string;
   pago: boolean;
   tag_ids: string[];
+  observacoes: string;
 };
 
 type ParcelaRow = { seq: number; valor: string; validade: string };
@@ -78,6 +80,7 @@ const emptyForm = (): TxForm => ({
   valor_final: '0',
   pago: false,
   tag_ids: [],
+  observacoes: '',
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -432,6 +435,19 @@ function TxSheet({
             className={fieldCls}
             value={form.data}
             onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
+          />
+        </div>
+
+        {/* Observações */}
+        <div>
+          <span className={labelCls}>Observações</span>
+          <textarea
+            className={cn(fieldCls, 'resize-none')}
+            value={form.observacoes}
+            onChange={e => setForm({ ...form, observacoes: e.target.value })}
+            placeholder="Comentários sobre esta movimentação... (opcional)"
+            rows={3}
+            onFocus={() => setShowKbd(false)}
           />
         </div>
 
@@ -1013,6 +1029,23 @@ function TxDetailSheet({
             <div className={cn(viewBlockCls, 'font-semibold')}>
               {new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
             </div>
+          )}
+        </div>
+
+        {/* Observações */}
+        <div>
+          <span className={labelCls}>Observações</span>
+          {isEdit ? (
+            <textarea
+              className={cn(fieldCls, 'resize-none')}
+              value={form.observacoes}
+              onChange={e => setForm({ ...form, observacoes: e.target.value })}
+              placeholder="Comentários sobre esta movimentação... (opcional)"
+              rows={3}
+              onFocus={() => setShowKbd(false)}
+            />
+          ) : (
+            <div className={cn(viewBlockCls, 'font-medium whitespace-pre-wrap')}>{tx.observacoes || '—'}</div>
           )}
         </div>
 
@@ -1660,6 +1693,7 @@ export function MobileFinancePage() {
       estabelecimento: txForm.estabelecimento,
       numero_cheque: null,
       tag_ids: txForm.tag_ids ?? [],
+      observacoes: txForm.observacoes.trim() || null,
     };
     if (txParcelas.length > 0) {
       // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
@@ -1707,6 +1741,7 @@ export function MobileFinancePage() {
       valor_final: tx.valor_final.toFixed(2).replace('.', ','),
       pago: tx.pago,
       tag_ids: tx.tag_ids ?? [],
+      observacoes: tx.observacoes ?? '',
     });
     setDetailParcelas([]);
     setDetailMode('view');
@@ -1730,6 +1765,7 @@ export function MobileFinancePage() {
       estabelecimento: detailForm.estabelecimento,
       numero_cheque: null,
       tag_ids: detailForm.tag_ids ?? [],
+      observacoes: detailForm.observacoes.trim() || null,
     };
     if (detailParcelas.length > 0) {
       // Configurar parcelas numa movimentação existente substitui a linha original por

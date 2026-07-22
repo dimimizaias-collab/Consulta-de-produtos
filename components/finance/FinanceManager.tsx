@@ -36,6 +36,7 @@ interface Transaction {
   import_id?: string | null;
   account_id?: string | null;
   tag_ids: string[];
+  observacoes: string | null;
 }
 
 interface BankAccount {
@@ -86,6 +87,7 @@ const emptyTxForm = (): TxForm => ({
   numero_parcela: null,
   total_parcelas: null,
   tag_ids: [],
+  observacoes: null,
 });
 
 const emptyAccountForm = (): AccountForm => ({
@@ -369,6 +371,7 @@ export function FinanceManager() {
           account_id: txForm.account_id ?? null,
           import_id: null,
           tag_ids: txForm.tag_ids ?? [],
+          observacoes: txForm.observacoes?.trim() || null,
         };
         await supabase.from('finance_transactions').insert(
           // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
@@ -385,6 +388,7 @@ export function FinanceManager() {
           numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
           numero_parcela: vencimentoEnabled ? (txForm.numero_parcela ?? 1) : null,
           total_parcelas: vencimentoEnabled ? (txForm.total_parcelas ?? 1) : null,
+          observacoes: txForm.observacoes?.trim() || null,
         };
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
@@ -697,6 +701,7 @@ export function FinanceManager() {
           numero_parcela: null,
           total_parcelas: null,
           tag_ids: [],
+          observacoes: null,
         });
       }
 
@@ -1887,6 +1892,18 @@ export function FinanceManager() {
                   onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
                   onCreateTag={(nome, cor) => createTag(nome, cor, '')}
                   parcelCount={parcelasEnabled ? parcelas.length : undefined}
+                />
+              </div>
+
+              {/* Observações */}
+              <div className="flex flex-col gap-1.5 mt-4">
+                <label className={labelCls}>Observações</label>
+                <textarea
+                  value={txForm.observacoes ?? ''}
+                  onChange={e => setTxForm(f => ({ ...f, observacoes: e.target.value || null }))}
+                  rows={3}
+                  placeholder="Comentários sobre esta movimentação... (opcional)"
+                  className={cn(inputCls, 'resize-none')}
                 />
               </div>
 
