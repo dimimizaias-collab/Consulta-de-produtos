@@ -40,6 +40,7 @@ interface Transaction {
   numero_cheque: string | null;
   numero_parcela: number | null;
   total_parcelas: number | null;
+  parcelamento_id: string | null;
   account_id?: string | null;
   tag_ids: string[];
   observacoes: string | null;
@@ -992,6 +993,7 @@ function TxDetailSheet({
   onCreateTag,
   parcelas,
   onOpenParcelas,
+  groupTotal,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -1005,6 +1007,7 @@ function TxDetailSheet({
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
+  groupTotal: number | null;
 }) {
   const [showKbd, setShowKbd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1191,6 +1194,16 @@ function TxDetailSheet({
             ) : (
               <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
             )}
+          </div>
+        )}
+
+        {/* Valor Total do Parcelamento (somente leitura) */}
+        {!isEdit && groupTotal !== null && (
+          <div className="min-w-0">
+            <span className={labelCls}>Valor Total do Parcelamento</span>
+            <div className={cn(viewBlockCls, 'text-[#D81E1E] dark:text-[#F43F5E]')}>
+              {fmt(groupTotal)}
+            </div>
           </div>
         )}
 
@@ -1865,11 +1878,16 @@ export function MobileFinancePage() {
   // ── Computed — Movimentações ─────────────────────────────────────────────
 
   // Soma o valor de todas as parcelas irmãs para dar visão do valor total do parcelamento.
+  // Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem no agrupamento
+  // heurístico por favorecido/tipo/pagamento/estabelecimento/total_parcelas.
+  const parcelaGroupKey = (t: Pick<Transaction, 'parcelamento_id' | 'favorecido' | 'tipo' | 'tipo_pagamento' | 'estabelecimento' | 'total_parcelas'>): string =>
+    t.parcelamento_id ?? `legacy|${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+
   const parcelaGroupTotal = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const t of transactions) {
       if (!t.total_parcelas || t.total_parcelas <= 1) continue;
-      const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+      const key = parcelaGroupKey(t);
       totals[key] = (totals[key] ?? 0) + t.valor_final;
     }
     return totals;
@@ -1877,8 +1895,7 @@ export function MobileFinancePage() {
 
   const getParcelaGroupTotal = (t: Transaction): number | null => {
     if (!t.total_parcelas || t.total_parcelas <= 1) return null;
-    const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
-    return parcelaGroupTotal[key] ?? null;
+    return parcelaGroupTotal[parcelaGroupKey(t)] ?? null;
   };
 
   const filtered = useMemo(() => {
@@ -1984,6 +2001,7 @@ export function MobileFinancePage() {
     if (txParcelas.length > 0) {
       // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
       // transação, com data/vencimento = a validade da parcela, e pago/total_pago zerados.
+      const parcelamentoId = crypto.randomUUID();
       const { data: inserted } = await supabase.from('finance_transactions').insert(
         txParcelas.map(p => ({
           ...base,
@@ -1994,6 +2012,7 @@ export function MobileFinancePage() {
           pago: false,
           numero_parcela: p.seq,
           total_parcelas: txParcelas.length,
+          parcelamento_id: parcelamentoId,
         }))
       ).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
@@ -2009,6 +2028,7 @@ export function MobileFinancePage() {
         pago: txForm.pago,
         numero_parcela: null,
         total_parcelas: null,
+        parcelamento_id: null,
       }]).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
         await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
@@ -2065,6 +2085,7 @@ export function MobileFinancePage() {
       const { data: linkedRows } = await supabase.from('finance_transaction_notes')
         .select('note_id').eq('transaction_id', detailTx.id);
       await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
+      const parcelamentoId = crypto.randomUUID();
       const { data: inserted } = await supabase.from('finance_transactions').insert(
         detailParcelas.map(p => ({
           ...base,
@@ -2075,6 +2096,7 @@ export function MobileFinancePage() {
           pago: false,
           numero_parcela: p.seq,
           total_parcelas: detailParcelas.length,
+          parcelamento_id: parcelamentoId,
         }))
       ).select('id, favorecido, valor_final');
       if (inserted && linkedRows && linkedRows.length > 0)
@@ -2800,6 +2822,7 @@ export function MobileFinancePage() {
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
             parcelas={detailParcelas}
             onOpenParcelas={() => setParcelasModalOpen('edit')}
+            groupTotal={getParcelaGroupTotal(detailTx)}
           />
         </>
       )}

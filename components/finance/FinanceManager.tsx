@@ -35,6 +35,7 @@ interface Transaction {
   numero_cheque: string | null;
   numero_parcela: number | null;
   total_parcelas: number | null;
+  parcelamento_id: string | null;
   import_id?: string | null;
   account_id?: string | null;
   tag_ids: string[];
@@ -103,6 +104,7 @@ const emptyTxForm = (): TxForm => ({
   numero_cheque: null,
   numero_parcela: null,
   total_parcelas: null,
+  parcelamento_id: null,
   tag_ids: [],
   observacoes: null,
 });
@@ -395,11 +397,12 @@ export function FinanceManager() {
           tag_ids: txForm.tag_ids ?? [],
           observacoes: txForm.observacoes?.trim() || null,
         };
+        const parcelamentoId = crypto.randomUUID();
         const { data: inserted } = await supabase.from('finance_transactions').insert(
           // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
           valid.map(p => ({
             ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
-            numero_parcela: p.seq, total_parcelas: valid.length,
+            numero_parcela: p.seq, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
           }))
         ).select('id, favorecido, valor_final');
         if (inserted && pendingNotes.length > 0)
@@ -734,6 +737,7 @@ export function FinanceManager() {
           numero_cheque: null,
           numero_parcela: null,
           total_parcelas: null,
+          parcelamento_id: null,
           tag_ids: [],
           observacoes: null,
         });
@@ -862,13 +866,17 @@ export function FinanceManager() {
     });
   }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags]);
 
-  // Soma o valor de todas as parcelas irmãs (mesmo favorecido/tipo/pagamento/estabelecimento
-  // e mesmo total_parcelas) para dar ao usuário a visão do valor total do parcelamento.
+  // Soma o valor de todas as parcelas irmãs para dar ao usuário a visão do valor total do
+  // parcelamento. Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem
+  // no agrupamento heurístico por favorecido/tipo/pagamento/estabelecimento/total_parcelas.
+  const parcelaGroupKey = (t: Pick<Transaction, 'parcelamento_id' | 'favorecido' | 'tipo' | 'tipo_pagamento' | 'estabelecimento' | 'total_parcelas'>): string =>
+    t.parcelamento_id ?? `legacy|${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+
   const parcelaGroupTotal = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const t of transactions) {
       if (!t.total_parcelas || t.total_parcelas <= 1) continue;
-      const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+      const key = parcelaGroupKey(t);
       totals[key] = (totals[key] ?? 0) + t.valor_final;
     }
     return totals;
@@ -876,8 +884,21 @@ export function FinanceManager() {
 
   const getParcelaGroupTotal = (t: Transaction): number | null => {
     if (!t.total_parcelas || t.total_parcelas <= 1) return null;
-    const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
-    return parcelaGroupTotal[key] ?? null;
+    return parcelaGroupTotal[parcelaGroupKey(t)] ?? null;
+  };
+
+  // Total ao vivo do parcelamento manual (numero_parcela/total_parcelas) sendo editado/criado
+  // no modal — soma as parcelas irmãs já salvas (excluindo a própria linha em edição) + o valor
+  // digitado no formulário.
+  const getFormParcelaTotal = (): number | null => {
+    const totalParcelasForm = vencimentoEnabled ? (txForm.total_parcelas ?? 1) : null;
+    if (!totalParcelasForm || totalParcelasForm <= 1) return null;
+    const key = parcelaGroupKey({ ...txForm, total_parcelas: totalParcelasForm });
+    const siblingsSum = transactions.reduce((sum, t) => {
+      if (t.id === editingId || !t.total_parcelas || t.total_parcelas <= 1) return sum;
+      return parcelaGroupKey(t) === key ? sum + t.valor_final : sum;
+    }, 0);
+    return siblingsSum + (txForm.valor_final || 0);
   };
 
   const tagUseCounts = useMemo(() => {
@@ -1872,6 +1893,14 @@ export function FinanceManager() {
                           />
                         </div>
                       </div>
+                      {getFormParcelaTotal() !== null && (
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <label className={labelCls}>Valor Total do Parcelamento</label>
+                          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                            {fmt(getFormParcelaTotal()!)}
+                          </div>
+                        </div>
+                      )}
                     </>)}
                   </div>
 
@@ -2009,6 +2038,14 @@ export function FinanceManager() {
                               onChange={e => setTxForm(f => ({ ...f, total_parcelas: parseInt(e.target.value) || 1 }))}
                               className={inputCls}
                             />
+                          </div>
+                        </div>
+                      )}
+                      {!parcelasEnabled && getFormParcelaTotal() !== null && (
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <label className={labelCls}>Valor Total do Parcelamento</label>
+                          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                            {fmt(getFormParcelaTotal()!)}
                           </div>
                         </div>
                       )}
