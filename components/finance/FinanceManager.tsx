@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
-  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter, Clock, CheckCircle2,
+  ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -74,6 +74,21 @@ interface AccountForm {
 const PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'Débito', 'PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
+
+const TABLE_COLUMNS: { label: string; key: string }[] = [
+  { label: 'Data', key: 'data' },
+  { label: 'Tipo', key: 'tipo' },
+  { label: 'Pagamento', key: 'pagamento' },
+  { label: 'Favorecido', key: 'favorecido' },
+  { label: 'Estabelec.', key: 'estabelecimento' },
+  { label: 'TAGS', key: 'tags' },
+  { label: 'Vencimento', key: 'vencimento' },
+  { label: 'Valor final', key: 'valor_final' },
+  { label: 'Total pago', key: 'total_pago' },
+  { label: 'Restante', key: 'restante' },
+  { label: 'Pago', key: 'pago' },
+  { label: '', key: '' },
+];
 
 const emptyTxForm = (): TxForm => ({
   data: new Date().toISOString().split('T')[0],
@@ -224,9 +239,11 @@ export function FinanceManager() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // filters
-  const [filterTipo, setFilterTipo] = useState<TransactionType | 'Todos'>('Todos');
-  const [filterEstab, setFilterEstab] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [columnFiltersEnabled, setColumnFiltersEnabled] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+  const [filterOpenKey, setFilterOpenKey] = useState<string | null>(null);
+  const [filterSearchQuery, setFilterSearchQuery] = useState('');
 
   // selection
   const [selectionMode, setSelectionMode] = useState(false);
@@ -236,7 +253,6 @@ export function FinanceManager() {
 
   // tags
   const { tags, createTag, updateTag, deleteTag } = useFinanceTags();
-  const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [showTagGuide, setShowTagGuide] = useState(false);
 
   // mini calendar
@@ -802,11 +818,39 @@ export function FinanceManager() {
     return true;
   };
 
+  const getColumnValues = (t: Transaction, key: string): string[] => {
+    switch (key) {
+      case 'data': return [fmtDate(t.data)];
+      case 'tipo': return [t.tipo];
+      case 'pagamento': return [t.tipo_pagamento];
+      case 'favorecido': return [t.favorecido];
+      case 'estabelecimento': return [t.estabelecimento];
+      case 'tags': {
+        const names = (t.tag_ids ?? [])
+          .map(id => tags.find(tg => tg.id === id)?.nome)
+          .filter((n): n is string => !!n);
+        return names.length > 0 ? names : ['Sem tag'];
+      }
+      case 'vencimento': return [t.vencimento ? fmtDate(t.vencimento) : '—'];
+      case 'valor_final': return [fmt(t.valor_final)];
+      case 'total_pago': return [fmt(t.total_pago)];
+      case 'restante': return [fmt(t.valor_final - t.total_pago)];
+      case 'pago': return [t.pago ? 'Sim' : 'Não'];
+      default: return [];
+    }
+  };
+
+  const getColumnUniqueValues = (key: string): string[] => {
+    const all = transactions.flatMap(t => getColumnValues(t, key));
+    return Array.from(new Set(all)).sort();
+  };
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
-      if (filterTipo !== 'Todos' && t.tipo !== filterTipo) return false;
-      if (filterEstab !== 'Todos' && t.estabelecimento !== filterEstab) return false;
-      if (filterTagId && !(t.tag_ids ?? []).includes(filterTagId)) return false;
+      for (const [key, selected] of Object.entries(columnFilters)) {
+        if (selected.size === 0) continue;
+        if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
@@ -814,7 +858,7 @@ export function FinanceManager() {
       if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) return false;
       return true;
     });
-  }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calRangeStart, calRangeEnd]);
+  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags]);
 
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1315,7 +1359,7 @@ export function FinanceManager() {
         </div>
       </div>
 
-      {/* Filters + Tag chips (mesma linha) */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40" />
@@ -1326,41 +1370,25 @@ export function FinanceManager() {
             className="pl-8 pr-4 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-on-surface/30 border border-on-surface/5 focus:outline-none focus:border-primary/50 w-48"
           />
         </div>
-        <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as TransactionType | 'Todos')}
-          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50">
-          <option value="Todos">Todos os tipos</option>
-          <option value="Receita">Receitas</option>
-          <option value="Despesa">Despesas</option>
-        </select>
-        <select value={filterEstab} onChange={e => setFilterEstab(e.target.value)}
-          className="px-3 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50">
-          <option value="Todos">Todos os estabelecimentos</option>
-          {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
-        </select>
 
-        {tags
-          .filter(t => (tagUseCounts[t.id] ?? 0) > 0)
-          .sort((a, b) => (tagUseCounts[b.id] ?? 0) - (tagUseCounts[a.id] ?? 0))
-          .map(tag => {
-            const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
-            const active = filterTagId === tag.id;
-            return (
-              <button
-                key={tag.id}
-                onClick={() => setFilterTagId(active ? null : tag.id)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all duration-[130ms]',
-                  active
-                    ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
-                    : cn(c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark)
-                )}
-              >
-                {active && <Tag size={9} strokeWidth={2.5} />}
-                {tag.nome}
-                <span className="opacity-60 text-[10px] font-bold">{tagUseCounts[tag.id] ?? 0}</span>
-              </button>
-            );
-          })}
+        <button
+          onClick={() => {
+            const next = !columnFiltersEnabled;
+            setColumnFiltersEnabled(next);
+            if (!next) { setColumnFilters({}); setFilterOpenKey(null); setFilterSearchQuery(''); }
+          }}
+          title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
+          className={cn(
+            'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-all',
+            columnFiltersEnabled
+              ? 'bg-primary text-white border-primary shadow-md'
+              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5',
+            Object.values(columnFilters).some(s => s.size > 0) && !columnFiltersEnabled && 'ring-2 ring-primary/40',
+          )}
+        >
+          <Filter size={14} />
+          Filtrar colunas
+        </button>
 
         {tags.length > 0 && (
           <button
@@ -1435,15 +1463,99 @@ export function FinanceManager() {
                   {selectionMode && (
                     <th className="px-3 py-3 w-10" />
                   )}
-                  {['Data', 'Tipo', 'Pagamento', 'Favorecido', 'Estabelec.', 'TAGS', 'Vencimento', 'Valor final', 'Total pago', 'Restante', 'Pago', ''].map(h => (
-                    <th key={h} className="px-3 py-3 text-left whitespace-nowrap">
-                      {h ? (
-                        <span className="inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] border-[1.5px] border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap">
-                          {h}
-                        </span>
-                      ) : null}
-                    </th>
-                  ))}
+                  {TABLE_COLUMNS.map(({ label, key }) => {
+                    const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
+                    const isOpen = columnFiltersEnabled && filterOpenKey === key;
+                    const uniqueVals = isOpen ? getColumnUniqueValues(key) : [];
+                    const selected = columnFilters[key] ?? new Set<string>();
+                    const searchLower = filterSearchQuery.toLowerCase();
+                    const displayed = searchLower ? uniqueVals.filter(v => v.toLowerCase().includes(searchLower)) : uniqueVals;
+                    return (
+                      <th key={label || 'actions'} className="px-3 py-3 text-left whitespace-nowrap relative">
+                        {label ? (
+                          <div className="inline-flex items-center gap-1">
+                            <span className={cn(
+                              'inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap border-[1.5px] transition-colors',
+                              columnFiltersEnabled
+                                ? 'border-[#D81E1E]/45'
+                                : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)]',
+                            )}>
+                              {label}
+                            </span>
+                            {columnFiltersEnabled && key && (
+                              <button
+                                onClick={() => { setFilterOpenKey(prev => prev === key ? null : key); setFilterSearchQuery(''); }}
+                                title={hasFilter ? 'Filtro ativo' : 'Filtrar'}
+                                className={cn(
+                                  'w-4 h-4 rounded flex items-center justify-center transition-opacity hover:opacity-100',
+                                  hasFilter ? 'opacity-100 text-[#D81E1E]' : 'opacity-50 text-on-surface'
+                                )}
+                              >
+                                <Filter size={9} />
+                              </button>
+                            )}
+                            {isOpen && key && (<>
+                              <div className="fixed inset-0 z-[90]" onClick={() => { setFilterOpenKey(null); setFilterSearchQuery(''); }} />
+                              <div className="absolute left-0 top-full mt-1 z-[100] rounded-xl shadow-2xl border border-on-surface/10 bg-surface-container overflow-hidden normal-case" style={{ minWidth: '200px', maxWidth: '280px' }}>
+                                <div className="p-2 border-b border-on-surface/10">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={filterSearchQuery}
+                                    onChange={e => setFilterSearchQuery(e.target.value)}
+                                    placeholder="Buscar valor..."
+                                    onClick={e => e.stopPropagation()}
+                                    className="w-full px-3 py-1.5 text-xs rounded-lg outline-none bg-on-surface/[0.05] text-on-surface placeholder-on-surface/30 border border-on-surface/[0.08] focus:border-primary/50"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-on-surface/10">
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [key]: new Set(uniqueVals) })); }}
+                                    className="text-[10px] font-bold text-on-surface/40 hover:text-on-surface/70 transition-colors"
+                                  >
+                                    Selecionar tudo
+                                  </button>
+                                  <span className="text-on-surface/15">·</span>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setColumnFilters(prev => { const n = { ...prev }; delete n[key]; return n; }); }}
+                                    className="text-[10px] font-bold text-on-surface/40 hover:text-red-400 transition-colors"
+                                  >
+                                    Limpar
+                                  </button>
+                                </div>
+                                <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
+                                  {displayed.length === 0 ? (
+                                    <div className="px-3 py-3 text-[11px] text-on-surface/30 text-center">Nenhum resultado</div>
+                                  ) : displayed.map(val => {
+                                    const checked = selected.has(val);
+                                    return (
+                                      <label key={val} className="flex items-center gap-2 px-3 py-1.5 hover:bg-on-surface/[0.04] cursor-pointer" onClick={e => e.stopPropagation()}>
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          className="w-3 h-3 accent-primary"
+                                          onChange={() => {
+                                            setColumnFilters(prev => {
+                                              const cur = new Set<string>(prev[key] ?? []);
+                                              if (checked) cur.delete(val); else cur.add(val);
+                                              const nxt = { ...prev };
+                                              if (cur.size === 0) delete nxt[key]; else nxt[key] = cur;
+                                              return nxt;
+                                            });
+                                          }}
+                                        />
+                                        <span className="text-[11px] font-medium normal-case text-on-surface/70 truncate" title={val}>{val}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </>)}
+                          </div>
+                        ) : null}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
