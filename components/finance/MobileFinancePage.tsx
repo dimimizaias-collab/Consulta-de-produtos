@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
+import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -332,6 +333,8 @@ function TxSheet({
   onCreateTag,
   parcelas,
   onOpenParcelas,
+  pendingNotes,
+  onPendingChange,
 }: {
   form: TxForm;
   setForm: (f: TxForm) => void;
@@ -342,6 +345,8 @@ function TxSheet({
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
+  pendingNotes: LinkedNoteLite[];
+  onPendingChange: (notes: LinkedNoteLite[]) => void;
 }) {
   const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
@@ -450,6 +455,15 @@ function TxSheet({
             onFocus={() => setShowKbd(false)}
           />
         </div>
+
+        {/* Notas fiscais vinculadas */}
+        <LinkedNotesSection
+          variant="mobile"
+          editable
+          txId={null}
+          pendingNotes={pendingNotes}
+          onPendingChange={onPendingChange}
+        />
 
         {/* Tipo Pagamento */}
         <div>
@@ -1049,6 +1063,14 @@ function TxDetailSheet({
           )}
         </div>
 
+        {/* Notas fiscais vinculadas */}
+        <LinkedNotesSection
+          variant="mobile"
+          editable={isEdit}
+          txId={tx.id}
+          txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
+        />
+
         {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" abaixo) */}
         {!isEdit && (
           <div className="min-w-0">
@@ -1423,6 +1445,7 @@ export function MobileFinancePage() {
   const [search, setSearch] = useState('');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [txForm, setTxForm] = useState<TxForm>(emptyForm());
+  const [pendingNotes, setPendingNotes] = useState<LinkedNoteLite[]>([]);
   const [saving, setSaving] = useState(false);
   const [dashPeriod, setDashPeriod] = useState<DashPeriod>('30d');
   const { tags, createTag } = useFinanceTags();
@@ -1698,7 +1721,7 @@ export function MobileFinancePage() {
     if (txParcelas.length > 0) {
       // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
       // transação, com data/vencimento = a validade da parcela, e pago/total_pago zerados.
-      await supabase.from('finance_transactions').insert(
+      const { data: inserted } = await supabase.from('finance_transactions').insert(
         txParcelas.map(p => ({
           ...base,
           data: p.validade,
@@ -1709,10 +1732,12 @@ export function MobileFinancePage() {
           numero_parcela: p.seq,
           total_parcelas: txParcelas.length,
         }))
-      );
+      ).select('id, favorecido, valor_final');
+      if (inserted && pendingNotes.length > 0)
+        await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
     } else {
       const valorNum = parseFloat(txForm.valor_final.replace(',', '.'));
-      await supabase.from('finance_transactions').insert([{
+      const { data: inserted } = await supabase.from('finance_transactions').insert([{
         ...base,
         data: txForm.data,
         vencimento: null,
@@ -1721,11 +1746,14 @@ export function MobileFinancePage() {
         pago: txForm.pago,
         numero_parcela: null,
         total_parcelas: null,
-      }]);
+      }]).select('id, favorecido, valor_final');
+      if (inserted && pendingNotes.length > 0)
+        await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
     }
     setSaving(false);
     setShowAddSheet(false);
     setTxForm(emptyForm());
+    setPendingNotes([]);
     setTxParcelas([]);
     loadData();
   }
@@ -1770,8 +1798,11 @@ export function MobileFinancePage() {
     if (detailParcelas.length > 0) {
       // Configurar parcelas numa movimentação existente substitui a linha original por
       // N novas linhas (uma por parcela) — mais seguro que duplicar como o desktop faz.
+      // Preserva os vínculos de notas: o delete cascateia a junção, então re-vincula depois.
+      const { data: linkedRows } = await supabase.from('finance_transaction_notes')
+        .select('note_id').eq('transaction_id', detailTx.id);
       await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
-      await supabase.from('finance_transactions').insert(
+      const { data: inserted } = await supabase.from('finance_transactions').insert(
         detailParcelas.map(p => ({
           ...base,
           data: p.validade,
@@ -1782,7 +1813,9 @@ export function MobileFinancePage() {
           numero_parcela: p.seq,
           total_parcelas: detailParcelas.length,
         }))
-      );
+      ).select('id, favorecido, valor_final');
+      if (inserted && linkedRows && linkedRows.length > 0)
+        await linkNotesToTransactions(inserted, linkedRows.map(r => r.note_id));
       setSavingDetail(false);
       setDetailTx(null);
       setDetailMode('view');
@@ -1818,7 +1851,9 @@ export function MobileFinancePage() {
 
   async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
-    await supabase.from('finance_transactions').delete().in('id', [...selectedIds]);
+    const ids = [...selectedIds];
+    await supabase.from('finance_transactions').delete().in('id', ids);
+    await cleanupNoteLinksForDeletedTxs(ids);
     setSelectedIds(new Set());
     setSelectionMode(false);
     loadData();
@@ -2249,6 +2284,8 @@ export function MobileFinancePage() {
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
             parcelas={txParcelas}
             onOpenParcelas={() => setParcelasModalOpen('new')}
+            pendingNotes={pendingNotes}
+            onPendingChange={setPendingNotes}
           />
         </>
       )}

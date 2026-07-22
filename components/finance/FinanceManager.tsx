@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useFinanceTags, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
+import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ export function FinanceManager() {
   // transaction modal
   const [showTxModal, setShowTxModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingNotes, setPendingNotes] = useState<LinkedNoteLite[]>([]);
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [vencimentoEnabled, setVencimentoEnabled] = useState(false);
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
@@ -335,6 +337,7 @@ export function FinanceManager() {
   const openAddTx = () => {
     setEditingId(null);
     setTxForm(emptyTxForm());
+    setPendingNotes([]);
     setVencimentoEnabled(false);
     setParcelasEnabled(false);
     setParcelas([]);
@@ -345,6 +348,7 @@ export function FinanceManager() {
 
   const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
+    setPendingNotes([]);
     setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
     setVencimentoEnabled(!!t.vencimento);
     setParcelasEnabled(false);
@@ -373,13 +377,15 @@ export function FinanceManager() {
           tag_ids: txForm.tag_ids ?? [],
           observacoes: txForm.observacoes?.trim() || null,
         };
-        await supabase.from('finance_transactions').insert(
+        const { data: inserted } = await supabase.from('finance_transactions').insert(
           // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
           valid.map(p => ({
             ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
             numero_parcela: p.seq, total_parcelas: valid.length,
           }))
-        );
+        ).select('id, favorecido, valor_final');
+        if (inserted && pendingNotes.length > 0)
+          await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
       } else {
         if (txForm.valor_final <= 0) return;
         const payload = {
@@ -393,7 +399,10 @@ export function FinanceManager() {
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
         } else {
-          await supabase.from('finance_transactions').insert(payload);
+          const { data: inserted } = await supabase.from('finance_transactions')
+            .insert(payload).select('id, favorecido, valor_final');
+          if (inserted && pendingNotes.length > 0)
+            await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
         }
       }
       await fetchAll();
@@ -421,6 +430,7 @@ export function FinanceManager() {
     const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
     if (error) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
+    await cleanupNoteLinksForDeletedTxs([id]);
     await cleanupOrphanedLogs([tx?.import_id]);
   };
 
@@ -464,6 +474,7 @@ export function FinanceManager() {
       setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
       setSelectedIds(new Set());
       setSelectionMode(false);
+      await cleanupNoteLinksForDeletedTxs(ids);
       await cleanupOrphanedLogs(importIds);
     } catch (err: any) {
       setDeleteError(err.message || 'Erro ao excluir movimentações.');
@@ -1904,6 +1915,18 @@ export function FinanceManager() {
                   rows={3}
                   placeholder="Comentários sobre esta movimentação... (opcional)"
                   className={cn(inputCls, 'resize-none')}
+                />
+              </div>
+
+              {/* Notas fiscais vinculadas */}
+              <div className="mt-4">
+                <LinkedNotesSection
+                  variant="desktop"
+                  editable
+                  txId={editingId}
+                  txMeta={{ favorecido: txForm.favorecido, valor_final: txForm.valor_final }}
+                  pendingNotes={pendingNotes}
+                  onPendingChange={setPendingNotes}
                 />
               </div>
 

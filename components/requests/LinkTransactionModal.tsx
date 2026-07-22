@@ -196,7 +196,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   }, [transactions, search, filterBy, accounts]);
 
   // ── Link actions ──────────────────────────────────────────────────────────
-  const handleLink = async (txId: string, txData?: { favorecido: string; valor_final: number }) => {
+  const handleLink = async (txId: string, txData?: { favorecido: string; valor_final: number }, allTxIds?: string[]) => {
     setLinking(true);
     setLinkError(null);
     // Use provided txData (auto-link path) or look up from loaded list
@@ -206,6 +206,15 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
       finance_tx_favorecido:  tx?.favorecido  ?? null,
       finance_tx_valor:       tx?.valor_final ?? null,
     }).eq('id', note.id);
+    if (!error) {
+      // Junção N:N usada pelo Controle Financeiro (todas as parcelas, quando houver).
+      // Vincular por aqui substitui os vínculos anteriores da nota.
+      const txIds = allTxIds && allTxIds.length > 0 ? allTxIds : [txId];
+      await supabase.from('finance_transaction_notes').delete().eq('note_id', note.id);
+      await supabase.from('finance_transaction_notes').insert(
+        txIds.map(id => ({ transaction_id: id, note_id: note.id })),
+      );
+    }
     setLinking(false);
     if (error) {
       setLinkError('Não foi possível vincular. Tente novamente.');
@@ -223,6 +232,9 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
       finance_tx_favorecido:  null,
       finance_tx_valor:       null,
     }).eq('id', note.id);
+    if (!error) {
+      await supabase.from('finance_transaction_notes').delete().eq('note_id', note.id);
+    }
     setLinking(false);
     if (error) {
       setLinkError('Não foi possível desvincular. Tente novamente.');
@@ -264,7 +276,11 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
           const inserted = data as Transaction[];
           setTransactions(prev => [...inserted, ...prev]);
           // Auto-link to first installment; pass txData to avoid stale state issue
-          await handleLink(inserted[0].id, { favorecido: inserted[0].favorecido, valor_final: inserted[0].valor_final });
+          await handleLink(
+            inserted[0].id,
+            { favorecido: inserted[0].favorecido, valor_final: inserted[0].valor_final },
+            inserted.map(t => t.id),
+          );
           return; // handleLink closes modal on success
         }
       } else {
