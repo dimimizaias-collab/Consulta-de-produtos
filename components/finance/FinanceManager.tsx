@@ -862,6 +862,24 @@ export function FinanceManager() {
     });
   }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags]);
 
+  // Soma o valor de todas as parcelas irmãs (mesmo favorecido/tipo/pagamento/estabelecimento
+  // e mesmo total_parcelas) para dar ao usuário a visão do valor total do parcelamento.
+  const parcelaGroupTotal = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const t of transactions) {
+      if (!t.total_parcelas || t.total_parcelas <= 1) continue;
+      const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+      totals[key] = (totals[key] ?? 0) + t.valor_final;
+    }
+    return totals;
+  }, [transactions]);
+
+  const getParcelaGroupTotal = (t: Transaction): number | null => {
+    if (!t.total_parcelas || t.total_parcelas <= 1) return null;
+    const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+    return parcelaGroupTotal[key] ?? null;
+  };
+
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of transactions) {
@@ -1710,7 +1728,14 @@ export function FinanceManager() {
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">{fmt(t.valor_final)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">
+                          {fmt(t.valor_final)}
+                          {getParcelaGroupTotal(t) !== null && (
+                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
+                              de {fmt(getParcelaGroupTotal(t)!)}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">{fmt(t.total_pago)}</td>
                         <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
                           {fmt(restante)}

@@ -1864,6 +1864,23 @@ export function MobileFinancePage() {
 
   // ── Computed — Movimentações ─────────────────────────────────────────────
 
+  // Soma o valor de todas as parcelas irmãs para dar visão do valor total do parcelamento.
+  const parcelaGroupTotal = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const t of transactions) {
+      if (!t.total_parcelas || t.total_parcelas <= 1) continue;
+      const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+      totals[key] = (totals[key] ?? 0) + t.valor_final;
+    }
+    return totals;
+  }, [transactions]);
+
+  const getParcelaGroupTotal = (t: Transaction): number | null => {
+    if (!t.total_parcelas || t.total_parcelas <= 1) return null;
+    const key = `${t.favorecido}|${t.tipo}|${t.tipo_pagamento}|${t.estabelecimento}|${t.total_parcelas}`;
+    return parcelaGroupTotal[key] ?? null;
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return transactions.filter(t => {
@@ -2358,13 +2375,20 @@ export function MobileFinancePage() {
                             <p className="text-[10px] font-semibold text-[rgba(26,26,10,0.35)] dark:text-white/30">{tx.estabelecimento}</p>
                           </div>
                         </div>
-                        <span className={cn(
-                          "font-['DM_Mono',monospace] text-[15px] font-bold tracking-tight shrink-0 mt-0.5",
-                          tx.tipo === 'Receita'
-                            ? 'text-[#059669] dark:text-[#34D399]'
-                            : 'text-[#E11D48] dark:text-[#F43F5E]'
-                        )}>
-                          {tx.tipo === 'Receita' ? '+' : '−'}{fmt(tx.valor_final)}
+                        <span className="flex flex-col items-end shrink-0 mt-0.5">
+                          <span className={cn(
+                            "font-['DM_Mono',monospace] text-[15px] font-bold tracking-tight",
+                            tx.tipo === 'Receita'
+                              ? 'text-[#059669] dark:text-[#34D399]'
+                              : 'text-[#E11D48] dark:text-[#F43F5E]'
+                          )}>
+                            {tx.tipo === 'Receita' ? '+' : '−'}{fmt(tx.valor_final)}
+                          </span>
+                          {getParcelaGroupTotal(tx) !== null && (
+                            <span className="text-[9px] font-medium text-[rgba(26,26,10,0.35)] dark:text-white/30">
+                              de {fmt(getParcelaGroupTotal(tx)!)}
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
