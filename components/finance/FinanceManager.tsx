@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
-  Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
+  Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info,
 } from 'lucide-react';
@@ -234,10 +234,6 @@ export function FinanceManager() {
   const [favOpen, setFavOpen] = useState(false);
   const favRef = useRef<HTMLDivElement>(null);
 
-  // dropdown
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   // filters
   const [search, setSearch] = useState('');
   const [columnFiltersEnabled, setColumnFiltersEnabled] = useState(false);
@@ -324,7 +320,6 @@ export function FinanceManager() {
   };
 
   const openFavorecidoModal = () => {
-    setShowDropdown(false);
     fetchFavorecidos();
     setShowFavorecidoModal(true);
   };
@@ -342,8 +337,6 @@ export function FinanceManager() {
   // close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
-        setShowDropdown(false);
       if (favRef.current && !favRef.current.contains(e.target as Node))
         setFavOpen(false);
       if (calLegendRef.current && !calLegendRef.current.contains(e.target as Node))
@@ -519,7 +512,6 @@ export function FinanceManager() {
     setEditingAccountId(null);
     setAccountForm(emptyAccountForm());
     setAccountError(null);
-    setShowDropdown(false);
     setShowAccountModal(true);
   };
 
@@ -976,81 +968,6 @@ export function FinanceManager() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Nova Movimentação — kept first so it is never clipped by TopNav overlay */}
-          <button
-            onClick={openAddTx}
-            className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
-            style={{ transition: 'opacity 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1)' }}
-          >
-            <Plus size={16} />
-            Nova Movimentação
-          </button>
-
-          {/* Dropdown Adicionar */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setShowDropdown(v => !v)}
-              className="flex items-center gap-2 bg-surface-container-low border border-on-surface/10 text-on-surface px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-on-surface/5 transition-colors"
-            >
-              <Plus size={16} />
-              Adicionar
-              <ChevronDown size={14} className={cn('transition-transform duration-200', showDropdown && 'rotate-180')} />
-            </button>
-
-            <AnimatePresence>
-              {showDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-52 bg-surface-container-low border border-on-surface/10 rounded-2xl shadow-xl z-30 overflow-hidden"
-                >
-                  <button
-                    onClick={openAddAccount}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-on-surface/5 transition-colors text-left"
-                  >
-                    <Building2 size={16} className="text-primary shrink-0" />
-                    Adicionar Contas
-                  </button>
-                  <div className="h-px bg-on-surface/5 mx-3" />
-                  <button
-                    onClick={openFavorecidoModal}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-on-surface/5 transition-colors text-left"
-                  >
-                    <Users size={16} className="text-primary shrink-0" />
-                    Adicionar Favorecido
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Selecionar */}
-          <button
-            onClick={toggleSelectionMode}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide transition-colors',
-              selectionMode
-                ? 'bg-on-surface/10 text-on-surface border border-on-surface/20 hover:bg-on-surface/15'
-                : 'bg-surface-container-low border border-on-surface/10 text-on-surface hover:bg-on-surface/5'
-            )}
-          >
-            <CheckSquare size={16} />
-            {selectionMode ? 'Cancelar' : 'Selecionar'}
-          </button>
-
-          {/* Importar Extrato */}
-          <button
-            onClick={openImportModal}
-            className="flex items-center gap-2 bg-surface-container-low border border-on-surface/10 text-on-surface px-4 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-on-surface/5 transition-colors"
-          >
-            <FileUp size={16} />
-            Importar Extrato
-          </button>
-
-        </div>
       </div>
 
       {/* Calendar + Resultados/Contas */}
@@ -1388,6 +1305,27 @@ export function FinanceManager() {
         >
           <Filter size={14} />
           Filtrar colunas
+        </button>
+
+        <button
+          onClick={openAddTx}
+          title="Nova Movimentação"
+          className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+        >
+          <Plus size={16} />
+        </button>
+
+        <button
+          onClick={toggleSelectionMode}
+          title={selectionMode ? 'Cancelar seleção' : 'Selecionar'}
+          className={cn(
+            'w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
+            selectionMode
+              ? 'bg-on-surface/10 text-on-surface border-on-surface/20 hover:bg-on-surface/15'
+              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
+          )}
+        >
+          <CheckSquare size={16} />
         </button>
 
         {tags.length > 0 && (
