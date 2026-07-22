@@ -6,6 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter, Clock, CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -861,7 +862,9 @@ export function FinanceManager() {
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const prevMonthDays = new Date(year, month, 0).getDate();
-    const txDays = new Set(
+    const todayIso = toIsoDay(new Date());
+
+    const lancamentoDays = new Set(
       transactions
         .filter(t => {
           const d = new Date(t.data + 'T00:00:00');
@@ -869,13 +872,39 @@ export function FinanceManager() {
         })
         .map(t => new Date(t.data + 'T00:00:00').getDate()),
     );
-    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasEvent: boolean }[] = [];
+
+    const vencimentoByDay = new Map<number, { hasUnpaid: boolean; hasPaid: boolean }>();
+    transactions.forEach(t => {
+      if (!t.vencimento) return;
+      const d = new Date(t.vencimento + 'T00:00:00');
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      const day = d.getDate();
+      const entry = vencimentoByDay.get(day) ?? { hasUnpaid: false, hasPaid: false };
+      if (t.pago) entry.hasPaid = true; else entry.hasUnpaid = true;
+      vencimentoByDay.set(day, entry);
+    });
+
+    type CalCell = {
+      day: number; type: 'prev' | 'curr' | 'next';
+      hasLancamento: boolean; hasVencimento: boolean; overdue: boolean; allPaid: boolean;
+    };
+    const cells: CalCell[] = [];
     for (let i = firstDay - 1; i >= 0; i--)
-      cells.push({ day: prevMonthDays - i, type: 'prev', hasEvent: false });
-    for (let d = 1; d <= daysInMonth; d++)
-      cells.push({ day: d, type: 'curr', hasEvent: txDays.has(d) });
+      cells.push({ day: prevMonthDays - i, type: 'prev', hasLancamento: false, hasVencimento: false, overdue: false, allPaid: false });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const venc = vencimentoByDay.get(d);
+      const cellIso = toIsoDay(new Date(year, month, d));
+      cells.push({
+        day: d,
+        type: 'curr',
+        hasLancamento: lancamentoDays.has(d),
+        hasVencimento: !!venc,
+        overdue: !!venc && venc.hasUnpaid && cellIso < todayIso,
+        allPaid: !!venc && venc.hasPaid && !venc.hasUnpaid,
+      });
+    }
     for (let d = 1; cells.length < 42; d++)
-      cells.push({ day: d, type: 'next', hasEvent: false });
+      cells.push({ day: d, type: 'next', hasLancamento: false, hasVencimento: false, overdue: false, allPaid: false });
     return cells;
   }, [calViewDate, transactions]);
 
@@ -1076,14 +1105,29 @@ export function FinanceManager() {
                       isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
                       isRangeEndpoint && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
                       isInRange && 'bg-primary/15 text-primary font-bold',
+                      cell.overdue && !isSelected && !isRangeEndpoint && 'ring-[1.5px] ring-amber-500',
                     )}
                   >
                     {cell.day}
-                    {cell.hasEvent && !isSelected && !isRangeEndpoint && (
+                    {(cell.hasLancamento || cell.hasVencimento) && !isSelected && !isRangeEndpoint && (
+                      <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 flex items-center gap-[2px]">
+                        {cell.hasLancamento && (
+                          <span className={cn('w-1 h-1 rounded-full', isToday ? 'bg-white/70' : 'bg-blue-500 dark:bg-blue-400')} />
+                        )}
+                        {cell.hasVencimento && (
+                          <span className={cn('w-1 h-1 rounded-full', isToday ? 'bg-white/70' : 'bg-primary')} />
+                        )}
+                      </span>
+                    )}
+                    {(cell.overdue || cell.allPaid) && (
                       <span className={cn(
-                        'absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full',
-                        isToday ? 'bg-white/70' : 'bg-primary',
-                      )} />
+                        'absolute -top-[5px] -right-[5px] w-[13px] h-[13px] rounded-full flex items-center justify-center border-[1.5px] border-surface-container-low',
+                        cell.overdue ? 'bg-amber-500' : 'bg-emerald-600',
+                      )}>
+                        {cell.overdue
+                          ? <AlertTriangle size={8} strokeWidth={3} className="text-white" />
+                          : <Check size={8} strokeWidth={3.5} className="text-white" />}
+                      </span>
                     )}
                   </button>
                 );

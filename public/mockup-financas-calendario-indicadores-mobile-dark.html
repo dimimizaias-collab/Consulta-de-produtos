@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Calendário Financeiro (Mobile / Dark)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0E0E0A;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet {
+    width: 100%;
+    max-width: 390px;
+    background: #1E1E18;
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .handle-wrap { display: flex; justify-content: center; padding: 12px 0 4px; }
+  .handle { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.20); }
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 12px; }
+  .sheet-header span { font-size: 15px; font-weight: 900; color: #F2F0E3; }
+  .close-btn { width: 32px; height: 32px; border-radius: 50%; background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.35); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+
+  .body { padding: 0 16px 24px; }
+  .month-header {
+    background: #FFE500;
+    border-radius: 16px;
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .month-header span.month { font-size: 15px; font-weight: 900; color: #1A1A0E; text-transform: capitalize; }
+  .month-header .btns { display: flex; gap: 6px; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 10px; background: rgba(26,26,10,0.10); color: rgba(26,26,10,0.60); display: flex; align-items: center; justify-content: center; }
+
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 16px; margin-bottom: 6px; }
+  .weekdays div { text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; color: rgba(242,240,227,0.22); padding: 4px 0; }
+
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .day {
+    position: relative;
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    border-radius: 12px;
+    color: rgba(242,240,227,0.55);
+  }
+  .day.other { color: rgba(242,240,227,0.15); }
+  .day.today { background: rgba(216,30,30,0.16); color: #F43F5E; font-weight: 900; }
+
+  .dots { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); display: flex; gap: 2.5px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .dot-blue { background: #60A5FA; }
+  .dot-red { background: #F43F5E; }
+
+  .day.overdue { border: 1.5px solid #FBBF24; box-shadow: 0 0 0 1px rgba(251,191,36,0.12); }
+  .badge-corner {
+    position: absolute; top: -6px; right: -6px;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #1E1E18;
+  }
+  .badge-alert { background: #FBBF24; }
+  .badge-ok { background: #34D399; }
+  .badge-corner svg { width: 9px; height: 9px; }
+
+  .legend {
+    margin-top: 18px;
+    display: flex; flex-wrap: wrap; gap: 8px 16px;
+    background: rgba(242,240,227,0.04);
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.55); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="handle-wrap"><div class="handle"></div></div>
+  <div class="sheet-header">
+    <span>Calendário</span>
+    <div class="close-btn">✕</div>
+  </div>
+  <div class="body">
+    <div class="month-header">
+      <span class="month">Agosto 2026</span>
+      <div class="btns">
+        <div class="icon-btn">▤</div>
+        <div class="icon-btn">‹</div>
+        <div class="icon-btn">›</div>
+      </div>
+    </div>
+    <div class="weekdays"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+    <div class="days">
+      <div class="day other">26</div><div class="day other">27</div><div class="day other">28</div><div class="day other">29</div><div class="day other">30</div><div class="day other">31</div>
+      <div class="day">1</div>
+      <div class="day">2</div><div class="day">3</div>
+      <div class="day">4<div class="dots"><span class="dot dot-blue"></span></div></div>
+      <div class="day">5</div><div class="day">6</div><div class="day">7</div><div class="day">8</div>
+      <div class="day">9</div>
+      <div class="day">10<div class="dots"><span class="dot dot-red"></span></div></div>
+      <div class="day">11</div><div class="day">12</div>
+      <div class="day">13<div class="dots"><span class="dot dot-blue"></span><span class="dot dot-red"></span></div></div>
+      <div class="day">14</div><div class="day">15</div>
+      <div class="day">16</div>
+      <div class="day overdue">17<div class="dots"><span class="dot dot-red"></span></div><div class="badge-corner badge-alert"><svg viewBox="0 0 24 24" fill="none" stroke="#1A1A0E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L23 21 H1 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.5" r="0.5" fill="#1A1A0E"/></svg></div></div>
+      <div class="day">18</div><div class="day">19</div><div class="day">20</div>
+      <div class="day">21<div class="dots"><span class="dot dot-red"></span></div><div class="badge-corner badge-ok"><svg viewBox="0 0 24 24" fill="none" stroke="#0B2F22" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 18 20 6"/></svg></div></div>
+      <div class="day today">22<div class="dots"><span class="dot" style="background:rgba(244,63,94,0.7)"></span></div></div>
+      <div class="day">23</div><div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div><div class="day">28</div><div class="day">29</div>
+      <div class="day">30</div><div class="day">31</div>
+      <div class="day other">1</div><div class="day other">2</div><div class="day other">3</div><div class="day other">4</div><div class="day other">5</div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot dot-blue"></span>Lançamento</div>
+      <div class="legend-item"><span class="legend-dot dot-red"></span>Vencimento</div>
+      <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;border:1.5px solid #FBBF24;display:inline-block;"></span>Vencido, não pago</div>
+      <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;"></span>Todas pagas</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

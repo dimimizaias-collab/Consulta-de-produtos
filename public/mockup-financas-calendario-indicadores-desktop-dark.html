@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Calendário Financeiro (Desktop / Dark)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #17170F;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .wrap { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: center;
+    max-width: 420px; margin-bottom: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.55); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .cal {
+    width: 300px;
+    background: #1E1E18;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  }
+  .cal-header {
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .cal-header span.month { font-size: 13px; font-weight: 900; color: #1A1A0E; text-transform: capitalize; }
+  .cal-header .btns { display: flex; gap: 4px; }
+  .icon-btn {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: rgba(26,26,10,0.10); color: rgba(26,26,10,0.60);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-body { padding: 12px; }
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .weekdays div { text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(242,240,227,0.22); padding: 4px 0; }
+
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .day {
+    position: relative;
+    height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700;
+    border-radius: 8px;
+    color: rgba(242,240,227,0.55);
+    background: transparent;
+  }
+  .day.other { color: rgba(242,240,227,0.15); }
+  .day.today { background: rgba(216,30,30,0.16); color: #F43F5E; font-weight: 900; }
+
+  .dots { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+  .dot { width: 4px; height: 4px; border-radius: 50%; }
+  .dot-blue { background: #60A5FA; }
+  .dot-red { background: #F43F5E; }
+
+  .day.overdue {
+    border: 1.5px solid #FBBF24;
+    box-shadow: 0 0 0 1px rgba(251,191,36,0.12);
+  }
+  .badge-corner {
+    position: absolute; top: -5px; right: -5px;
+    width: 13px; height: 13px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid #1E1E18;
+  }
+  .badge-alert { background: #FBBF24; }
+  .badge-ok { background: #34D399; }
+  .badge-corner svg { width: 8px; height: 8px; }
+
+  .caption { font-size: 12px; color: rgba(242,240,227,0.40); font-weight: 700; text-align: center; max-width: 320px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot dot-blue"></span>Lançamento</div>
+    <div class="legend-item"><span class="legend-dot dot-red"></span>Vencimento</div>
+    <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;border:1.5px solid #FBBF24;display:inline-block;"></span>Vencido e não pago</div>
+    <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;"></span>Todas pagas</div>
+  </div>
+
+  <div class="cal">
+    <div class="cal-header">
+      <span class="month">Agosto 2026</span>
+      <div class="btns">
+        <div class="icon-btn">▤</div>
+        <div class="icon-btn">‹</div>
+        <div class="icon-btn">›</div>
+      </div>
+    </div>
+    <div class="cal-body">
+      <div class="weekdays"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+      <div class="days">
+        <div class="day other">26</div><div class="day other">27</div><div class="day other">28</div><div class="day other">29</div><div class="day other">30</div><div class="day other">31</div>
+        <div class="day">1</div>
+        <div class="day">2</div><div class="day">3</div>
+        <div class="day">4<div class="dots"><span class="dot dot-blue"></span></div></div>
+        <div class="day">5</div><div class="day">6</div><div class="day">7</div><div class="day">8</div>
+        <div class="day">9</div>
+        <div class="day">10<div class="dots"><span class="dot dot-red"></span></div></div>
+        <div class="day">11</div><div class="day">12</div>
+        <div class="day">13<div class="dots"><span class="dot dot-blue"></span><span class="dot dot-red"></span></div></div>
+        <div class="day">14</div><div class="day">15</div>
+        <div class="day">16</div>
+        <div class="day overdue">17<div class="dots"><span class="dot dot-red"></span></div><div class="badge-corner badge-alert"><svg viewBox="0 0 24 24" fill="none" stroke="#1A1A0E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L23 21 H1 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.5" r="0.5" fill="#1A1A0E"/></svg></div></div>
+        <div class="day">18</div><div class="day">19</div><div class="day">20</div>
+        <div class="day">21<div class="dots"><span class="dot dot-red"></span></div><div class="badge-corner badge-ok"><svg viewBox="0 0 24 24" fill="none" stroke="#0B2F22" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 18 20 6"/></svg></div></div>
+        <div class="day today">22<div class="dots"><span class="dot" style="background:rgba(255,255,255,0.7)"></span></div></div>
+        <div class="day">23</div><div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div><div class="day">28</div><div class="day">29</div>
+        <div class="day">30</div><div class="day">31</div>
+        <div class="day other">1</div><div class="day other">2</div><div class="day other">3</div><div class="day other">4</div><div class="day other">5</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">Dia 4: lançamento · Dia 10: vencimento futuro · Dia 13: os dois (estilo Mastercard) · Dia 17: vencido e não pago (borda âmbar + alerta) · Dia 21: vencimento(s) todos pagos (check verde)</div>
+</div>
+</body>
+</html>
