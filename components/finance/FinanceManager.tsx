@@ -207,9 +207,10 @@ export function FinanceManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingNotes, setPendingNotes] = useState<LinkedNoteLite[]>([]);
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
-  const [vencimentoEnabled, setVencimentoEnabled] = useState(false);
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
   const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string }>>([]);
+  // Quando preenchido, o salvar substitui todas essas linhas (edição do parcelamento inteiro)
+  const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
 
   // bank account modal
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -358,9 +359,9 @@ export function FinanceManager() {
     setEditingId(null);
     setTxForm(emptyTxForm());
     setPendingNotes([]);
-    setVencimentoEnabled(false);
     setParcelasEnabled(false);
     setParcelas([]);
+    setEditingGroupIds(null);
     setFavOpen(false);
     fetchFavorecidos();
     setShowTxModal(true);
@@ -370,18 +371,31 @@ export function FinanceManager() {
     setEditingId(t.id);
     setPendingNotes([]);
     setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
-    setVencimentoEnabled(!!t.vencimento);
-    setParcelasEnabled(false);
-    setParcelas([]);
+    // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
+    setParcelasEnabled(!!t.vencimento);
+    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final) }] : []);
+    setEditingGroupIds(null);
     fetchFavorecidos();
     setShowTxModal(true);
+  };
+
+  // Carrega todas as parcelas irmãs no editor para edição em lote
+  const loadGroupIntoEditor = (t: Transaction) => {
+    const key = parcelaGroupKey(t);
+    const siblings = transactions
+      .filter(s => s.total_parcelas && s.total_parcelas > 1 && parcelaGroupKey(s) === key)
+      .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
+    if (siblings.length === 0) return;
+    setParcelasEnabled(true);
+    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final) })));
+    setEditingGroupIds(siblings.map(s => s.id));
   };
 
   const handleTxSubmit = async () => {
     if (!txForm.favorecido.trim()) return;
     setSubmitting(true);
     try {
-      if (parcelasEnabled && txForm.tipo === 'Despesa') {
+      if (parcelasEnabled) {
         const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
         if (valid.length === 0) return;
         const base = {
@@ -389,32 +403,60 @@ export function FinanceManager() {
           tipo_pagamento: txForm.tipo_pagamento,
           favorecido: txForm.favorecido,
           estabelecimento: txForm.estabelecimento,
-          vencimento: vencimentoEnabled ? (txForm.vencimento || null) : null,
-          total_pago: 0,
-          pago: false,
+          numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
           account_id: txForm.account_id ?? null,
-          import_id: null,
           tag_ids: txForm.tag_ids ?? [],
           observacoes: txForm.observacoes?.trim() || null,
         };
-        const parcelamentoId = crypto.randomUUID();
-        const { data: inserted } = await supabase.from('finance_transactions').insert(
-          // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
-          valid.map(p => ({
-            ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
-            numero_parcela: p.seq, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
-          }))
-        ).select('id, favorecido, valor_final');
-        if (inserted && pendingNotes.length > 0)
-          await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
+
+        if (editingId && !editingGroupIds && valid.length === 1) {
+          // Edição simples de uma linha (vencimento único ou parcela individual):
+          // atualiza no lugar, preservando pago/numero_parcela/parcelamento_id.
+          await supabase.from('finance_transactions').update({
+            ...base, data: txForm.data, vencimento: valid[0].data,
+            valor_final: parseFloat(valid[0].valor) || 0,
+          }).eq('id', editingId);
+        } else {
+          // Criação, edição do grupo inteiro, ou conversão de linha única em parcelamento.
+          const replaceIds = editingGroupIds ?? (editingId ? [editingId] : []);
+          let relinkNoteIds = pendingNotes.map(n => n.id);
+          if (replaceIds.length > 0) {
+            const { data: links } = await supabase.from('finance_transaction_notes')
+              .select('note_id').in('transaction_id', replaceIds);
+            relinkNoteIds = [...new Set((links ?? []).map(l => l.note_id as string))];
+            await supabase.from('finance_transactions').delete().in('id', replaceIds);
+          }
+          const rows = valid.length === 1
+            // 1 parcela = pagamento único com data de vencimento, sem parcelamento
+            ? [{
+                ...base, data: txForm.data, vencimento: valid[0].data,
+                valor_final: parseFloat(valid[0].valor) || 0,
+                total_pago: 0, pago: false, import_id: null,
+                numero_parcela: null, total_parcelas: null, parcelamento_id: null,
+              }]
+            // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
+            : (() => {
+                const parcelamentoId = crypto.randomUUID();
+                return valid.map(p => ({
+                  ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
+                  total_pago: 0, pago: false, import_id: null,
+                  numero_parcela: p.seq, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
+                }));
+              })();
+          const { data: inserted } = await supabase.from('finance_transactions')
+            .insert(rows).select('id, favorecido, valor_final');
+          if (inserted && relinkNoteIds.length > 0)
+            await linkNotesToTransactions(inserted, relinkNoteIds);
+        }
       } else {
         if (txForm.valor_final <= 0) return;
         const payload = {
           ...txForm,
-          vencimento: vencimentoEnabled ? (txForm.vencimento || null) : null,
+          vencimento: null,
           numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
-          numero_parcela: vencimentoEnabled ? (txForm.numero_parcela ?? 1) : null,
-          total_parcelas: vencimentoEnabled ? (txForm.total_parcelas ?? 1) : null,
+          numero_parcela: null,
+          total_parcelas: null,
+          parcelamento_id: null,
           observacoes: txForm.observacoes?.trim() || null,
         };
         if (editingId) {
@@ -806,8 +848,6 @@ export function FinanceManager() {
 
   const totalParcelas = parcelas.reduce((sum, p) => sum + (parseFloat(p.valor) || 0), 0);
 
-  const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
-
   const toIsoDay = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -887,19 +927,108 @@ export function FinanceManager() {
     return parcelaGroupTotal[parcelaGroupKey(t)] ?? null;
   };
 
-  // Total ao vivo do parcelamento manual (numero_parcela/total_parcelas) sendo editado/criado
-  // no modal — soma as parcelas irmãs já salvas (excluindo a própria linha em edição) + o valor
-  // digitado no formulário.
-  const getFormParcelaTotal = (): number | null => {
-    const totalParcelasForm = vencimentoEnabled ? (txForm.total_parcelas ?? 1) : null;
-    if (!totalParcelasForm || totalParcelasForm <= 1) return null;
-    const key = parcelaGroupKey({ ...txForm, total_parcelas: totalParcelasForm });
-    const siblingsSum = transactions.reduce((sum, t) => {
-      if (t.id === editingId || !t.total_parcelas || t.total_parcelas <= 1) return sum;
-      return parcelaGroupKey(t) === key ? sum + t.valor_final : sum;
-    }, 0);
-    return siblingsSum + (txForm.valor_final || 0);
-  };
+  // Movimentação em edição no modal (para exibir total do grupo e o botão "Editar todas")
+  const editingTx = editingId ? transactions.find(t => t.id === editingId) ?? null : null;
+
+  // Editor de Vencimento / Parcelas — caminho único para dar vencimento a uma movimentação.
+  // 1 linha = pagamento único com vencimento; 2+ linhas = parcelamento.
+  const renderParcelasSection = () => (
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={() => {
+          const next = !parcelasEnabled;
+          setParcelasEnabled(next);
+          if (next && parcelas.length === 0)
+            setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '' }]);
+          else if (!next) {
+            setParcelas([]);
+            setEditingGroupIds(null);
+          }
+        }}
+        className={cn(
+          'self-start px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+          parcelasEnabled
+            ? 'bg-primary text-on-primary'
+            : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
+        )}
+      >
+        Vencimento / Parcelas
+      </button>
+
+      {parcelasEnabled && (
+        <div className="mt-1 flex flex-col gap-2 bg-on-surface/3 rounded-xl p-3">
+          {editingTx && getParcelaGroupTotal(editingTx) !== null && !editingGroupIds && (
+            <div className="flex items-center justify-between gap-2 bg-primary/[0.06] border border-primary/15 rounded-lg px-3 py-2">
+              <span className="text-[11px] font-bold text-on-surface/60">
+                Parcela {editingTx.numero_parcela ?? 1} de {editingTx.total_parcelas ?? 1} · Total {fmt(getParcelaGroupTotal(editingTx)!)}
+              </span>
+              <button
+                onClick={() => loadGroupIntoEditor(editingTx)}
+                className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-primary text-on-primary hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                Editar todas as parcelas
+              </button>
+            </div>
+          )}
+          {editingGroupIds && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+              Editando o parcelamento inteiro — salvar substituirá todas as parcelas (status de pagamento será reiniciado)
+            </div>
+          )}
+          <div className="grid grid-cols-[44px_1fr_1fr_28px] gap-2">
+            <span className={cn(labelCls, 'text-center')}>Nº</span>
+            <span className={cn(labelCls, 'text-center')}>Vencimento</span>
+            <span className={cn(labelCls, 'text-center')}>Valor</span>
+            <span />
+          </div>
+          {parcelas.map((p, idx) => (
+            <div key={idx} className="grid grid-cols-[44px_1fr_1fr_28px] gap-2 items-center">
+              <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none px-0')}>
+                {p.seq}
+              </div>
+              <input
+                type="date"
+                value={p.data}
+                onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+                className={inputCls}
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={p.valor}
+                onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                placeholder="0,00"
+                className={inputCls}
+              />
+              {parcelas.length > 1 ? (
+                <button
+                  onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
+                  title="Remover parcela"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              ) : <span />}
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
+              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
+            >
+              <Plus size={13} />Adicionar parcela
+            </button>
+            {parcelas.length > 1 && totalParcelas > 0 && (
+              <span className="text-[11px] font-bold text-on-surface/50">
+                {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1823,7 +1952,7 @@ export function FinanceManager() {
                       setTxForm(f => ({ ...f, tipo: tab }));
                       setParcelasEnabled(false);
                       setParcelas([]);
-                      setVencimentoEnabled(false);
+                      setEditingGroupIds(null);
                     }}
                     className={cn(
                       'flex-1 py-2 rounded-xl text-sm font-bold transition-all',
@@ -1848,61 +1977,8 @@ export function FinanceManager() {
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
                   </div>
 
-                  {/* Vencimento toggle — receita futura só entra no Saldo após essa data */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        onClick={() => {
-                          const next = !vencimentoEnabled;
-                          setVencimentoEnabled(next);
-                          if (!next) setTxForm(f => ({ ...f, vencimento: '' }));
-                        }}
-                        className={cn(
-                          'w-9 h-5 rounded-full transition-all relative shrink-0',
-                          vencimentoEnabled ? 'bg-emerald-500' : 'bg-on-surface/20'
-                        )}
-                      >
-                        <span className={cn(
-                          'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
-                          vencimentoEnabled ? 'left-4' : 'left-0.5'
-                        )} />
-                      </button>
-                      <label className={labelCls}>Vencimento</label>
-                    </div>
-                    {vencimentoEnabled && (<>
-                      <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
-                      <div className="flex gap-2 mt-2">
-                        <div className="flex-1 flex flex-col gap-1.5">
-                          <label className={labelCls}>Parcela atual</label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={txForm.numero_parcela ?? 1}
-                            onChange={e => setTxForm(f => ({ ...f, numero_parcela: parseInt(e.target.value) || 1 }))}
-                            className={inputCls}
-                          />
-                        </div>
-                        <div className="flex-1 flex flex-col gap-1.5">
-                          <label className={labelCls}>Total de parcelas</label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={txForm.total_parcelas ?? 1}
-                            onChange={e => setTxForm(f => ({ ...f, total_parcelas: parseInt(e.target.value) || 1 }))}
-                            className={inputCls}
-                          />
-                        </div>
-                      </div>
-                      {getFormParcelaTotal() !== null && (
-                        <div className="flex flex-col gap-1.5 mt-2">
-                          <label className={labelCls}>Valor Total do Parcelamento</label>
-                          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
-                            {fmt(getFormParcelaTotal()!)}
-                          </div>
-                        </div>
-                      )}
-                    </>)}
-                  </div>
+                  {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
+                  {renderParcelasSection()}
 
                   {/* Favorecido — custom combobox */}
                   <div className="flex flex-col gap-1.5">
@@ -1983,7 +2059,13 @@ export function FinanceManager() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Valor (R$)</label>
-                    <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                    {parcelasEnabled ? (
+                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                        {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
+                      </div>
+                    ) : (
+                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                    )}
                   </div>
                 </>)}
 
@@ -1994,77 +2076,12 @@ export function FinanceManager() {
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
                   </div>
 
-                  {/* Vencimento toggle */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        onClick={() => {
-                          const next = !vencimentoEnabled;
-                          setVencimentoEnabled(next);
-                          if (!next) setTxForm(f => ({ ...f, vencimento: '' }));
-                        }}
-                        className={cn(
-                          'w-9 h-5 rounded-full transition-all relative shrink-0',
-                          vencimentoEnabled ? 'bg-primary' : 'bg-on-surface/20'
-                        )}
-                      >
-                        <span className={cn(
-                          'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
-                          vencimentoEnabled ? 'left-4' : 'left-0.5'
-                        )} />
-                      </button>
-                      <label className={labelCls}>Vencimento</label>
-                    </div>
-                    {vencimentoEnabled && (<>
-                      <input type="date" value={txForm.vencimento ?? ''} onChange={e => setTxForm(f => ({ ...f, vencimento: e.target.value }))} className={inputCls} />
-                      {!parcelasEnabled && (
-                        <div className="flex gap-2 mt-2">
-                          <div className="flex-1 flex flex-col gap-1.5">
-                            <label className={labelCls}>Parcela atual</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={txForm.numero_parcela ?? 1}
-                              onChange={e => setTxForm(f => ({ ...f, numero_parcela: parseInt(e.target.value) || 1 }))}
-                              className={inputCls}
-                            />
-                          </div>
-                          <div className="flex-1 flex flex-col gap-1.5">
-                            <label className={labelCls}>Total de parcelas</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={txForm.total_parcelas ?? 1}
-                              onChange={e => setTxForm(f => ({ ...f, total_parcelas: parseInt(e.target.value) || 1 }))}
-                              className={inputCls}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {!parcelasEnabled && getFormParcelaTotal() !== null && (
-                        <div className="flex flex-col gap-1.5 mt-2">
-                          <label className={labelCls}>Valor Total do Parcelamento</label>
-                          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
-                            {fmt(getFormParcelaTotal()!)}
-                          </div>
-                        </div>
-                      )}
-                    </>)}
-                  </div>
-
-                  {/* Tipo de Pagamento + Parcelas */}
+                  {/* Tipo de Pagamento */}
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Tipo de Pagamento</label>
                     <select
                       value={txForm.tipo_pagamento}
-                      onChange={e => {
-                        const v = e.target.value as PaymentType;
-                        setTxForm(f => ({ ...f, tipo_pagamento: v }));
-                        if (!PARCELA_PAYMENT_TYPES.includes(v)) {
-                          setParcelasEnabled(false);
-                          setParcelas([]);
-                        }
-                      }}
+                      onChange={e => setTxForm(f => ({ ...f, tipo_pagamento: e.target.value as PaymentType }))}
                       className={inputCls}
                     >
                       {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
@@ -2083,68 +2100,10 @@ export function FinanceManager() {
                         />
                       </div>
                     )}
-
-                    {/* Parcelas button */}
-                    {PARCELA_PAYMENT_TYPES.includes(txForm.tipo_pagamento) && (
-                      <button
-                        onClick={() => {
-                          const next = !parcelasEnabled;
-                          setParcelasEnabled(next);
-                          if (next && parcelas.length === 0)
-                            setParcelas([{ seq: 1, data: txForm.data, valor: '' }]);
-                          else if (!next)
-                            setParcelas([]);
-                        }}
-                        className={cn(
-                          'mt-1 self-start px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                          parcelasEnabled
-                            ? 'bg-primary text-on-primary'
-                            : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
-                        )}
-                      >
-                        Parcelas
-                      </button>
-                    )}
-
-                    {/* Parcelas rows */}
-                    {parcelasEnabled && (
-                      <div className="mt-2 flex flex-col gap-2 bg-on-surface/3 rounded-xl p-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className={cn(labelCls, 'text-center')}>Parcela</span>
-                          <span className={cn(labelCls, 'text-center')}>Data</span>
-                          <span className={cn(labelCls, 'text-center')}>Valor</span>
-                        </div>
-                        {parcelas.map((p, idx) => (
-                          <div key={idx} className="grid grid-cols-3 gap-2 items-center">
-                            <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none')}>
-                              {p.seq}
-                            </div>
-                            <input
-                              type="date"
-                              value={p.data}
-                              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
-                              className={inputCls}
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={p.valor}
-                              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                              placeholder="0,00"
-                              className={inputCls}
-                            />
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
-                          className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity pt-1"
-                        >
-                          <Plus size={13} />Adicionar parcela
-                        </button>
-                      </div>
-                    )}
                   </div>
+
+                  {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
+                  {renderParcelasSection()}
 
                   {/* Favorecido — custom combobox */}
                   <div className="flex flex-col gap-1.5">

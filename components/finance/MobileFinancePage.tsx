@@ -94,8 +94,6 @@ const emptyAccountForm = (): AccountForm => ({
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['PIX', 'Transferência', 'Boleto', 'Crédito', 'Débito', 'Dinheiro', 'Cheque', 'Outro'];
-// Mesma restrição do FinanceManager.tsx (desktop) — parcelamento múltiplo só para Despesa nesses tipos
-const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
 const PERIOD_OPTIONS: { key: DashPeriod; label: string; days: number }[] = [
@@ -518,20 +516,20 @@ function TxSheet({
               </button>
             ))}
           </div>
-          {form.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(form.tipo_pagamento) && (
-            <button
-              onClick={onOpenParcelas}
-              className={cn(
-                'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2',
-                parcelas.length > 0
-                  ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.24)] text-[#D81E1E]'
-                  : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35'
-              )}
-            >
-              <CreditCard size={13} />
-              {parcelas.length > 0 ? `${parcelas.length} parcela${parcelas.length > 1 ? 's' : ''} configurada${parcelas.length > 1 ? 's' : ''}` : 'Visualizar pagamento'}
-            </button>
-          )}
+          <button
+            onClick={onOpenParcelas}
+            className={cn(
+              'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2',
+              parcelas.length > 0
+                ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.24)] text-[#D81E1E]'
+                : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35'
+            )}
+          >
+            <CreditCard size={13} />
+            {parcelas.length === 1 ? 'Vencimento configurado'
+              : parcelas.length > 1 ? `${parcelas.length} parcelas configuradas`
+              : 'Vencimento / Parcelas'}
+          </button>
         </div>
 
         {/* Estabelecimento */}
@@ -994,6 +992,8 @@ function TxDetailSheet({
   parcelas,
   onOpenParcelas,
   groupTotal,
+  onEditAllParcelas,
+  editingWholeGroup,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -1008,6 +1008,8 @@ function TxDetailSheet({
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
   groupTotal: number | null;
+  onEditAllParcelas?: () => void;
+  editingWholeGroup?: boolean;
 }) {
   const [showKbd, setShowKbd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1232,7 +1234,7 @@ function TxDetailSheet({
               {tx.tipo_pagamento}
             </span>
           )}
-          {isEdit && form.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(form.tipo_pagamento) && (
+          {isEdit && (
             <button
               onClick={onOpenParcelas}
               className={cn(
@@ -1243,7 +1245,23 @@ function TxDetailSheet({
               )}
             >
               <CreditCard size={13} />
-              {parcelas.length > 0 ? `${parcelas.length} parcela${parcelas.length > 1 ? 's' : ''} configurada${parcelas.length > 1 ? 's' : ''}` : 'Visualizar pagamento'}
+              {parcelas.length === 1 ? 'Vencimento configurado'
+                : parcelas.length > 1 ? `${parcelas.length} parcelas configuradas`
+                : 'Vencimento / Parcelas'}
+            </button>
+          )}
+          {isEdit && editingWholeGroup && (
+            <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+              Editando o parcelamento inteiro — salvar substituirá todas as parcelas
+            </div>
+          )}
+          {isEdit && !editingWholeGroup && groupTotal !== null && onEditAllParcelas && (
+            <button
+              onClick={onEditAllParcelas}
+              className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-[#D81E1E] text-white shadow-[0_4px_14px_rgba(216,30,30,0.28)] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+            >
+              <CreditCard size={13} />
+              Editar todas as parcelas
             </button>
           )}
         </div>
@@ -1606,19 +1624,8 @@ export function MobileFinancePage() {
   const [txParcelas, setTxParcelas] = useState<ParcelaRow[]>([]);
   const [detailParcelas, setDetailParcelas] = useState<ParcelaRow[]>([]);
   const [parcelasModalOpen, setParcelasModalOpen] = useState<'new' | 'edit' | null>(null);
-
-  // limpa parcelas configuradas se o tipo/pagamento deixar de ser elegível
-  useEffect(() => {
-    if (!(txForm.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(txForm.tipo_pagamento))) {
-      setTxParcelas([]);
-    }
-  }, [txForm.tipo, txForm.tipo_pagamento]);
-
-  useEffect(() => {
-    if (!(detailForm.tipo === 'Despesa' && PARCELA_PAYMENT_TYPES.includes(detailForm.tipo_pagamento))) {
-      setDetailParcelas([]);
-    }
-  }, [detailForm.tipo, detailForm.tipo_pagamento]);
+  // Quando preenchido, salvar a edição substitui todas essas linhas (parcelamento inteiro)
+  const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
 
   // ── Data ────────────────────────────────────────────────────────────────
 
@@ -1998,7 +2005,7 @@ export function MobileFinancePage() {
       tag_ids: txForm.tag_ids ?? [],
       observacoes: txForm.observacoes.trim() || null,
     };
-    if (txParcelas.length > 0) {
+    if (txParcelas.length > 1) {
       // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
       // transação, com data/vencimento = a validade da parcela, e pago/total_pago zerados.
       const parcelamentoId = crypto.randomUUID();
@@ -2018,11 +2025,15 @@ export function MobileFinancePage() {
       if (inserted && pendingNotes.length > 0)
         await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
     } else {
-      const valorNum = parseFloat(txForm.valor_final.replace(',', '.'));
+      // 1 parcela = pagamento único com data de vencimento, sem parcelamento
+      const single = txParcelas[0] ?? null;
+      const valorNum = single
+        ? (parseFloat(single.valor.replace(',', '.')) || parseFloat(txForm.valor_final.replace(',', '.')) || 0)
+        : parseFloat(txForm.valor_final.replace(',', '.'));
       const { data: inserted } = await supabase.from('finance_transactions').insert([{
         ...base,
         data: txForm.data,
-        vencimento: null,
+        vencimento: single ? single.validade : null,
         valor_final: valorNum,
         total_pago: txForm.pago ? valorNum : 0,
         pago: txForm.pago,
@@ -2054,14 +2065,36 @@ export function MobileFinancePage() {
       tag_ids: tx.tag_ids ?? [],
       observacoes: tx.observacoes ?? '',
     });
-    setDetailParcelas([]);
+    // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
+    // salvar não apagar o vencimento existente.
+    setDetailParcelas(tx.vencimento
+      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento }]
+      : []);
+    setEditingGroupIds(null);
     setDetailMode('view');
+  }
+
+  // Carrega todas as parcelas irmãs no editor para edição em lote
+  function loadGroupIntoDetail(tx: Transaction) {
+    const key = parcelaGroupKey(tx);
+    const siblings = transactions
+      .filter(s => s.total_parcelas && s.total_parcelas > 1 && parcelaGroupKey(s) === key)
+      .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
+    if (siblings.length === 0) return;
+    setDetailParcelas(siblings.map((s, i) => ({
+      seq: i + 1,
+      valor: s.valor_final.toFixed(2).replace('.', ','),
+      validade: s.vencimento ?? s.data,
+    })));
+    setEditingGroupIds(siblings.map(s => s.id));
+    setParcelasModalOpen('edit');
   }
 
   function closeDetail() {
     setDetailTx(null);
     setDetailMode('view');
     setDetailParcelas([]);
+    setEditingGroupIds(null);
   }
 
   async function handleSaveDetail() {
@@ -2078,13 +2111,34 @@ export function MobileFinancePage() {
       tag_ids: detailForm.tag_ids ?? [],
       observacoes: detailForm.observacoes.trim() || null,
     };
-    if (detailParcelas.length > 0) {
-      // Configurar parcelas numa movimentação existente substitui a linha original por
-      // N novas linhas (uma por parcela) — mais seguro que duplicar como o desktop faz.
+    if (detailParcelas.length === 1 && !editingGroupIds) {
+      // Pagamento único com vencimento: atualiza no lugar, preservando
+      // pago/numero_parcela/parcelamento_id da linha.
+      const p = detailParcelas[0];
+      const valorNum = parseFloat(p.valor.replace(',', '.')) || 0;
+      const updates = {
+        ...base,
+        data: detailForm.data,
+        vencimento: p.validade,
+        valor_final: valorNum,
+        pago: detailForm.pago,
+        total_pago: detailForm.pago ? valorNum : 0,
+      };
+      await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
+      setSavingDetail(false);
+      setDetailTx({ ...detailTx, ...updates });
+      setDetailMode('view');
+      loadData();
+      return;
+    }
+    if (detailParcelas.length > 1) {
+      // Parcelamento: substitui a(s) linha(s) original(is) por N novas (uma por parcela).
+      // Com editingGroupIds, substitui o parcelamento inteiro de uma só vez.
       // Preserva os vínculos de notas: o delete cascateia a junção, então re-vincula depois.
+      const replaceIds = editingGroupIds ?? [detailTx.id];
       const { data: linkedRows } = await supabase.from('finance_transaction_notes')
-        .select('note_id').eq('transaction_id', detailTx.id);
-      await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
+        .select('note_id').in('transaction_id', replaceIds);
+      await supabase.from('finance_transactions').delete().in('id', replaceIds);
       const parcelamentoId = crypto.randomUUID();
       const { data: inserted } = await supabase.from('finance_transactions').insert(
         detailParcelas.map(p => ({
@@ -2099,12 +2153,14 @@ export function MobileFinancePage() {
           parcelamento_id: parcelamentoId,
         }))
       ).select('id, favorecido, valor_final');
-      if (inserted && linkedRows && linkedRows.length > 0)
-        await linkNotesToTransactions(inserted, linkedRows.map(r => r.note_id));
+      const relinkIds = [...new Set((linkedRows ?? []).map(r => r.note_id as string))];
+      if (inserted && relinkIds.length > 0)
+        await linkNotesToTransactions(inserted, relinkIds);
       setSavingDetail(false);
       setDetailTx(null);
       setDetailMode('view');
       setDetailParcelas([]);
+      setEditingGroupIds(null);
       loadData();
       return;
     }
@@ -2118,6 +2174,7 @@ export function MobileFinancePage() {
       total_pago: detailForm.pago ? valorNum : 0,
       numero_parcela: null,
       total_parcelas: null,
+      parcelamento_id: null,
     };
     await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
     setSavingDetail(false);
@@ -2823,6 +2880,8 @@ export function MobileFinancePage() {
             parcelas={detailParcelas}
             onOpenParcelas={() => setParcelasModalOpen('edit')}
             groupTotal={getParcelaGroupTotal(detailTx)}
+            onEditAllParcelas={() => loadGroupIntoDetail(detailTx)}
+            editingWholeGroup={editingGroupIds !== null}
           />
         </>
       )}
