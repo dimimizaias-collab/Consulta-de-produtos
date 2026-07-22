@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronDown, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Tag, Filter, Clock, CheckCircle2,
-  AlertTriangle,
+  AlertTriangle, Info,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -245,6 +245,8 @@ export function FinanceManager() {
   const [calRangeMode, setCalRangeMode] = useState(false);
   const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
   const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
+  const [calLegendOpen, setCalLegendOpen] = useState(false);
+  const calLegendRef = useRef<HTMLDivElement>(null);
 
   // resultados/contas panel
   const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas'>('resultados');
@@ -328,6 +330,8 @@ export function FinanceManager() {
         setShowDropdown(false);
       if (favRef.current && !favRef.current.contains(e.target as Node))
         setFavOpen(false);
+      if (calLegendRef.current && !calLegendRef.current.contains(e.target as Node))
+        setCalLegendOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -807,7 +811,7 @@ export function FinanceManager() {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
-      if (!inSelectedPeriod(t.data)) return false;
+      if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) return false;
       return true;
     });
   }, [transactions, filterTipo, filterEstab, filterTagId, search, calSelectedDate, calRangeStart, calRangeEnd]);
@@ -1014,6 +1018,52 @@ export function FinanceManager() {
             <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
 
             <div className="flex gap-1 flex-shrink-0">
+              <div className="relative" ref={calLegendRef}>
+                <button
+                  onClick={() => setCalLegendOpen(v => !v)}
+                  className={cn(
+                    'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                    calLegendOpen
+                      ? 'bg-[#1A1A0E]/14 text-[#1A1A0E]'
+                      : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
+                  )}
+                  title="Legenda"
+                >
+                  <Info size={12} strokeWidth={2.5} />
+                </button>
+                <AnimatePresence>
+                  {calLegendOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                      className="absolute left-0 top-[30px] z-20 w-[188px] bg-surface border border-on-surface/10 rounded-xl shadow-lg p-2.5 flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shrink-0" />
+                        <span className="text-[10.5px] font-bold text-on-surface/70">Lançamento</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="text-[10.5px] font-bold text-on-surface/70">Vencimento</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full ring-[1.5px] ring-amber-500 shrink-0 flex items-center justify-center">
+                          <AlertTriangle size={7} strokeWidth={3} className="text-amber-500" />
+                        </span>
+                        <span className="text-[10.5px] font-bold text-on-surface/70">Vencido, não pago</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-emerald-600 shrink-0 flex items-center justify-center">
+                          <Check size={7} strokeWidth={3.5} className="text-white" />
+                        </span>
+                        <span className="text-[10.5px] font-bold text-on-surface/70">Vencimento(s) pago(s)</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <button
                 onClick={() => {
                   if (calRangeMode) {

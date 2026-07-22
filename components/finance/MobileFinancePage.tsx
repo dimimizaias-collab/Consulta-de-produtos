@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
-  ClipboardList, Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle,
+  ClipboardList, Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -631,6 +631,17 @@ function CalendarSheet({
   toIsoDay: (d: Date) => string;
 }) {
   const hasPeriod = (rangeStart && rangeEnd) || selectedDate;
+  const [legendOpen, setLegendOpen] = useState(false);
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (legendRef.current && !legendRef.current.contains(e.target as Node))
+        setLegendOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   return (
     <motion.div
@@ -662,6 +673,51 @@ function CalendarSheet({
         <div className="bg-[#FFE500] rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
           <span className="text-[15px] font-black text-[#1A1A0E] capitalize">{monthLabel}</span>
           <div className="flex gap-1.5 shrink-0">
+            <div className="relative" ref={legendRef}>
+              <button
+                onClick={() => setLegendOpen(v => !v)}
+                className={cn(
+                  'w-[34px] h-[34px] rounded-[10px] flex items-center justify-center transition-colors',
+                  legendOpen
+                    ? 'bg-[#1A1A0E]/14 text-[#1A1A0E]'
+                    : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)]',
+                )}
+              >
+                <Info size={15} strokeWidth={2.5} />
+              </button>
+              <AnimatePresence>
+                {legendOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                    transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute left-0 top-[40px] z-20 w-[204px] bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl shadow-lg p-3 flex flex-col gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-[7px] h-[7px] rounded-full bg-blue-500 dark:bg-blue-400 shrink-0" />
+                      <span className="text-[11px] font-bold text-[#1A1A0E]/70 dark:text-white/60">Lançamento</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-[7px] h-[7px] rounded-full bg-[#D81E1E] shrink-0" />
+                      <span className="text-[11px] font-bold text-[#1A1A0E]/70 dark:text-white/60">Vencimento</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-full ring-[1.5px] ring-amber-500 shrink-0 flex items-center justify-center">
+                        <AlertTriangle size={8} strokeWidth={3} className="text-amber-500" />
+                      </span>
+                      <span className="text-[11px] font-bold text-[#1A1A0E]/70 dark:text-white/60">Vencido, não pago</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 shrink-0 flex items-center justify-center">
+                        <Check size={8} strokeWidth={3.5} className="text-white" />
+                      </span>
+                      <span className="text-[11px] font-bold text-[#1A1A0E]/70 dark:text-white/60">Vencimento(s) pago(s)</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button
               onClick={onToggleRangeMode}
               className={cn(
@@ -1682,7 +1738,7 @@ export function MobileFinancePage() {
           return false;
         }
       }
-      return inSelectedPeriod(t.data);
+      return inSelectedPeriod(t.data) || inSelectedPeriod(t.vencimento);
     });
   }, [transactions, search, searchField, tags, calSelectedDate, calRangeStart, calRangeEnd]);
 
