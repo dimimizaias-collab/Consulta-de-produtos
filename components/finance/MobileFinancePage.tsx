@@ -6,6 +6,7 @@ import {
   Plus, X, TrendingUp, TrendingDown, Wallet,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
   ClipboardList, Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
+  Database, Building2, Users, ImageIcon,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -21,7 +22,7 @@ import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNot
 
 type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
 type TxType = 'Receita' | 'Despesa';
-type Tab = 'mov' | 'dash';
+type Tab = 'mov' | 'dash' | 'dados';
 type DashPeriod = '7d' | '30d' | '3m' | '6m' | '1y';
 type SearchField = 'favorecido' | 'estabelecimento' | 'tipo' | 'tipo_pagamento' | 'tags' | 'vencimento';
 
@@ -58,12 +59,44 @@ type TxForm = {
 
 type ParcelaRow = { seq: number; valor: string; validade: string };
 
+interface BankAccount {
+  id: string;
+  nome: string;
+  banco: string;
+  agencia: string;
+  numero_conta: string;
+  imagem_url: string;
+  saldo_inicial: number;
+}
+
+interface Favorecido {
+  id: string;
+  nome_fiscal: string;
+  nome_banco: string;
+}
+
+interface AccountForm {
+  nome: string;
+  banco: string;
+  agencia: string;
+  numero_conta: string;
+  saldo_inicial: string;
+  imagemPreview: string;
+  imagemFile: File | null;
+}
+
+const emptyAccountForm = (): AccountForm => ({
+  nome: '', banco: '', agencia: '', numero_conta: '',
+  saldo_inicial: '', imagemPreview: '', imagemFile: null,
+});
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['PIX', 'Transferência', 'Boleto', 'Crédito', 'Débito', 'Dinheiro', 'Cheque', 'Outro'];
 // Mesma restrição do FinanceManager.tsx (desktop) — parcelamento múltiplo só para Despesa nesses tipos
 const PARCELA_PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'PIX', 'Outro'];
 const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
+const BUCKET = 'finance-images';
 const PERIOD_OPTIONS: { key: DashPeriod; label: string; days: number }[] = [
   { key: '7d',  label: '7 dias',  days: 7   },
   { key: '30d', label: '30 dias', days: 30  },
@@ -1524,6 +1557,20 @@ export function MobileFinancePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // aba Dados — contas e favorecidos
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
+  const [dadosFavSearch, setDadosFavSearch] = useState('');
+  const [dadosLoaded, setDadosLoaded] = useState(false);
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [showAddFavorecido, setShowAddFavorecido] = useState(false);
+  const [novoNomeBanco, setNovoNomeBanco] = useState('');
+  const [novoFavorecido, setNovoFavorecido] = useState('');
+  const [savingFavorecido, setSavingFavorecido] = useState(false);
+
   // calendário
   const [showCalSheet, setShowCalSheet] = useState(false);
   const [calViewDate, setCalViewDate] = useState(() => new Date());
@@ -1571,12 +1618,112 @@ export function MobileFinancePage() {
 
   useEffect(() => { loadData(); }, []);
 
+  async function loadDadosData() {
+    const [accRes, favRes] = await Promise.all([
+      supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
+      supabase.from('finance_favorecidos').select('*').order('nome_fiscal', { ascending: true }),
+    ]);
+    if (accRes.data) setAccounts(accRes.data as BankAccount[]);
+    if (favRes.data) setFavorecidos(favRes.data as Favorecido[]);
+    setDadosLoaded(true);
+  }
+
+  // ── Contas ──────────────────────────────────────────────────────────────
+
+  function openAddAccount() {
+    setEditingAccountId(null);
+    setAccountForm(emptyAccountForm());
+    setShowAccountSheet(true);
+  }
+
+  function openEditAccount(acc: BankAccount) {
+    setEditingAccountId(acc.id);
+    setAccountForm({
+      nome: acc.nome, banco: acc.banco, agencia: acc.agencia, numero_conta: acc.numero_conta,
+      saldo_inicial: String(acc.saldo_inicial ?? 0),
+      imagemPreview: acc.imagem_url ?? '', imagemFile: null,
+    });
+    setShowAccountSheet(true);
+  }
+
+  function handleAccountImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAccountForm(f => ({ ...f, imagemFile: file, imagemPreview: URL.createObjectURL(file) }));
+  }
+
+  async function uploadAccountImage(file: File): Promise<string> {
+    const ext = file.name.split('.').pop() ?? 'jpg';
+    const path = `accounts/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+    if (error) throw error;
+    return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function handleAccountSubmit() {
+    if (!accountForm.nome.trim()) return;
+    setSavingAccount(true);
+    try {
+      const saldo_inicial = parseFloat(accountForm.saldo_inicial.replace(',', '.')) || 0;
+      if (editingAccountId) {
+        const payload: Record<string, any> = {
+          nome: accountForm.nome, banco: accountForm.banco,
+          agencia: accountForm.agencia, numero_conta: accountForm.numero_conta,
+          saldo_inicial,
+        };
+        if (accountForm.imagemFile) payload.imagem_url = await uploadAccountImage(accountForm.imagemFile);
+        await supabase.from('finance_accounts').update(payload).eq('id', editingAccountId);
+      } else {
+        let imagem_url = '';
+        if (accountForm.imagemFile) imagem_url = await uploadAccountImage(accountForm.imagemFile);
+        await supabase.from('finance_accounts').insert({
+          nome: accountForm.nome, banco: accountForm.banco,
+          agencia: accountForm.agencia, numero_conta: accountForm.numero_conta,
+          saldo_inicial, imagem_url,
+        });
+      }
+      await loadDadosData();
+      setShowAccountSheet(false);
+    } finally {
+      setSavingAccount(false);
+    }
+  }
+
+  async function handleDeleteAccount(id: string) {
+    if (!confirm('Excluir esta conta? Movimentações já vinculadas a ela não serão apagadas.')) return;
+    await supabase.from('finance_accounts').delete().eq('id', id);
+    setAccounts(prev => prev.filter(a => a.id !== id));
+  }
+
+  // ── Favorecidos ─────────────────────────────────────────────────────────
+
+  async function handleAddFavorecido() {
+    if (!novoFavorecido.trim()) return;
+    setSavingFavorecido(true);
+    try {
+      const { data } = await supabase.from('finance_favorecidos')
+        .insert({ nome_fiscal: novoFavorecido.trim(), nome_banco: novoNomeBanco.trim() })
+        .select().single();
+      if (data) setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+      setNovoNomeBanco('');
+      setNovoFavorecido('');
+      setShowAddFavorecido(false);
+    } finally {
+      setSavingFavorecido(false);
+    }
+  }
+
+  async function handleDeleteFavorecido(id: string) {
+    await supabase.from('finance_favorecidos').delete().eq('id', id);
+    setFavorecidos(prev => prev.filter(f => f.id !== id));
+  }
+
   // Trava o scroll do body enquanto um sheet está aberto. `overflow: hidden` sozinho
   // não é suficiente no Safari/iOS (ele ainda permite o rubber-band da página por
   // trás, que "balança" a janela fixa) — a técnica confiável é fixar a posição do
   // body no scroll atual e restaurar ao fechar.
   useEffect(() => {
-    const anySheetOpen = showAddSheet || showCalSheet || showFilterSheet || detailTx !== null || parcelasModalOpen !== null;
+    const anySheetOpen = showAddSheet || showCalSheet || showFilterSheet || detailTx !== null || parcelasModalOpen !== null || showAccountSheet;
     if (!anySheetOpen) return;
     const scrollY = window.scrollY;
     const prev = {
@@ -1979,6 +2126,7 @@ export function MobileFinancePage() {
 
   function switchTab(t: Tab) {
     setActiveTab(t);
+    if (t === 'dados' && !dadosLoaded) loadDadosData();
     if (selectionMode) { setSelectionMode(false); setSelectedIds(new Set()); }
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -2023,8 +2171,9 @@ export function MobileFinancePage() {
       {/* Tab pills */}
       <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] px-3 pt-2.5 pb-2 flex gap-2 border-b border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
         {([
-          { key: 'mov',  label: 'Movimentações', icon: <ClipboardList size={11} /> },
-          { key: 'dash', label: 'Dashboard',      icon: <TrendingUp size={11} /> },
+          { key: 'mov',   label: 'Movimentações', icon: <ClipboardList size={11} /> },
+          { key: 'dash',  label: 'Dashboard',      icon: <TrendingUp size={11} /> },
+          { key: 'dados', label: 'Dados',          icon: <Database size={11} /> },
         ] as { key: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
           <button
             key={tab.key}
@@ -2350,6 +2499,164 @@ export function MobileFinancePage() {
             </motion.div>
           )}
 
+          {/* ═══ TAB: DADOS ═══ */}
+          {activeTab === 'dados' && (
+            <motion.div
+              key="dados"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+              className="pb-6 px-3 pt-3 flex flex-col gap-3.5"
+            >
+              {/* Contas */}
+              <div className="bg-[rgba(255,246,201,0.75)] dark:bg-[#23231D] border border-[rgba(26,18,8,0.07)] dark:border-white/[0.07] rounded-[18px] overflow-hidden">
+                <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-3.5 py-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[12px] font-black text-[#1A1A0E]">
+                    <Building2 size={14} />
+                    Contas
+                    <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-[7px] py-[2px] text-[8.5px] font-black">{accounts.length}</span>
+                  </span>
+                  <button
+                    onClick={openAddAccount}
+                    className="w-[27px] h-[27px] rounded-[9px] bg-[#D81E1E] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-90 transition-transform"
+                  >
+                    <Plus size={13} color="white" />
+                  </button>
+                </div>
+                <div className="p-2.5 flex flex-col gap-1.75">
+                  {!dadosLoaded ? (
+                    <div className="flex items-center justify-center py-8 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                      <Loader2 size={20} className="animate-spin" />
+                    </div>
+                  ) : accounts.length === 0 ? (
+                    <div className="flex flex-col items-center py-7 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                      <Building2 size={28} className="mb-1.5" />
+                      <p className="text-[11px] font-bold">Nenhuma conta cadastrada</p>
+                    </div>
+                  ) : (
+                    accounts.map(acc => (
+                      <button
+                        key={acc.id}
+                        onClick={() => openEditAccount(acc)}
+                        className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.5 flex items-center gap-2.5 text-left active:scale-[0.98] transition-transform"
+                      >
+                        {acc.imagem_url ? (
+                          <img src={acc.imagem_url} alt={acc.nome} className="w-9 h-9 rounded-[10px] object-cover shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-[10px] bg-[rgba(216,30,30,0.09)] dark:bg-[rgba(216,30,30,0.14)] flex items-center justify-center text-[11px] font-black text-[#D81E1E] shrink-0">
+                            {acc.nome.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12.5px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{acc.nome}</p>
+                          <p className="font-['DM_Mono',monospace] text-[9.5px] text-[rgba(26,26,10,0.42)] dark:text-white/35 truncate mt-0.5">
+                            {acc.banco}{acc.agencia && ` · Ag ${acc.agencia}`}
+                          </p>
+                        </div>
+                        <span className="font-['DM_Mono',monospace] text-[11px] font-medium text-[#059669] dark:text-[#34D399] whitespace-nowrap">{fmt(acc.saldo_inicial ?? 0)}</span>
+                        <ChevronLeft size={14} className="rotate-180 text-[rgba(26,18,8,0.22)] dark:text-white/20 shrink-0" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Favorecidos */}
+              <div className="bg-[rgba(255,246,201,0.75)] dark:bg-[#23231D] border border-[rgba(26,18,8,0.07)] dark:border-white/[0.07] rounded-[18px] overflow-hidden">
+                <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-3.5 py-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[12px] font-black text-[#1A1A0E]">
+                    <Users size={14} />
+                    Favorecidos
+                    <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-[7px] py-[2px] text-[8.5px] font-black">{favorecidos.length}</span>
+                  </span>
+                  <button
+                    onClick={() => setShowAddFavorecido(v => !v)}
+                    className={cn(
+                      'w-[27px] h-[27px] rounded-[9px] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-90 transition-transform',
+                      showAddFavorecido ? 'bg-[rgba(26,26,10,0.55)]' : 'bg-[#D81E1E]'
+                    )}
+                  >
+                    {showAddFavorecido ? <X size={13} color="white" /> : <Plus size={13} color="white" />}
+                  </button>
+                </div>
+                <div className="p-2.5 flex flex-col gap-1.75">
+                  {showAddFavorecido && (
+                    <div className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] p-2.5 flex flex-col gap-2">
+                      <input
+                        type="text"
+                        value={novoNomeBanco}
+                        onChange={e => setNovoNomeBanco(e.target.value)}
+                        placeholder="Nome no extrato bancário..."
+                        className="w-full px-3 py-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={novoFavorecido}
+                          onChange={e => setNovoFavorecido(e.target.value)}
+                          onKeyUp={e => e.key === 'Enter' && handleAddFavorecido()}
+                          placeholder="Nome fiscal do favorecido..."
+                          className="flex-1 px-3 py-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]"
+                        />
+                        <button
+                          onClick={handleAddFavorecido}
+                          disabled={savingFavorecido || !novoFavorecido.trim()}
+                          className="shrink-0 w-9 h-9 rounded-[10px] bg-[#D81E1E] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] disabled:opacity-40"
+                        >
+                          {savingFavorecido ? <Loader2 size={14} className="animate-spin text-white" /> : <Plus size={14} color="white" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.10] rounded-[10px] px-3 py-2">
+                    <Search size={12} className="text-[rgba(26,18,8,0.28)] dark:text-white/25 shrink-0" />
+                    <input
+                      value={dadosFavSearch}
+                      onChange={e => setDadosFavSearch(e.target.value)}
+                      placeholder="Buscar favorecido..."
+                      className="flex-1 bg-transparent outline-none text-[11.5px] text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[rgba(26,18,8,0.30)] dark:placeholder:text-white/25"
+                    />
+                  </div>
+                  {!dadosLoaded ? (
+                    <div className="flex items-center justify-center py-8 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                      <Loader2 size={20} className="animate-spin" />
+                    </div>
+                  ) : favorecidos.length === 0 ? (
+                    <div className="flex flex-col items-center py-7 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                      <Users size={28} className="mb-1.5" />
+                      <p className="text-[11px] font-bold">Nenhum favorecido cadastrado</p>
+                    </div>
+                  ) : (
+                    favorecidos
+                      .filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()))
+                      .map(f => (
+                        <div key={f.id} className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.25 flex items-center gap-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{f.nome_fiscal}</p>
+                            {f.nome_banco ? (
+                              <p className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[7.5px] font-black uppercase tracking-[0.10em] text-[rgba(26,18,8,0.28)] dark:text-white/22">Extrato</span>
+                                <span className="font-['DM_Mono',monospace] text-[9.5px] text-[rgba(26,26,10,0.42)] dark:text-white/35 truncate">{f.nome_banco}</span>
+                              </p>
+                            ) : (
+                              <p className="text-[9.5px] italic text-[rgba(26,18,8,0.28)] dark:text-white/22 mt-0.5">sem mapeamento de extrato</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteFavorecido(f.id)}
+                            className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-[rgba(26,18,8,0.30)] dark:text-white/25 active:bg-rose-500/10 active:text-rose-500 transition-colors shrink-0"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </div>
     </div>
@@ -2494,6 +2801,131 @@ export function MobileFinancePage() {
             }}
             onClose={() => setParcelasModalOpen(null)}
           />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Account Sheet — criar/editar conta bancária */}
+    <AnimatePresence>
+      {showAccountSheet && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAccountSheet(false)}
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+            className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+            style={{ maxHeight: '90svh' }}
+          >
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+              <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">
+                {editingAccountId ? 'Editar Conta' : 'Cadastrar Conta'}
+              </span>
+              <button
+                onClick={() => setShowAccountSheet(false)}
+                className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overscroll-none px-4 space-y-3 pb-4">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Imagem da Conta</span>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
+                  <div className="w-14 h-14 rounded-[14px] bg-white dark:bg-[#252520] border-[1.5px] border-dashed border-[#E0D8BF] dark:border-white/[0.12] flex items-center justify-center overflow-hidden shrink-0">
+                    {accountForm.imagemPreview ? (
+                      <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon size={18} className="text-[rgba(26,26,10,0.25)] dark:text-white/20" />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-bold text-[#D81E1E]">Escolher imagem</span>
+                </label>
+              </div>
+
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Nome da Conta</span>
+                <input
+                  type="text" value={accountForm.nome}
+                  onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))}
+                  placeholder="Ex: Conta Corrente PJ"
+                  className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                />
+              </div>
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Banco</span>
+                <input
+                  type="text" value={accountForm.banco}
+                  onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))}
+                  placeholder="Ex: Banco do Brasil"
+                  className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Agência</span>
+                  <input
+                    type="text" value={accountForm.agencia}
+                    onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))}
+                    placeholder="0000-0"
+                    className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Conta</span>
+                  <input
+                    type="text" value={accountForm.numero_conta}
+                    onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))}
+                    placeholder="00000-0"
+                    className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                  />
+                </div>
+              </div>
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Saldo Inicial</span>
+                <input
+                  type="text" inputMode="decimal" value={accountForm.saldo_inicial}
+                  onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
+                  placeholder="0,00"
+                  className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                />
+              </div>
+
+              {editingAccountId && (
+                <button
+                  onClick={() => { handleDeleteAccount(editingAccountId); setShowAccountSheet(false); }}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12px] font-bold text-rose-500 bg-rose-500/10 active:scale-[0.98] transition-transform"
+                >
+                  <Trash2 size={14} />
+                  Excluir Conta
+                </button>
+              )}
+            </div>
+
+            <div className="shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 border-t border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
+              <button
+                onClick={handleAccountSubmit}
+                disabled={savingAccount || !accountForm.nome.trim()}
+                className="w-full py-3 rounded-xl bg-[#D81E1E] text-white text-sm font-black uppercase tracking-wide shadow-[0_4px_14px_rgba(216,30,30,0.32)] disabled:opacity-40 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+              >
+                {savingAccount && <Loader2 size={15} className="animate-spin" />}
+                {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
+              </button>
+            </div>
+          </motion.div>
         </>
       )}
     </AnimatePresence>
