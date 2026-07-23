@@ -135,6 +135,11 @@ const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
 
+// Remove as setas do input numérico (Chrome/Safari/Firefox)
+const noSpinnerCls = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0';
+// Impede que o scroll do mouse sobre o campo focado altere o valor
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ── Import parsing utilities ───────────────────────────────────────────────
 
 // Normalise: strip accents + lowercase — used for all string comparisons in the parser
@@ -1104,8 +1109,9 @@ export function FinanceManager() {
                 min="0"
                 value={p.valor}
                 onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                onWheel={blockWheelChange}
                 placeholder="0,00"
-                className={inputCls}
+                className={cn(inputCls, noSpinnerCls)}
               />
               {parcelas.length > 1 ? (
                 <button
@@ -2187,7 +2193,7 @@ export function FinanceManager() {
                         {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
                       </div>
                     ) : (
-                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
                     )}
                   </div>
                 </>)}
@@ -2312,7 +2318,7 @@ export function FinanceManager() {
                         {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
                       </div>
                     ) : (
-                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
                     )}
                   </div>
                 </>)}
@@ -2483,8 +2489,9 @@ export function FinanceManager() {
                       min="0"
                       value={accountForm.saldo_inicial}
                       onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
+                      onWheel={blockWheelChange}
                       placeholder="0,00"
-                      className={cn(inputCls, 'pl-9')}
+                      className={cn(inputCls, 'pl-9', noSpinnerCls)}
                     />
                   </div>
                   <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
