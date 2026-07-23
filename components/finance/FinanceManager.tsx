@@ -208,9 +208,12 @@ export function FinanceManager() {
   const [pendingNotes, setPendingNotes] = useState<LinkedNoteLite[]>([]);
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
-  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string }>>([]);
-  // Quando preenchido, o salvar substitui todas essas linhas (edição do parcelamento inteiro)
+  // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
+  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; id?: string }>>([]);
+  // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
+  // edição do parcelamento inteiro, sem apagar e recriar tudo.
   const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
+  const [editingParcelamentoId, setEditingParcelamentoId] = useState<string | null>(null);
 
   // bank account modal
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -362,6 +365,7 @@ export function FinanceManager() {
     setParcelasEnabled(false);
     setParcelas([]);
     setEditingGroupIds(null);
+    setEditingParcelamentoId(null);
     setFavOpen(false);
     fetchFavorecidos();
     setShowTxModal(true);
@@ -373,13 +377,15 @@ export function FinanceManager() {
     setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
     // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
     setParcelasEnabled(!!t.vencimento);
-    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final) }] : []);
+    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), id: t.id }] : []);
     setEditingGroupIds(null);
+    setEditingParcelamentoId(null);
     fetchFavorecidos();
     setShowTxModal(true);
   };
 
-  // Carrega todas as parcelas irmãs no editor para edição em lote
+  // Carrega todas as parcelas irmãs no editor para edição em lote (diff no salvar,
+  // sem apagar e recriar quem não mudou — preserva "pago" das parcelas intocadas)
   const loadGroupIntoEditor = (t: Transaction) => {
     const key = parcelaGroupKey(t);
     const siblings = transactions
@@ -387,8 +393,9 @@ export function FinanceManager() {
       .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
     if (siblings.length === 0) return;
     setParcelasEnabled(true);
-    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final) })));
+    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final), id: s.id })));
     setEditingGroupIds(siblings.map(s => s.id));
+    setEditingParcelamentoId(siblings[0].parcelamento_id ?? crypto.randomUUID());
   };
 
   const handleTxSubmit = async () => {
@@ -416,9 +423,44 @@ export function FinanceManager() {
             ...base, data: txForm.data, vencimento: valid[0].data,
             valor_final: parseFloat(valid[0].valor) || 0,
           }).eq('id', editingId);
+        } else if (editingGroupIds) {
+          // Edição do grupo inteiro: diff contra as linhas carregadas — parcelas que
+          // continuam no editor são atualizadas no lugar (preservando pago/total_pago),
+          // as removidas são apagadas, e só as novas são inseridas. Não recria o grupo do zero.
+          const parcelamentoId = editingParcelamentoId ?? crypto.randomUUID();
+          const keptIds = new Set(valid.filter(p => p.id).map(p => p.id!));
+          const deletedIds = editingGroupIds.filter(id => !keptIds.has(id));
+          if (deletedIds.length > 0)
+            await supabase.from('finance_transactions').delete().in('id', deletedIds);
+
+          const rows = valid.map((p, i) => {
+            const original = p.id ? transactions.find(t => t.id === p.id) : undefined;
+            return {
+              id: p.id ?? crypto.randomUUID(),
+              ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
+              numero_parcela: i + 1, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
+              pago: original?.pago ?? false,
+              total_pago: original?.total_pago ?? 0,
+              import_id: original?.import_id ?? null,
+            };
+          });
+          const { data: upserted } = await supabase.from('finance_transactions')
+            .upsert(rows).select('id, favorecido, valor_final');
+
+          // Vincula as notas já ligadas ao grupo também às parcelas recém-criadas
+          const newRowIds = new Set(rows.filter((_, i) => !valid[i].id).map(r => r.id));
+          if (newRowIds.size > 0) {
+            const { data: links } = await supabase.from('finance_transaction_notes')
+              .select('note_id').in('transaction_id', editingGroupIds);
+            const noteIds = [...new Set((links ?? []).map(l => l.note_id as string))];
+            const newlyInserted = (upserted ?? []).filter(u => newRowIds.has(u.id));
+            if (noteIds.length > 0 && newlyInserted.length > 0)
+              await linkNotesToTransactions(newlyInserted, noteIds);
+          }
         } else {
-          // Criação, edição do grupo inteiro, ou conversão de linha única em parcelamento.
-          const replaceIds = editingGroupIds ?? (editingId ? [editingId] : []);
+          // Criação de movimentação nova, ou conversão de uma linha única (sem grupo)
+          // em vencimento/parcelamento.
+          const replaceIds = editingId ? [editingId] : [];
           let relinkNoteIds = pendingNotes.map(n => n.id);
           if (replaceIds.length > 0) {
             const { data: links } = await supabase.from('finance_transaction_notes')
@@ -943,6 +985,7 @@ export function FinanceManager() {
           else if (!next) {
             setParcelas([]);
             setEditingGroupIds(null);
+            setEditingParcelamentoId(null);
           }
         }}
         className={cn(
@@ -972,7 +1015,7 @@ export function FinanceManager() {
           )}
           {editingGroupIds && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-[11px] font-bold text-amber-700 dark:text-amber-400">
-              Editando o parcelamento inteiro — salvar substituirá todas as parcelas (status de pagamento será reiniciado)
+              Editando o parcelamento inteiro — parcelas removidas aqui são excluídas ao salvar; as demais mantêm o status de pagamento
             </div>
           )}
           <div className="grid grid-cols-[44px_1fr_1fr_28px] gap-2">
@@ -1013,12 +1056,17 @@ export function FinanceManager() {
             </div>
           ))}
           <div className="flex items-center justify-between pt-1">
-            <button
-              onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
-              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
-            >
-              <Plus size={13} />Adicionar parcela
-            </button>
+            {/* Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
+                depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
+                um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs. */}
+            {(!editingTx || editingGroupIds || (editingTx.total_parcelas ?? 1) <= 1) && (
+              <button
+                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
+                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
+              >
+                <Plus size={13} />Adicionar parcela
+              </button>
+            )}
             {parcelas.length > 1 && totalParcelas > 0 && (
               <span className="text-[11px] font-bold text-on-surface/50">
                 {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
@@ -1953,6 +2001,7 @@ export function FinanceManager() {
                       setParcelasEnabled(false);
                       setParcelas([]);
                       setEditingGroupIds(null);
+                      setEditingParcelamentoId(null);
                     }}
                     className={cn(
                       'flex-1 py-2 rounded-xl text-sm font-bold transition-all',

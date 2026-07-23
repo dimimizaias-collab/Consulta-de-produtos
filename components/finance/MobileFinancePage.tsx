@@ -58,7 +58,8 @@ type TxForm = {
   observacoes: string;
 };
 
-type ParcelaRow = { seq: number; valor: string; validade: string };
+// id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
+type ParcelaRow = { seq: number; valor: string; validade: string; id?: string };
 
 interface BankAccount {
   id: string;
@@ -1252,7 +1253,7 @@ function TxDetailSheet({
           )}
           {isEdit && editingWholeGroup && (
             <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 dark:text-amber-400">
-              Editando o parcelamento inteiro — salvar substituirá todas as parcelas
+              Editando o parcelamento inteiro — parcelas removidas são excluídas ao salvar; as demais mantêm o status de pagamento
             </div>
           )}
           {isEdit && !editingWholeGroup && groupTotal !== null && onEditAllParcelas && (
@@ -1419,10 +1420,12 @@ function ParcelasModal({
   initialRows,
   onSave,
   onClose,
+  canAddParcela = true,
 }: {
   initialRows: ParcelaRow[];
   onSave: (rows: ParcelaRow[]) => void;
   onClose: () => void;
+  canAddParcela?: boolean;
 }) {
   const [rows, setRows] = useState<ParcelaRow[]>(
     initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '' }]
@@ -1520,13 +1523,15 @@ function ParcelasModal({
           </div>
         ))}
 
-        <button
-          onClick={addRow}
-          className="w-full py-2.5 rounded-xl border-[1.5px] border-dashed border-[rgba(26,26,10,0.20)] dark:border-white/[0.18] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-        >
-          <Plus size={13} />
-          Adicionar parcela
-        </button>
+        {canAddParcela && (
+          <button
+            onClick={addRow}
+            className="w-full py-2.5 rounded-xl border-[1.5px] border-dashed border-[rgba(26,26,10,0.20)] dark:border-white/[0.18] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+          >
+            <Plus size={13} />
+            Adicionar parcela
+          </button>
+        )}
 
         {total > 0 && (
           <div className="flex items-center justify-between bg-[rgba(216,30,30,0.06)] dark:bg-[rgba(216,30,30,0.12)] border border-[rgba(216,30,30,0.16)] dark:border-[rgba(216,30,30,0.26)] rounded-xl px-3.5 py-2.5">
@@ -1624,8 +1629,10 @@ export function MobileFinancePage() {
   const [txParcelas, setTxParcelas] = useState<ParcelaRow[]>([]);
   const [detailParcelas, setDetailParcelas] = useState<ParcelaRow[]>([]);
   const [parcelasModalOpen, setParcelasModalOpen] = useState<'new' | 'edit' | null>(null);
-  // Quando preenchido, salvar a edição substitui todas essas linhas (parcelamento inteiro)
+  // Quando preenchido, salvar a edição faz um diff (update/insert/delete) contra essas
+  // linhas — edição do parcelamento inteiro, sem apagar e recriar tudo.
   const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
+  const [editingParcelamentoId, setEditingParcelamentoId] = useState<string | null>(null);
 
   // ── Data ────────────────────────────────────────────────────────────────
 
@@ -2068,13 +2075,15 @@ export function MobileFinancePage() {
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
     // salvar não apagar o vencimento existente.
     setDetailParcelas(tx.vencimento
-      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento }]
+      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, id: tx.id }]
       : []);
     setEditingGroupIds(null);
+    setEditingParcelamentoId(null);
     setDetailMode('view');
   }
 
-  // Carrega todas as parcelas irmãs no editor para edição em lote
+  // Carrega todas as parcelas irmãs no editor para edição em lote (diff no salvar,
+  // sem apagar e recriar quem não mudou — preserva "pago" das parcelas intocadas)
   function loadGroupIntoDetail(tx: Transaction) {
     const key = parcelaGroupKey(tx);
     const siblings = transactions
@@ -2085,8 +2094,10 @@ export function MobileFinancePage() {
       seq: i + 1,
       valor: s.valor_final.toFixed(2).replace('.', ','),
       validade: s.vencimento ?? s.data,
+      id: s.id,
     })));
     setEditingGroupIds(siblings.map(s => s.id));
+    setEditingParcelamentoId(siblings[0].parcelamento_id ?? crypto.randomUUID());
     setParcelasModalOpen('edit');
   }
 
@@ -2095,6 +2106,7 @@ export function MobileFinancePage() {
     setDetailMode('view');
     setDetailParcelas([]);
     setEditingGroupIds(null);
+    setEditingParcelamentoId(null);
   }
 
   async function handleSaveDetail() {
@@ -2131,14 +2143,54 @@ export function MobileFinancePage() {
       loadData();
       return;
     }
-    if (detailParcelas.length > 1) {
-      // Parcelamento: substitui a(s) linha(s) original(is) por N novas (uma por parcela).
-      // Com editingGroupIds, substitui o parcelamento inteiro de uma só vez.
-      // Preserva os vínculos de notas: o delete cascateia a junção, então re-vincula depois.
-      const replaceIds = editingGroupIds ?? [detailTx.id];
+    if (detailParcelas.length > 1 && editingGroupIds) {
+      // Edição do grupo inteiro: diff contra as linhas carregadas — parcelas que
+      // continuam no editor são atualizadas no lugar (preservando pago/total_pago),
+      // as removidas são apagadas, e só as novas são inseridas. Não recria o grupo do zero.
+      const parcelamentoId = editingParcelamentoId ?? crypto.randomUUID();
+      const keptIds = new Set(detailParcelas.filter(p => p.id).map(p => p.id!));
+      const deletedIds = editingGroupIds.filter(id => !keptIds.has(id));
+      if (deletedIds.length > 0)
+        await supabase.from('finance_transactions').delete().in('id', deletedIds);
+
+      const rows = detailParcelas.map((p, i) => {
+        const original = p.id ? transactions.find(t => t.id === p.id) : undefined;
+        return {
+          id: p.id ?? crypto.randomUUID(),
+          ...base, data: p.validade, vencimento: p.validade,
+          valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
+          numero_parcela: i + 1, total_parcelas: detailParcelas.length, parcelamento_id: parcelamentoId,
+          pago: original?.pago ?? false,
+          total_pago: original?.total_pago ?? 0,
+        };
+      });
+      const { data: upserted } = await supabase.from('finance_transactions')
+        .upsert(rows).select('id, favorecido, valor_final');
+
+      // Vincula as notas já ligadas ao grupo também às parcelas recém-criadas
+      const newRowIds = new Set(rows.filter((_, i) => !detailParcelas[i].id).map(r => r.id));
+      if (newRowIds.size > 0) {
+        const { data: links } = await supabase.from('finance_transaction_notes')
+          .select('note_id').in('transaction_id', editingGroupIds);
+        const noteIds = [...new Set((links ?? []).map(l => l.note_id as string))];
+        const newlyInserted = (upserted ?? []).filter(u => newRowIds.has(u.id));
+        if (noteIds.length > 0 && newlyInserted.length > 0)
+          await linkNotesToTransactions(newlyInserted, noteIds);
+      }
+      setSavingDetail(false);
+      setDetailTx(null);
+      setDetailMode('view');
+      setDetailParcelas([]);
+      setEditingGroupIds(null);
+      setEditingParcelamentoId(null);
+      loadData();
+      return;
+    }
+    if (detailParcelas.length > 1 && !editingGroupIds) {
+      // Conversão de uma linha única (sem grupo) em parcelamento novo.
       const { data: linkedRows } = await supabase.from('finance_transaction_notes')
-        .select('note_id').in('transaction_id', replaceIds);
-      await supabase.from('finance_transactions').delete().in('id', replaceIds);
+        .select('note_id').eq('transaction_id', detailTx.id);
+      await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
       const parcelamentoId = crypto.randomUUID();
       const { data: inserted } = await supabase.from('finance_transactions').insert(
         detailParcelas.map(p => ({
@@ -2160,7 +2212,6 @@ export function MobileFinancePage() {
       setDetailTx(null);
       setDetailMode('view');
       setDetailParcelas([]);
-      setEditingGroupIds(null);
       loadData();
       return;
     }
@@ -2906,6 +2957,15 @@ export function MobileFinancePage() {
               else setDetailParcelas(rows);
             }}
             onClose={() => setParcelasModalOpen(null)}
+            // Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
+            // depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
+            // um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs.
+            canAddParcela={
+              parcelasModalOpen === 'new' ||
+              !!editingGroupIds ||
+              !detailTx ||
+              (detailTx.total_parcelas ?? 1) <= 1
+            }
           />
         </>
       )}
