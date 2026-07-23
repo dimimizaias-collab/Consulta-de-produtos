@@ -50,8 +50,12 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const [search, setSearch] = useState('');
   // map productId → { qty, type, codeField }
   const [selections, setSelections] = useState<Record<string, Selection>>({});
-  // opções globais de informações adicionais — aplicam-se a todas as etiquetas desta impressão
+  // opções globais de informações adicionais — aplicam-se a todas as etiquetas desta
+  // impressão. Todas digitadas na hora, igual à Validade (não vêm do cadastro do produto).
   const [extraFields, setExtraFields] = useState<ExtraFields>(emptyExtraFields());
+  const [fabricanteText, setFabricanteText] = useState('');
+  const [cnpjText, setCnpjText] = useState('');
+  const [composicaoText, setComposicaoText] = useState('');
   const [validadeText, setValidadeText] = useState('');
   // set of block indices (0-based) that are already used on the sheet
   const [usedBlocks, setUsedBlocks] = useState<Set<number>>(new Set());
@@ -150,6 +154,9 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     setSelections({});
     setUsedBlocks(new Set());
     setExtraFields(emptyExtraFields());
+    setFabricanteText('');
+    setCnpjText('');
+    setComposicaoText('');
     setValidadeText('');
     onClose();
   };
@@ -182,14 +189,18 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     doc.save('etiquetas.pdf');
   };
 
-  // Monta as linhas de informação adicional (fabricante, CNPJ, composição, validade,
-  // EAN em texto) de acordo com as opções globais marcadas — só entram as que o
-  // produto realmente tem preenchido (ou a validade, que é digitada por impressão).
+  // Monta as linhas de informação adicional. Fabricante, CNPJ, Composição e Validade
+  // são digitados na hora da impressão (mesmo campo vale para todas as etiquetas deste
+  // lote) — se o campo digitado for deixado em branco, cai no dado já cadastrado no
+  // produto (quando existir). EAN em texto sempre vem do cadastro do produto.
   const buildExtraLines = (product: any): string[] => {
     const lines: string[] = [];
-    if (extraFields.fabricante && product.fabricante?.trim()) lines.push(product.fabricante.trim());
-    if (extraFields.cnpj && product.cnpj?.trim()) lines.push(product.cnpj.trim());
-    if (extraFields.composicao && product.composicao?.trim()) lines.push(product.composicao.trim());
+    const fabricante = fabricanteText.trim() || product.fabricante?.trim() || '';
+    const cnpj = cnpjText.trim() || product.cnpj?.trim() || '';
+    const composicao = composicaoText.trim() || product.composicao?.trim() || '';
+    if (extraFields.fabricante && fabricante) lines.push(fabricante);
+    if (extraFields.cnpj && cnpj) lines.push(cnpj);
+    if (extraFields.composicao && composicao) lines.push(composicao);
     if (extraFields.validade && validadeText.trim()) lines.push('Val: ' + validadeText.trim());
     if (extraFields.eanTexto && product.ean?.trim()) lines.push('EAN ' + product.ean.trim());
     return lines;
@@ -368,17 +379,48 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                         </button>
                       ))}
                     </div>
-                    {extraFields.validade && (
-                      <input
-                        type="text"
-                        value={validadeText}
-                        onChange={e => setValidadeText(e.target.value)}
-                        placeholder="Validade (ex: 12/2026)"
-                        className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors max-w-[180px]"
-                      />
+                    {(extraFields.fabricante || extraFields.cnpj || extraFields.composicao || extraFields.validade) && (
+                      <div className="flex flex-wrap gap-2">
+                        {extraFields.fabricante && (
+                          <input
+                            type="text"
+                            value={fabricanteText}
+                            onChange={e => setFabricanteText(e.target.value)}
+                            placeholder="Fabricante (ex: Panco Alimentos LTDA)"
+                            className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors flex-1 min-w-[180px]"
+                          />
+                        )}
+                        {extraFields.cnpj && (
+                          <input
+                            type="text"
+                            value={cnpjText}
+                            onChange={e => setCnpjText(e.target.value)}
+                            placeholder="CNPJ (ex: 12.345.678/0001-90)"
+                            className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors flex-1 min-w-[180px]"
+                          />
+                        )}
+                        {extraFields.composicao && (
+                          <input
+                            type="text"
+                            value={composicaoText}
+                            onChange={e => setComposicaoText(e.target.value)}
+                            placeholder="Composição (ex: farinha, açúcar, sal...)"
+                            className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors flex-1 min-w-[220px]"
+                          />
+                        )}
+                        {extraFields.validade && (
+                          <input
+                            type="text"
+                            value={validadeText}
+                            onChange={e => setValidadeText(e.target.value)}
+                            placeholder="Validade (ex: 12/2026)"
+                            className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors max-w-[180px]"
+                          />
+                        )}
+                      </div>
                     )}
                     <p className="text-[10px] text-on-surface/40 font-medium leading-relaxed">
-                      O código de barras nunca encolhe — continua legível independente do quanto for marcado aqui. Na etiqueta Estoque essas informações aparecem maiores (mais espaço livre sem preço).
+                      Digite o valor de cada informação marcada — vale para todas as etiquetas desta impressão. Deixe em branco para usar o que já estiver cadastrado no produto. O código de barras nunca encolhe — continua legível independente do quanto for marcado aqui. Na etiqueta Estoque essas informações aparecem maiores (mais espaço livre sem preço).
                     </p>
                   </div>
 
