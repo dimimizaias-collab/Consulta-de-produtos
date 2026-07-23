@@ -56,6 +56,12 @@ interface Favorecido {
   id: string;
   nome_fiscal: string;
   nome_banco: string;
+  supplier_id: string | null;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
 }
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
@@ -226,8 +232,11 @@ export function FinanceManager() {
   const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
   const [novoFavorecido, setNovoFavorecido] = useState('');
   const [novoNomeBanco, setNovoNomeBanco] = useState('');
+  const [novoFavorecidoSupplierId, setNovoFavorecidoSupplierId] = useState<string | null>(null);
+  const [editingFavorecidoId, setEditingFavorecidoId] = useState<string | null>(null);
   const [savingFavorecido, setSavingFavorecido] = useState(false);
   const [loadingFavorecidos, setLoadingFavorecidos] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // import extrato modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -298,40 +307,87 @@ export function FinanceManager() {
     setLoadingFavorecidos(false);
   };
 
-  const handleAddFavorecido = async () => {
-    if (!novoFavorecido.trim()) return;
-    setSavingFavorecido(true);
-    const { data } = await supabase
-      .from('finance_favorecidos')
-      .insert([{ nome_fiscal: novoFavorecido.trim(), nome_banco: novoNomeBanco.trim() }])
-      .select()
-      .single();
-    if (data) {
-      setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
-      // Re-translate existing transactions that used the raw bank name
-      if (novoNomeBanco.trim()) {
-        await supabase
-          .from('finance_transactions')
-          .update({ favorecido: novoFavorecido.trim() })
-          .eq('favorecido', novoNomeBanco.trim());
-        setTransactions(prev => prev.map(t =>
-          t.favorecido === novoNomeBanco.trim() ? { ...t, favorecido: novoFavorecido.trim() } : t
-        ));
-      }
-    }
+  const fetchSuppliers = async () => {
+    const { data } = await supabase.from('suppliers').select('id, name').order('name');
+    if (data) setSuppliers(data as Supplier[]);
+  };
+
+  const resetFavorecidoForm = () => {
+    setEditingFavorecidoId(null);
     setNovoFavorecido('');
     setNovoNomeBanco('');
+    setNovoFavorecidoSupplierId(null);
+  };
+
+  const openEditFavorecido = (f: Favorecido) => {
+    setEditingFavorecidoId(f.id);
+    setNovoFavorecido(f.nome_fiscal);
+    setNovoNomeBanco(f.nome_banco ?? '');
+    setNovoFavorecidoSupplierId(f.supplier_id);
+    if (suppliers.length === 0) fetchSuppliers();
+    setShowFavorecidoModal(true);
+  };
+
+  const handleSaveFavorecido = async () => {
+    if (!novoFavorecido.trim()) return;
+    setSavingFavorecido(true);
+    const payload = {
+      nome_fiscal: novoFavorecido.trim(),
+      nome_banco: novoNomeBanco.trim(),
+      supplier_id: novoFavorecidoSupplierId,
+    };
+    if (editingFavorecidoId) {
+      const { data } = await supabase
+        .from('finance_favorecidos')
+        .update(payload)
+        .eq('id', editingFavorecidoId)
+        .select()
+        .single();
+      if (data) {
+        setFavorecidos(prev => prev
+          .map(f => f.id === editingFavorecidoId ? (data as Favorecido) : f)
+          .sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+      }
+    } else {
+      const { data } = await supabase
+        .from('finance_favorecidos')
+        .insert([payload])
+        .select()
+        .single();
+      if (data) {
+        setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
+        // Re-translate existing transactions that used the raw bank name
+        if (novoNomeBanco.trim()) {
+          await supabase
+            .from('finance_transactions')
+            .update({ favorecido: novoFavorecido.trim() })
+            .eq('favorecido', novoNomeBanco.trim());
+          setTransactions(prev => prev.map(t =>
+            t.favorecido === novoNomeBanco.trim() ? { ...t, favorecido: novoFavorecido.trim() } : t
+          ));
+        }
+      }
+    }
+    resetFavorecidoForm();
     setSavingFavorecido(false);
   };
 
   const handleDeleteFavorecido = async (id: string) => {
     await supabase.from('finance_favorecidos').delete().eq('id', id);
     setFavorecidos(prev => prev.filter(f => f.id !== id));
+    if (editingFavorecidoId === id) resetFavorecidoForm();
   };
 
   const openFavorecidoModal = () => {
+    resetFavorecidoForm();
     fetchFavorecidos();
+    if (suppliers.length === 0) fetchSuppliers();
     setShowFavorecidoModal(true);
+  };
+
+  const closeFavorecidoModal = () => {
+    setShowFavorecidoModal(false);
+    resetFavorecidoForm();
   };
 
   const openImportModal = () => {
@@ -1197,7 +1253,7 @@ export function FinanceManager() {
         <button
           onClick={() => {
             setFinanceView(v => {
-              if (v === 'main') fetchFavorecidos();
+              if (v === 'main') { fetchFavorecidos(); fetchSuppliers(); }
               return v === 'main' ? 'dados' : 'main';
             });
           }}
@@ -1316,7 +1372,18 @@ export function FinanceManager() {
                         ) : (
                           <p className="text-[10px] italic text-on-surface/25 mt-0.5">sem mapeamento de extrato</p>
                         )}
+                        {f.supplier_id && (
+                          <p className="flex items-center gap-1 mt-0.5">
+                            <Building2 size={9} className="text-primary/60" />
+                            <span className="text-[10px] font-semibold text-primary/70 truncate">
+                              {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
+                            </span>
+                          </p>
+                        )}
                       </div>
+                      <button onClick={() => openEditFavorecido(f)} title="Editar" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors shrink-0">
+                        <Edit2 size={13} />
+                      </button>
                       <button onClick={() => handleDeleteFavorecido(f.id)} title="Excluir" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors shrink-0">
                         <Trash2 size={13} />
                       </button>
@@ -2442,7 +2509,7 @@ export function FinanceManager() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowFavorecidoModal(false)}
+              onClick={closeFavorecidoModal}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -2461,13 +2528,21 @@ export function FinanceManager() {
                     <p className="text-[11px] text-on-surface/40 font-medium">Mapeie nomes do extrato para nomes fiscais</p>
                   </div>
                 </div>
-                <button onClick={() => setShowFavorecidoModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                <button onClick={closeFavorecidoModal} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
                   <X size={16} />
                 </button>
               </div>
 
-              {/* Add new */}
+              {/* Add / Edit */}
               <div className="flex flex-col gap-2 mb-5 shrink-0">
+                {editingFavorecidoId && (
+                  <div className="flex items-center justify-between bg-primary/[0.06] border border-primary/15 rounded-lg px-3 py-1.5">
+                    <span className="text-[11px] font-bold text-primary">Editando favorecido</span>
+                    <button onClick={resetFavorecidoForm} className="text-[11px] font-bold text-on-surface/40 hover:text-on-surface/70">
+                      Cancelar
+                    </button>
+                  </div>
+                )}
                 <input
                   type="text"
                   value={novoNomeBanco}
@@ -2475,23 +2550,31 @@ export function FinanceManager() {
                   placeholder="Nome no extrato bancário..."
                   className={inputCls}
                 />
+                <select
+                  value={novoFavorecidoSupplierId ?? ''}
+                  onChange={e => setNovoFavorecidoSupplierId(e.target.value || null)}
+                  className={inputCls}
+                >
+                  <option value="">Sem fornecedor vinculado</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={novoFavorecido}
                     onChange={e => setNovoFavorecido(e.target.value)}
-                    onKeyUp={e => e.key === 'Enter' && handleAddFavorecido()}
+                    onKeyUp={e => e.key === 'Enter' && handleSaveFavorecido()}
                     placeholder="Nome fiscal do favorecido..."
                     className={inputCls}
                   />
                   <button
-                    onClick={handleAddFavorecido}
+                    onClick={handleSaveFavorecido}
                     disabled={savingFavorecido || !novoFavorecido.trim()}
                     className="shrink-0 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40"
                   >
                     {savingFavorecido
                       ? <Loader2 size={16} className="animate-spin" />
-                      : <Plus size={16} />
+                      : editingFavorecidoId ? <Check size={16} /> : <Plus size={16} />
                     }
                   </button>
                 </div>
@@ -2514,19 +2597,38 @@ export function FinanceManager() {
                   </div>
                 ) : (
                   favorecidos.map(f => (
-                    <div key={f.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors">
+                    <div key={f.id} className={cn(
+                      'flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors',
+                      editingFavorecidoId === f.id && 'bg-primary/[0.06]'
+                    )}>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-on-surface truncate">{f.nome_fiscal}</p>
                         {f.nome_banco && (
                           <p className="text-[10px] text-on-surface/40 font-medium truncate mt-0.5">{f.nome_banco}</p>
                         )}
+                        {f.supplier_id && (
+                          <p className="flex items-center gap-1 mt-0.5">
+                            <Building2 size={9} className="text-primary/60" />
+                            <span className="text-[10px] font-semibold text-primary/70 truncate">
+                              {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
+                            </span>
+                          </p>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleDeleteFavorecido(f.id)}
-                        className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/20 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-2"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                        <button
+                          onClick={() => openEditFavorecido(f)}
+                          className="w-7 h-7 rounded-lg hover:bg-primary/10 flex items-center justify-center text-on-surface/20 hover:text-primary transition-colors"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFavorecido(f.id)}
+                          className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/20 hover:text-rose-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
