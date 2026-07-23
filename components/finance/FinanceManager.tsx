@@ -36,6 +36,7 @@ interface Transaction {
   numero_parcela: number | null;
   total_parcelas: number | null;
   parcelamento_id: string | null;
+  codigo_barras: string | null;
   import_id?: string | null;
   account_id?: string | null;
   tag_ids: string[];
@@ -111,6 +112,7 @@ const emptyTxForm = (): TxForm => ({
   numero_parcela: null,
   total_parcelas: null,
   parcelamento_id: null,
+  codigo_barras: null,
   tag_ids: [],
   observacoes: null,
 });
@@ -220,7 +222,7 @@ export function FinanceManager() {
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
   // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
-  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; id?: string }>>([]);
+  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; codigo_barras: string; id?: string }>>([]);
   // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
   // edição do parcelamento inteiro, sem apagar e recriar tudo.
   const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
@@ -438,7 +440,7 @@ export function FinanceManager() {
     setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
     // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
     setParcelasEnabled(!!t.vencimento);
-    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), id: t.id }] : []);
+    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : []);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     fetchFavorecidos();
@@ -454,7 +456,7 @@ export function FinanceManager() {
       .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
     if (siblings.length === 0) return;
     setParcelasEnabled(true);
-    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final), id: s.id })));
+    setParcelas(siblings.map((s, i) => ({ seq: i + 1, data: s.vencimento ?? s.data, valor: String(s.valor_final), codigo_barras: s.codigo_barras ?? '', id: s.id })));
     setEditingGroupIds(siblings.map(s => s.id));
     setEditingParcelamentoId(siblings[0].parcelamento_id ?? crypto.randomUUID());
   };
@@ -483,6 +485,7 @@ export function FinanceManager() {
           await supabase.from('finance_transactions').update({
             ...base, data: txForm.data, vencimento: valid[0].data,
             valor_final: parseFloat(valid[0].valor) || 0,
+            codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (valid[0].codigo_barras || null) : null,
           }).eq('id', editingId);
         } else if (editingGroupIds) {
           // Edição do grupo inteiro: diff contra as linhas carregadas — parcelas que
@@ -500,6 +503,7 @@ export function FinanceManager() {
               id: p.id ?? crypto.randomUUID(),
               ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
               numero_parcela: i + 1, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
+              codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
               pago: original?.pago ?? false,
               total_pago: original?.total_pago ?? 0,
               import_id: original?.import_id ?? null,
@@ -536,6 +540,7 @@ export function FinanceManager() {
                 valor_final: parseFloat(valid[0].valor) || 0,
                 total_pago: 0, pago: false, import_id: null,
                 numero_parcela: null, total_parcelas: null, parcelamento_id: null,
+                codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (valid[0].codigo_barras || null) : null,
               }]
             // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
             : (() => {
@@ -544,6 +549,7 @@ export function FinanceManager() {
                   ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
                   total_pago: 0, pago: false, import_id: null,
                   numero_parcela: p.seq, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
+                  codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
                 }));
               })();
           const { data: inserted } = await supabase.from('finance_transactions')
@@ -560,6 +566,7 @@ export function FinanceManager() {
           numero_parcela: null,
           total_parcelas: null,
           parcelamento_id: null,
+          codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (txForm.codigo_barras || null) : null,
           observacoes: txForm.observacoes?.trim() || null,
         };
         if (editingId) {
@@ -883,6 +890,7 @@ export function FinanceManager() {
           numero_parcela: null,
           total_parcelas: null,
           parcelamento_id: null,
+          codigo_barras: null,
           tag_ids: [],
           observacoes: null,
         });
@@ -1049,7 +1057,7 @@ export function FinanceManager() {
           const next = !parcelasEnabled;
           setParcelasEnabled(next);
           if (next && parcelas.length === 0)
-            setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '' }]);
+            setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: txForm.codigo_barras ?? '' }]);
           else if (!next) {
             setParcelas([]);
             setEditingGroupIds(null);
@@ -1093,35 +1101,46 @@ export function FinanceManager() {
             <span />
           </div>
           {parcelas.map((p, idx) => (
-            <div key={idx} className="grid grid-cols-[44px_1fr_1fr_28px] gap-2 items-center">
-              <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none px-0')}>
-                {p.seq}
+            <div key={idx} className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-[44px_1fr_1fr_28px] gap-2 items-center">
+                <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none px-0')}>
+                  {p.seq}
+                </div>
+                <input
+                  type="date"
+                  value={p.data}
+                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+                  className={inputCls}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={p.valor}
+                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                  onWheel={blockWheelChange}
+                  placeholder="0,00"
+                  className={cn(inputCls, noSpinnerCls)}
+                />
+                {parcelas.length > 1 ? (
+                  <button
+                    onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
+                    title="Remover parcela"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                  >
+                    <X size={13} />
+                  </button>
+                ) : <span />}
               </div>
-              <input
-                type="date"
-                value={p.data}
-                onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
-                className={inputCls}
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={p.valor}
-                onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                onWheel={blockWheelChange}
-                placeholder="0,00"
-                className={cn(inputCls, noSpinnerCls)}
-              />
-              {parcelas.length > 1 ? (
-                <button
-                  onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
-                  title="Remover parcela"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                >
-                  <X size={13} />
-                </button>
-              ) : <span />}
+              {txForm.tipo_pagamento === 'Boleto' && (
+                <input
+                  type="text"
+                  value={p.codigo_barras}
+                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, codigo_barras: e.target.value } : x))}
+                  placeholder="Código de barras do boleto"
+                  className={inputCls}
+                />
+              )}
             </div>
           ))}
           <div className="flex items-center justify-between pt-1">
@@ -1130,7 +1149,7 @@ export function FinanceManager() {
                 um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs. */}
             {(!editingTx || editingGroupIds || (editingTx.total_parcelas ?? 1) <= 1) && (
               <button
-                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])}
+                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '', codigo_barras: '' }])}
                 className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
               >
                 <Plus size={13} />Adicionar parcela
@@ -1974,6 +1993,14 @@ export function FinanceManager() {
                           {t.tipo_pagamento === 'Cheque' && t.numero_cheque && (
                             <span className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5">
                               #{t.numero_cheque}
+                            </span>
+                          )}
+                          {t.tipo_pagamento === 'Boleto' && t.codigo_barras && (
+                            <span
+                              className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5"
+                              title={t.codigo_barras}
+                            >
+                              #{t.codigo_barras.slice(-8)}
                             </span>
                           )}
                           {t.vencimento && (

@@ -41,6 +41,7 @@ interface Transaction {
   numero_parcela: number | null;
   total_parcelas: number | null;
   parcelamento_id: string | null;
+  codigo_barras: string | null;
   account_id?: string | null;
   tag_ids: string[];
   observacoes: string | null;
@@ -59,7 +60,7 @@ type TxForm = {
 };
 
 // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
-type ParcelaRow = { seq: number; valor: string; validade: string; id?: string };
+type ParcelaRow = { seq: number; valor: string; validade: string; codigo_barras?: string; id?: string };
 
 interface BankAccount {
   id: string;
@@ -1219,6 +1220,16 @@ function TxDetailSheet({
           </div>
         )}
 
+        {/* Código de barras do boleto (somente leitura — configurar via "Visualizar pagamento") */}
+        {!isEdit && tx.tipo_pagamento === 'Boleto' && tx.codigo_barras && (
+          <div className="min-w-0">
+            <span className={labelCls}>Código de Barras</span>
+            <div className={cn(viewBlockCls, 'font-mono text-[12px] break-all')}>
+              {tx.codigo_barras}
+            </div>
+          </div>
+        )}
+
         {/* Tipo Pagamento */}
         <div>
           <span className={labelCls}>Tipo de pagamento</span>
@@ -1430,14 +1441,16 @@ function ParcelasModal({
   onSave,
   onClose,
   canAddParcela = true,
+  tipoPagamento,
 }: {
   initialRows: ParcelaRow[];
   onSave: (rows: ParcelaRow[]) => void;
   onClose: () => void;
   canAddParcela?: boolean;
+  tipoPagamento?: PaymentType;
 }) {
   const [rows, setRows] = useState<ParcelaRow[]>(
-    initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '' }]
+    initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '', codigo_barras: '' }]
   );
   const [datePickerIdx, setDatePickerIdx] = useState<number | null>(null);
 
@@ -1448,7 +1461,7 @@ function ParcelasModal({
     setRows(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
   function addRow() {
-    setRows(prev => [...prev, { seq: prev.length + 1, valor: '', validade: '' }]);
+    setRows(prev => [...prev, { seq: prev.length + 1, valor: '', validade: '', codigo_barras: '' }]);
   }
   function removeRow(idx: number) {
     setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, seq: i + 1 })));
@@ -1529,6 +1542,18 @@ function ParcelasModal({
                 />
               </div>
             </div>
+            {tipoPagamento === 'Boleto' && (
+              <div>
+                <span className={labelCls}>Código de barras</span>
+                <input
+                  className={fieldCls}
+                  value={row.codigo_barras ?? ''}
+                  onChange={e => updateRow(idx, { codigo_barras: e.target.value })}
+                  placeholder="Código de barras do boleto"
+                  inputMode="numeric"
+                />
+              </div>
+            )}
           </div>
         ))}
 
@@ -2078,6 +2103,7 @@ export function MobileFinancePage() {
           numero_parcela: p.seq,
           total_parcelas: txParcelas.length,
           parcelamento_id: parcelamentoId,
+          codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
         }))
       ).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
@@ -2098,6 +2124,7 @@ export function MobileFinancePage() {
         numero_parcela: null,
         total_parcelas: null,
         parcelamento_id: null,
+        codigo_barras: txForm.tipo_pagamento === 'Boleto' ? ((single?.codigo_barras) || null) : null,
       }]).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
         await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
@@ -2126,7 +2153,7 @@ export function MobileFinancePage() {
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
     // salvar não apagar o vencimento existente.
     setDetailParcelas(tx.vencimento
-      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, id: tx.id }]
+      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, codigo_barras: tx.codigo_barras ?? '', id: tx.id }]
       : []);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
@@ -2145,6 +2172,7 @@ export function MobileFinancePage() {
       seq: i + 1,
       valor: s.valor_final.toFixed(2).replace('.', ','),
       validade: s.vencimento ?? s.data,
+      codigo_barras: s.codigo_barras ?? '',
       id: s.id,
     })));
     setEditingGroupIds(siblings.map(s => s.id));
@@ -2186,6 +2214,7 @@ export function MobileFinancePage() {
         valor_final: valorNum,
         pago: detailForm.pago,
         total_pago: detailForm.pago ? valorNum : 0,
+        codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
       };
       await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
       setSavingDetail(false);
@@ -2211,6 +2240,7 @@ export function MobileFinancePage() {
           ...base, data: p.validade, vencimento: p.validade,
           valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
           numero_parcela: i + 1, total_parcelas: detailParcelas.length, parcelamento_id: parcelamentoId,
+          codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
           pago: original?.pago ?? false,
           total_pago: original?.total_pago ?? 0,
         };
@@ -2254,6 +2284,7 @@ export function MobileFinancePage() {
           numero_parcela: p.seq,
           total_parcelas: detailParcelas.length,
           parcelamento_id: parcelamentoId,
+          codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
         }))
       ).select('id, favorecido, valor_final');
       const relinkIds = [...new Set((linkedRows ?? []).map(r => r.note_id as string))];
@@ -3039,6 +3070,7 @@ export function MobileFinancePage() {
               else setDetailParcelas(rows);
             }}
             onClose={() => setParcelasModalOpen(null)}
+            tipoPagamento={parcelasModalOpen === 'new' ? txForm.tipo_pagamento : detailForm.tipo_pagamento}
             // Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
             // depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
             // um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs.
