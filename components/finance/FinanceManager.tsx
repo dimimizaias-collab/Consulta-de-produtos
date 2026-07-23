@@ -1028,6 +1028,13 @@ export function FinanceManager() {
   // Movimentação em edição no modal (para exibir total do grupo e o botão "Editar todas")
   const editingTx = editingId ? transactions.find(t => t.id === editingId) ?? null : null;
 
+  // Parcelas irmãs da movimentação em edição — para vincular notas fiscais a todas de uma vez
+  const editingTxSiblings = editingTx && editingTx.total_parcelas && editingTx.total_parcelas > 1
+    ? transactions
+        .filter(t => t.total_parcelas && t.total_parcelas > 1 && parcelaGroupKey(t) === parcelaGroupKey(editingTx))
+        .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0))
+    : undefined;
+
   // Editor de Vencimento / Parcelas — caminho único para dar vencimento a uma movimentação.
   // 1 linha = pagamento único com vencimento; 2+ linhas = parcelamento.
   const renderParcelasSection = () => (
@@ -2343,6 +2350,7 @@ export function FinanceManager() {
                   txMeta={{ favorecido: txForm.favorecido, valor_final: txForm.valor_final }}
                   pendingNotes={pendingNotes}
                   onPendingChange={setPendingNotes}
+                  siblingTxs={editingTxSiblings}
                 />
               </div>
 

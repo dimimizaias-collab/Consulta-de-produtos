@@ -91,11 +91,14 @@ interface Props {
   txMeta?: { favorecido: string; valor_final: number } | null;
   pendingNotes?: LinkedNoteLite[];
   onPendingChange?: (notes: LinkedNoteLite[]) => void;
+  // Parcelas irmãs (mesmo parcelamento) — quando presente, vincular uma nota aqui
+  // vincula automaticamente a todas elas, não só à parcela sendo vista.
+  siblingTxs?: { id: string; favorecido: string; valor_final: number }[];
 }
 
 const noteLabel = (n: LinkedNoteLite) => n.note_number || n.file_name || 'Sem número';
 
-export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNotes, onPendingChange }: Props) {
+export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNotes, onPendingChange, siblingTxs }: Props) {
   const isDesktop = variant === 'desktop';
   const isCreate = txId === null;
 
@@ -160,10 +163,12 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
       return;
     }
     setBusyNoteId(note.id);
-    await linkNotesToTransactions(
-      [{ id: txId!, favorecido: txMeta?.favorecido ?? '', valor_final: txMeta?.valor_final ?? 0 }],
-      [note.id],
-    );
+    // Se a movimentação faz parte de um parcelamento, vincula a nota a todas as parcelas
+    // irmãs de uma vez — não só à parcela sendo vista.
+    const targets = siblingTxs && siblingTxs.length > 0
+      ? siblingTxs
+      : [{ id: txId!, favorecido: txMeta?.favorecido ?? '', valor_final: txMeta?.valor_final ?? 0 }];
+    await linkNotesToTransactions(targets, [note.id]);
     setLinkedNotes(prev => [...prev, note]);
     setResults(prev => prev.filter(n => n.id !== note.id));
     setBusyNoteId(null);

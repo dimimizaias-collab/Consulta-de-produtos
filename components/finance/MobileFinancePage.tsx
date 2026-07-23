@@ -1001,6 +1001,7 @@ function TxDetailSheet({
   groupTotal,
   onEditAllParcelas,
   editingWholeGroup,
+  siblingTxs,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -1017,6 +1018,7 @@ function TxDetailSheet({
   groupTotal: number | null;
   onEditAllParcelas?: () => void;
   editingWholeGroup?: boolean;
+  siblingTxs?: { id: string; favorecido: string; valor_final: number }[];
 }) {
   const [showKbd, setShowKbd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1185,6 +1187,7 @@ function TxDetailSheet({
           editable={isEdit}
           txId={tx.id}
           txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
+          siblingTxs={siblingTxs}
         />
 
         {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" abaixo) */}
@@ -1949,6 +1952,15 @@ export function MobileFinancePage() {
   const getParcelaGroupTotal = (t: Transaction): number | null => {
     if (!t.total_parcelas || t.total_parcelas <= 1) return null;
     return parcelaGroupTotal[parcelaGroupKey(t)] ?? null;
+  };
+
+  // Parcelas irmãs de uma movimentação — para vincular notas fiscais a todas de uma vez
+  const getParcelaSiblings = (t: Transaction) => {
+    if (!t.total_parcelas || t.total_parcelas <= 1) return undefined;
+    const key = parcelaGroupKey(t);
+    return transactions
+      .filter(s => s.total_parcelas && s.total_parcelas > 1 && parcelaGroupKey(s) === key)
+      .sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
   };
 
   const filtered = useMemo(() => {
@@ -3002,6 +3014,7 @@ export function MobileFinancePage() {
             groupTotal={getParcelaGroupTotal(detailTx)}
             onEditAllParcelas={() => loadGroupIntoDetail(detailTx)}
             editingWholeGroup={editingGroupIds !== null}
+            siblingTxs={getParcelaSiblings(detailTx)}
           />
         </>
       )}
