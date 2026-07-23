@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Etiquetas (redesign, modo claro)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --color-primary: #D81E1E;
+    --color-primary-deep: #A30E0E;
+    --color-brand-yellow: #FFE500;
+    --color-brand-yellow-deep: #F5C400;
+    --color-background: #FFFCEC;
+    --color-surface: #ffffff;
+    --color-surface-container: #FAF6E6;
+    --color-surface-container-low: #FFF6C9;
+    --color-surface-container-lowest: #ffffff;
+    --color-on-surface: #1A1208;
+    --color-secondary: #4A3F2E;
+    --color-line: #E9DFC2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--color-background);
+    color: var(--color-on-surface);
+    padding: 32px 24px 100px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .eyebrow {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-on-surface) 40%, transparent);
+    margin-bottom: 6px;
+  }
+  h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+  .sub {
+    font-size: 12.5px; font-weight: 500;
+    color: color-mix(in srgb, var(--color-on-surface) 55%, transparent);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-primary);
+    font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px;
+    margin-bottom: 18px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 880px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── panel (modal "Cards" tab) ─────────────────────────────────── */
+  .panel {
+    background: var(--color-surface-container);
+    border: 1px solid var(--color-line);
+    border-radius: 20px;
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .panel-title {
+    font-size: 10px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-on-surface) 35%, transparent);
+  }
+  .product-row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .product-row .name { font-size: 14px; font-weight: 700; }
+  .product-row .meta {
+    font-size: 11px; font-weight: 500;
+    color: color-mix(in srgb, var(--color-on-surface) 45%, transparent);
+  }
+
+  .field-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .field-label { font-size: 11px; font-weight: 600; color: color-mix(in srgb, var(--color-on-surface) 65%, transparent); }
+  .pill-group {
+    display: flex; background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+    border-radius: 8px; padding: 2px; gap: 2px;
+  }
+  .pill-group button {
+    border: none; background: transparent; cursor: pointer;
+    padding: 5px 11px; border-radius: 6px;
+    font-size: 9px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-on-surface) 45%, transparent);
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .pill-group button.active {
+    background: var(--color-on-surface);
+    color: var(--color-surface-container);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  }
+
+  .checks {
+    display: flex; flex-direction: column; gap: 9px;
+    padding: 12px; border-radius: 14px;
+    background: color-mix(in srgb, var(--color-on-surface) 3%, transparent);
+    border: 1px solid var(--color-line);
+  }
+  .check-item { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+  .check-item input { display: none; }
+  .check-box {
+    width: 19px; height: 19px; border-radius: 6px; flex-shrink: 0;
+    border: 2px solid color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .check-item input:checked + .check-box {
+    background: var(--color-on-surface);
+    border-color: var(--color-on-surface);
+  }
+  .check-box svg { opacity: 0; transition: opacity 0.1s ease; }
+  .check-item input:checked + .check-box svg { opacity: 1; }
+  .check-label { font-size: 11.5px; font-weight: 600; }
+  .check-hint { font-size: 9.5px; font-weight: 500; color: color-mix(in srgb, var(--color-on-surface) 40%, transparent); margin-left: auto; }
+
+  .validade-input {
+    margin-top: 2px; margin-left: 28px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    font-size: 11.5px; font-weight: 600;
+    color: var(--color-on-surface);
+    font-family: inherit;
+    outline: none;
+    max-width: 160px;
+  }
+  .validade-input:focus { border-color: color-mix(in srgb, var(--color-on-surface) 30%, transparent); }
+
+  .note-box {
+    font-size: 10.5px; font-weight: 500; line-height: 1.5;
+    color: color-mix(in srgb, var(--color-on-surface) 50%, transparent);
+    background: color-mix(in srgb, var(--color-brand-yellow) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-yellow-deep) 45%, transparent);
+    border-radius: 10px;
+    padding: 9px 11px;
+  }
+
+  /* ── preview column ───────────────────────────────────────────── */
+  .preview-col { display: flex; flex-direction: column; gap: 22px; }
+  .preview-row { display: flex; gap: 36px; flex-wrap: wrap; align-items: flex-start; }
+  .preview-block { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .preview-block .scale-tag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--color-on-surface) 40%, transparent);
+  }
+  .tag {
+    font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #fff; border-radius: 5px; padding: 3px 8px;
+  }
+  .tag.estoque { background: #2452A6; }
+  .tag.prateleira { background: #1F7A4C; }
+
+  /* label — 144x80px = 38.1x21.2mm @ 96dpi (tamanho real de impressão, sem alteração) */
+  .label {
+    width: 144px; height: 80px;
+    border: 1.3px solid color-mix(in srgb, var(--color-on-surface) 70%, transparent);
+    border-radius: 6px;
+    background: #ffffff;
+    color: #111;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 4px 5px 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .label.zoom3 { width: 432px; height: 240px; border-width: 3px; border-radius: 16px; padding: 12px 14px 8px; }
+
+  .label .name {
+    font-size: 6.6px; font-weight: 800; line-height: 1.2; text-align: center;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    flex-shrink: 0; width: 100%;
+  }
+  .label.zoom3 .name { font-size: 17px; }
+
+  .label .price {
+    font-size: 12.5px; font-weight: 900; letter-spacing: -0.02em; line-height: 1;
+    flex-shrink: 0; margin: 1px 0;
+  }
+  .label.zoom3 .price { font-size: 38px; margin: 4px 0; }
+
+  /* Informações extras (fabricante, CNPJ, composição, validade) — ficam ENTRE
+     o nome/preço e o código de barras, nunca depois dele. Etiqueta de Estoque
+     tem mais espaço livre (sem preço), então o texto extra é maior — evita
+     a etiqueta parecer vazia. Prateleira mantém menor por ter menos espaço. */
+  .label .extra {
+    width: 100%; flex: 1; min-height: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.8px;
+    overflow: hidden;
+  }
+  .label .extra .extra-line {
+    font-weight: 700; color: #333; text-align: center; line-height: 1.3;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .label .extra .extra-line.cnpj { font-family: 'DM Mono', monospace; }
+
+  .label.tipo-estoque .extra .extra-line { font-size: 5.4px; }
+  .label.zoom3.tipo-estoque .extra .extra-line { font-size: 15.5px; }
+  .label.tipo-prateleira .extra .extra-line { font-size: 3.4px; }
+  .label.zoom3.tipo-prateleira .extra .extra-line { font-size: 10px; }
+
+  /* Código de barras — SEMPRE o último elemento, centralizado embaixo, com
+     tamanho fixo (não encolhe conforme mais informações extras são adicionadas)
+     para garantir leitura fácil no leitor de código de barras. */
+  .label .barcode-block {
+    flex-shrink: 0; width: 100%; margin-top: auto;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .label .barcode {
+    width: 94%; height: 22px;
+    background-image: repeating-linear-gradient(90deg, #111 0px, #111 1.1px, transparent 1.1px, transparent 2.6px);
+  }
+  .label.zoom3 .barcode { height: 62px; }
+
+  .label .code-num {
+    font-size: 4.2px; letter-spacing: 0.06em; font-family: 'DM Mono', monospace; color: #222;
+    margin-top: 1px;
+  }
+  .label.zoom3 .code-num { font-size: 11px; }
+
+  .sheet-title { font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in srgb, var(--color-on-surface) 40%, transparent); margin-bottom: 8px; }
+  .a4-sheet {
+    width: 216px; height: 305px;
+    background: #fff; border: 1px solid var(--color-line);
+    box-shadow: 0 2px 14px rgba(0,0,0,0.08);
+    padding: 4px;
+    display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(13, 1fr);
+    gap: 1.1px 2.6px;
+  }
+  .a4-cell {
+    border: 0.7px solid #333; border-radius: 2px; background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; gap: 0.5px;
+  }
+  .a4-cell .mn { font-size: 2.3px; font-weight: 700; text-align: center; color: #111; line-height: 1.1; }
+  .a4-cell .mb { width: 85%; height: 4px; background-image: repeating-linear-gradient(90deg, #111 0px, #111 0.5px, transparent 0.5px, transparent 1.1px); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Inventário · Etiquetas</div>
+  <h1>Redesign das Etiquetas — informações adicionais selecionáveis</h1>
+  <p class="sub">
+    Mesmo tamanho físico de impressão de hoje — Pimaco/Spiral A4351, 38,1 × 21,2&nbsp;mm, 65 etiquetas por folha A4 (5 colunas × 13 linhas).
+    Visual alinhado ao módulo de Placas. Marque as opções abaixo para ver a etiqueta atualizar em tempo real.
+  </p>
+  <div class="badge">● Mockup interativo — clique nas opções</div>
+
+  <div class="grid-2">
+    <!-- ══════════ PAINEL DE OPÇÕES (equivalente à aba "Cards" de Placas) ══════════ -->
+    <div class="panel">
+      <div class="panel-title">Configurar etiqueta</div>
+
+      <div class="product-row">
+        <span class="name">Biscoito Recheado Chocolate 140g</span>
+        <span class="meta">SKU: 88213-A · EAN: 7891234567890</span>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Tipo de etiqueta</span>
+        <div class="pill-group" id="tipoGroup">
+          <button class="active" data-tipo="estoque">Estoque</button>
+          <button data-tipo="prateleira">Prateleira</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Código impresso</span>
+        <div class="pill-group" id="codeGroup">
+          <button class="active" data-code="ean">EAN</button>
+          <button data-code="sku">SKU</button>
+        </div>
+      </div>
+
+      <div class="checks" id="checksBox">
+        <label class="check-item">
+          <input type="checkbox" data-field="fabricante" checked />
+          <span class="check-box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FAF6E6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span class="check-label">Fabricante</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" data-field="cnpj" />
+          <span class="check-box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FAF6E6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span class="check-label">CNPJ</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" data-field="composicao" />
+          <span class="check-box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FAF6E6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span class="check-label">Composição</span>
+          <span class="check-hint">truncada</span>
+        </label>
+        <label class="check-item">
+          <input type="checkbox" data-field="validade" checked />
+          <span class="check-box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FAF6E6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span class="check-label">Validade</span>
+        </label>
+        <input class="validade-input" id="validadeInput" type="text" value="12/2026" placeholder="Ex: 12/2026" />
+        <label class="check-item">
+          <input type="checkbox" data-field="eanTexto" />
+          <span class="check-box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FAF6E6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span class="check-label">Código EAN (texto)</span>
+        </label>
+      </div>
+
+      <div class="note-box">
+        ℹ️ O código de barras é sempre o último elemento, centralizado embaixo, em tamanho fixo — não encolhe conforme você marca mais informações, para garantir leitura fácil no leitor. As informações extras ficam entre o nome/preço e o código de barras; na Estoque elas aparecem maiores (mais espaço livre sem preço).
+      </div>
+    </div>
+
+    <!-- ══════════ PREVIEW ══════════ -->
+    <div class="preview-col">
+      <div>
+        <div class="scale-tag" style="margin-bottom:10px;">Tamanho real (1:1 a 96dpi)</div>
+        <div class="preview-row">
+          <div class="preview-block">
+            <span class="tag estoque">Estoque</span>
+            <div class="label tipo-estoque" id="labelEstoqueReal">
+              <span class="name">Biscoito Recheado Chocolate 140g</span>
+              <div class="extra" id="extraEstoqueReal"></div>
+              <div class="barcode-block">
+                <div class="barcode"></div>
+                <span class="code-num" id="codeEstoqueReal">7891234567890</span>
+              </div>
+            </div>
+          </div>
+          <div class="preview-block">
+            <span class="tag prateleira">Prateleira</span>
+            <div class="label tipo-prateleira" id="labelPrateleiraReal">
+              <span class="name">Biscoito Recheado Chocolate 140g</span>
+              <span class="price">R$ 4,99</span>
+              <div class="extra" id="extraPrateleiraReal"></div>
+              <div class="barcode-block">
+                <div class="barcode"></div>
+                <span class="code-num" id="codePrateleiraReal">7891234567890</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="scale-tag" style="margin-bottom:10px;">Ampliado 3× — checagem de legibilidade</div>
+        <div class="preview-row">
+          <div class="preview-block">
+            <div class="label zoom3 tipo-estoque" id="labelEstoqueZoom">
+              <span class="name">Biscoito Recheado Chocolate 140g</span>
+              <div class="extra" id="extraEstoqueZoom"></div>
+              <div class="barcode-block">
+                <div class="barcode"></div>
+                <span class="code-num" id="codeEstoqueZoom">7891234567890</span>
+              </div>
+            </div>
+          </div>
+          <div class="preview-block">
+            <div class="label zoom3 tipo-prateleira" id="labelPrateleiraZoom">
+              <span class="name">Biscoito Recheado Chocolate 140g</span>
+              <span class="price">R$ 4,99</span>
+              <div class="extra" id="extraPrateleiraZoom"></div>
+              <div class="barcode-block">
+                <div class="barcode"></div>
+                <span class="code-num" id="codePrateleiraZoom">7891234567890</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sheet-title">Folha A4 — 65 etiquetas (tamanho de impressão inalterado)</div>
+        <div class="a4-sheet" id="a4Sheet"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DATA = {
+    ean: '7891234567890',
+    fabricante: 'Panco Alimentos LTDA',
+    cnpj: '12.345.678/0001-90',
+    composicao: 'Farinha de trigo, açúcar, gordura vegetal, cacau, sal',
+  };
+
+  const state = { tipo: 'estoque', code: 'ean' };
+
+  document.querySelectorAll('#tipoGroup button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#tipoGroup button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.tipo = b.dataset.tipo;
+  }));
+  document.querySelectorAll('#codeGroup button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#codeGroup button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.code = b.dataset.code;
+    render();
+  }));
+  document.querySelectorAll('#checksBox input[type=checkbox]').forEach(cb => cb.addEventListener('change', render));
+  document.getElementById('validadeInput').addEventListener('input', render);
+
+  function getChecked(field) {
+    const el = document.querySelector(`#checksBox input[data-field="${field}"]`);
+    return el ? el.checked : false;
+  }
+
+  function buildExtraLines() {
+    const lines = [];
+    if (getChecked('fabricante')) lines.push(DATA.fabricante);
+    if (getChecked('cnpj')) lines.push(DATA.cnpj);
+    if (getChecked('composicao')) lines.push(DATA.composicao);
+    if (getChecked('validade')) lines.push('Val: ' + (document.getElementById('validadeInput').value || '—'));
+    if (getChecked('eanTexto')) lines.push('EAN ' + DATA.ean);
+    return lines;
+  }
+
+  function fillExtra(elId, lines, maxLines) {
+    const el = document.getElementById(elId);
+    el.innerHTML = lines.slice(0, maxLines).map(l => `<span class="extra-line">${l}</span>`).join('');
+  }
+
+  function render() {
+    const lines = buildExtraLines();
+    // Estoque tem mais espaço livre (sem preço) — cabem mais linhas, e maiores (ver CSS .tipo-estoque)
+    fillExtra('extraEstoqueReal', lines, 3);
+    fillExtra('extraPrateleiraReal', lines, 2);
+    fillExtra('extraEstoqueZoom', lines, 3);
+    fillExtra('extraPrateleiraZoom', lines, 2);
+    // O código de barras NUNCA encolhe — tamanho fixo em CSS (.label .barcode),
+    // garantindo leitura fácil independente de quantas informações extras existem.
+  }
+
+  // Folha A4 (grid de 65 células — apenas ilustrativo, tamanho físico inalterado)
+  const sheet = document.getElementById('a4Sheet');
+  for (let i = 0; i < 65; i++) {
+    const c = document.createElement('div');
+    c.className = 'a4-cell';
+    c.innerHTML = '<div class="mn">Biscoito Choc.</div><div class="mb"></div>';
+    sheet.appendChild(c);
+  }
+
+  render();
+</script>
+</body>
+</html>

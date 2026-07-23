@@ -529,6 +529,9 @@ export default function Page() {
     category: '',
     subcategory: '',
     brand: '',
+    fabricante: '',
+    cnpj: '',
+    composicao: '',
     is_mother: false,
     units_per_mother: 1,
     linked_product_id: null as string | null
@@ -1372,6 +1375,9 @@ export default function Page() {
         category: newProduct.category || 'Geral',
         subcategory: newProduct.subcategory || 'Geral',
         brand: newProduct.brand || 'Geral',
+        fabricante: newProduct.fabricante?.trim() || null,
+        cnpj: newProduct.cnpj?.trim() || null,
+        composicao: newProduct.composicao?.trim() || null,
         internal_code: newProduct.sku,
         is_featured: false,
         is_side: false,
@@ -1444,6 +1450,9 @@ export default function Page() {
         category: '',
         subcategory: '',
         brand: '',
+        fabricante: '',
+        cnpj: '',
+        composicao: '',
         is_mother: false,
         units_per_mother: 1,
         linked_product_id: null
@@ -1495,6 +1504,9 @@ export default function Page() {
         category: editingProduct.category || '',
         subcategory: editingProduct.subcategory || '',
         brand: editingProduct.brand || '',
+        fabricante: editingProduct.fabricante?.trim() || null,
+        cnpj: editingProduct.cnpj?.trim() || null,
+        composicao: editingProduct.composicao?.trim() || null,
         internal_code: editingProduct.sku,
         is_low: (isNaN(editingProduct.count) ? 0 : editingProduct.count) < 5,
         updated_at: new Date().toISOString(),
@@ -3831,7 +3843,7 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Marca</label>
-                    <SearchableSelect 
+                    <SearchableSelect
                       value={editingProduct.brand}
                       onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
                       options={uniqueBrands}
@@ -3843,10 +3855,40 @@ export default function Page() {
                     />
                   </div>
                   <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Fabricante</label>
+                    <input
+                      type="text"
+                      value={editingProduct.fabricante || ''}
+                      onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
+                      placeholder="Nome do fabricante..."
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">CNPJ</label>
+                    <input
+                      type="text"
+                      value={editingProduct.cnpj || ''}
+                      onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
+                      placeholder="00.000.000/0000-00"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Composição</label>
+                    <textarea
+                      value={editingProduct.composicao || ''}
+                      onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
+                      placeholder="Ingredientes / composição do produto..."
+                      rows={2}
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">URL da Imagem</label>
                     <div className="flex gap-2">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editingProduct.image}
                         onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
                         className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -4648,7 +4690,7 @@ export default function Page() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-secondary uppercase">Marca</label>
-                    <SearchableSelect 
+                    <SearchableSelect
                       value={newProduct.brand}
                       onChange={(val) => setNewProduct({...newProduct, brand: val})}
                       options={uniqueBrands}
@@ -4657,6 +4699,36 @@ export default function Page() {
                       onToggleAddingNew={() => toggleAddingNew('brand')}
                       addNewPlaceholder="Nova marca..."
                       defaultValue="Geral"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Fabricante</label>
+                    <input
+                      type="text"
+                      value={newProduct.fabricante || ''}
+                      onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
+                      placeholder="Nome do fabricante..."
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">CNPJ</label>
+                    <input
+                      type="text"
+                      value={newProduct.cnpj || ''}
+                      onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
+                      placeholder="00.000.000/0000-00"
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold text-secondary uppercase">Composição</label>
+                    <textarea
+                      value={newProduct.composicao || ''}
+                      onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
+                      placeholder="Ingredientes / composição do produto..."
+                      rows={2}
+                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
                     />
                   </div>
                   <div className="space-y-1.5">

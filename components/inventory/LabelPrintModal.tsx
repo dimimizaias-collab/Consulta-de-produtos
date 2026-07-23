@@ -33,11 +33,26 @@ interface LabelPrintModalProps {
   products: any[];
 }
 
+interface ExtraFields {
+  fabricante: boolean;
+  cnpj: boolean;
+  composicao: boolean;
+  validade: boolean;
+  eanTexto: boolean;
+}
+
+const emptyExtraFields = (): ExtraFields => ({
+  fabricante: false, cnpj: false, composicao: false, validade: false, eanTexto: false,
+});
+
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
   // map productId → { qty, type, codeField }
   const [selections, setSelections] = useState<Record<string, Selection>>({});
+  // opções globais de informações adicionais — aplicam-se a todas as etiquetas desta impressão
+  const [extraFields, setExtraFields] = useState<ExtraFields>(emptyExtraFields());
+  const [validadeText, setValidadeText] = useState('');
   // set of block indices (0-based) that are already used on the sheet
   const [usedBlocks, setUsedBlocks] = useState<Set<number>>(new Set());
   // range-select mode: null = off, number = first point chosen, 'picking' = waiting for first click
@@ -134,6 +149,8 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     setSearch('');
     setSelections({});
     setUsedBlocks(new Set());
+    setExtraFields(emptyExtraFields());
+    setValidadeText('');
     onClose();
   };
 
@@ -165,6 +182,19 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     doc.save('etiquetas.pdf');
   };
 
+  // Monta as linhas de informação adicional (fabricante, CNPJ, composição, validade,
+  // EAN em texto) de acordo com as opções globais marcadas — só entram as que o
+  // produto realmente tem preenchido (ou a validade, que é digitada por impressão).
+  const buildExtraLines = (product: any): string[] => {
+    const lines: string[] = [];
+    if (extraFields.fabricante && product.fabricante?.trim()) lines.push(product.fabricante.trim());
+    if (extraFields.cnpj && product.cnpj?.trim()) lines.push(product.cnpj.trim());
+    if (extraFields.composicao && product.composicao?.trim()) lines.push(product.composicao.trim());
+    if (extraFields.validade && validadeText.trim()) lines.push('Val: ' + validadeText.trim());
+    if (extraFields.eanTexto && product.ean?.trim()) lines.push('EAN ' + product.ean.trim());
+    return lines;
+  };
+
   const drawLabel = (doc: jsPDF, x: number, y: number, entry: { product: any; type: LabelType; codeField: CodeField }) => {
     const { product, type, codeField } = entry;
     const code = codeField === 'sku'
@@ -175,8 +205,15 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     const cw = LABEL_W - PAD * 2;
     let cy = y + PAD;
 
+    // ── Código de barras — SEMPRE o último elemento, centralizado embaixo, com
+    // altura FIXA (não encolhe conforme mais informações extras são adicionadas)
+    // para garantir leitura fácil no leitor de código de barras.
+    const codeNumY = y + LABEL_H - 3.0;
+    const bcH = type === 'estoque' ? 7.5 : 6.0;
+    const bcY = codeNumY - 0.8 - bcH;
+
     if (type === 'estoque') {
-      // Name (up to 2 lines, 5.5pt)
+      // Nome (até 2 linhas, 5.5pt)
       doc.setFontSize(5.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(20, 20, 20);
@@ -184,25 +221,8 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       const nameToPrint = nameLines.slice(0, 2);
       doc.text(nameToPrint, x + LABEL_W / 2, cy + 2, { align: 'center' });
       cy += nameToPrint.length * 2.2 + 1;
-
-      // Barcode
-      if (code) {
-        try {
-          const bcH = LABEL_H - PAD - (cy - y) - 5.0;
-          const bcDataUrl = generateBarcodeDataUrl(code);
-          doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(4, bcH));
-          cy += bcH + 0.5;
-        } catch { /* skip barcode on error */ }
-      }
-
-      // Code number
-      doc.setFontSize(4);
-      doc.setFont('courier', 'normal');
-      doc.setTextColor(60, 60, 60);
-      doc.text(code, x + LABEL_W / 2, y + LABEL_H - 3.0, { align: 'center' });
-
     } else {
-      // Prateleira: name (1 line, 6.5pt)
+      // Prateleira: nome (1 linha, 6.5pt)
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(20, 20, 20);
@@ -210,29 +230,51 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       doc.text(nameLines.slice(0, 1), x + LABEL_W / 2, cy + 2.3, { align: 'center' });
       cy += 3.2;
 
-      // Price (13pt bold, centered)
+      // Preço (13pt bold, centralizado)
       const price = formatPrice(product.price ?? 0);
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
       doc.text(price, x + LABEL_W / 2, cy + 5, { align: 'center' });
       cy += 6.5;
-
-      // Barcode (pushed further down)
-      cy += 1.5;
-      if (code) {
-        try {
-          const bcH = LABEL_H - PAD - (cy - y) - 4.0;
-          const bcDataUrl = generateBarcodeDataUrl(code);
-          doc.addImage(bcDataUrl, 'PNG', cx, cy, cw, Math.max(2.5, bcH));
-        } catch { /* skip */ }
-      }
-
-      // Code number
-      doc.setFontSize(4);
-      doc.setFont('courier', 'normal');
-      doc.setTextColor(60, 60, 60);
-      doc.text(code, x + LABEL_W / 2, y + LABEL_H - 3.0, { align: 'center' });
     }
+
+    // Informações adicionais — ocupam o espaço livre entre o nome/preço e o
+    // código de barras (nunca depois dele). Estoque tem mais espaço (sem preço),
+    // então usa fonte maior, para a etiqueta não parecer vazia; Prateleira usa
+    // fonte menor por ter menos espaço disponível.
+    const extraLines = buildExtraLines(product);
+    if (extraLines.length > 0) {
+      const extraFontSize = type === 'estoque' ? 4.4 : 3.0;
+      const extraLineHeight = type === 'estoque' ? 2.0 : 1.4;
+      const available = bcY - cy - 0.3;
+      const maxLines = Math.max(0, Math.floor(available / extraLineHeight));
+      const toPrint = extraLines.slice(0, maxLines);
+      if (toPrint.length > 0) {
+        doc.setFontSize(extraFontSize);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(60, 60, 60);
+        // centraliza o bloco de linhas no espaço livre restante
+        const blockH = toPrint.length * extraLineHeight;
+        let ly = cy + Math.max(0, (available - blockH) / 2) + extraLineHeight * 0.75;
+        toPrint.forEach(line => {
+          const truncated = doc.splitTextToSize(line, cw)[0] || line;
+          doc.text(truncated, x + LABEL_W / 2, ly, { align: 'center' });
+          ly += extraLineHeight;
+        });
+      }
+    }
+
+    // Código de barras (tamanho e posição fixos) + número do código
+    if (code) {
+      try {
+        const bcDataUrl = generateBarcodeDataUrl(code);
+        doc.addImage(bcDataUrl, 'PNG', cx, bcY, cw, bcH);
+      } catch { /* skip barcode on error */ }
+    }
+    doc.setFontSize(4);
+    doc.setFont('courier', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(code, x + LABEL_W / 2, codeNumY, { align: 'center' });
   };
 
   return (
@@ -298,6 +340,46 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                       placeholder="Buscar por nome, SKU ou EAN…"
                       className="w-full h-11 pl-10 pr-4 bg-on-surface/[0.04] border border-on-surface/[0.06] rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/20 transition-colors"
                     />
+                  </div>
+
+                  {/* Informações adicionais — aplicam-se a todas as etiquetas desta impressão */}
+                  <div className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-on-surface/[0.06] bg-on-surface/[0.02]">
+                    <span className="text-[11px] font-semibold text-on-surface/60">Informações adicionais</span>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      {([
+                        ['fabricante', 'Fabricante'],
+                        ['cnpj', 'CNPJ'],
+                        ['composicao', 'Composição'],
+                        ['validade', 'Validade'],
+                        ['eanTexto', 'Código EAN (texto)'],
+                      ] as const).map(([key, label]) => (
+                        <button
+                          key={key}
+                          onClick={() => setExtraFields(prev => ({ ...prev, [key]: !prev[key] }))}
+                          className="flex items-center gap-2"
+                        >
+                          <div className={cn(
+                            'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                            extraFields[key] ? 'bg-on-surface border-on-surface' : 'border-on-surface/20 bg-transparent'
+                          )}>
+                            {extraFields[key] && <Check size={11} strokeWidth={3} className="text-surface-container" />}
+                          </div>
+                          <span className="text-[11px] font-semibold text-on-surface/60">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {extraFields.validade && (
+                      <input
+                        type="text"
+                        value={validadeText}
+                        onChange={e => setValidadeText(e.target.value)}
+                        placeholder="Validade (ex: 12/2026)"
+                        className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors max-w-[180px]"
+                      />
+                    )}
+                    <p className="text-[10px] text-on-surface/40 font-medium leading-relaxed">
+                      O código de barras nunca encolhe — continua legível independente do quanto for marcado aqui. Na etiqueta Estoque essas informações aparecem maiores (mais espaço livre sem preço).
+                    </p>
                   </div>
 
                   {/* List header */}
