@@ -33,9 +33,10 @@ export async function linkNotesToTransactions(
   }).in('id', noteIds);
 }
 
-export async function unlinkNoteFromTransaction(txId: string, noteId: string) {
+export async function unlinkNoteFromTransactions(txIds: string[], noteId: string) {
+  if (txIds.length === 0) return;
   await supabase.from('finance_transaction_notes').delete()
-    .eq('transaction_id', txId).eq('note_id', noteId);
+    .eq('note_id', noteId).in('transaction_id', txIds);
   const { data: remaining } = await supabase.from('finance_transaction_notes')
     .select('transaction_id').eq('note_id', noteId).limit(1);
   if (!remaining || remaining.length === 0) {
@@ -180,7 +181,10 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
       return;
     }
     setBusyNoteId(note.id);
-    await unlinkNoteFromTransaction(txId!, note.id);
+    // Mesma regra do vincular: se a movimentação faz parte de um parcelamento,
+    // desvincula a nota de todas as parcelas irmãs de uma vez.
+    const targetIds = siblingTxs && siblingTxs.length > 0 ? siblingTxs.map(t => t.id) : [txId!];
+    await unlinkNoteFromTransactions(targetIds, note.id);
     setLinkedNotes(prev => prev.filter(n => n.id !== note.id));
     setBusyNoteId(null);
   };
