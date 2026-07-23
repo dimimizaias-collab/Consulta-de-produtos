@@ -461,6 +461,7 @@ export default function Page() {
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteEanVariants, setViewingNoteEanVariants] = useState<EanVariant[][]>([]);
+  const [viewingNoteExtraEans, setViewingNoteExtraEans] = useState<EanCodeEntry[][]>([]);
   const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<(number | null)[]>([]);
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingDistribDropdownIdx, setViewingDistribDropdownIdx] = useState<number | null>(null);
@@ -2612,6 +2613,7 @@ export default function Page() {
         ...item,
         ean: viewingNoteEans[idx] ?? item.ean,
         eanVariants: (viewingNoteEanVariants[idx]?.length ?? 0) > 0 ? viewingNoteEanVariants[idx] : undefined,
+        extraEans: (viewingNoteExtraEans[idx]?.length ?? 0) > 0 ? viewingNoteExtraEans[idx] : undefined,
         sku: viewingNoteSkus[idx] ?? item.sku,
         qty: viewingNoteQtys[idx] ?? item.qty,
         price: viewingNoteItemPrices[idx] ?? item.price,
@@ -2663,7 +2665,7 @@ export default function Page() {
       setSavingNote(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -3449,6 +3451,7 @@ export default function Page() {
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
                     setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
+                    setViewingNoteExtraEans(note.items.map((item: any) => (item.extraEans as EanCodeEntry[]) ?? []));
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setViewingDistribMode([]);
@@ -3506,6 +3509,7 @@ export default function Page() {
                     setViewingNoteSkus([]);
                     setViewingNoteQtys([]);
                     setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
+                    setViewingNoteExtraEans(note.items.map((item: any) => (item.extraEans as EanCodeEntry[]) ?? []));
                     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
                     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
                     setViewingDistribMode([]);
@@ -8404,6 +8408,8 @@ export default function Page() {
             onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}
             eanVariants={viewingNoteEanVariants}
             setEanVariants={setViewingNoteEanVariants}
+            extraEans={viewingNoteExtraEans}
+            setExtraEans={setViewingNoteExtraEans}
             onUseTranslation={handleReviewUseTranslation}
             onSaveMeasure={applyReviewMeasure}
             onResetMultiplier={(idx) => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); }}

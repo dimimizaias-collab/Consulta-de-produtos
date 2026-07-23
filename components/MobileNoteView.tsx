@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
-  ChevronRight, FileText, Filter, Layers, Link as LinkIcon,
-  List, Minus, Pencil, Plus, Ruler, Save, Search, Trash2, X, Zap,
+  ChevronRight, Delete, FileText, Filter, Hash, Layers, Link as LinkIcon,
+  List, Keyboard, Minus, Pencil, Plus, Ruler, Save, Search, Trash2, X, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReviewNote } from '@/components/requests/LogisticsCenter';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
+import type { EanCodeEntry } from '@/components/shared/EanCodesEditor';
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,29 @@ export interface EanVariant {
   sku: string;
   qty: number;
 }
+
+// Layout do teclado virtual de texto (Descrição) — mesmo padrão do teclado
+// usado em MobileBulkTable.tsx, adaptado ao tema escuro/vermelho desta tela.
+const DESC_KBD: Record<string, string[][]> = {
+  abc: [
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['SHIFT','z','x','c','v','b','n','m','⌫'],
+    ['123','SPACE','↵'],
+  ],
+  '123': [
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['-','/',':', ';','(',')', '$','&','@','"'],
+    ['#+=','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+  '#+=': [
+    ['[',']','{','}','#','%','^','*','+','='],
+    ['_','\\','|','~','<','>','€','£','¥','•'],
+    ['123','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+};
 
 interface MobileNoteViewProps {
   note: ReviewNote;
@@ -44,6 +68,8 @@ interface MobileNoteViewProps {
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
   eanVariants: EanVariant[][];
   setEanVariants: React.Dispatch<React.SetStateAction<EanVariant[][]>>;
+  extraEans: EanCodeEntry[][];
+  setExtraEans: React.Dispatch<React.SetStateAction<EanCodeEntry[][]>>;
 
   /** Menu de unidade da Quantidade (paridade com o desktop) */
   onUseTranslation: (idx: number) => Promise<void> | void;
@@ -332,6 +358,7 @@ export function MobileNoteView({
   eanProblems = [],
   onReportEanProblem,
   eanVariants, setEanVariants,
+  extraEans, setExtraEans,
   onUseTranslation, onSaveMeasure, onResetMultiplier,
   loadingUnitIdx = null, savingMeasure = false,
 }: MobileNoteViewProps) {
@@ -351,6 +378,17 @@ export function MobileNoteView({
   const [measureMult, setMeasureMult] = useState('');
   const detailScrollRef = useRef<HTMLDivElement>(null);
   const eanInputRef = useRef<HTMLInputElement>(null);
+
+  // menu suspenso do botão "+" do EAN (Adicionar variação / Adicionar código)
+  const [eanMenuOpen, setEanMenuOpen] = useState(false);
+  const [eanMenuPos, setEanMenuPos] = useState({ top: 0, left: 0 });
+  const eanMenuBtnRef = useRef<HTMLButtonElement>(null);
+
+  // teclado virtual de texto para os campos de Descrição dos códigos adicionais —
+  // fica oculto até o usuário clicar no botão de teclado da linha
+  const [descKbdRowIdx, setDescKbdRowIdx] = useState<number | null>(null);
+  const [descKbdMode, setDescKbdMode] = useState<'abc' | '123' | '#+='>('abc');
+  const [descKbdShift, setDescKbdShift] = useState(true);
 
   const items = note.items as any[];
   const totalItems = items.length;
@@ -412,6 +450,7 @@ export function MobileNoteView({
   });
 
   const currentVariants: EanVariant[] = eanVariants[activeIdx] ?? [];
+  const currentExtraEans: EanCodeEntry[] = extraEans[activeIdx] ?? [];
 
   // Auto-focus EAN when entering Detalhe or navigating between items
   useEffect(() => {
@@ -473,12 +512,88 @@ export function MobileNoteView({
     });
   }
 
+  // ─── códigos EAN adicionais (mesmo item, códigos de barras extras) ─────────
+  function updateExtraEan(entryIdx: number, patch: Partial<EanCodeEntry>) {
+    setExtraEans(prev => {
+      const u = [...prev];
+      const ee = [...(u[activeIdx] ?? [])];
+      ee[entryIdx] = { ...ee[entryIdx], ...patch };
+      u[activeIdx] = ee;
+      return u;
+    });
+  }
+
+  function addExtraEan() {
+    setExtraEans(prev => {
+      const u = [...prev];
+      u[activeIdx] = [...(u[activeIdx] ?? []), { ean: '', description: '' }];
+      return u;
+    });
+  }
+
+  function removeExtraEan(entryIdx: number) {
+    setExtraEans(prev => {
+      const u = [...prev];
+      u[activeIdx] = (u[activeIdx] ?? []).filter((_, j) => j !== entryIdx);
+      return u;
+    });
+    setDescKbdRowIdx(prev => {
+      if (prev === null || prev === entryIdx) return null;
+      return prev > entryIdx ? prev - 1 : prev;
+    });
+  }
+
+  // ─── menu suspenso do botão "+" (Adicionar variação / Adicionar código) ────
+  function openEanMenu() {
+    const rect = eanMenuBtnRef.current?.getBoundingClientRect();
+    if (rect) {
+      const menuWidth = 224;
+      const left = Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12));
+      setEanMenuPos({ top: rect.bottom + 8, left });
+    }
+    setEanMenuOpen(true);
+  }
+  function closeEanMenu() {
+    setEanMenuOpen(false);
+  }
+  function toggleEanMenu() {
+    if (eanMenuOpen) closeEanMenu(); else openEanMenu();
+  }
+  function selectEanMenu(which: 'variant' | 'codigo') {
+    closeEanMenu();
+    if (which === 'variant') addVariant();
+    else addExtraEan();
+  }
+
+  // ─── teclado virtual de texto (Descrição dos códigos adicionais) ───────────
+  function handleDescKey(key: string) {
+    if (descKbdRowIdx === null) return;
+    const cur = currentExtraEans[descKbdRowIdx]?.description ?? '';
+    if (key === '⌫') { updateExtraEan(descKbdRowIdx, { description: cur.slice(0, -1) }); return; }
+    if (key === 'SHIFT') { setDescKbdShift(v => !v); return; }
+    if (key === 'SPACE') { updateExtraEan(descKbdRowIdx, { description: cur + ' ' }); return; }
+    if (key === '↵') { setDescKbdRowIdx(null); return; }
+    if (key === '123') { setDescKbdMode('123'); return; }
+    if (key === 'ABC') { setDescKbdMode('abc'); return; }
+    if (key === '#+=') { setDescKbdMode('#+='); return; }
+    const char = descKbdMode === 'abc' ? (descKbdShift ? key.toUpperCase() : key) : key;
+    updateExtraEan(descKbdRowIdx, { description: cur + char });
+    if (descKbdMode === 'abc' && descKbdShift) setDescKbdShift(false);
+  }
+  function toggleDescKbd(entryIdx: number) {
+    setDescKbdRowIdx(prev => (prev === entryIdx ? null : entryIdx));
+    setDescKbdMode('abc');
+    setDescKbdShift(true);
+  }
+
   function openDetail(i: number) {
     setActiveIdx(i);
     setLinkingPanel(false);
     setNumpadTarget(null);
     setUnitMenuOpen(false);
     setMeasureFormOpen(false);
+    setEanMenuOpen(false);
+    setDescKbdRowIdx(null);
     setTab('detalhe');
     setTimeout(() => detailScrollRef.current?.scrollTo({ top: 0 }), 50);
   }
@@ -725,6 +840,129 @@ export function MobileNoteView({
                   </div>
                 </div>
               )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MENU DO BOTÃO "+" DO EAN (Adicionar variação / Adicionar código) ──
+           Renderizado no nível raiz (não dentro do card "Identificação", que tem
+           overflow-hidden) e posicionado via coordenadas calculadas do botão,
+           para não ser cortado pelo card. ────────────────────────────────── */}
+      <AnimatePresence>
+        {eanMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={closeEanMenu} />
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+              style={{ top: eanMenuPos.top, left: eanMenuPos.left }}
+              className="fixed z-50 w-56 bg-[#252520] border border-white/[0.1] rounded-2xl shadow-2xl p-1.5"
+            >
+              <button
+                onClick={() => selectEanMenu('variant')}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-left active:bg-white/[0.06] transition-colors"
+              >
+                <span className="w-[30px] h-[30px] rounded-[9px] bg-white/[0.06] text-white/55 flex items-center justify-center shrink-0">
+                  <Layers size={15} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-extrabold text-[#f2f0e3]">Adicionar variação</span>
+                  <span className="block text-[9.5px] font-semibold text-white/30 mt-0.5">Este item vira mais de um produto</span>
+                </span>
+              </button>
+              <div className="h-px bg-white/[0.06] mx-1.5 my-1" />
+              <button
+                onClick={() => selectEanMenu('codigo')}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-left active:bg-white/[0.06] transition-colors"
+              >
+                <span className="w-[30px] h-[30px] rounded-[9px] bg-[#D81E1E]/[0.13] text-[#f87171] flex items-center justify-center shrink-0">
+                  <Hash size={15} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-extrabold text-[#f2f0e3]">Adicionar código</span>
+                  <span className="block text-[9.5px] font-semibold text-white/30 mt-0.5">Outro código de barras p/ este item</span>
+                </span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── TECLADO VIRTUAL DE TEXTO (Descrição do código adicional) ───────
+           Oculto até o usuário clicar no botão de teclado da linha. ──────── */}
+      <AnimatePresence>
+        {descKbdRowIdx !== null && (
+          <motion.div
+            key="desc-keyboard"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] select-none"
+          >
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-white/[0.05]">
+              <p className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+                Descrição — Código {descKbdRowIdx + 1}
+              </p>
+              <button
+                onClick={() => setDescKbdRowIdx(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.07] text-white/50 active:bg-white/10 transition-colors shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="pt-2 pb-2 px-0.5 space-y-[6px]">
+              {DESC_KBD[descKbdMode].map((row, ri) => (
+                <div key={ri} className={cn(
+                  'flex gap-[6px] justify-center',
+                  ri === 0 ? 'px-0.5' : ri === 1 ? 'px-3' : 'px-0.5',
+                )}>
+                  {row.map(key => {
+                    const isShiftKey = key === 'SHIFT';
+                    const isDelete   = key === '⌫';
+                    const isSpace    = key === 'SPACE';
+                    const isModeKey  = ['123', 'ABC', '#+='].includes(key);
+                    const isReturn   = key === '↵';
+                    const isSpecial  = isShiftKey || isDelete || isSpace || isModeKey || isReturn;
+                    const displayKey = descKbdMode === 'abc' && !isSpecial
+                      ? (descKbdShift ? key.toUpperCase() : key)
+                      : key;
+                    return (
+                      <motion.button
+                        key={key + ri}
+                        type="button"
+                        onPointerDown={e => { e.preventDefault(); handleDescKey(key); }}
+                        whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                        className={cn(
+                          'h-[43px] rounded-[10px] flex items-center justify-center',
+                          isSpace ? 'flex-1 text-sm font-medium' :
+                          isModeKey ? 'w-[44px] text-[11px] font-bold' :
+                          isReturn ? 'w-[44px] text-base' :
+                          (isShiftKey || isDelete) ? 'w-[44px]' : 'flex-1 text-[17px] font-normal',
+                          (isShiftKey && descKbdShift)
+                            ? 'bg-[#D81E1E] text-white'
+                            : isSpecial
+                              ? 'bg-white/[0.06] text-white/60'
+                              : 'bg-white/[0.09] text-[#f2f0e3]',
+                        )}
+                      >
+                        {isShiftKey
+                          ? <span className={cn('text-lg leading-none', descKbdShift ? 'font-black' : 'font-light')}>⇧</span>
+                          : isDelete  ? <Delete size={15} />
+                          : isSpace   ? 'espaço'
+                          : isReturn  ? '↵'
+                          : displayKey
+                        }
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="pb-6" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -1043,14 +1281,76 @@ export function MobileNoteView({
                     />
                   )}
                   <button
-                    onClick={addVariant}
-                    className="w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
+                    ref={eanMenuBtnRef}
+                    onClick={toggleEanMenu}
+                    className="relative w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
                   >
-                    <Plus size={18} />
+                    <Plus size={18} className={cn('transition-transform duration-150', eanMenuOpen && 'rotate-45')} />
+                    {currentExtraEans.filter(e => e.ean.trim()).length > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#f2f0e3] text-[#1A1A0E] text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[#1c1c16]">
+                        {currentExtraEans.filter(e => e.ean.trim()).length}
+                      </span>
+                    )}
                   </button>
                 </div>
                 {currentVariants.length === 0 && ean(activeIdx).trim() && duplicateEanSet.has(ean(activeIdx).trim()) && (
                   <p className="px-4 pb-2 -mt-1 text-[10px] text-[#f87171] font-medium">EAN repetido nesta nota</p>
+                )}
+
+                {/* Códigos EAN adicionais — outros códigos de barras para este mesmo item */}
+                {currentExtraEans.length > 0 && (
+                  <div className="border-b border-white/[0.05] bg-[#D81E1E]/[0.03] px-4 py-3 space-y-2">
+                    <span className="text-[9px] font-black text-white/30 uppercase tracking-wider block">
+                      Códigos adicionais
+                    </span>
+                    {currentExtraEans.map((entry, ei) => (
+                      <div key={ei} className="bg-[#1c1c16] border border-white/[0.06] rounded-xl p-2.5 flex gap-2 items-start">
+                        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                          <input
+                            value={entry.ean}
+                            onChange={e => updateExtraEan(ei, { ean: e.target.value })}
+                            placeholder="Código EAN"
+                            className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              inputMode={descKbdRowIdx === ei ? 'none' : undefined}
+                              value={entry.description}
+                              onChange={e => updateExtraEan(ei, { description: e.target.value })}
+                              placeholder="Descrição (ex: caixa fechada)"
+                              className="flex-1 min-w-0 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleDescKbd(ei)}
+                              title="Teclado de texto"
+                              className={cn(
+                                'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                                descKbdRowIdx === ei
+                                  ? 'bg-[#D81E1E] text-white'
+                                  : 'bg-white/[0.05] text-white/30 active:bg-white/10'
+                              )}
+                            >
+                              <Keyboard size={13} />
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeExtraEan(ei)}
+                          title="Remover código"
+                          className="w-7 h-7 shrink-0 rounded-lg bg-[#D81E1E]/10 text-[#f87171] flex items-center justify-center active:bg-[#D81E1E]/20 transition-colors mt-0.5"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={addExtraEan}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 border-2 border-dashed border-white/[0.12] text-white/35 rounded-xl active:border-[#D81E1E]/40 active:text-[#f87171] transition-colors text-[11px] font-bold"
+                    >
+                      <Plus size={12} />Adicionar código
+                    </button>
+                  </div>
                 )}
 
                 {/* Variant blocks */}
