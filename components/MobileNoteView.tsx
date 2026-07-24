@@ -536,6 +536,13 @@ export function MobileNoteView({
     setNumpadTarget(target);
   }
 
+  // Fecha o teclado nativo ao pressionar Enter/Concluir — em iOS o teclado
+  // "decimal" não exibe tecla de retorno, então isso ajuda sobretudo Android;
+  // tocar fora do campo continua fechando normalmente em qualquer aparelho.
+  function blurOnEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') e.currentTarget.blur();
+  }
+
   function updateVariant(variantIdx: number, patch: Partial<EanVariant>) {
     setEanVariants(prev => {
       const u = [...prev];
@@ -1243,6 +1250,7 @@ export function MobileNoteView({
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     onFocus={() => { if (!isAdmin) openNumpad('search'); }}
+                    onKeyDown={blurOnEnter}
                     inputMode={isAdmin ? 'search' : 'none'}
                     placeholder="Buscar produto ou código..."
                     className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none font-medium min-w-0"
@@ -1478,6 +1486,7 @@ export function MobileNoteView({
                           ref={eanInputRef}
                           value={ean(activeIdx)}
                           onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
+                          onKeyDown={blurOnEnter}
                           placeholder="—"
                           className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
                         />
@@ -1649,6 +1658,7 @@ export function MobileNoteView({
                       <input
                         value={sku(activeIdx)}
                         onChange={e => setSkus(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
+                        onKeyDown={blurOnEnter}
                         placeholder="—"
                         className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
                       />
@@ -1751,6 +1761,7 @@ export function MobileNoteView({
                           type="number"
                           value={qty(activeIdx)}
                           onChange={e => setQtys(prev => { const u = [...prev]; u[activeIdx] = parseFloat(e.target.value) || 0; return u; })}
+                          onKeyDown={blurOnEnter}
                           className="w-16 text-center bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                         <button
@@ -1791,8 +1802,9 @@ export function MobileNoteView({
                             const cents = digits ? parseInt(digits, 10) : 0;
                             setSellPrices(prev => { const u = [...prev]; u[activeIdx] = cents / 100; return u; });
                           }}
+                          onKeyDown={blurOnEnter}
                           placeholder="0,00"
-                          className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                       ) : (
                         <input
@@ -1801,7 +1813,7 @@ export function MobileNoteView({
                           onFocus={() => openNumpad('venda')}
                           onChange={() => {}}
                           placeholder="0,00"
-                          className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                       )}
                       {markup(activeIdx) !== null && (
@@ -1856,6 +1868,7 @@ export function MobileNoteView({
                               setDistribuicao(prev => { const u = [...prev]; u[activeIdx] = val; return u; });
                               setDistribMode(prev => { const u = [...prev]; u[activeIdx] = ''; return u; });
                             }}
+                            onKeyDown={blurOnEnter}
                             placeholder="—"
                             className="w-16 text-right bg-white/[0.06] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm font-black text-[#f2f0e3] outline-none"
                           />
