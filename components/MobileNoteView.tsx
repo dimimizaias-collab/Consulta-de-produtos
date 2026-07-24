@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
-  ChevronRight, Delete, FileText, Filter, Hash, Layers, Link as LinkIcon,
-  List, Keyboard, Minus, Pencil, Plus, Ruler, Save, Search, Trash2, X, Zap,
+  ChevronRight, Delete, Download, FileText, Filter, Hash, Layers, Link as LinkIcon,
+  List, Keyboard, Minus, Package, Pencil, Plus, Ruler, Save, Search, ShieldCheck, Trash2, X, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReviewNote } from '@/components/requests/LogisticsCenter';
@@ -19,6 +19,30 @@ export interface EanVariant {
   ean: string;
   sku: string;
   qty: number;
+}
+
+// ─── Desconto / Acréscimo (paridade com adjColumns do desktop) ──────────────
+type AdjType = 'pct' | 'fixed' | 'fixed_total';
+export type AdjColumn = {
+  id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual';
+  geralValue: number; geralType: AdjType; individualType: AdjType; items: string[];
+};
+function calcAdjColAmount(col: AdjColumn, cost: number, qty: number, idx: number): number {
+  if (col.mode === 'geral') {
+    return col.geralType === 'pct' ? cost * col.geralValue / 100 : col.geralValue;
+  }
+  const v = parseFloat(col.items[idx] ?? '');
+  if (isNaN(v) || v <= 0) return 0;
+  return col.individualType === 'pct' ? cost * v / 100
+    : col.individualType === 'fixed_total' ? v / (qty || 1) : v;
+}
+function calcAdjTotals(cost: number, qty: number, idx: number, cols: AdjColumn[]) {
+  let disc = 0, sur = 0;
+  for (const col of cols) {
+    const amt = calcAdjColAmount(col, cost, qty, idx);
+    if (col.kind === 'desconto') disc += amt; else sur += amt;
+  }
+  return { disc, sur };
 }
 
 // Layout do teclado virtual de texto (Descrição) — mesmo padrão do teclado
@@ -57,6 +81,16 @@ interface MobileNoteViewProps {
   units: string[];
   multipliers: number[];
   distribuicao: string[];
+  setDistribuicao: React.Dispatch<React.SetStateAction<string[]>>;
+  distribMode: string[];
+  setDistribMode: React.Dispatch<React.SetStateAction<string[]>>;
+
+  mode: 'admin' | 'estoque';
+  onModeChange: (mode: 'admin' | 'estoque') => void;
+  adjColumns: AdjColumn[];
+  onAddAdjColumn: (col: AdjColumn) => void;
+  onRemoveAdjColumn: (id: string) => void;
+  onDownload: () => void;
 
   setNote: (note: ReviewNote) => void;
   onClose: () => void;
@@ -353,7 +387,9 @@ export function MobileNoteView({
   note, products,
   eans, setEans, skus, setSkus, qtys, setQtys,
   itemPrices, setItemPrices, sellPrices, setSellPrices,
-  verified, setVerified, units, multipliers, distribuicao,
+  verified, setVerified, units, multipliers, distribuicao, setDistribuicao,
+  distribMode, setDistribMode,
+  mode, onModeChange, adjColumns, onAddAdjColumn, onRemoveAdjColumn, onDownload,
   setNote, onClose, onSave, savingNote, onDelete, onVarios,
   eanProblems = [],
   onReportEanProblem,
@@ -365,9 +401,16 @@ export function MobileNoteView({
   const [tab, setTab] = useState<Tab>('itens');
   const [activeIdx, setActiveIdx] = useState(0);
   const [query, setQuery] = useState('');
-  const [itemFilter, setItemFilter] = useState<'todos' | 'sem_ean' | 'pendentes' | 'duplicados'>('todos');
+  const [itemFilter, setItemFilter] = useState<'todos' | 'sem_ean' | 'pendentes' | 'duplicados' | 'sem_preco_venda' | 'sem_unidade'>('todos');
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [exitConfirm, setExitConfirm] = useState(false);
+  const [distribMenuOpen, setDistribMenuOpen] = useState(false);
+  const [adjDialog, setAdjDialog] = useState<{
+    kind: 'desconto' | 'acrescimo'; name: string; method: 'geral' | 'individual';
+    geralValue: string; geralType: 'pct' | 'fixed';
+  } | null>(null);
+  const isAdmin = mode === 'admin';
   const [scannerOpen, setScannerOpen] = useState(false);
   const [linkingPanel, setLinkingPanel] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<'search' | 'venda' | null>(null);
@@ -431,15 +474,21 @@ export function MobileNoteView({
     const codes = variants.length > 0 ? variants.map(v => v.ean) : [ean(i)];
     return codes.some(e => (e || '').trim() && duplicateEanSet.has(e.trim()));
   };
+  const itemHasNoSellPrice = (i: number) => sell(i) <= 0;
+  const itemHasNoUnit = (i: number) => mult(i) === 1;
 
   const semEanCount = items.reduce((s, _, i) => s + (itemHasNoEan(i) ? 1 : 0), 0);
   const pendentesCount = items.reduce((s, _, i) => s + (!isVerif(i) ? 1 : 0), 0);
   const duplicadosCount = items.reduce((s, _, i) => s + (itemHasDupEan(i) ? 1 : 0), 0);
+  const semPrecoVendaCount = items.reduce((s, _, i) => s + (itemHasNoSellPrice(i) ? 1 : 0), 0);
+  const semUnidadeCount = items.reduce((s, _, i) => s + (itemHasNoUnit(i) ? 1 : 0), 0);
 
   const filteredItems = items.map((item, i) => ({ item, i })).filter(({ item, i }) => {
     if (itemFilter === 'sem_ean' && !itemHasNoEan(i)) return false;
     if (itemFilter === 'pendentes' && isVerif(i)) return false;
     if (itemFilter === 'duplicados' && !itemHasDupEan(i)) return false;
+    if (itemFilter === 'sem_preco_venda' && !itemHasNoSellPrice(i)) return false;
+    if (itemFilter === 'sem_unidade' && !itemHasNoUnit(i)) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (item.original_description || item.description || '').toLowerCase().includes(q)
@@ -454,11 +503,12 @@ export function MobileNoteView({
 
   // Auto-focus EAN when entering Detalhe or navigating between items
   useEffect(() => {
+    if (isAdmin) return;
     if (tab !== 'detalhe') return;
     if ((eanVariants[activeIdx]?.length ?? 0) > 0) return;
     const t = setTimeout(() => eanInputRef.current?.focus(), 150);
     return () => clearTimeout(t);
-  }, [tab, activeIdx]);
+  }, [tab, activeIdx, isAdmin]);
 
   function handleNumpadKey(key: string) {
     setNumpadValue(prev => {
@@ -653,7 +703,7 @@ export function MobileNoteView({
 
       {/* ── NUMPAD ──────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {numpadTarget && (
+        {numpadTarget && !isAdmin && (
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -893,7 +943,7 @@ export function MobileNoteView({
       {/* ── TECLADO VIRTUAL DE TEXTO (Descrição do código adicional) ───────
            Oculto até o usuário clicar no botão de teclado da linha. ──────── */}
       <AnimatePresence>
-        {descKbdRowIdx !== null && (
+        {descKbdRowIdx !== null && !isAdmin && (
           <motion.div
             key="desc-keyboard"
             initial={{ y: '100%' }}
@@ -972,7 +1022,7 @@ export function MobileNoteView({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={onClose}
+              onClick={() => setExitConfirm(true)}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.06] text-white/60 active:bg-white/10 transition-colors shrink-0"
             >
               <X size={18} />
@@ -1002,6 +1052,182 @@ export function MobileNoteView({
         </div>
       </div>
 
+      {/* ── CONFIRMAÇÃO DE SAÍDA (botão X) ─────────────────────────────
+           Vale para os dois modos (Administrador e Estoque). ──────────── */}
+      <AnimatePresence>
+        {exitConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-[80] bg-black/60 flex items-center justify-center px-6"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="w-full bg-[#1c1c16] border border-white/[0.08] rounded-2xl p-5 text-center"
+            >
+              <div className="w-11 h-11 rounded-full bg-amber-500/12 text-amber-400 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle size={20} />
+              </div>
+              <p className="text-sm font-black text-[#f2f0e3] mb-1.5">Sair sem salvar?</p>
+              <p className="text-[11px] text-white/40 font-medium leading-relaxed mb-4">
+                Você tem alterações não salvas nesta nota. Se sair agora, elas podem ser perdidas.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setExitConfirm(false)}
+                  className="flex-1 py-3 bg-white/[0.06] border border-white/[0.08] rounded-xl text-white/60 text-sm font-bold active:bg-white/10 transition-colors"
+                >
+                  Continuar editando
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 bg-[#D81E1E] rounded-xl text-white text-sm font-black active:scale-[0.97] transition-transform"
+                >
+                  Sair mesmo assim
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── DESCONTO / ACRÉSCIMO (sheet aberto a partir de Resumo → Edição) ── */}
+      <AnimatePresence>
+        {adjDialog && (
+          <>
+            <motion.div
+              key="adj-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-40 bg-black/60"
+              onClick={() => setAdjDialog(null)}
+            />
+            <motion.div
+              key="adj-sheet"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              className="absolute bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden p-5 pb-8"
+            >
+              {(() => {
+                const isDesc = adjDialog.kind === 'desconto';
+                return (
+                  <>
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', isDesc ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[#D81E1E]/15 text-[#f87171]')}>
+                        {isDesc ? <Minus size={17} /> : <Plus size={17} />}
+                      </div>
+                      <p className="text-sm font-black text-[#f2f0e3]">{isDesc ? 'Adicionar Desconto' : 'Adicionar Acréscimo'}</p>
+                    </div>
+                    <p className="text-[11px] text-white/35 font-medium leading-relaxed mt-1.5 mb-4">
+                      {isDesc
+                        ? 'Reduz o custo unitário dos itens verificados desta nota.'
+                        : 'Aumenta o custo unitário dos itens verificados desta nota — ex. frete ou ICMS-ST.'}
+                    </p>
+
+                    <div className="flex gap-2 mb-2">
+                      {(['geral', 'individual'] as const).map(m => (
+                        <button
+                          key={m}
+                          onClick={() => setAdjDialog(prev => prev ? { ...prev, method: m } : prev)}
+                          className={cn(
+                            'flex-1 py-2.5 rounded-xl text-xs font-black border transition-colors',
+                            adjDialog.method === m ? 'bg-white/[0.1] border-white/[0.22] text-[#f2f0e3]' : 'bg-white/[0.04] border-white/[0.09] text-white/45'
+                          )}
+                        >
+                          {m === 'geral' ? 'Geral' : 'Individual'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10.5px] text-white/30 font-medium leading-relaxed mb-4">
+                      Geral aplica um único valor a todos os itens verificados. Individual libera o valor para editar item a item na aba Itens.
+                    </p>
+
+                    <div className="mb-3.5">
+                      <span className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1.5 block">Nome da coluna</span>
+                      <input
+                        value={adjDialog.name}
+                        onChange={e => setAdjDialog(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                        placeholder={isDesc ? 'ex: Desconto fornecedor' : 'ex: Frete rateado'}
+                        className="w-full bg-white/[0.05] border border-white/[0.09] rounded-xl px-3.5 py-3 text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/20 focus:border-[#D81E1E]/60"
+                      />
+                    </div>
+
+                    {adjDialog.method === 'geral' && (
+                      <>
+                        <div className="mb-3.5">
+                          <span className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1.5 block">Aplicar como</span>
+                          <div className="flex gap-2">
+                            {(['pct', 'fixed'] as const).map(t => (
+                              <button
+                                key={t}
+                                onClick={() => setAdjDialog(prev => prev ? { ...prev, geralType: t } : prev)}
+                                className={cn(
+                                  'flex-1 py-2.5 rounded-xl text-xs font-black border transition-colors',
+                                  adjDialog.geralType === t
+                                    ? (isDesc ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-[#D81E1E]/15 border-[#D81E1E]/30 text-[#f87171]')
+                                    : 'bg-white/[0.04] border-white/[0.09] text-white/45'
+                                )}
+                              >
+                                {t === 'pct' ? '% Percentual' : 'R$ Valor fixo'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mb-1.5">
+                          <span className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1.5 block">
+                            {isDesc ? 'Valor do desconto' : 'Valor do acréscimo'}
+                          </span>
+                          <input
+                            inputMode="decimal"
+                            value={adjDialog.geralValue}
+                            onChange={e => setAdjDialog(prev => prev ? { ...prev, geralValue: e.target.value.replace(/[^0-9.,]/g, '') } : prev)}
+                            placeholder="0"
+                            className="w-full bg-white/[0.05] border border-white/[0.09] rounded-xl px-3.5 py-3 text-sm font-black font-mono text-[#f2f0e3] outline-none placeholder:text-white/20 focus:border-[#D81E1E]/60"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => setAdjDialog(null)}
+                        className="flex-1 py-3.5 bg-white/[0.06] border border-white/[0.08] rounded-2xl text-white/55 text-sm font-bold active:bg-white/10 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        disabled={adjDialog.method === 'geral' && (!adjDialog.geralValue || parseFloat(adjDialog.geralValue.replace(',', '.')) <= 0)}
+                        onClick={() => {
+                          const col: AdjColumn = {
+                            id: `${adjDialog.kind}-${Date.now()}`,
+                            name: adjDialog.name.trim() || (isDesc ? 'Desconto' : 'Acréscimo'),
+                            kind: adjDialog.kind,
+                            mode: adjDialog.method,
+                            geralValue: adjDialog.method === 'geral' ? (parseFloat(adjDialog.geralValue.replace(',', '.')) || 0) : 0,
+                            geralType: adjDialog.geralType,
+                            individualType: adjDialog.geralType,
+                            items: adjDialog.method === 'individual' ? items.map(() => '') : [],
+                          };
+                          onAddAdjColumn(col);
+                          setAdjDialog(null);
+                        }}
+                        className={cn(
+                          'flex-1 py-3.5 rounded-2xl text-white text-sm font-black active:scale-[0.97] transition-transform disabled:opacity-50',
+                          isDesc ? 'bg-emerald-600' : 'bg-[#D81E1E]'
+                        )}
+                      >
+                        {isDesc ? 'Aplicar desconto' : 'Aplicar acréscimo'}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ── TAB CONTENT ─────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden relative">
 
@@ -1016,8 +1242,8 @@ export function MobileNoteView({
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    onFocus={() => openNumpad('search')}
-                    inputMode="none"
+                    onFocus={() => { if (!isAdmin) openNumpad('search'); }}
+                    inputMode={isAdmin ? 'search' : 'none'}
                     placeholder="Buscar produto ou código..."
                     className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none font-medium min-w-0"
                   />
@@ -1055,6 +1281,8 @@ export function MobileNoteView({
                         { id: 'sem_ean', label: 'Sem EAN', count: semEanCount },
                         { id: 'pendentes', label: 'Pendentes', count: pendentesCount },
                         { id: 'duplicados', label: 'EAN duplicado', count: duplicadosCount },
+                        { id: 'sem_preco_venda', label: 'Sem preço de venda', count: semPrecoVendaCount },
+                        { id: 'sem_unidade', label: 'Sem unidade de medida', count: semUnidadeCount },
                       ] as const).map(opt => (
                         <button
                           key={opt.id}
@@ -1228,7 +1456,448 @@ export function MobileNoteView({
               </button>
             </div>
 
-            {/* scrollable content */}
+            {(() => {
+              // no modo Administrador os títulos de campo ganham uma moldura
+              // (paridade visual com o mockup aprovado); no Estoque seguem como texto simples
+              const fieldLabelCls = isAdmin
+                ? 'inline-flex items-center justify-center min-w-[54px] px-2 py-1 rounded-lg border border-white/10 bg-white/[0.045] text-[9px] font-black uppercase tracking-wide text-white/50 shrink-0'
+                : 'text-[10px] font-black text-white/40 w-10 shrink-0';
+              const adjLabelCls = 'inline-flex items-center justify-center min-w-[54px] px-2 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wide shrink-0';
+
+              const identificacaoSection = (
+                <>
+                  <SectionLabel>Identificação</SectionLabel>
+                  <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] overflow-hidden">
+                    {/* EAN row */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
+                      <span className={fieldLabelCls}>EAN</span>
+                      {currentVariants.length > 0 ? (
+                        <span className="flex-1 text-sm font-bold text-white/20 italic">— (com variações)</span>
+                      ) : (
+                        <input
+                          ref={eanInputRef}
+                          value={ean(activeIdx)}
+                          onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
+                          placeholder="—"
+                          className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
+                        />
+                      )}
+                      <button
+                        ref={eanMenuBtnRef}
+                        onClick={toggleEanMenu}
+                        className="relative w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
+                      >
+                        <Plus size={18} className={cn('transition-transform duration-150', eanMenuOpen && 'rotate-45')} />
+                        {currentExtraEans.filter(e => e.ean.trim()).length > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#f2f0e3] text-[#1A1A0E] text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[#1c1c16]">
+                            {currentExtraEans.filter(e => e.ean.trim()).length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {currentVariants.length === 0 && ean(activeIdx).trim() && duplicateEanSet.has(ean(activeIdx).trim()) && (
+                      <p className="px-4 pb-2 -mt-1 text-[10px] text-[#f87171] font-medium">EAN repetido nesta nota</p>
+                    )}
+
+                    {/* Códigos EAN adicionais — outros códigos de barras para este mesmo item */}
+                    {currentExtraEans.length > 0 && (
+                      <div className="border-b border-white/[0.05] bg-[#D81E1E]/[0.03] px-4 py-3 space-y-2">
+                        <span className="text-[9px] font-black text-white/30 uppercase tracking-wider block">
+                          Códigos adicionais
+                        </span>
+                        {currentExtraEans.map((entry, ei) => (
+                          <div key={ei} className="bg-[#1c1c16] border border-white/[0.06] rounded-xl p-2.5 flex gap-2 items-start">
+                            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                              <input
+                                value={entry.ean}
+                                onChange={e => updateExtraEan(ei, { ean: e.target.value })}
+                                placeholder="Código EAN"
+                                className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
+                              />
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  inputMode={!isAdmin && descKbdRowIdx === ei ? 'none' : undefined}
+                                  value={entry.description}
+                                  onChange={e => updateExtraEan(ei, { description: e.target.value })}
+                                  placeholder="Descrição (ex: caixa fechada)"
+                                  className="flex-1 min-w-0 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
+                                />
+                                {!isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDescKbd(ei)}
+                                    title="Teclado de texto"
+                                    className={cn(
+                                      'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                                      descKbdRowIdx === ei
+                                        ? 'bg-[#D81E1E] text-white'
+                                        : 'bg-white/[0.05] text-white/30 active:bg-white/10'
+                                    )}
+                                  >
+                                    <Keyboard size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => removeExtraEan(ei)}
+                              title="Remover código"
+                              className="w-7 h-7 shrink-0 rounded-lg bg-[#D81E1E]/10 text-[#f87171] flex items-center justify-center active:bg-[#D81E1E]/20 transition-colors mt-0.5"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={addExtraEan}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 border-2 border-dashed border-white/[0.12] text-white/35 rounded-xl active:border-[#D81E1E]/40 active:text-[#f87171] transition-colors text-[11px] font-bold"
+                        >
+                          <Plus size={12} />Adicionar código
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Variant blocks */}
+                    {currentVariants.map((variant, vi) => {
+                      const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
+                      const parentTotal = cost(activeIdx) * qty(activeIdx);
+                      const childUnitCost = totalVariantQty > 0 && variant.qty > 0
+                        ? (parentTotal / totalVariantQty)
+                        : 0;
+                      return (
+                        <div key={vi} className="border-b border-white/[0.05]">
+                          <div className="flex items-center gap-2 px-4 pt-2 pb-1">
+                            <span className="w-5 h-5 bg-[#D81E1E] rounded-md flex items-center justify-center text-white text-[10px] font-black shrink-0">
+                              {vi + 1}
+                            </span>
+                            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">Variação {vi + 1}</span>
+                            <button
+                              onClick={() => removeVariant(vi)}
+                              className="ml-auto w-5 h-5 bg-white/[0.06] rounded-md flex items-center justify-center text-white/30 active:bg-white/10 transition-colors"
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
+                          <div className="px-4 pb-1">
+                            <span className="text-[9px] font-black text-white/25 uppercase tracking-wider">Desc.</span>
+                            <input
+                              value={variant.desc}
+                              onChange={e => updateVariant(vi, { desc: e.target.value })}
+                              placeholder="ex: azul 42"
+                              className="w-full bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 pb-1"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 border-t border-white/[0.04]">
+                            <div className="px-4 py-2 border-r border-white/[0.04]">
+                              <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">EAN</span>
+                              <input
+                                value={variant.ean}
+                                onChange={e => updateVariant(vi, { ean: e.target.value })}
+                                placeholder="0000000000000"
+                                className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 font-mono"
+                              />
+                              {variant.ean?.trim() && duplicateEanSet.has(variant.ean.trim()) && (
+                                <p className="text-[9px] text-[#f87171] font-medium mt-0.5">Repetido nesta nota</p>
+                              )}
+                            </div>
+                            <div className="px-4 py-2">
+                              <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">SKU</span>
+                              <input
+                                value={variant.sku}
+                                onChange={e => updateVariant(vi, { sku: e.target.value })}
+                                placeholder="SKU-001"
+                                className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 border-t border-white/[0.04]">
+                            <div className="px-4 py-2 border-r border-white/[0.04]">
+                              <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">QTDE</span>
+                              <input
+                                type="number"
+                                value={variant.qty || ''}
+                                onChange={e => updateVariant(vi, { qty: parseFloat(e.target.value) || 0 })}
+                                placeholder="0"
+                                min="0"
+                                className="w-full bg-transparent text-sm font-black text-[#f2f0e3] outline-none placeholder:text-white/15 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                              />
+                            </div>
+                            <div className="px-4 py-2">
+                              <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">Custo unit.</span>
+                              <span className="text-xs font-bold font-mono text-white/40">
+                                {childUnitCost > 0 ? `R$ ${childUnitCost.toFixed(4)}` : '—'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Add more variants */}
+                    {currentVariants.length > 0 && (
+                      <button
+                        onClick={addVariant}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 border-b border-white/[0.05] text-[#D81E1E] text-xs font-black active:bg-white/[0.03] transition-colors"
+                      >
+                        <Plus size={13} /> Adicionar variação
+                      </button>
+                    )}
+
+                    {/* SKU row */}
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <span className={fieldLabelCls}>SKU</span>
+                      <input
+                        value={sku(activeIdx)}
+                        onChange={e => setSkus(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
+                        placeholder="—"
+                        className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
+                      />
+                    </div>
+                  </div>
+                </>
+              );
+
+              const rateioSection = currentVariants.length > 0 ? (() => {
+                const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
+                const parentTotal = cost(activeIdx) * qty(activeIdx);
+                const qtyMismatch = totalVariantQty !== qty(activeIdx);
+                return (
+                  <div className="mx-4 mb-3 bg-[#141410] rounded-2xl border border-white/[0.05] p-3">
+                    <p className="text-[9px] font-black text-white/25 uppercase tracking-wider mb-2">
+                      Rateio de custo — total R$ {parentTotal.toFixed(2)}
+                    </p>
+                    {currentVariants.map((v, vi) => {
+                      const childTotal = totalVariantQty > 0 ? parentTotal * (v.qty || 0) / totalVariantQty : 0;
+                      return (
+                        <div key={vi} className="flex items-center justify-between py-1">
+                          <span className="text-xs text-white/40">{v.desc || `Variação ${vi + 1}`} ({v.qty || 0} un)</span>
+                          <span className="text-xs font-bold text-white/60 font-mono">R$ {childTotal.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.05] mt-1">
+                      <span className="text-[10px] font-black text-white/40">Total gerado</span>
+                      <span className="text-sm font-black text-white/80 font-mono">R$ {parentTotal.toFixed(2)}</span>
+                    </div>
+                    {qtyMismatch && (
+                      <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5">
+                        <p className="text-[10px] font-black text-amber-400">
+                          Qtde total ({totalVariantQty}) ≠ qtde da nota ({qty(activeIdx)})
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : null;
+
+              const identificacaoInternaSection = (
+                <>
+                  <SectionLabel>Identificação Interna</SectionLabel>
+                  <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4">
+                    {isVerif(activeIdx) && activeItem.name ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                          <p className="text-sm font-bold text-emerald-400 truncate">{activeItem.name}</p>
+                        </div>
+                        <button
+                          onClick={() => setLinkingPanel(true)}
+                          className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors shrink-0"
+                        >
+                          Alterar
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs text-white/30 font-medium mb-3">Não vinculado</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setLinkingPanel(true)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#D81E1E]/10 border border-[#D81E1E]/20 rounded-xl text-[#f87171] text-xs font-black active:scale-[0.97] transition-transform"
+                          >
+                            <LinkIcon size={13} /> Vincular
+                          </button>
+                          <button
+                            onClick={() => onVarios(activeIdx)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl text-white/40 text-xs font-black active:scale-[0.97] transition-transform"
+                          >
+                            <Layers size={13} /> Vários
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+
+              const { disc: activeDisc, sur: activeSur } = calcAdjTotals(cost(activeIdx), qty(activeIdx), activeIdx, adjColumns);
+              const activeTotal = (cost(activeIdx) - activeDisc + activeSur) * qty(activeIdx);
+
+              const precosQuantidadeSection = (
+                <>
+                  <SectionLabel>Preços &amp; Quantidade</SectionLabel>
+                  <div className="mx-4 mb-4 bg-[#1c1c16] rounded-2xl border border-white/[0.07] overflow-hidden">
+                    {/* qty */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
+                      <span className={fieldLabelCls}>Qtd.</span>
+                      <div className="flex items-center gap-3 flex-1">
+                        <button
+                          onClick={() => setQtys(prev => { const u = [...prev]; u[activeIdx] = Math.max(0, (u[activeIdx] ?? qty(activeIdx)) - 1); return u; })}
+                          className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.07] flex items-center justify-center text-white/60 active:bg-white/10 transition-colors"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          type="number"
+                          value={qty(activeIdx)}
+                          onChange={e => setQtys(prev => { const u = [...prev]; u[activeIdx] = parseFloat(e.target.value) || 0; return u; })}
+                          className="w-16 text-center bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                        />
+                        <button
+                          onClick={() => setQtys(prev => { const u = [...prev]; u[activeIdx] = (u[activeIdx] ?? qty(activeIdx)) + 1; return u; })}
+                          className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.07] flex items-center justify-center text-white/60 active:bg-white/10 transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                        <button
+                          onClick={() => { setUnitMenuOpen(true); setMeasureFormOpen(false); }}
+                          className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.07] text-xs font-black text-white/60 active:bg-white/10 transition-colors shrink-0"
+                        >
+                          <Ruler size={11} className="text-white/30" />
+                          {unit(activeIdx)}
+                          {mult(activeIdx) !== 1 && (
+                            <span className="text-[9px] font-black text-amber-400">×{mult(activeIdx)}</span>
+                          )}
+                          <ChevronRight size={11} className="rotate-90 text-white/30" />
+                        </button>
+                      </div>
+                    </div>
+                    {/* custo (readonly) */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
+                      <span className={fieldLabelCls}>Custo</span>
+                      <span className="text-[10px] font-bold text-white/30">R$</span>
+                      <span className="text-base font-black text-[#f2f0e3] font-mono">{cost(activeIdx).toFixed(4)}</span>
+                    </div>
+                    {/* venda */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] bg-white/[0.02]">
+                      <span className={fieldLabelCls}>Venda</span>
+                      <span className="text-[10px] font-bold text-white/30">R$</span>
+                      {isAdmin ? (
+                        <input
+                          inputMode="decimal"
+                          value={sell(activeIdx) > 0 ? sell(activeIdx).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                          onChange={e => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            const cents = digits ? parseInt(digits, 10) : 0;
+                            setSellPrices(prev => { const u = [...prev]; u[activeIdx] = cents / 100; return u; });
+                          }}
+                          placeholder="0,00"
+                          className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                        />
+                      ) : (
+                        <input
+                          inputMode="none"
+                          value={numpadTarget === 'venda' ? numpadValue : (sell(activeIdx) > 0 ? sell(activeIdx).toFixed(2) : '')}
+                          onFocus={() => openNumpad('venda')}
+                          onChange={() => {}}
+                          placeholder="0,00"
+                          className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                        />
+                      )}
+                      {markup(activeIdx) !== null && (
+                        <span className={cn(
+                          'text-[10px] font-black px-2 py-1 rounded-lg shrink-0',
+                          Number(markup(activeIdx)) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                        )}>
+                          {Number(markup(activeIdx)) >= 0 ? '+' : ''}{markup(activeIdx)}%
+                        </span>
+                      )}
+                    </div>
+                    {/* colunas de Desconto/Acréscimo criadas na aba Resumo */}
+                    {adjColumns.map(col => {
+                      const amt = calcAdjColAmount(col, cost(activeIdx), qty(activeIdx), activeIdx);
+                      const isDesc = col.kind === 'desconto';
+                      return (
+                        <div key={col.id} className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
+                          <span className={cn(
+                            adjLabelCls,
+                            isDesc ? 'border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-400' : 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#f87171]'
+                          )}>
+                            {isDesc ? 'Desc.' : 'Acrésc.'}
+                          </span>
+                          <span className="flex-1 text-sm font-bold text-[#f2f0e3] truncate">{col.name}</span>
+                          <span className={cn(
+                            'text-xs font-black font-mono px-2 py-1 rounded-lg shrink-0',
+                            isDesc ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
+                          )}>
+                            {isDesc ? '−' : '+'}R$ {amt.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {/* total */}
+                    <div className={cn('flex items-center gap-3 px-4 py-3', isAdmin && 'border-b border-white/[0.05]')}>
+                      <span className={fieldLabelCls}>Total</span>
+                      <span className="text-sm font-black text-white/50 font-mono">
+                        R$ {activeTotal.toFixed(2)}
+                      </span>
+                    </div>
+                    {/* distribuição — só no modo Administrador */}
+                    {isAdmin && (
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <span className={fieldLabelCls}>Distrib.</span>
+                        <div className="ml-auto flex items-center gap-2 relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={distribuicao[activeIdx] ?? ''}
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9]/g, '');
+                              setDistribuicao(prev => { const u = [...prev]; u[activeIdx] = val; return u; });
+                              setDistribMode(prev => { const u = [...prev]; u[activeIdx] = ''; return u; });
+                            }}
+                            placeholder="—"
+                            className="w-16 text-right bg-white/[0.06] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-sm font-black text-[#f2f0e3] outline-none"
+                          />
+                          <button
+                            onClick={() => setDistribMenuOpen(v => !v)}
+                            className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.07] flex items-center justify-center text-white/40 active:bg-white/10 transition-colors"
+                          >
+                            <ChevronRight size={13} className="rotate-90" />
+                          </button>
+                          {distribMenuOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setDistribMenuOpen(false)} />
+                              <div className="absolute right-0 top-full mt-1 z-50 w-32 bg-[#252520] border border-white/[0.1] rounded-xl shadow-2xl overflow-hidden">
+                                {(['Inteiro', 'Metade', 'Nada'] as const).map((label, i) => {
+                                  const preset = label.toLowerCase() as 'inteiro' | 'metade' | 'nada';
+                                  return (
+                                    <button
+                                      key={label}
+                                      onClick={() => {
+                                        const q = qty(activeIdx);
+                                        const val = preset === 'inteiro' ? String(q) : preset === 'metade' ? String(Math.floor(q / 2)) : '0';
+                                        setDistribuicao(prev => { const u = [...prev]; u[activeIdx] = val; return u; });
+                                        setDistribMode(prev => { const u = [...prev]; u[activeIdx] = preset; return u; });
+                                        setDistribMenuOpen(false);
+                                      }}
+                                      className={cn('w-full px-3 py-2.5 text-left text-xs font-bold text-white/70 active:bg-white/[0.06]', i > 0 && 'border-t border-white/[0.05]')}
+                                    >
+                                      {label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+
+              return (
             <div ref={detailScrollRef} className="flex-1 overflow-y-auto pb-4">
 
               {/* product header card */}
@@ -1263,339 +1932,14 @@ export function MobileNoteView({
                 </button>
               </div>
 
-              {/* Identificação */}
-              <SectionLabel>Identificação</SectionLabel>
-              <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] overflow-hidden">
-                {/* EAN row */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">EAN</span>
-                  {currentVariants.length > 0 ? (
-                    <span className="flex-1 text-sm font-bold text-white/20 italic">— (com variações)</span>
-                  ) : (
-                    <input
-                      ref={eanInputRef}
-                      value={ean(activeIdx)}
-                      onChange={e => setEans(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
-                      placeholder="—"
-                      className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
-                    />
-                  )}
-                  <button
-                    ref={eanMenuBtnRef}
-                    onClick={toggleEanMenu}
-                    className="relative w-10 h-10 rounded-xl bg-[#D81E1E] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#D81E1E]/30 active:scale-95 transition-transform"
-                  >
-                    <Plus size={18} className={cn('transition-transform duration-150', eanMenuOpen && 'rotate-45')} />
-                    {currentExtraEans.filter(e => e.ean.trim()).length > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#f2f0e3] text-[#1A1A0E] text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[#1c1c16]">
-                        {currentExtraEans.filter(e => e.ean.trim()).length}
-                      </span>
-                    )}
-                  </button>
-                </div>
-                {currentVariants.length === 0 && ean(activeIdx).trim() && duplicateEanSet.has(ean(activeIdx).trim()) && (
-                  <p className="px-4 pb-2 -mt-1 text-[10px] text-[#f87171] font-medium">EAN repetido nesta nota</p>
-                )}
-
-                {/* Códigos EAN adicionais — outros códigos de barras para este mesmo item */}
-                {currentExtraEans.length > 0 && (
-                  <div className="border-b border-white/[0.05] bg-[#D81E1E]/[0.03] px-4 py-3 space-y-2">
-                    <span className="text-[9px] font-black text-white/30 uppercase tracking-wider block">
-                      Códigos adicionais
-                    </span>
-                    {currentExtraEans.map((entry, ei) => (
-                      <div key={ei} className="bg-[#1c1c16] border border-white/[0.06] rounded-xl p-2.5 flex gap-2 items-start">
-                        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                          <input
-                            value={entry.ean}
-                            onChange={e => updateExtraEan(ei, { ean: e.target.value })}
-                            placeholder="Código EAN"
-                            className="w-full bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
-                          />
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              inputMode={descKbdRowIdx === ei ? 'none' : undefined}
-                              value={entry.description}
-                              onChange={e => updateExtraEan(ei, { description: e.target.value })}
-                              placeholder="Descrição (ex: caixa fechada)"
-                              className="flex-1 min-w-0 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#f2f0e3] outline-none placeholder:text-white/15 focus:border-[#D81E1E]/60"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => toggleDescKbd(ei)}
-                              title="Teclado de texto"
-                              className={cn(
-                                'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                                descKbdRowIdx === ei
-                                  ? 'bg-[#D81E1E] text-white'
-                                  : 'bg-white/[0.05] text-white/30 active:bg-white/10'
-                              )}
-                            >
-                              <Keyboard size={13} />
-                            </button>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeExtraEan(ei)}
-                          title="Remover código"
-                          className="w-7 h-7 shrink-0 rounded-lg bg-[#D81E1E]/10 text-[#f87171] flex items-center justify-center active:bg-[#D81E1E]/20 transition-colors mt-0.5"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={addExtraEan}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 border-2 border-dashed border-white/[0.12] text-white/35 rounded-xl active:border-[#D81E1E]/40 active:text-[#f87171] transition-colors text-[11px] font-bold"
-                    >
-                      <Plus size={12} />Adicionar código
-                    </button>
-                  </div>
-                )}
-
-                {/* Variant blocks */}
-                {currentVariants.map((variant, vi) => {
-                  const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
-                  const parentTotal = cost(activeIdx) * qty(activeIdx);
-                  const childUnitCost = totalVariantQty > 0 && variant.qty > 0
-                    ? (parentTotal / totalVariantQty)
-                    : 0;
-                  return (
-                    <div key={vi} className="border-b border-white/[0.05]">
-                      <div className="flex items-center gap-2 px-4 pt-2 pb-1">
-                        <span className="w-5 h-5 bg-[#D81E1E] rounded-md flex items-center justify-center text-white text-[10px] font-black shrink-0">
-                          {vi + 1}
-                        </span>
-                        <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">Variação {vi + 1}</span>
-                        <button
-                          onClick={() => removeVariant(vi)}
-                          className="ml-auto w-5 h-5 bg-white/[0.06] rounded-md flex items-center justify-center text-white/30 active:bg-white/10 transition-colors"
-                        >
-                          <X size={11} />
-                        </button>
-                      </div>
-                      <div className="px-4 pb-1">
-                        <span className="text-[9px] font-black text-white/25 uppercase tracking-wider">Desc.</span>
-                        <input
-                          value={variant.desc}
-                          onChange={e => updateVariant(vi, { desc: e.target.value })}
-                          placeholder="ex: azul 42"
-                          className="w-full bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 pb-1"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 border-t border-white/[0.04]">
-                        <div className="px-4 py-2 border-r border-white/[0.04]">
-                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">EAN</span>
-                          <input
-                            value={variant.ean}
-                            onChange={e => updateVariant(vi, { ean: e.target.value })}
-                            placeholder="0000000000000"
-                            className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15 font-mono"
-                          />
-                          {variant.ean?.trim() && duplicateEanSet.has(variant.ean.trim()) && (
-                            <p className="text-[9px] text-[#f87171] font-medium mt-0.5">Repetido nesta nota</p>
-                          )}
-                        </div>
-                        <div className="px-4 py-2">
-                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">SKU</span>
-                          <input
-                            value={variant.sku}
-                            onChange={e => updateVariant(vi, { sku: e.target.value })}
-                            placeholder="SKU-001"
-                            className="w-full bg-transparent text-xs font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 border-t border-white/[0.04]">
-                        <div className="px-4 py-2 border-r border-white/[0.04]">
-                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">QTDE</span>
-                          <input
-                            type="number"
-                            value={variant.qty || ''}
-                            onChange={e => updateVariant(vi, { qty: parseFloat(e.target.value) || 0 })}
-                            placeholder="0"
-                            min="0"
-                            className="w-full bg-transparent text-sm font-black text-[#f2f0e3] outline-none placeholder:text-white/15 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
-                          />
-                        </div>
-                        <div className="px-4 py-2">
-                          <span className="text-[9px] font-black text-white/25 uppercase tracking-wider block">Custo unit.</span>
-                          <span className="text-xs font-bold font-mono text-white/40">
-                            {childUnitCost > 0 ? `R$ ${childUnitCost.toFixed(4)}` : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Add more variants */}
-                {currentVariants.length > 0 && (
-                  <button
-                    onClick={addVariant}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 border-b border-white/[0.05] text-[#D81E1E] text-xs font-black active:bg-white/[0.03] transition-colors"
-                  >
-                    <Plus size={13} /> Adicionar variação
-                  </button>
-                )}
-
-                {/* SKU row */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">SKU</span>
-                  <input
-                    value={sku(activeIdx)}
-                    onChange={e => setSkus(prev => { const u = [...prev]; u[activeIdx] = e.target.value; return u; })}
-                    placeholder="—"
-                    className="flex-1 bg-transparent text-sm font-bold text-[#f2f0e3] outline-none placeholder:text-white/15"
-                  />
-                </div>
-              </div>
-
-              {/* Cost rateio panel */}
-              {currentVariants.length > 0 && (() => {
-                const totalVariantQty = currentVariants.reduce((s, v) => s + (v.qty || 0), 0);
-                const parentTotal = cost(activeIdx) * qty(activeIdx);
-                const qtyMismatch = totalVariantQty !== qty(activeIdx);
-                return (
-                  <div className="mx-4 mb-3 bg-[#141410] rounded-2xl border border-white/[0.05] p-3">
-                    <p className="text-[9px] font-black text-white/25 uppercase tracking-wider mb-2">
-                      Rateio de custo — total R$ {parentTotal.toFixed(2)}
-                    </p>
-                    {currentVariants.map((v, vi) => {
-                      const childTotal = totalVariantQty > 0 ? parentTotal * (v.qty || 0) / totalVariantQty : 0;
-                      return (
-                        <div key={vi} className="flex items-center justify-between py-1">
-                          <span className="text-xs text-white/40">{v.desc || `Variação ${vi + 1}`} ({v.qty || 0} un)</span>
-                          <span className="text-xs font-bold text-white/60 font-mono">R$ {childTotal.toFixed(2)}</span>
-                        </div>
-                      );
-                    })}
-                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.05] mt-1">
-                      <span className="text-[10px] font-black text-white/40">Total gerado</span>
-                      <span className="text-sm font-black text-white/80 font-mono">R$ {parentTotal.toFixed(2)}</span>
-                    </div>
-                    {qtyMismatch && (
-                      <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5">
-                        <p className="text-[10px] font-black text-amber-400">
-                          Qtde total ({totalVariantQty}) ≠ qtde da nota ({qty(activeIdx)})
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Identificação Interna */}
-              <SectionLabel>Identificação Interna</SectionLabel>
-              <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4">
-                {isVerif(activeIdx) && activeItem.name ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                      <p className="text-sm font-bold text-emerald-400 truncate">{activeItem.name}</p>
-                    </div>
-                    <button
-                      onClick={() => setLinkingPanel(true)}
-                      className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors shrink-0"
-                    >
-                      Alterar
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-xs text-white/30 font-medium mb-3">Não vinculado</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setLinkingPanel(true)}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#D81E1E]/10 border border-[#D81E1E]/20 rounded-xl text-[#f87171] text-xs font-black active:scale-[0.97] transition-transform"
-                      >
-                        <LinkIcon size={13} /> Vincular
-                      </button>
-                      <button
-                        onClick={() => onVarios(activeIdx)}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl text-white/40 text-xs font-black active:scale-[0.97] transition-transform"
-                      >
-                        <Layers size={13} /> Vários
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Preços & Quantidade */}
-              <SectionLabel>Preços &amp; Quantidade</SectionLabel>
-              <div className="mx-4 mb-4 bg-[#1c1c16] rounded-2xl border border-white/[0.07] overflow-hidden">
-                {/* qty */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">Qtd.</span>
-                  <div className="flex items-center gap-3 flex-1">
-                    <button
-                      onClick={() => setQtys(prev => { const u = [...prev]; u[activeIdx] = Math.max(0, (u[activeIdx] ?? qty(activeIdx)) - 1); return u; })}
-                      className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.07] flex items-center justify-center text-white/60 active:bg-white/10 transition-colors"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <input
-                      type="number"
-                      value={qty(activeIdx)}
-                      onChange={e => setQtys(prev => { const u = [...prev]; u[activeIdx] = parseFloat(e.target.value) || 0; return u; })}
-                      className="w-16 text-center bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
-                    />
-                    <button
-                      onClick={() => setQtys(prev => { const u = [...prev]; u[activeIdx] = (u[activeIdx] ?? qty(activeIdx)) + 1; return u; })}
-                      className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.07] flex items-center justify-center text-white/60 active:bg-white/10 transition-colors"
-                    >
-                      <Plus size={14} />
-                    </button>
-                    <button
-                      onClick={() => { setUnitMenuOpen(true); setMeasureFormOpen(false); }}
-                      className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.07] text-xs font-black text-white/60 active:bg-white/10 transition-colors shrink-0"
-                    >
-                      <Ruler size={11} className="text-white/30" />
-                      {unit(activeIdx)}
-                      {mult(activeIdx) !== 1 && (
-                        <span className="text-[9px] font-black text-amber-400">×{mult(activeIdx)}</span>
-                      )}
-                      <ChevronRight size={11} className="rotate-90 text-white/30" />
-                    </button>
-                  </div>
-                </div>
-                {/* custo (readonly) */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05]">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">Custo</span>
-                  <span className="text-[10px] font-bold text-white/30">R$</span>
-                  <span className="text-base font-black text-[#f2f0e3] font-mono">{cost(activeIdx).toFixed(4)}</span>
-                </div>
-                {/* venda */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] bg-white/[0.02]">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">Venda</span>
-                  <span className="text-[10px] font-bold text-white/30">R$</span>
-                  <input
-                    inputMode="none"
-                    value={numpadTarget === 'venda' ? numpadValue : (sell(activeIdx) > 0 ? sell(activeIdx).toFixed(2) : '')}
-                    onFocus={() => openNumpad('venda')}
-                    onChange={() => {}}
-                    placeholder="0,00"
-                    className="flex-1 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
-                  />
-                  {markup(activeIdx) !== null && (
-                    <span className={cn(
-                      'text-[10px] font-black px-2 py-1 rounded-lg shrink-0',
-                      Number(markup(activeIdx)) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
-                    )}>
-                      {Number(markup(activeIdx)) >= 0 ? '+' : ''}{markup(activeIdx)}%
-                    </span>
-                  )}
-                </div>
-                {/* total */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-[10px] font-black text-white/40 w-10 shrink-0">Total</span>
-                  <span className="text-sm font-black text-white/50 font-mono">
-                    R$ {(cost(activeIdx) * qty(activeIdx)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
+              {isAdmin ? (
+                <>{precosQuantidadeSection}{identificacaoSection}{rateioSection}{identificacaoInternaSection}</>
+              ) : (
+                <>{identificacaoSection}{rateioSection}{identificacaoInternaSection}{precosQuantidadeSection}</>
+              )}
             </div>
+              );
+            })()}
 
             {/* ── linking panel ─────────────────────────────── */}
             <AnimatePresence>
@@ -1608,7 +1952,6 @@ export function MobileNoteView({
             </AnimatePresence>
           </div>
         )}
-
         {/* ════ RESUMO TAB ═══════════════════════════════════════════ */}
         {tab === 'resumo' && (
           <div className="flex flex-col h-full overflow-y-auto pb-4">
@@ -1660,6 +2003,60 @@ export function MobileNoteView({
               )}
             </div>
 
+            {/* edição — Desconto/Acréscimo, só no modo Administrador */}
+            {isAdmin && (
+              <>
+                <SectionLabel>Edição</SectionLabel>
+                <div className="mx-4 mb-2 flex gap-2">
+                  <button
+                    onClick={() => setAdjDialog({ kind: 'desconto', name: '', method: 'geral', geralValue: '', geralType: 'pct' })}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500/12 border border-emerald-500/20 text-emerald-400 text-xs font-black active:scale-[0.97] transition-transform"
+                  >
+                    <Minus size={13} /> Desconto
+                    {adjColumns.filter(c => c.kind === 'desconto').length > 0 && (
+                      <span className="bg-emerald-400/25 text-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        {adjColumns.filter(c => c.kind === 'desconto').length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setAdjDialog({ kind: 'acrescimo', name: '', method: 'geral', geralValue: '', geralType: 'pct' })}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#D81E1E]/12 border border-[#D81E1E]/20 text-[#f87171] text-xs font-black active:scale-[0.97] transition-transform"
+                  >
+                    <Plus size={13} /> Acréscimo
+                    {adjColumns.filter(c => c.kind === 'acrescimo').length > 0 && (
+                      <span className="bg-[#D81E1E]/25 text-[#f87171] text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        {adjColumns.filter(c => c.kind === 'acrescimo').length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+                {adjColumns.length > 0 && (
+                  <div className="mx-4 mb-4 space-y-1.5">
+                    {adjColumns.map(col => {
+                      const isDesc = col.kind === 'desconto';
+                      return (
+                        <div key={col.id} className={cn(
+                          'flex items-center justify-between gap-2 px-3 py-2 rounded-xl border',
+                          isDesc ? 'border-emerald-500/20 bg-emerald-500/[0.05]' : 'border-[#D81E1E]/20 bg-[#D81E1E]/[0.05]'
+                        )}>
+                          <span className={cn('text-xs font-bold truncate', isDesc ? 'text-emerald-400' : 'text-[#f87171]')}>
+                            {col.name} · {col.mode === 'geral' ? `${col.geralValue}${col.geralType === 'pct' ? '%' : ' R$'}` : 'individual'}
+                          </span>
+                          <button
+                            onClick={() => onRemoveAdjColumn(col.id)}
+                            className="w-6 h-6 shrink-0 rounded-lg bg-white/[0.06] flex items-center justify-center text-white/30 active:bg-white/10 transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
             {/* ações */}
             <SectionLabel>Ações</SectionLabel>
             <div className="mx-4 space-y-2">
@@ -1673,6 +2070,15 @@ export function MobileNoteView({
                   : <><Save size={16} />Salvar nota</>
                 }
               </button>
+
+              {isAdmin && (
+                <button
+                  onClick={onDownload}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 font-black rounded-2xl active:scale-[0.97] transition-transform text-sm"
+                >
+                  <Download size={15} /> Baixar
+                </button>
+              )}
 
               {deleteConfirm ? (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
@@ -1697,6 +2103,19 @@ export function MobileNoteView({
                 </button>
               )}
             </div>
+
+            {/* alternância de modo — mantém todas as edições feitas até aqui */}
+            <button
+              onClick={() => onModeChange(isAdmin ? 'estoque' : 'admin')}
+              className="mx-4 mt-4 p-3.5 bg-[#1c1c16] border border-dashed border-white/[0.15] rounded-2xl flex items-center justify-between gap-3"
+            >
+              <span className="text-[11px] font-bold text-white/45">
+                Modo atual: {isAdmin ? 'Administrador' : 'Estoque'}
+              </span>
+              <span className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-xl text-[11px] font-black text-[#f2f0e3]">
+                {isAdmin ? <><Package size={13} /> Ir p/ Estoque</> : <><ShieldCheck size={13} /> Ir p/ Administrador</>}
+              </span>
+            </button>
           </div>
         )}
       </div>

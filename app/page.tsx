@@ -29,7 +29,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -366,6 +366,16 @@ export default function Page() {
   const [savingNote, setSavingNote] = useState(false);
   const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
   const [showMobileNoteView, setShowMobileNoteView] = useState(false);
+  const [noteViewMode, setNoteViewMode] = useState<'admin' | 'estoque'>('estoque');
+  const [noteModeChoiceOpen, setNoteModeChoiceOpen] = useState(false);
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('note-view-mode') : null;
+    if (saved === 'admin' || saved === 'estoque') setNoteViewMode(saved);
+  }, []);
+  const changeNoteViewMode = (m: 'admin' | 'estoque') => {
+    setNoteViewMode(m);
+    if (typeof window !== 'undefined') localStorage.setItem('note-view-mode', m);
+  };
   const [linkingItemIdx, setLinkingItemIdx] = useState<number | null>(null);
   const [noteItemLinkQuery, setNoteItemLinkQuery] = useState('');
   const [noteItemShowCreate, setNoteItemShowCreate] = useState(false);
@@ -3578,7 +3588,7 @@ export default function Page() {
                     } else {
                       setNoteSupplierMappings([]);
                     }
-                    setShowMobileNoteView(true);
+                    setNoteModeChoiceOpen(true);
                   }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
@@ -7819,7 +7829,7 @@ export default function Page() {
                   )}
 
                   <button
-                    onClick={() => setShowMobileNoteView(true)}
+                    onClick={() => setNoteModeChoiceOpen(true)}
                     className="px-6 py-3 bg-on-surface/[0.06] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.1] transition-all border border-on-surface/[0.06] flex items-center gap-2"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
@@ -8478,6 +8488,62 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* Mode choice — Administrador vs Estoque, ao abrir uma nota no mobile */}
+      <AnimatePresence>
+        {noteModeChoiceOpen && viewingReviewNote && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[210] bg-black/65 flex items-end md:items-center md:justify-center"
+          >
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+              className="w-full md:max-w-sm bg-[#161610] md:rounded-3xl rounded-t-3xl border border-white/[0.08] p-5 pb-8 md:pb-6"
+            >
+              <p className="text-[15px] font-black text-[#f2f0e3] text-center">Como deseja abrir esta nota?</p>
+              <p className="text-[11px] text-white/35 font-medium text-center mt-1 mb-5 leading-relaxed">
+                Dá para trocar de modo depois, sem perder o que já foi editado.
+              </p>
+              <button
+                onClick={() => { changeNoteViewMode('admin'); setNoteModeChoiceOpen(false); setShowMobileNoteView(true); }}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl border border-[#D81E1E]/25 bg-[#D81E1E]/[0.09] text-left mb-2.5"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#D81E1E]/15 text-[#f87171] flex items-center justify-center shrink-0">
+                  <ShieldCheck size={19} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-black text-[#f87171]">Administrador</p>
+                  <p className="text-[10.5px] text-white/35 font-medium leading-snug mt-0.5">
+                    Edição completa: sem teclado virtual, filtros avançados, Distribuição, Desconto/Acréscimo e Baixar.
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => { changeNoteViewMode('estoque'); setNoteModeChoiceOpen(false); setShowMobileNoteView(true); }}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl border border-white/[0.08] bg-white/[0.04] text-left mb-3"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/[0.07] text-white/50 flex items-center justify-center shrink-0">
+                  <Package size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-black text-[#f2f0e3]">Estoque</p>
+                  <p className="text-[10.5px] text-white/35 font-medium leading-snug mt-0.5">
+                    Conferência rápida no teclado numérico — o modo de hoje, sem mudanças.
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => setNoteModeChoiceOpen(false)}
+                className="w-full text-center text-[12px] font-bold text-white/35 py-2"
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Mobile Note View */}
       <AnimatePresence>
         {showMobileNoteView && viewingReviewNote && (
@@ -8492,7 +8558,27 @@ export default function Page() {
             verified={viewingNoteVerified}       setVerified={setViewingNoteVerified}
             units={viewingNoteUnits}
             multipliers={viewingNoteMultipliers}
-            distribuicao={viewingNoteDistribuicao}
+            distribuicao={viewingNoteDistribuicao} setDistribuicao={setViewingNoteDistribuicao}
+            distribMode={viewingDistribMode}       setDistribMode={setViewingDistribMode}
+            mode={noteViewMode}
+            onModeChange={changeNoteViewMode}
+            adjColumns={adjColumns}
+            onAddAdjColumn={(col) => setAdjColumns(prev => [...prev, col])}
+            onRemoveAdjColumn={(id) => setAdjColumns(prev => prev.filter(c => c.id !== id))}
+            onDownload={() => {
+              if (!viewingReviewNote) return;
+              setEstoquePickerArgs({
+                items: viewingReviewNote.items.map((item: any, idx: number) => ({
+                  ...item,
+                  distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
+                    ? parseInt(viewingNoteDistribuicao[idx]) || null
+                    : (item.distribuicao ?? null),
+                })),
+                adj: adjLegacy(),
+                meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
+              });
+              setShowEstoqueLayoutPicker(true);
+            }}
             setNote={(n) => setViewingReviewNote(n as any)}
             onClose={() => { setShowMobileNoteView(false); setViewingReviewNote(null); }}
             onSave={handleSaveNote}

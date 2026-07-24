@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MobileNoteView — Modo Administrador — Light</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'DM Sans',sans-serif;
+    background:#EFE9D4;
+    color:#1A1A0E;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:20px;
+    padding:32px 16px 60px;
+  }
+  .page-title{font-weight:900;font-size:15px;color:rgba(26,26,14,.6);letter-spacing:.02em;}
+  .page-sub{font-size:12px;color:rgba(26,26,14,.4);font-weight:600;margin-top:2px;text-align:center;max-width:480px;}
+
+  /* ── mockup nav (not part of the real app) ── */
+  .mockup-nav{
+    display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+    background:#FFFFFF; border:1px solid #E0D8BF;
+    border-radius:16px; padding:6px; margin-top:4px;
+  }
+  .mockup-nav button{
+    font-family:'DM Sans',sans-serif; font-size:11px; font-weight:800;
+    padding:8px 14px; border-radius:11px; border:none; cursor:pointer;
+    background:transparent; color:rgba(26,26,14,.4);
+    transition:background .15s,color .15s;
+  }
+  .mockup-nav button.active{ background:#D81E1E; color:#fff; }
+  .mockup-nav button:not(.active):hover{ background:rgba(26,26,14,.06); color:rgba(26,26,14,.7); }
+
+  /* ── phone frame ── */
+  .phone{
+    width:390px; height:820px; max-width:94vw;
+    background:#FDFAF0; border-radius:46px;
+    border:9px solid #EAE2C6; box-shadow:0 30px 70px rgba(26,26,14,.20), 0 6px 18px rgba(26,26,14,.10);
+    overflow:hidden; position:relative; display:flex; flex-direction:column;
+  }
+  .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:26px; background:#EAE2C6; border-radius:0 0 16px 16px; z-index:50;}
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; }
+  .screen.active{ display:flex; }
+
+  /* ── topbar ── */
+  .topbar{ flex-shrink:0; background:#FFE500; border-bottom:1px solid #D4C000; padding:34px 16px 12px; }
+  .topbar-row{ display:flex; align-items:center; justify-content:space-between; }
+  .topbar-left{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .icon-btn{ width:36px; height:36px; border-radius:50%; background:rgba(26,26,14,.09); border:none; display:flex; align-items:center; justify-content:center; color:#1A1A0E; flex-shrink:0; cursor:pointer;}
+  .topbar-title{ font-size:15px; font-weight:900; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px; color:#1A1A0E;}
+  .topbar-sub{ font-size:10px; color:rgba(26,26,14,.5); font-weight:600; margin-top:2px;}
+  .chip-progress{ display:flex; align-items:center; gap:4px; flex-shrink:0;}
+  .chip-progress b{ color:#0A7A55; font-size:14px; font-weight:900;}
+  .chip-progress span{ color:rgba(26,26,14,.4); font-size:12px; font-weight:700;}
+  .progress-track{ margin-top:10px; height:4px; background:rgba(26,26,14,.10); border-radius:99px; overflow:hidden;}
+  .progress-fill{ height:100%; width:52%; background:#0A7A55; border-radius:99px;}
+
+
+  /* ── tab bottom bar ── */
+  .tabbar{ flex-shrink:0; background:#FFFFFF; border-top:1px solid #E0D8BF; display:flex;}
+  .tabbar button{ flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0 14px; background:none; border:none; cursor:pointer; color:rgba(26,26,14,.35); position:relative;}
+  .tabbar button.active{ color:#D81E1E;}
+  .tabbar button.active::before{ content:''; position:absolute; top:0; left:16px; right:16px; height:2px; background:#D81E1E; border-radius:99px;}
+  .tabbar button span{ font-size:10px; font-weight:700;}
+  .tabbar .badge{ position:absolute; top:-6px; right:-8px; min-width:14px; height:14px; background:#D81E1E; border-radius:99px; font-size:9px; font-weight:900; color:#fff; display:flex; align-items:center; justify-content:center; padding:0 3px;}
+
+  .section-label{ font-size:9px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:rgba(26,26,14,.35); padding:0 16px; margin:14px 0 8px;}
+  .card{ margin:0 16px 12px; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:16px; overflow:hidden;}
+  .row{ display:flex; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid #EFE9D4;}
+  .row:last-child{ border-bottom:none;}
+  .row-label{ font-size:10px; font-weight:900; color:rgba(26,26,14,.45); width:58px; flex-shrink:0;}
+  /* molduras nos títulos de campo — só na aba Detalhe */
+  #detalhe .row-label{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:auto; min-width:54px; padding:4px 9px;
+    border-radius:9px; border:1px solid #E0D8BF;
+    background:rgba(26,26,14,.035);
+    font-size:9px; font-weight:900; letter-spacing:.05em; text-transform:uppercase;
+    color:rgba(26,26,14,.55);
+  }
+  .row-value{ font-size:15px; font-weight:900; flex:1; font-family:'DM Mono',monospace; color:#1A1A0E;}
+  .muted-input{ flex:1; background:transparent; border:none; outline:none; color:#1A1A0E; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700;}
+  .scroll{ flex:1; overflow-y:auto; }
+
+  /* ── ITENS tab ── */
+  .search-wrap{ flex-shrink:0; padding:10px 16px; background:#F7F2E2; border-bottom:1px solid #E9E1C4; position:relative;}
+  .search-row{ display:flex; gap:8px; align-items:center;}
+  .search-box{ flex:1; display:flex; align-items:center; gap:8px; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:12px; padding:9px 12px;}
+  .search-box input{ flex:1; background:transparent; border:none; outline:none; color:#1A1A0E; font-size:14px;}
+  .search-box svg{ color:rgba(26,26,14,.3); flex-shrink:0;}
+  .filter-btn{ position:relative; width:34px; height:34px; border-radius:11px; background:rgba(216,30,30,.10); border:1px solid rgba(216,30,30,.25); color:#D81E1E; display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;}
+  .filter-btn .dot{ position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:99px; background:#D81E1E;}
+
+  .filter-panel{ position:absolute; right:16px; top:56px; width:232px; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:16px; box-shadow:0 20px 40px rgba(26,26,14,.18); overflow:hidden; z-index:20;}
+  .filter-opt{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #EFE9D4; cursor:pointer;}
+  .filter-opt:last-child{ border-bottom:none;}
+  .filter-opt.active{ background:rgba(216,30,30,.06);}
+  .filter-opt .lbl{ font-size:12px; font-weight:700; color:#1A1A0E; display:flex; align-items:center; gap:6px;}
+  .filter-opt.active .lbl{ color:#D81E1E;}
+  .filter-opt .cnt{ font-size:10px; font-weight:900; color:rgba(26,26,14,.35);}
+  .new-tag{ font-size:8px; font-weight:900; letter-spacing:.04em; background:#92400E; color:#FFF7E6; padding:1px 5px; border-radius:5px; text-transform:uppercase;}
+
+  .item-list{ flex:1; overflow-y:auto;}
+  .item-row{ width:100%; display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #EFE9D4; text-align:left; background:none; border-left:2px solid transparent; cursor:pointer;}
+  .avatar{ width:44px; height:44px; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; border:1px solid; flex-shrink:0;}
+  .avatar.ok{ background:rgba(10,122,85,.12); border-color:rgba(10,122,85,.28); color:#0A7A55;}
+  .avatar.pend{ background:rgba(26,26,14,.05); border-color:rgba(26,26,14,.10); color:rgba(26,26,14,.4);}
+  .item-main{ flex:1; min-width:0;}
+  .item-top{ display:flex; align-items:start; justify-content:space-between; gap:8px;}
+  .item-desc{ font-size:13px; font-weight:900; color:#1A1A0E; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .item-price{ font-size:12px; font-weight:900; color:rgba(26,26,14,.5); font-family:'DM Mono',monospace; flex-shrink:0;}
+  .item-price.warn{ color:#92400E;}
+  .item-bottom{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px;}
+  .item-meta{ font-size:10px; color:rgba(26,26,14,.4); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pill{ font-size:9px; font-weight:900; padding:2px 6px; border-radius:6px; flex-shrink:0;}
+  .pill.ok{ background:rgba(10,122,85,.10); color:#0A7A55;}
+  .pill.pend{ background:rgba(216,30,30,.10); color:#D81E1E;}
+  .pill.warnpill{ background:rgba(146,64,14,.10); color:#92400E;}
+
+  /* ── DETALHE tab ── */
+  .nav-item{ flex-shrink:0; background:#F7F2E2; border-bottom:1px solid #E9E1C4; padding:8px 16px; display:flex; align-items:center; gap:8px;}
+  .nav-item .icon-btn{ width:30px; height:30px; border-radius:9px; background:rgba(26,26,14,.08);}
+  .nav-item .center{ flex:1; text-align:center; font-size:10px; font-weight:900; color:rgba(26,26,14,.45);}
+  .nav-item .center b{ color:#1A1A0E;}
+
+  .product-head{ margin:16px; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:16px; padding:14px; display:flex; align-items:center; gap:12px;}
+  .product-head .av{ width:48px; height:48px; border-radius:99px; border:1px solid rgba(216,30,30,.25); background:rgba(216,30,30,.08); color:#D81E1E; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16px; flex-shrink:0;}
+  .product-head .info{ flex:1; min-width:0;}
+  .product-head .info p:first-child{ font-size:14px; font-weight:900; color:#1A1A0E;}
+  .product-head .info p:last-child{ font-size:10px; color:rgba(26,26,14,.4); font-weight:600; margin-top:2px;}
+  .verify-toggle{ width:40px; height:40px; border-radius:99px; border:1px solid #E0D8BF; background:rgba(26,26,14,.04); color:rgba(26,26,14,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+
+  .priority-tag{ display:inline-flex; align-items:center; gap:4px; margin:4px 16px 0; padding:4px 10px; background:rgba(216,30,30,.08); border:1px solid rgba(216,30,30,.18); border-radius:8px;}
+  .priority-tag span{ font-size:9px; font-weight:900; letter-spacing:.06em; text-transform:uppercase; color:#D81E1E;}
+
+  .qty-row{ display:flex; align-items:center; gap:10px; flex:1;}
+  .qty-btn{ width:30px; height:30px; border-radius:9px; background:rgba(26,26,14,.06); border:1px solid #E0D8BF; display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,.6);}
+  .qty-val{ width:44px; text-align:center; font-size:15px; font-weight:900; color:#1A1A0E;}
+  .unit-chip{ margin-left:auto; display:flex; align-items:center; gap:5px; padding:6px 10px; border-radius:9px; background:rgba(26,26,14,.06); border:1px solid #E0D8BF; font-size:11px; font-weight:900; color:rgba(26,26,14,.6);}
+  .unit-chip .amber{ font-size:9px; color:#92400E; font-weight:900;}
+
+  .venda-row{ background:#FCFAF0;}
+  .native-tag{ font-size:9px; font-weight:800; color:rgba(26,26,14,.35); background:rgba(26,26,14,.05); border:1px dashed rgba(26,26,14,.18); border-radius:7px; padding:2px 7px; margin-left:6px; white-space:nowrap;}
+  .markup-pill{ font-size:10px; font-weight:900; padding:4px 8px; border-radius:8px; flex-shrink:0;}
+  .markup-pill.pos{ background:rgba(10,122,85,.10); color:#0A7A55;}
+
+  .distrib-row{ gap:10px;}
+  .distrib-controls{ flex:1; display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0;}
+  .distrib-select{ flex-shrink:0; max-width:96px; background:rgba(26,26,14,.05); border:1px solid #E0D8BF; border-radius:9px; padding:6px 8px; font-size:11px; font-weight:800; color:#1A1A0E; font-family:'DM Sans',sans-serif;}
+  .distrib-qty{ flex-shrink:0; display:flex; align-items:center; gap:5px; background:rgba(26,26,14,.05); border:1px solid #E0D8BF; border-radius:9px; padding:6px 10px;}
+  .distrib-qty-input{ width:32px; background:transparent; border:none; outline:none; color:#1A1A0E; font-size:13px; font-weight:900; text-align:right; font-family:'DM Mono',monospace;}
+  .distrib-qty-suffix{ font-size:9px; font-weight:900; color:rgba(26,26,14,.4); text-transform:uppercase;}
+
+  .ean-row .plus-btn{ width:38px; height:38px; border-radius:11px; background:#D81E1E; color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 14px rgba(216,30,30,.25); flex-shrink:0;}
+  .link-actions{ display:flex; gap:8px; padding:14px 16px;}
+  .link-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:11px; border-radius:12px; font-size:11px; font-weight:900;}
+  .link-btn.primary{ background:rgba(216,30,30,.08); border:1px solid rgba(216,30,30,.18); color:#D81E1E;}
+  .link-btn.secondary{ background:rgba(26,26,14,.04); border:1px solid #E0D8BF; color:rgba(26,26,14,.45);}
+
+  /* ── RESUMO tab ── */
+  .edit-btns{ margin:0 16px 12px; display:flex; gap:8px;}
+  .edit-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border-radius:14px; font-size:12px; font-weight:900; border:1px solid;}
+  .edit-btn.desc{ background:rgba(10,122,85,.10); border-color:rgba(10,122,85,.2); color:#0A7A55;}
+  .edit-btn.acr{ background:rgba(216,30,30,.09); border-color:rgba(216,30,30,.2); color:#D81E1E;}
+
+  .action-list{ margin:0 16px; display:flex; flex-direction:column; gap:8px;}
+  .btn-save{ width:100%; padding:15px; background:#D81E1E; color:#fff; border:none; border-radius:16px; font-weight:900; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 10px 22px rgba(216,30,30,.22);}
+  .btn-baixar{ width:100%; padding:14px; background:rgba(37,99,235,.08); color:#2563EB; border:1px solid rgba(37,99,235,.2); border-radius:16px; font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center; gap:8px;}
+  .btn-delete{ width:100%; padding:14px; background:rgba(216,30,30,.06); color:#D81E1E; border:1px solid rgba(216,30,30,.16); border-radius:16px; font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center; gap:8px;}
+  .mode-toggle{ margin:16px; padding:14px; background:#FFFFFF; border:1px dashed #D8CBA0; border-radius:16px; display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .mode-toggle .lbl{ font-size:11px; font-weight:800; color:rgba(26,26,14,.5);}
+  .mode-toggle .switchbtn{ display:flex; align-items:center; gap:6px; padding:8px 12px; background:rgba(26,26,14,.05); border:1px solid #E0D8BF; border-radius:11px; font-size:11px; font-weight:900; color:#1A1A0E;}
+
+  /* ── MODE CHOICE screen ── */
+  .choice-bg{ position:absolute; inset:0; background:#F7F2E2; filter:blur(2px); opacity:.6;}
+  .choice-overlay{ position:absolute; inset:0; background:rgba(26,26,14,.45); display:flex; align-items:flex-end;}
+  .choice-sheet{ width:100%; background:#FFFDF6; border-radius:26px 26px 0 0; border-top:1px solid #E0D8BF; padding:22px 18px 34px; animation:slideUp .25s cubic-bezier(.23,1,.32,1) both; box-shadow:0 -10px 30px rgba(26,26,14,.12);}
+  @keyframes slideUp{ from{transform:translateY(24px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+  .choice-title{ font-size:16px; font-weight:900; color:#1A1A0E; text-align:center;}
+  .choice-sub{ font-size:11px; font-weight:600; color:rgba(26,26,14,.45); text-align:center; margin-top:4px; margin-bottom:18px;}
+  .choice-opt{ display:flex; align-items:center; gap:12px; padding:15px; border-radius:16px; margin-bottom:10px; border:1px solid;}
+  .choice-opt.admin{ background:rgba(216,30,30,.06); border-color:rgba(216,30,30,.20);}
+  .choice-opt.estoque{ background:rgba(26,26,14,.03); border-color:#E0D8BF;}
+  .choice-icon{ width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .choice-opt.admin .choice-icon{ background:rgba(216,30,30,.12); color:#D81E1E;}
+  .choice-opt.estoque .choice-icon{ background:rgba(26,26,14,.06); color:rgba(26,26,14,.5);}
+  .choice-opt .txt p:first-child{ font-size:13px; font-weight:900; color:#1A1A0E;}
+  .choice-opt.admin .txt p:first-child{ color:#D81E1E;}
+  .choice-opt .txt p:last-child{ font-size:10.5px; font-weight:600; color:rgba(26,26,14,.45); margin-top:2px; line-height:1.4;}
+  .choice-cancel{ text-align:center; padding-top:6px; font-size:12px; font-weight:800; color:rgba(26,26,14,.4);}
+
+  /* ── EXIT confirm screen ── */
+  .confirm-overlay{ position:absolute; inset:0; background:rgba(26,26,14,.40); display:flex; align-items:center; justify-content:center; padding:24px;}
+  .confirm-card{ width:100%; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:20px; padding:22px; text-align:center; box-shadow:0 20px 50px rgba(26,26,14,.18);}
+  .confirm-icon{ width:50px; height:50px; border-radius:99px; background:rgba(146,64,14,.10); color:#92400E; display:flex; align-items:center; justify-content:center; margin:0 auto 12px;}
+  .confirm-card h3{ font-size:15px; font-weight:900; color:#1A1A0E; margin-bottom:6px;}
+  .confirm-card p{ font-size:11.5px; font-weight:600; color:rgba(26,26,14,.5); line-height:1.5; margin-bottom:18px;}
+  .confirm-actions{ display:flex; gap:8px;}
+  .confirm-btn{ flex:1; padding:12px; border-radius:13px; font-size:12.5px; font-weight:900; border:none;}
+  .confirm-btn.stay{ background:rgba(26,26,14,.06); color:rgba(26,26,14,.6); border:1px solid #E0D8BF;}
+  .confirm-btn.leave{ background:#D81E1E; color:#fff;}
+
+  .annot{ font-size:11px; color:rgba(26,26,14,.4); max-width:390px; text-align:center; line-height:1.6; margin-top:-6px;}
+  .annot b{ color:rgba(26,26,14,.65);}
+
+  /* ── DESCONTO / ACRÉSCIMO / BAIXAR sheets ── */
+  .adj-sheet{ width:100%; background:#FFFDF6; border-radius:26px 26px 0 0; border-top:1px solid #E0D8BF; padding:20px 18px 30px; animation:slideUp .25s cubic-bezier(.23,1,.32,1) both; box-shadow:0 -10px 30px rgba(26,26,14,.12);}
+  .adj-head{ display:flex; align-items:center; gap:10px; margin-bottom:2px;}
+  .adj-icon{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .adj-icon.desc{ background:rgba(10,122,85,.12); color:#0A7A55;}
+  .adj-icon.acr{ background:rgba(216,30,30,.10); color:#D81E1E;}
+  .adj-icon.baixar{ background:rgba(37,99,235,.10); color:#2563EB;}
+  .adj-title{ font-size:15px; font-weight:900; color:#1A1A0E;}
+  .adj-sub{ font-size:11px; font-weight:600; color:rgba(26,26,14,.45); margin:6px 0 18px; line-height:1.55;}
+  .adj-field{ margin-bottom:14px;}
+  .adj-label{ font-size:9px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:rgba(26,26,14,.4); margin-bottom:6px; display:block;}
+  .adj-input{ width:100%; background:#FFFFFF; border:1px solid #E0D8BF; border-radius:12px; padding:12px 14px; font-size:14px; font-weight:700; color:#1A1A0E; font-family:'DM Sans',sans-serif;}
+  .adj-toggle{ display:flex; gap:8px;}
+  .adj-toggle-btn{ flex:1; padding:10px; border-radius:12px; font-size:12px; font-weight:900; border:1px solid #E0D8BF; background:#FFFFFF; color:rgba(26,26,14,.5); text-align:center;}
+  .adj-toggle-btn.active.desc{ background:rgba(10,122,85,.10); border-color:rgba(10,122,85,.28); color:#0A7A55;}
+  .adj-toggle-btn.active.acr{ background:rgba(216,30,30,.10); border-color:rgba(216,30,30,.28); color:#D81E1E;}
+  .adj-actions{ display:flex; gap:8px; margin-top:8px;}
+  .adj-btn{ flex:1; padding:13px; border-radius:14px; font-size:13px; font-weight:900; border:none; text-align:center;}
+  .adj-btn.cancel{ background:rgba(26,26,14,.05); color:rgba(26,26,14,.55); border:1px solid #E0D8BF;}
+  .adj-btn.apply-desc{ background:#0A7A55; color:#fff;}
+  .adj-btn.apply-acr{ background:#D81E1E; color:#fff;}
+  .adj-btn.apply-baixar{ background:#2563EB; color:#fff;}
+
+  /* linha de valor gerada por Desconto/Acréscimo, entre Venda e Total */
+  /* linha de valor gerada por Desconto/Acréscimo — mesma estrutura das demais
+     linhas (row + row-label em moldura), só muda a cor */
+  #detalhe .row-label.label-desc{ border-color:rgba(10,122,85,.35); background:rgba(10,122,85,.08); color:#0A7A55;}
+  #detalhe .row-label.label-acr{ border-color:rgba(216,30,30,.32); background:rgba(216,30,30,.07); color:#D81E1E;}
+  .adj-row-name{ flex:1; font-size:13px; font-weight:800; color:#1A1A0E; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .adj-val-pill{ font-size:11px; font-weight:900; padding:4px 9px; border-radius:8px; font-family:'DM Mono',monospace; flex-shrink:0;}
+  .adj-val-pill.desc-val{ background:rgba(10,122,85,.10); color:#0A7A55;}
+  .adj-val-pill.acr-val{ background:rgba(216,30,30,.09); color:#D81E1E;}
+  .method-toggle{ display:flex; gap:8px; margin-bottom:14px;}
+  .method-btn{ flex:1; padding:10px; border-radius:12px; font-size:11.5px; font-weight:900; border:1px solid #E0D8BF; background:#FFFFFF; color:rgba(26,26,14,.45); text-align:center;}
+  .method-btn.active{ background:rgba(26,26,14,.06); border-color:rgba(26,26,14,.18); color:#1A1A0E;}
+  .method-note{ font-size:10.5px; font-weight:600; color:rgba(26,26,14,.4); line-height:1.5; padding:2px 2px 4px;}
+
+  .layout-opt{ display:flex; align-items:center; gap:12px; padding:13px; border-radius:14px; border:1px solid #E0D8BF; background:#FFFFFF; margin-bottom:8px;}
+  .layout-opt.selected{ border-color:rgba(37,99,235,.35); background:rgba(37,99,235,.06);}
+  .layout-radio{ width:18px; height:18px; border-radius:50%; border:2px solid #D8CBA0; flex-shrink:0; position:relative;}
+  .layout-opt.selected .layout-radio{ border-color:#2563EB;}
+  .layout-opt.selected .layout-radio::after{ content:''; position:absolute; inset:3px; border-radius:50%; background:#2563EB;}
+  .layout-txt p:first-child{ font-size:12.5px; font-weight:900; color:#1A1A0E;}
+  .layout-txt p:last-child{ font-size:10px; font-weight:600; color:rgba(26,26,14,.45); margin-top:2px; line-height:1.4;}
+</style>
+</head>
+<body>
+
+  <div class="page-title">MobileNoteView — Modo Administrador (mockup)</div>
+  <div class="page-sub">Estrutura real de components/MobileNoteView.tsx — 5 telas navegáveis pelo menu abaixo. Elementos com <span class="new-tag" style="vertical-align:1px;">NOVO</span> são adições desta feature.</div>
+
+  <div class="mockup-nav">
+    <button class="active" data-screen="modo">1 · Escolha de modo</button>
+    <button data-screen="itens">2 · Itens</button>
+    <button data-screen="detalhe">3 · Detalhe</button>
+    <button data-screen="resumo">4 · Resumo</button>
+    <button data-screen="sair">5 · Confirmar saída</button>
+    <button data-screen="desconto">6 · Desconto</button>
+    <button data-screen="acrescimo">7 · Acréscimo</button>
+    <button data-screen="baixar">8 · Baixar</button>
+  </div>
+
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- ══════════ 1. MODE CHOICE ══════════ -->
+    <div class="screen active" id="modo">
+      <div class="choice-bg"></div>
+      <div class="topbar" style="position:relative;">
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <div class="icon-btn">✕</div>
+            <div>
+              <div class="topbar-title">NF-e 48213 · Distribuidora Vale</div>
+              <div class="topbar-sub">nota-48213.xml · 24 itens</div>
+            </div>
+          </div>
+          <div class="chip-progress"><b>9</b><span>/ 24</span></div>
+        </div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+      <div class="choice-overlay">
+        <div class="choice-sheet">
+          <div class="choice-title">Como deseja abrir esta nota?</div>
+          <div class="choice-sub">Escolha o modo de visualização — dá para trocar depois, sem perder o que já foi editado.</div>
+          <div class="choice-opt admin">
+            <div class="choice-icon">${'{ICON_SHIELD}'}</div>
+            <div class="txt">
+              <p>Administrador</p>
+              <p>Edição completa: sem teclado virtual, filtros avançados, Distribuição, Desconto/Acréscimo e Baixar.</p>
+            </div>
+          </div>
+          <div class="choice-opt estoque">
+            <div class="choice-icon">${'{ICON_PACKAGE}'}</div>
+            <div class="txt">
+              <p>Estoque</p>
+              <p>Conferência rápida no teclado numérico — o modo de hoje, sem mudanças.</p>
+            </div>
+          </div>
+          <div class="choice-cancel">Cancelar</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 2. ITENS ══════════ -->
+    <div class="screen" id="itens">
+      <div class="topbar">
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <div class="icon-btn">${'{ICON_X}'}</div>
+            <div>
+              <div class="topbar-title">NF-e 48213 · Distribuidora Vale</div>
+              <div class="topbar-sub">48213 · 24 itens</div>
+            </div>
+          </div>
+          <div class="chip-progress"><b>9</b><span>/ 24</span></div>
+        </div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+
+      <div class="search-wrap">
+        <div class="search-row">
+          <div class="search-box">${'{ICON_SEARCH}'}<input placeholder="Buscar produto ou código..." /></div>
+          <div class="filter-btn">${'{ICON_FILTER}'}<div class="dot"></div></div>
+        </div>
+        <div class="filter-panel">
+          <div class="filter-opt"><span class="lbl">Todos</span><span class="cnt">24</span></div>
+          <div class="filter-opt"><span class="lbl">Sem EAN</span><span class="cnt">3</span></div>
+          <div class="filter-opt active"><span class="lbl">Pendentes</span><span class="cnt">15</span></div>
+          <div class="filter-opt"><span class="lbl">EAN duplicado</span><span class="cnt">1</span></div>
+          <div class="filter-opt"><span class="lbl">Sem preço de venda <span class="new-tag">novo</span></span><span class="cnt">6</span></div>
+          <div class="filter-opt"><span class="lbl">Sem unidade de medida <span class="new-tag">novo</span></span><span class="cnt">4</span></div>
+        </div>
+      </div>
+
+      <div class="item-list">
+        <div class="item-row" style="border-left-color:#D81E1E;">
+          <div class="avatar pend">1</div>
+          <div class="item-main">
+            <div class="item-top"><span class="item-desc">Detergente Neutro 5L</span><span class="item-price warn">sem venda</span></div>
+            <div class="item-bottom"><span class="item-meta">Cód. 88213 · EAN 7891234500012 · UN × 12</span><span class="pill warnpill">S/ Venda</span></div>
+          </div>
+        </div>
+        <div class="item-row">
+          <div class="avatar ok">2</div>
+          <div class="item-main">
+            <div class="item-top"><span class="item-desc">Água Sanitária 2L</span><span class="item-price">R$ 6,90</span></div>
+            <div class="item-bottom"><span class="item-meta">Cód. 88214 · EAN 7891234500029 · UN × 24</span><span class="pill ok">OK</span></div>
+          </div>
+        </div>
+        <div class="item-row" style="border-left-color:#D81E1E;">
+          <div class="avatar pend">3</div>
+          <div class="item-main">
+            <div class="item-top"><span class="item-desc">Caixa Sabão em Pó 1kg (fardo)</span><span class="item-price warn">CX ×1</span></div>
+            <div class="item-bottom"><span class="item-meta">Cód. 88215 · EAN 7891234500036 · CX × 12</span><span class="pill warnpill">S/ Unidade</span></div>
+          </div>
+        </div>
+        <div class="item-row">
+          <div class="avatar ok">4</div>
+          <div class="item-main">
+            <div class="item-top"><span class="item-desc">Amaciante Concentrado 1L</span><span class="item-price">R$ 11,40</span></div>
+            <div class="item-bottom"><span class="item-meta">Cód. 88216 · EAN 7891234500043 · UN × 18</span><span class="pill ok">OK</span></div>
+          </div>
+        </div>
+        <div class="item-row" style="border-left-color:#D81E1E;">
+          <div class="avatar pend">5</div>
+          <div class="item-main">
+            <div class="item-top"><span class="item-desc">Esponja Multiuso (pacote)</span><span class="item-price warn">sem venda</span></div>
+            <div class="item-bottom"><span class="item-meta">Cód. 88217 · sem EAN · PCT × 30</span><span class="pill warnpill">S/ Venda</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 3. DETALHE ══════════ -->
+    <div class="screen" id="detalhe">
+      <div class="topbar" style="padding-bottom:8px;">
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <div class="icon-btn">${'{ICON_X}'}</div>
+            <div><div class="topbar-title">NF-e 48213</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-item">
+        <div class="icon-btn">${'{ICON_ARROWLEFT}'}</div>
+        <div class="center">Item <b>1</b> de 24</div>
+        <div class="icon-btn">${'{ICON_ARROWRIGHT}'}</div>
+      </div>
+
+      <div class="scroll">
+        <div class="product-head">
+          <div class="av">1</div>
+          <div class="info">
+            <p>Detergente Neutro 5L</p>
+            <p>Cód. fornecedor: 88213</p>
+          </div>
+          <div class="verify-toggle">${'{ICON_CHECK}'}</div>
+        </div>
+
+        <div class="priority-tag"><span>1 · Preços &amp; Quantidade primeiro no modo Admin</span></div>
+
+        <div class="section-label">Preços &amp; Quantidade</div>
+        <div class="card">
+          <div class="row">
+            <span class="row-label">Qtd.</span>
+            <div class="qty-row">
+              <div class="qty-btn">${'{ICON_MINUS}'}</div>
+              <span class="qty-val">12</span>
+              <div class="qty-btn">${'{ICON_PLUS}'}</div>
+              <div class="unit-chip">${'{ICON_RULER}'} UN ${'{ICON_CHEVDOWN}'}</div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="row-label">Custo</span>
+            <span style="font-size:10px;font-weight:700;color:rgba(26,26,14,.4);">R$</span>
+            <span class="row-value">3.2400</span>
+          </div>
+          <div class="row venda-row">
+            <span class="row-label">Venda</span>
+            <span style="font-size:10px;font-weight:700;color:rgba(26,26,14,.4);">R$</span>
+            <input class="muted-input" style="font-size:15px;font-weight:900;" value="12,50" />
+            <span class="native-tag">teclado nativo</span>
+            <span class="markup-pill pos">+285%</span>
+          </div>
+          <div class="row">
+            <span class="row-label label-desc">Desc.</span>
+            <span class="adj-row-name">Desconto fornecedor</span>
+            <span class="adj-val-pill desc-val">−5%</span>
+          </div>
+          <div class="row">
+            <span class="row-label label-acr">Acrésc.</span>
+            <span class="adj-row-name">Frete rateado</span>
+            <span class="adj-val-pill acr-val">+3,5%</span>
+          </div>
+          <div class="row">
+            <span class="row-label">Total</span>
+            <span class="row-value" style="color:rgba(26,26,14,.55);font-size:14px;">R$ 38,88</span>
+          </div>
+          <div class="row distrib-row">
+            <span class="row-label">Distrib.</span>
+            <span class="new-tag">novo</span>
+            <div class="distrib-controls">
+              <select class="distrib-select"><option>Loja 01</option><option>Loja 02</option><option>CD Central</option></select>
+              <div class="distrib-qty"><input class="distrib-qty-input" value="8" /><span class="distrib-qty-suffix">un</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Identificação</div>
+        <div class="card">
+          <div class="row ean-row">
+            <span class="row-label">EAN</span>
+            <input class="muted-input" value="7891234500012" style="font-family:'DM Mono',monospace;" />
+            <div class="plus-btn">${'{ICON_PLUS}'}</div>
+          </div>
+          <div class="row">
+            <span class="row-label">SKU</span>
+            <input class="muted-input" placeholder="—" />
+          </div>
+        </div>
+
+        <div class="section-label">Identificação Interna</div>
+        <div class="card" style="padding:14px;">
+          <p style="font-size:11px;color:rgba(26,26,14,.4);font-weight:600;margin-bottom:10px;">Não vinculado</p>
+          <div class="link-actions" style="padding:0;">
+            <div class="link-btn primary">${'{ICON_LINK}'} Vincular</div>
+            <div class="link-btn secondary">${'{ICON_LAYERS}'} Vários</div>
+          </div>
+        </div>
+
+        <p class="annot" style="margin:6px 16px 16px;">Sem numpad/teclado alfanumérico neste modo — <b>nenhum campo é auto-focado</b> ao trocar de item (diferente do modo Estoque, que hoje auto-foca o EAN).</p>
+      </div>
+    </div>
+
+    <!-- ══════════ 4. RESUMO ══════════ -->
+    <div class="screen" id="resumo">
+      <div class="topbar" style="padding-bottom:8px;">
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <div class="icon-btn">${'{ICON_X}'}</div>
+            <div><div class="topbar-title">NF-e 48213</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="card" style="margin-top:16px;">
+          <div class="row"><span class="row-label">Nota</span><span style="font-size:12px;font-weight:700;">48213</span></div>
+          <div class="row"><span class="row-label">Arquivo</span><span style="font-size:12px;font-weight:700;">nota-48213.xml</span></div>
+          <div class="row"><span class="row-label">Verificados</span><span style="font-size:13px;font-weight:900;color:#0A7A55;">9<span style="color:rgba(26,26,14,.4);font-weight:700;font-size:11px;"> / 24</span></span></div>
+        </div>
+
+        <div class="section-label">Financeiro</div>
+        <div class="card">
+          <div class="row"><span class="row-label">Custo total</span><span class="row-value" style="font-size:13px;">R$ 1.240,80</span></div>
+          <div class="row"><span class="row-label">Receita total</span><span class="row-value" style="font-size:13px;">R$ 2.980,40</span></div>
+          <div class="row"><span class="row-label">Markup total</span><span style="font-size:13px;font-weight:900;color:#0A7A55;">+140,2%</span></div>
+        </div>
+
+        <div class="section-label">Edição <span class="new-tag">novo</span></div>
+        <div class="edit-btns">
+          <div class="edit-btn desc">${'{ICON_MINUS}'} Desconto</div>
+          <div class="edit-btn acr">${'{ICON_PLUS}'} Acréscimo</div>
+        </div>
+
+        <div class="section-label">Ações</div>
+        <div class="action-list">
+          <div class="btn-save">${'{ICON_SAVE}'} Salvar nota</div>
+          <div class="btn-baixar">${'{ICON_DOWNLOAD}'} Baixar <span class="new-tag" style="background:#2563EB;color:#fff;">novo</span></div>
+          <div class="btn-delete">${'{ICON_TRASH}'} Excluir nota</div>
+        </div>
+
+        <div class="mode-toggle">
+          <span class="lbl">Modo atual: Administrador</span>
+          <div class="switchbtn">${'{ICON_PACKAGE}'} Ir p/ Estoque</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 5. EXIT CONFIRM ══════════ -->
+    <div class="screen" id="sair">
+      <div class="topbar">
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <div class="icon-btn" style="background:rgba(216,30,30,.14);color:#D81E1E;">${'{ICON_X}'}</div>
+            <div><div class="topbar-title">NF-e 48213</div><div class="topbar-sub">48213 · 24 itens</div></div>
+          </div>
+          <div class="chip-progress"><b>9</b><span>/ 24</span></div>
+        </div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+      <div class="confirm-overlay">
+        <div class="confirm-card">
+          <div class="confirm-icon">${'{ICON_ALERT}'}</div>
+          <h3>Sair sem salvar?</h3>
+          <p>Você tem alterações não salvas nesta nota. Se sair agora, elas podem ser perdidas.<br><br><b style="color:rgba(26,26,14,.65);">Vale para os dois modos</b> — Administrador e Estoque.</p>
+          <div class="confirm-actions">
+            <div class="confirm-btn stay">Continuar editando</div>
+            <div class="confirm-btn leave">Sair mesmo assim</div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar" style="margin-top:auto;">
+        <button class="active"><span>Itens</span></button>
+        <button><span>Detalhe</span></button>
+        <button><span>Resumo</span></button>
+      </div>
+    </div>
+
+    <!-- ══════════ 6. DESCONTO (sheet, aberto a partir de Resumo → Edição) ══════════ -->
+    <div class="screen" id="desconto">
+      <div class="topbar" style="padding-bottom:8px;">
+        <div class="topbar-row">
+          <div class="topbar-left"><div class="icon-btn">${'{ICON_X}'}</div><div><div class="topbar-title">NF-e 48213</div></div></div>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="section-label">Financeiro</div>
+        <div class="card"><div class="row"><span class="row-label">Custo total</span><span class="row-value" style="font-size:13px;">R$ 1.240,80</span></div></div>
+        <div class="section-label">Edição <span class="new-tag">novo</span></div>
+        <div class="edit-btns"><div class="edit-btn desc" style="opacity:.55;">${'{ICON_MINUS}'} Desconto</div><div class="edit-btn acr" style="opacity:.55;">${'{ICON_PLUS}'} Acréscimo</div></div>
+      </div>
+      <div class="choice-overlay" style="align-items:flex-end;">
+        <div class="adj-sheet">
+          <div class="adj-head">
+            <div class="adj-icon desc">${'{ICON_MINUS}'}</div>
+            <div class="adj-title">Adicionar Desconto</div>
+          </div>
+          <p class="adj-sub">Reduz o custo unitário de todos os itens verificados desta nota. Dá pra ajustar item a item depois na aba Itens.</p>
+          <div class="method-toggle">
+            <div class="method-btn active">Geral</div>
+            <div class="method-btn">Individual</div>
+          </div>
+          <p class="method-note">Geral aplica um único valor a todos os itens verificados. Individual deixa o valor zerado aqui e liberado para editar item a item na aba Itens.</p>
+          <div class="adj-field">
+            <span class="adj-label">Nome da coluna (opcional)</span>
+            <input class="adj-input" placeholder="ex: Desconto fornecedor" />
+          </div>
+          <div class="adj-field">
+            <span class="adj-label">Aplicar como</span>
+            <div class="adj-toggle">
+              <div class="adj-toggle-btn active desc">% Percentual</div>
+              <div class="adj-toggle-btn">R$ Valor fixo</div>
+            </div>
+          </div>
+          <div class="adj-field" style="margin-bottom:6px;">
+            <span class="adj-label">Valor do desconto</span>
+            <input class="adj-input" value="5%" style="font-family:'DM Mono',monospace;font-weight:900;" />
+          </div>
+          <div class="adj-actions">
+            <div class="adj-btn cancel">Cancelar</div>
+            <div class="adj-btn apply-desc">Aplicar desconto</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 7. ACRÉSCIMO (sheet) ══════════ -->
+    <div class="screen" id="acrescimo">
+      <div class="topbar" style="padding-bottom:8px;">
+        <div class="topbar-row">
+          <div class="topbar-left"><div class="icon-btn">${'{ICON_X}'}</div><div><div class="topbar-title">NF-e 48213</div></div></div>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="section-label">Financeiro</div>
+        <div class="card"><div class="row"><span class="row-label">Custo total</span><span class="row-value" style="font-size:13px;">R$ 1.240,80</span></div></div>
+        <div class="section-label">Edição <span class="new-tag">novo</span></div>
+        <div class="edit-btns"><div class="edit-btn desc" style="opacity:.55;">${'{ICON_MINUS}'} Desconto</div><div class="edit-btn acr" style="opacity:.55;">${'{ICON_PLUS}'} Acréscimo</div></div>
+      </div>
+      <div class="choice-overlay" style="align-items:flex-end;">
+        <div class="adj-sheet">
+          <div class="adj-head">
+            <div class="adj-icon acr">${'{ICON_PLUS}'}</div>
+            <div class="adj-title">Adicionar Acréscimo</div>
+          </div>
+          <p class="adj-sub">Aumenta o custo unitário de todos os itens verificados desta nota — por ex. para embutir frete ou ICMS-ST.</p>
+          <div class="method-toggle">
+            <div class="method-btn active">Geral</div>
+            <div class="method-btn">Individual</div>
+          </div>
+          <p class="method-note">Geral aplica um único valor a todos os itens verificados. Individual deixa o valor zerado aqui e liberado para editar item a item na aba Itens.</p>
+          <div class="adj-field">
+            <span class="adj-label">Nome da coluna (opcional)</span>
+            <input class="adj-input" placeholder="ex: Frete rateado" />
+          </div>
+          <div class="adj-field">
+            <span class="adj-label">Aplicar como</span>
+            <div class="adj-toggle">
+              <div class="adj-toggle-btn active acr">% Percentual</div>
+              <div class="adj-toggle-btn">R$ Valor fixo</div>
+            </div>
+          </div>
+          <div class="adj-field" style="margin-bottom:6px;">
+            <span class="adj-label">Valor do acréscimo</span>
+            <input class="adj-input" value="3,5%" style="font-family:'DM Mono',monospace;font-weight:900;" />
+          </div>
+          <div class="adj-actions">
+            <div class="adj-btn cancel">Cancelar</div>
+            <div class="adj-btn apply-acr">Aplicar acréscimo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 8. BAIXAR (sheet) ══════════ -->
+    <div class="screen" id="baixar">
+      <div class="topbar" style="padding-bottom:8px;">
+        <div class="topbar-row">
+          <div class="topbar-left"><div class="icon-btn">${'{ICON_X}'}</div><div><div class="topbar-title">NF-e 48213</div></div></div>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="section-label">Ações</div>
+        <div class="action-list">
+          <div class="btn-save" style="opacity:.5;">${'{ICON_SAVE}'} Salvar nota</div>
+          <div class="btn-baixar" style="opacity:.55;">${'{ICON_DOWNLOAD}'} Baixar</div>
+        </div>
+      </div>
+      <div class="choice-overlay" style="align-items:flex-end;">
+        <div class="adj-sheet">
+          <div class="adj-head">
+            <div class="adj-icon baixar">${'{ICON_DOWNLOAD}'}</div>
+            <div class="adj-title">Baixar nota</div>
+          </div>
+          <p class="adj-sub">Escolha o layout de exportação para conferência de estoque ou impressão de etiqueta.</p>
+          <div class="layout-opt selected">
+            <div class="layout-radio"></div>
+            <div class="layout-txt"><p>Padrão</p><p>Código · Produto · Qtd. · Preço venda · Distribuição · Check</p></div>
+          </div>
+          <div class="layout-opt">
+            <div class="layout-radio"></div>
+            <div class="layout-txt"><p>Estoque</p><p>Código · Produto · Qtd. · Check</p></div>
+          </div>
+          <div class="layout-opt">
+            <div class="layout-radio"></div>
+            <div class="layout-txt"><p>Completo</p><p>Todas as colunas: custo, desconto, acréscimo, markup, distribuição</p></div>
+          </div>
+          <div class="adj-actions" style="margin-top:4px;">
+            <div class="adj-btn cancel">Cancelar</div>
+            <div class="adj-btn apply-baixar">${'{ICON_DOWNLOAD}'} Baixar arquivo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const ICONS = {
+      ICON_X:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      ICON_SEARCH:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>',
+      ICON_FILTER:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4"/></svg>',
+      ICON_ARROWLEFT:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+      ICON_ARROWRIGHT:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+      ICON_CHECK:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.3l2.4 2.4 4.6-5"/></svg>',
+      ICON_MINUS:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+      ICON_PLUS:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+      ICON_RULER:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a1 1 0 0 1 0 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L2.7 8.7a1 1 0 0 1 0-1.4l4.6-4.6a1 1 0 0 1 1.4 0z"/><path d="M14.5 12.5l2-2"/><path d="M11.5 9.5l2-2"/><path d="M8.5 6.5l2-2"/><path d="M17.5 15.5l2-2"/></svg>',
+      ICON_CHEVDOWN:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(90deg)"><polyline points="9 18 15 12 9 6"/></svg>',
+      ICON_LINK:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
+      ICON_LAYERS:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+      ICON_SAVE:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+      ICON_DOWNLOAD:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      ICON_TRASH:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+      ICON_SHIELD:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      ICON_PACKAGE:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.3 7 12 12 20.7 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>',
+      ICON_ALERT:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    };
+    document.body.innerHTML = document.body.innerHTML.replace(/\$\{'\{(\w+)\}'\}/g, (m, key) => ICONS[key] || '');
+
+    const navBtns = document.querySelectorAll('.mockup-nav button');
+    const screens = document.querySelectorAll('.screen');
+    navBtns.forEach(btn => btn.addEventListener('click', () => {
+      navBtns.forEach(b => b.classList.remove('active'));
+      screens.forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.screen).classList.add('active');
+    }));
+  </script>
+</body>
+</html>
