@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Card de Nota Vinculada · Dark</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#141410;
+  min-height:100vh;
+  padding:40px 24px;
+  color:#F2F0E3;
+}
+.wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
+h1{font-size:12px;font-weight:800;color:rgba(242,240,227,.32);margin-bottom:10px;letter-spacing:.08em;text-transform:uppercase}
+.section-tag{
+  display:inline-block;font-size:10px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;margin-bottom:14px;
+}
+.tag-antes{background:rgba(242,240,227,.08);color:rgba(242,240,227,.45)}
+.tag-depois{background:rgba(216,30,30,.15);color:#FF6B6B}
+
+/* Panel simulating the movimentação form card */
+.panel{
+  background:#1E1E18;
+  border:1px solid rgba(242,240,227,.06);
+  border-radius:16px;
+  padding:18px;
+}
+.label{
+  font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.14em;
+  color:rgba(242,240,227,.28);margin-bottom:8px;display:block;
+}
+
+/* Note item card */
+.note-item{
+  display:flex;align-items:center;gap:10px;
+  background:#252520;
+  border:1px solid rgba(242,240,227,.08);
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:8px;
+}
+.note-icon{
+  flex-shrink:0;color:rgba(242,240,227,.30);
+  display:flex;align-items:center;justify-content:center;
+}
+.note-icon.framed{
+  width:40px;height:40px;
+  border:1.5px solid rgba(242,240,227,.14);
+  border-radius:11px;
+  background:rgba(242,240,227,.03);
+}
+.note-body{min-width:0;flex:1}
+.note-title{font-size:13px;font-weight:700;color:#F2F0E3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note-sub{font-size:11px;color:rgba(242,240,227,.40);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.note-value{
+  flex-shrink:0;font-size:12px;font-weight:900;color:#34D399;
+  margin-left:2px;white-space:nowrap;
+  padding:7px 10px;border-radius:10px;
+  border:1.5px solid rgba(52,211,153,.30);
+  background:rgba(52,211,153,.08);
+}
+.note-remove{
+  flex-shrink:0;width:26px;height:26px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(242,240,227,.30);
+}
+
+.close-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 12px;border-radius:10px;
+  font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;
+  background:rgba(216,30,30,.08);border:1.5px solid rgba(216,30,30,.22);color:#D81E1E;
+  margin-top:2px;
+}
+
+/* diff callouts */
+.callout{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.callout-item{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:rgba(242,240,227,.55)}
+.callout-item b{color:#F2F0E3}
+.dot{color:#D81E1E;font-weight:900}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div>
+    <span class="section-tag tag-antes">Antes</span>
+    <div class="panel">
+      <span class="label">Notas Fiscais</span>
+      <div class="note-item">
+        <span class="note-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </span>
+        <div class="note-body">
+          <div class="note-title">000.029.628</div>
+          <div class="note-sub">Sendas Distribuidora · 24/07/2026, 09:58:43</div>
+        </div>
+        <span class="note-remove">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <span class="section-tag tag-depois">Depois</span>
+    <div class="panel">
+      <span class="label">Notas Fiscais</span>
+      <div class="note-item">
+        <span class="note-icon framed">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </span>
+        <div class="note-body">
+          <div class="note-title">Sendas Distribuidora</div>
+          <div class="note-sub">Nº 000.029.628 · 24/07/2026</div>
+        </div>
+        <span class="note-value">R$ 256,37</span>
+        <span class="note-remove">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </span>
+      </div>
+      <button type="button" class="close-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        Fechar
+      </button>
+    </div>
+
+    <div class="callout">
+      <div class="callout-item"><span class="dot">•</span><span><b>Fornecedor primeiro</b> — nome do distribuidor em destaque, número da nota abaixo.</span></div>
+      <div class="callout-item"><span class="dot">•</span><span><b>Sem horário</b> — mantém apenas a data.</span></div>
+      <div class="callout-item"><span class="dot">•</span><span><b>Valor total</b> da nota exibido em verde, com moldura retangular arredondada, à direita.</span></div>
+      <div class="callout-item"><span class="dot">•</span><span><b>Ícone emoldurado</b> — moldura quadrada arredondada delimita a altura do bloco de texto (fornecedor + número/data).</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

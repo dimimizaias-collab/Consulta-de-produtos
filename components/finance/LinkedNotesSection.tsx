@@ -13,9 +13,25 @@ export interface LinkedNoteLite {
   supplier_name: string | null;
   timestamp_label: string | null;
   file_name?: string | null;
+  items?: any[] | null;
 }
 
-const NOTE_COLUMNS = 'id, note_number, supplier_name, timestamp_label, file_name';
+const NOTE_COLUMNS = 'id, note_number, supplier_name, timestamp_label, file_name, items';
+
+// Mostra só a data do timestamp_label ("24/07/2026, 09:58:43" → "24/07/2026")
+const noteDateOnly = (label: string | null) => label ? label.split(',')[0].trim() : null;
+
+// Soma o custo (preço/multiplicador × qtd) de cada item — mesmo cálculo usado no total da nota na revisão
+const noteTotalValue = (items: any[] | null | undefined): number => {
+  if (!items || items.length === 0) return 0;
+  return items.reduce((sum, it) => {
+    const cost = (it?.price ?? 0) / (it?.multiplier || 1);
+    const qty = it?.qty ?? 0;
+    return sum + (cost > 0 ? cost * qty : 0);
+  }, 0);
+};
+
+const formatBRL = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
 // ── Sync helpers (junção = fonte de verdade; FK legada aponta p/ 1ª tx) ────
 
@@ -205,6 +221,12 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
   const iconCls = isDesktop
     ? 'shrink-0 text-on-surface/30'
     : 'shrink-0 text-[rgba(26,26,10,0.30)] dark:text-white/25';
+  const iconWrapCls = isDesktop
+    ? 'shrink-0 w-10 h-10 rounded-[11px] flex items-center justify-center border border-on-surface/10 bg-on-surface/[0.02] text-on-surface/30'
+    : 'shrink-0 w-10 h-10 rounded-[11px] flex items-center justify-center border-[1.5px] border-[#E0D8BF] dark:border-white/[0.14] bg-[rgba(26,26,10,0.02)] dark:bg-white/[0.03] text-[rgba(26,26,10,0.30)] dark:text-white/25';
+  const valueChipCls = isDesktop
+    ? 'shrink-0 text-xs font-black text-emerald-600 dark:text-emerald-400 px-2.5 py-1.5 rounded-[10px] border border-emerald-600/25 dark:border-emerald-400/25 bg-emerald-600/[0.06] dark:bg-emerald-400/[0.08]'
+    : 'shrink-0 text-xs font-black text-[#0A7A55] dark:text-[#34D399] px-2.5 py-1.5 rounded-[10px] border-[1.5px] border-[rgba(10,122,85,0.28)] dark:border-[rgba(52,211,153,0.30)] bg-[rgba(10,122,85,0.07)] dark:bg-[rgba(52,211,153,0.08)]';
   const emptyCls = isDesktop
     ? 'text-xs text-on-surface/30 italic'
     : 'text-xs text-[rgba(26,26,10,0.30)] dark:text-white/25 italic';
@@ -242,14 +264,17 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
           <div className="flex flex-col gap-1.5">
             {notes.map(n => (
               <div key={n.id} className={itemCls}>
-                <FileText size={15} className={iconCls} />
+                <span className={iconWrapCls}>
+                  <FileText size={15} />
+                </span>
                 <div className="min-w-0 flex-1">
-                  <p className={titleCls}>{noteLabel(n)}</p>
+                  <p className={titleCls}>{n.supplier_name || 'Fornecedor não informado'}</p>
                   <p className={subCls}>
-                    {n.supplier_name || 'Fornecedor não informado'}
-                    {n.timestamp_label ? ` · ${n.timestamp_label}` : ''}
+                    {`Nº ${noteLabel(n)}`}
+                    {noteDateOnly(n.timestamp_label) ? ` · ${noteDateOnly(n.timestamp_label)}` : ''}
                   </p>
                 </div>
+                <span className={valueChipCls}>{formatBRL(noteTotalValue(n.items))}</span>
                 {editable && (
                   <button type="button" onClick={() => handleRemove(n)} disabled={busyNoteId === n.id} className={removeBtnCls} title="Remover vínculo">
                     {busyNoteId === n.id ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
@@ -299,10 +324,10 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
                     ? <Loader2 size={15} className={cn('animate-spin', iconCls)} />
                     : <Plus size={15} className={iconCls} />}
                   <div className="min-w-0 flex-1">
-                    <p className={titleCls}>{noteLabel(n)}</p>
+                    <p className={titleCls}>{n.supplier_name || 'Fornecedor não informado'}</p>
                     <p className={subCls}>
-                      {n.supplier_name || 'Fornecedor não informado'}
-                      {n.timestamp_label ? ` · ${n.timestamp_label}` : ''}
+                      {`Nº ${noteLabel(n)}`}
+                      {noteDateOnly(n.timestamp_label) ? ` · ${noteDateOnly(n.timestamp_label)}` : ''}
                     </p>
                   </div>
                 </button>
