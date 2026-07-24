@@ -2,16 +2,21 @@
 
 import { User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type Employee, fmtSalario, tempoDeCasa, initials } from '@/lib/hrEmployees';
+import { type Employee, fmtSalario, calcIdade, initials } from '@/lib/hrEmployees';
+import { type Contrato, periodoLabel } from '@/lib/hrContratos';
 
 interface EmployeeCardProps {
   employee: Employee;
+  contrato: Contrato;
+  tempoDeCasaLabel: string;
   onClick: () => void;
   size?: 'full' | 'compact';
 }
 
-export function EmployeeCard({ employee, onClick, size = 'full' }: EmployeeCardProps) {
+export function EmployeeCard({ employee, contrato, tempoDeCasaLabel, onClick, size = 'full' }: EmployeeCardProps) {
   const isFull = size === 'full';
+  const idade = calcIdade(employee.data_nascimento);
+  const salarioTotal = contrato.salario_base + contrato.salario_complementar;
 
   return (
     <button
@@ -36,12 +41,13 @@ export function EmployeeCard({ employee, onClick, size = 'full' }: EmployeeCardP
 
       <div className="flex-1 min-w-0">
         <div className={cn('font-extrabold text-on-surface truncate', isFull ? 'text-[15px]' : 'text-[13.5px]')}>{employee.nome}</div>
-        <div className={cn('font-bold text-[#EA580C] dark:text-[#FB923C] truncate mb-2', isFull ? 'text-[11.5px]' : 'text-[10.5px] mb-1.5')}>{employee.cargo}</div>
+        <div className={cn('font-bold text-[#EA580C] dark:text-[#FB923C] truncate mb-2', isFull ? 'text-[11.5px]' : 'text-[10.5px] mb-1.5')}>{contrato.cargo}</div>
         <div className={cn('flex gap-3.5 flex-wrap', !isFull && 'gap-2.5')}>
-          <Stat label="Loja" value={employee.loja} compact={!isFull} />
-          {isFull && <Stat label="Idade" value={employee.idade ? `${employee.idade} anos` : '—'} compact={false} />}
-          <Stat label="Tempo de Casa" value={tempoDeCasa(employee.data_admissao)} compact={!isFull} />
-          <Stat label="Salário" value={fmtSalario(employee.salario)} money compact={!isFull} />
+          <Stat label="Loja" value={contrato.loja} compact={!isFull} />
+          {isFull && <Stat label="Idade" value={idade != null ? `${idade} anos` : '—'} compact={false} />}
+          <Stat label="Período" value={periodoLabel(contrato.mes_inicio, contrato.mes_fim)} compact={!isFull} />
+          {isFull && <Stat label="Tempo de Casa" value={tempoDeCasaLabel} compact={false} />}
+          <Stat label="Salário" value={fmtSalario(salarioTotal)} money compact={!isFull} />
         </div>
       </div>
     </button>

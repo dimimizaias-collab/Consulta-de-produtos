@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Editar Colaborador — Dados Pessoais + Períodos — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{ font-family:'DM Sans',sans-serif;background:#F0EDD8;color:#1A1A0E;
+    padding:48px 16px 96px;display:flex;flex-direction:column;align-items:center;gap:56px; }
+  .section-label{ font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.22em;
+    color:rgba(26,26,14,0.40);margin-bottom:18px;text-align:center; }
+
+  .modal-card{ width:500px; background:#FFFCEC; border:1.5px solid #E9DFC2;
+    border-radius:26px; padding:28px 28px 24px; box-shadow:0 30px 70px rgba(26,26,14,0.18); }
+  .modal-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .modal-title{ font-size:17px; font-weight:800; color:#1A1A0E; }
+  .modal-close{ width:30px; height:30px; border-radius:10px; background:rgba(26,26,14,0.06);
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.45); }
+
+  .section-block{ margin-bottom:22px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-title{ font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:0.12em; color:rgba(26,26,14,0.42); }
+  .section-title-icon{ display:inline-flex; align-items:center; gap:7px; }
+
+  .photo-edit{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; }
+  .photo-big{ width:88px; height:88px; border-radius:22px; background:#FAF6E6; display:flex;
+    align-items:center; justify-content:center; color:rgba(26,26,14,0.45); font-size:28px; font-weight:900; }
+  .photo-edit-btn{ display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800;
+    color:#D81E1E; text-transform:uppercase; letter-spacing:0.05em; }
+
+  .field{ margin-bottom:14px; }
+  .field-label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;
+    color:rgba(26,26,14,0.45); margin-bottom:7px; display:block; }
+  .field-input{ width:100%; background:#FFFFFF; border:1.5px solid #E0D8BF; border-radius:12px;
+    padding:11px 13px; font-size:13px; color:#1A1A0E; font-family:'DM Sans',sans-serif; outline:none; }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+  .field-mono{ font-family:'DM Mono',monospace; letter-spacing:0.03em; }
+
+  /* ═══ Períodos ═══ */
+  .period-list{ display:flex; flex-direction:column; gap:12px; }
+  .period-card{ background:#FAF6E6; border:1.5px solid #E9DFC2; border-radius:18px; padding:16px; }
+  .period-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .period-tag{ font-size:10.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em;
+    color:#92400E; background:rgba(180,83,9,0.12); padding:5px 10px; border-radius:9px; }
+  .period-tag.current{ color:#0A7A55; background:rgba(10,122,85,0.12); }
+  .period-actions{ display:flex; gap:6px; }
+  .period-icon-btn{ width:26px; height:26px; border-radius:9px; background:rgba(26,26,14,0.06);
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.45); }
+  .period-icon-btn.danger:hover{ background:rgba(216,30,30,0.10); color:#D81E1E; }
+
+  .add-period-btn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+    padding:13px 0; border-radius:14px; border:1.5px dashed rgba(26,26,14,0.20);
+    font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:rgba(26,26,14,0.42);
+    margin-top:4px; }
+
+  .salary-field{ width:100%; background:#FFFFFF; border:1.5px solid #E0D8BF; border-radius:12px;
+    padding:9px 9px 9px 13px; display:flex; align-items:center; gap:8px; height:42px; }
+  .salary-value{ flex:1; font-family:'DM Mono',monospace; font-size:14px; font-weight:700; color:#1A1A0E; }
+  .salary-pct{ font-size:10.5px; font-weight:800; color:#92400E; background:rgba(180,83,9,0.12);
+    padding:4px 8px; border-radius:8px; font-family:'DM Mono',monospace; white-space:nowrap; }
+  .salary-edit-btn{ width:26px; height:26px; border-radius:8px; background:rgba(26,26,14,0.07);
+    border:1.5px solid rgba(26,26,14,0.10); display:flex; align-items:center; justify-content:center;
+    color:rgba(26,26,14,0.55); flex-shrink:0; }
+
+  .modal-actions{ display:flex; gap:10px; margin-top:8px; }
+  .btn-cancel{ flex:1; background:rgba(26,26,14,0.06); border:1.5px solid rgba(26,26,14,0.12);
+    color:rgba(26,26,14,0.60); font-weight:800; font-size:12.5px; text-transform:uppercase; letter-spacing:0.05em;
+    padding:13px 0; border-radius:13px; }
+  .btn-save{ flex:1.4; background:#D81E1E; color:#fff; font-weight:800; font-size:12.5px;
+    text-transform:uppercase; letter-spacing:0.05em; padding:13px 0; border-radius:13px; border:none;
+    box-shadow:0 10px 22px rgba(216,30,30,0.25); }
+  .btn-delete{ font-size:11px; font-weight:800; color:#DC2626; text-transform:uppercase; letter-spacing:0.05em;
+    text-align:center; margin-top:14px; }
+
+  /* ═══ PHONE ═══ */
+  .phones-row{ display:flex; gap:32px; flex-wrap:wrap; justify-content:center; }
+  .phone{ width:390px; height:844px; background:#FDFAF0; border-radius:44px; overflow:hidden;
+    box-shadow:0 0 0 10px #1A1A0E, 0 0 0 12px #3A3A30, 0 40px 80px rgba(26,26,14,0.35);
+    display:flex; flex-direction:column; position:relative; }
+  .status-bar{ background:#FFE500; height:44px; padding:0 28px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+  .status-time{ font-size:15px; font-weight:700; color:rgba(26,26,14,0.80); }
+  .status-icons{ display:flex; gap:6px; align-items:center; }
+  .sheet-backdrop{ position:absolute; inset:0; background:rgba(26,26,14,0.45); }
+  .sheet{ position:absolute; bottom:0; left:0; right:0; background:#FFFCEC; border-radius:26px 26px 0 0;
+    padding:10px 18px 26px; max-height:92%; overflow-y:auto; }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:rgba(26,26,14,0.16); margin:0 auto 14px; }
+  .sheet-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .sheet-title{ font-size:15px; font-weight:800; color:#1A1A0E; }
+  .sheet-close{ width:28px; height:28px; border-radius:9px; background:rgba(26,26,14,0.07);
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.45); }
+  .sheet-field{ margin-bottom:13px; }
+  .sheet-label{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em;
+    color:rgba(26,26,14,0.45); margin-bottom:6px; display:block; }
+  .sheet-input{ width:100%; background:#FFFFFF; border:1.5px solid #E0D8BF;
+    border-radius:11px; padding:10px 12px; font-size:12.5px; color:#1A1A0E; font-family:'DM Sans',sans-serif; outline:none; }
+  .sheet-row{ display:flex; gap:10px; }
+  .sheet-row .sheet-field{ flex:1; }
+  .sheet-save{ width:100%; background:#D81E1E; color:#fff; font-weight:800; font-size:12.5px;
+    text-transform:uppercase; letter-spacing:0.05em; padding:14px 0; border-radius:13px; border:none;
+    margin-top:8px; box-shadow:0 10px 22px rgba(216,30,30,0.25); }
+
+  .page-label{ text-align:center; margin-top:8px; font-size:12px; font-weight:700;
+    color:rgba(26,26,14,0.32); text-transform:uppercase; letter-spacing:0.12em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ DESKTOP ═══════ -->
+<div>
+  <div class="section-label">Desktop — Editar Colaborador · Dados Pessoais + Informações Contratuais</div>
+  <div class="modal-card">
+    <div class="modal-top"><span class="modal-title">Editar Colaborador</span><div class="modal-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div></div>
+
+    <!-- Dados Pessoais -->
+    <div class="section-block">
+      <div class="section-head"><span class="section-title">Dados Pessoais</span></div>
+      <div class="photo-edit">
+        <div class="photo-big">CF</div>
+        <div class="photo-edit-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4H9.5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          Trocar Foto
+        </div>
+      </div>
+      <div class="field"><label class="field-label">Nome</label><input class="field-input" value="Camila Ferreira" /></div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Data de Nascimento</label><input class="field-input" type="date" value="1992-04-18" /></div>
+        <div class="field"><label class="field-label">CNPJ</label><input class="field-input field-mono" value="12.345.678/0001-90" placeholder="00.000.000/0000-00" /></div>
+      </div>
+    </div>
+
+    <!-- Informações Contratuais -->
+    <div class="section-block">
+      <div class="section-head">
+        <span class="section-title">Informações Contratuais</span>
+        <div class="period-icon-btn" style="width:28px;height:28px;background:rgba(216,30,30,0.10);color:#D81E1E;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+      </div>
+
+      <div class="period-list">
+        <!-- Período 1 -->
+        <div class="period-card">
+          <div class="period-head">
+            <span class="period-tag current">Jan – Jun 2026</span>
+            <div class="period-actions">
+              <div class="period-icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+              <div class="period-icon-btn danger"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label class="field-label">Loja</label><input class="field-input" value="Castelo Real" /></div>
+            <div class="field"><label class="field-label">Cargo</label><input class="field-input" value="Assistente de Loja" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label class="field-label">Data de Admissão</label><input class="field-input" type="date" value="2022-11-03" /></div>
+            <div class="field">
+              <label class="field-label">Salário</label>
+              <div class="salary-field">
+                <span class="salary-value">R$ 3.200,00</span>
+                <div class="salary-edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Período 2 -->
+        <div class="period-card">
+          <div class="period-head">
+            <span class="period-tag">Jul – Dez 2026</span>
+            <div class="period-actions">
+              <div class="period-icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+              <div class="period-icon-btn danger"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label class="field-label">Loja</label><input class="field-input" value="Castelo Real" /></div>
+            <div class="field"><label class="field-label">Cargo</label><input class="field-input" value="Gerente de Loja" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label class="field-label">Data de Admissão</label><input class="field-input" type="date" value="2022-11-03" /></div>
+            <div class="field">
+              <label class="field-label">Salário</label>
+              <div class="salary-field">
+                <span class="salary-value">R$ 3.680,00</span>
+                <span class="salary-pct">▲15%</span>
+                <div class="salary-edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="add-period-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar Período
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions"><button class="btn-cancel">Cancelar</button><button class="btn-save">Salvar Colaborador</button></div>
+    <div class="btn-delete">Excluir Colaborador</div>
+  </div>
+  <p class="page-label">Promoção de cargo em Jul/2026: 2 períodos com Salário e Cargo diferentes, sem sobreposição</p>
+</div>
+
+<!-- ═══════ MOBILE ═══════ -->
+<div>
+  <div class="section-label">Mobile — Editar Colaborador</div>
+  <div class="phones-row">
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".5"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".9"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".55"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="sheet-backdrop"></div>
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head"><span class="sheet-title">Editar Colaborador</span><div class="sheet-close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div></div>
+
+        <div class="section-head"><span class="section-title">Dados Pessoais</span></div>
+        <div class="photo-edit" style="margin-bottom:14px;">
+          <div class="photo-big" style="width:72px;height:72px;font-size:22px;">CF</div>
+        </div>
+        <div class="sheet-field"><label class="sheet-label">Nome</label><input class="sheet-input" value="Camila Ferreira" /></div>
+        <div class="sheet-row">
+          <div class="sheet-field"><label class="sheet-label">Data de Nascimento</label><input class="sheet-input" type="date" value="1992-04-18" /></div>
+          <div class="sheet-field"><label class="sheet-label">CNPJ</label><input class="sheet-input field-mono" value="12.345.678/0001-90" /></div>
+        </div>
+
+        <div class="section-head" style="margin-top:6px;">
+          <span class="section-title">Informações Contratuais</span>
+          <div class="period-icon-btn" style="width:26px;height:26px;background:rgba(216,30,30,0.10);color:#D81E1E;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+        </div>
+
+        <div class="period-card" style="margin-bottom:10px;">
+          <div class="period-head">
+            <span class="period-tag current" style="font-size:9.5px;">Jul – Dez 2026</span>
+            <div class="period-actions">
+              <div class="period-icon-btn" style="width:23px;height:23px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+            </div>
+          </div>
+          <div class="sheet-row">
+            <div class="sheet-field"><label class="sheet-label">Loja</label><input class="sheet-input" value="Castelo Real" /></div>
+            <div class="sheet-field"><label class="sheet-label">Cargo</label><input class="sheet-input" value="Gerente" /></div>
+          </div>
+          <div class="sheet-field"><label class="sheet-label">Data de Admissão</label><input class="sheet-input" type="date" value="2022-11-03" /></div>
+          <div class="sheet-field">
+            <label class="sheet-label">Salário</label>
+            <div class="salary-field" style="height:38px;">
+              <span class="salary-value" style="font-size:12.5px;">R$ 3.680,00</span>
+              <span class="salary-pct" style="font-size:9px;">▲15%</span>
+              <div class="salary-edit-btn" style="width:23px;height:23px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="add-period-btn" style="margin-bottom:14px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar Período
+        </div>
+
+        <button class="sheet-save">Salvar Colaborador</button>
+      </div>
+    </div>
+  </div>
+  <p class="page-label">Light Mode · 500px desktop · 390 × 844 mobile</p>
+</div>
+
+</body>
+</html>

@@ -2,17 +2,39 @@
 
 import { supabase } from '@/lib/supabase';
 
+// Dados Pessoais — fixos no colaborador. Loja/Cargo/Data de Admissão/Salário agora vivem
+// em "Informações Contratuais" (ver lib/hrContratos.ts), pois podem mudar por período/ano.
 export interface Employee {
   id: string;
   nome: string;
-  idade: number | null;
-  cargo: string;
-  loja: string;
-  data_admissao: string; // ISO date (YYYY-MM-DD)
-  salario: number;
-  salario_base: number;
-  salario_complementar: number;
+  data_nascimento: string | null; // ISO date (YYYY-MM-DD)
+  cnpj: string | null;
   foto_url: string | null;
+}
+
+// Calcula a idade a partir da data de nascimento.
+export function calcIdade(dataNascimento: string | null): number | null {
+  if (!dataNascimento) return null;
+  const [y, m, d] = dataNascimento.split('T')[0].split('-').map(Number);
+  const nascimento = new Date(y, (m || 1) - 1, d || 1);
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const aindaNaoFezAno = hoje.getMonth() < nascimento.getMonth() ||
+    (hoje.getMonth() === nascimento.getMonth() && hoje.getDate() < nascimento.getDate());
+  if (aindaNaoFezAno) idade -= 1;
+  return idade;
+}
+
+// Máscara de CNPJ: XX.XXX.XXX/XXXX-XX (limitada a 14 dígitos).
+export function maskCnpj(v: string): string {
+  const digits = v.replace(/\D/g, '').slice(0, 14);
+  const [p1, p2, p3, p4, p5] = [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 8), digits.slice(8, 12), digits.slice(12, 14)];
+  let out = p1;
+  if (p2) out += `.${p2}`;
+  if (p3) out += `.${p3}`;
+  if (p4) out += `/${p4}`;
+  if (p5) out += `-${p5}`;
+  return out;
 }
 
 export const fmtSalario = (v: number | string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

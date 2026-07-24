@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Colaboradores por Ano — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{ font-family:'DM Sans',sans-serif;background:#F0EDD8;color:#1A1A0E;
+    padding:48px 16px 96px;display:flex;flex-direction:column;align-items:center;gap:56px; }
+  .section-label{ font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.22em;
+    color:rgba(26,26,14,0.40);margin-bottom:18px;text-align:center; }
+  h1,h2{font-family:'Manrope',sans-serif;}
+
+  .dsk{ width:1100px; background:#FFFCEC; border-radius:28px; padding:36px 40px 40px;
+    border:1px solid #E9DFC2; box-shadow:0 40px 100px rgba(26,26,14,0.12); }
+  .dsk-header{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
+  .dsk-icon{ width:64px; height:64px; border-radius:24px; background:#D81E1E;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    box-shadow:0 12px 28px rgba(216,30,30,0.22); flex-shrink:0; }
+  .dsk-eyebrow{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:rgba(26,26,14,0.45); }
+  .dsk-title{ font-size:30px; font-weight:900; letter-spacing:-0.02em; color:#1A1A0E; line-height:1.15; }
+
+  .tab-row{ display:flex; gap:10px; margin-bottom:24px; }
+  .tab-pill{ display:flex; align-items:center; gap:8px; padding:13px 22px; border-radius:15px;
+    font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+    border:1.5px solid rgba(26,26,14,0.12); color:rgba(26,26,14,0.50); background:#fff; }
+  .tab-pill.active{ background:rgba(216,30,30,0.10); border-color:rgba(216,30,30,0.30); color:#D81E1E; }
+
+  /* ════════ YEAR ACCORDION ════════ */
+  .year-list{ display:flex; flex-direction:column; gap:14px; }
+  .year-card{ background:#FFFFFF; border:1.5px solid #E9DFC2; border-radius:22px; overflow:hidden; }
+  .year-head{ display:flex; align-items:center; gap:14px; padding:18px 22px; cursor:pointer; }
+  .year-chevron{ width:30px; height:30px; border-radius:10px; background:rgba(26,26,14,0.06);
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.50); flex-shrink:0;
+    transition:transform .2s cubic-bezier(0.23,1,0.32,1); }
+  .year-card.open .year-chevron{ transform:rotate(90deg); }
+  .year-title-wrap{ flex:1; display:flex; align-items:baseline; gap:10px; }
+  .year-title{ font-size:20px; font-weight:900; color:#1A1A0E; font-family:'Manrope',sans-serif; }
+  .year-count{ font-size:11px; font-weight:800; color:rgba(26,26,14,0.35); text-transform:uppercase; letter-spacing:0.06em; }
+  .year-fiscal-tag{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;
+    color:#92400E; background:rgba(180,83,9,0.12); padding:3px 8px; border-radius:7px; }
+
+  .year-add-wrap{ position:relative; flex-shrink:0; }
+  .year-add-btn{ width:38px; height:38px; border-radius:13px; background:#D81E1E; color:#fff;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(216,30,30,0.28); cursor:pointer; }
+  .add-dropdown{ position:absolute; top:calc(100% + 8px); right:0; width:220px; background:#FFFFFF;
+    border:1.5px solid #E9DFC2; border-radius:16px; box-shadow:0 20px 45px rgba(26,26,14,0.18);
+    padding:6px; z-index:5; }
+  .add-dropdown-item{ display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:11px;
+    font-size:12.5px; font-weight:800; color:#1A1A0E; cursor:pointer; }
+  .add-dropdown-item:hover{ background:rgba(216,30,30,0.06); }
+  .add-dropdown-item .ic{ width:28px; height:28px; border-radius:9px; background:rgba(216,30,30,0.10);
+    color:#D81E1E; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .add-dropdown-item.alt .ic{ background:rgba(180,83,9,0.10); color:#92400E; }
+
+  .year-body{ padding:0 22px 22px; }
+  .year-body.collapsed{ display:none; }
+  .year-empty{ padding:28px 0; text-align:center; color:rgba(26,26,14,0.32); font-size:12.5px; font-weight:600; }
+
+  .emp-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .emp-card{ display:flex; align-items:center; gap:14px; background:#FAF6E6;
+    border:1.5px solid #E9DFC2; border-radius:18px; padding:14px; }
+  .emp-photo{ width:64px; height:64px; border-radius:14px; flex-shrink:0; background:#FFFFFF;
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.30); font-size:20px; font-weight:900; }
+  .emp-name{ font-size:13.5px; font-weight:800; color:#1A1A0E; margin-bottom:1px; }
+  .emp-role{ font-size:10.5px; font-weight:700; color:#C2410C; margin-bottom:6px; }
+  .emp-stats{ display:flex; gap:12px; flex-wrap:wrap; }
+  .emp-stat-lbl{ font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:rgba(26,26,14,0.35); }
+  .emp-stat-val{ font-size:10.5px; font-weight:700; color:rgba(26,26,14,0.78); }
+  .emp-stat-val.money{ font-family:'DM Mono',monospace; color:#059669; }
+
+  /* ════════ PHONE SHELLS ════════ */
+  .phones-row{ display:flex; gap:32px; flex-wrap:wrap; justify-content:center; }
+  .phone{ width:390px; height:844px; background:#FDFAF0; border-radius:44px; overflow:hidden;
+    box-shadow:0 0 0 10px #1A1A0E, 0 0 0 12px #3A3A30, 0 40px 80px rgba(26,26,14,0.35);
+    display:flex; flex-direction:column; position:relative; }
+  .status-bar{ background:#FFE500; height:44px; padding:0 28px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+  .status-time{ font-size:15px; font-weight:700; color:rgba(26,26,14,0.80); }
+  .status-icons{ display:flex; gap:6px; align-items:center; }
+  .app-header{ background:#FFE500; border-bottom:1.5px solid #D4C000; padding:6px 16px 14px; flex-shrink:0; }
+  .header-eyebrow{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:rgba(26,26,14,0.45); line-height:1; }
+  .header-title{ font-size:19px; font-weight:900; color:#1A1A0E; line-height:1.1; letter-spacing:-0.4px; }
+  .scroll-area{ flex:1; overflow-y:auto; overflow-x:hidden; background:#FDFAF0; padding:12px; }
+
+  .m-year-card{ background:#FFFFFF; border:1.5px solid #E9DFC2; border-radius:18px; margin-bottom:10px; overflow:hidden; }
+  .m-year-head{ display:flex; align-items:center; gap:10px; padding:14px 14px; }
+  .m-year-chevron{ width:24px; height:24px; border-radius:8px; background:rgba(26,26,14,0.06);
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.50); flex-shrink:0; transform:rotate(90deg); }
+  .m-year-title{ font-size:15px; font-weight:900; color:#1A1A0E; flex:1; font-family:'Manrope',sans-serif; }
+  .m-year-count{ font-size:9.5px; font-weight:800; color:rgba(26,26,14,0.35); text-transform:uppercase; }
+  .m-year-add{ width:30px; height:30px; border-radius:10px; background:#D81E1E; color:#fff;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 6px 14px rgba(216,30,30,0.28); }
+  .m-year-body{ padding:0 14px 14px; display:flex; flex-direction:column; gap:9px; }
+  .m-emp-card{ display:flex; align-items:center; gap:11px; background:#FAF6E6; border:1.5px solid #E9DFC2;
+    border-radius:15px; padding:11px; }
+  .m-emp-photo{ width:48px; height:48px; border-radius:12px; flex-shrink:0; background:#FFFFFF;
+    display:flex; align-items:center; justify-content:center; color:rgba(26,26,14,0.35); font-size:15px; font-weight:900; }
+  .m-emp-name{ font-size:12.5px; font-weight:800; color:#1A1A0E; }
+  .m-emp-role{ font-size:9.5px; font-weight:700; color:#C2410C; margin-bottom:4px; }
+  .m-emp-stat{ font-size:9.5px; font-weight:700; color:rgba(26,26,14,0.65); }
+  .m-emp-stat.money{ font-family:'DM Mono',monospace; color:#059669; }
+
+  .m-collapsed-row{ display:flex; align-items:center; gap:10px; padding:14px; }
+
+  .page-label{ text-align:center; margin-top:8px; font-size:12px; font-weight:700;
+    color:rgba(26,26,14,0.32); text-transform:uppercase; letter-spacing:0.12em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ DESKTOP ═══════ -->
+<div>
+  <div class="section-label">Desktop — Aba Colaboradores por Ano (2026 aberto, + com menu)</div>
+  <div class="dsk">
+    <div class="dsk-header">
+      <div class="dsk-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div><div class="dsk-eyebrow">Planejamento Interno</div><h1 class="dsk-title">Recursos Humanos</h1></div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab-pill">Calendário</button>
+      <button class="tab-pill">Finanças</button>
+      <button class="tab-pill active">Colaboradores</button>
+      <button class="tab-pill">Caderninho</button>
+    </div>
+
+    <div class="year-list">
+      <!-- 2026 — aberto -->
+      <div class="year-card open">
+        <div class="year-head">
+          <div class="year-chevron">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div class="year-title-wrap">
+            <span class="year-title">2026</span>
+            <span class="year-fiscal-tag">Ano Fiscal Atual</span>
+            <span class="year-count">4 colaboradores</span>
+          </div>
+          <div class="year-add-wrap">
+            <div class="year-add-btn">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="add-dropdown">
+              <div class="add-dropdown-item">
+                <div class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div>
+                Novo Colaborador
+              </div>
+              <div class="add-dropdown-item alt">
+                <div class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                Vincular Existente
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="year-body">
+          <div class="emp-grid">
+            <div class="emp-card">
+              <div class="emp-photo">CF</div>
+              <div>
+                <div class="emp-name">Camila Ferreira</div>
+                <div class="emp-role">Gerente de Loja</div>
+                <div class="emp-stats">
+                  <div><div class="emp-stat-lbl">Loja</div><div class="emp-stat-val">Castelo Real</div></div>
+                  <div><div class="emp-stat-lbl">Período</div><div class="emp-stat-val">Jan – Dez</div></div>
+                  <div><div class="emp-stat-lbl">Salário</div><div class="emp-stat-val money">R$ 3.680,00</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="emp-card">
+              <div class="emp-photo">JS</div>
+              <div>
+                <div class="emp-name">João Silva</div>
+                <div class="emp-role">Estoquista</div>
+                <div class="emp-stats">
+                  <div><div class="emp-stat-lbl">Loja</div><div class="emp-stat-val">Universo R$1,99</div></div>
+                  <div><div class="emp-stat-lbl">Período</div><div class="emp-stat-val">Jan – Dez</div></div>
+                  <div><div class="emp-stat-lbl">Salário</div><div class="emp-stat-val money">R$ 1.850,00</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="emp-card">
+              <div class="emp-photo">FS</div>
+              <div>
+                <div class="emp-name">Felipe Souza</div>
+                <div class="emp-role">Caixa</div>
+                <div class="emp-stats">
+                  <div><div class="emp-stat-lbl">Loja</div><div class="emp-stat-val">Castelo Real</div></div>
+                  <div><div class="emp-stat-lbl">Período</div><div class="emp-stat-val">Jul – Dez</div></div>
+                  <div><div class="emp-stat-lbl">Salário</div><div class="emp-stat-val money">R$ 1.650,00</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="emp-card">
+              <div class="emp-photo">AM</div>
+              <div>
+                <div class="emp-name">Ana Martins</div>
+                <div class="emp-role">Atendimento</div>
+                <div class="emp-stats">
+                  <div><div class="emp-stat-lbl">Loja</div><div class="emp-stat-val">Universo R$1,99</div></div>
+                  <div><div class="emp-stat-lbl">Período</div><div class="emp-stat-val">Jan – Dez</div></div>
+                  <div><div class="emp-stat-lbl">Salário</div><div class="emp-stat-val money">R$ 1.900,00</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2027 a 2030 — fechados -->
+      <div class="year-card">
+        <div class="year-head">
+          <div class="year-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          <div class="year-title-wrap"><span class="year-title">2027</span><span class="year-count">0 colaboradores</span></div>
+          <div class="year-add-wrap"><div class="year-add-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+        </div>
+        <div class="year-body collapsed"></div>
+      </div>
+      <div class="year-card">
+        <div class="year-head">
+          <div class="year-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          <div class="year-title-wrap"><span class="year-title">2028</span><span class="year-count">0 colaboradores</span></div>
+          <div class="year-add-wrap"><div class="year-add-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+        </div>
+        <div class="year-body collapsed"></div>
+      </div>
+      <div class="year-card">
+        <div class="year-head">
+          <div class="year-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          <div class="year-title-wrap"><span class="year-title">2029</span><span class="year-count">0 colaboradores</span></div>
+          <div class="year-add-wrap"><div class="year-add-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+        </div>
+        <div class="year-body collapsed"></div>
+      </div>
+      <div class="year-card">
+        <div class="year-head">
+          <div class="year-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          <div class="year-title-wrap"><span class="year-title">2030</span><span class="year-count">0 colaboradores</span></div>
+          <div class="year-add-wrap"><div class="year-add-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+        </div>
+        <div class="year-body collapsed"></div>
+      </div>
+    </div>
+  </div>
+  <p class="page-label">2026 expandido com o menu "+" aberto · 2027-2030 recolhidos e vazios</p>
+</div>
+
+<!-- ═══════ MOBILE ═══════ -->
+<div>
+  <div class="section-label">Mobile — Colaboradores por Ano</div>
+  <div class="phones-row">
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span>
+        <div class="status-icons">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".5"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".9"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".55"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="app-header">
+        <span class="header-eyebrow">Planejamento</span>
+        <div class="header-title">Recursos Humanos</div>
+      </div>
+      <div class="scroll-area">
+        <div class="m-year-card">
+          <div class="m-year-head">
+            <div class="m-year-chevron"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+            <span class="m-year-title">2026</span>
+            <span class="m-year-count">4</span>
+            <div class="m-year-add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+          <div class="m-year-body">
+            <div class="m-emp-card">
+              <div class="m-emp-photo">CF</div>
+              <div><div class="m-emp-name">Camila Ferreira</div><div class="m-emp-role">Gerente de Loja</div><div class="m-emp-stat money">R$ 3.680,00</div></div>
+            </div>
+            <div class="m-emp-card">
+              <div class="m-emp-photo">JS</div>
+              <div><div class="m-emp-name">João Silva</div><div class="m-emp-role">Estoquista</div><div class="m-emp-stat money">R$ 1.850,00</div></div>
+            </div>
+            <div class="m-emp-card">
+              <div class="m-emp-photo">FS</div>
+              <div><div class="m-emp-name">Felipe Souza</div><div class="m-emp-role">Caixa</div><div class="m-emp-stat money">R$ 1.650,00</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="m-year-card">
+          <div class="m-collapsed-row">
+            <div class="m-year-chevron" style="transform:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+            <span class="m-year-title">2027</span>
+            <span class="m-year-count">0</span>
+            <div class="m-year-add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+        </div>
+        <div class="m-year-card">
+          <div class="m-collapsed-row">
+            <div class="m-year-chevron" style="transform:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+            <span class="m-year-title">2028</span>
+            <span class="m-year-count">0</span>
+            <div class="m-year-add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+        </div>
+        <div class="m-year-card">
+          <div class="m-collapsed-row">
+            <div class="m-year-chevron" style="transform:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+            <span class="m-year-title">2029</span>
+            <span class="m-year-count">0</span>
+            <div class="m-year-add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+        </div>
+        <div class="m-year-card">
+          <div class="m-collapsed-row">
+            <div class="m-year-chevron" style="transform:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+            <span class="m-year-title">2030</span>
+            <span class="m-year-count">0</span>
+            <div class="m-year-add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="page-label">Light Mode · 1100px desktop · 390 × 844 mobile</p>
+</div>
+
+</body>
+</html>

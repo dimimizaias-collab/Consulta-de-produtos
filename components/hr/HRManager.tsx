@@ -10,11 +10,13 @@ import {
   type CalendarEvent, type HREvent,
 } from '@/lib/hrCalendarEvents';
 import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
-import { EmployeeCard } from '@/components/hr/EmployeeCard';
+import { ColaboradoresYearAccordion } from '@/components/hr/ColaboradoresYearAccordion';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { VincularExistenteModal } from '@/components/hr/VincularExistenteModal';
 import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { type Employee } from '@/lib/hrEmployees';
+import { type Contrato, fetchAllContratos } from '@/lib/hrContratos';
 
 type HRView = 'calendario' | 'colaboradores' | 'caderninho' | 'financas';
 
@@ -58,8 +60,12 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
   const [saving, setSaving] = useState(false);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [autoAddPeriodoAno, setAutoAddPeriodoAno] = useState<number | null>(null);
+  const [showVincularModal, setShowVincularModal] = useState(false);
+  const [vincularAno, setVincularAno] = useState<number | null>(null);
 
   const [isHRUnlocked, setIsHRUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -80,6 +86,7 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     const { data } = await supabase.from('hr_employees').select('*').order('nome', { ascending: true });
     setEmployees(data || []);
   };
+  const fetchContratos = async () => setContratos(await fetchAllContratos());
 
   const fetchHrPassword = async () => {
     const { data } = await supabase.from('store_settings').select('hr_password').eq('id', 'default').maybeSingle();
@@ -90,6 +97,7 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     fetchHrEvents();
     fetchFinanceTransactions();
     fetchEmployees();
+    fetchContratos();
     fetchHrPassword();
   }, []);
 
@@ -120,14 +128,33 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     }
   };
 
-  const openCreateEmployeeModal = () => {
-    setEditingEmployee(null);
+  const openEditEmployeeModal = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setAutoAddPeriodoAno(null);
     setShowEmployeeModal(true);
   };
 
-  const openEditEmployeeModal = (emp: Employee) => {
-    setEditingEmployee(emp);
+  const openNovoColaboradorAno = (ano: number) => {
+    setEditingEmployee(null);
+    setAutoAddPeriodoAno(ano);
     setShowEmployeeModal(true);
+  };
+
+  const openVincularExistente = (ano: number) => {
+    setVincularAno(ano);
+    setShowVincularModal(true);
+  };
+
+  const handleVincularSelect = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setAutoAddPeriodoAno(vincularAno);
+    setShowVincularModal(false);
+    setShowEmployeeModal(true);
+  };
+
+  const handleEmployeeSaved = () => {
+    fetchEmployees();
+    fetchContratos();
   };
 
   const allEvents: CalendarEvent[] = useMemo(() => [
@@ -256,13 +283,13 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
             {!isHRUnlocked && <Lock size={11} strokeWidth={2.5} className="opacity-40" />}
           </button>
         </div>
-        {activeView !== 'caderninho' && activeView !== 'financas' && (
+        {activeView === 'calendario' && (
           <button
-            onClick={activeView === 'calendario' ? openCreateModal : openCreateEmployeeModal}
+            onClick={openCreateModal}
             className="bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wide text-[13px] flex items-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
           >
             <Plus size={16} strokeWidth={2.8} />
-            {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
+            Novo Evento
           </button>
         )}
       </div>
@@ -346,17 +373,14 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
       ) : activeView === 'financas' ? (
         <DespesasPage onBack={() => setActiveView('calendario')} />
       ) : activeView === 'colaboradores' ? (
-        <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
-          {employees.length === 0 ? (
-            <p className="text-sm text-on-surface/35 py-10 text-center">Nenhum colaborador cadastrado ainda.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {employees.map(emp => (
-                <EmployeeCard key={emp.id} employee={emp} onClick={() => openEditEmployeeModal(emp)} size="full" />
-              ))}
-            </div>
-          )}
-        </div>
+        <ColaboradoresYearAccordion
+          employees={employees}
+          contratos={contratos}
+          onEditEmployee={openEditEmployeeModal}
+          onNovoColaborador={openNovoColaboradorAno}
+          onVincularExistente={openVincularExistente}
+          size="full"
+        />
       ) : (
         <CaderninhoTable employees={employees} />
       )}
@@ -365,7 +389,16 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
         open={showEmployeeModal}
         employee={editingEmployee}
         onClose={() => setShowEmployeeModal(false)}
-        onSaved={fetchEmployees}
+        onSaved={handleEmployeeSaved}
+        autoAddPeriodoAno={autoAddPeriodoAno}
+      />
+
+      <VincularExistenteModal
+        open={showVincularModal}
+        ano={vincularAno ?? 2026}
+        employees={employees}
+        onClose={() => setShowVincularModal(false)}
+        onSelect={handleVincularSelect}
       />
 
       {/* Modal de senha */}

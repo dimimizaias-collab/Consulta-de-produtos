@@ -10,11 +10,13 @@ import {
   type CalendarEvent, type HREvent,
 } from '@/lib/hrCalendarEvents';
 import { MonthCalendar, CalendarLegend } from '@/components/hr/MonthCalendar';
-import { EmployeeCard } from '@/components/hr/EmployeeCard';
+import { ColaboradoresYearAccordion } from '@/components/hr/ColaboradoresYearAccordion';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { VincularExistenteModal } from '@/components/hr/VincularExistenteModal';
 import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
 import { DespesasPage } from '@/components/finance/DespesasPage';
 import { type Employee } from '@/lib/hrEmployees';
+import { type Contrato, fetchAllContratos } from '@/lib/hrContratos';
 
 type HRView = 'calendario' | 'colaboradores' | 'caderninho' | 'financas';
 
@@ -54,8 +56,12 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   const [saving, setSaving] = useState(false);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
   const [showEmployeeSheet, setShowEmployeeSheet] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [autoAddPeriodoAno, setAutoAddPeriodoAno] = useState<number | null>(null);
+  const [showVincularModal, setShowVincularModal] = useState(false);
+  const [vincularAno, setVincularAno] = useState<number | null>(null);
 
   const [isHRUnlocked, setIsHRUnlocked] = useState(false);
   const [showPasswordSheet, setShowPasswordSheet] = useState(false);
@@ -76,6 +82,7 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     const { data } = await supabase.from('hr_employees').select('*').order('nome', { ascending: true });
     setEmployees(data || []);
   };
+  const fetchContratos = async () => setContratos(await fetchAllContratos());
 
   const fetchHrPassword = async () => {
     const { data } = await supabase.from('store_settings').select('hr_password').eq('id', 'default').maybeSingle();
@@ -86,6 +93,7 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     fetchHrEvents();
     fetchFinanceTransactions();
     fetchEmployees();
+    fetchContratos();
     fetchHrPassword();
   }, []);
 
@@ -116,14 +124,33 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
     }
   };
 
-  const openCreateEmployeeSheet = () => {
-    setEditingEmployee(null);
+  const openEditEmployeeSheet = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setAutoAddPeriodoAno(null);
     setShowEmployeeSheet(true);
   };
 
-  const openEditEmployeeSheet = (emp: Employee) => {
-    setEditingEmployee(emp);
+  const openNovoColaboradorAno = (ano: number) => {
+    setEditingEmployee(null);
+    setAutoAddPeriodoAno(ano);
     setShowEmployeeSheet(true);
+  };
+
+  const openVincularExistente = (ano: number) => {
+    setVincularAno(ano);
+    setShowVincularModal(true);
+  };
+
+  const handleVincularSelect = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setAutoAddPeriodoAno(vincularAno);
+    setShowVincularModal(false);
+    setShowEmployeeSheet(true);
+  };
+
+  const handleEmployeeSaved = () => {
+    fetchEmployees();
+    fetchContratos();
   };
 
   const allEvents: CalendarEvent[] = useMemo(() => [
@@ -256,13 +283,13 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
       </div>
 
       {/* Primary action */}
-      {activeView !== 'caderninho' && activeView !== 'financas' && (
+      {activeView === 'calendario' && (
         <button
-          onClick={activeView === 'calendario' ? openCreateSheet : openCreateEmployeeSheet}
+          onClick={openCreateSheet}
           className="shrink-0 mx-3 mt-2.5 bg-[#D81E1E] text-white font-extrabold text-[11.5px] uppercase tracking-wide py-3 rounded-[13px] shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5"
         >
           <Plus size={14} strokeWidth={2.8} />
-          {activeView === 'calendario' ? 'Novo Evento' : 'Novo Colaborador'}
+          Novo Evento
         </button>
       )}
 
@@ -338,14 +365,15 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
             )}
           </>
         ) : activeView === 'colaboradores' ? (
-          <div className="px-3 pt-3 pb-6 flex flex-col gap-2.5">
-            {employees.length === 0 ? (
-              <p className="text-sm text-on-surface/35 py-10 text-center">Nenhum colaborador cadastrado ainda.</p>
-            ) : (
-              employees.map(emp => (
-                <EmployeeCard key={emp.id} employee={emp} onClick={() => openEditEmployeeSheet(emp)} size="compact" />
-              ))
-            )}
+          <div className="px-3 pt-3 pb-6">
+            <ColaboradoresYearAccordion
+              employees={employees}
+              contratos={contratos}
+              onEditEmployee={openEditEmployeeSheet}
+              onNovoColaborador={openNovoColaboradorAno}
+              onVincularExistente={openVincularExistente}
+              size="compact"
+            />
           </div>
         ) : activeView === 'financas' ? (
           <DespesasPage onBack={() => setActiveView('calendario')} />
@@ -358,7 +386,17 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
         open={showEmployeeSheet}
         employee={editingEmployee}
         onClose={() => setShowEmployeeSheet(false)}
-        onSaved={fetchEmployees}
+        onSaved={handleEmployeeSaved}
+        autoAddPeriodoAno={autoAddPeriodoAno}
+        variant="sheet"
+      />
+
+      <VincularExistenteModal
+        open={showVincularModal}
+        ano={vincularAno ?? 2026}
+        employees={employees}
+        onClose={() => setShowVincularModal(false)}
+        onSelect={handleVincularSelect}
         variant="sheet"
       />
 

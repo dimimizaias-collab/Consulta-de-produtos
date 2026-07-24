@@ -1,28 +1,48 @@
 'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Pencil, Plus, Equal } from 'lucide-react';
+import { X, Pencil, Plus, Equal, CalendarDays } from 'lucide-react';
 import { fmtSalario, parseMoneyInput } from '@/lib/hrEmployees';
+import { nthBusinessDay, toIsoDate } from '@/lib/hrBusinessDays';
+import { MESES_ABREV } from '@/lib/hrContratos';
 
 interface SalaryEditModalProps {
   open: boolean;
   employeeName: string;
+  periodoLabel: string;
   base: string;
   complementar: string;
+  diasUteis: string;
   onChangeBase: (v: string) => void;
   onChangeComplementar: (v: string) => void;
+  onChangeDiasUteis: (v: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  ano: number;
+  mesInicio: number;
+  mesFim: number;
+  feriados: Set<string>;
   variant?: 'modal' | 'sheet';
 }
 
 export function SalaryEditModal({
-  open, employeeName, base, complementar, onChangeBase, onChangeComplementar, onCancel, onConfirm, variant = 'modal',
+  open, employeeName, periodoLabel, base, complementar, diasUteis,
+  onChangeBase, onChangeComplementar, onChangeDiasUteis, onCancel, onConfirm,
+  ano, mesInicio, mesFim, feriados, variant = 'modal',
 }: SalaryEditModalProps) {
   const baseNum = parseMoneyInput(base);
   const complementarNum = parseMoneyInput(complementar);
   const total = baseNum + complementarNum;
   const pct = baseNum > 0 ? Math.round((complementarNum / baseNum) * 100) : 0;
+  const n = parseInt(diasUteis, 10) || 0;
+
+  const previewMeses = Array.from({ length: Math.min(4, mesFim - mesInicio + 1) }, (_, i) => mesInicio + i);
+  const preview = n > 0
+    ? previewMeses.map(mes => {
+        const dia = nthBusinessDay(ano, mes, n, feriados);
+        return `${MESES_ABREV[mes - 1]} ${toIsoDate(dia).slice(8, 10)}`;
+      })
+    : [];
 
   const fieldCls = 'w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50 font-mono font-bold';
   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
@@ -38,11 +58,44 @@ export function SalaryEditModal({
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[14.5px] font-extrabold text-on-surface">Editar Salário</div>
-          <div className="text-[10.5px] font-semibold text-on-surface/40 truncate">{employeeName}</div>
+          <div className="text-[10.5px] font-semibold text-on-surface/40 truncate">{employeeName} · {periodoLabel}</div>
         </div>
         <button onClick={onCancel} className="w-[26px] h-[26px] rounded-[9px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/40 flex-shrink-0">
           <X size={12} strokeWidth={2.5} />
         </button>
+      </div>
+
+      <div className="bg-primary/[0.045] border border-primary/[0.18] rounded-2xl px-4 py-3.5 mb-5">
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <CalendarDays size={13} className="text-primary flex-shrink-0" />
+          <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-red-700 dark:text-red-400">Data de Pagamento</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <input
+            className="w-[70px] flex-shrink-0 bg-surface border border-primary/30 rounded-xl px-2.5 py-2.5 text-[15px] font-extrabold text-on-surface font-mono text-center outline-none focus:border-primary/60"
+            value={diasUteis}
+            onChange={e => onChangeDiasUteis(e.target.value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="5"
+          />
+          <span className="text-[11.5px] font-semibold text-on-surface/55 leading-snug">
+            º dia útil de cada mês<br />(seg–sáb, exceto feriados)
+          </span>
+        </div>
+        {preview.length > 0 && (
+          <div className="flex gap-1.5 mt-3 flex-wrap">
+            {preview.map(p => (
+              <span key={p} className="text-[10px] font-extrabold font-mono text-on-surface bg-surface border border-on-surface/[0.10] px-2 py-1 rounded-lg">
+                {p}
+              </span>
+            ))}
+            {mesFim - mesInicio + 1 > previewMeses.length && (
+              <span className="text-[10px] font-extrabold font-mono text-on-surface/40 px-1 py-1">…</span>
+            )}
+          </div>
+        )}
+        <p className="text-[10px] font-medium text-on-surface/40 mt-2.5 leading-relaxed">
+          Gera 1 parcela por mês no Controle Financeiro, travada para edição — só pode ser marcada como paga.
+        </p>
       </div>
 
       <div className="relative mb-10">

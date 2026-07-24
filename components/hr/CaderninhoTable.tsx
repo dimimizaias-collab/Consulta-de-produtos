@@ -1,16 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Check, Trash2 } from 'lucide-react';
+import { Plus, Check, Trash2, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { type Employee } from '@/lib/hrEmployees';
+import { recomputeParcelasForCaderninhoEntry } from '@/lib/hrSalarioFinance';
+
+type Modalidade = 'Mercadoria' | 'Vale' | 'Bônus' | 'Outros';
+type TipoLancamento = 'Despesa' | 'Receita';
 
 interface CaderninhoEntry {
   id: string;
   colaborador_id: string | null;
   colaborador_nome: string | null;
-  tipo: 'Mercadoria' | 'Vale' | 'Outros';
+  modalidade: Modalidade;
+  tipo: TipoLancamento;
   valor: number;
   observacao: string | null;
   data: string;
@@ -20,7 +25,8 @@ interface CaderninhoEntry {
 interface PendingRow {
   localId: string;
   colaborador_id: string;
-  tipo: 'Mercadoria' | 'Vale' | 'Outros';
+  modalidade: Modalidade;
+  tipo: TipoLancamento;
   valor: string;
   observacao: string;
   data: string;
@@ -33,7 +39,14 @@ interface CaderninhoTableProps {
   compact?: boolean;
 }
 
-const TIPOS = ['Mercadoria', 'Vale', 'Outros'] as const;
+const MODALIDADES: Modalidade[] = ['Mercadoria', 'Vale', 'Bônus', 'Outros'];
+
+// Modalidade que trava o Tipo automaticamente. "Outros" fica livre para o usuário escolher.
+const TIPO_AUTOMATICO: Partial<Record<Modalidade, TipoLancamento>> = {
+  Mercadoria: 'Despesa',
+  Vale: 'Despesa',
+  Bônus: 'Receita',
+};
 
 const fmtMoney = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -49,7 +62,8 @@ function makePending(): PendingRow {
   return {
     localId: crypto.randomUUID(),
     colaborador_id: '',
-    tipo: 'Mercadoria',
+    modalidade: 'Mercadoria',
+    tipo: 'Despesa',
     valor: '',
     observacao: '',
     data: todayStr(),
@@ -58,11 +72,15 @@ function makePending(): PendingRow {
   };
 }
 
-const tipoColor = (tipo: string) => {
-  if (tipo === 'Vale') return 'bg-blue-500/15 text-blue-600 dark:text-blue-400';
-  if (tipo === 'Mercadoria') return 'bg-amber-500/15 text-amber-700 dark:text-amber-400';
+const modalidadeColor = (m: string) => {
+  if (m === 'Vale') return 'bg-blue-500/15 text-blue-600 dark:text-blue-400';
+  if (m === 'Mercadoria') return 'bg-amber-500/15 text-amber-700 dark:text-amber-400';
+  if (m === 'Bônus') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400';
   return 'bg-gray-500/15 text-gray-600 dark:text-gray-400';
 };
+
+const tipoColor = (t: TipoLancamento) =>
+  t === 'Receita' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/15 text-red-600 dark:text-red-400';
 
 export function CaderninhoTable({ employees, compact = false }: CaderninhoTableProps) {
   const [entries, setEntries] = useState<CaderninhoEntry[]>([]);
@@ -84,6 +102,11 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
 
   const updatePending = (localId: string, patch: Partial<PendingRow>) =>
     setPending(prev => prev.map(r => r.localId === localId ? { ...r, ...patch } : r));
+
+  const changeModalidade = (localId: string, modalidade: Modalidade) => {
+    const auto = TIPO_AUTOMATICO[modalidade];
+    updatePending(localId, auto ? { modalidade, tipo: auto } : { modalidade });
+  };
 
   const removePending = (localId: string) =>
     setPending(prev => prev.filter(r => r.localId !== localId));
@@ -109,6 +132,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
     const { error } = await supabase.from('hr_caderninho').insert([{
       colaborador_id: row.colaborador_id,
       colaborador_nome: emp?.nome || null,
+      modalidade: row.modalidade,
       tipo: row.tipo,
       valor: val,
       observacao: row.observacao.trim() || null,
@@ -122,11 +146,13 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
 
     removePending(row.localId);
     fetchEntries();
+    recomputeParcelasForCaderninhoEntry(row.colaborador_id, row.data);
   };
 
-  const deleteEntry = async (id: string) => {
-    await supabase.from('hr_caderninho').delete().eq('id', id);
-    setEntries(prev => prev.filter(e => e.id !== id));
+  const deleteEntry = async (entry: CaderninhoEntry) => {
+    await supabase.from('hr_caderninho').delete().eq('id', entry.id);
+    setEntries(prev => prev.filter(e => e.id !== entry.id));
+    if (entry.colaborador_id) recomputeParcelasForCaderninhoEntry(entry.colaborador_id, entry.data);
   };
 
   // ── Mobile (compact) layout ──────────────────────────────────────────────
@@ -159,7 +185,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                     {entry.colaborador_nome || '—'}
                   </span>
                   <button
-                    onClick={() => deleteEntry(entry.id)}
+                    onClick={() => deleteEntry(entry)}
                     className="w-7 h-7 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center active:scale-90 transition-transform"
                   >
                     <Trash2 size={12} />
@@ -168,6 +194,9 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={cn('text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg', tipoColor(entry.tipo))}>
                     {entry.tipo}
+                  </span>
+                  <span className={cn('text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg', modalidadeColor(entry.modalidade))}>
+                    {entry.modalidade}
                   </span>
                   <span className="text-[13px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
                     {fmtMoney(entry.valor)}
@@ -205,15 +234,37 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                     </select>
                   </div>
                   <div>
-                    <span className={labelCls}>Tipo</span>
+                    <span className={labelCls}>Modalidade</span>
                     <select
                       className={fieldCls}
-                      value={row.tipo}
-                      onChange={e => updatePending(row.localId, { tipo: e.target.value as typeof row.tipo })}
+                      value={row.modalidade}
+                      onChange={e => changeModalidade(row.localId, e.target.value as Modalidade)}
                     >
-                      {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+                      {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+                </div>
+                <div>
+                  <span className={labelCls}>Tipo</span>
+                  {TIPO_AUTOMATICO[row.modalidade] ? (
+                    <div className={cn('flex items-center gap-1.5 w-fit text-[10.5px] font-extrabold uppercase tracking-wide px-2.5 py-1.5 rounded-lg', tipoColor(row.tipo))}>
+                      <Lock size={9} strokeWidth={3} /> {row.tipo}
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                        <button
+                          key={t} onClick={() => updatePending(row.localId, { tipo: t })}
+                          className={cn(
+                            'flex-1 py-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+                            row.tipo === t ? tipoColor(t) : 'border-[rgba(26,26,10,0.12)] dark:border-white/10 text-[rgba(26,26,10,0.40)] dark:text-white/35',
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -300,11 +351,12 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[780px]">
               <thead>
                 <tr className="border-b border-on-surface/[0.07]">
                   <th className={thCls}>Colaborador</th>
                   <th className={thCls}>Tipo</th>
+                  <th className={thCls}>Modalidade</th>
                   <th className={thCls}>Valor</th>
                   <th className={thCls}>Observação</th>
                   <th className={thCls}>Data</th>
@@ -314,7 +366,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
               <tbody className="divide-y divide-on-surface/[0.05]">
                 {entries.length === 0 && pending.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-sm text-on-surface/35">
+                    <td colSpan={7} className="py-10 text-center text-sm text-on-surface/35">
                       Nenhum registro ainda. Clique em "Adicionar Linha" para começar.
                     </td>
                   </tr>
@@ -331,6 +383,11 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                         {entry.tipo}
                       </span>
                     </td>
+                    <td className={tdCls}>
+                      <span className={cn('text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-lg', modalidadeColor(entry.modalidade))}>
+                        {entry.modalidade}
+                      </span>
+                    </td>
                     <td className={cn(tdCls, 'text-[13px] font-bold text-on-surface')}>
                       {fmtMoney(entry.valor)}
                     </td>
@@ -342,7 +399,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                     </td>
                     <td className={tdCls}>
                       <button
-                        onClick={() => deleteEntry(entry.id)}
+                        onClick={() => deleteEntry(entry)}
                         className="w-7 h-7 rounded-lg hover:bg-red-500/10 text-on-surface/20 hover:text-red-500 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={13} />
@@ -368,12 +425,33 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                         </select>
                       </td>
                       <td className={tdCls}>
+                        {TIPO_AUTOMATICO[row.modalidade] ? (
+                          <div className={cn('flex items-center gap-1.5 w-fit text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1.5 rounded-lg', tipoColor(row.tipo))}>
+                            <Lock size={9} strokeWidth={3} /> {row.tipo}
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                              <button
+                                key={t} onClick={() => updatePending(row.localId, { tipo: t })}
+                                className={cn(
+                                  'px-2.5 py-1.5 rounded-lg text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+                                  row.tipo === t ? tipoColor(t) : 'border-on-surface/[0.12] text-on-surface/40',
+                                )}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className={tdCls}>
                         <select
                           className={cn(inputCls, 'min-w-[110px]')}
-                          value={row.tipo}
-                          onChange={e => updatePending(row.localId, { tipo: e.target.value as typeof row.tipo })}
+                          value={row.modalidade}
+                          onChange={e => changeModalidade(row.localId, e.target.value as Modalidade)}
                         >
-                          {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+                          {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </td>
                       <td className={tdCls}>
@@ -420,7 +498,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                     </tr>
                     {row.error && (
                       <tr key={`${row.localId}-err`} className="bg-red-500/[0.03]">
-                        <td colSpan={6} className="px-3.5 py-1.5 text-[11px] text-red-500 font-semibold">
+                        <td colSpan={7} className="px-3.5 py-1.5 text-[11px] text-red-500 font-semibold">
                           {row.error}
                         </td>
                       </tr>

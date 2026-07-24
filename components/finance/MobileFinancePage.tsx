@@ -46,6 +46,7 @@ interface Transaction {
   account_id?: string | null;
   tag_ids: string[];
   observacoes: string | null;
+  origem?: 'manual' | 'hr_salario';
 }
 
 type TxForm = {
@@ -1050,6 +1051,7 @@ function TxDetailSheet({
   onEditAllParcelas,
   editingWholeGroup,
   siblingTxs,
+  onTogglePago,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -1068,7 +1070,9 @@ function TxDetailSheet({
   onEditAllParcelas?: () => void;
   editingWholeGroup?: boolean;
   siblingTxs?: { id: string; favorecido: string; valor_final: number }[];
+  onTogglePago?: (tx: Transaction) => void;
 }) {
+  const isHrSalario = tx.origem === 'hr_salario';
   const [showKbd, setShowKbd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEdit = mode === 'edit';
@@ -1099,18 +1103,27 @@ function TxDetailSheet({
           {isEdit ? 'Editar Movimentação' : 'Detalhes da Movimentação'}
         </span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleMode}
-            className={cn(
-              'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
-              isEdit
-                ? 'bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.28)] text-[#D81E1E]'
-                : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40'
-            )}
-            title="Editar"
-          >
-            <Pencil size={13} />
-          </button>
+          {isHrSalario ? (
+            <span
+              title="Gerada pelo RH — edite salário/cargo na aba Colaboradores. Só é possível marcar como paga."
+              className="flex items-center gap-1 px-2.5 h-8 rounded-full bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[9px] font-black uppercase tracking-wide"
+            >
+              <Lock size={11} /> RH
+            </span>
+          ) : (
+            <button
+              onClick={onToggleMode}
+              className={cn(
+                'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
+                isEdit
+                  ? 'bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.28)] text-[#D81E1E]'
+                  : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40'
+              )}
+              title="Editar"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
@@ -1456,6 +1469,23 @@ function TxDetailSheet({
                 {form.pago && <Check size={12} strokeWidth={3} />}
               </button>
               <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">Já foi pago</span>
+            </>
+          ) : isHrSalario ? (
+            <>
+              <button
+                onClick={() => onTogglePago?.(tx)}
+                className={cn(
+                  'w-6 h-6 rounded-[7px] border-[1.5px] flex items-center justify-center transition-colors',
+                  tx.pago
+                    ? 'bg-[#059669] border-[#059669] text-white'
+                    : 'bg-transparent border-[rgba(26,26,10,0.20)] dark:border-white/20'
+                )}
+              >
+                {tx.pago && <Check size={12} strokeWidth={3} />}
+              </button>
+              <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
+                {tx.pago ? 'Já foi pago' : 'Ainda não foi pago'}
+              </span>
             </>
           ) : (
             <>
@@ -2462,12 +2492,23 @@ export function MobileFinancePage() {
 
   async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
-    const ids = [...selectedIds];
+    const ids = [...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario');
+    if (ids.length === 0) { setSelectedIds(new Set()); setSelectionMode(false); return; }
     await supabase.from('finance_transactions').delete().in('id', ids);
     await cleanupNoteLinksForDeletedTxs(ids);
     setSelectedIds(new Set());
     setSelectionMode(false);
     loadData();
+  }
+
+  // Atalho de "marcar como paga" para movimentações origem=hr_salario, que ficam travadas
+  // para qualquer outra edição — usado direto no modo de visualização, sem entrar em "edit".
+  async function handleTogglePagoQuick(tx: Transaction) {
+    const next = !tx.pago;
+    const nextTotalPago = next ? tx.valor_final : 0;
+    await supabase.from('finance_transactions').update({ pago: next, total_pago: nextTotalPago }).eq('id', tx.id);
+    setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, pago: next, total_pago: nextTotalPago } : t));
+    setDetailTx(prev => prev && prev.id === tx.id ? { ...prev, pago: next, total_pago: nextTotalPago } : prev);
   }
 
   async function handleMarkPaidSelected() {
@@ -3184,6 +3225,7 @@ export function MobileFinancePage() {
             onEditAllParcelas={() => loadGroupIntoDetail(detailTx)}
             editingWholeGroup={editingGroupIds !== null}
             siblingTxs={getParcelaSiblings(detailTx)}
+            onTogglePago={handleTogglePagoQuick}
           />
         </>
       )}

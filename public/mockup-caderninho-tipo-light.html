@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Caderninho — Tipo + Modalidade — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{ font-family:'DM Sans',sans-serif;background:#F0EDD8;color:#1A1A0E;
+    padding:48px 16px 96px;display:flex;flex-direction:column;align-items:center;gap:56px; }
+  .section-label{ font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.22em;
+    color:rgba(26,26,14,0.40);margin-bottom:18px;text-align:center; }
+
+  .dsk{ width:1100px; background:#FFFCEC; border-radius:28px; border:1px solid #E9DFC2;
+    box-shadow:0 40px 100px rgba(26,26,14,0.12); overflow:hidden; }
+
+  table{ width:100%; border-collapse:collapse; }
+  th{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em;
+    color:rgba(26,26,14,0.40); padding:14px; text-align:left; border-bottom:1.5px solid #E9DFC2; white-space:nowrap; }
+  td{ padding:11px 14px; border-bottom:1px solid #F0EAD0; font-size:13px; }
+  tr:last-child td{ border-bottom:none; }
+
+  .badge{ font-size:9.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;
+    padding:5px 10px; border-radius:8px; display:inline-block; }
+  .badge.despesa{ background:rgba(216,30,30,0.10); color:#B91C1C; }
+  .badge.receita{ background:rgba(10,122,85,0.10); color:#0A7A55; }
+  .badge.mercadoria{ background:rgba(180,83,9,0.12); color:#92400E; }
+  .badge.vale{ background:rgba(37,99,235,0.10); color:#1D4ED8; }
+  .badge.bonus{ background:rgba(10,122,85,0.10); color:#0A7A55; }
+  .badge.outros{ background:rgba(26,26,14,0.08); color:rgba(26,26,14,0.55); }
+
+  .money{ font-family:'DM Mono',monospace; font-weight:700; }
+  .money.despesa{ color:#B91C1C; }
+  .money.receita{ color:#0A7A55; }
+
+  .select-inline{ background:#FFFFFF; border:1.5px solid #E0D8BF; border-radius:10px;
+    padding:7px 10px; font-size:12px; font-weight:700; color:#1A1A0E; font-family:'DM Sans',sans-serif; }
+
+  .locked-tag{ display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:900;
+    text-transform:uppercase; letter-spacing:0.05em; padding:5px 9px 5px 7px; border-radius:8px; }
+  .locked-tag.despesa{ background:rgba(216,30,30,0.10); color:#B91C1C; }
+  .locked-tag.receita{ background:rgba(10,122,85,0.10); color:#0A7A55; }
+
+  .toggle-row{ display:flex; gap:5px; }
+  .toggle-pill{ font-size:9.5px; font-weight:900; text-transform:uppercase; padding:5px 9px; border-radius:8px;
+    border:1.5px solid rgba(26,26,14,0.14); color:rgba(26,26,14,0.45); }
+  .toggle-pill.active.despesa{ background:rgba(216,30,30,0.10); border-color:rgba(216,30,30,0.30); color:#B91C1C; }
+  .toggle-pill.active.receita{ background:rgba(10,122,85,0.10); border-color:rgba(10,122,85,0.30); color:#0A7A55; }
+
+  .pending-row{ background:rgba(216,30,30,0.02); }
+  .add-row-btn{ margin:16px 20px 20px; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 0; border-radius:13px; border:1.5px dashed rgba(26,26,14,0.20);
+    font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:rgba(26,26,14,0.42); }
+
+  /* ═══ PHONE ═══ */
+  .phones-row{ display:flex; gap:32px; flex-wrap:wrap; justify-content:center; }
+  .phone{ width:390px; height:844px; background:#FDFAF0; border-radius:44px; overflow:hidden;
+    box-shadow:0 0 0 10px #1A1A0E, 0 0 0 12px #3A3A30, 0 40px 80px rgba(26,26,14,0.35);
+    display:flex; flex-direction:column; position:relative; }
+  .status-bar{ background:#FFE500; height:44px; padding:0 28px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+  .status-time{ font-size:15px; font-weight:700; color:rgba(26,26,14,0.80); }
+  .scroll-area{ flex:1; overflow-y:auto; background:#FDFAF0; padding:12px; display:flex; flex-direction:column; gap:9px; }
+  .m-card{ background:#FFFFFF; border:1.5px solid #E9DFC2; border-radius:16px; padding:13px; display:flex; flex-direction:column; gap:8px; }
+  .m-card-top{ display:flex; align-items:center; justify-content:space-between; }
+  .m-emp-name{ font-size:13px; font-weight:800; color:#1A1A0E; }
+  .m-tags{ display:flex; gap:6px; flex-wrap:wrap; }
+  .m-bottom{ display:flex; align-items:center; justify-content:space-between; }
+  .m-money{ font-family:'DM Mono',monospace; font-size:13.5px; font-weight:800; }
+  .m-date{ font-size:11px; color:rgba(26,26,14,0.40); font-weight:600; }
+  .m-add-btn{ margin:2px 0 0; display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:12px 0; border-radius:13px; border:1.5px dashed rgba(26,26,14,0.18);
+    font-size:11px; font-weight:800; text-transform:uppercase; color:rgba(26,26,14,0.40); }
+
+  .page-label{ text-align:center; margin-top:8px; font-size:12px; font-weight:700;
+    color:rgba(26,26,14,0.32); text-transform:uppercase; letter-spacing:0.12em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ DESKTOP ═══════ -->
+<div>
+  <div class="section-label">Desktop — Caderninho · Colunas Tipo (Despesa/Receita) + Modalidade</div>
+  <div class="dsk">
+    <table>
+      <thead>
+        <tr>
+          <th>Colaborador</th><th>Tipo</th><th>Modalidade</th><th>Valor</th><th>Observação</th><th>Data</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Camila Ferreira</td>
+          <td><span class="badge despesa">Despesa</span></td>
+          <td><span class="badge mercadoria">Mercadoria</span></td>
+          <td class="money despesa">R$ 85,00</td>
+          <td style="color:rgba(26,26,14,0.55);">Compra de material de limpeza</td>
+          <td style="color:rgba(26,26,14,0.55);">03/07/2026</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>João Silva</td>
+          <td><span class="badge despesa">Despesa</span></td>
+          <td><span class="badge vale">Vale</span></td>
+          <td class="money despesa">R$ 150,00</td>
+          <td style="color:rgba(26,26,14,0.55);">Vale adiantamento</td>
+          <td style="color:rgba(26,26,14,0.55);">05/07/2026</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Felipe Souza</td>
+          <td><span class="badge receita">Receita</span></td>
+          <td><span class="badge bonus">Bônus</span></td>
+          <td class="money receita">R$ 200,00</td>
+          <td style="color:rgba(26,26,14,0.55);">Meta de vendas de junho</td>
+          <td style="color:rgba(26,26,14,0.55);">01/07/2026</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Ana Martins</td>
+          <td><span class="badge receita">Receita</span></td>
+          <td><span class="badge outros">Outros</span></td>
+          <td class="money receita">R$ 60,00</td>
+          <td style="color:rgba(26,26,14,0.55);">Reembolso de estorno</td>
+          <td style="color:rgba(26,26,14,0.55);">28/06/2026</td>
+          <td></td>
+        </tr>
+
+        <!-- Linha em edição — Modalidade "Outros" liberando o Tipo -->
+        <tr class="pending-row">
+          <td>
+            <select class="select-inline"><option>Camila Ferreira</option></select>
+          </td>
+          <td>
+            <div class="toggle-row">
+              <span class="toggle-pill active despesa">Despesa</span>
+              <span class="toggle-pill receita">Receita</span>
+            </div>
+          </td>
+          <td><select class="select-inline"><option>Outros</option></select></td>
+          <td><input class="select-inline" style="width:90px;" placeholder="0,00" /></td>
+          <td><input class="select-inline" style="width:160px;" placeholder="Opcional" /></td>
+          <td><input class="select-inline" type="date" style="width:130px;" /></td>
+          <td></td>
+        </tr>
+
+        <!-- Linha em edição — Modalidade travando o Tipo -->
+        <tr class="pending-row">
+          <td>
+            <select class="select-inline"><option>João Silva</option></select>
+          </td>
+          <td>
+            <div class="locked-tag despesa">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              Despesa
+            </div>
+          </td>
+          <td><select class="select-inline"><option>Mercadoria</option></select></td>
+          <td><input class="select-inline" style="width:90px;" placeholder="0,00" /></td>
+          <td><input class="select-inline" style="width:160px;" placeholder="Opcional" /></td>
+          <td><input class="select-inline" type="date" style="width:130px;" /></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="add-row-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Adicionar Linha
+    </div>
+  </div>
+  <p class="page-label">Tipo travado (cadeado) quando Modalidade = Mercadoria/Vale/Bônus · liberado só em "Outros"</p>
+</div>
+
+<!-- ═══════ MOBILE ═══════ -->
+<div>
+  <div class="section-label">Mobile — Caderninho</div>
+  <div class="phones-row">
+    <div class="phone">
+      <div class="status-bar"><span class="status-time">09:41</span></div>
+      <div class="scroll-area">
+        <div class="m-card">
+          <div class="m-card-top"><span class="m-emp-name">Camila Ferreira</span></div>
+          <div class="m-tags">
+            <span class="badge despesa">Despesa</span>
+            <span class="badge mercadoria">Mercadoria</span>
+          </div>
+          <div class="m-bottom">
+            <span class="m-money despesa" style="color:#B91C1C;">R$ 85,00</span>
+            <span class="m-date">03/07/2026</span>
+          </div>
+        </div>
+        <div class="m-card">
+          <div class="m-card-top"><span class="m-emp-name">Felipe Souza</span></div>
+          <div class="m-tags">
+            <span class="badge receita">Receita</span>
+            <span class="badge bonus">Bônus</span>
+          </div>
+          <div class="m-bottom">
+            <span class="m-money receita" style="color:#0A7A55;">R$ 200,00</span>
+            <span class="m-date">01/07/2026</span>
+          </div>
+        </div>
+        <div class="m-card" style="border-color:rgba(216,30,30,0.25);border-width:1.5px;">
+          <div class="m-card-top">
+            <select class="select-inline"><option>Ana Martins</option></select>
+          </div>
+          <div class="m-tags" style="align-items:center;">
+            <div class="toggle-row">
+              <span class="toggle-pill receita active">Receita</span>
+              <span class="toggle-pill despesa">Despesa</span>
+            </div>
+            <select class="select-inline"><option>Outros</option></select>
+          </div>
+          <div class="m-bottom">
+            <input class="select-inline" style="width:80px;" placeholder="0,00" />
+            <input class="select-inline" type="date" style="width:120px;" />
+          </div>
+        </div>
+        <div class="m-add-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar Linha
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="page-label">Light Mode · 1100px desktop · 390 × 844 mobile</p>
+</div>
+
+</body>
+</html>

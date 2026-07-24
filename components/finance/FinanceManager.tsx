@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, Database, ArrowLeft,
+  AlertTriangle, Info, Database, ArrowLeft, Lock,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,7 @@ interface Transaction {
   account_id?: string | null;
   tag_ids: string[];
   observacoes: string | null;
+  origem?: 'manual' | 'hr_salario';
 }
 
 interface BankAccount {
@@ -641,6 +642,7 @@ export function FinanceManager() {
 
   const handleDeleteTx = async (id: string) => {
     const tx = transactions.find(t => t.id === id);
+    if (tx?.origem === 'hr_salario') return;
     const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
     if (error) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
@@ -664,9 +666,9 @@ export function FinanceManager() {
   const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
 
   const handleDeleteSelected = async () => {
-    const ids = [...selectedIds];
+    const ids = [...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario');
     const importIds = transactions
-      .filter(t => selectedIds.has(t.id))
+      .filter(t => ids.includes(t.id))
       .map(t => t.import_id);
 
     setDeletingSelected(true);
@@ -685,7 +687,7 @@ export function FinanceManager() {
           throw new Error('Nenhum registro foi excluído. Verifique as permissões (RLS) na tabela finance_transactions no Supabase.');
         }
       }
-      setTransactions(prev => prev.filter(t => !selectedIds.has(t.id)));
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       setSelectedIds(new Set());
       setSelectionMode(false);
       await cleanupNoteLinksForDeletedTxs(ids);
@@ -2102,9 +2104,11 @@ export function FinanceManager() {
                             <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
                               <Edit2 size={14} />
                             </button>
-                            <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
-                              <Trash2 size={14} />
-                            </button>
+                            {t.origem !== 'hr_salario' && (
+                              <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -2146,7 +2150,14 @@ export function FinanceManager() {
                   {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
                 </h2>
                 <div className="flex items-center gap-2">
-                  {editingId && (
+                  {editingId && editingTx?.origem === 'hr_salario' ? (
+                    <span
+                      title="Gerada pelo RH — edite salário/cargo na aba Colaboradores. Só é possível marcar como paga."
+                      className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl bg-on-surface/[0.05] text-on-surface/40 text-[10px] font-bold uppercase tracking-wide"
+                    >
+                      <Lock size={12} /> RH
+                    </span>
+                  ) : editingId && (
                     <button
                       type="button"
                       onClick={handleToggleTxLock}
