@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Camera, User } from 'lucide-react';
+import { X, Trash2, Camera, User, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { type Employee, uploadEmployeePhoto, initials } from '@/lib/hrEmployees';
+import { type Employee, uploadEmployeePhoto, initials, fmtSalario, parseMoneyInput, toMoneyInput } from '@/lib/hrEmployees';
+import { SalaryEditModal } from './SalaryEditModal';
 
 type EmployeeForm = {
   nome: string;
@@ -12,18 +13,19 @@ type EmployeeForm = {
   cargo: string;
   loja: string;
   data_admissao: string;
-  salario: string;
+  salario_base: string;
+  salario_complementar: string;
 };
 
 function emptyForm(): EmployeeForm {
-  return { nome: '', idade: '', cargo: '', loja: '', data_admissao: new Date().toISOString().split('T')[0], salario: '' };
+  return { nome: '', idade: '', cargo: '', loja: '', data_admissao: new Date().toISOString().split('T')[0], salario_base: '', salario_complementar: '' };
 }
 
 function employeeToForm(emp: Employee): EmployeeForm {
   return {
     nome: emp.nome, idade: emp.idade != null ? String(emp.idade) : '',
     cargo: emp.cargo, loja: emp.loja, data_admissao: emp.data_admissao,
-    salario: emp.salario ? String(emp.salario) : '',
+    salario_base: toMoneyInput(emp.salario_base), salario_complementar: toMoneyInput(emp.salario_complementar),
   };
 }
 
@@ -41,6 +43,20 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [salaryModalOpen, setSalaryModalOpen] = useState(false);
+  const [draftBase, setDraftBase] = useState('');
+  const [draftComplementar, setDraftComplementar] = useState('');
+
+  const openSalaryEdit = () => {
+    setDraftBase(form.salario_base);
+    setDraftComplementar(form.salario_complementar);
+    setSalaryModalOpen(true);
+  };
+  const confirmSalaryEdit = () => {
+    setForm(f => ({ ...f, salario_base: draftBase, salario_complementar: draftComplementar }));
+    setSalaryModalOpen(false);
+  };
 
   useEffect(() => {
     if (open) {
@@ -64,13 +80,18 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
       let fotoUrl = employee?.foto_url ?? null;
       if (photoFile) fotoUrl = await uploadEmployeePhoto(photoFile);
 
+      const salarioBase = parseMoneyInput(form.salario_base);
+      const salarioComplementar = parseMoneyInput(form.salario_complementar);
+
       const payload = {
         nome: form.nome.trim(),
         idade: form.idade ? parseInt(form.idade, 10) : null,
         cargo: form.cargo.trim(),
         loja: form.loja.trim(),
         data_admissao: form.data_admissao,
-        salario: form.salario ? parseFloat(form.salario.replace(/\./g, '').replace(',', '.')) : 0,
+        salario: salarioBase + salarioComplementar,
+        salario_base: salarioBase,
+        salario_complementar: salarioComplementar,
         foto_url: fotoUrl,
         updated_at: new Date().toISOString(),
       };
@@ -96,6 +117,11 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
 
   const fieldCls = 'w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50';
   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
+
+  const salarioBaseNum = parseMoneyInput(form.salario_base);
+  const salarioComplementarNum = parseMoneyInput(form.salario_complementar);
+  const salarioTotal = salarioBaseNum + salarioComplementarNum;
+  const salarioPct = salarioBaseNum > 0 ? Math.round((salarioComplementarNum / salarioBaseNum) * 100) : 0;
 
   const body = (
     <>
@@ -147,7 +173,20 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
         </div>
         <div className="flex-1">
           <label className={labelCls}>Salário</label>
-          <input className={fieldCls} value={form.salario} onChange={e => setForm({ ...form, salario: e.target.value.replace(/[^0-9.,]/g, '') })} placeholder="3200.00" />
+          <div className="w-full h-[42px] bg-surface border border-on-surface/[0.10] rounded-xl px-2.5 flex items-center gap-2">
+            <span className="flex-1 min-w-0 font-mono text-[13px] font-extrabold text-on-surface truncate">{fmtSalario(salarioTotal)}</span>
+            {salarioPct > 0 && (
+              <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-700/10 dark:bg-amber-300/15 px-2 py-1 rounded-md font-mono whitespace-nowrap flex-shrink-0">
+                ▲{salarioPct}%
+              </span>
+            )}
+            <button
+              type="button" onClick={openSalaryEdit}
+              className="w-[26px] h-[26px] rounded-lg bg-on-surface/[0.06] border border-on-surface/[0.10] flex items-center justify-center text-on-surface/55 hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-colors flex-shrink-0"
+            >
+              <Pencil size={13} strokeWidth={2.3} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -172,38 +211,52 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
   );
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/55 z-[60]" onClick={onClose}
-          />
-          {variant === 'modal' ? (
+    <>
+      <AnimatePresence>
+        {open && (
+          <>
             <motion.div
-              key="modal"
-              initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[460px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-6 shadow-2xl"
-            >
-              {body}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="sheet"
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-              className="fixed inset-x-0 bottom-0 z-[61] bg-surface-container rounded-t-[28px] shadow-2xl overflow-y-auto p-5"
-              style={{ maxHeight: '90svh' }}
-            >
-              <div className="flex justify-center pb-2 -mt-1">
-                <div className="w-10 h-1 rounded-full bg-on-surface/[0.15]" />
-              </div>
-              {body}
-            </motion.div>
-          )}
-        </>
-      )}
-    </AnimatePresence>
+              key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/55 z-[60]" onClick={onClose}
+            />
+            {variant === 'modal' ? (
+              <motion.div
+                key="modal"
+                initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[460px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-6 shadow-2xl"
+              >
+                {body}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="sheet"
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+                className="fixed inset-x-0 bottom-0 z-[61] bg-surface-container rounded-t-[28px] shadow-2xl overflow-y-auto p-5"
+                style={{ maxHeight: '90svh' }}
+              >
+                <div className="flex justify-center pb-2 -mt-1">
+                  <div className="w-10 h-1 rounded-full bg-on-surface/[0.15]" />
+                </div>
+                {body}
+              </motion.div>
+            )}
+          </>
+        )}
+      </AnimatePresence>
+
+      <SalaryEditModal
+        open={salaryModalOpen}
+        employeeName={form.nome || 'Novo Colaborador'}
+        base={draftBase}
+        complementar={draftComplementar}
+        onChangeBase={setDraftBase}
+        onChangeComplementar={setDraftComplementar}
+        onCancel={() => setSalaryModalOpen(false)}
+        onConfirm={confirmSalaryEdit}
+        variant={variant}
+      />
+    </>
   );
 }

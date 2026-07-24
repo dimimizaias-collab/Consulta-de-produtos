@@ -10,10 +10,25 @@ export interface Employee {
   loja: string;
   data_admissao: string; // ISO date (YYYY-MM-DD)
   salario: number;
+  salario_base: number;
+  salario_complementar: number;
   foto_url: string | null;
 }
 
 export const fmtSalario = (v: number | string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Converte texto mascarado ("3.200,00") em número. Usado nos campos de Salário Base/Complementar.
+export function parseMoneyInput(v: string): number {
+  if (!v) return 0;
+  const n = parseFloat(v.replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Converte um número em texto mascarado pt-BR ("3200" -> "3.200,00") para preencher os campos de input.
+export function toMoneyInput(v: number): string {
+  if (!v) return '';
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // Calcula o tempo de casa a partir da data de admissão, ex: "2 anos e 3 meses", "8 meses", "Hoje".
 export function tempoDeCasa(dataAdmissao: string): string {
