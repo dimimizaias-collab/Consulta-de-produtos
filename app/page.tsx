@@ -2580,19 +2580,25 @@ export default function Page() {
         }
         if (noteItemSaveTranslation) {
           const supplierId = await resolveNoteSupplierId();
-          const sourceItem = viewingReviewNote.items[linkingItemIdx];
-          const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
-            supplier_id: supplierId,
-            supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
-            supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
-            internal_product_id: created.id,
-          });
-          if (!mappingErr) {
-            setNoteSupplierMappings(prev => [...prev, {
-              supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
+          if (!supplierId) {
+            setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
+          } else {
+            const sourceItem = viewingReviewNote.items[linkingItemIdx];
+            const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
+              supplier_id: supplierId,
               supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+              supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
               internal_product_id: created.id,
-            }]);
+            });
+            if (mappingErr) {
+              setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+            } else {
+              setNoteSupplierMappings(prev => [...prev, {
+                supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
+                supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+                internal_product_id: created.id,
+              }]);
+            }
           }
         }
         setLinkingItemIdx(null);
@@ -2827,17 +2833,21 @@ export default function Page() {
     // Tradução permanente
     if (multiLinkSaveTranslation) {
       const supplierId = await resolveNoteSupplierId();
-      const seen = new Set<string>();
-      for (const e of multiLinkItemEntries) {
-        if (seen.has(e.product.id)) continue;
-        seen.add(e.product.id);
-        const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
-          supplier_id: supplierId,
-          supplier_sku: multiLinkSaveTranslationKey === 'codigo' ? (e.supplierCode.trim() || null) : null,
-          supplier_description: multiLinkSaveTranslationKey === 'descricao' ? (sourceItem.original_description || null) : null,
-          internal_product_id: e.product.id,
-        });
-        if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+      if (!supplierId) {
+        setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
+      } else {
+        const seen = new Set<string>();
+        for (const e of multiLinkItemEntries) {
+          if (seen.has(e.product.id)) continue;
+          seen.add(e.product.id);
+          const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
+            supplier_id: supplierId,
+            supplier_sku: multiLinkSaveTranslationKey === 'codigo' ? (e.supplierCode.trim() || null) : null,
+            supplier_description: multiLinkSaveTranslationKey === 'descricao' ? (sourceItem.original_description || null) : null,
+            internal_product_id: e.product.id,
+          });
+          if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+        }
       }
     }
 
@@ -7339,12 +7349,16 @@ export default function Page() {
                                           const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                           if (noteItemSaveTranslation) {
                                             const supplierId = await resolveNoteSupplierId();
-                                            const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
-                                            if (mappingErr) {
-                                              setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                            if (!supplierId) {
+                                              setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
                                             } else {
-                                              setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
-                                              setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                              const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                              if (mappingErr) {
+                                                setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                              } else {
+                                                setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                                setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                              }
                                             }
                                           }
                                           setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
@@ -7376,12 +7390,16 @@ export default function Page() {
                                     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
                                     if (noteItemSaveTranslation) {
                                       const supplierId = await resolveNoteSupplierId();
-                                      const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
-                                      if (mappingErr) {
-                                        setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                      if (!supplierId) {
+                                        setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
                                       } else {
-                                        setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
-                                        setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                        const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                        if (mappingErr) {
+                                          setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+                                        } else {
+                                          setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                          setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+                                        }
                                       }
                                     }
                                     setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
