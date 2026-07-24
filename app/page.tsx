@@ -344,6 +344,7 @@ export default function Page() {
   const [viewingNoteSellPrices, setViewingNoteSellPrices] = useState<number[]>([]);
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
+  const [reviewFocusedRowIdx, setReviewFocusedRowIdx] = useState<number | null>(null);
 
   // estoque print layout picker
   type EstoquePreset = 'financeiro' | 'estoque' | 'personalizado';
@@ -6496,12 +6497,16 @@ export default function Page() {
                         ? viewingNoteEanVariants[idx]
                         : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
                       const _hasVariants = _itemVariantsCheck.length > 0;
+                      const isRowFocused = reviewFocusedRowIdx === idx;
                       const parentRow = (
-                        <tr key={idx} className={`transition-colors ${_hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]' : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}`}>
+                        <tr key={idx} className={`transition-colors ${_hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]' : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}`}
+                          onFocus={() => setReviewFocusedRowIdx(idx)}
+                          onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setReviewFocusedRowIdx(null); }}
+                        >
                           {/* # */}
                           <td style={tdP}>
-                            <div style={cell({ justifyContent: 'center' })}>
-                              <span className="text-[10px] font-black" style={{ color: 'var(--rn-text-subtle)' }}>
+                            <div style={cell({ justifyContent: 'center', ...(isRowFocused ? { borderColor: '#DC2626', boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' } : {}) })}>
+                              <span className="text-[10px] font-black" style={{ color: isRowFocused ? '#DC2626' : 'var(--rn-text-subtle)' }}>
                                 {item.seq ?? idx + 1}
                               </span>
                             </div>
