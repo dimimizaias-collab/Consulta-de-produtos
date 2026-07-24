@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Tag } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FinanceTag, TAG_COLOR_MAP, TAG_COLORS } from '@/hooks/useFinanceTags';
 
@@ -18,8 +18,19 @@ export function TagSelector({ tags, value, onChange, onCreateTag, parcelCount }:
   const [newNome, setNewNome] = useState('');
   const [newCor, setNewCor] = useState<string>('blue');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   const labelCls = 'text-[10px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.40)] dark:text-white/28';
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   function toggle(id: string) {
     onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id]);
@@ -39,6 +50,9 @@ export function TagSelector({ tags, value, onChange, onCreateTag, parcelCount }:
     }
   }
 
+  const selectedTags = tags.filter(t => value.includes(t.id));
+  const filteredTags = tags.filter(t => !search.trim() || t.nome.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -48,38 +62,74 @@ export function TagSelector({ tags, value, onChange, onCreateTag, parcelCount }:
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 p-2.5 bg-[rgba(26,26,10,0.04)] dark:bg-white/[0.04] border border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] rounded-xl min-h-[42px]">
-        {tags.map(tag => {
-          const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
-          const selected = value.includes(tag.id);
-          return (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => toggle(tag.id)}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all duration-[130ms]',
-                selected
-                  ? 'bg-[#D81E1E] text-white border-[#D81E1E]'
-                  : cn(c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark)
-              )}
-            >
-              {selected && <Tag size={9} strokeWidth={2.5} />}
-              {tag.nome}
-            </button>
-          );
-        })}
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedTags.map(tag => {
+            const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+            return (
+              <span
+                key={tag.id}
+                className={cn(
+                  'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-semibold border',
+                  c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark,
+                )}
+              >
+                {tag.nome}
+                <button
+                  type="button"
+                  onClick={() => toggle(tag.id)}
+                  className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/15 transition-colors"
+                >
+                  <X size={9} strokeWidth={2.5} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
-        {!creating && (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-dashed border-[rgba(26,26,10,0.20)] dark:border-white/20 text-[rgba(26,26,10,0.32)] dark:text-white/25 hover:border-[rgba(26,26,10,0.35)] dark:hover:border-white/35 transition-colors"
-          >
-            <Plus size={10} strokeWidth={2.5} />
-            Nova tag
-          </button>
-        )}
+      <div className="flex gap-2 items-stretch">
+        <div className="relative flex-1" ref={wrapRef}>
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(26,26,10,0.30)] dark:text-white/25 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => { setSearch(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Buscar tag..."
+            autoComplete="off"
+            className="w-full pl-8 pr-3 py-2 bg-[rgba(26,26,10,0.04)] dark:bg-white/[0.04] border border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] rounded-xl text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[rgba(26,26,10,0.28)] dark:placeholder:text-white/25 focus:outline-none focus:border-[#D81E1E]"
+          />
+          {open && (
+            <ul className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-[rgba(26,26,10,0.10)] dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-44 overflow-y-auto">
+              {filteredTags.map(tag => {
+                const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
+                const selected = value.includes(tag.id);
+                return (
+                  <li
+                    key={tag.id}
+                    onMouseDown={() => toggle(tag.id)}
+                    className="flex items-center gap-2 px-3 py-2 text-[12px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[rgba(26,26,10,0.05)] dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: TAG_COLOR_MAP[tag.cor]?.dot ?? c.dot }} />
+                    <span className="flex-1 truncate">{tag.nome}</span>
+                    {selected && <Check size={13} className="shrink-0 text-[#D81E1E]" strokeWidth={2.5} />}
+                  </li>
+                );
+              })}
+              {filteredTags.length === 0 && (
+                <li className="px-3 py-2.5 text-[12px] text-[rgba(26,26,10,0.35)] dark:text-white/25 italic">Nenhuma tag encontrada</li>
+              )}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreating(v => !v)}
+          title="Nova tag"
+          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] text-[rgba(26,26,10,0.50)] dark:text-white/40 hover:bg-[rgba(216,30,30,0.10)] hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.30)] active:scale-[0.93] transition-all"
+        >
+          <Plus size={15} />
+        </button>
       </div>
 
       {creating && (

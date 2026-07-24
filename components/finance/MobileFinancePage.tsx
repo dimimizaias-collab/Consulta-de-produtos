@@ -38,6 +38,7 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   numero_cheque: string | null;
+  identificacao: string | null;
   numero_parcela: number | null;
   total_parcelas: number | null;
   parcelamento_id: string | null;
@@ -57,6 +58,9 @@ type TxForm = {
   pago: boolean;
   tag_ids: string[];
   observacoes: string;
+  account_id: string | null;
+  numero_cheque: string | null;
+  identificacao: string | null;
 };
 
 // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
@@ -122,6 +126,9 @@ const emptyForm = (): TxForm => ({
   pago: false,
   tag_ids: [],
   observacoes: '',
+  account_id: null,
+  numero_cheque: null,
+  identificacao: null,
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -371,6 +378,7 @@ function TxSheet({
   saving,
   tags,
   onCreateTag,
+  accounts,
   parcelas,
   onOpenParcelas,
   pendingNotes,
@@ -383,6 +391,7 @@ function TxSheet({
   saving: boolean;
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
+  accounts: BankAccount[];
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
   pendingNotes: LinkedNoteLite[];
@@ -445,20 +454,14 @@ function TxSheet({
           </div>
         </div>
 
-        {/* Valor */}
-        <div>
-          <span className={labelCls}>Valor</span>
-          <button
-            onClick={() => setShowKbd(true)}
-            className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
-          >
-            <span className={cn(
-              "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
-              form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
-            )}>
-              R$ {form.valor_final}
-            </span>
-          </button>
+        {/* Data */}
+        <div className="min-w-0">
+          <span className={labelCls}>Data</span>
+          <DateFieldButton
+            className={fieldCls}
+            value={form.data}
+            onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
+          />
         </div>
 
         {/* Favorecido */}
@@ -473,37 +476,19 @@ function TxSheet({
           />
         </div>
 
-        {/* Data */}
-        <div className="min-w-0">
-          <span className={labelCls}>Data</span>
-          <DateFieldButton
-            className={fieldCls}
-            value={form.data}
-            onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
-          />
-        </div>
-
-        {/* Observações */}
+        {/* Conta */}
         <div>
-          <span className={labelCls}>Observações</span>
-          <textarea
-            className={cn(fieldCls, 'resize-none')}
-            value={form.observacoes}
-            onChange={e => setForm({ ...form, observacoes: e.target.value })}
-            placeholder="Comentários sobre esta movimentação... (opcional)"
-            rows={3}
+          <span className={labelCls}>Conta</span>
+          <select
+            className={fieldCls}
+            value={form.account_id ?? ''}
+            onChange={e => setForm({ ...form, account_id: e.target.value || null })}
             onFocus={() => setShowKbd(false)}
-          />
+          >
+            <option value="">Selecione a conta...</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+          </select>
         </div>
-
-        {/* Notas fiscais vinculadas */}
-        <LinkedNotesSection
-          variant="mobile"
-          editable
-          txId={null}
-          pendingNotes={pendingNotes}
-          onPendingChange={onPendingChange}
-        />
 
         {/* Tipo Pagamento */}
         <div>
@@ -524,6 +509,15 @@ function TxSheet({
               </button>
             ))}
           </div>
+          {form.tipo_pagamento === 'Cheque' && (
+            <input
+              className={cn(fieldCls, 'mt-2')}
+              value={form.numero_cheque ?? ''}
+              onChange={e => setForm({ ...form, numero_cheque: e.target.value || null })}
+              placeholder="Numeração do cheque (ex: 000123)"
+              onFocus={() => setShowKbd(false)}
+            />
+          )}
           <button
             onClick={onOpenParcelas}
             className={cn(
@@ -539,6 +533,44 @@ function TxSheet({
               : 'Vencimento / Parcelas'}
           </button>
         </div>
+
+        {/* Identificação — genérico para os tipos que não têm campo próprio */}
+        {form.tipo_pagamento !== 'Cheque' && form.tipo_pagamento !== 'Boleto' && (
+          <div>
+            <span className={labelCls}>Identificação</span>
+            <input
+              className={fieldCls}
+              value={form.identificacao ?? ''}
+              onChange={e => setForm({ ...form, identificacao: e.target.value || null })}
+              placeholder="Ex: número, código ou referência"
+              onFocus={() => setShowKbd(false)}
+            />
+          </div>
+        )}
+
+        {/* Valor */}
+        <div>
+          <span className={labelCls}>Valor</span>
+          <button
+            onClick={() => setShowKbd(true)}
+            className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
+          >
+            <span className={cn(
+              "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
+              form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
+            )}>
+              R$ {form.valor_final}
+            </span>
+          </button>
+        </div>
+
+        {/* Tags */}
+        <TagSelector
+          tags={tags}
+          value={form.tag_ids}
+          onChange={ids => setForm({ ...form, tag_ids: ids })}
+          onCreateTag={onCreateTag}
+        />
 
         {/* Estabelecimento */}
         <div>
@@ -561,13 +593,27 @@ function TxSheet({
           </div>
         </div>
 
-        {/* Tags */}
-        <TagSelector
-          tags={tags}
-          value={form.tag_ids}
-          onChange={ids => setForm({ ...form, tag_ids: ids })}
-          onCreateTag={onCreateTag}
+        {/* Notas fiscais vinculadas */}
+        <LinkedNotesSection
+          variant="mobile"
+          editable
+          txId={null}
+          pendingNotes={pendingNotes}
+          onPendingChange={onPendingChange}
         />
+
+        {/* Observações */}
+        <div>
+          <span className={labelCls}>Observações</span>
+          <textarea
+            className={cn(fieldCls, 'resize-none')}
+            value={form.observacoes}
+            onChange={e => setForm({ ...form, observacoes: e.target.value })}
+            placeholder="Comentários sobre esta movimentação... (opcional)"
+            rows={3}
+            onFocus={() => setShowKbd(false)}
+          />
+        </div>
 
         {/* Pago toggle */}
         <div className="flex items-center gap-3 py-1">
@@ -997,6 +1043,7 @@ function TxDetailSheet({
   saving,
   tags,
   onCreateTag,
+  accounts,
   parcelas,
   onOpenParcelas,
   groupTotal,
@@ -1014,6 +1061,7 @@ function TxDetailSheet({
   saving: boolean;
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
+  accounts: BankAccount[];
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
   groupTotal: number | null;
@@ -1108,27 +1156,18 @@ function TxDetailSheet({
           )}
         </div>
 
-        {/* Valor */}
-        <div>
-          <span className={labelCls}>Valor</span>
+        {/* Data */}
+        <div className="min-w-0">
+          <span className={labelCls}>Data</span>
           {isEdit ? (
-            <button
-              onClick={() => setShowKbd(true)}
-              className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
-            >
-              <span className={cn(
-                "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
-                form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
-              )}>
-                R$ {form.valor_final}
-              </span>
-            </button>
+            <DateFieldButton
+              className={fieldCls}
+              value={form.data}
+              onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
+            />
           ) : (
-            <div className={cn(
-              "font-['DM_Mono',monospace] text-[24px] font-black tracking-tight",
-              tx.tipo === 'Receita' ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]'
-            )}>
-              {fmt(tx.valor_final)}
+            <div className={cn(viewBlockCls, 'font-semibold')}>
+              {new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
             </div>
           )}
         </div>
@@ -1149,86 +1188,23 @@ function TxDetailSheet({
           )}
         </div>
 
-        {/* Data */}
-        <div className="min-w-0">
-          <span className={labelCls}>Data</span>
-          {isEdit ? (
-            <DateFieldButton
-              className={fieldCls}
-              value={form.data}
-              onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
-            />
-          ) : (
-            <div className={cn(viewBlockCls, 'font-semibold')}>
-              {new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-            </div>
-          )}
-        </div>
-
-        {/* Observações */}
+        {/* Conta */}
         <div>
-          <span className={labelCls}>Observações</span>
+          <span className={labelCls}>Conta</span>
           {isEdit ? (
-            <textarea
-              className={cn(fieldCls, 'resize-none')}
-              value={form.observacoes}
-              onChange={e => setForm({ ...form, observacoes: e.target.value })}
-              placeholder="Comentários sobre esta movimentação... (opcional)"
-              rows={3}
+            <select
+              className={fieldCls}
+              value={form.account_id ?? ''}
+              onChange={e => setForm({ ...form, account_id: e.target.value || null })}
               onFocus={() => setShowKbd(false)}
-            />
+            >
+              <option value="">Selecione a conta...</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+            </select>
           ) : (
-            <div className={cn(viewBlockCls, 'font-medium whitespace-pre-wrap')}>{tx.observacoes || '—'}</div>
+            <div className={viewBlockCls}>{accounts.find(a => a.id === tx.account_id)?.nome ?? '—'}</div>
           )}
         </div>
-
-        {/* Notas fiscais vinculadas */}
-        <LinkedNotesSection
-          variant="mobile"
-          editable={isEdit}
-          txId={tx.id}
-          txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
-          siblingTxs={siblingTxs}
-        />
-
-        {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" abaixo) */}
-        {!isEdit && (
-          <div className="min-w-0">
-            <span className={labelCls}>Vencimento / Parcelamento</span>
-            {tx.vencimento ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className={cn(viewBlockCls, 'inline-block w-auto font-semibold')}>
-                  {new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </div>
-                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[11px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
-                  {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
-                </span>
-              </div>
-            ) : (
-              <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
-            )}
-          </div>
-        )}
-
-        {/* Valor Total do Parcelamento (somente leitura) */}
-        {!isEdit && groupTotal !== null && (
-          <div className="min-w-0">
-            <span className={labelCls}>Valor Total do Parcelamento</span>
-            <div className={cn(viewBlockCls, 'text-[#D81E1E] dark:text-[#F43F5E]')}>
-              {fmt(groupTotal)}
-            </div>
-          </div>
-        )}
-
-        {/* Código de barras do boleto (somente leitura — configurar via "Visualizar pagamento") */}
-        {!isEdit && tx.tipo_pagamento === 'Boleto' && tx.codigo_barras && (
-          <div className="min-w-0">
-            <span className={labelCls}>Código de Barras</span>
-            <div className={cn(viewBlockCls, 'font-mono text-[12px] break-all')}>
-              {tx.codigo_barras}
-            </div>
-          </div>
-        )}
 
         {/* Tipo Pagamento */}
         <div>
@@ -1254,6 +1230,15 @@ function TxDetailSheet({
             <span className="inline-block bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08] border-[1.5px] border-[rgba(26,26,10,0.14)] dark:border-white/[0.14] rounded-lg px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#1A1A0E] dark:text-[#F2F0E3]">
               {tx.tipo_pagamento}
             </span>
+          )}
+          {isEdit && form.tipo_pagamento === 'Cheque' && (
+            <input
+              className={cn(fieldCls, 'mt-2')}
+              value={form.numero_cheque ?? ''}
+              onChange={e => setForm({ ...form, numero_cheque: e.target.value || null })}
+              placeholder="Numeração do cheque (ex: 000123)"
+              onFocus={() => setShowKbd(false)}
+            />
           )}
           {isEdit && (
             <button
@@ -1285,32 +1270,89 @@ function TxDetailSheet({
               Editar todas as parcelas
             </button>
           )}
+          {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" acima) */}
+          {!isEdit && (
+            <div className="min-w-0 mt-2">
+              {tx.vencimento ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={cn(viewBlockCls, 'inline-block w-auto font-semibold')}>
+                    {new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </div>
+                  <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[11px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
+                    {tx.numero_parcela ?? 1}/{tx.total_parcelas ?? 1}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[12px] font-semibold text-[rgba(26,26,10,0.30)] dark:text-white/22">À vista, sem parcelamento</span>
+              )}
+            </div>
+          )}
+          {/* Valor Total do Parcelamento (somente leitura) */}
+          {!isEdit && groupTotal !== null && (
+            <div className="min-w-0 mt-2">
+              <span className={labelCls}>Valor Total do Parcelamento</span>
+              <div className={cn(viewBlockCls, 'text-[#D81E1E] dark:text-[#F43F5E]')}>
+                {fmt(groupTotal)}
+              </div>
+            </div>
+          )}
+          {/* Código de barras do boleto (somente leitura — configurar via "Visualizar pagamento") */}
+          {!isEdit && tx.tipo_pagamento === 'Boleto' && tx.codigo_barras && (
+            <div className="min-w-0 mt-2">
+              <span className={labelCls}>Código de Barras</span>
+              <div className={cn(viewBlockCls, 'font-mono text-[12px] break-all')}>
+                {tx.codigo_barras}
+              </div>
+            </div>
+          )}
+          {!isEdit && tx.tipo_pagamento === 'Cheque' && tx.numero_cheque && (
+            <div className="min-w-0 mt-2">
+              <span className={labelCls}>Numeração do Cheque</span>
+              <div className={viewBlockCls}>{tx.numero_cheque}</div>
+            </div>
+          )}
         </div>
 
-        {/* Estabelecimento */}
+        {/* Identificação — genérico para os tipos que não têm campo próprio */}
+        {tx.tipo_pagamento !== 'Cheque' && tx.tipo_pagamento !== 'Boleto' && (
+          <div>
+            <span className={labelCls}>Identificação</span>
+            {isEdit ? (
+              <input
+                className={fieldCls}
+                value={form.identificacao ?? ''}
+                onChange={e => setForm({ ...form, identificacao: e.target.value || null })}
+                placeholder="Ex: número, código ou referência"
+                onFocus={() => setShowKbd(false)}
+              />
+            ) : (
+              <div className={viewBlockCls}>{tx.identificacao || '—'}</div>
+            )}
+          </div>
+        )}
+
+        {/* Valor */}
         <div>
-          <span className={labelCls}>Estabelecimento</span>
+          <span className={labelCls}>Valor</span>
           {isEdit ? (
-            <div className="flex gap-2">
-              {ESTABLISHMENTS.map(e => (
-                <button
-                  key={e}
-                  onClick={() => setForm({ ...form, estabelecimento: e })}
-                  className={cn(
-                    'flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
-                    form.estabelecimento === e
-                      ? 'bg-[#FFE500] border-[#D4C000] text-[rgba(26,26,10,0.75)]'
-                      : 'bg-transparent border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'
-                  )}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => setShowKbd(true)}
+              className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
+            >
+              <span className={cn(
+                "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
+                form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
+              )}>
+                R$ {form.valor_final}
+              </span>
+            </button>
           ) : (
-            <span className="inline-block bg-[#FFE500] border-[1.5px] border-[#D4C000] rounded-xl px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-[rgba(26,26,10,0.78)]">
-              {tx.estabelecimento}
-            </span>
+            <div className={cn(
+              "font-['DM_Mono',monospace] text-[24px] font-black tracking-tight",
+              tx.tipo === 'Receita' ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]'
+            )}>
+              {fmt(tx.valor_final)}
+            </div>
           )}
         </div>
 
@@ -1344,6 +1386,59 @@ function TxDetailSheet({
             )}
           </div>
         )}
+
+        {/* Estabelecimento */}
+        <div>
+          <span className={labelCls}>Estabelecimento</span>
+          {isEdit ? (
+            <div className="flex gap-2">
+              {ESTABLISHMENTS.map(e => (
+                <button
+                  key={e}
+                  onClick={() => setForm({ ...form, estabelecimento: e })}
+                  className={cn(
+                    'flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    form.estabelecimento === e
+                      ? 'bg-[#FFE500] border-[#D4C000] text-[rgba(26,26,10,0.75)]'
+                      : 'bg-transparent border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'
+                  )}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="inline-block bg-[#FFE500] border-[1.5px] border-[#D4C000] rounded-xl px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-[rgba(26,26,10,0.78)]">
+              {tx.estabelecimento}
+            </span>
+          )}
+        </div>
+
+        {/* Notas fiscais vinculadas */}
+        <LinkedNotesSection
+          variant="mobile"
+          editable={isEdit}
+          txId={tx.id}
+          txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
+          siblingTxs={siblingTxs}
+        />
+
+        {/* Observações */}
+        <div>
+          <span className={labelCls}>Observações</span>
+          {isEdit ? (
+            <textarea
+              className={cn(fieldCls, 'resize-none')}
+              value={form.observacoes}
+              onChange={e => setForm({ ...form, observacoes: e.target.value })}
+              placeholder="Comentários sobre esta movimentação... (opcional)"
+              rows={3}
+              onFocus={() => setShowKbd(false)}
+            />
+          ) : (
+            <div className={cn(viewBlockCls, 'font-medium whitespace-pre-wrap')}>{tx.observacoes || '—'}</div>
+          )}
+        </div>
 
         {/* Pago toggle / status */}
         <div className="flex items-center gap-3 py-1">
@@ -1661,6 +1756,10 @@ export function MobileFinancePage() {
   const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view');
   const [detailForm, setDetailForm] = useState<TxForm>(emptyForm());
   const [savingDetail, setSavingDetail] = useState(false);
+  // Snapshot do form no momento em que a edição começou — usado para detectar
+  // alterações não salvas ao tentar sair do modo de edição (botão de lápis).
+  const [detailSnapshot, setDetailSnapshot] = useState<string | null>(null);
+  const [showDiscardDetailConfirm, setShowDiscardDetailConfirm] = useState(false);
 
   // parcelas do pagamento (Nova Movimentação e Editar)
   const [txParcelas, setTxParcelas] = useState<ParcelaRow[]>([]);
@@ -1681,6 +1780,12 @@ export function MobileFinancePage() {
   }
 
   useEffect(() => { loadData(); }, []);
+  // Contas precisam estar disponíveis para o campo "Conta" do formulário de
+  // movimentação mesmo antes do usuário visitar a aba Dados.
+  useEffect(() => {
+    supabase.from('finance_accounts').select('*').order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setAccounts(data as BankAccount[]); });
+  }, []);
 
   async function loadDadosData() {
     const [accRes, favRes, supRes] = await Promise.all([
@@ -2084,7 +2189,9 @@ export function MobileFinancePage() {
       tipo_pagamento: txForm.tipo_pagamento,
       favorecido: txForm.favorecido.trim(),
       estabelecimento: txForm.estabelecimento,
-      numero_cheque: null,
+      account_id: txForm.account_id ?? null,
+      numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+      identificacao: (txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto') ? (txForm.identificacao?.trim() || null) : null,
       tag_ids: txForm.tag_ids ?? [],
       observacoes: txForm.observacoes.trim() || null,
     };
@@ -2139,7 +2246,7 @@ export function MobileFinancePage() {
 
   function openDetail(tx: Transaction) {
     setDetailTx(tx);
-    setDetailForm({
+    const nextForm: TxForm = {
       tipo: tx.tipo,
       tipo_pagamento: tx.tipo_pagamento,
       favorecido: tx.favorecido,
@@ -2149,15 +2256,40 @@ export function MobileFinancePage() {
       pago: tx.pago,
       tag_ids: tx.tag_ids ?? [],
       observacoes: tx.observacoes ?? '',
-    });
+      account_id: tx.account_id ?? null,
+      numero_cheque: tx.numero_cheque ?? null,
+      identificacao: tx.identificacao ?? null,
+    };
+    setDetailForm(nextForm);
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
     // salvar não apagar o vencimento existente.
-    setDetailParcelas(tx.vencimento
+    const nextParcelas: ParcelaRow[] = tx.vencimento
       ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, codigo_barras: tx.codigo_barras ?? '', id: tx.id }]
-      : []);
+      : [];
+    setDetailParcelas(nextParcelas);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     setDetailMode('view');
+    setDetailSnapshot(JSON.stringify({ form: nextForm, parcelas: nextParcelas }));
+  }
+
+  // Alterna a trava de edição do detalhe. Ao tentar travar de novo (sair do modo edição)
+  // com alterações não salvas, pede confirmação antes de descartar e voltar ao modo leitura.
+  function handleToggleDetailMode() {
+    if (detailMode === 'view') { setDetailMode('edit'); return; }
+    const dirty = detailSnapshot !== JSON.stringify({ form: detailForm, parcelas: detailParcelas });
+    if (dirty) setShowDiscardDetailConfirm(true);
+    else setDetailMode('view');
+  }
+
+  function confirmDiscardDetailEdit() {
+    if (detailSnapshot) {
+      const { form, parcelas } = JSON.parse(detailSnapshot) as { form: TxForm; parcelas: ParcelaRow[] };
+      setDetailForm(form);
+      setDetailParcelas(parcelas);
+    }
+    setDetailMode('view');
+    setShowDiscardDetailConfirm(false);
   }
 
   // Carrega todas as parcelas irmãs no editor para edição em lote (diff no salvar,
@@ -2198,7 +2330,9 @@ export function MobileFinancePage() {
       tipo_pagamento: detailForm.tipo_pagamento,
       favorecido: detailForm.favorecido.trim(),
       estabelecimento: detailForm.estabelecimento,
-      numero_cheque: null,
+      account_id: detailForm.account_id ?? null,
+      numero_cheque: detailForm.tipo_pagamento === 'Cheque' ? (detailForm.numero_cheque || null) : null,
+      identificacao: (detailForm.tipo_pagamento !== 'Cheque' && detailForm.tipo_pagamento !== 'Boleto') ? (detailForm.identificacao?.trim() || null) : null,
       tag_ids: detailForm.tag_ids ?? [],
       observacoes: detailForm.observacoes.trim() || null,
     };
@@ -2220,6 +2354,7 @@ export function MobileFinancePage() {
       setSavingDetail(false);
       setDetailTx({ ...detailTx, ...updates });
       setDetailMode('view');
+      setDetailSnapshot(JSON.stringify({ form: detailForm, parcelas: detailParcelas }));
       loadData();
       return;
     }
@@ -2313,6 +2448,7 @@ export function MobileFinancePage() {
     setSavingDetail(false);
     setDetailTx({ ...detailTx, ...updates });
     setDetailMode('view');
+    setDetailSnapshot(JSON.stringify({ form: detailForm, parcelas: detailParcelas }));
     loadData();
   }
 
@@ -2954,6 +3090,7 @@ export function MobileFinancePage() {
             saving={saving}
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+            accounts={accounts}
             parcelas={txParcelas}
             onOpenParcelas={() => setParcelasModalOpen('new')}
             pendingNotes={pendingNotes}
@@ -3032,7 +3169,7 @@ export function MobileFinancePage() {
           <TxDetailSheet
             tx={detailTx}
             mode={detailMode}
-            onToggleMode={() => setDetailMode(m => (m === 'view' ? 'edit' : 'view'))}
+            onToggleMode={handleToggleDetailMode}
             form={detailForm}
             setForm={setDetailForm}
             onSave={handleSaveDetail}
@@ -3040,6 +3177,7 @@ export function MobileFinancePage() {
             saving={savingDetail}
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+            accounts={accounts}
             parcelas={detailParcelas}
             onOpenParcelas={() => setParcelasModalOpen('edit')}
             groupTotal={getParcelaGroupTotal(detailTx)}
@@ -3047,6 +3185,54 @@ export function MobileFinancePage() {
             editingWholeGroup={editingGroupIds !== null}
             siblingTxs={getParcelaSiblings(detailTx)}
           />
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Confirmação de descarte ao sair da edição sem salvar */}
+    <AnimatePresence>
+      {showDiscardDetailConfirm && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowDiscardDetailConfirm(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 z-[151] flex items-center justify-center p-6 pointer-events-none"
+          >
+            <div className="pointer-events-auto bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                  <AlertTriangle size={17} />
+                </div>
+                <h3 className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Sair sem salvar?</h3>
+              </div>
+              <p className="text-sm text-[rgba(26,26,10,0.55)] dark:text-white/45 mb-5">
+                Você tem alterações não salvas nesta movimentação. Se sair do modo de edição agora, elas serão descartadas.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDiscardDetailConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-sm font-bold text-[rgba(26,26,10,0.55)] dark:text-white/45 active:scale-[0.97] transition-transform"
+                >
+                  Continuar editando
+                </button>
+                <button
+                  onClick={confirmDiscardDetailEdit}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold active:scale-[0.97] transition-transform"
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </>
       )}
     </AnimatePresence>

@@ -33,6 +33,7 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   numero_cheque: string | null;
+  identificacao: string | null;
   numero_parcela: number | null;
   total_parcelas: number | null;
   parcelamento_id: string | null;
@@ -109,6 +110,7 @@ const emptyTxForm = (): TxForm => ({
   total_pago: 0,
   pago: false,
   numero_cheque: null,
+  identificacao: null,
   numero_parcela: null,
   total_parcelas: null,
   parcelamento_id: null,
@@ -136,6 +138,8 @@ const fmtDate = (iso: string | null) => iso ? new Date(iso + 'T00:00:00').toLoca
 const inputCls =
   'px-3 py-2.5 bg-surface-container rounded-xl text-sm text-on-surface border border-on-surface/5 focus:outline-none focus:border-primary/50 placeholder:text-on-surface/30 w-full';
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-on-surface/40';
+// Bloco somente-leitura usado no modal de Editar Movimentação quando os campos estão trancados
+const viewBlockCls = 'px-3 py-2.5 bg-on-surface/5 rounded-xl text-sm text-on-surface/70 select-none min-h-[42px] flex items-center';
 
 // Remove as setas do input numérico (Chrome/Safari/Firefox)
 const noSpinnerCls = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0';
@@ -223,6 +227,12 @@ export function FinanceManager() {
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
   // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
   const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; codigo_barras: string; id?: string }>>([]);
+  // Trava de edição do modal desktop — igual ao padrão do mobile: abre em modo leitura,
+  // botão de lápis habilita a edição. Snapshot guarda o estado no momento em que abriu,
+  // para detectar alterações não salvas ao tentar sair do modo de edição.
+  const [txLocked, setTxLocked] = useState(false);
+  const [txSnapshot, setTxSnapshot] = useState<{ form: string; parcelas: string; parcelasEnabled: boolean } | null>(null);
+  const [showDiscardEditConfirm, setShowDiscardEditConfirm] = useState(false);
   // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
   // edição do parcelamento inteiro, sem apagar e recriar tudo.
   const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
@@ -430,6 +440,8 @@ export function FinanceManager() {
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     setFavOpen(false);
+    setTxLocked(false);
+    setTxSnapshot(null);
     fetchFavorecidos();
     setShowTxModal(true);
   };
@@ -437,14 +449,41 @@ export function FinanceManager() {
   const openEditTx = (t: Transaction) => {
     setEditingId(t.id);
     setPendingNotes([]);
-    setTxForm({ ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] });
+    const nextForm: TxForm = { ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] };
     // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
-    setParcelasEnabled(!!t.vencimento);
-    setParcelas(t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : []);
+    const nextParcelasEnabled = !!t.vencimento;
+    const nextParcelas = t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : [];
+    setTxForm(nextForm);
+    setParcelasEnabled(nextParcelasEnabled);
+    setParcelas(nextParcelas);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
+    setTxLocked(true);
+    setTxSnapshot({ form: JSON.stringify(nextForm), parcelas: JSON.stringify(nextParcelas), parcelasEnabled: nextParcelasEnabled });
     fetchFavorecidos();
     setShowTxModal(true);
+  };
+
+  // Alterna a trava de edição do modal. Ao tentar travar de novo (sair do modo edição) com
+  // alterações não salvas, pede confirmação antes de descartar e voltar ao modo leitura.
+  const handleToggleTxLock = () => {
+    if (txLocked) { setTxLocked(false); return; }
+    const dirty = !txSnapshot
+      || JSON.stringify(txForm) !== txSnapshot.form
+      || JSON.stringify(parcelas) !== txSnapshot.parcelas
+      || parcelasEnabled !== txSnapshot.parcelasEnabled;
+    if (dirty) setShowDiscardEditConfirm(true);
+    else setTxLocked(true);
+  };
+
+  const confirmDiscardTxEdit = () => {
+    if (txSnapshot) {
+      setTxForm(JSON.parse(txSnapshot.form));
+      setParcelas(JSON.parse(txSnapshot.parcelas));
+      setParcelasEnabled(txSnapshot.parcelasEnabled);
+    }
+    setTxLocked(true);
+    setShowDiscardEditConfirm(false);
   };
 
   // Carrega todas as parcelas irmãs no editor para edição em lote (diff no salvar,
@@ -474,6 +513,7 @@ export function FinanceManager() {
           favorecido: txForm.favorecido,
           estabelecimento: txForm.estabelecimento,
           numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+          identificacao: (txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto') ? (txForm.identificacao?.trim() || null) : null,
           account_id: txForm.account_id ?? null,
           tag_ids: txForm.tag_ids ?? [],
           observacoes: txForm.observacoes?.trim() || null,
@@ -563,6 +603,7 @@ export function FinanceManager() {
           ...txForm,
           vencimento: null,
           numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+          identificacao: (txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto') ? (txForm.identificacao?.trim() || null) : null,
           numero_parcela: null,
           total_parcelas: null,
           parcelamento_id: null,
@@ -887,6 +928,7 @@ export function FinanceManager() {
           account_id: importAccountId || null,
           pago: true,
           numero_cheque: null,
+          identificacao: null,
           numero_parcela: null,
           total_parcelas: null,
           parcelamento_id: null,
@@ -2078,7 +2120,17 @@ export function FinanceManager() {
 
       {/* ── Transaction Modal ──────────────────────────────────────────────── */}
       <AnimatePresence>
-        {showTxModal && (
+        {showTxModal && (() => {
+          const isLockedView = !!editingId && txLocked;
+          const selectedAccount = accounts.find(a => a.id === txForm.account_id);
+          const selectedTagObjs = tags.filter(tg => (txForm.tag_ids ?? []).includes(tg.id));
+          const showIdentificacao = txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto';
+          const parcelasSummary = !parcelasEnabled || parcelas.length === 0
+            ? 'Sem vencimento'
+            : parcelas.length === 1
+              ? `Vencimento: ${fmtDate(parcelas[0].data)}`
+              : `${parcelas.length} parcelas · Total ${fmt(totalParcelas)}`;
+          return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowTxModal(false)} />
@@ -2093,9 +2145,24 @@ export function FinanceManager() {
                 <h2 className="text-lg font-manrope font-extrabold text-on-surface">
                   {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
                 </h2>
-                <button onClick={() => setShowTxModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={handleToggleTxLock}
+                      title={txLocked ? 'Habilitar edição' : 'Sair do modo de edição'}
+                      className={cn(
+                        'w-8 h-8 rounded-xl flex items-center justify-center transition-colors',
+                        !txLocked ? 'bg-primary/10 text-primary' : 'hover:bg-on-surface/5 text-on-surface/40'
+                      )}
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  )}
+                  <button onClick={() => setShowTxModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Tabs: Receita / Despesa */}
@@ -2103,6 +2170,7 @@ export function FinanceManager() {
                 {(['Receita', 'Despesa'] as TransactionType[]).map(tab => (
                   <button
                     key={tab}
+                    disabled={isLockedView}
                     onClick={() => {
                       setTxForm(f => ({ ...f, tipo: tab }));
                       setParcelasEnabled(false);
@@ -2112,6 +2180,7 @@ export function FinanceManager() {
                     }}
                     className={cn(
                       'flex-1 py-2 rounded-xl text-sm font-bold transition-all',
+                      isLockedView && 'opacity-60 cursor-not-allowed',
                       txForm.tipo === tab
                         ? tab === 'Receita'
                           ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
@@ -2126,21 +2195,24 @@ export function FinanceManager() {
 
               <div className="flex flex-col gap-4">
 
-                {/* ── RECEITA ───────────────────────────────────────────── */}
-                {txForm.tipo === 'Receita' && (<>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Data</label>
+                {/* Data */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Data</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{fmtDate(txForm.data)}</div>
+                  ) : (
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
-                  </div>
+                  )}
+                </div>
 
-                  {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
-                  {renderParcelasSection()}
-
-                  {/* Favorecido — custom combobox */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Favorecido</label>
+                {/* Favorecido — custom combobox */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Favorecido</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{txForm.favorecido || '—'}</div>
+                  ) : (
                     <div className="flex gap-2 items-stretch">
-                      <div className="relative flex-1" ref={txForm.tipo === 'Receita' ? favRef : undefined}>
+                      <div className="relative flex-1" ref={favRef}>
                         <input
                           value={txForm.favorecido}
                           onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavOpen(true); }}
@@ -2150,7 +2222,7 @@ export function FinanceManager() {
                           autoComplete="off"
                         />
                         <AnimatePresence>
-                          {favOpen && txForm.tipo === 'Receita' && (
+                          {favOpen && (
                             <motion.ul
                               initial={{ opacity: 0, y: -4, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -2187,10 +2259,15 @@ export function FinanceManager() {
                         <Plus size={15} />
                       </button>
                     </div>
-                  </div>
-                  {/* Conta */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Conta</label>
+                  )}
+                </div>
+
+                {/* Conta */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Conta</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{selectedAccount ? `${selectedAccount.nome} — ${selectedAccount.banco}` : '—'}</div>
+                  ) : (
                     <div className="flex gap-2 items-stretch">
                       <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={cn(inputCls, 'flex-1')}>
                         <option value="">Selecione a conta...</option>
@@ -2206,35 +2283,15 @@ export function FinanceManager() {
                         <Plus size={15} />
                       </button>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Estabelecimento</label>
-                    <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
-                      {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Valor (R$)</label>
-                    {parcelasEnabled ? (
-                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
-                        {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
-                      </div>
-                    ) : (
-                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
-                    )}
-                  </div>
-                </>)}
+                  )}
+                </div>
 
-                {/* ── DESPESA ───────────────────────────────────────────── */}
-                {txForm.tipo === 'Despesa' && (<>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Data</label>
-                    <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
-                  </div>
-
-                  {/* Tipo de Pagamento */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Tipo de Pagamento</label>
+                {/* Tipo de Pagamento (+ Numeração do Cheque + Vencimento/Parcelas) */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Tipo de Pagamento</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{txForm.tipo_pagamento}</div>
+                  ) : (
                     <select
                       value={txForm.tipo_pagamento}
                       onChange={e => setTxForm(f => ({ ...f, tipo_pagamento: e.target.value as PaymentType }))}
@@ -2242,11 +2299,15 @@ export function FinanceManager() {
                     >
                       {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
+                  )}
 
-                    {/* Numeração do Cheque */}
-                    {txForm.tipo_pagamento === 'Cheque' && (
-                      <div className="flex flex-col gap-1.5 mt-2">
-                        <label className={labelCls}>Numeração do Cheque</label>
+                  {/* Numeração do Cheque */}
+                  {txForm.tipo_pagamento === 'Cheque' && (
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <label className={labelCls}>Numeração do Cheque</label>
+                      {isLockedView ? (
+                        <div className={viewBlockCls}>{txForm.numero_cheque || '—'}</div>
+                      ) : (
                         <input
                           type="text"
                           value={txForm.numero_cheque ?? ''}
@@ -2254,146 +2315,168 @@ export function FinanceManager() {
                           placeholder="Ex: 000123"
                           className={inputCls}
                         />
-                      </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
+                {isLockedView ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Vencimento / Parcelas</label>
+                    <div className={viewBlockCls}>{parcelasSummary}</div>
+                  </div>
+                ) : renderParcelasSection()}
+
+                {/* Identificação — genérico para os tipos que não têm campo próprio */}
+                {showIdentificacao && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Identificação</label>
+                    {isLockedView ? (
+                      <div className={viewBlockCls}>{txForm.identificacao || '—'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={txForm.identificacao ?? ''}
+                        onChange={e => setTxForm(f => ({ ...f, identificacao: e.target.value || null }))}
+                        placeholder="Ex: número, código ou referência"
+                        className={inputCls}
+                      />
                     )}
                   </div>
+                )}
 
-                  {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
-                  {renderParcelasSection()}
+                {/* Valor */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Valor (R$)</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{fmt(parcelasEnabled ? totalParcelas : txForm.valor_final)}</div>
+                  ) : parcelasEnabled ? (
+                    <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                      {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
+                    </div>
+                  ) : (
+                    <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
+                  )}
+                </div>
 
-                  {/* Favorecido — custom combobox */}
+                {/* Tags */}
+                {isLockedView ? (
                   <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Favorecido</label>
-                    <div className="flex gap-2 items-stretch">
-                      <div className="relative flex-1" ref={txForm.tipo === 'Despesa' ? favRef : undefined}>
-                        <input
-                          value={txForm.favorecido}
-                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavOpen(true); }}
-                          onFocus={() => setFavOpen(true)}
-                          placeholder="Digite para buscar..."
-                          className={inputCls}
-                          autoComplete="off"
-                        />
-                        <AnimatePresence>
-                          {favOpen && txForm.tipo === 'Despesa' && (
-                            <motion.ul
-                              initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                              transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#2a2a24] border border-on-surface/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
-                            >
-                              {favorecidos
-                                .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
-                                .map(fv => (
-                                  <li
-                                    key={fv.id}
-                                    onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: fv.nome_fiscal })); setFavOpen(false); }}
-                                    className="px-3 py-2.5 text-sm text-on-surface/90 hover:bg-on-surface/10 cursor-pointer transition-colors"
-                                  >
-                                    <span className="font-semibold">{fv.nome_fiscal}</span>
-                                    {fv.nome_banco && <span className="ml-2 text-xs text-on-surface/40">{fv.nome_banco}</span>}
-                                  </li>
-                                ))}
-                              {favorecidos.filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase())).length === 0 && (
-                                <li className="px-3 py-2.5 text-sm text-on-surface/40 italic">Nenhum resultado</li>
-                              )}
-                            </motion.ul>
-                          )}
-                        </AnimatePresence>
+                    <label className={labelCls}>Tags</label>
+                    {selectedTagObjs.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedTagObjs.map(tg => {
+                          const c = TAG_COLOR_MAP[tg.cor] ?? TAG_COLOR_MAP.gray;
+                          return (
+                            <span key={tg.id} className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border', c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark)}>
+                              {tg.nome}
+                            </span>
+                          );
+                        })}
                       </div>
-                      <button
-                        type="button"
-                        onClick={openFavorecidoModal}
-                        title="Cadastrar favorecido"
-                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
-                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
-                      >
-                        <Plus size={15} />
-                      </button>
-                    </div>
+                    ) : (
+                      <div className={viewBlockCls}>Nenhuma tag</div>
+                    )}
                   </div>
-                  {/* Conta */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Conta</label>
-                    <div className="flex gap-2 items-stretch">
-                      <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={cn(inputCls, 'flex-1')}>
-                        <option value="">Selecione a conta...</option>
-                        {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={openAddAccount}
-                        title="Cadastrar conta"
-                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
-                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
-                      >
-                        <Plus size={15} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Estabelecimento</label>
+                ) : (
+                  <TagSelector
+                    tags={tags}
+                    value={txForm.tag_ids ?? []}
+                    onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
+                    onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+                    parcelCount={parcelasEnabled ? parcelas.length : undefined}
+                  />
+                )}
+
+                {/* Estabelecimento */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Estabelecimento</label>
+                  {isLockedView ? (
+                    <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
+                  ) : (
                     <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
                       {ESTABLISHMENTS.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Valor (R$)</label>
-                    {parcelasEnabled ? (
-                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
-                        {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
-                      </div>
-                    ) : (
-                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
-                    )}
-                  </div>
-                </>)}
-              </div>
+                  )}
+                </div>
 
-              {/* Tags */}
-              <div className="mt-4">
-                <TagSelector
-                  tags={tags}
-                  value={txForm.tag_ids ?? []}
-                  onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
-                  onCreateTag={(nome, cor) => createTag(nome, cor, '')}
-                  parcelCount={parcelasEnabled ? parcelas.length : undefined}
-                />
-              </div>
-
-              {/* Observações */}
-              <div className="flex flex-col gap-1.5 mt-4">
-                <label className={labelCls}>Observações</label>
-                <textarea
-                  value={txForm.observacoes ?? ''}
-                  onChange={e => setTxForm(f => ({ ...f, observacoes: e.target.value || null }))}
-                  rows={3}
-                  placeholder="Comentários sobre esta movimentação... (opcional)"
-                  className={cn(inputCls, 'resize-none')}
-                />
-              </div>
-
-              {/* Notas fiscais vinculadas */}
-              <div className="mt-4">
+                {/* Notas fiscais vinculadas */}
                 <LinkedNotesSection
                   variant="desktop"
-                  editable
+                  editable={!isLockedView}
                   txId={editingId}
                   txMeta={{ favorecido: txForm.favorecido, valor_final: txForm.valor_final }}
                   pendingNotes={pendingNotes}
                   onPendingChange={setPendingNotes}
                   siblingTxs={editingTxSiblings}
                 />
+
+                {/* Observações */}
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Observações</label>
+                  {isLockedView ? (
+                    <div className={cn(viewBlockCls, 'whitespace-pre-wrap items-start')}>{txForm.observacoes || '—'}</div>
+                  ) : (
+                    <textarea
+                      value={txForm.observacoes ?? ''}
+                      onChange={e => setTxForm(f => ({ ...f, observacoes: e.target.value || null }))}
+                      rows={3}
+                      placeholder="Comentários sobre esta movimentação... (opcional)"
+                      className={cn(inputCls, 'resize-none')}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3 mt-5">
-                <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
-                  Cancelar
+                {isLockedView ? (
+                  <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                    Fechar
+                  </button>
+                ) : (<>
+                  <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                    {submitting && <Loader2 size={14} className="animate-spin" />}
+                    {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                  </button>
+                </>)}
+              </div>
+            </motion.div>
+          </div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* ── Confirmação de descarte ao sair da edição sem salvar ────────────── */}
+      <AnimatePresence>
+        {showDiscardEditConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDiscardEditConfirm(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-2xl p-5 w-full max-w-sm shadow-2xl"
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                  <AlertTriangle size={17} />
+                </div>
+                <h3 className="text-base font-manrope font-extrabold text-on-surface">Sair sem salvar?</h3>
+              </div>
+              <p className="text-sm text-on-surface/60 mb-5">
+                Você tem alterações não salvas nesta movimentação. Se sair do modo de edição agora, elas serão descartadas.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowDiscardEditConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                  Continuar editando
                 </button>
-                <button onClick={handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-                  {submitting && <Loader2 size={14} className="animate-spin" />}
-                  {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                <button onClick={confirmDiscardTxEdit} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold hover:opacity-90 transition-opacity">
+                  Descartar alterações
                 </button>
               </div>
             </motion.div>
