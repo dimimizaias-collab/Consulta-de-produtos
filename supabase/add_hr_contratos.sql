@@ -1,4 +1,4 @@
--- Migration: Dados Pessoais (data_nascimento/cnpj) + Informações Contratuais (hr_contratos)
+-- Migration: Dados Pessoais (data_nascimento/cpf) + Informações Contratuais (hr_contratos)
 -- Execute no Supabase SQL Editor
 --
 -- Contexto: a Editar Colaborador passa a ter duas seções — "Dados Pessoais" (fixo, no
@@ -9,7 +9,18 @@
 -- 1. Dados Pessoais — novos campos no colaborador
 ALTER TABLE hr_employees
   ADD COLUMN IF NOT EXISTS data_nascimento DATE,
-  ADD COLUMN IF NOT EXISTS cnpj TEXT;
+  ADD COLUMN IF NOT EXISTS cpf TEXT;
+
+-- Se esta migration já tiver sido executada antes da correção (colaborador é pessoa física,
+-- usa CPF e não CNPJ), renomeia a coluna criada por engano em vez de duplicar.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_employees' AND column_name = 'cnpj')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hr_employees' AND column_name = 'cpf' )
+  THEN
+    ALTER TABLE hr_employees RENAME COLUMN cnpj TO cpf;
+  END IF;
+END $$;
 
 -- Loja/Cargo/Data de Admissão/Salário agora vivem em hr_contratos (abaixo) — o cadastro de
 -- um novo colaborador não preenche mais esses campos em hr_employees, então a constraint

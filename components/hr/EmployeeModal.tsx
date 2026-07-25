@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Trash2, Camera, User, Pencil, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { type Employee, uploadEmployeePhoto, initials, fmtSalario, parseMoneyInput, toMoneyInput, maskCnpj } from '@/lib/hrEmployees';
+import { type Employee, uploadEmployeePhoto, initials, fmtSalario, parseMoneyInput, toMoneyInput, maskCpf } from '@/lib/hrEmployees';
 import {
   type Contrato, ANOS_FISCAIS, MESES_ABREV, validateNoOverlap, fetchContratosByColaborador,
 } from '@/lib/hrContratos';
@@ -14,15 +14,15 @@ import { SalaryEditModal } from './SalaryEditModal';
 type EmployeeForm = {
   nome: string;
   data_nascimento: string;
-  cnpj: string;
+  cpf: string;
 };
 
 function emptyForm(): EmployeeForm {
-  return { nome: '', data_nascimento: '', cnpj: '' };
+  return { nome: '', data_nascimento: '', cpf: '' };
 }
 
 function employeeToForm(emp: Employee): EmployeeForm {
-  return { nome: emp.nome, data_nascimento: emp.data_nascimento ?? '', cnpj: emp.cnpj ?? '' };
+  return { nome: emp.nome, data_nascimento: emp.data_nascimento ?? '', cpf: emp.cpf ?? '' };
 }
 
 interface PeriodoDraft {
@@ -172,7 +172,7 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
       const employeePayload = {
         nome: form.nome.trim(),
         data_nascimento: form.data_nascimento || null,
-        cnpj: form.cnpj || null,
+        cpf: form.cpf || null,
         foto_url: fotoUrl,
         updated_at: new Date().toISOString(),
       };
@@ -281,11 +281,11 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
             <input type="date" className={fieldCls} value={form.data_nascimento} onChange={e => setForm({ ...form, data_nascimento: e.target.value })} />
           </div>
           <div className="flex-1">
-            <label className={labelCls}>CNPJ</label>
+            <label className={labelCls}>CPF</label>
             <input
-              className={`${fieldCls} font-mono tracking-wide`} value={form.cnpj}
-              onChange={e => setForm({ ...form, cnpj: maskCnpj(e.target.value) })}
-              placeholder="00.000.000/0000-00"
+              className={`${fieldCls} font-mono tracking-wide`} value={form.cpf}
+              onChange={e => setForm({ ...form, cpf: maskCpf(e.target.value) })}
+              placeholder="000.000.000-00"
             />
           </div>
         </div>
