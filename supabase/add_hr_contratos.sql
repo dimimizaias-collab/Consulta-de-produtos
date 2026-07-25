@@ -50,6 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_hr_contratos_ano ON hr_contratos(ano);
 
 ALTER TABLE hr_contratos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "hr_contratos_all" ON hr_contratos;
 CREATE POLICY "hr_contratos_all"
   ON hr_contratos FOR ALL USING (true) WITH CHECK (true);
 

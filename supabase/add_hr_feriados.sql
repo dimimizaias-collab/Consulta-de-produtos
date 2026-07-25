@@ -10,5 +10,6 @@ CREATE TABLE IF NOT EXISTS hr_feriados (
 
 ALTER TABLE hr_feriados ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "hr_feriados_all" ON hr_feriados;
 CREATE POLICY "hr_feriados_all"
   ON hr_feriados FOR ALL USING (true) WITH CHECK (true);
