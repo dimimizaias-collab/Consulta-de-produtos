@@ -276,12 +276,12 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
           <input className={fieldCls} value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Nome completo" />
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex-1">
+        <div className={variant === 'sheet' ? 'flex flex-col gap-3' : 'flex gap-3'}>
+          <div className={variant === 'sheet' ? 'w-full' : 'flex-1 min-w-0'}>
             <label className={labelCls}>Data de Nascimento</label>
             <input type="date" className={fieldCls} value={form.data_nascimento} onChange={e => setForm({ ...form, data_nascimento: e.target.value })} />
           </div>
-          <div className="flex-1">
+          <div className={variant === 'sheet' ? 'w-full' : 'flex-1 min-w-0'}>
             <label className={labelCls}>CPF</label>
             <input
               className={`${fieldCls} font-mono tracking-wide`} value={form.cpf}
@@ -338,12 +338,12 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
                   </div>
                 </div>
 
-                <div className="flex gap-2.5">
-                  <div className="flex-1 min-w-0">
+                <div className={variant === 'sheet' ? 'flex flex-col gap-3' : 'flex gap-2.5'}>
+                  <div className={variant === 'sheet' ? 'w-full' : 'flex-1 min-w-0'}>
                     <label className={labelCls}>Data de Admissão</label>
                     <input type="date" className={fieldCls} value={p.dataAdmissao} onChange={e => updatePeriodo(p.localId, { dataAdmissao: e.target.value })} />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className={variant === 'sheet' ? 'w-full' : 'flex-1 min-w-0'}>
                     <label className={labelCls}>Salário</label>
                     <div className="w-full h-[42px] bg-surface-container border border-on-surface/[0.10] rounded-xl px-2.5 flex items-center gap-2">
                       <span className="flex-1 min-w-0 font-mono text-[13px] font-extrabold text-on-surface truncate">{fmtSalario(total)}</span>
