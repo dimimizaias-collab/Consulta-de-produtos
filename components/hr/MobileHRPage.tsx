@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock, TrendingDown } from 'lucide-react';
+import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -14,11 +14,10 @@ import { ColaboradoresYearAccordion } from '@/components/hr/ColaboradoresYearAcc
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
 import { VincularExistenteModal } from '@/components/hr/VincularExistenteModal';
 import { CaderninhoTable } from '@/components/hr/CaderninhoTable';
-import { DespesasPage } from '@/components/finance/DespesasPage';
 import { type Employee } from '@/lib/hrEmployees';
 import { type Contrato, fetchAllContratos } from '@/lib/hrContratos';
 
-type HRView = 'calendario' | 'colaboradores' | 'caderninho' | 'financas';
+type HRView = 'calendario' | 'colaboradores' | 'caderninho';
 
 const CATEGORIES: HREvent['categoria'][] = ['Reunião', 'Treinamento', 'Férias', 'Aniversário', 'Outro'];
 
@@ -220,6 +219,7 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   return (
+    <>
     <div className="fixed inset-0 z-40 flex flex-col bg-[#FDFAF0] dark:bg-[#1E1E18] pb-[72px]">
 
       {/* Header */}
@@ -241,18 +241,6 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
         >
           <CalendarRange size={12} strokeWidth={2.5} />
           Calendário
-        </button>
-        <button
-          onClick={() => setActiveView('financas')}
-          className={cn(
-            'flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[13px] text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-            activeView === 'financas'
-              ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
-              : 'border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40',
-          )}
-        >
-          <TrendingDown size={12} strokeWidth={2.5} />
-          Finanças
         </button>
         <button
           onClick={() => handleProtectedTabClick('colaboradores')}
@@ -375,177 +363,184 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
               size="compact"
             />
           </div>
-        ) : activeView === 'financas' ? (
-          <DespesasPage onBack={() => setActiveView('calendario')} />
         ) : (
           <CaderninhoTable employees={employees} compact />
         )}
       </div>
-
-      <EmployeeModal
-        open={showEmployeeSheet}
-        employee={editingEmployee}
-        onClose={() => setShowEmployeeSheet(false)}
-        onSaved={handleEmployeeSaved}
-        autoAddPeriodoAno={autoAddPeriodoAno}
-        variant="sheet"
-      />
-
-      <VincularExistenteModal
-        open={showVincularModal}
-        ano={vincularAno ?? 2026}
-        employees={employees}
-        onClose={() => setShowVincularModal(false)}
-        onSelect={handleVincularSelect}
-        variant="sheet"
-      />
-
-      {/* Bottom sheet de senha */}
-      <AnimatePresence>
-        {showPasswordSheet && (
-          <>
-            <motion.div
-              key="pwd-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/45 z-[59]" onClick={() => setShowPasswordSheet(false)}
-            />
-            <motion.div
-              key="pwd-sheet"
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-              className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
-              style={{ maxHeight: '60svh' }}
-            >
-              <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 pb-6 pt-3 flex flex-col items-center gap-4">
-                <div className="w-14 h-14 rounded-[1.2rem] bg-[rgba(216,30,30,0.10)] text-[#D81E1E] flex items-center justify-center">
-                  <Lock size={24} strokeWidth={2.2} />
-                </div>
-                <div className="text-center">
-                  <p className="text-[16px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Área Restrita</p>
-                  <p className="text-[12px] text-[rgba(26,26,10,0.45)] dark:text-white/40 font-medium mt-0.5">
-                    {hrPassword ? 'Digite a senha para continuar' : 'Configure uma senha em Configurações'}
-                  </p>
-                </div>
-
-                {hrPassword && (
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handlePasswordSubmit()}
-                    placeholder="Senha"
-                    autoFocus
-                    className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[14px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
-                  />
-                )}
-
-                {passwordError && (
-                  <p className="text-[11.5px] text-red-500 font-semibold self-start">{passwordError}</p>
-                )}
-
-                <div className="flex gap-2 w-full mt-1">
-                  <button
-                    onClick={() => setShowPasswordSheet(false)}
-                    className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
-                  >
-                    Cancelar
-                  </button>
-                  {hrPassword && (
-                    <button
-                      onClick={handlePasswordSubmit}
-                      className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
-                    >
-                      Entrar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom sheet criar/editar evento */}
-      <AnimatePresence>
-        {showSheet && (
-          <>
-            <motion.div
-              key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/45 z-[59]" onClick={() => setShowSheet(false)}
-            />
-            <motion.div
-              key="sheet"
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-              className="fixed inset-x-0 bottom-0 z-[60] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
-              style={{ maxHeight: '90svh' }}
-            >
-              <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
-              </div>
-
-              <div className="flex items-center justify-between px-4 pb-3 shrink-0">
-                <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</span>
-                <button
-                  onClick={() => setShowSheet(false)}
-                  className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
-                <div>
-                  <span className={labelCls}>Título</span>
-                  <input className={fieldCls} value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ex: Treinamento PDV" />
-                </div>
-                <div>
-                  <span className={labelCls}>Data</span>
-                  <input type="date" className={fieldCls} value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} />
-                </div>
-                <div>
-                  <span className={labelCls}>Categoria</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CATEGORIES.map(cat => (
-                      <button
-                        key={cat} onClick={() => setForm({ ...form, categoria: cat })}
-                        className={cn(
-                          'px-3 py-2 rounded-[10px] text-[10.5px] font-bold border-[1.5px] transition-colors',
-                          form.categoria === cat
-                            ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
-                            : 'border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35',
-                        )}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className={labelCls}>Responsável</span>
-                  <input className={fieldCls} value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} placeholder="Nome do responsável" />
-                </div>
-
-                <button
-                  onClick={handleSave} disabled={saving || !form.titulo.trim()}
-                  className="w-full bg-[#D81E1E] text-white font-extrabold text-[12.5px] uppercase tracking-wide py-3.5 rounded-[13px] shadow-[0_10px_22px_rgba(216,30,30,0.28)] mt-1 disabled:opacity-50"
-                >
-                  {saving ? 'Salvando...' : 'Salvar Evento'}
-                </button>
-
-                {editingEvent && (
-                  <button onClick={handleDelete} className="w-full text-center text-[11px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide flex items-center justify-center gap-1.5 py-1">
-                    <Trash2 size={12} /> Excluir Evento
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
+
+    {/*
+      Os sheets abaixo são renderizados FORA do container z-40 acima de propósito:
+      aquele container fixed+z-index cria um novo stacking context, que prendia os
+      sheets (mesmo com z-index alto) abaixo do BottomNav (z-50, irmão fora desse
+      contexto). Sendo irmãos no topo, seus z-[100]+ valem globalmente.
+      (mesmo padrão de components/finance/MobileFinancePage.tsx)
+    */}
+
+    <EmployeeModal
+      open={showEmployeeSheet}
+      employee={editingEmployee}
+      onClose={() => setShowEmployeeSheet(false)}
+      onSaved={handleEmployeeSaved}
+      autoAddPeriodoAno={autoAddPeriodoAno}
+      variant="sheet"
+    />
+
+    <VincularExistenteModal
+      open={showVincularModal}
+      ano={vincularAno ?? 2026}
+      employees={employees}
+      onClose={() => setShowVincularModal(false)}
+      onSelect={handleVincularSelect}
+      variant="sheet"
+    />
+
+    {/* Bottom sheet de senha */}
+    <AnimatePresence>
+      {showPasswordSheet && (
+        <>
+          <motion.div
+            key="pwd-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/45 z-[100]" onClick={() => setShowPasswordSheet(false)}
+          />
+          <motion.div
+            key="pwd-sheet"
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+            className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+            style={{ maxHeight: '60svh' }}
+          >
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 pb-6 pt-3 flex flex-col items-center gap-4">
+              <div className="w-14 h-14 rounded-[1.2rem] bg-[rgba(216,30,30,0.10)] text-[#D81E1E] flex items-center justify-center">
+                <Lock size={24} strokeWidth={2.2} />
+              </div>
+              <div className="text-center">
+                <p className="text-[16px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Área Restrita</p>
+                <p className="text-[12px] text-[rgba(26,26,10,0.45)] dark:text-white/40 font-medium mt-0.5">
+                  {hrPassword ? 'Digite a senha para continuar' : 'Configure uma senha em Configurações'}
+                </p>
+              </div>
+
+              {hrPassword && (
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handlePasswordSubmit()}
+                  placeholder="Senha"
+                  autoFocus
+                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[14px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                />
+              )}
+
+              {passwordError && (
+                <p className="text-[11.5px] text-red-500 font-semibold self-start">{passwordError}</p>
+              )}
+
+              <div className="flex gap-2 w-full mt-1">
+                <button
+                  onClick={() => setShowPasswordSheet(false)}
+                  className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
+                >
+                  Cancelar
+                </button>
+                {hrPassword && (
+                  <button
+                    onClick={handlePasswordSubmit}
+                    className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
+                  >
+                    Entrar
+                  </button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Bottom sheet criar/editar evento */}
+    <AnimatePresence>
+      {showSheet && (
+        <>
+          <motion.div
+            key="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/45 z-[100]" onClick={() => setShowSheet(false)}
+          />
+          <motion.div
+            key="sheet"
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+            className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
+            style={{ maxHeight: '90svh' }}
+          >
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+            </div>
+
+            <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+              <span className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</span>
+              <button
+                onClick={() => setShowSheet(false)}
+                className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
+              <div>
+                <span className={labelCls}>Título</span>
+                <input className={fieldCls} value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ex: Treinamento PDV" />
+              </div>
+              <div>
+                <span className={labelCls}>Data</span>
+                <input type="date" className={fieldCls} value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} />
+              </div>
+              <div>
+                <span className={labelCls}>Categoria</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat} onClick={() => setForm({ ...form, categoria: cat })}
+                      className={cn(
+                        'px-3 py-2 rounded-[10px] text-[10.5px] font-bold border-[1.5px] transition-colors',
+                        form.categoria === cat
+                          ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+                          : 'border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35',
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className={labelCls}>Responsável</span>
+                <input className={fieldCls} value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} placeholder="Nome do responsável" />
+              </div>
+
+              <button
+                onClick={handleSave} disabled={saving || !form.titulo.trim()}
+                className="w-full bg-[#D81E1E] text-white font-extrabold text-[12.5px] uppercase tracking-wide py-3.5 rounded-[13px] shadow-[0_10px_22px_rgba(216,30,30,0.28)] mt-1 disabled:opacity-50"
+              >
+                {saving ? 'Salvando...' : 'Salvar Evento'}
+              </button>
+
+              {editingEvent && (
+                <button onClick={handleDelete} className="w-full text-center text-[11px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide flex items-center justify-center gap-1.5 py-1">
+                  <Trash2 size={12} /> Excluir Evento
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Trash2, Camera, User, Pencil, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import { type Employee, uploadEmployeePhoto, initials, fmtSalario, parseMoneyInput, toMoneyInput, maskCpf } from '@/lib/hrEmployees';
 import {
   type Contrato, ANOS_FISCAIS, MESES_ABREV, validateNoOverlap, fetchContratosByColaborador,
@@ -237,7 +238,7 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
     onClose();
   };
 
-  const fieldCls = 'w-full bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50';
+  const fieldCls = 'w-full min-w-0 bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] text-on-surface outline-none focus:border-primary/50 overflow-hidden text-ellipsis';
   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
   const sectionTitleCls = 'text-[11px] font-black uppercase tracking-wide text-on-surface/42';
   const selectSmCls = 'bg-surface-container border border-on-surface/[0.10] rounded-lg px-1.5 py-1 text-[10px] font-bold text-on-surface outline-none';
@@ -326,23 +327,23 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
                   </button>
                 </div>
 
-                <div className="flex gap-2.5 mb-3">
-                  <div className="flex-1">
+                <div className={cn(variant === 'sheet' ? 'flex flex-col gap-3' : 'flex gap-2.5', 'mb-3')}>
+                  <div className={variant === 'sheet' ? 'w-full' : 'flex-1'}>
                     <label className={labelCls}>Loja</label>
                     <input className={fieldCls} value={p.loja} onChange={e => updatePeriodo(p.localId, { loja: e.target.value })} placeholder="Castelo Real" />
                   </div>
-                  <div className="flex-1">
+                  <div className={variant === 'sheet' ? 'w-full' : 'flex-1'}>
                     <label className={labelCls}>Cargo</label>
                     <input className={fieldCls} value={p.cargo} onChange={e => updatePeriodo(p.localId, { cargo: e.target.value })} placeholder="Gerente de Loja" />
                   </div>
                 </div>
 
                 <div className="flex gap-2.5">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <label className={labelCls}>Data de Admissão</label>
                     <input type="date" className={fieldCls} value={p.dataAdmissao} onChange={e => updatePeriodo(p.localId, { dataAdmissao: e.target.value })} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <label className={labelCls}>Salário</label>
                     <div className="w-full h-[42px] bg-surface-container border border-on-surface/[0.10] rounded-xl px-2.5 flex items-center gap-2">
                       <span className="flex-1 min-w-0 font-mono text-[13px] font-extrabold text-on-surface truncate">{fmtSalario(total)}</span>

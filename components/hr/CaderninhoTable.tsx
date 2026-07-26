@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Check, Trash2, Lock } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, Check, Trash2, Lock, Search, Calendar, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { type Employee } from '@/lib/hrEmployees';
@@ -87,6 +88,68 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Mobile (compact): busca/filtro/adicionar via sheet ────────────────────
+  const [search, setSearch] = useState('');
+  const [filterModalidade, setFilterModalidade] = useState<Modalidade | null>(null);
+  const [filterTipo, setFilterTipo] = useState<TipoLancamento | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showCalSheet, setShowCalSheet] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [draft, setDraft] = useState<PendingRow>(() => makePending());
+
+  const hasDatePeriod = !!(dateFrom || dateTo);
+  const hasFilter = filterModalidade !== null || filterTipo !== null;
+
+  const openAddSheet = () => {
+    setDraft(makePending());
+    setShowAddSheet(true);
+  };
+
+  const changeDraftModalidade = (modalidade: Modalidade) => {
+    const auto = TIPO_AUTOMATICO[modalidade];
+    setDraft(prev => ({ ...prev, modalidade, ...(auto ? { tipo: auto } : {}) }));
+  };
+
+  const confirmDraft = async () => {
+    const val = parseFloat(draft.valor.replace(',', '.'));
+    if (!draft.colaborador_id) {
+      setDraft(prev => ({ ...prev, error: 'Selecione um colaborador.' }));
+      return;
+    }
+    if (!draft.valor || isNaN(val) || val <= 0) {
+      setDraft(prev => ({ ...prev, error: 'Informe um valor válido.' }));
+      return;
+    }
+    if (!draft.data) {
+      setDraft(prev => ({ ...prev, error: 'Informe a data.' }));
+      return;
+    }
+
+    setDraft(prev => ({ ...prev, saving: true, error: null }));
+
+    const emp = employees.find(e => e.id === draft.colaborador_id);
+    const { error } = await supabase.from('hr_caderninho').insert([{
+      colaborador_id: draft.colaborador_id,
+      colaborador_nome: emp?.nome || null,
+      modalidade: draft.modalidade,
+      tipo: draft.tipo,
+      valor: val,
+      observacao: draft.observacao.trim() || null,
+      data: draft.data,
+    }]);
+
+    if (error) {
+      setDraft(prev => ({ ...prev, saving: false, error: 'Erro ao salvar. Tente novamente.' }));
+      return;
+    }
+
+    setShowAddSheet(false);
+    fetchEntries();
+    recomputeParcelasForCaderninhoEntry(draft.colaborador_id, draft.data);
+  };
+
   const fetchEntries = async () => {
     const { data } = await supabase
       .from('hr_caderninho')
@@ -159,23 +222,63 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
   if (compact) {
     const fieldCls = 'w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
     const labelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
+    const iconBtnCls = 'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0';
+    const iconBtnOffCls = 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40';
+    const iconBtnOnCls = 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]';
+
+    const filteredEntries = entries.filter(entry => {
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const matches = (entry.colaborador_nome || '').toLowerCase().includes(q)
+          || (entry.observacao || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      if (filterModalidade && entry.modalidade !== filterModalidade) return false;
+      if (filterTipo && entry.tipo !== filterTipo) return false;
+      if (dateFrom && entry.data < dateFrom) return false;
+      if (dateTo && entry.data > dateTo) return false;
+      return true;
+    });
 
     return (
-      <div className="px-3 pt-3 pb-6 flex flex-col gap-3">
-        {loading ? (
-          <div className="py-8 flex justify-center">
-            <div className="w-5 h-5 border-2 border-[#D81E1E] border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col h-full">
+        {/* Action row — busca, calendário, filtro, adicionar */}
+        <div className="shrink-0 flex gap-2 px-3 pt-3 pb-2.5 items-center">
+          <div className="flex-1 relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(26,26,10,0.30)] dark:text-white/25 pointer-events-none" />
+            <input
+              className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl pl-8 pr-3 py-2 text-[13px] text-[rgba(26,26,10,0.55)] dark:text-white/40 font-medium focus:outline-none placeholder:text-[rgba(26,26,10,0.28)] dark:placeholder:text-white/20"
+              placeholder="Buscar colaborador..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
-        ) : (
-          <>
-            {entries.length === 0 && pending.length === 0 && (
-              <p className="text-sm text-center py-6 text-[rgba(26,26,10,0.35)] dark:text-white/30">
-                Nenhum registro ainda.
-              </p>
-            )}
+          <button onClick={() => setShowCalSheet(true)} className={cn(iconBtnCls, hasDatePeriod ? iconBtnOnCls : iconBtnOffCls)} title="Calendário">
+            <Calendar size={14} />
+          </button>
+          <button onClick={() => setShowFilterSheet(true)} className={cn(iconBtnCls, hasFilter ? iconBtnOnCls : iconBtnOffCls)} title="Filtrar">
+            <Filter size={14} />
+          </button>
+          <button
+            onClick={openAddSheet}
+            className="w-9 h-9 rounded-xl bg-[#D81E1E] flex items-center justify-center shadow-[0_4px_14px_rgba(216,30,30,0.32)] active:scale-90 transition-transform shrink-0"
+            title="Adicionar"
+          >
+            <Plus size={16} color="white" strokeWidth={2.8} />
+          </button>
+        </div>
 
-            {/* Confirmed entries */}
-            {entries.map(entry => (
+        <div className="flex-1 overflow-y-auto px-3 pb-6 flex flex-col gap-3">
+          {loading ? (
+            <div className="py-8 flex justify-center">
+              <div className="w-5 h-5 border-2 border-[#D81E1E] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : filteredEntries.length === 0 ? (
+            <p className="text-sm text-center py-6 text-[rgba(26,26,10,0.35)] dark:text-white/30">
+              {entries.length === 0 ? 'Nenhum registro ainda.' : 'Nenhum registro encontrado.'}
+            </p>
+          ) : (
+            filteredEntries.map(entry => (
               <div
                 key={entry.id}
                 className="bg-white dark:bg-[#252520] border border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[18px] px-4 py-3.5 flex flex-col gap-2"
@@ -211,128 +314,249 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                   </p>
                 )}
               </div>
-            ))}
+            ))
+          )}
+        </div>
 
-            {/* Pending rows */}
-            {pending.map(row => (
-              <div
-                key={row.localId}
-                className="bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(216,30,30,0.25)] rounded-[18px] px-4 py-3.5 flex flex-col gap-2.5"
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className={labelCls}>Colaborador</span>
-                    <select
-                      className={fieldCls}
-                      value={row.colaborador_id}
-                      onChange={e => updatePending(row.localId, { colaborador_id: e.target.value })}
-                    >
-                      <option value="">Selecionar...</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                      ))}
-                    </select>
+        {/*
+          Sheets renderizados via portal para document.body: CaderninhoTable fica
+          aninhado dentro do container fixed z-40 de MobileHRPage, então qualquer
+          z-index local ficaria preso abaixo do BottomNav (z-50). O portal escapa
+          totalmente da árvore DOM/stacking context do pai.
+        */}
+        {typeof window !== 'undefined' && createPortal(
+          <>
+            {/* Sheet: Novo Lançamento */}
+            {showAddSheet && (
+              <>
+                <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowAddSheet(false)} />
+                <div
+                  className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-y-auto p-5"
+                  style={{ maxHeight: '92svh' }}
+                >
+                  <div className="flex justify-center pb-2 -mt-1">
+                    <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
                   </div>
-                  <div>
-                    <span className={labelCls}>Modalidade</span>
-                    <select
-                      className={fieldCls}
-                      value={row.modalidade}
-                      onChange={e => changeModalidade(row.localId, e.target.value as Modalidade)}
-                    >
-                      {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[16px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3]">Novo Lançamento</span>
+                    <button onClick={() => setShowAddSheet(false)} className="w-[30px] h-[30px] rounded-[10px] bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/40">
+                      <X size={14} strokeWidth={2.5} />
+                    </button>
                   </div>
-                </div>
-                <div>
-                  <span className={labelCls}>Tipo</span>
-                  {TIPO_AUTOMATICO[row.modalidade] ? (
-                    <div className={cn('flex items-center gap-1.5 w-fit text-[10.5px] font-extrabold uppercase tracking-wide px-2.5 py-1.5 rounded-lg', tipoColor(row.tipo))}>
-                      <Lock size={9} strokeWidth={3} /> {row.tipo}
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div>
+                      <span className={labelCls}>Colaborador</span>
+                      <select
+                        className={fieldCls}
+                        value={draft.colaborador_id}
+                        onChange={e => setDraft(prev => ({ ...prev, colaborador_id: e.target.value }))}
+                      >
+                        <option value="">Selecionar...</option>
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                        ))}
+                      </select>
                     </div>
-                  ) : (
-                    <div className="flex gap-1.5">
-                      {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
-                        <button
-                          key={t} onClick={() => updatePending(row.localId, { tipo: t })}
-                          className={cn(
-                            'flex-1 py-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-                            row.tipo === t ? tipoColor(t) : 'border-[rgba(26,26,10,0.12)] dark:border-white/10 text-[rgba(26,26,10,0.40)] dark:text-white/35',
-                          )}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div>
+                      <span className={labelCls}>Modalidade</span>
+                      <select
+                        className={fieldCls}
+                        value={draft.modalidade}
+                        onChange={e => changeDraftModalidade(e.target.value as Modalidade)}
+                      >
+                        {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <span className={labelCls}>Tipo</span>
+                    {TIPO_AUTOMATICO[draft.modalidade] ? (
+                      <div className={cn('flex items-center gap-1.5 w-fit text-[10.5px] font-extrabold uppercase tracking-wide px-2.5 py-1.5 rounded-lg', tipoColor(draft.tipo))}>
+                        <Lock size={9} strokeWidth={3} /> {draft.tipo}
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5">
+                        {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                          <button
+                            key={t} onClick={() => setDraft(prev => ({ ...prev, tipo: t }))}
+                            className={cn(
+                              'flex-1 py-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+                              draft.tipo === t ? tipoColor(t) : 'border-[rgba(26,26,10,0.12)] dark:border-white/10 text-[rgba(26,26,10,0.40)] dark:text-white/35',
+                            )}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div>
+                      <span className={labelCls}>Valor (R$)</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        className={cn(fieldCls, 'no-spinner')}
+                        placeholder="0,00"
+                        value={draft.valor}
+                        onChange={e => setDraft(prev => ({ ...prev, valor: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <span className={labelCls}>Data</span>
+                      <input
+                        type="date"
+                        className={fieldCls}
+                        value={draft.data}
+                        onChange={e => setDraft(prev => ({ ...prev, data: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <span className={labelCls}>Observação</span>
+                    <input
+                      type="text"
+                      className={fieldCls}
+                      placeholder="Opcional"
+                      value={draft.observacao}
+                      onChange={e => setDraft(prev => ({ ...prev, observacao: e.target.value }))}
+                    />
+                  </div>
+
+                  {draft.error && (
+                    <p className="text-[11px] text-red-500 font-semibold mb-3">{draft.error}</p>
                   )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className={labelCls}>Valor (R$)</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      className={cn(fieldCls, 'no-spinner')}
-                      placeholder="0,00"
-                      value={row.valor}
-                      onChange={e => updatePending(row.localId, { valor: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <span className={labelCls}>Data</span>
-                    <input
-                      type="date"
-                      className={fieldCls}
-                      value={row.data}
-                      onChange={e => updatePending(row.localId, { data: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className={labelCls}>Observação</span>
-                  <input
-                    type="text"
-                    className={fieldCls}
-                    placeholder="Opcional"
-                    value={row.observacao}
-                    onChange={e => updatePending(row.localId, { observacao: e.target.value })}
-                  />
-                </div>
-                {row.error && (
-                  <p className="text-[11px] text-red-500 font-semibold">{row.error}</p>
-                )}
-                <div className="flex gap-2 mt-1">
+
                   <button
-                    onClick={() => removePending(row.localId)}
-                    className="flex-1 py-2.5 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
+                    onClick={confirmDraft}
+                    disabled={draft.saving}
+                    className="w-full py-3.5 rounded-[13px] text-[12.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_10px_22px_rgba(216,30,30,0.28)] flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => confirmRow(row)}
-                    disabled={row.saving}
-                    className="flex-[2] py-2.5 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)] flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    {row.saving
+                    {draft.saving
                       ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      : <><Check size={13} strokeWidth={2.8} /> Confirmar</>
+                      : <><Check size={14} strokeWidth={2.8} /> Salvar Lançamento</>
                     }
                   </button>
                 </div>
-              </div>
-            ))}
-          </>
-        )}
+              </>
+            )}
 
-        {/* Add button */}
-        <button
-          onClick={addPending}
-          className="flex items-center justify-center gap-2 py-3 rounded-[13px] border-[1.5px] border-dashed border-[rgba(26,26,10,0.15)] dark:border-white/[0.12] text-[11.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.40)] dark:text-white/35 active:scale-[0.98] transition-transform"
-        >
-          <Plus size={13} strokeWidth={2.8} />
-          Adicionar Linha
-        </button>
+            {/* Sheet: Calendário (período) */}
+            {showCalSheet && (
+              <>
+                <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowCalSheet(false)} />
+                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl p-5">
+                  <div className="flex justify-center pb-2 -mt-1">
+                    <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+                  </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[16px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3]">Filtrar por Data</span>
+                    <button onClick={() => setShowCalSheet(false)} className="w-[30px] h-[30px] rounded-[10px] bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/40">
+                      <X size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div>
+                      <span className={labelCls}>De</span>
+                      <input type="date" className={fieldCls} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                    </div>
+                    <div>
+                      <span className={labelCls}>Até</span>
+                      <input type="date" className={fieldCls} value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setDateFrom(''); setDateTo(''); }}
+                      className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      onClick={() => setShowCalSheet(false)}
+                      className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Sheet: Filtro (modalidade/tipo) */}
+            {showFilterSheet && (
+              <>
+                <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowFilterSheet(false)} />
+                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl p-5">
+                  <div className="flex justify-center pb-2 -mt-1">
+                    <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+                  </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[16px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3]">Filtrar</span>
+                    <button onClick={() => setShowFilterSheet(false)} className="w-[30px] h-[30px] rounded-[10px] bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/40">
+                      <X size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  <span className={labelCls}>Modalidade</span>
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {MODALIDADES.map(m => (
+                      <button
+                        key={m} onClick={() => setFilterModalidade(prev => prev === m ? null : m)}
+                        className={cn(
+                          'px-3 py-2 rounded-[10px] text-[10.5px] font-bold border-[1.5px] transition-colors',
+                          filterModalidade === m
+                            ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+                            : 'border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35',
+                        )}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className={labelCls}>Tipo</span>
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                      <button
+                        key={t} onClick={() => setFilterTipo(prev => prev === t ? null : t)}
+                        className={cn(
+                          'px-3 py-2 rounded-[10px] text-[10.5px] font-bold border-[1.5px] transition-colors',
+                          filterTipo === t
+                            ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.30)] text-[#D81E1E]'
+                            : 'border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35',
+                        )}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setFilterModalidade(null); setFilterTipo(null); }}
+                      className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      onClick={() => setShowFilterSheet(false)}
+                      className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </>,
+          document.body,
+        )}
       </div>
     );
   }
