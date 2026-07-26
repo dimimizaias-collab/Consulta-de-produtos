@@ -12,6 +12,13 @@ async function fetchFeriados(): Promise<Set<string>> {
   return new Set((data || []).map((f: { data: string }) => f.data));
 }
 
+// Tag exclusiva aplicada a toda parcela de salário — não pode ser usada em
+// movimentações manuais (ver TagSelector, filtrado por `exclusivo`).
+async function fetchSalarioTagId(): Promise<string | null> {
+  const { data } = await supabase.from('finance_tags').select('id').eq('nome', 'Salários').maybeSingle();
+  return data?.id ?? null;
+}
+
 function addDays(iso: string, n: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -24,6 +31,7 @@ function addDays(iso: string, n: number): string {
 // substituídas pelas recém-calculadas.
 export async function generateParcelasForPeriodo(contrato: Contrato, colaboradorNome: string): Promise<void> {
   const feriados = await fetchFeriados();
+  const salarioTagId = await fetchSalarioTagId();
 
   const { data: existentes } = await supabase
     .from('finance_transactions')
@@ -68,6 +76,7 @@ export async function generateParcelasForPeriodo(contrato: Contrato, colaborador
     hr_employee_id: contrato.colaborador_id,
     hr_period_id: contrato.id,
     origem: 'hr_salario' as const,
+    tag_ids: salarioTagId ? [salarioTagId] : [],
   }));
 
   await supabase.from('finance_transactions').insert(rows);

@@ -8,6 +8,7 @@ export interface FinanceTag {
   nome: string;
   cor: string;
   descricao: string | null;
+  exclusivo: boolean;
   created_at: string;
 }
 

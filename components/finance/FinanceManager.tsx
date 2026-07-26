@@ -640,6 +640,28 @@ export function FinanceManager() {
       await supabase.from('finance_import_logs').delete().in('id', orphaned);
   };
 
+  // Parcelas de salário (origem=hr_salario) só liberam Conta/Tipo de Pagamento/
+  // Identificação/Observações — update direto por id, sem passar pelo fluxo genérico
+  // de handleTxSubmit (que faz delete+insert ao converter em "vencimento/parcelamento"
+  // e apagaria hr_employee_id/hr_period_id/origem/numero_parcela desta linha).
+  const handleSaveSalarioTx = async () => {
+    if (!editingId) return;
+    setSubmitting(true);
+    try {
+      await supabase.from('finance_transactions').update({
+        account_id: txForm.account_id ?? null,
+        tipo_pagamento: txForm.tipo_pagamento,
+        numero_cheque: txForm.tipo_pagamento === 'Cheque' ? (txForm.numero_cheque || null) : null,
+        identificacao: (txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto') ? (txForm.identificacao?.trim() || null) : null,
+        observacoes: txForm.observacoes?.trim() || null,
+      }).eq('id', editingId);
+      await fetchAll();
+      setShowTxModal(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDeleteTx = async (id: string) => {
     const tx = transactions.find(t => t.id === id);
     if (tx?.origem === 'hr_salario') return;
@@ -2126,6 +2148,7 @@ export function FinanceManager() {
       <AnimatePresence>
         {showTxModal && (() => {
           const isLockedView = !!editingId && txLocked;
+          const isHrSalario = !!editingId && editingTx?.origem === 'hr_salario';
           const selectedAccount = accounts.find(a => a.id === txForm.account_id);
           const selectedTagObjs = tags.filter(tg => (txForm.tag_ids ?? []).includes(tg.id));
           const showIdentificacao = txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto';
@@ -2150,14 +2173,15 @@ export function FinanceManager() {
                   {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
                 </h2>
                 <div className="flex items-center gap-2">
-                  {editingId && editingTx?.origem === 'hr_salario' ? (
+                  {isHrSalario && (
                     <span
-                      title="Gerada pelo RH — edite salário/cargo na aba Colaboradores. Só é possível marcar como paga."
+                      title="Gerada pelo RH — apenas Conta, Tipo de Pagamento, Identificação e Observações podem ser editados."
                       className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl bg-on-surface/[0.05] text-on-surface/40 text-[10px] font-bold uppercase tracking-wide"
                     >
                       <Lock size={12} /> RH
                     </span>
-                  ) : editingId && (
+                  )}
+                  {editingId && (
                     <button
                       type="button"
                       onClick={handleToggleTxLock}
@@ -2181,7 +2205,7 @@ export function FinanceManager() {
                 {(['Receita', 'Despesa'] as TransactionType[]).map(tab => (
                   <button
                     key={tab}
-                    disabled={isLockedView}
+                    disabled={isLockedView || isHrSalario}
                     onClick={() => {
                       setTxForm(f => ({ ...f, tipo: tab }));
                       setParcelasEnabled(false);
@@ -2191,7 +2215,7 @@ export function FinanceManager() {
                     }}
                     className={cn(
                       'flex-1 py-2 rounded-xl text-sm font-bold transition-all',
-                      isLockedView && 'opacity-60 cursor-not-allowed',
+                      (isLockedView || isHrSalario) && 'opacity-60 cursor-not-allowed',
                       txForm.tipo === tab
                         ? tab === 'Receita'
                           ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
@@ -2209,7 +2233,7 @@ export function FinanceManager() {
                 {/* Data */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Data</label>
-                  {isLockedView ? (
+                  {isLockedView || isHrSalario ? (
                     <div className={viewBlockCls}>{fmtDate(txForm.data)}</div>
                   ) : (
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
@@ -2219,7 +2243,7 @@ export function FinanceManager() {
                 {/* Favorecido — custom combobox */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Favorecido</label>
-                  {isLockedView ? (
+                  {isLockedView || isHrSalario ? (
                     <div className={viewBlockCls}>{txForm.favorecido || '—'}</div>
                   ) : (
                     <div className="flex gap-2 items-stretch">
@@ -2332,7 +2356,7 @@ export function FinanceManager() {
                 </div>
 
                 {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
-                {isLockedView ? (
+                {isLockedView || isHrSalario ? (
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Vencimento / Parcelas</label>
                     <div className={viewBlockCls}>{parcelasSummary}</div>
@@ -2360,7 +2384,7 @@ export function FinanceManager() {
                 {/* Valor */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Valor (R$)</label>
-                  {isLockedView ? (
+                  {isLockedView || isHrSalario ? (
                     <div className={viewBlockCls}>{fmt(parcelasEnabled ? totalParcelas : txForm.valor_final)}</div>
                   ) : parcelasEnabled ? (
                     <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
@@ -2372,7 +2396,7 @@ export function FinanceManager() {
                 </div>
 
                 {/* Tags */}
-                {isLockedView ? (
+                {isLockedView || isHrSalario ? (
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Tags</label>
                     {selectedTagObjs.length > 0 ? (
@@ -2392,7 +2416,7 @@ export function FinanceManager() {
                   </div>
                 ) : (
                   <TagSelector
-                    tags={tags}
+                    tags={tags.filter(tg => !tg.exclusivo)}
                     value={txForm.tag_ids ?? []}
                     onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
                     onCreateTag={(nome, cor) => createTag(nome, cor, '')}
@@ -2403,7 +2427,7 @@ export function FinanceManager() {
                 {/* Estabelecimento */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Estabelecimento</label>
-                  {isLockedView ? (
+                  {isLockedView || isHrSalario ? (
                     <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
                   ) : (
                     <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
@@ -2415,7 +2439,7 @@ export function FinanceManager() {
                 {/* Notas fiscais vinculadas */}
                 <LinkedNotesSection
                   variant="desktop"
-                  editable={!isLockedView}
+                  editable={!isLockedView && !isHrSalario}
                   txId={editingId}
                   txMeta={{ favorecido: txForm.favorecido, valor_final: txForm.valor_final }}
                   pendingNotes={pendingNotes}
@@ -2449,7 +2473,7 @@ export function FinanceManager() {
                   <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                     Cancelar
                   </button>
-                  <button onClick={handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button onClick={isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
                     {submitting && <Loader2 size={14} className="animate-spin" />}
                     {editingId ? 'Salvar Alterações' : 'Adicionar'}
                   </button>

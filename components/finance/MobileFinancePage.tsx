@@ -567,7 +567,7 @@ function TxSheet({
 
         {/* Tags */}
         <TagSelector
-          tags={tags}
+          tags={tags.filter(t => !t.exclusivo)}
           value={form.tag_ids}
           onChange={ids => setForm({ ...form, tag_ids: ids })}
           onCreateTag={onCreateTag}
@@ -1103,27 +1103,26 @@ function TxDetailSheet({
           {isEdit ? 'Editar Movimentação' : 'Detalhes da Movimentação'}
         </span>
         <div className="flex items-center gap-2">
-          {isHrSalario ? (
+          {isHrSalario && (
             <span
-              title="Gerada pelo RH — edite salário/cargo na aba Colaboradores. Só é possível marcar como paga."
+              title="Gerada pelo RH — apenas Conta, Tipo de pagamento, Identificação e Observações podem ser editados."
               className="flex items-center gap-1 px-2.5 h-8 rounded-full bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[9px] font-black uppercase tracking-wide"
             >
               <Lock size={11} /> RH
             </span>
-          ) : (
-            <button
-              onClick={onToggleMode}
-              className={cn(
-                'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
-                isEdit
-                  ? 'bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.28)] text-[#D81E1E]'
-                  : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40'
-              )}
-              title="Editar"
-            >
-              <Pencil size={13} />
-            </button>
           )}
+          <button
+            onClick={onToggleMode}
+            className={cn(
+              'w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
+              isEdit
+                ? 'bg-[rgba(216,30,30,0.12)] border-[rgba(216,30,30,0.28)] text-[#D81E1E]'
+                : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[rgba(26,26,10,0.50)] dark:text-white/40'
+            )}
+            title="Editar"
+          >
+            <Pencil size={13} />
+          </button>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.07] flex items-center justify-center text-[rgba(26,26,10,0.45)] dark:text-white/35 active:scale-90 transition-transform"
@@ -1138,7 +1137,7 @@ function TxDetailSheet({
         {/* Tipo */}
         <div>
           <span className={labelCls}>Tipo</span>
-          {isEdit ? (
+          {isEdit && !isHrSalario ? (
             <div className="flex gap-2">
               {(['Receita', 'Despesa'] as TxType[]).map(t => (
                 <button
@@ -1172,7 +1171,7 @@ function TxDetailSheet({
         {/* Data */}
         <div className="min-w-0">
           <span className={labelCls}>Data</span>
-          {isEdit ? (
+          {isEdit && !isHrSalario ? (
             <DateFieldButton
               className={fieldCls}
               value={form.data}
@@ -1188,7 +1187,7 @@ function TxDetailSheet({
         {/* Favorecido */}
         <div>
           <span className={labelCls}>Favorecido / Descrição</span>
-          {isEdit ? (
+          {isEdit && !isHrSalario ? (
             <input
               className={fieldCls}
               value={form.favorecido}
@@ -1253,7 +1252,7 @@ function TxDetailSheet({
               onFocus={() => setShowKbd(false)}
             />
           )}
-          {isEdit && (
+          {isEdit && !isHrSalario && (
             <button
               onClick={onOpenParcelas}
               className={cn(
@@ -1269,12 +1268,12 @@ function TxDetailSheet({
                 : 'Vencimento / Parcelas'}
             </button>
           )}
-          {isEdit && editingWholeGroup && (
+          {isEdit && !isHrSalario && editingWholeGroup && (
             <div className="mt-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 dark:text-amber-400">
               Editando o parcelamento inteiro — parcelas removidas são excluídas ao salvar; as demais mantêm o status de pagamento
             </div>
           )}
-          {isEdit && !editingWholeGroup && groupTotal !== null && onEditAllParcelas && (
+          {isEdit && !isHrSalario && !editingWholeGroup && groupTotal !== null && onEditAllParcelas && (
             <button
               onClick={onEditAllParcelas}
               className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-[#D81E1E] text-white shadow-[0_4px_14px_rgba(216,30,30,0.28)] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
@@ -1284,7 +1283,7 @@ function TxDetailSheet({
             </button>
           )}
           {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" acima) */}
-          {!isEdit && (
+          {(!isEdit || isHrSalario) && (
             <div className="min-w-0 mt-2">
               {tx.vencimento ? (
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1301,7 +1300,7 @@ function TxDetailSheet({
             </div>
           )}
           {/* Valor Total do Parcelamento (somente leitura) */}
-          {!isEdit && groupTotal !== null && (
+          {(!isEdit || isHrSalario) && groupTotal !== null && (
             <div className="min-w-0 mt-2">
               <span className={labelCls}>Valor Total do Parcelamento</span>
               <div className={cn(viewBlockCls, 'text-[#D81E1E] dark:text-[#F43F5E]')}>
@@ -1310,7 +1309,7 @@ function TxDetailSheet({
             </div>
           )}
           {/* Código de barras do boleto (somente leitura — configurar via "Visualizar pagamento") */}
-          {!isEdit && tx.tipo_pagamento === 'Boleto' && tx.codigo_barras && (
+          {(!isEdit || isHrSalario) && tx.tipo_pagamento === 'Boleto' && tx.codigo_barras && (
             <div className="min-w-0 mt-2">
               <span className={labelCls}>Código de Barras</span>
               <div className={cn(viewBlockCls, 'font-mono text-[12px] break-all')}>
@@ -1347,7 +1346,7 @@ function TxDetailSheet({
         {/* Valor */}
         <div>
           <span className={labelCls}>Valor</span>
-          {isEdit ? (
+          {isEdit && !isHrSalario ? (
             <button
               onClick={() => setShowKbd(true)}
               className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
@@ -1370,9 +1369,9 @@ function TxDetailSheet({
         </div>
 
         {/* Tags */}
-        {isEdit ? (
+        {isEdit && !isHrSalario ? (
           <TagSelector
-            tags={tags}
+            tags={tags.filter(t => !t.exclusivo)}
             value={form.tag_ids}
             onChange={ids => setForm({ ...form, tag_ids: ids })}
             onCreateTag={onCreateTag}
@@ -1403,7 +1402,7 @@ function TxDetailSheet({
         {/* Estabelecimento */}
         <div>
           <span className={labelCls}>Estabelecimento</span>
-          {isEdit ? (
+          {isEdit && !isHrSalario ? (
             <div className="flex gap-2">
               {ESTABLISHMENTS.map(e => (
                 <button
@@ -1430,7 +1429,7 @@ function TxDetailSheet({
         {/* Notas fiscais vinculadas */}
         <LinkedNotesSection
           variant="mobile"
-          editable={isEdit}
+          editable={isEdit && !isHrSalario}
           txId={tx.id}
           txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
           siblingTxs={siblingTxs}
@@ -1455,22 +1454,7 @@ function TxDetailSheet({
 
         {/* Pago toggle / status */}
         <div className="flex items-center gap-3 py-1">
-          {isEdit ? (
-            <>
-              <button
-                onClick={() => setForm({ ...form, pago: !form.pago })}
-                className={cn(
-                  'w-6 h-6 rounded-[7px] border-[1.5px] flex items-center justify-center transition-colors',
-                  form.pago
-                    ? 'bg-[#059669] border-[#059669] text-white'
-                    : 'bg-transparent border-[rgba(26,26,10,0.20)] dark:border-white/20'
-                )}
-              >
-                {form.pago && <Check size={12} strokeWidth={3} />}
-              </button>
-              <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">Já foi pago</span>
-            </>
-          ) : isHrSalario ? (
+          {isHrSalario ? (
             <>
               <button
                 onClick={() => onTogglePago?.(tx)}
@@ -1486,6 +1470,21 @@ function TxDetailSheet({
               <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">
                 {tx.pago ? 'Já foi pago' : 'Ainda não foi pago'}
               </span>
+            </>
+          ) : isEdit ? (
+            <>
+              <button
+                onClick={() => setForm({ ...form, pago: !form.pago })}
+                className={cn(
+                  'w-6 h-6 rounded-[7px] border-[1.5px] flex items-center justify-center transition-colors',
+                  form.pago
+                    ? 'bg-[#059669] border-[#059669] text-white'
+                    : 'bg-transparent border-[rgba(26,26,10,0.20)] dark:border-white/20'
+                )}
+              >
+                {form.pago && <Check size={12} strokeWidth={3} />}
+              </button>
+              <span className="text-sm font-bold text-[#1A1A0E] dark:text-[#F2F0E3]">Já foi pago</span>
             </>
           ) : (
             <>
@@ -1526,7 +1525,7 @@ function TxDetailSheet({
 
       {/* Numeric keyboard (edit mode only) */}
       <AnimatePresence>
-        {isEdit && showKbd && (
+        {isEdit && !isHrSalario && showKbd && (
           <NumericKeyboard
             value={form.valor_final}
             onChange={v => setForm({ ...form, valor_final: v })}
@@ -1537,7 +1536,7 @@ function TxDetailSheet({
 
       {/* Seletor de data (Data, edit mode only) */}
       <AnimatePresence>
-        {isEdit && showDatePicker && (
+        {isEdit && !isHrSalario && showDatePicker && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
@@ -2371,14 +2370,20 @@ export function MobileFinancePage() {
       // pago/numero_parcela/parcelamento_id da linha.
       const p = detailParcelas[0];
       const valorNum = parseFloat(p.valor.replace(',', '.')) || 0;
+      // Parcelas de salário (origem=hr_salario) só liberam Conta/Tipo de pagamento/
+      // Identificação/Observações no formulário — os demais campos (incluindo "pago",
+      // que também pode ter sido alterado via o atalho rápido enquanto o sheet estava
+      // aberto) sempre vêm da própria transação, nunca do form, para não sobrescrever
+      // com um valor desatualizado.
+      const isSalarioRow = detailTx.origem === 'hr_salario';
       const updates = {
         ...base,
-        data: detailForm.data,
-        vencimento: p.validade,
-        valor_final: valorNum,
-        pago: detailForm.pago,
-        total_pago: detailForm.pago ? valorNum : 0,
-        codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+        data: isSalarioRow ? detailTx.data : detailForm.data,
+        vencimento: isSalarioRow ? detailTx.vencimento : p.validade,
+        valor_final: isSalarioRow ? detailTx.valor_final : valorNum,
+        pago: isSalarioRow ? detailTx.pago : detailForm.pago,
+        total_pago: isSalarioRow ? detailTx.total_pago : (detailForm.pago ? valorNum : 0),
+        codigo_barras: isSalarioRow ? detailTx.codigo_barras : (detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null),
       };
       await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
       setSavingDetail(false);
