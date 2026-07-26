@@ -414,7 +414,7 @@ export function EmployeeModal({ open, employee, onClose, onSaved, variant = 'mod
                 key="sheet"
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
                 transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-                className="fixed inset-x-0 bottom-0 z-[61] bg-surface-container rounded-t-[28px] shadow-2xl overflow-y-auto p-5"
+                className="fixed inset-x-0 bottom-0 z-[61] bg-surface-container rounded-t-[28px] shadow-2xl overflow-y-auto overflow-x-hidden p-5"
                 style={{ maxHeight: '92svh' }}
               >
                 <div className="flex justify-center pb-2 -mt-1">

@@ -331,7 +331,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
               <>
                 <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowAddSheet(false)} />
                 <div
-                  className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-y-auto p-5"
+                  className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-y-auto overflow-x-hidden p-5"
                   style={{ maxHeight: '92svh' }}
                 >
                   <div className="flex justify-center pb-2 -mt-1">
@@ -393,28 +393,26 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div>
-                      <span className={labelCls}>Valor (R$)</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        className={cn(fieldCls, 'no-spinner')}
-                        placeholder="0,00"
-                        value={draft.valor}
-                        onChange={e => setDraft(prev => ({ ...prev, valor: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <span className={labelCls}>Data</span>
-                      <input
-                        type="date"
-                        className={fieldCls}
-                        value={draft.data}
-                        onChange={e => setDraft(prev => ({ ...prev, data: e.target.value }))}
-                      />
-                    </div>
+                  <div className="mb-3">
+                    <span className={labelCls}>Valor (R$)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className={cn(fieldCls, 'no-spinner')}
+                      placeholder="0,00"
+                      value={draft.valor}
+                      onChange={e => setDraft(prev => ({ ...prev, valor: e.target.value }))}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <span className={labelCls}>Data</span>
+                    <input
+                      type="date"
+                      className={fieldCls}
+                      value={draft.data}
+                      onChange={e => setDraft(prev => ({ ...prev, data: e.target.value }))}
+                    />
                   </div>
 
                   <div className="mb-4">
@@ -450,7 +448,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
             {showCalSheet && (
               <>
                 <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowCalSheet(false)} />
-                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl p-5">
+                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-x-hidden p-5">
                   <div className="flex justify-center pb-2 -mt-1">
                     <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
                   </div>
@@ -460,12 +458,12 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                       <X size={14} strokeWidth={2.5} />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div>
+                  <div className="flex flex-col gap-3 mb-4">
+                    <div className="w-full">
                       <span className={labelCls}>De</span>
                       <input type="date" className={fieldCls} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                     </div>
-                    <div>
+                    <div className="w-full">
                       <span className={labelCls}>Até</span>
                       <input type="date" className={fieldCls} value={dateTo} onChange={e => setDateTo(e.target.value)} />
                     </div>
@@ -492,7 +490,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
             {showFilterSheet && (
               <>
                 <div className="fixed inset-0 bg-black/55 z-[100]" onClick={() => setShowFilterSheet(false)} />
-                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl p-5">
+                <div className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-x-hidden p-5">
                   <div className="flex justify-center pb-2 -mt-1">
                     <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
                   </div>
