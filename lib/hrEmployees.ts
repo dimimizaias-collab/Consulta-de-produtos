@@ -2,6 +2,8 @@
 
 import { supabase } from '@/lib/supabase';
 
+export { maskCpf } from '@/lib/masks';
+
 // Dados Pessoais — fixos no colaborador. Loja/Cargo/Data de Admissão/Salário agora vivem
 // em "Informações Contratuais" (ver lib/hrContratos.ts), pois podem mudar por período/ano.
 export interface Employee {
@@ -23,17 +25,6 @@ export function calcIdade(dataNascimento: string | null): number | null {
     (hoje.getMonth() === nascimento.getMonth() && hoje.getDate() < nascimento.getDate());
   if (aindaNaoFezAno) idade -= 1;
   return idade;
-}
-
-// Máscara de CPF: XXX.XXX.XXX-XX (limitada a 11 dígitos).
-export function maskCpf(v: string): string {
-  const digits = v.replace(/\D/g, '').slice(0, 11);
-  const [p1, p2, p3, p4] = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 9), digits.slice(9, 11)];
-  let out = p1;
-  if (p2) out += `.${p2}`;
-  if (p3) out += `.${p3}`;
-  if (p4) out += `-${p4}`;
-  return out;
 }
 
 export const fmtSalario = (v: number | string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

@@ -15,6 +15,7 @@ import { useFinanceTags, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
+import { FavorecidoEditModal } from './FavorecidoEditModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -248,11 +249,8 @@ export function FinanceManager() {
   // favorecidos dictionary
   const [showFavorecidoModal, setShowFavorecidoModal] = useState(false);
   const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
-  const [novoFavorecido, setNovoFavorecido] = useState('');
-  const [novoNomeBanco, setNovoNomeBanco] = useState('');
-  const [novoFavorecidoSupplierId, setNovoFavorecidoSupplierId] = useState<string | null>(null);
-  const [editingFavorecidoId, setEditingFavorecidoId] = useState<string | null>(null);
-  const [savingFavorecido, setSavingFavorecido] = useState(false);
+  const [showFavorecidoEditModal, setShowFavorecidoEditModal] = useState(false);
+  const [editingFavorecido, setEditingFavorecido] = useState<Favorecido | null>(null);
   const [loadingFavorecidos, setLoadingFavorecidos] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
@@ -330,74 +328,30 @@ export function FinanceManager() {
     if (data) setSuppliers(data as Supplier[]);
   };
 
-  const resetFavorecidoForm = () => {
-    setEditingFavorecidoId(null);
-    setNovoFavorecido('');
-    setNovoNomeBanco('');
-    setNovoFavorecidoSupplierId(null);
+  const openNewFavorecido = () => {
+    setEditingFavorecido(null);
+    if (suppliers.length === 0) fetchSuppliers();
+    setShowFavorecidoEditModal(true);
   };
 
   const openEditFavorecido = (f: Favorecido) => {
-    setEditingFavorecidoId(f.id);
-    setNovoFavorecido(f.nome_fiscal);
-    setNovoNomeBanco(f.nome_banco ?? '');
-    setNovoFavorecidoSupplierId(f.supplier_id);
+    setEditingFavorecido(f);
     if (suppliers.length === 0) fetchSuppliers();
-    setShowFavorecidoModal(true);
+    setShowFavorecidoEditModal(true);
   };
 
-  const handleSaveFavorecido = async () => {
-    if (!novoFavorecido.trim()) return;
-    setSavingFavorecido(true);
-    const payload = {
-      nome_fiscal: novoFavorecido.trim(),
-      nome_banco: novoNomeBanco.trim(),
-      supplier_id: novoFavorecidoSupplierId,
-    };
-    if (editingFavorecidoId) {
-      const { data } = await supabase
-        .from('finance_favorecidos')
-        .update(payload)
-        .eq('id', editingFavorecidoId)
-        .select()
-        .single();
-      if (data) {
-        setFavorecidos(prev => prev
-          .map(f => f.id === editingFavorecidoId ? (data as Favorecido) : f)
-          .sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
-      }
-    } else {
-      const { data } = await supabase
-        .from('finance_favorecidos')
-        .insert([payload])
-        .select()
-        .single();
-      if (data) {
-        setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
-        // Re-translate existing transactions that used the raw bank name
-        if (novoNomeBanco.trim()) {
-          await supabase
-            .from('finance_transactions')
-            .update({ favorecido: novoFavorecido.trim() })
-            .eq('favorecido', novoNomeBanco.trim());
-          setTransactions(prev => prev.map(t =>
-            t.favorecido === novoNomeBanco.trim() ? { ...t, favorecido: novoFavorecido.trim() } : t
-          ));
-        }
-      }
-    }
-    resetFavorecidoForm();
-    setSavingFavorecido(false);
+  const handleFavorecidoSaved = () => {
+    fetchFavorecidos();
+    fetchSuppliers();
+    fetchAll();
   };
 
   const handleDeleteFavorecido = async (id: string) => {
     await supabase.from('finance_favorecidos').delete().eq('id', id);
     setFavorecidos(prev => prev.filter(f => f.id !== id));
-    if (editingFavorecidoId === id) resetFavorecidoForm();
   };
 
   const openFavorecidoModal = () => {
-    resetFavorecidoForm();
     fetchFavorecidos();
     if (suppliers.length === 0) fetchSuppliers();
     setShowFavorecidoModal(true);
@@ -405,7 +359,6 @@ export function FinanceManager() {
 
   const closeFavorecidoModal = () => {
     setShowFavorecidoModal(false);
-    resetFavorecidoForm();
   };
 
   const openImportModal = () => {
@@ -2699,58 +2652,17 @@ export function FinanceManager() {
                     <p className="text-[11px] text-on-surface/40 font-medium">Mapeie nomes do extrato para nomes fiscais</p>
                   </div>
                 </div>
-                <button onClick={closeFavorecidoModal} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Add / Edit */}
-              <div className="flex flex-col gap-2 mb-5 shrink-0">
-                {editingFavorecidoId && (
-                  <div className="flex items-center justify-between bg-primary/[0.06] border border-primary/15 rounded-lg px-3 py-1.5">
-                    <span className="text-[11px] font-bold text-primary">Editando favorecido</span>
-                    <button onClick={resetFavorecidoForm} className="text-[11px] font-bold text-on-surface/40 hover:text-on-surface/70">
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-                <input
-                  type="text"
-                  value={novoNomeBanco}
-                  onChange={e => setNovoNomeBanco(e.target.value)}
-                  placeholder="Nome no extrato bancário..."
-                  className={inputCls}
-                />
-                <select
-                  value={novoFavorecidoSupplierId ?? ''}
-                  onChange={e => setNovoFavorecidoSupplierId(e.target.value || null)}
-                  className={inputCls}
-                >
-                  <option value="">Sem fornecedor vinculado</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={novoFavorecido}
-                    onChange={e => setNovoFavorecido(e.target.value)}
-                    onKeyUp={e => e.key === 'Enter' && handleSaveFavorecido()}
-                    placeholder="Nome fiscal do favorecido..."
-                    className={inputCls}
-                  />
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleSaveFavorecido}
-                    disabled={savingFavorecido || !novoFavorecido.trim()}
-                    className="shrink-0 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-40"
+                    onClick={openNewFavorecido}
+                    title="Novo favorecido"
+                    className="w-8 h-8 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
                   >
-                    {savingFavorecido
-                      ? <Loader2 size={16} className="animate-spin" />
-                      : editingFavorecidoId ? <Check size={16} /> : <Plus size={16} />
-                    }
+                    <Plus size={16} />
                   </button>
-                </div>
-                <div className="flex gap-4 px-1">
-                  <p className="text-[10px] text-on-surface/30 font-medium">Nome no extrato → Nome fiscal</p>
+                  <button onClick={closeFavorecidoModal} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
 
@@ -2768,10 +2680,7 @@ export function FinanceManager() {
                   </div>
                 ) : (
                   favorecidos.map(f => (
-                    <div key={f.id} className={cn(
-                      'flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors',
-                      editingFavorecidoId === f.id && 'bg-primary/[0.06]'
-                    )}>
+                    <div key={f.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-on-surface/[0.03] group transition-colors">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-on-surface truncate">{f.nome_fiscal}</p>
                         {f.nome_banco && (
@@ -2830,6 +2739,15 @@ export function FinanceManager() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <FavorecidoEditModal
+        open={showFavorecidoEditModal}
+        favorecido={editingFavorecido}
+        suppliers={suppliers}
+        onClose={() => setShowFavorecidoEditModal(false)}
+        onSaved={handleFavorecidoSaved}
+        variant="modal"
+      />
 
       {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
       <AnimatePresence>

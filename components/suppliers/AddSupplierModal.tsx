@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Building2, Loader2, Plus, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { maskDocumento, type DocumentoTipo } from '@/lib/masks';
+
+export type { DocumentoTipo };
 
 export interface NewSupplier {
   id: string;
@@ -12,6 +15,7 @@ export interface NewSupplier {
   razao_social: string;
   nome_fantasia: string;
   documento: string;
+  documento_tipo: DocumentoTipo;
 }
 
 export interface EditingSupplier {
@@ -20,6 +24,7 @@ export interface EditingSupplier {
   razao_social: string;
   nome_fantasia: string;
   documento: string;
+  documento_tipo: DocumentoTipo;
 }
 
 interface AddSupplierModalProps {
@@ -35,6 +40,7 @@ const labelCls = 'text-[10px] font-black text-on-surface/30 uppercase tracking-[
 
 export function AddSupplierModal({ isOpen, onClose, onSuccess, editingSupplier }: AddSupplierModalProps) {
   const [documento, setDocumento] = useState('');
+  const [documentoTipo, setDocumentoTipo] = useState<DocumentoTipo>('CNPJ');
   const [razaoSocial, setRazaoSocial] = useState('');
   const [nomeFantasia, setNomeFantasia] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,10 +52,12 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess, editingSupplier }
     if (!isOpen) return;
     if (editingSupplier) {
       setDocumento(editingSupplier.documento || '');
+      setDocumentoTipo(editingSupplier.documento_tipo || 'CNPJ');
       setRazaoSocial(editingSupplier.razao_social || editingSupplier.name || '');
       setNomeFantasia(editingSupplier.nome_fantasia || '');
     } else {
       setDocumento('');
+      setDocumentoTipo('CNPJ');
       setRazaoSocial('');
       setNomeFantasia('');
     }
@@ -69,6 +77,7 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess, editingSupplier }
         razao_social: razaoSocial.trim(),
         nome_fantasia: nomeFantasia.trim(),
         documento: documento.trim(),
+        documento_tipo: documentoTipo,
       };
 
       if (isEditing) {
@@ -136,14 +145,29 @@ export function AddSupplierModal({ isOpen, onClose, onSuccess, editingSupplier }
 
             <div className="space-y-5">
               <div className="space-y-2">
-                <label className={labelCls}>
-                  Documento <span className="normal-case text-on-surface/20 tracking-normal">(CNPJ ou CPF)</span>
-                </label>
+                <label className={labelCls}>Identificação</label>
+                <div className="flex gap-2">
+                  {(['CNPJ', 'CPF'] as DocumentoTipo[]).map(tipo => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => { setDocumentoTipo(tipo); setDocumento(d => maskDocumento(d, tipo)); }}
+                      className={cn(
+                        'px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-colors',
+                        documentoTipo === tipo
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'border-on-surface/10 text-on-surface/40'
+                      )}
+                    >
+                      {tipo}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="text"
                   value={documento}
-                  onChange={e => setDocumento(e.target.value)}
-                  placeholder="00.000.000/0000-00"
+                  onChange={e => setDocumento(maskDocumento(e.target.value, documentoTipo))}
+                  placeholder={documentoTipo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
                   className={inputCls}
                 />
               </div>

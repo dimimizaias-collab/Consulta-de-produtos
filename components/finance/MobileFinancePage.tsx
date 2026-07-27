@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
+import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1761,12 +1762,8 @@ export function MobileFinancePage() {
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
   const [savingAccount, setSavingAccount] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [showAddFavorecido, setShowAddFavorecido] = useState(false);
-  const [editingFavorecidoId, setEditingFavorecidoId] = useState<string | null>(null);
-  const [novoNomeBanco, setNovoNomeBanco] = useState('');
-  const [novoFavorecido, setNovoFavorecido] = useState('');
-  const [novoFavorecidoSupplierId, setNovoFavorecidoSupplierId] = useState<string | null>(null);
-  const [savingFavorecido, setSavingFavorecido] = useState(false);
+  const [showFavorecidoEditModal, setShowFavorecidoEditModal] = useState(false);
+  const [editingFavorecido, setEditingFavorecido] = useState<Favorecido | null>(null);
 
   // calendário
   const [showCalSheet, setShowCalSheet] = useState(false);
@@ -1897,53 +1894,24 @@ export function MobileFinancePage() {
 
   // ── Favorecidos ─────────────────────────────────────────────────────────
 
-  function resetFavorecidoForm() {
-    setEditingFavorecidoId(null);
-    setNovoNomeBanco('');
-    setNovoFavorecido('');
-    setNovoFavorecidoSupplierId(null);
-    setShowAddFavorecido(false);
+  function openNewFavorecido() {
+    setEditingFavorecido(null);
+    setShowFavorecidoEditModal(true);
   }
 
   function openEditFavorecido(f: Favorecido) {
-    setEditingFavorecidoId(f.id);
-    setNovoFavorecido(f.nome_fiscal);
-    setNovoNomeBanco(f.nome_banco ?? '');
-    setNovoFavorecidoSupplierId(f.supplier_id);
-    setShowAddFavorecido(true);
+    setEditingFavorecido(f);
+    setShowFavorecidoEditModal(true);
   }
 
-  async function handleSaveFavorecido() {
-    if (!novoFavorecido.trim()) return;
-    setSavingFavorecido(true);
-    try {
-      const payload = {
-        nome_fiscal: novoFavorecido.trim(),
-        nome_banco: novoNomeBanco.trim(),
-        supplier_id: novoFavorecidoSupplierId,
-      };
-      if (editingFavorecidoId) {
-        const { data } = await supabase.from('finance_favorecidos')
-          .update(payload).eq('id', editingFavorecidoId).select().single();
-        if (data) setFavorecidos(prev => prev
-          .map(f => f.id === editingFavorecidoId ? (data as Favorecido) : f)
-          .sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
-      } else {
-        const { data } = await supabase.from('finance_favorecidos')
-          .insert(payload)
-          .select().single();
-        if (data) setFavorecidos(prev => [...prev, data as Favorecido].sort((a, b) => a.nome_fiscal.localeCompare(b.nome_fiscal)));
-      }
-      resetFavorecidoForm();
-    } finally {
-      setSavingFavorecido(false);
-    }
+  function handleFavorecidoSaved() {
+    loadDadosData();
+    loadData();
   }
 
   async function handleDeleteFavorecido(id: string) {
     await supabase.from('finance_favorecidos').delete().eq('id', id);
     setFavorecidos(prev => prev.filter(f => f.id !== id));
-    if (editingFavorecidoId === id) resetFavorecidoForm();
   }
 
   // Trava o scroll do body enquanto um sheet está aberto. `overflow: hidden` sozinho
@@ -2997,60 +2965,14 @@ export function MobileFinancePage() {
                     <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-[7px] py-[2px] text-[8.5px] font-black">{favorecidos.length}</span>
                   </span>
                   <button
-                    onClick={() => {
-                      if (showAddFavorecido) resetFavorecidoForm();
-                      else { setEditingFavorecidoId(null); setNovoNomeBanco(''); setNovoFavorecido(''); setNovoFavorecidoSupplierId(null); setShowAddFavorecido(true); }
-                    }}
-                    className={cn(
-                      'w-[27px] h-[27px] rounded-[9px] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-90 transition-transform',
-                      showAddFavorecido ? 'bg-[rgba(26,26,10,0.55)]' : 'bg-[#D81E1E]'
-                    )}
+                    onClick={openNewFavorecido}
+                    title="Novo favorecido"
+                    className="w-[27px] h-[27px] rounded-[9px] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-90 transition-transform bg-[#D81E1E]"
                   >
-                    {showAddFavorecido ? <X size={13} color="white" /> : <Plus size={13} color="white" />}
+                    <Plus size={13} color="white" />
                   </button>
                 </div>
                 <div className="p-2.5 flex flex-col gap-1.75">
-                  {showAddFavorecido && (
-                    <div className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] p-2.5 flex flex-col gap-2">
-                      {editingFavorecidoId && (
-                        <div className="flex items-center justify-between bg-[rgba(216,30,30,0.06)] dark:bg-[rgba(216,30,30,0.10)] border border-[rgba(216,30,30,0.15)] rounded-[8px] px-2.5 py-1">
-                          <span className="text-[10px] font-bold text-[#D81E1E]">Editando favorecido</span>
-                        </div>
-                      )}
-                      <input
-                        type="text"
-                        value={novoNomeBanco}
-                        onChange={e => setNovoNomeBanco(e.target.value)}
-                        placeholder="Nome no extrato bancário..."
-                        className="w-full px-3 py-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]"
-                      />
-                      <select
-                        value={novoFavorecidoSupplierId ?? ''}
-                        onChange={e => setNovoFavorecidoSupplierId(e.target.value || null)}
-                        className="w-full px-3 py-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]"
-                      >
-                        <option value="">Sem fornecedor vinculado</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={novoFavorecido}
-                          onChange={e => setNovoFavorecido(e.target.value)}
-                          onKeyUp={e => e.key === 'Enter' && handleSaveFavorecido()}
-                          placeholder="Nome fiscal do favorecido..."
-                          className="flex-1 px-3 py-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[12px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E]"
-                        />
-                        <button
-                          onClick={handleSaveFavorecido}
-                          disabled={savingFavorecido || !novoFavorecido.trim()}
-                          className="shrink-0 w-9 h-9 rounded-[10px] bg-[#D81E1E] flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] disabled:opacity-40"
-                        >
-                          {savingFavorecido ? <Loader2 size={14} className="animate-spin text-white" /> : editingFavorecidoId ? <Check size={14} color="white" /> : <Plus size={14} color="white" />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#1E1E18] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.10] rounded-[10px] px-3 py-2">
                     <Search size={12} className="text-[rgba(26,18,8,0.28)] dark:text-white/25 shrink-0" />
                     <input
@@ -3123,6 +3045,15 @@ export function MobileFinancePage() {
       os sheets (mesmo com z-index alto) por baixo do BottomNav (z-50, irmão fora desse
       contexto). Ficando como irmãos no topo, o z-[100] deles vale globalmente.
     */}
+
+    <FavorecidoEditModal
+      open={showFavorecidoEditModal}
+      favorecido={editingFavorecido}
+      suppliers={suppliers}
+      onClose={() => setShowFavorecidoEditModal(false)}
+      onSaved={handleFavorecidoSaved}
+      variant="sheet"
+    />
 
     {/* Add Transaction Sheet backdrop + sheet */}
     <AnimatePresence>
