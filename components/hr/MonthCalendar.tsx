@@ -18,7 +18,7 @@ export const ORIGIN_DOT_CLS: Record<CalendarEventOrigin, string> = {
 export const ORIGIN_LABEL: Record<CalendarEventOrigin, string> = {
   hr: 'RH',
   task: 'Tarefa',
-  finance: 'Finanças',
+  finance: 'Salários',
 };
 
 function sameDay(a: Date, b: Date) {

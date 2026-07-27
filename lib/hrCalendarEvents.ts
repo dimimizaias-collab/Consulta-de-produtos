@@ -63,35 +63,23 @@ export function buildTaskEvents(requests: any[]): CalendarEvent[] {
 }
 
 // ── Finanças ─────────────────────────────────────────────────────────────────
-// Gera um evento na data de lançamento e, se houver vencimento diferente, outro evento nessa data.
+// O calendário do RH só mostra salários (origem=hr_salario) — Receitas/Despesas
+// manuais lançadas em Controle Financeiro não aparecem aqui. Um evento por parcela,
+// na data de vencimento (não na data de lançamento, que é igual para todo o período).
 export function buildFinanceEvents(transactions: any[]): CalendarEvent[] {
   const events: CalendarEvent[] = [];
   for (const tx of transactions) {
-    const amountKind: 'rec' | 'desp' = tx.tipo === 'Receita' ? 'rec' : 'desp';
-    if (tx.data) {
-      events.push({
-        id: `fin-lanc-${tx.id}`,
-        date: isoToLocalDate(tx.data),
-        origin: 'finance',
-        title: `${tx.tipo} — ${tx.favorecido}`,
-        subtitle: `Finanças · ${tx.tipo}`,
-        amount: tx.valor_final,
-        amountKind,
-        raw: tx,
-      });
-    }
-    if (tx.vencimento && tx.vencimento !== tx.data) {
-      events.push({
-        id: `fin-venc-${tx.id}`,
-        date: isoToLocalDate(tx.vencimento),
-        origin: 'finance',
-        title: `Vencimento — ${tx.favorecido}`,
-        subtitle: `Finanças · ${tx.pago ? 'Pago' : 'Pendente'}`,
-        amount: tx.valor_final,
-        amountKind,
-        raw: tx,
-      });
-    }
+    if (tx.origem !== 'hr_salario' || !tx.vencimento) continue;
+    events.push({
+      id: `fin-venc-${tx.id}`,
+      date: isoToLocalDate(tx.vencimento),
+      origin: 'finance',
+      title: `Salário — ${tx.favorecido}`,
+      subtitle: `Salário · ${tx.pago ? 'Pago' : 'Pendente'}`,
+      amount: tx.valor_final,
+      amountKind: 'desp',
+      raw: tx,
+    });
   }
   return events;
 }
