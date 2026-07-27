@@ -43,6 +43,9 @@ export interface ReviewNote {
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const noteTotal = (note: ReviewNote): number =>
+  (note.items || []).reduce((acc, it) => acc + (parseFloat(it?.qty) || 0) * (parseFloat(it?.price) || 0), 0);
+
 interface LogisticsCenterProps {
   importing: boolean;
   onImportClick: () => void;
@@ -627,6 +630,7 @@ export function LogisticsCenter({
                       'Data',
                       'Itens',
                       'Verificados',
+                      'Total',
                       ...(activeSection === 'aprovados' ? ['Financeiro'] : []),
                       '',
                     ].map(h => (
@@ -684,6 +688,13 @@ export function LogisticsCenter({
                             : 'bg-amber-500/10 text-amber-700'
                         )}>
                           {note.verifiedCount}/{note.itemCount}
+                        </span>
+                      </td>
+
+                      {/* Total */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="text-xs font-bold text-on-surface/70">
+                          {fmtBRL(noteTotal(note))}
                         </span>
                       </td>
 
