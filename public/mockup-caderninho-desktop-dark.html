@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Caderninho Desktop (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1E1E18;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 32px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .label {
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-new {
+    display: inline-block;
+    background: #D81E1E;
+    color: white;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .center { text-align: center; margin-bottom: 24px; }
+
+  /* ── Page header ── */
+  .page-header {
+    background: #252520;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 20px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .page-header-left { display: flex; align-items: center; gap: 14px; }
+  .page-icon {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(216,30,30,0.13); color: #D81E1E;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .page-icon svg { width: 24px; height: 24px; }
+  .page-eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(242,240,227,0.28); }
+  .page-title { font-size: 26px; font-weight: 900; color: #F2F0E3; letter-spacing: -0.02em; line-height: 1.15; }
+
+  /* ── Grid row: calendário + painel abas ── */
+  .row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: start; margin-bottom: 14px; }
+
+  .card {
+    background: #252520;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-header {
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .cal-month { font-size: 13px; font-weight: 900; color: #1A1A0E; white-space: nowrap; flex: 1; }
+  .cal-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .cal-actions button {
+    width: 26px; height: 26px; border-radius: 8px; border: none;
+    background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.55);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  .cal-actions button:hover { background: rgba(26,26,10,0.14); color: #1A1A0E; }
+  .cal-actions svg { width: 12px; height: 12px; }
+
+  .cal-body { padding: 12px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .cal-dow span {
+    text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.08em; color: rgba(242,240,227,0.22); padding: 4px 0;
+  }
+  .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-day {
+    height: 26px; display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; border-radius: 8px; color: rgba(242,240,227,0.55);
+    cursor: pointer; position: relative;
+  }
+  .cal-day:hover { background: rgba(242,240,227,0.05); }
+  .cal-day.other { color: rgba(242,240,227,0.18); cursor: default; }
+  .cal-day.today { background: rgba(216,30,30,0.13); color: #D81E1E; font-weight: 900; }
+  .cal-day.selected { background: #D81E1E; color: white; font-weight: 900; box-shadow: 0 2px 6px rgba(216,30,30,0.30); }
+  .cal-day.range-end { background: #D81E1E; color: white; font-weight: 900; box-shadow: 0 2px 6px rgba(216,30,30,0.30); }
+  .cal-day.in-range { background: rgba(216,30,30,0.18); color: #ff8080; font-weight: 800; }
+  .dot { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #D81E1E; }
+  .cal-badge {
+    margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    background: rgba(216,30,30,0.12); border: 1px solid rgba(216,30,30,0.30); border-radius: 10px;
+    padding: 6px 10px; font-size: 9.5px; font-weight: 700; color: #ff8080;
+  }
+  .cal-badge svg { width: 11px; height: 11px; cursor: pointer; opacity: 0.6; }
+
+  .panel-tabs { flex: 1; display: flex; background: rgba(26,26,10,0.10); border-radius: 99px; padding: 2px; gap: 2px; }
+  .panel-tabs button {
+    flex: 1; border: none; cursor: pointer; padding: 6px 8px; border-radius: 99px;
+    font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    transition: all 0.15s; white-space: nowrap; font-family: inherit;
+  }
+  .panel-tabs button.active { background: #D81E1E; color: #FFFFFF; box-shadow: 0 1px 4px rgba(216,30,30,0.35); }
+  .panel-tabs button:not(.active) { background: transparent; color: rgba(26,26,10,0.45); }
+  .panel-tabs button:not(.active):hover { color: rgba(26,26,10,0.70); }
+
+  .panel-body { padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .tab-panel { display: flex; flex-direction: column; gap: 8px; }
+  .tab-panel.hidden { display: none; }
+  #colaboradores {
+    max-height: 220px; overflow-y: auto; padding-right: 4px; margin-right: -4px;
+    scrollbar-width: thin; scrollbar-color: rgba(242,240,227,0.20) transparent;
+  }
+  #colaboradores::-webkit-scrollbar { width: 6px; }
+  #colaboradores::-webkit-scrollbar-track { background: transparent; }
+  #colaboradores::-webkit-scrollbar-thumb { background: rgba(242,240,227,0.18); border-radius: 99px; }
+  #colaboradores::-webkit-scrollbar-thumb:hover { background: rgba(242,240,227,0.30); }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  .stat-card {
+    background: #1E1E18; border: 1px solid rgba(242,240,227,0.08); border-radius: 12px;
+    padding: 9px 11px; display: flex; align-items: center; gap: 9px;
+  }
+  .stat-icon { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stat-icon svg { width: 13px; height: 13px; }
+  .stat-icon.merc { background: rgba(252,211,77,0.13); color: #FCD34D; }
+  .stat-icon.vale { background: rgba(96,165,250,0.15); color: #60A5FA; }
+  .stat-icon.bonus { background: rgba(52,211,153,0.10); color: #34D399; }
+  .stat-icon.outros { background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.55); }
+  .stat-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+  .stat-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.28); white-space: nowrap; }
+  .stat-value { font-size: 13.5px; font-weight: 900; letter-spacing: -0.01em; line-height: 1.15; color: #F2F0E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat-sub { font-size: 8.5px; font-weight: 700; color: rgba(242,240,227,0.35); white-space: nowrap; }
+
+  .employee-card {
+    background: #1E1E18; border: 1px solid rgba(242,240,227,0.08); border-radius: 12px;
+    padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .employee-icon {
+    width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.55);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .employee-icon svg { width: 14px; height: 14px; }
+  .employee-info { min-width: 0; flex: 1; }
+  .employee-name { font-size: 11.5px; font-weight: 800; color: #F2F0E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .employee-meta { font-size: 9px; font-weight: 700; color: rgba(242,240,227,0.35); margin-top: 1px; }
+  .employee-values { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+  .ev-neg { font-size: 11.5px; font-weight: 900; color: #D81E1E; }
+  .ev-pos { font-size: 11.5px; font-weight: 900; color: #34D399; }
+
+  /* ── Filters row ── */
+  .filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .search-box { position: relative; }
+  .search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgba(242,240,227,0.35); }
+  .search-box input {
+    padding: 8px 14px 8px 32px; background: #252520; border-radius: 12px; font-size: 13px;
+    border: 1px solid rgba(242,240,227,0.06); width: 220px; color: #F2F0E3; font-family: inherit;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 15px; border-radius: 12px; border: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    font-family: inherit; white-space: nowrap;
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-ghost { background: #2E2E28; color: #F2F0E3; border: 1px solid rgba(242,240,227,0.10); }
+  .btn-primary { background: #D81E1E; color: #FFFFFF; box-shadow: 0 8px 16px rgba(216,30,30,0.25); margin-left: auto; }
+
+  /* ── Table ── */
+  .table-card { background: rgba(37,37,32,0.80); border: 1px solid rgba(242,240,227,0.05); border-radius: 16px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { border-bottom: 1px solid rgba(242,240,227,0.07); }
+  th { padding: 12px; text-align: left; white-space: nowrap; }
+  .th-pill {
+    display: inline-flex; align-items: center; background: rgba(242,240,227,0.05);
+    border: 1.5px solid rgba(242,240,227,0.10); border-radius: 99px; padding: 5px 13px;
+    font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.40);
+    white-space: nowrap; cursor: pointer;
+  }
+  tbody tr { border-bottom: 1px solid rgba(242,240,227,0.05); }
+  tbody tr:hover { background: rgba(242,240,227,0.025); }
+  td { padding: 12px; color: rgba(242,240,227,0.70); white-space: nowrap; }
+  td.strong { font-weight: 700; color: #F2F0E3; }
+  .type-pill { padding: 3px 9px; border-radius: 99px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+  .type-pill.receita { background: rgba(52,211,153,0.13); color: #34D399; }
+  .type-pill.despesa { background: rgba(216,30,30,0.13); color: #D81E1E; }
+  .mod-pill { padding: 3px 9px; border-radius: 99px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mod-pill.merc { background: rgba(252,211,77,0.13); color: #FCD34D; }
+  .mod-pill.vale { background: rgba(96,165,250,0.15); color: #60A5FA; }
+  .mod-pill.bonus { background: rgba(52,211,153,0.10); color: #34D399; }
+  .mod-pill.outros { background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.55); }
+  .row-actions { display: flex; gap: 4px; }
+  .row-actions button {
+    width: 28px; height: 28px; border-radius: 9px; border: none; background: transparent;
+    color: rgba(242,240,227,0.30); display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .row-actions button.edit:hover { background: rgba(216,30,30,0.13); color: #D81E1E; }
+  .row-actions button.del:hover { background: rgba(225,29,72,0.15); color: #fb7185; }
+  .row-actions svg { width: 14px; height: 14px; }
+
+  /* ── Modal state ── */
+  .section-gap { height: 40px; }
+  .modal-demo { position: relative; border-radius: 24px; overflow: hidden; }
+  .modal-demo .dim { filter: blur(2px) brightness(0.75); pointer-events: none; }
+  .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.60); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 40px 0; }
+  .modal {
+    width: 520px; max-width: 92%; background: #1E1E18; border-radius: 24px; box-shadow: 0 30px 70px rgba(0,0,0,0.55);
+    overflow: hidden;
+  }
+  .modal-header { background: #252520; border-bottom: 1px solid rgba(242,240,227,0.07); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title-wrap { display: flex; align-items: center; gap: 12px; }
+  .modal-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(216,30,30,0.13); display: flex; align-items: center; justify-content: center; color: #D81E1E; }
+  .modal-icon svg { width: 18px; height: 18px; }
+  .modal-title { font-size: 17px; font-weight: 900; color: #F2F0E3; }
+  .modal-sub { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.13em; color: rgba(242,240,227,0.28); }
+  .modal-close { width: 32px; height: 32px; border-radius: 10px; background: rgba(242,240,227,0.06); border: 1px solid rgba(242,240,227,0.08); color: rgba(242,240,227,0.35); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .modal-close svg { width: 14px; height: 14px; }
+  .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-block label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(242,240,227,0.40); margin-bottom: 6px; }
+  .field { width: 100%; background: #252520; border: 1.5px solid rgba(242,240,227,0.10); border-radius: 12px; padding: 11px 13px; font-size: 13px; font-weight: 600; color: #F2F0E3; }
+  .field.muted { color: rgba(242,240,227,0.30); }
+  .chip-lock { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 14px; border-radius: 12px; background: rgba(216,30,30,0.15); color: #ff8080; width: fit-content; }
+  .chip-lock svg { width: 11px; height: 11px; }
+  .modal-footer { padding: 16px 22px; border-top: 1px solid rgba(242,240,227,0.07); display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-cancel { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.50); border: 1px solid rgba(242,240,227,0.10); padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 12.5px; text-transform: uppercase; }
+  .btn-save { background: #D81E1E; color: #fff; padding: 10px 22px; border-radius: 12px; font-weight: 800; font-size: 12.5px; text-transform: uppercase; box-shadow: 0 8px 18px rgba(216,30,30,0.32); border: none; display: flex; align-items: center; gap: 7px; }
+  .btn-save svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="center">
+    <span class="badge-new">Novo Layout — Desktop</span>
+    <p class="label">Modo Escuro — Caderninho no padrão de Controle Financeiro</p>
+  </div>
+
+  <!-- Cabeçalho da página -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+      </div>
+      <div>
+        <div class="page-eyebrow">Recursos Humanos</div>
+        <div class="page-title">Caderninho</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendário + Painel de abas -->
+  <div class="row">
+    <div class="card">
+      <div class="card-header">
+        <span class="cal-month">Julho 2026</span>
+        <div class="cal-actions">
+          <button title="Filtrar por período">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          </button>
+          <button>&#8249;</button>
+          <button>&#8250;</button>
+        </div>
+      </div>
+      <div class="cal-body">
+        <div class="cal-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+        <div class="cal-days">
+          <div class="cal-day other">28</div><div class="cal-day other">29</div><div class="cal-day other">30</div>
+          <div class="cal-day">1</div><div class="cal-day">2<span class="dot"></span></div><div class="cal-day">3<span class="dot"></span></div><div class="cal-day">4</div>
+          <div class="cal-day">5</div><div class="cal-day">6<span class="dot"></span></div><div class="cal-day">7<span class="dot"></span></div><div class="cal-day">8</div><div class="cal-day">9</div><div class="cal-day">10</div><div class="cal-day">11</div>
+          <div class="cal-day">12</div><div class="cal-day range-end">13<span class="dot"></span></div><div class="cal-day in-range">14</div><div class="cal-day in-range">15</div><div class="cal-day in-range">16</div><div class="cal-day in-range">17<span class="dot"></span></div><div class="cal-day in-range">18</div>
+          <div class="cal-day in-range">19</div><div class="cal-day range-end">20</div><div class="cal-day">21</div><div class="cal-day">22</div><div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day today">25</div>
+          <div class="cal-day">26</div><div class="cal-day">27<span class="dot"></span></div><div class="cal-day">28</div><div class="cal-day">29</div><div class="cal-day">30</div><div class="cal-day">31</div><div class="cal-day other">1</div>
+          <div class="cal-day other">2</div><div class="cal-day other">3</div><div class="cal-day other">4</div><div class="cal-day other">5</div><div class="cal-day other">6</div><div class="cal-day other">7</div><div class="cal-day other">8</div>
+        </div>
+        <div class="cal-badge">
+          <span>Período: 13/07/2026 – 20/07/2026</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="panel-tabs">
+          <button class="active" data-tab="modalidades">Modalidades</button>
+          <button data-tab="colaboradores">Colaboradores</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="tab-panel" id="modalidades">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon merc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5M12 22V12"></path></svg></div>
+              <div class="stat-text">
+                <span class="stat-label">Mercadoria</span>
+                <span class="stat-value">R$ 1.240,00</span>
+                <span class="stat-sub">14 registros</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon vale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 1 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 1 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v14"></path></svg></div>
+              <div class="stat-text">
+                <span class="stat-label">Vale</span>
+                <span class="stat-value">R$ 620,00</span>
+                <span class="stat-sub">6 registros</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon bonus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"></path></svg></div>
+              <div class="stat-text">
+                <span class="stat-label">Bônus</span>
+                <span class="stat-value">R$ 350,00</span>
+                <span class="stat-sub">3 registros</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon outros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></div>
+              <div class="stat-text">
+                <span class="stat-label">Outros</span>
+                <span class="stat-value">R$ 90,00</span>
+                <span class="stat-sub">2 registros</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-panel hidden" id="colaboradores">
+          <div class="employee-card">
+            <div class="employee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="employee-info"><div class="employee-name">Maria Deodato Moreira Louro</div><div class="employee-meta">6 registros</div></div>
+            <div class="employee-values"><span class="ev-neg">-R$ 340,00</span><span class="ev-pos">+R$ 150,00</span></div>
+          </div>
+          <div class="employee-card">
+            <div class="employee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="employee-info"><div class="employee-name">Dimitri Mizumoto Izaias</div><div class="employee-meta">4 registros</div></div>
+            <div class="employee-values"><span class="ev-neg">-R$ 120,00</span><span class="ev-pos">+R$ 350,00</span></div>
+          </div>
+          <div class="employee-card">
+            <div class="employee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="employee-info"><div class="employee-name">João Carlos Pereira</div><div class="employee-meta">5 registros</div></div>
+            <div class="employee-values"><span class="ev-neg">-R$ 640,00</span><span class="ev-pos">+R$ 0,00</span></div>
+          </div>
+          <div class="employee-card">
+            <div class="employee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="employee-info"><div class="employee-name">Ana Paula Ribeiro</div><div class="employee-meta">3 registros</div></div>
+            <div class="employee-values"><span class="ev-neg">-R$ 90,00</span><span class="ev-pos">+R$ 0,00</span></div>
+          </div>
+          <div class="employee-card">
+            <div class="employee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="employee-info"><div class="employee-name">Carlos Eduardo Souza</div><div class="employee-meta">2 registros</div></div>
+            <div class="employee-values"><span class="ev-neg">-R$ 40,00</span><span class="ev-pos">+R$ 200,00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros + Novo Registro -->
+  <div class="filters">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" placeholder="Buscar colaborador...">
+    </div>
+    <button class="btn btn-ghost">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      Filtrar colunas
+    </button>
+    <button class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+      Novo Registro
+    </button>
+  </div>
+
+  <!-- Tabela -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th><span class="th-pill">Colaborador</span></th>
+          <th><span class="th-pill">Tipo</span></th>
+          <th><span class="th-pill">Modalidade</span></th>
+          <th><span class="th-pill">Valor</span></th>
+          <th><span class="th-pill">Observação</span></th>
+          <th><span class="th-pill">Data</span></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="strong">Maria Deodato Moreira Louro</td>
+          <td><span class="type-pill despesa">Despesa</span></td>
+          <td><span class="mod-pill merc">Mercadoria</span></td>
+          <td class="strong">R$ 85,00</td>
+          <td>Compra no mercado</td>
+          <td>25/07/2026</td>
+          <td>
+            <div class="row-actions">
+              <button class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></button>
+              <button class="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg></button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="strong">Dimitri Mizumoto Izaias</td>
+          <td><span class="type-pill receita">Receita</span></td>
+          <td><span class="mod-pill bonus">Bônus</span></td>
+          <td class="strong">R$ 150,00</td>
+          <td>—</td>
+          <td>25/07/2026</td>
+          <td>
+            <div class="row-actions">
+              <button class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></button>
+              <button class="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg></button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="strong">João Carlos Pereira</td>
+          <td><span class="type-pill despesa">Despesa</span></td>
+          <td><span class="mod-pill vale">Vale</span></td>
+          <td class="strong">R$ 60,00</td>
+          <td>Adiantamento</td>
+          <td>24/07/2026</td>
+          <td>
+            <div class="row-actions">
+              <button class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg></button>
+              <button class="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg></button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-gap"></div>
+  <div class="center">
+    <p class="label">Modal dedicado — Novo/Editar Registro (mesma linguagem do "Nova Movimentação")</p>
+  </div>
+
+  <!-- Estado do modal -->
+  <div class="modal-demo">
+    <div class="dim">
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="th-pill">Colaborador</span></th>
+              <th><span class="th-pill">Tipo</span></th>
+              <th><span class="th-pill">Modalidade</span></th>
+              <th><span class="th-pill">Valor</span></th>
+              <th><span class="th-pill">Data</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="strong">Maria Deodato Moreira Louro</td><td><span class="type-pill despesa">Despesa</span></td><td><span class="mod-pill merc">Mercadoria</span></td><td class="strong">R$ 85,00</td><td>25/07/2026</td></tr>
+            <tr><td class="strong">Dimitri Mizumoto Izaias</td><td><span class="type-pill receita">Receita</span></td><td><span class="mod-pill bonus">Bônus</span></td><td class="strong">R$ 150,00</td><td>25/07/2026</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            </div>
+            <div>
+              <div class="modal-sub">Caderninho</div>
+              <div class="modal-title">Novo Registro</div>
+            </div>
+          </div>
+          <button class="modal-close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="field-row-2">
+            <div class="field-block">
+              <label>Colaborador</label>
+              <div class="field">Maria Deodato Moreira Louro</div>
+            </div>
+            <div class="field-block">
+              <label>Modalidade</label>
+              <div class="field">Mercadoria</div>
+            </div>
+          </div>
+          <div class="field-block">
+            <label>Tipo</label>
+            <div class="chip-lock">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              Despesa
+            </div>
+          </div>
+          <div class="field-row-2">
+            <div class="field-block">
+              <label>Valor (R$)</label>
+              <div class="field muted">0,00</div>
+            </div>
+            <div class="field-block">
+              <label>Data</label>
+              <div class="field">25/07/2026</div>
+            </div>
+          </div>
+          <div class="field-block">
+            <label>Observação</label>
+            <div class="field muted">Opcional</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel">Cancelar</button>
+          <button class="btn-save">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+            Salvar Registro
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.panel-tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.panel-tabs button').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.toggle('hidden', p.id !== tab);
+      });
+    });
+  });
+</script>
+</body>
+</html>

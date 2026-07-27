@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, Trash2, Lock, Search, Calendar, Filter, X } from 'lucide-react';
+import {
+  Plus, Check, Trash2, Lock, Search, Calendar, Filter, X,
+  ChevronLeft, ChevronRight, Edit2, Users, Package, Ticket, Award, MoreHorizontal,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { type Employee } from '@/lib/hrEmployees';
@@ -59,6 +62,46 @@ const fmtDate = (d: string) => {
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
+const MONTHS_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const WEEKDAYS_PT = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const dateToISO = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+function buildCalCells(viewDate: Date): { date: Date; current: boolean }[] {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev = new Date(year, month, 0).getDate();
+  const cells: { date: Date; current: boolean }[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push({ date: new Date(year, month - 1, daysInPrev - firstDay + 1 + i), current: false });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ date: new Date(year, month, d), current: true });
+  const remaining = 42 - cells.length;
+  for (let d = 1; d <= remaining; d++) cells.push({ date: new Date(year, month + 1, d), current: false });
+  return cells;
+}
+
+const modalidadeIcon = (m: Modalidade) => {
+  if (m === 'Mercadoria') return <Package size={12} />;
+  if (m === 'Vale') return <Ticket size={12} />;
+  if (m === 'Bônus') return <Award size={12} />;
+  return <MoreHorizontal size={12} />;
+};
+
+function validateDraft(d: PendingRow): string | null {
+  const val = parseFloat(d.valor.replace(',', '.'));
+  if (!d.colaborador_id) return 'Selecione um colaborador.';
+  if (!d.valor || isNaN(val) || val <= 0) return 'Informe um valor válido.';
+  if (!d.data) return 'Informe a data.';
+  return null;
+}
+
+function withAutoTipo(modalidade: Modalidade, prev: PendingRow): PendingRow {
+  const auto = TIPO_AUTOMATICO[modalidade];
+  return { ...prev, modalidade, ...(auto ? { tipo: auto } : {}) };
+}
+
 function makePending(): PendingRow {
   return {
     localId: crypto.randomUUID(),
@@ -85,10 +128,9 @@ const tipoColor = (t: TipoLancamento) =>
 
 export function CaderninhoTable({ employees, compact = false }: CaderninhoTableProps) {
   const [entries, setEntries] = useState<CaderninhoEntry[]>([]);
-  const [pending, setPending] = useState<PendingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Mobile (compact): busca/filtro/adicionar via sheet ────────────────────
+  // ── Busca/filtro/data — compartilhado entre mobile (sheets) e desktop (calendário/painel) ──
   const [search, setSearch] = useState('');
   const [filterModalidade, setFilterModalidade] = useState<Modalidade | null>(null);
   const [filterTipo, setFilterTipo] = useState<TipoLancamento | null>(null);
@@ -99,6 +141,14 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [draft, setDraft] = useState<PendingRow>(() => makePending());
 
+  // ── Desktop: calendário, painel de resumo e modal dedicado de criação/edição ──
+  const [calViewDate, setCalViewDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const [panelTab, setPanelTab] = useState<'modalidades' | 'colaboradores'>('modalidades');
+  const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [showDeskModal, setShowDeskModal] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [deskDraft, setDeskDraft] = useState<PendingRow>(() => makePending());
+
   const hasDatePeriod = !!(dateFrom || dateTo);
   const hasFilter = filterModalidade !== null || filterTipo !== null;
 
@@ -107,28 +157,19 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
     setShowAddSheet(true);
   };
 
-  const changeDraftModalidade = (modalidade: Modalidade) => {
-    const auto = TIPO_AUTOMATICO[modalidade];
-    setDraft(prev => ({ ...prev, modalidade, ...(auto ? { tipo: auto } : {}) }));
-  };
+  const changeDraftModalidade = (modalidade: Modalidade) => setDraft(prev => withAutoTipo(modalidade, prev));
+  const changeDeskDraftModalidade = (modalidade: Modalidade) => setDeskDraft(prev => withAutoTipo(modalidade, prev));
 
   const confirmDraft = async () => {
-    const val = parseFloat(draft.valor.replace(',', '.'));
-    if (!draft.colaborador_id) {
-      setDraft(prev => ({ ...prev, error: 'Selecione um colaborador.' }));
-      return;
-    }
-    if (!draft.valor || isNaN(val) || val <= 0) {
-      setDraft(prev => ({ ...prev, error: 'Informe um valor válido.' }));
-      return;
-    }
-    if (!draft.data) {
-      setDraft(prev => ({ ...prev, error: 'Informe a data.' }));
+    const err = validateDraft(draft);
+    if (err) {
+      setDraft(prev => ({ ...prev, error: err }));
       return;
     }
 
     setDraft(prev => ({ ...prev, saving: true, error: null }));
 
+    const val = parseFloat(draft.valor.replace(',', '.'));
     const emp = employees.find(e => e.id === draft.colaborador_id);
     const { error } = await supabase.from('hr_caderninho').insert([{
       colaborador_id: draft.colaborador_id,
@@ -161,61 +202,129 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
 
   useEffect(() => { fetchEntries(); }, []);
 
-  const addPending = () => setPending(prev => [...prev, makePending()]);
-
-  const updatePending = (localId: string, patch: Partial<PendingRow>) =>
-    setPending(prev => prev.map(r => r.localId === localId ? { ...r, ...patch } : r));
-
-  const changeModalidade = (localId: string, modalidade: Modalidade) => {
-    const auto = TIPO_AUTOMATICO[modalidade];
-    updatePending(localId, auto ? { modalidade, tipo: auto } : { modalidade });
-  };
-
-  const removePending = (localId: string) =>
-    setPending(prev => prev.filter(r => r.localId !== localId));
-
-  const confirmRow = async (row: PendingRow) => {
-    const val = parseFloat(row.valor.replace(',', '.'));
-    if (!row.colaborador_id) {
-      updatePending(row.localId, { error: 'Selecione um colaborador.' });
-      return;
-    }
-    if (!row.valor || isNaN(val) || val <= 0) {
-      updatePending(row.localId, { error: 'Informe um valor válido.' });
-      return;
-    }
-    if (!row.data) {
-      updatePending(row.localId, { error: 'Informe a data.' });
-      return;
-    }
-
-    updatePending(row.localId, { saving: true, error: null });
-
-    const emp = employees.find(e => e.id === row.colaborador_id);
-    const { error } = await supabase.from('hr_caderninho').insert([{
-      colaborador_id: row.colaborador_id,
-      colaborador_nome: emp?.nome || null,
-      modalidade: row.modalidade,
-      tipo: row.tipo,
-      valor: val,
-      observacao: row.observacao.trim() || null,
-      data: row.data,
-    }]);
-
-    if (error) {
-      updatePending(row.localId, { saving: false, error: 'Erro ao salvar. Tente novamente.' });
-      return;
-    }
-
-    removePending(row.localId);
-    fetchEntries();
-    recomputeParcelasForCaderninhoEntry(row.colaborador_id, row.data);
-  };
-
   const deleteEntry = async (entry: CaderninhoEntry) => {
     await supabase.from('hr_caderninho').delete().eq('id', entry.id);
     setEntries(prev => prev.filter(e => e.id !== entry.id));
     if (entry.colaborador_id) recomputeParcelasForCaderninhoEntry(entry.colaborador_id, entry.data);
+  };
+
+  // ── Desktop: abrir modal de criação/edição ────────────────────────────────
+  const openDeskCreate = () => {
+    setDeskDraft(makePending());
+    setEditingEntryId(null);
+    setShowDeskModal(true);
+  };
+
+  const openDeskEdit = (entry: CaderninhoEntry) => {
+    setDeskDraft({
+      localId: entry.id,
+      colaborador_id: entry.colaborador_id || '',
+      modalidade: entry.modalidade,
+      tipo: entry.tipo,
+      valor: String(entry.valor).replace('.', ','),
+      observacao: entry.observacao || '',
+      data: entry.data,
+      saving: false,
+      error: null,
+    });
+    setEditingEntryId(entry.id);
+    setShowDeskModal(true);
+  };
+
+  const saveDeskDraft = async () => {
+    const err = validateDraft(deskDraft);
+    if (err) {
+      setDeskDraft(prev => ({ ...prev, error: err }));
+      return;
+    }
+
+    setDeskDraft(prev => ({ ...prev, saving: true, error: null }));
+
+    const val = parseFloat(deskDraft.valor.replace(',', '.'));
+    const emp = employees.find(e => e.id === deskDraft.colaborador_id);
+    const payload = {
+      colaborador_id: deskDraft.colaborador_id,
+      colaborador_nome: emp?.nome || null,
+      modalidade: deskDraft.modalidade,
+      tipo: deskDraft.tipo,
+      valor: val,
+      observacao: deskDraft.observacao.trim() || null,
+      data: deskDraft.data,
+    };
+
+    const { error } = editingEntryId
+      ? await supabase.from('hr_caderninho').update(payload).eq('id', editingEntryId)
+      : await supabase.from('hr_caderninho').insert([payload]);
+
+    if (error) {
+      setDeskDraft(prev => ({ ...prev, saving: false, error: 'Erro ao salvar. Tente novamente.' }));
+      return;
+    }
+
+    setShowDeskModal(false);
+    fetchEntries();
+    recomputeParcelasForCaderninhoEntry(deskDraft.colaborador_id, deskDraft.data);
+  };
+
+  // ── Filtro compartilhado (busca + modalidade/tipo + período) ─────────────
+  const filteredEntries = useMemo(() => entries.filter(entry => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matches = (entry.colaborador_nome || '').toLowerCase().includes(q)
+        || (entry.observacao || '').toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    if (filterModalidade && entry.modalidade !== filterModalidade) return false;
+    if (filterTipo && entry.tipo !== filterTipo) return false;
+    if (dateFrom && entry.data < dateFrom) return false;
+    if (dateTo && entry.data > dateTo) return false;
+    return true;
+  }), [entries, search, filterModalidade, filterTipo, dateFrom, dateTo]);
+
+  // ── Painel de resumo desktop: entradas do período selecionado no calendário ──
+  const periodEntries = useMemo(() => entries.filter(entry => {
+    if (dateFrom && entry.data < dateFrom) return false;
+    if (dateTo && entry.data > dateTo) return false;
+    return true;
+  }), [entries, dateFrom, dateTo]);
+
+  const modalidadeStats = useMemo(() => {
+    const map = new Map<Modalidade, { valor: number; count: number }>();
+    MODALIDADES.forEach(m => map.set(m, { valor: 0, count: 0 }));
+    periodEntries.forEach(entry => {
+      const stat = map.get(entry.modalidade)!;
+      stat.valor += entry.valor;
+      stat.count += 1;
+    });
+    return map;
+  }, [periodEntries]);
+
+  const colaboradorStats = useMemo(() => {
+    const map = new Map<string, { nome: string; despesas: number; receitas: number; count: number }>();
+    periodEntries.forEach(entry => {
+      const key = entry.colaborador_id || entry.colaborador_nome || 'sem-colaborador';
+      const nome = entry.colaborador_nome || 'Sem colaborador';
+      if (!map.has(key)) map.set(key, { nome, despesas: 0, receitas: 0, count: 0 });
+      const stat = map.get(key)!;
+      if (entry.tipo === 'Despesa') stat.despesas += entry.valor;
+      else stat.receitas += entry.valor;
+      stat.count += 1;
+    });
+    return Array.from(map.values()).sort((a, b) => (b.despesas + b.receitas) - (a.despesas + a.receitas));
+  }, [periodEntries]);
+
+  const entryDatesSet = useMemo(() => new Set(entries.map(e => e.data)), [entries]);
+
+  const handleCalDayClick = (iso: string) => {
+    if (!dateFrom || (dateFrom && dateTo)) {
+      setDateFrom(iso);
+      setDateTo('');
+    } else if (iso < dateFrom) {
+      setDateTo(dateFrom);
+      setDateFrom(iso);
+    } else {
+      setDateTo(iso);
+    }
   };
 
   // ── Mobile (compact) layout ──────────────────────────────────────────────
@@ -225,20 +334,6 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
     const iconBtnCls = 'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0';
     const iconBtnOffCls = 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40';
     const iconBtnOnCls = 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]';
-
-    const filteredEntries = entries.filter(entry => {
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        const matches = (entry.colaborador_nome || '').toLowerCase().includes(q)
-          || (entry.observacao || '').toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-      if (filterModalidade && entry.modalidade !== filterModalidade) return false;
-      if (filterTipo && entry.tipo !== filterTipo) return false;
-      if (dateFrom && entry.data < dateFrom) return false;
-      if (dateTo && entry.data > dateTo) return false;
-      return true;
-    });
 
     return (
       <div className="flex flex-col h-full">
@@ -559,19 +654,226 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
     );
   }
 
-  // ── Desktop table layout ─────────────────────────────────────────────────
+  // ── Desktop layout: calendário + painel Modalidades/Colaboradores + tabela ──
   const thCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/40 px-3.5 py-3 text-left whitespace-nowrap';
   const tdCls = 'px-3.5 py-2.5';
-  const inputCls = 'w-full bg-surface border border-on-surface/10 rounded-xl px-3 py-2 text-[13px] text-on-surface focus:outline-none focus:border-primary/50 transition-colors';
+  const modalFieldCls = 'w-full bg-surface border border-on-surface/10 rounded-xl px-3.5 py-2.5 text-[13px] font-medium text-on-surface focus:outline-none focus:border-primary/50 transition-colors';
+  const modalLabelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
 
   return (
-    <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] overflow-hidden">
-      {loading ? (
-        <div className="py-12 flex justify-center">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div className="flex flex-col gap-3.5">
+      {/* Calendário + painel de resumo */}
+      <div className="grid grid-cols-2 gap-3.5 items-start">
+        {/* Calendário */}
+        <div className="bg-surface border border-on-surface/[0.08] rounded-[18px] overflow-hidden flex flex-col">
+          <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
+            <span className="text-[13px] font-black text-[#1A1A0E] flex-1 whitespace-nowrap">
+              {MONTHS_PT[calViewDate.getMonth()]} {calViewDate.getFullYear()}
+            </span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                className="w-[26px] h-[26px] rounded-lg bg-black/[0.08] hover:bg-black/[0.14] text-black/55 hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                className="w-[26px] h-[26px] rounded-lg bg-black/[0.08] hover:bg-black/[0.14] text-black/55 hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
+              >
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+          <div className="p-3">
+            <div className="grid grid-cols-7 mb-1">
+              {WEEKDAYS_PT.map((d, i) => (
+                <span key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-[2px]">
+              {buildCalCells(calViewDate).map((cell, i) => {
+                const iso = dateToISO(cell.date);
+                const isToday = iso === todayStr();
+                const selectedSolo = dateFrom === iso && !dateTo;
+                const rangeStart = dateFrom === iso && !!dateTo;
+                const rangeEnd = dateTo === iso;
+                const inRange = !!dateFrom && !!dateTo && iso > dateFrom && iso < dateTo;
+                const highlighted = selectedSolo || rangeStart || rangeEnd;
+                const hasDot = entryDatesSet.has(iso);
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleCalDayClick(iso)}
+                    className={cn(
+                      'h-[26px] rounded-lg flex items-center justify-center text-[10.5px] font-bold relative transition-colors',
+                      !cell.current && 'text-on-surface/20',
+                      cell.current && !highlighted && !inRange && !isToday && 'text-on-surface/55 hover:bg-on-surface/5',
+                      isToday && !highlighted && 'bg-primary/10 text-primary',
+                      inRange && 'bg-primary/[0.13] text-primary font-extrabold',
+                      highlighted && 'bg-primary text-white font-extrabold shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                    )}
+                  >
+                    {cell.date.getDate()}
+                    {hasDot && (
+                      <span className={cn('absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[4px] h-[4px] rounded-full', highlighted ? 'bg-white/70' : 'bg-primary')} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {(dateFrom || dateTo) && (
+              <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
+                <span className="text-[9.5px] font-bold text-primary">
+                  {dateTo ? `Período: ${fmtDate(dateFrom)} – ${fmtDate(dateTo)}` : `Data: ${fmtDate(dateFrom)}`}
+                </span>
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-primary/60 hover:text-primary">
+                  <X size={11} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      ) : (
-        <>
+
+        {/* Painel Modalidades / Colaboradores */}
+        <div className="bg-surface border border-on-surface/[0.08] rounded-[18px] overflow-hidden flex flex-col">
+          <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-2.5 py-2">
+            <div className="flex bg-black/10 rounded-full p-[2px] gap-[2px]">
+              <button
+                onClick={() => setPanelTab('modalidades')}
+                className={cn('flex-1 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wide transition-colors', panelTab === 'modalidades' ? 'bg-primary text-white shadow-sm' : 'text-black/45 hover:text-black/70')}
+              >
+                Modalidades
+              </button>
+              <button
+                onClick={() => setPanelTab('colaboradores')}
+                className={cn('flex-1 py-1.5 rounded-full text-[9.5px] font-black uppercase tracking-wide transition-colors', panelTab === 'colaboradores' ? 'bg-primary text-white shadow-sm' : 'text-black/45 hover:text-black/70')}
+              >
+                Colaboradores
+              </button>
+            </div>
+          </div>
+          <div className="p-2.5">
+            {panelTab === 'modalidades' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {MODALIDADES.map(m => {
+                  const stat = modalidadeStats.get(m)!;
+                  return (
+                    <div key={m} className="bg-surface-container-low border border-on-surface/[0.07] rounded-xl px-2.5 py-2 flex items-center gap-2">
+                      <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0', modalidadeColor(m))}>
+                        {modalidadeIcon(m)}
+                      </div>
+                      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                        <span className="text-[8px] font-black uppercase tracking-wide text-on-surface/40 whitespace-nowrap">{m}</span>
+                        <span className="text-[13px] font-black text-on-surface leading-tight truncate">{fmtMoney(stat.valor)}</span>
+                        <span className="text-[8.5px] font-bold text-on-surface/35">{stat.count} registro{stat.count === 1 ? '' : 's'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1 -mr-1">
+                {colaboradorStats.length === 0 ? (
+                  <p className="text-[11px] text-on-surface/35 text-center py-6">Nenhum colaborador no período.</p>
+                ) : colaboradorStats.map(c => (
+                  <div key={c.nome} className="bg-surface-container-low border border-on-surface/[0.07] rounded-xl px-3 py-2.5 flex items-center gap-2.5">
+                    <div className="w-[30px] h-[30px] rounded-[9px] bg-on-surface/[0.08] text-on-surface/55 flex items-center justify-center flex-shrink-0">
+                      <Users size={14} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11.5px] font-extrabold text-on-surface truncate">{c.nome}</div>
+                      <div className="text-[9px] font-bold text-on-surface/35 mt-0.5">{c.count} registro{c.count === 1 ? '' : 's'}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                      <span className="text-[11.5px] font-black text-red-600 dark:text-red-400">-{fmtMoney(c.despesas)}</span>
+                      <span className="text-[11.5px] font-black text-emerald-600 dark:text-emerald-400">+{fmtMoney(c.receitas)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Busca + filtro + novo registro */}
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/35 pointer-events-none" />
+          <input
+            className="pl-8 pr-4 py-2.5 bg-surface-container-low rounded-xl text-[13px] text-on-surface border border-on-surface/[0.06] focus:outline-none focus:border-primary/50 w-[220px] placeholder:text-on-surface/35"
+            placeholder="Buscar colaborador..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowFilterPopover(v => !v)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide border transition-colors',
+              hasFilter ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container-low border-on-surface/[0.08] text-on-surface/60 hover:text-on-surface',
+            )}
+          >
+            <Filter size={14} /> Filtrar colunas
+          </button>
+          {showFilterPopover && (
+            <div className="absolute z-20 top-[calc(100%+6px)] left-0 w-[240px] bg-surface border border-on-surface/10 rounded-2xl shadow-xl p-3.5">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[10px] font-black uppercase tracking-wide text-on-surface/40">Filtrar</span>
+                <button onClick={() => setShowFilterPopover(false)} className="text-on-surface/40 hover:text-on-surface">
+                  <X size={13} />
+                </button>
+              </div>
+              <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35 mb-1.5 block">Modalidade</span>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {MODALIDADES.map(m => (
+                  <button
+                    key={m} onClick={() => setFilterModalidade(prev => prev === m ? null : m)}
+                    className={cn('px-2.5 py-1.5 rounded-lg text-[10px] font-bold border-[1.5px] transition-colors', filterModalidade === m ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/10 text-on-surface/45')}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35 mb-1.5 block">Tipo</span>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                  <button
+                    key={t} onClick={() => setFilterTipo(prev => prev === t ? null : t)}
+                    className={cn('px-2.5 py-1.5 rounded-lg text-[10px] font-bold border-[1.5px] transition-colors', filterTipo === t ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/10 text-on-surface/45')}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              {hasFilter && (
+                <button
+                  onClick={() => { setFilterModalidade(null); setFilterTipo(null); }}
+                  className="w-full py-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide bg-on-surface/[0.06] text-on-surface/50 hover:text-on-surface transition-colors"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={openDeskCreate}
+          className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-primary text-white shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
+        >
+          <Plus size={15} strokeWidth={2.8} /> Novo Registro
+        </button>
+      </div>
+
+      {/* Tabela */}
+      <div className="bg-surface-container border border-on-surface/[0.07] rounded-[20px] overflow-hidden">
+        {loading ? (
+          <div className="py-12 flex justify-center">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[780px]">
               <thead>
@@ -582,20 +884,19 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                   <th className={thCls}>Valor</th>
                   <th className={thCls}>Observação</th>
                   <th className={thCls}>Data</th>
-                  <th className={cn(thCls, 'w-12')} />
+                  <th className={cn(thCls, 'w-20')} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-on-surface/[0.05]">
-                {entries.length === 0 && pending.length === 0 && (
+                {filteredEntries.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-sm text-on-surface/35">
-                      Nenhum registro ainda. Clique em "Adicionar Linha" para começar.
+                      {entries.length === 0 ? 'Nenhum registro ainda. Clique em "Novo Registro" para começar.' : 'Nenhum registro encontrado.'}
                     </td>
                   </tr>
                 )}
 
-                {/* Confirmed rows */}
-                {entries.map(entry => (
+                {filteredEntries.map(entry => (
                   <tr key={entry.id} className="group hover:bg-on-surface/[0.015] transition-colors">
                     <td className={cn(tdCls, 'text-[13px] font-semibold text-on-surface')}>
                       {entry.colaborador_nome || '—'}
@@ -620,128 +921,165 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                       {fmtDate(entry.data)}
                     </td>
                     <td className={tdCls}>
-                      <button
-                        onClick={() => deleteEntry(entry)}
-                        className="w-7 h-7 rounded-lg hover:bg-red-500/10 text-on-surface/20 hover:text-red-500 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openDeskEdit(entry)}
+                          className="w-7 h-7 rounded-lg hover:bg-primary/10 text-on-surface/25 hover:text-primary flex items-center justify-center transition-colors"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={() => deleteEntry(entry)}
+                          className="w-7 h-7 rounded-lg hover:bg-red-500/10 text-on-surface/25 hover:text-red-500 flex items-center justify-center transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-
-                {/* Pending rows */}
-                {pending.map(row => (
-                  <>
-                    <tr key={row.localId} className="bg-primary/[0.015]">
-                      <td className={tdCls}>
-                        <select
-                          className={cn(inputCls, 'min-w-[140px]')}
-                          value={row.colaborador_id}
-                          onChange={e => updatePending(row.localId, { colaborador_id: e.target.value })}
-                        >
-                          <option value="">Selecionar...</option>
-                          {employees.map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className={tdCls}>
-                        {TIPO_AUTOMATICO[row.modalidade] ? (
-                          <div className={cn('flex items-center gap-1.5 w-fit text-[9.5px] font-extrabold uppercase tracking-wide px-2.5 py-1.5 rounded-lg', tipoColor(row.tipo))}>
-                            <Lock size={9} strokeWidth={3} /> {row.tipo}
-                          </div>
-                        ) : (
-                          <div className="flex gap-1">
-                            {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
-                              <button
-                                key={t} onClick={() => updatePending(row.localId, { tipo: t })}
-                                className={cn(
-                                  'px-2.5 py-1.5 rounded-lg text-[9.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-                                  row.tipo === t ? tipoColor(t) : 'border-on-surface/[0.12] text-on-surface/40',
-                                )}
-                              >
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className={tdCls}>
-                        <select
-                          className={cn(inputCls, 'min-w-[110px]')}
-                          value={row.modalidade}
-                          onChange={e => changeModalidade(row.localId, e.target.value as Modalidade)}
-                        >
-                          {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </td>
-                      <td className={tdCls}>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          className={cn(inputCls, 'no-spinner min-w-[100px]')}
-                          placeholder="0,00"
-                          value={row.valor}
-                          onChange={e => updatePending(row.localId, { valor: e.target.value })}
-                        />
-                      </td>
-                      <td className={tdCls}>
-                        <input
-                          type="text"
-                          className={cn(inputCls, 'min-w-[150px]')}
-                          placeholder="Opcional"
-                          value={row.observacao}
-                          onChange={e => updatePending(row.localId, { observacao: e.target.value })}
-                        />
-                      </td>
-                      <td className={tdCls}>
-                        <input
-                          type="date"
-                          className={cn(inputCls, 'min-w-[130px]')}
-                          value={row.data}
-                          onChange={e => updatePending(row.localId, { data: e.target.value })}
-                        />
-                      </td>
-                      <td className={tdCls}>
-                        <button
-                          onClick={() => confirmRow(row)}
-                          disabled={row.saving}
-                          className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/25 active:scale-95 transition-transform disabled:opacity-50"
-                          title="Confirmar"
-                        >
-                          {row.saving
-                            ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            : <Check size={14} strokeWidth={2.8} />
-                          }
-                        </button>
-                      </td>
-                    </tr>
-                    {row.error && (
-                      <tr key={`${row.localId}-err`} className="bg-red-500/[0.03]">
-                        <td colSpan={7} className="px-3.5 py-1.5 text-[11px] text-red-500 font-semibold">
-                          {row.error}
-                        </td>
-                      </tr>
-                    )}
-                  </>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+      </div>
 
-          {/* Add row button */}
-          <div className="px-5 py-3.5 border-t border-on-surface/[0.07]">
-            <button
-              onClick={addPending}
-              className="flex items-center gap-2 px-4 py-2 rounded-[13px] border-[1.5px] border-dashed border-on-surface/15 text-[11.5px] font-extrabold uppercase tracking-wide text-on-surface/40 hover:border-primary/30 hover:text-primary transition-colors active:scale-[0.98]"
-            >
-              <Plus size={13} strokeWidth={2.8} />
-              Adicionar Linha
-            </button>
+      {/* Modal dedicado — Novo/Editar Registro */}
+      {typeof window !== 'undefined' && showDeskModal && createPortal(
+        <>
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-[2px] z-[100]" onClick={() => setShowDeskModal(false)} />
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 pointer-events-none">
+            <div className="w-full max-w-[520px] bg-surface rounded-3xl shadow-2xl overflow-hidden pointer-events-auto max-h-[90vh] flex flex-col">
+              <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-5 py-4 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-black/[0.09] flex items-center justify-center text-[#1A1A0E]">
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-black/40">Caderninho</div>
+                    <div className="text-[17px] font-black text-[#1A1A0E]">{editingEntryId ? 'Editar Registro' : 'Novo Registro'}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDeskModal(false)}
+                  className="w-8 h-8 rounded-lg bg-black/[0.08] border border-black/10 text-black/45 hover:bg-black/[0.14] hover:text-[#1A1A0E] flex items-center justify-center transition-colors"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="p-5 flex flex-col gap-3.5 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className={modalLabelCls}>Colaborador</span>
+                    <select
+                      className={modalFieldCls}
+                      value={deskDraft.colaborador_id}
+                      onChange={e => setDeskDraft(prev => ({ ...prev, colaborador_id: e.target.value }))}
+                    >
+                      <option value="">Selecionar...</option>
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <span className={modalLabelCls}>Modalidade</span>
+                    <select
+                      className={modalFieldCls}
+                      value={deskDraft.modalidade}
+                      onChange={e => changeDeskDraftModalidade(e.target.value as Modalidade)}
+                    >
+                      {MODALIDADES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <span className={modalLabelCls}>Tipo</span>
+                  {TIPO_AUTOMATICO[deskDraft.modalidade] ? (
+                    <div className={cn('flex items-center gap-1.5 w-fit text-[11px] font-extrabold uppercase tracking-wide px-3 py-2.5 rounded-xl', tipoColor(deskDraft.tipo))}>
+                      <Lock size={10} strokeWidth={3} /> {deskDraft.tipo}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      {(['Despesa', 'Receita'] as TipoLancamento[]).map(t => (
+                        <button
+                          key={t} onClick={() => setDeskDraft(prev => ({ ...prev, tipo: t }))}
+                          className={cn(
+                            'flex-1 py-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+                            deskDraft.tipo === t ? tipoColor(t) : 'border-on-surface/[0.12] text-on-surface/40',
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className={modalLabelCls}>Valor (R$)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className={cn(modalFieldCls, 'no-spinner')}
+                      placeholder="0,00"
+                      value={deskDraft.valor}
+                      onChange={e => setDeskDraft(prev => ({ ...prev, valor: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <span className={modalLabelCls}>Data</span>
+                    <input
+                      type="date"
+                      className={modalFieldCls}
+                      value={deskDraft.data}
+                      onChange={e => setDeskDraft(prev => ({ ...prev, data: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <span className={modalLabelCls}>Observação</span>
+                  <input
+                    type="text"
+                    className={modalFieldCls}
+                    placeholder="Opcional"
+                    value={deskDraft.observacao}
+                    onChange={e => setDeskDraft(prev => ({ ...prev, observacao: e.target.value }))}
+                  />
+                </div>
+
+                {deskDraft.error && (
+                  <p className="text-[11px] text-red-500 font-semibold">{deskDraft.error}</p>
+                )}
+              </div>
+
+              <div className="px-5 py-4 border-t border-on-surface/[0.08] flex justify-end gap-2.5 flex-shrink-0">
+                <button
+                  onClick={() => setShowDeskModal(false)}
+                  className="px-5 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-on-surface/[0.07] text-on-surface/55 border border-on-surface/10"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveDeskDraft}
+                  disabled={deskDraft.saving}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[12px] font-extrabold uppercase tracking-wide bg-primary text-white shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform disabled:opacity-50"
+                >
+                  {deskDraft.saving
+                    ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <><Check size={14} strokeWidth={2.8} /> Salvar Registro</>
+                  }
+                </button>
+              </div>
+            </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
