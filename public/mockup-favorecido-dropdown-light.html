@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Favorecido Dropdown — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#3a372e; display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:60px 16px;}
+  .modal{width:480px; background:#FDFAF0; border-radius:24px; padding:24px; box-shadow:0 40px 90px rgba(0,0,0,0.35);}
+  .modal-title{font-size:18px; font-weight:800; color:#1A1A0E; margin-bottom:20px;}
+  .field-label{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:rgba(26,26,10,0.45); margin-bottom:6px; display:block;}
+  .field-wrap{position:relative; margin-bottom:4px;}
+  .field-input{width:100%; background:#FDFAF0; border:1.5px solid #D81E1E; border-radius:12px; padding:10px 13px; font-size:14px; color:#1A1A0E; outline:none;}
+
+  /* ── Antes (bug) ── */
+  .before .dropdown{background:#2a2a24; border:1px solid rgba(26,26,10,0.10); border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.25); overflow:hidden; margin-top:6px;}
+  .before .item{padding:10px 13px; border-bottom:1px solid rgba(255,255,255,0.06);}
+  .before .item .name{font-size:13px; font-weight:600; color:rgba(255,255,255,0.90);}
+  .before .item .sub{font-size:11px; color:rgba(255,255,255,0.40); margin-left:8px;}
+
+  /* ── Depois (corrigido) ── */
+  .after .dropdown{background:#fff; border:1.5px solid rgba(26,26,10,0.10); border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.14); overflow:hidden; margin-top:6px;}
+  .after .item{padding:10px 13px; cursor:pointer; transition:background 0.12s;}
+  .after .item:hover{background:rgba(26,26,10,0.05);}
+  .after .item .name{font-size:13px; font-weight:600; color:#1A1A0E;}
+  .after .item .sub{font-size:11px; color:rgba(26,26,10,0.40); margin-left:8px;}
+
+  .row{display:flex; gap:28px;}
+  .col{flex:1;}
+  .col-label{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.55); margin-bottom:10px; text-align:center;}
+  .badge{display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; padding:3px 8px; border-radius:6px; margin-bottom:8px;}
+  .badge.bug{background:rgba(216,30,30,0.15); color:#F87171;}
+  .badge.fix{background:rgba(5,150,105,0.15); color:#34D399;}
+</style>
+</head>
+<body>
+
+<div class="row">
+  <div class="col before">
+    <div class="col-label">Antes — bg-[#2a2a24] fixo, sem dark:</div>
+    <div class="modal">
+      <div class="modal-title">Nova Movimentação</div>
+      <span class="badge bug">Bug</span>
+      <span class="field-label" style="display:block;">Favorecido</span>
+      <div class="field-wrap">
+        <div class="field-input">Digite para buscar...</div>
+        <div class="dropdown">
+          <div class="item"><span class="name">ALTERNATIVA PLANTAS E JARDINAGENS LTDA</span><span class="sub">GENERAL CIA SECURITIZADORA</span></div>
+          <div class="item"><span class="name">ANDRE SACOS</span><span class="sub">ANDRE SACOS</span></div>
+          <div class="item"><span class="name">ARCOM</span><span class="sub">ARCOM</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col after">
+    <div class="col-label">Depois — segue o padrão do site</div>
+    <div class="modal">
+      <div class="modal-title">Nova Movimentação</div>
+      <span class="badge fix">Corrigido</span>
+      <span class="field-label" style="display:block;">Favorecido</span>
+      <div class="field-wrap">
+        <div class="field-input">Digite para buscar...</div>
+        <div class="dropdown">
+          <div class="item"><span class="name">ALTERNATIVA PLANTAS E JARDINAGENS LTDA</span><span class="sub">GENERAL CIA SECURITIZADORA</span></div>
+          <div class="item"><span class="name">ANDRE SACOS</span><span class="sub">ANDRE SACOS</span></div>
+          <div class="item"><span class="name">ARCOM</span><span class="sub">ARCOM</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

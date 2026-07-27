@@ -2274,7 +2274,7 @@ export function FinanceManager() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -4, scale: 0.98 }}
                               transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#2a2a24] border border-on-surface/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-[rgba(26,26,10,0.10)] dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
                             >
                               {favorecidos
                                 .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
@@ -2282,14 +2282,14 @@ export function FinanceManager() {
                                   <li
                                     key={fv.id}
                                     onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: fv.nome_fiscal })); setFavOpen(false); }}
-                                    className="px-3 py-2.5 text-sm text-on-surface/90 hover:bg-on-surface/10 cursor-pointer transition-colors"
+                                    className="px-3 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[rgba(26,26,10,0.05)] dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
                                   >
                                     <span className="font-semibold">{fv.nome_fiscal}</span>
-                                    {fv.nome_banco && <span className="ml-2 text-xs text-on-surface/40">{fv.nome_banco}</span>}
+                                    {fv.nome_banco && <span className="ml-2 text-xs text-[rgba(26,26,10,0.40)] dark:text-white/28">{fv.nome_banco}</span>}
                                   </li>
                                 ))}
                               {favorecidos.filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase())).length === 0 && (
-                                <li className="px-3 py-2.5 text-sm text-on-surface/40 italic">Nenhum resultado</li>
+                                <li className="px-3 py-2.5 text-sm text-[rgba(26,26,10,0.35)] dark:text-white/25 italic">Nenhum resultado</li>
                               )}
                             </motion.ul>
                           )}
