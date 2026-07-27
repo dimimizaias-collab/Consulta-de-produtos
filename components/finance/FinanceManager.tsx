@@ -1078,7 +1078,14 @@ export function FinanceManager() {
         const q = search.toLowerCase();
         if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
       }
-      if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) return false;
+      // Parcelas de salário compartilham a mesma "data" de lançamento (a do último mês
+      // do período) — filtrar por ela lotaria o dia com todas as parcelas do contrato.
+      // Para essas, o filtro de calendário só deve considerar o vencimento de cada parcela.
+      if (t.origem === 'hr_salario') {
+        if (!inSelectedPeriod(t.vencimento)) return false;
+      } else if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) {
+        return false;
+      }
       return true;
     });
   }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags]);
@@ -1286,7 +1293,11 @@ export function FinanceManager() {
 
     const lancamentoDays = new Set(
       transactions
+        // Parcelas de salário compartilham a mesma "data" de lançamento (a do último
+        // mês do período) — não entram no ponto de "lançamento" do calendário, só no
+        // de vencimento (abaixo), senão marcariam um dia só com todo o contrato.
         .filter(t => {
+          if (t.origem === 'hr_salario') return false;
           const d = new Date(t.data + 'T00:00:00');
           return d.getFullYear() === year && d.getMonth() === month;
         })

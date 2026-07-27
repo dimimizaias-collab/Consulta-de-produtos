@@ -2004,7 +2004,11 @@ export function MobileFinancePage() {
 
     const lancamentoDays = new Set(
       transactions
+        // Parcelas de salário compartilham a mesma "data" de lançamento (a do último
+        // mês do período) — não entram no ponto de "lançamento" do calendário, só no
+        // de vencimento (abaixo), senão marcariam um dia só com todo o contrato.
         .filter(t => {
+          if (t.origem === 'hr_salario') return false;
           const d = new Date(t.data + 'T00:00:00');
           return d.getFullYear() === year && d.getMonth() === month;
         })
@@ -2143,6 +2147,10 @@ export function MobileFinancePage() {
           return false;
         }
       }
+      // Parcelas de salário compartilham a mesma "data" de lançamento (a do último mês
+      // do período) — filtrar por ela lotaria o dia com todas as parcelas do contrato.
+      // Para essas, o filtro de calendário só deve considerar o vencimento de cada parcela.
+      if (t.origem === 'hr_salario') return inSelectedPeriod(t.vencimento);
       return inSelectedPeriod(t.data) || inSelectedPeriod(t.vencimento);
     });
   }, [transactions, search, searchField, tags, calSelectedDate, calRangeStart, calRangeEnd]);
