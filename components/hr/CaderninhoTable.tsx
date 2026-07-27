@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Check, Trash2, Lock, Search, Calendar, Filter, X,
-  ChevronLeft, ChevronRight, Edit2, Users, Package, Ticket, Award, MoreHorizontal,
+  ChevronLeft, ChevronRight, ChevronDown, Edit2, Users, Package, Ticket, Award, MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -144,6 +144,8 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
   // ── Desktop: calendário, painel de resumo e modal dedicado de criação/edição ──
   const [calViewDate, setCalViewDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [panelTab, setPanelTab] = useState<'modalidades' | 'colaboradores'>('modalidades');
+  // ── Mobile: painel suspenso (accordion) de Modalidades/Colaboradores ─────
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState<'modalidades' | 'colaboradores' | null>(null);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [showDeskModal, setShowDeskModal] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -362,6 +364,79 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
             <Plus size={16} color="white" strokeWidth={2.8} />
           </button>
         </div>
+
+        {/* Toggle: Modalidades / Colaboradores — abre painel suspenso */}
+        <div className="shrink-0 flex gap-[7px] px-3 pb-2">
+          <button
+            onClick={() => setMobileSummaryOpen(prev => prev === 'modalidades' ? null : 'modalidades')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              mobileSummaryOpen === 'modalidades' ? iconBtnOnCls : 'bg-white dark:bg-[#252520] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40',
+            )}
+          >
+            <Package size={12} />
+            Modalidades
+            <ChevronDown size={10} strokeWidth={3} className={cn('transition-transform', mobileSummaryOpen === 'modalidades' && 'rotate-180')} />
+          </button>
+          <button
+            onClick={() => setMobileSummaryOpen(prev => prev === 'colaboradores' ? null : 'colaboradores')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
+              mobileSummaryOpen === 'colaboradores' ? iconBtnOnCls : 'bg-white dark:bg-[#252520] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40',
+            )}
+          >
+            <Users size={12} />
+            Colaboradores
+            <ChevronDown size={10} strokeWidth={3} className={cn('transition-transform', mobileSummaryOpen === 'colaboradores' && 'rotate-180')} />
+          </button>
+        </div>
+
+        {/* Painel suspenso de resumo — mesmo shell/scroll do painel desktop */}
+        {mobileSummaryOpen && (
+          <div className="shrink-0 mx-3 mb-2.5 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[18px] overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.40)]">
+            <div className="max-h-[220px] overflow-y-auto p-2.5">
+              {mobileSummaryOpen === 'modalidades' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {MODALIDADES.map(m => {
+                    const stat = modalidadeStats.get(m)!;
+                    return (
+                      <div key={m} className="bg-[#FDFAF0] dark:bg-[#1E1E18] border border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] rounded-[14px] px-2.5 py-2.5 flex items-center gap-2">
+                        <div className={cn('w-7 h-7 rounded-[9px] flex items-center justify-center flex-shrink-0', modalidadeColor(m))}>
+                          {modalidadeIcon(m)}
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                          <span className="text-[8px] font-black uppercase tracking-wide text-[rgba(26,26,10,0.40)] dark:text-white/32 whitespace-nowrap">{m}</span>
+                          <span className="text-[12.5px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">{fmtMoney(stat.valor)}</span>
+                          <span className="text-[8px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/30">{stat.count} registro{stat.count === 1 ? '' : 's'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : colaboradorStats.length === 0 ? (
+                <p className="text-[11px] text-center py-4 text-[rgba(26,26,10,0.35)] dark:text-white/30">Nenhum colaborador no período.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {colaboradorStats.map(c => (
+                    <div key={c.nome} className="bg-[#FDFAF0] dark:bg-[#1E1E18] border border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] rounded-[14px] px-3 py-2.5 flex items-center gap-2.5">
+                      <div className="w-[30px] h-[30px] rounded-[10px] bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08] text-[rgba(26,26,10,0.55)] dark:text-white/55 flex items-center justify-center flex-shrink-0">
+                        <Users size={14} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{c.nome}</div>
+                        <div className="text-[9px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/30 mt-0.5">{c.count} registro{c.count === 1 ? '' : 's'}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <span className="text-[12px] font-black text-red-600 dark:text-red-400">-{fmtMoney(c.despesas)}</span>
+                        <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400">+{fmtMoney(c.receitas)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-3 pb-6 flex flex-col gap-3">
           {loading ? (
