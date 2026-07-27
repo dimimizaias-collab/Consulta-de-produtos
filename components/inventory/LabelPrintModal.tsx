@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Tag, Printer, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
-import { generateBarcodeDataUrl, formatPrice, defaultCodeField, type CodeField } from './labelPrintUtils';
+import { generateBarcodeDataUrl, formatPrice, defaultCodeField, formatCNPJ, type CodeField } from './labelPrintUtils';
 
 // A4351 sheet constants (mm) — from official Pimaco template
 const LABEL_W    = 38.1;
@@ -196,7 +196,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const buildExtraLines = (product: any): string[] => {
     const lines: string[] = [];
     const fabricante = fabricanteText.trim() || product.fabricante?.trim() || '';
-    const cnpj = cnpjText.trim() || product.cnpj?.trim() || '';
+    const cnpj = cnpjText.trim() || (product.cnpj?.trim() ? formatCNPJ(product.cnpj) : '');
     const composicao = composicaoText.trim() || product.composicao?.trim() || '';
     if (extraFields.fabricante && fabricante) lines.push(fabricante);
     if (extraFields.cnpj && cnpj) lines.push(cnpj);
@@ -401,8 +401,9 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                           <input
                             type="text"
                             value={cnpjText}
-                            onChange={e => setCnpjText(e.target.value)}
+                            onChange={e => setCnpjText(formatCNPJ(e.target.value))}
                             placeholder="CNPJ (ex: 12.345.678/0001-90)"
+                            maxLength={18}
                             className="h-9 px-3 bg-transparent border border-on-surface/[0.10] rounded-lg text-xs font-medium text-on-surface placeholder:text-on-surface/30 outline-none focus:border-on-surface/30 transition-colors flex-1 min-w-[180px]"
                           />
                         )}
