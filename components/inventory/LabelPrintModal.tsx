@@ -239,14 +239,14 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
       doc.setTextColor(20, 20, 20);
       const nameLines = doc.splitTextToSize(product.name || '—', cw);
       doc.text(nameLines.slice(0, 1), x + LABEL_W / 2, cy + 2.3, { align: 'center' });
-      cy += 3.2;
+      cy += 3.0;
 
       // Preço (13pt bold, centralizado)
       const price = formatPrice(product.price ?? 0);
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
       doc.text(price, x + LABEL_W / 2, cy + 5, { align: 'center' });
-      cy += 6.5;
+      cy += 5.3;
     }
 
     // Informações adicionais — ocupam o espaço livre entre o nome/preço e o
@@ -255,23 +255,30 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     // fonte menor por ter menos espaço disponível.
     const extraLines = buildExtraLines(product);
     if (extraLines.length > 0) {
-      const extraFontSize = type === 'estoque' ? 4.4 : 3.0;
-      const extraLineHeight = type === 'estoque' ? 2.0 : 1.4;
+      const baseFontSize = type === 'estoque' ? 4.4 : 3.0;
+      const baseLineHeight = type === 'estoque' ? 2.0 : 1.4;
+      const minLineHeight = type === 'estoque' ? 1.5 : 1.0;
       const available = bcY - cy - 0.3;
-      const maxLines = Math.max(0, Math.floor(available / extraLineHeight));
-      const toPrint = extraLines.slice(0, maxLines);
-      if (toPrint.length > 0) {
-        doc.setFontSize(extraFontSize);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(60, 60, 60);
-        // centraliza o bloco de linhas no espaço livre restante
-        const blockH = toPrint.length * extraLineHeight;
-        let ly = cy + Math.max(0, (available - blockH) / 2) + extraLineHeight * 0.75;
-        toPrint.forEach(line => {
-          const truncated = doc.splitTextToSize(line, cw)[0] || line;
-          doc.text(truncated, x + LABEL_W / 2, ly, { align: 'center' });
-          ly += extraLineHeight;
-        });
+      if (available >= minLineHeight) {
+        // encolhe a linha (e a fonte, proporcionalmente) até caber todas as
+        // linhas marcadas — nunca descarta uma informação só por falta de espaço.
+        const lineHeight = Math.max(minLineHeight, Math.min(baseLineHeight, available / extraLines.length));
+        const extraFontSize = baseFontSize * (lineHeight / baseLineHeight);
+        const maxLines = Math.max(0, Math.floor(available / lineHeight));
+        const toPrint = extraLines.slice(0, maxLines);
+        if (toPrint.length > 0) {
+          doc.setFontSize(extraFontSize);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(60, 60, 60);
+          // centraliza o bloco de linhas no espaço livre restante
+          const blockH = toPrint.length * lineHeight;
+          let ly = cy + Math.max(0, (available - blockH) / 2) + lineHeight * 0.75;
+          toPrint.forEach(line => {
+            const truncated = doc.splitTextToSize(line, cw)[0] || line;
+            doc.text(truncated, x + LABEL_W / 2, ly, { align: 'center' });
+            ly += lineHeight;
+          });
+        }
       }
     }
 
