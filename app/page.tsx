@@ -8226,6 +8226,7 @@ export default function Page() {
                           type="text"
                           value={reviewMeasureUnit}
                           onChange={e => setReviewMeasureUnit(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !reviewSavingMeasure) { e.preventDefault(); handleReviewSaveMeasure(); } }}
                           placeholder="Ex: CX, PCT, FD..."
                           autoFocus
                           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary"
@@ -8239,6 +8240,7 @@ export default function Page() {
                           step="0.01"
                           value={reviewMeasureMultiplier}
                           onChange={e => setReviewMeasureMultiplier(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !reviewSavingMeasure) { e.preventDefault(); handleReviewSaveMeasure(); } }}
                           placeholder="Ex: 12"
                           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                         />
