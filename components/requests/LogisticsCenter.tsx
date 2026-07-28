@@ -43,8 +43,57 @@ export interface ReviewNote {
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const noteTotal = (note: ReviewNote): number =>
-  (note.items || []).reduce((acc, it) => acc + (parseFloat(it?.qty) || 0) * (parseFloat(it?.price) || 0), 0);
+type AdjType = 'pct' | 'fixed' | 'fixed_total';
+type AdjColumnFull = { id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual'; geralValue: number; geralType: AdjType; individualType: AdjType; items: string[] };
+
+// mirrors calcAdjAmounts in app/page.tsx for notes with multiple adj columns
+const calcAdjAmountsFull = (cost: number, qty: number, idx: number, cols: AdjColumnFull[]) => {
+  let disc = 0, sur = 0;
+  for (const col of cols) {
+    let amt = 0;
+    if (col.mode === 'geral') {
+      amt = col.geralType === 'pct' ? cost * col.geralValue / 100 : col.geralValue;
+    } else {
+      const v = parseFloat(col.items[idx] ?? '');
+      if (!isNaN(v) && v > 0) {
+        amt = col.individualType === 'pct' ? cost * v / 100
+          : col.individualType === 'fixed_total' ? v / (qty || 1) : v;
+      }
+    }
+    if (col.kind === 'desconto') disc += amt; else sur += amt;
+  }
+  return { disc, sur };
+};
+
+// mirrors legacy per-item adj_discount_*/adj_surcharge_* fields saved before multi-column support
+const calcAdjAmountsLegacy = (item: any, cost: number, qty: number) => {
+  let disc = 0, sur = 0;
+  if (item?.adj_discount_mode === 'geral' && item?.adj_discount_applied) {
+    disc = item.adj_discount_applied.type === 'pct' ? cost * item.adj_discount_applied.value / 100 : item.adj_discount_applied.value;
+  } else if (item?.adj_discount_mode === 'individual' && item?.adj_discount_value != null) {
+    disc = item.adj_discount_individual_type === 'pct' ? cost * item.adj_discount_value / 100 : item.adj_discount_value;
+  }
+  if (item?.adj_surcharge_mode === 'geral' && item?.adj_surcharge_applied) {
+    sur = item.adj_surcharge_applied.type === 'pct' ? cost * item.adj_surcharge_applied.value / 100 : item.adj_surcharge_applied.value;
+  } else if (item?.adj_surcharge_mode === 'individual' && item?.adj_surcharge_value != null) {
+    sur = item.adj_surcharge_individual_type === 'pct' ? cost * item.adj_surcharge_value / 100
+      : item.adj_surcharge_individual_type === 'fixed_total' ? item.adj_surcharge_value / (qty || 1) : item.adj_surcharge_value;
+  }
+  return { disc, sur };
+};
+
+const noteTotal = (note: ReviewNote): number => {
+  const items = note.items || [];
+  const fullCols = Array.isArray(items[0]?.adj_columns_full) && items[0].adj_columns_full.length > 0
+    ? (items[0].adj_columns_full as AdjColumnFull[])
+    : null;
+  return items.reduce((acc, it, idx) => {
+    const qty = parseFloat(it?.qty) || 0;
+    const cost = (parseFloat(it?.price) || 0) / (parseFloat(it?.multiplier) || 1);
+    const { disc, sur } = fullCols ? calcAdjAmountsFull(cost, qty, idx, fullCols) : calcAdjAmountsLegacy(it, cost, qty);
+    return acc + (cost - disc + sur) * qty;
+  }, 0);
+};
 
 interface LogisticsCenterProps {
   importing: boolean;
