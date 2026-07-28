@@ -134,8 +134,9 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
   const [search, setSearch] = useState('');
   const [filterModalidade, setFilterModalidade] = useState<Modalidade | null>(null);
   const [filterTipo, setFilterTipo] = useState<TipoLancamento | null>(null);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  // Mostra só os registros do dia por padrão, evitando poluir a tela com o histórico inteiro.
+  const [dateFrom, setDateFrom] = useState(() => todayStr());
+  const [dateTo, setDateTo] = useState(() => todayStr());
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showCalSheet, setShowCalSheet] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);

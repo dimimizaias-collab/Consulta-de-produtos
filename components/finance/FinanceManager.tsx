@@ -296,8 +296,9 @@ export function FinanceManager() {
   const [showTagGuide, setShowTagGuide] = useState(false);
 
   // mini calendar
+  // Mostra só as movimentações do dia por padrão, evitando poluir a tela com o histórico inteiro.
   const [calViewDate, setCalViewDate] = useState(() => new Date());
-  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(() => new Date());
   const [calRangeMode, setCalRangeMode] = useState(false);
   const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
   const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
