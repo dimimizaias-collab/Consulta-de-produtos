@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Aba Dados — Carrossel · Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #FFFCEC;
+    --panel: #FFF6C9;
+    --panel-border: rgba(26,18,8,0.07);
+    --yellow: #FFE500;
+    --yellow-border: #D4C000;
+    --header-bg: #FFE500;
+    --header-border: #D4C000;
+    --chip-bg: rgba(26,26,10,0.09);
+    --chip-color: #1A1A0E;
+    --title: #1A1A0E;
+    --eyebrow: rgba(26,26,10,0.40);
+    --card: #FFFFFF;
+    --card-border: #E0D8BF;
+    --card-hover: #FFF8D0;
+    --text: #1A1A0E;
+    --text-muted: rgba(26,26,10,0.45);
+    --text-subtle: rgba(26,26,10,0.28);
+    --green: #059669;
+    --input-bg: #FDFAF0;
+    --input-border: #E0D8BF;
+    --icon-btn: rgba(26,18,8,0.35);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 28px 32px;
+  }
+  .page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Header ── */
+  .header {
+    background: var(--header-bg);
+    border: 1px solid var(--header-border);
+    border-radius: 20px;
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .icon-chip {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--chip-bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-chip svg { width: 24px; height: 24px; stroke: var(--chip-color); }
+  .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; color: var(--eyebrow); }
+  h1 { font-size: 26px; font-weight: 900; color: var(--title); letter-spacing: -0.02em; line-height: 1.15; }
+
+  .btn-dados {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #1A1A0E1A; color: #1A1A0E; border: none; cursor: pointer;
+    padding: 10px 18px; border-radius: 12px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    transition: opacity 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .btn-dados:active { transform: scale(0.97); }
+  .btn-dados svg { width: 16px; height: 16px; stroke: #1A1A0E; }
+
+  /* ── Carrossel: apenas um painel visível por vez, ocupando a largura total ── */
+  .carousel-viewport { overflow: hidden; border-radius: 18px; }
+  .carousel-track {
+    display: flex;
+    width: 200%;
+    transition: transform 320ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .carousel-track.on-contas { transform: translateX(-50%); }
+  .carousel-pane { width: 50%; flex-shrink: 0; }
+  .carousel-pane.padded-l { padding-left: 0; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    background: var(--yellow);
+    border-bottom: 1px solid var(--yellow-border);
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .panel-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 900; color: #1A1A0E; }
+  .panel-title svg { width: 15px; height: 15px; stroke: #1A1A0E; }
+  .count {
+    font-size: 9px; font-weight: 900; letter-spacing: 0.08em;
+    background: rgba(26,26,10,0.10); color: rgba(26,26,10,0.55);
+    border-radius: 99px; padding: 3px 8px;
+  }
+  .head-actions { display: flex; align-items: center; gap: 6px; }
+  .btn-add {
+    width: 38px; height: 38px; border-radius: 11px; border: none; cursor: pointer;
+    background: #D81E1E;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 10px rgba(216,30,30,0.28);
+    transition: transform 150ms;
+    flex-shrink: 0;
+  }
+  .btn-add:active { transform: scale(0.93); }
+  .btn-add svg { width: 17px; height: 17px; stroke: #fff; }
+  .btn-nav {
+    width: 27px; height: 27px; border-radius: 9px; border: none; cursor: pointer;
+    background: rgba(26,26,10,0.10);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 150ms, transform 150ms;
+  }
+  .btn-nav:hover { background: rgba(26,26,10,0.18); }
+  .btn-nav:active { transform: scale(0.93); }
+  .btn-nav svg { width: 14px; height: 14px; stroke: #1A1A0E; }
+
+  .panel-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+  /* ── Barra de ferramentas: "+" ao lado esquerdo da busca ── */
+  .toolbar { display: flex; align-items: center; gap: 10px; }
+
+  /* ── Card de conta ── */
+  .acc {
+    background: var(--card);
+    border: 1.5px solid var(--card-border);
+    border-radius: 14px;
+    padding: 15px 18px;
+    display: flex; align-items: center; gap: 14px;
+    transition: background 130ms;
+  }
+  .acc:hover { background: var(--card-hover); }
+  .avatar {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+    background: rgba(216,30,30,0.09);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900; color: #D81E1E;
+  }
+  .acc-info { flex: 1; min-width: 0; text-align: left; }
+  .acc-name { font-size: 14.5px; font-weight: 800; color: var(--text); }
+  .acc-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.02em;
+    color: var(--text-muted); margin-top: 4px;
+  }
+  .acc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+  .acc-label { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-subtle); }
+  .acc-value { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--green); }
+  .row-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 6px; }
+  .mini {
+    width: 30px; height: 30px; border-radius: 9px; border: none; cursor: pointer;
+    background: transparent; display: flex; align-items: center; justify-content: center;
+    transition: background 130ms;
+  }
+  .mini svg { width: 14px; height: 14px; stroke: var(--icon-btn); transition: stroke 130ms; }
+  .mini:hover { background: rgba(216,30,30,0.08); }
+  .mini:hover svg { stroke: #D81E1E; }
+
+  /* ── Favorecidos ── */
+  .search {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--input-bg);
+    border: 1.5px solid var(--input-border);
+    border-radius: 12px; padding: 12px 16px;
+    flex: 1;
+  }
+  .search svg { width: 15px; height: 15px; stroke: var(--text-subtle); flex-shrink: 0; }
+  .search span { font-size: 13px; font-weight: 500; color: var(--text-subtle); text-align: left; }
+  .fav {
+    background: var(--card);
+    border: 1.5px solid var(--card-border);
+    border-radius: 14px;
+    padding: 13px 18px;
+    display: flex; align-items: center; gap: 14px;
+    transition: background 130ms;
+  }
+  .fav:hover { background: var(--card-hover); }
+  .fav-info { flex: 1; min-width: 0; text-align: left; }
+  .fav-name { font-size: 14.5px; font-weight: 700; color: var(--text); }
+  .fav-map { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .fav-tag {
+    font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--text-subtle);
+  }
+  .fav-bank { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .fav-empty { font-size: 11px; font-style: italic; color: var(--text-subtle); }
+
+  /* ── Dots indicadores ── */
+  .dots { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 99px; background: rgba(26,26,10,0.15); transition: background 200ms, width 200ms; }
+  .dot.active { width: 18px; background: #D81E1E; }
+
+  .caption { font-size: 11.5px; font-weight: 700; color: var(--text-subtle); text-align: center; padding-top: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="icon-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      </div>
+      <div>
+        <div class="eyebrow">Gestão Financeira</div>
+        <h1>Controle Financeiro</h1>
+      </div>
+    </div>
+    <button class="btn-dados">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Voltar
+    </button>
+  </div>
+
+  <div class="carousel-viewport">
+    <div class="carousel-track" id="track">
+
+      <!-- Favorecidos (tela inicial) -->
+      <div class="carousel-pane">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Favorecidos
+              <span class="count">3</span>
+            </div>
+            <div class="head-actions">
+              <button class="btn-nav" title="Ir para Contas" onclick="goTo('contas')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="toolbar">
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>Buscar favorecido...</span>
+              </div>
+              <button class="btn-add" title="Novo favorecido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div class="fav">
+              <div class="fav-info">
+                <div class="fav-name">Distribuidora Alfa LTDA</div>
+                <div class="fav-map"><span class="fav-tag">Extrato</span><span class="fav-bank">DISTR ALFA COM</span></div>
+              </div>
+              <div class="row-actions">
+                <button class="mini" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                <button class="mini" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+              </div>
+            </div>
+            <div class="fav">
+              <div class="fav-info">
+                <div class="fav-name">Energia Elétrica S.A.</div>
+                <div class="fav-map"><span class="fav-tag">Extrato</span><span class="fav-bank">CIA ENERGETICA</span></div>
+              </div>
+              <div class="row-actions">
+                <button class="mini" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                <button class="mini" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+              </div>
+            </div>
+            <div class="fav">
+              <div class="fav-info">
+                <div class="fav-name">Transportes Beta ME</div>
+                <div class="fav-map"><span class="fav-empty">sem mapeamento de extrato</span></div>
+              </div>
+              <div class="row-actions">
+                <button class="mini" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                <button class="mini" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contas -->
+      <div class="carousel-pane">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg>
+              Contas
+              <span class="count">2</span>
+            </div>
+            <div class="head-actions">
+              <button class="btn-nav" title="Voltar para Favorecidos" onclick="goTo('favorecidos')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="toolbar">
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>Buscar conta...</span>
+              </div>
+              <button class="btn-add" title="Nova conta"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div class="acc">
+              <div class="avatar">BB</div>
+              <div class="acc-info">
+                <div class="acc-name">Conta Corrente PJ</div>
+                <div class="acc-sub">Banco do Brasil · Ag 1234-5 · CC 98765-0</div>
+              </div>
+              <div class="acc-right">
+                <span class="acc-label">Saldo inicial</span>
+                <span class="acc-value">R$ 12.500,00</span>
+              </div>
+              <div class="row-actions">
+                <button class="mini" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                <button class="mini" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+              </div>
+            </div>
+            <div class="acc">
+              <div class="avatar" style="background:rgba(5,150,105,0.10);color:#059669;">SI</div>
+              <div class="acc-info">
+                <div class="acc-name">Poupança Reserva</div>
+                <div class="acc-sub">Sicoob · Ag 4321-0 · CP 11223-4</div>
+              </div>
+              <div class="acc-right">
+                <span class="acc-label">Saldo inicial</span>
+                <span class="acc-value">R$ 4.820,00</span>
+              </div>
+              <div class="row-actions">
+                <button class="mini" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                <button class="mini" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dots">
+    <div class="dot active" id="dot-fav"></div>
+    <div class="dot" id="dot-contas"></div>
+  </div>
+
+  <div class="caption">Clique na seta ao lado do "+" para alternar entre Favorecidos e Contas — cada tela ocupa a largura total</div>
+</div>
+<script>
+  function goTo(pane) {
+    const track = document.getElementById('track');
+    const dotFav = document.getElementById('dot-fav');
+    const dotContas = document.getElementById('dot-contas');
+    if (pane === 'contas') {
+      track.classList.add('on-contas');
+      dotFav.classList.remove('active');
+      dotContas.classList.add('active');
+    } else {
+      track.classList.remove('on-contas');
+      dotContas.classList.remove('active');
+      dotFav.classList.add('active');
+    }
+  }
+</script>
+</body>
+</html>

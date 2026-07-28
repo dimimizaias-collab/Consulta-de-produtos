@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, Database, ArrowLeft, Lock,
+  AlertTriangle, Info, Database, ArrowLeft, ArrowRight, Lock,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -220,6 +220,8 @@ export function FinanceManager() {
   // "Dados" view (contas + favorecidos)
   const [financeView, setFinanceView] = useState<'main' | 'dados'>('main');
   const [dadosFavSearch, setDadosFavSearch] = useState('');
+  const [dadosAccSearch, setDadosAccSearch] = useState('');
+  const [dadosPane, setDadosPane] = useState<'favorecidos' | 'contas'>('favorecidos');
 
   // transaction modal
   const [showTxModal, setShowTxModal] = useState(false);
@@ -1304,7 +1306,7 @@ export function FinanceManager() {
         <button
           onClick={() => {
             setFinanceView(v => {
-              if (v === 'main') { fetchFavorecidos(); fetchSuppliers(); }
+              if (v === 'main') { fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos'); }
               return v === 'main' ? 'dados' : 'main';
             });
           }}
@@ -1322,126 +1324,165 @@ export function FinanceManager() {
       </div>
 
       {financeView === 'dados' ? (
-        <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'start' }}>
-          {/* Contas */}
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
-              <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
-                <Building2 size={15} />
-                Contas
-                <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{accounts.length}</span>
-              </span>
-              <button
-                onClick={openAddAccount}
-                className="w-[27px] h-[27px] rounded-[9px] bg-primary text-on-primary flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-            <div className="p-3 flex flex-col gap-2">
-              {accounts.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-on-surface/25">
-                  <Building2 size={32} className="mb-2" />
-                  <p className="text-sm font-bold">Nenhuma conta cadastrada</p>
+        <div className="overflow-hidden rounded-[18px]">
+          <div
+            className="flex w-[200%] transition-transform duration-[320ms]"
+            style={{ transform: dadosPane === 'contas' ? 'translateX(-50%)' : 'translateX(0)', transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)' }}
+          >
+            {/* Favorecidos */}
+            <div className="w-1/2 shrink-0 pr-1.5">
+              <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+                <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
+                  <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
+                    <Users size={15} />
+                    Favorecidos
+                    <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{favorecidos.length}</span>
+                  </span>
+                  <button
+                    onClick={() => setDadosPane('contas')}
+                    title="Ir para Contas"
+                    className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform]"
+                  >
+                    <ArrowRight size={14} />
+                  </button>
                 </div>
-              ) : (
-                accounts.map(acc => (
-                  <div key={acc.id} className="bg-surface border-[1.5px] border-on-surface/[0.08] rounded-[14px] px-3.5 py-3 flex items-center gap-3 hover:bg-on-surface/[0.02] transition-colors">
-                    {acc.imagem_url ? (
-                      <img src={acc.imagem_url} alt={acc.nome} className="w-10 h-10 rounded-[11px] object-cover shrink-0" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-[11px] bg-primary/[0.09] flex items-center justify-center text-[13px] font-black text-primary shrink-0">
-                        {acc.nome.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-extrabold text-on-surface truncate">{acc.nome}</p>
-                      <p className="font-['DM_Mono',monospace] text-[10px] text-on-surface/45 truncate mt-0.5">
-                        {acc.banco}{acc.agencia && ` · Ag ${acc.agencia}`}{acc.numero_conta && ` · CC ${acc.numero_conta}`}
-                      </p>
+                <div className="p-4 flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
+                      <input
+                        value={dadosFavSearch}
+                        onChange={e => setDadosFavSearch(e.target.value)}
+                        placeholder="Buscar favorecido..."
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.08] focus:outline-none focus:border-primary/50"
+                      />
                     </div>
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-on-surface/25">Saldo inicial</span>
-                      <span className="font-['DM_Mono',monospace] text-[12.5px] text-emerald-600 dark:text-emerald-400">{fmt(acc.saldo_inicial ?? 0)}</span>
-                    </div>
-                    <div className="flex gap-0.5 shrink-0 ml-1">
-                      <button onClick={() => openEditAccount(acc)} title="Editar" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => handleDeleteAccount(acc.id)} title="Excluir" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={openNewFavorecido}
+                      title="Novo favorecido"
+                      className="w-[38px] h-[38px] rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform shrink-0"
+                    >
+                      <Plus size={17} />
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Favorecidos */}
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
-              <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
-                <Users size={15} />
-                Favorecidos
-                <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{favorecidos.length}</span>
-              </span>
-              <button
-                onClick={openNewFavorecido}
-                title="Novo favorecido"
-                className="w-[27px] h-[27px] rounded-[9px] bg-primary text-on-primary flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-            <div className="p-3 flex flex-col gap-2">
-              <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40" />
-                <input
-                  value={dadosFavSearch}
-                  onChange={e => setDadosFavSearch(e.target.value)}
-                  placeholder="Buscar favorecido..."
-                  className="w-full pl-8 pr-3 py-2 bg-surface rounded-[11px] text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.08] focus:outline-none focus:border-primary/50"
-                />
-              </div>
-              {favorecidos.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-on-surface/25">
-                  <Users size={32} className="mb-2" />
-                  <p className="text-sm font-bold">Nenhum favorecido cadastrado</p>
-                </div>
-              ) : (
-                favorecidos
-                  .filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()))
-                  .map(f => (
-                    <div key={f.id} className="bg-surface border-[1.5px] border-on-surface/[0.08] rounded-[14px] px-3.5 py-2.5 flex items-center gap-3 hover:bg-on-surface/[0.02] transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-on-surface truncate">{f.nome_fiscal}</p>
-                        {f.nome_banco ? (
-                          <p className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-on-surface/25">Extrato</span>
-                            <span className="font-['DM_Mono',monospace] text-[10px] text-on-surface/45 truncate">{f.nome_banco}</span>
-                          </p>
-                        ) : (
-                          <p className="text-[10px] italic text-on-surface/25 mt-0.5">sem mapeamento de extrato</p>
-                        )}
-                        {f.supplier_id && (
-                          <p className="flex items-center gap-1 mt-0.5">
-                            <Building2 size={9} className="text-primary/60" />
-                            <span className="text-[10px] font-semibold text-primary/70 truncate">
-                              {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                      <button onClick={() => openEditFavorecido(f)} title="Editar" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors shrink-0">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => handleDeleteFavorecido(f.id)} title="Excluir" className="w-[27px] h-[27px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors shrink-0">
-                        <Trash2 size={13} />
-                      </button>
+                  {favorecidos.length === 0 ? (
+                    <div className="flex flex-col items-center py-8 text-on-surface/25">
+                      <Users size={32} className="mb-2" />
+                      <p className="text-sm font-bold">Nenhum favorecido cadastrado</p>
                     </div>
-                  ))
-              )}
+                  ) : (
+                    favorecidos
+                      .filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()))
+                      .map(f => (
+                        <div key={f.id} className="bg-surface border-[1.5px] border-on-surface/[0.08] rounded-[14px] px-4.5 py-3.5 flex items-center gap-3.5 hover:bg-on-surface/[0.02] transition-colors">
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[14.5px] font-bold text-on-surface truncate">{f.nome_fiscal}</p>
+                            {f.nome_banco ? (
+                              <p className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[8.5px] font-black uppercase tracking-widest text-on-surface/25">Extrato</span>
+                                <span className="font-['DM_Mono',monospace] text-[11px] text-on-surface/45 truncate">{f.nome_banco}</span>
+                              </p>
+                            ) : (
+                              <p className="text-[11px] italic text-on-surface/25 mt-1">sem mapeamento de extrato</p>
+                            )}
+                            {f.supplier_id && (
+                              <p className="flex items-center gap-1 mt-1">
+                                <Building2 size={9} className="text-primary/60" />
+                                <span className="text-[11px] font-semibold text-primary/70 truncate">
+                                  {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                          <button onClick={() => openEditFavorecido(f)} title="Editar" className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors shrink-0">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteFavorecido(f.id)} title="Excluir" className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Contas */}
+            <div className="w-1/2 shrink-0 pl-1.5">
+              <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+                <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
+                  <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
+                    <Building2 size={15} />
+                    Contas
+                    <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{accounts.length}</span>
+                  </span>
+                  <button
+                    onClick={() => setDadosPane('favorecidos')}
+                    title="Voltar para Favorecidos"
+                    className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform]"
+                  >
+                    <ArrowLeft size={14} />
+                  </button>
+                </div>
+                <div className="p-4 flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
+                      <input
+                        value={dadosAccSearch}
+                        onChange={e => setDadosAccSearch(e.target.value)}
+                        placeholder="Buscar conta..."
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.08] focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
+                    <button
+                      onClick={openAddAccount}
+                      title="Nova conta"
+                      className="w-[38px] h-[38px] rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform shrink-0"
+                    >
+                      <Plus size={17} />
+                    </button>
+                  </div>
+                  {accounts.length === 0 ? (
+                    <div className="flex flex-col items-center py-8 text-on-surface/25">
+                      <Building2 size={32} className="mb-2" />
+                      <p className="text-sm font-bold">Nenhuma conta cadastrada</p>
+                    </div>
+                  ) : (
+                    accounts
+                      .filter(acc => !dadosAccSearch || acc.nome.toLowerCase().includes(dadosAccSearch.toLowerCase()))
+                      .map(acc => (
+                        <div key={acc.id} className="bg-surface border-[1.5px] border-on-surface/[0.08] rounded-[14px] px-4.5 py-3.5 flex items-center gap-3.5 hover:bg-on-surface/[0.02] transition-colors">
+                          {acc.imagem_url ? (
+                            <img src={acc.imagem_url} alt={acc.nome} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-primary/[0.09] flex items-center justify-center text-sm font-black text-primary shrink-0">
+                              {acc.nome.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[14.5px] font-extrabold text-on-surface truncate">{acc.nome}</p>
+                            <p className="font-['DM_Mono',monospace] text-[11px] text-on-surface/45 truncate mt-1">
+                              {acc.banco}{acc.agencia && ` · Ag ${acc.agencia}`}{acc.numero_conta && ` · CC ${acc.numero_conta}`}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5 shrink-0">
+                            <span className="text-[8.5px] font-black uppercase tracking-widest text-on-surface/25">Saldo inicial</span>
+                            <span className="font-['DM_Mono',monospace] text-sm text-emerald-600 dark:text-emerald-400">{fmt(acc.saldo_inicial ?? 0)}</span>
+                          </div>
+                          <div className="flex gap-1 shrink-0 ml-1">
+                            <button onClick={() => openEditAccount(acc)} title="Editar" className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-primary/10 hover:text-primary transition-colors">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteAccount(acc.id)} title="Excluir" className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-rose-500/10 hover:text-rose-500 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
