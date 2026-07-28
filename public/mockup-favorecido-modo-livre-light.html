@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Favorecido — Modo Livre · Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #FFFCEC;
+    --surface: #FDFAF0;
+    --card: #FFFFFF;
+    --card-border: #E0D8BF;
+    --input-bg: #FFFFFF;
+    --input-border: #E0D8BF;
+    --text: #1A1A0E;
+    --text-muted: rgba(26,26,10,0.45);
+    --text-subtle: rgba(26,26,10,0.30);
+    --label: rgba(26,26,10,0.40);
+    --dropdown-bg: #FFFFFF;
+    --dropdown-hover: rgba(26,26,10,0.05);
+    --toggle-bg: rgba(26,26,10,0.08);
+    --toggle-border: rgba(26,26,10,0.10);
+    --toggle-color: rgba(26,26,10,0.55);
+    --amber-bg: rgba(217,119,6,0.10);
+    --amber-border: rgba(217,119,6,0.30);
+    --amber-color: #92400E;
+    --amber-chip-bg: rgba(217,119,6,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 40px 32px;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
+  .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: var(--text-subtle); text-align: center; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(26,18,8,0.06);
+  }
+  .field-label {
+    font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--label); margin-bottom: 7px; display: block;
+  }
+  .row { display: flex; gap: 8px; align-items: stretch; position: relative; }
+  .input-wrap { flex: 1; position: relative; }
+  input.fav-input {
+    width: 100%; height: 38px; padding: 0 12px; border-radius: 12px;
+    background: var(--input-bg); border: 1.5px solid var(--input-border);
+    font-family: inherit; font-size: 13.5px; color: var(--text);
+    outline: none; transition: border-color 160ms, background 160ms;
+  }
+  input.fav-input::placeholder { color: var(--text-subtle); transition: color 160ms; }
+  input.fav-input:focus { border-color: rgba(216,30,30,0.4); }
+  input.fav-input.livre { border-color: var(--amber-border); background: var(--amber-bg); }
+  input.fav-input.livre::placeholder { color: var(--amber-color); font-style: italic; }
+
+  .btn-sq {
+    flex-shrink: 0; width: 38px; height: 38px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--toggle-bg); border: 1px solid var(--toggle-border);
+    color: var(--toggle-color); cursor: pointer;
+    transition: all 160ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .btn-sq svg { width: 15px; height: 15px; stroke: currentColor; }
+  .btn-sq:active { transform: scale(0.93); }
+  .btn-sq.add:hover { background: rgba(216,30,30,0.10); border-color: rgba(216,30,30,0.30); color: #D81E1E; }
+  .btn-sq.toggle:hover { background: rgba(146,64,14,0.10); border-color: rgba(146,64,14,0.30); color: #92400E; }
+  .btn-sq.toggle.active {
+    background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-color);
+  }
+
+  .dropdown {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
+    background: var(--dropdown-bg); border: 1px solid rgba(26,26,10,0.10);
+    border-radius: 12px; box-shadow: 0 12px 30px rgba(26,18,8,0.14);
+    overflow: hidden; max-height: 190px; overflow-y: auto;
+    transform-origin: top center;
+    animation: dropIn 130ms cubic-bezier(0.23,1,0.32,1);
+  }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .dropdown li { list-style: none; padding: 10px 14px; font-size: 13px; cursor: pointer; transition: background 120ms; }
+  .dropdown li:hover { background: var(--dropdown-hover); }
+  .dropdown li b { font-weight: 700; color: var(--text); }
+  .dropdown li span { margin-left: 8px; font-size: 11px; color: var(--text-subtle); }
+
+  .hint {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-weight: 600; color: var(--amber-color);
+    background: var(--amber-chip-bg); border: 1px solid var(--amber-border);
+    border-radius: 10px; padding: 8px 11px; margin-top: 9px;
+    opacity: 0; max-height: 0; overflow: hidden;
+    transition: opacity 160ms, max-height 160ms, margin-top 160ms, padding 160ms;
+  }
+  .hint.show { opacity: 1; max-height: 60px; margin-top: 9px; padding: 8px 11px; }
+  .hint svg { width: 13px; height: 13px; stroke: currentColor; flex-shrink: 0; }
+
+  .state-label {
+    text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-subtle); margin-top: 2px;
+  }
+  .state-label b { color: #D81E1E; }
+
+  .switch-hint { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--text-subtle); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Modal · Nova Movimentação — campo Favorecido</div>
+
+  <div class="card">
+    <span class="field-label">Favorecido</span>
+    <div class="row">
+      <div class="input-wrap">
+        <input id="favInput" class="fav-input" placeholder="Digite para buscar..." autocomplete="off" oninput="renderDropdown()">
+        <ul class="dropdown" id="dropdown">
+          <li onclick="pick('Distribuidora Alfa LTDA')"><b>Distribuidora Alfa LTDA</b><span>DISTR ALFA COM</span></li>
+          <li onclick="pick('Energia Elétrica S.A.')"><b>Energia Elétrica S.A.</b><span>CIA ENERGETICA</span></li>
+          <li onclick="pick('Transportes Beta ME')"><b>Transportes Beta ME</b></li>
+        </ul>
+      </div>
+      <button class="btn-sq toggle" id="toggleBtn" title="Alternar modo livre" onclick="toggleFree()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="toggleIcon"><path d="M13.5 6.5l4 4L6 22H2v-4Z"/><path d="M17.5 2.5a2.12 2.12 0 0 1 3 3l-1.5 1.5-3-3Z"/></svg>
+      </button>
+      <button class="btn-sq add" title="Cadastrar favorecido">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div class="hint" id="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 6.5l4 4L6 22H2v-4Z"/></svg>
+      Modo livre: não será validado contra cadastros — vincule depois em Dados › Favorecidos
+    </div>
+  </div>
+
+  <div class="state-label" id="stateLabel">Estado atual: <b>Normal (sugestões ativas)</b></div>
+  <div class="switch-hint">Clique no ícone de lápis-raio para alternar o modo</div>
+</div>
+<script>
+  let free = false;
+  function renderDropdown() {
+    const dd = document.getElementById('dropdown');
+    dd.style.display = free ? 'none' : 'block';
+  }
+  function pick(name) {
+    if (free) return;
+    document.getElementById('favInput').value = name;
+    document.getElementById('dropdown').style.display = 'none';
+  }
+  function toggleFree() {
+    free = !free;
+    const input = document.getElementById('favInput');
+    const btn = document.getElementById('toggleBtn');
+    const dd = document.getElementById('dropdown');
+    const hint = document.getElementById('hint');
+    const label = document.getElementById('stateLabel');
+    if (free) {
+      btn.classList.add('active');
+      input.classList.add('livre');
+      input.placeholder = 'Descrição livre — vincule depois em Dados › Favorecidos';
+      input.value = '';
+      dd.style.display = 'none';
+      hint.classList.add('show');
+      label.innerHTML = 'Estado atual: <b>Livre (sem sugestões)</b>';
+    } else {
+      btn.classList.remove('active');
+      input.classList.remove('livre');
+      input.placeholder = 'Digite para buscar...';
+      input.value = '';
+      hint.classList.remove('show');
+      label.innerHTML = 'Estado atual: <b>Normal (sugestões ativas)</b>';
+    }
+  }
+  // dropdown visível por padrão para demonstração
+  document.getElementById('dropdown').style.display = 'block';
+</script>
+</body>
+</html>

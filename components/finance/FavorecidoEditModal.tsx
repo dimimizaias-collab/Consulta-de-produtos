@@ -43,13 +43,15 @@ function emptyConta(): ContaDraft {
 interface FavorecidoEditModalProps {
   open: boolean;
   favorecido: FavorecidoLite | null;
+  /** Pré-preenche o nome fiscal ao criar um novo favorecido (ex.: promovendo uma pendência). Ignorado em modo de edição. */
+  initialNomeFiscal?: string;
   suppliers: SupplierLite[];
   onClose: () => void;
   onSaved: () => void;
   variant?: 'modal' | 'sheet';
 }
 
-export function FavorecidoEditModal({ open, favorecido, suppliers, onClose, onSaved, variant = 'modal' }: FavorecidoEditModalProps) {
+export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppliers, onClose, onSaved, variant = 'modal' }: FavorecidoEditModalProps) {
   const [nomeBanco, setNomeBanco] = useState('');
   const [nomeFiscal, setNomeFiscal] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function FavorecidoEditModal({ open, favorecido, suppliers, onClose, onSa
     if (!open) return;
     setError('');
     setNomeBanco(favorecido?.nome_banco ?? '');
-    setNomeFiscal(favorecido?.nome_fiscal ?? '');
+    setNomeFiscal(favorecido?.nome_fiscal ?? initialNomeFiscal ?? '');
     setSelectedSupplierId(favorecido?.supplier_id ?? null);
     setDocumentoTipo('CNPJ');
     setDocumento('');
@@ -83,7 +85,7 @@ export function FavorecidoEditModal({ open, favorecido, suppliers, onClose, onSa
     setContas([]);
     setInitialContaIds(new Set());
     if (favorecido?.supplier_id) loadSupplierData(favorecido.supplier_id);
-  }, [open, favorecido]);
+  }, [open, favorecido, initialNomeFiscal]);
 
   async function loadSupplierData(supplierId: string) {
     setLoadingSupplier(true);

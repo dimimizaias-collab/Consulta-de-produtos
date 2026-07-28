@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, Database, ArrowLeft, ArrowRight, Lock,
+  AlertTriangle, Info, Database, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -268,7 +268,15 @@ export function FinanceManager() {
 
   // favorecido combobox
   const [favOpen, setFavOpen] = useState(false);
+  const [favFreeMode, setFavFreeMode] = useState(false);
   const favRef = useRef<HTMLDivElement>(null);
+
+  // pendências de favorecido (aba Dados)
+  const [showFavPendingModal, setShowFavPendingModal] = useState(false);
+  const [favLinkPickerKey, setFavLinkPickerKey] = useState<string | null>(null);
+  const [favLinkPickerSearch, setFavLinkPickerSearch] = useState('');
+  const [favModalInitialNome, setFavModalInitialNome] = useState('');
+  const [pendingFavLinkGroup, setPendingFavLinkGroup] = useState<{ label: string; ids: string[] } | null>(null);
 
   // filters
   const [search, setSearch] = useState('');
@@ -331,17 +339,35 @@ export function FinanceManager() {
 
   const openNewFavorecido = () => {
     setEditingFavorecido(null);
+    setFavModalInitialNome('');
+    setPendingFavLinkGroup(null);
     if (suppliers.length === 0) fetchSuppliers();
     setShowFavorecidoEditModal(true);
   };
 
   const openEditFavorecido = (f: Favorecido) => {
     setEditingFavorecido(f);
+    setFavModalInitialNome('');
+    setPendingFavLinkGroup(null);
     if (suppliers.length === 0) fetchSuppliers();
     setShowFavorecidoEditModal(true);
   };
 
-  const handleFavorecidoSaved = () => {
+  // Promove uma pendência (texto sem favorecido cadastrado) para um novo cadastro
+  const openNewFavorecidoFromPending = (group: { label: string; ids: string[] }) => {
+    setEditingFavorecido(null);
+    setFavModalInitialNome(group.label);
+    setPendingFavLinkGroup(group);
+    if (suppliers.length === 0) fetchSuppliers();
+    setShowFavPendingModal(false);
+    setShowFavorecidoEditModal(true);
+  };
+
+  const handleFavorecidoSaved = async () => {
+    if (pendingFavLinkGroup) {
+      await supabase.from('finance_transactions').update({ favorecido: pendingFavLinkGroup.label }).in('id', pendingFavLinkGroup.ids);
+      setPendingFavLinkGroup(null);
+    }
     fetchFavorecidos();
     fetchSuppliers();
     fetchAll();
@@ -385,6 +411,7 @@ export function FinanceManager() {
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
     setFavOpen(false);
+    setFavFreeMode(false);
     setTxLocked(false);
     setTxSnapshot(null);
     fetchFavorecidos();
@@ -403,6 +430,8 @@ export function FinanceManager() {
     setParcelas(nextParcelas);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
+    setFavOpen(false);
+    setFavFreeMode(false);
     setTxLocked(true);
     setTxSnapshot({ form: JSON.stringify(nextForm), parcelas: JSON.stringify(nextParcelas), parcelasEnabled: nextParcelasEnabled });
     fetchFavorecidos();
@@ -1227,6 +1256,27 @@ export function FinanceManager() {
     });
   }, [accounts, transactions]);
 
+  // Movimentações cujo texto de favorecido não bate (case/trim-insensitive) com nenhum cadastro
+  const favUnlinkedGroups = useMemo(() => {
+    const known = new Set(favorecidos.map(f => f.nome_fiscal.trim().toLowerCase()));
+    const groups = new Map<string, { label: string; count: number; total: number; ids: string[] }>();
+    for (const t of transactions) {
+      const raw = (t.favorecido || '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (known.has(key)) continue;
+      const g = groups.get(key);
+      if (g) { g.count++; g.total += t.valor_final || 0; g.ids.push(t.id); }
+      else groups.set(key, { label: raw, count: 1, total: t.valor_final || 0, ids: [t.id] });
+    }
+    return Array.from(groups.values()).sort((a, b) => b.count - a.count);
+  }, [transactions, favorecidos]);
+
+  const bulkRelinkFavorecido = async (ids: string[], newName: string) => {
+    await supabase.from('finance_transactions').update({ favorecido: newName }).in('id', ids);
+    setTransactions(prev => prev.map(t => ids.includes(t.id) ? { ...t, favorecido: newName } : t));
+  };
+
   const calDays = useMemo(() => {
     const year = calViewDate.getFullYear();
     const month = calViewDate.getMonth();
@@ -1363,6 +1413,18 @@ export function FinanceManager() {
                       className="w-[38px] h-[38px] rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-[0_3px_10px_rgba(216,30,30,0.28)] active:scale-[0.93] transition-transform shrink-0"
                     >
                       <Plus size={17} />
+                    </button>
+                    <button
+                      onClick={() => setShowFavPendingModal(true)}
+                      title="Movimentações sem favorecido vinculado"
+                      className="relative w-[38px] h-[38px] rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 flex items-center justify-center active:scale-[0.93] transition-transform shrink-0 hover:bg-amber-500/[0.18]"
+                    >
+                      <Link2Off size={17} />
+                      {favUnlinkedGroups.length > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full bg-primary text-on-primary text-[9px] font-black flex items-center justify-center ring-2 ring-surface-container-low">
+                          {favUnlinkedGroups.length}
+                        </span>
+                      )}
                     </button>
                   </div>
                   {favorecidos.length === 0 ? (
@@ -2245,14 +2307,17 @@ export function FinanceManager() {
                       <div className="relative flex-1" ref={favRef}>
                         <input
                           value={txForm.favorecido}
-                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavOpen(true); }}
-                          onFocus={() => setFavOpen(true)}
-                          placeholder="Digite para buscar..."
-                          className={inputCls}
+                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); if (!favFreeMode) setFavOpen(true); }}
+                          onFocus={() => { if (!favFreeMode) setFavOpen(true); }}
+                          placeholder={favFreeMode ? 'Descrição livre — vincule depois em Dados › Favorecidos' : 'Digite para buscar...'}
+                          className={cn(
+                            inputCls,
+                            favFreeMode && 'border-amber-500/40 bg-amber-500/[0.06] placeholder:text-amber-700 dark:placeholder:text-amber-300 placeholder:italic'
+                          )}
                           autoComplete="off"
                         />
                         <AnimatePresence>
-                          {favOpen && (
+                          {favOpen && !favFreeMode && (
                             <motion.ul
                               initial={{ opacity: 0, y: -4, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -2281,6 +2346,20 @@ export function FinanceManager() {
                       </div>
                       <button
                         type="button"
+                        onClick={() => { setFavFreeMode(v => !v); setFavOpen(false); }}
+                        title={favFreeMode ? 'Voltar ao modo com sugestões' : 'Digitar descrição livre (sem vincular a um favorecido cadastrado)'}
+                        className={cn(
+                          'shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl border active:scale-[0.93] transition-all',
+                          favFreeMode
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
+                            : 'bg-on-surface/8 border-on-surface/10 text-on-surface/60 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400 hover:border-amber-500/30'
+                        )}
+                        style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
+                      >
+                        <Unlock size={15} />
+                      </button>
+                      <button
+                        type="button"
                         onClick={openNewFavorecido}
                         title="Cadastrar favorecido"
                         className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
@@ -2288,6 +2367,12 @@ export function FinanceManager() {
                       >
                         <Plus size={15} />
                       </button>
+                    </div>
+                  )}
+                  {favFreeMode && (
+                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                      <Unlock size={11} className="shrink-0" />
+                      Modo livre: não será validado contra cadastros — vincule depois em Dados › Favorecidos
                     </div>
                   )}
                 </div>
@@ -2679,11 +2764,136 @@ export function FinanceManager() {
       <FavorecidoEditModal
         open={showFavorecidoEditModal}
         favorecido={editingFavorecido}
+        initialNomeFiscal={favModalInitialNome}
         suppliers={suppliers}
-        onClose={() => setShowFavorecidoEditModal(false)}
+        onClose={() => { setShowFavorecidoEditModal(false); setPendingFavLinkGroup(null); }}
         onSaved={handleFavorecidoSaved}
         variant="modal"
       />
+
+      {/* ── Pendências de Favorecido (movimentações sem cadastro vinculado) ── */}
+      <AnimatePresence>
+        {showFavPendingModal && (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              className="relative bg-surface rounded-[20px] shadow-2xl w-full max-w-lg max-h-[82vh] flex flex-col overflow-hidden"
+            >
+              <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[rgba(26,26,10,0.10)] flex items-center justify-center shrink-0">
+                    <Link2Off size={18} className="text-[#1A1A0E]" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-black text-[#1A1A0E]">Movimentações sem favorecido vinculado</h3>
+                    <p className="text-[11px] font-semibold text-[rgba(26,26,10,0.55)] mt-0.5">
+                      {favUnlinkedGroups.length === 0 ? 'Nenhuma pendência' : `${favUnlinkedGroups.length} descriç${favUnlinkedGroups.length === 1 ? 'ão não bate' : 'ões não batem'} com nenhum cadastro`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
+                  className="w-[30px] h-[30px] rounded-lg bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.45)] flex items-center justify-center hover:bg-[rgba(216,30,30,0.12)] hover:text-[#D81E1E] transition-colors shrink-0"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-5 flex flex-col gap-2.5 overflow-y-auto">
+                {favUnlinkedGroups.length === 0 ? (
+                  <div className="flex flex-col items-center py-10 text-on-surface/25">
+                    <Link2Off size={30} className="mb-2" />
+                    <p className="text-sm font-bold">Tudo certo — sem pendências</p>
+                  </div>
+                ) : (
+                  favUnlinkedGroups.map(group => (
+                    <div key={group.label.toLowerCase()} className="bg-surface-container-low border-[1.5px] border-on-surface/[0.08] rounded-[14px] p-4 flex flex-col gap-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-on-surface truncate">{group.label}</p>
+                          <span className="inline-block mt-1.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-full px-2.5 py-0.5">
+                            {group.count} movimenta{group.count === 1 ? 'ção' : 'ções'}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-on-surface/25">Total</span>
+                          <span className="font-['DM_Mono',monospace] text-sm text-on-surface/60">{fmt(group.total)}</span>
+                        </div>
+                      </div>
+
+                      {favLinkPickerKey === group.label.toLowerCase() ? (
+                        <div className="bg-surface border border-on-surface/10 rounded-xl p-2.5 flex flex-col gap-2">
+                          <div className="relative">
+                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
+                            <input
+                              autoFocus
+                              value={favLinkPickerSearch}
+                              onChange={e => setFavLinkPickerSearch(e.target.value)}
+                              placeholder="Buscar favorecido cadastrado..."
+                              className="w-full pl-8 pr-3 py-2 bg-surface-container-low rounded-lg text-xs text-on-surface placeholder:text-on-surface/30 border border-on-surface/10 focus:outline-none focus:border-primary/50"
+                            />
+                          </div>
+                          <div className="max-h-32 overflow-y-auto flex flex-col gap-1">
+                            {favorecidos
+                              .filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase()))
+                              .map(fv => (
+                                <button
+                                  key={fv.id}
+                                  onClick={async () => {
+                                    await bulkRelinkFavorecido(group.ids, fv.nome_fiscal);
+                                    setFavLinkPickerKey(null);
+                                    setFavLinkPickerSearch('');
+                                  }}
+                                  className="text-left px-2.5 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
+                                >
+                                  {fv.nome_fiscal}
+                                </button>
+                              ))}
+                            {favorecidos.filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase())).length === 0 && (
+                              <p className="px-2.5 py-2 text-xs italic text-on-surface/35">Nenhum resultado</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => { setFavLinkPickerKey(null); setFavLinkPickerSearch(''); }}
+                            className="text-[11px] font-bold text-on-surface/45 hover:text-on-surface/70 transition-colors self-start px-1"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setFavLinkPickerKey(group.label.toLowerCase()); setFavLinkPickerSearch(''); }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/[0.18] transition-colors"
+                          >
+                            <Users size={13} />
+                            Vincular a existente
+                          </button>
+                          <button
+                            onClick={() => openNewFavorecidoFromPending(group)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/[0.18] transition-colors"
+                          >
+                            <Plus size={13} />
+                            Criar novo favorecido
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
       <AnimatePresence>

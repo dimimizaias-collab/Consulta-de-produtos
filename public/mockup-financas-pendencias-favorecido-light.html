@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Pendências de Favorecido · Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #FFFCEC;
+    --panel: #FFF6C9;
+    --panel-border: rgba(26,18,8,0.07);
+    --yellow: #FFE500;
+    --yellow-border: #D4C000;
+    --card: #FFFFFF;
+    --card-border: #E0D8BF;
+    --card-hover: #FFF8D0;
+    --text: #1A1A0E;
+    --text-muted: rgba(26,26,10,0.45);
+    --text-subtle: rgba(26,26,10,0.28);
+    --input-bg: #FDFAF0;
+    --input-border: #E0D8BF;
+    --icon-btn: rgba(26,18,8,0.35);
+    --modal-bg: #FDFAF0;
+    --amber-bg: rgba(217,119,6,0.10);
+    --amber-border: rgba(217,119,6,0.28);
+    --amber-color: #92400E;
+    --emerald: #0A7A55;
+    --emerald-bg: rgba(10,122,85,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 28px 32px;
+  }
+  .page { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: var(--text-subtle); text-align: center; }
+
+  /* ── Painel Favorecidos (aba Dados) ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    background: var(--yellow);
+    border-bottom: 1px solid var(--yellow-border);
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .panel-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 900; color: #1A1A0E; }
+  .panel-title svg { width: 15px; height: 15px; stroke: #1A1A0E; }
+  .count {
+    font-size: 9px; font-weight: 900; letter-spacing: 0.08em;
+    background: rgba(26,26,10,0.10); color: rgba(26,26,10,0.55);
+    border-radius: 99px; padding: 3px 8px;
+  }
+  .btn-nav {
+    width: 27px; height: 27px; border-radius: 9px; border: none; cursor: pointer;
+    background: rgba(26,26,10,0.10);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 150ms, transform 150ms;
+  }
+  .btn-nav:hover { background: rgba(26,26,10,0.18); }
+  .btn-nav svg { width: 14px; height: 14px; stroke: #1A1A0E; }
+
+  .panel-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; }
+  .search {
+    display: flex; align-items: center; gap: 10px; flex: 1;
+    background: var(--input-bg); border: 1.5px solid var(--input-border);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .search svg { width: 15px; height: 15px; stroke: var(--text-subtle); flex-shrink: 0; }
+  .search span { font-size: 13px; font-weight: 500; color: var(--text-subtle); }
+  .btn-add {
+    width: 38px; height: 38px; border-radius: 11px; border: none; cursor: pointer;
+    background: #D81E1E; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 10px rgba(216,30,30,0.28);
+    transition: transform 150ms;
+  }
+  .btn-add:active { transform: scale(0.93); }
+  .btn-add svg { width: 17px; height: 17px; stroke: #fff; }
+
+  .btn-pending {
+    position: relative; flex-shrink: 0;
+    width: 38px; height: 38px; border-radius: 11px; border: 1px solid var(--amber-border); cursor: pointer;
+    background: var(--amber-bg);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 150ms, background 150ms;
+  }
+  .btn-pending:hover { background: rgba(217,119,6,0.16); }
+  .btn-pending:active { transform: scale(0.93); }
+  .btn-pending svg { width: 17px; height: 17px; stroke: var(--amber-color); }
+  .btn-pending .badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 17px; height: 17px; padding: 0 4px;
+    border-radius: 99px; background: #D81E1E; color: #fff;
+    font-size: 9px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--panel);
+  }
+
+  .fav {
+    background: var(--card); border: 1.5px solid var(--card-border); border-radius: 14px;
+    padding: 13px 18px; display: flex; align-items: center; gap: 14px;
+  }
+  .fav-info { flex: 1; min-width: 0; text-align: left; }
+  .fav-name { font-size: 14.5px; font-weight: 700; color: var(--text); }
+  .fav-map { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .fav-tag { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: var(--text-subtle); }
+  .fav-bank { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); }
+
+  .caption { font-size: 11.5px; font-weight: 700; color: var(--text-subtle); text-align: center; }
+
+  /* ── Modal Pendências ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(26,18,8,0.35); backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100;
+  }
+  .modal {
+    background: var(--modal-bg); border-radius: 20px; width: 100%; max-width: 560px;
+    max-height: 82vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(26,18,8,0.25);
+  }
+  .modal-head {
+    background: var(--yellow); border-bottom: 1px solid var(--yellow-border);
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .modal-title-wrap { display: flex; align-items: center; gap: 12px; }
+  .modal-icon-chip {
+    width: 40px; height: 40px; border-radius: 12px; background: rgba(26,26,10,0.10);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .modal-icon-chip svg { width: 19px; height: 19px; stroke: #1A1A0E; }
+  .modal-title { font-size: 15px; font-weight: 900; color: #1A1A0E; }
+  .modal-subtitle { font-size: 11px; color: rgba(26,26,10,0.55); font-weight: 600; margin-top: 2px; }
+  .modal-close {
+    width: 30px; height: 30px; border-radius: 9px; border: none; cursor: pointer;
+    background: rgba(26,26,10,0.08); display: flex; align-items: center; justify-content: center;
+    color: rgba(26,26,10,0.45); flex-shrink: 0; transition: background 130ms;
+  }
+  .modal-close:hover { background: rgba(216,30,30,0.12); color: #D81E1E; }
+  .modal-close svg { width: 15px; height: 15px; stroke: currentColor; }
+
+  .modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+  .group {
+    background: var(--card); border: 1.5px solid var(--card-border); border-radius: 14px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .group-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .group-name { font-size: 14px; font-weight: 800; color: var(--text); }
+  .group-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .group-count {
+    font-size: 10px; font-weight: 800; color: var(--amber-color); background: var(--amber-bg);
+    border-radius: 99px; padding: 3px 9px;
+  }
+  .group-total { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text-muted); text-align: right; flex-shrink: 0; }
+  .group-total .label { display: block; font-family: 'DM Sans'; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: var(--text-subtle); margin-bottom: 2px; }
+
+  .group-actions { display: flex; gap: 8px; }
+  .action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 10px; border-radius: 10px; font-size: 11.5px; font-weight: 700;
+    cursor: pointer; transition: all 140ms; border: 1.5px solid transparent;
+  }
+  .action-btn svg { width: 13px; height: 13px; stroke: currentColor; }
+  .action-btn.link { background: var(--emerald-bg); color: var(--emerald); border-color: rgba(10,122,85,0.25); }
+  .action-btn.link:hover { background: rgba(10,122,85,0.18); }
+  .action-btn.create { background: rgba(216,30,30,0.08); color: #D81E1E; border-color: rgba(216,30,30,0.20); }
+  .action-btn.create:hover { background: rgba(216,30,30,0.14); }
+
+  .empty-state { text-align: center; padding: 34px 20px; color: var(--text-subtle); }
+  .empty-state svg { width: 30px; height: 30px; margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow">Aba Dados › Favorecidos</div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Favorecidos
+        <span class="count">3</span>
+      </div>
+      <button class="btn-nav" title="Ir para Contas">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+    <div class="panel-body">
+      <div class="toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>Buscar favorecido...</span>
+        </div>
+        <button class="btn-add" title="Novo favorecido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <button class="btn-pending" title="Movimentações sem favorecido vinculado" onclick="document.getElementById('overlay').style.display='flex'">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.84 12.25l1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="M5.17 11.75l-1.72 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" y1="2" x2="8" y2="5"/><line x1="2" y1="8" x2="5" y2="8"/><line x1="16" y1="19" x2="16" y2="22"/><line x1="19" y1="16" x2="22" y2="16"/></svg>
+          <span class="badge">3</span>
+        </button>
+      </div>
+      <div class="fav">
+        <div class="fav-info">
+          <div class="fav-name">Distribuidora Alfa LTDA</div>
+          <div class="fav-map"><span class="fav-tag">Extrato</span><span class="fav-bank">DISTR ALFA COM</span></div>
+        </div>
+      </div>
+      <div class="fav">
+        <div class="fav-info">
+          <div class="fav-name">Energia Elétrica S.A.</div>
+          <div class="fav-map"><span class="fav-tag">Extrato</span><span class="fav-bank">CIA ENERGETICA</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">Clique no botão âmbar (ao lado do "+") para ver as movimentações sem favorecido cadastrado</div>
+</div>
+
+<div class="overlay" id="overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title-wrap">
+        <div class="modal-icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.84 12.25l1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="M5.17 11.75l-1.72 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" y1="2" x2="8" y2="5"/><line x1="2" y1="8" x2="5" y2="8"/><line x1="16" y1="19" x2="16" y2="22"/><line x1="19" y1="16" x2="22" y2="16"/></svg>
+        </div>
+        <div>
+          <div class="modal-title">Movimentações sem favorecido vinculado</div>
+          <div class="modal-subtitle">3 descrições não batem com nenhum cadastro</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('overlay').style.display='none'">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="group">
+        <div class="group-top">
+          <div>
+            <div class="group-name">Posto Ipiranga BR</div>
+            <div class="group-meta"><span class="group-count">5 movimentações</span></div>
+          </div>
+          <div class="group-total"><span class="label">Total</span>R$ 1.240,00</div>
+        </div>
+        <div class="group-actions">
+          <button class="action-btn link">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Vincular a existente
+          </button>
+          <button class="action-btn create">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Criar novo favorecido
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-top">
+          <div>
+            <div class="group-name">distribuidora alfa</div>
+            <div class="group-meta"><span class="group-count">2 movimentações</span></div>
+          </div>
+          <div class="group-total"><span class="label">Total</span>R$ 890,00</div>
+        </div>
+        <div class="group-actions">
+          <button class="action-btn link">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Vincular a existente
+          </button>
+          <button class="action-btn create">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Criar novo favorecido
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-top">
+          <div>
+            <div class="group-name">Reforma sala 2 — pedreiro</div>
+            <div class="group-meta"><span class="group-count">1 movimentação</span></div>
+          </div>
+          <div class="group-total"><span class="label">Total</span>R$ 350,00</div>
+        </div>
+        <div class="group-actions">
+          <button class="action-btn link">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Vincular a existente
+          </button>
+          <button class="action-btn create">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Criar novo favorecido
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
