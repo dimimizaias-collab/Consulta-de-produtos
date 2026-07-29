@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Coluna Pagamento — Pílulas · Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #FFFCEC;
+    --wrapper: rgba(26,18,8,0.035);
+    --border: rgba(26,18,8,0.05);
+    --th-bg: rgba(26,18,8,0.02);
+    --th-text: rgba(26,26,10,0.40);
+    --text: #1A1208;
+    --text-muted: rgba(26,26,10,0.55);
+    --pill-bg: #FFFFFF;
+    --pill-border: rgba(26,26,10,0.14);
+    --pill-text: rgba(26,26,10,0.65);
+    --pill-num-bg: rgba(26,26,10,0.045);
+    --pill-num-border: rgba(26,26,10,0.10);
+    --pill-num-text: rgba(26,26,10,0.42);
+    --row-alt: rgba(26,18,8,0.035);
+    --hover: rgba(26,18,8,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 36px 32px;
+  }
+  .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: var(--th-text); text-align: center; }
+
+  .wrapper {
+    background: var(--wrapper);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--th-text); padding: 10px 16px; white-space: nowrap; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); border-right: 1px solid rgba(26,18,8,0.025); vertical-align: middle; }
+  td:last-child { border-right: none; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(odd) td { background: var(--row-alt); }
+  tr:hover td { background: var(--hover); }
+
+  .favorecido { font-weight: 600; color: var(--text); }
+  .estab { color: var(--text-muted); }
+
+  /* ── Célula Pagamento ── */
+  .pag-cell { height: 100%; }
+  .pag-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .pag-stack.centered { justify-content: center; height: 100%; min-height: 40px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 600;
+    border: 1px solid var(--pill-border); background: var(--pill-bg); color: var(--pill-text);
+    white-space: nowrap;
+  }
+  .pill.numero {
+    background: var(--pill-num-bg); border-color: var(--pill-num-border); color: var(--pill-num-text);
+    font-family: 'DM Mono', monospace; font-size: 9.5px;
+  }
+  .pill .parcela { font-weight: 800; color: #D81E1E; }
+
+  .caption { font-size: 11.5px; font-weight: 700; color: var(--th-text); text-align: center; margin-top: 4px; }
+  .row-label { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,10,0.35); padding-top: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow">Controle Financeiro — Coluna Pagamento (novo layout em pílulas)</div>
+
+  <div class="wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Favorecido</th>
+          <th>Estabelec.</th>
+          <th>Pagamento</th>
+          <th>Valor final</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="favorecido">Distribuidora Alfa LTDA</td>
+          <td class="estab">Matriz</td>
+          <td class="pag-cell">
+            <div class="pag-stack">
+              <span class="pill">Cheque <span class="parcela">1/2</span></span>
+              <span class="pill numero">#48213</span>
+            </div>
+          </td>
+          <td>R$ 1.230,00</td>
+        </tr>
+        <tr>
+          <td class="favorecido">Energia Elétrica S.A.</td>
+          <td class="estab">Filial 2</td>
+          <td class="pag-cell">
+            <div class="pag-stack centered">
+              <span class="pill">PIX <span class="parcela">1/1</span></span>
+            </div>
+          </td>
+          <td>R$ 640,50</td>
+        </tr>
+        <tr>
+          <td class="favorecido">Transportes Beta ME</td>
+          <td class="estab">—</td>
+          <td class="pag-cell">
+            <div class="pag-stack centered">
+              <span class="pill">Dinheiro</span>
+            </div>
+          </td>
+          <td>R$ 89,90</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="caption">
+    Linha 1: parcela + número (2 pílulas empilhadas) · Linha 2: parcela sem número (1 pílula centralizada) · Linha 3: à vista, sem parcela nem número (1 pílula centralizada)
+  </div>
+</div>
+</body>
+</html>

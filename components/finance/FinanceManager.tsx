@@ -1004,6 +1004,14 @@ export function FinanceManager() {
 
   const hasDatePeriod = !!(calRangeStart && calRangeEnd) || !!calSelectedDate;
 
+  // Vencimentos dentro dos próximos 7 dias (a partir de hoje) ganham um alerta na tabela.
+  const isDueSoon = (venc: string | null) => {
+    if (!venc) return false;
+    const todayIso = toIsoDay(new Date());
+    const weekAheadIso = toIsoDay(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+    return venc >= todayIso && venc <= weekAheadIso;
+  };
+
   const inSelectedPeriod = (dateStr: string | null) => {
     if (!dateStr) return false;
     if (calRangeStart && calRangeEnd) {
@@ -1043,7 +1051,7 @@ export function FinanceManager() {
   };
 
   const filtered = useMemo(() => {
-    return transactions.filter(t => {
+    const result = transactions.filter(t => {
       for (const [key, selected] of Object.entries(columnFilters)) {
         if (selected.size === 0) continue;
         if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
@@ -1062,7 +1070,17 @@ export function FinanceManager() {
       }
       return true;
     });
-  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags]);
+    // Com um período selecionado no calendário, prioriza vencimentos mais próximos do início do período.
+    if (hasDatePeriod) {
+      result.sort((a, b) => {
+        if (!a.vencimento && !b.vencimento) return 0;
+        if (!a.vencimento) return 1;
+        if (!b.vencimento) return -1;
+        return a.vencimento.localeCompare(b.vencimento);
+      });
+    }
+    return result;
+  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags, hasDatePeriod]);
 
   // Soma o valor de todas as parcelas irmãs para dar ao usuário a visão do valor total do
   // parcelamento. Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem
@@ -2087,8 +2105,12 @@ export function FinanceManager() {
                         onClick={selectionMode ? () => toggleSelectRow(t.id) : undefined}
                         className={cn(
                           'border-b border-on-surface/5 transition-colors',
-                          selectionMode ? 'cursor-pointer' : 'hover:bg-on-surface/[0.02]',
-                          isSelected ? 'bg-primary/10 hover:bg-primary/15' : selectionMode ? 'hover:bg-on-surface/[0.03]' : '',
+                          selectionMode ? 'cursor-pointer' : 'hover:bg-on-surface/[0.05] dark:hover:bg-on-surface/[0.02]',
+                          isSelected
+                            ? 'bg-primary/10 hover:bg-primary/15'
+                            : selectionMode
+                              ? 'hover:bg-on-surface/[0.03]'
+                              : 'bg-on-surface/[0.035] dark:bg-transparent',
                           t.pago && !isSelected && 'opacity-60'
                         )}
                       >
@@ -2112,28 +2134,32 @@ export function FinanceManager() {
                             {t.tipo}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-on-surface/70">
-                          {t.tipo_pagamento}
-                          {t.tipo_pagamento === 'Cheque' && t.numero_cheque && (
-                            <span className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5">
-                              #{t.numero_cheque}
-                            </span>
-                          )}
-                          {t.tipo_pagamento === 'Boleto' && t.codigo_barras && (
-                            <span
-                              className="ml-1.5 text-[10px] font-bold text-on-surface/40 bg-on-surface/[0.06] rounded px-1.5 py-0.5"
-                              title={t.codigo_barras}
-                            >
-                              #{t.codigo_barras.slice(-8)}
-                            </span>
-                          )}
-                          {t.vencimento && (
-                            <span className="ml-1.5 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-primary/10 dark:bg-primary/15 text-[9.5px] font-black text-primary align-middle">
-                              {t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}
-                            </span>
-                          )}
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const numero = t.tipo_pagamento === 'Cheque' ? t.numero_cheque
+                              : t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ? t.codigo_barras.slice(-8) : null)
+                              : t.identificacao;
+                            return (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
+                                  {t.tipo_pagamento}
+                                  {t.vencimento && (
+                                    <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
+                                  )}
+                                </span>
+                                {numero && (
+                                  <span
+                                    className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/10 bg-on-surface/[0.045] text-on-surface/45"
+                                    title={t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ?? undefined) : undefined}
+                                  >
+                                    #{numero}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
-                        <td className="px-4 py-3 font-semibold text-on-surface">{t.favorecido}</td>
+                        <td className="px-4 py-3 font-semibold text-on-surface max-w-[180px] truncate" title={t.favorecido}>{t.favorecido}</td>
                         <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
                         <td className="px-4 py-3">
                           {(t.tag_ids ?? []).length === 0 ? (
@@ -2156,7 +2182,12 @@ export function FinanceManager() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.vencimento)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">
+                          {fmtDate(t.vencimento)}
+                          {isDueSoon(t.vencimento) && !t.pago && (
+                            <span className="text-red-600 dark:text-red-400 font-black ml-0.5" title="Vence em até 7 dias">*</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">
                           {fmt(t.valor_final)}
                           {getParcelaGroupTotal(t) !== null && (
