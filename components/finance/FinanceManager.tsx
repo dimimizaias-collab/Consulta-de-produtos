@@ -2169,10 +2169,10 @@ export function FinanceManager() {
                                 </span>
                                 {numero && (
                                   <span
-                                    className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/10 bg-on-surface/[0.045] text-on-surface/45"
-                                    title={t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ?? undefined) : undefined}
+                                    className="inline-flex items-center gap-1 w-fit max-w-[130px] px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/10 bg-on-surface/[0.045] text-on-surface/45"
+                                    title={t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ?? undefined) : numero}
                                   >
-                                    #{numero}
+                                    <span className="truncate min-w-0">#{numero}</span>
                                   </span>
                                 )}
                               </div>
