@@ -1103,6 +1103,23 @@ export function FinanceManager() {
     return parcelaGroupTotal[parcelaGroupKey(t)] ?? null;
   };
 
+  // Mesmo agrupamento acima, mas somando o total_pago das parcelas irmãs — usado para que
+  // "Total pago" e "Restante" reflitam o parcelamento inteiro, não só a parcela da linha.
+  const parcelaGroupPago = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const t of transactions) {
+      if (!t.total_parcelas || t.total_parcelas <= 1) continue;
+      const key = parcelaGroupKey(t);
+      totals[key] = (totals[key] ?? 0) + t.total_pago;
+    }
+    return totals;
+  }, [transactions]);
+
+  const getParcelaGroupPago = (t: Transaction): number | null => {
+    if (!t.total_parcelas || t.total_parcelas <= 1) return null;
+    return parcelaGroupPago[parcelaGroupKey(t)] ?? null;
+  };
+
   // Movimentação em edição no modal (para exibir total do grupo e o botão "Editar todas")
   const editingTx = editingId ? transactions.find(t => t.id === editingId) ?? null : null;
 
@@ -2097,7 +2114,10 @@ export function FinanceManager() {
                   </tr>
                 ) : (
                   filtered.map(t => {
-                    const restante = t.valor_final - t.total_pago;
+                    const groupTotal = getParcelaGroupTotal(t);
+                    const groupPago = getParcelaGroupPago(t);
+                    const totalPagoDisplay = groupPago ?? t.total_pago;
+                    const restante = groupTotal !== null && groupPago !== null ? groupTotal - groupPago : t.valor_final - t.total_pago;
                     const isSelected = selectedIds.has(t.id);
                     return (
                       <tr
@@ -2196,9 +2216,21 @@ export function FinanceManager() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">{fmt(t.total_pago)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">
+                          {fmt(totalPagoDisplay)}
+                          {groupTotal !== null && (
+                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
+                              de {fmt(groupTotal)}
+                            </span>
+                          )}
+                        </td>
                         <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
                           {fmt(restante)}
+                          {groupTotal !== null && (
+                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
+                              de {fmt(groupTotal)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <button
