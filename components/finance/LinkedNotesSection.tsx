@@ -177,6 +177,8 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
     if (isCreate) {
       onPendingChange?.([...(pendingNotes ?? []), note]);
       setResults(prev => prev.filter(n => n.id !== note.id));
+      setPickerOpen(false);
+      setSearch('');
       return;
     }
     setBusyNoteId(note.id);
@@ -189,6 +191,8 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
     setLinkedNotes(prev => [...prev, note]);
     setResults(prev => prev.filter(n => n.id !== note.id));
     setBusyNoteId(null);
+    setPickerOpen(false);
+    setSearch('');
   };
 
   const handleRemove = async (note: LinkedNoteLite) => {

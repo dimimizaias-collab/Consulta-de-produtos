@@ -107,7 +107,7 @@ export function TagSelector({ tags, value, onChange, onCreateTag, parcelCount }:
                 return (
                   <li
                     key={tag.id}
-                    onMouseDown={() => toggle(tag.id)}
+                    onMouseDown={() => { toggle(tag.id); setOpen(false); }}
                     className="flex items-center gap-2 px-3 py-2 text-[12px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[rgba(26,26,10,0.05)] dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
                   >
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: TAG_COLOR_MAP[tag.cor]?.dot ?? c.dot }} />

@@ -297,79 +297,6 @@ function MiniDatePicker({
   );
 }
 
-// ── Numeric keyboard ────────────────────────────────────────────────────────
-
-const NUM_KEYS = [
-  ['7','8','9'],
-  ['4','5','6'],
-  ['1','2','3'],
-  [',','0','⌫'],
-];
-
-function NumericKeyboard({
-  value,
-  onChange,
-  onClose,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onClose: () => void;
-}) {
-  function press(key: string) {
-    if (key === '⌫') {
-      onChange(value.length > 1 ? value.slice(0, -1) : '0');
-      return;
-    }
-    if (key === ',') {
-      if (value.includes(',')) return;
-      onChange(value === '0' ? '0,' : value + ',');
-      return;
-    }
-    const next = value === '0' ? key : value + key;
-    // max 2 decimal places
-    const parts = next.split(',');
-    if (parts[1] && parts[1].length > 2) return;
-    onChange(next);
-  }
-
-  return (
-    <motion.div
-      initial={{ y: '100%' }}
-      animate={{ y: 0 }}
-      exit={{ y: '100%' }}
-      transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-      className="bg-[#F5F2E8] dark:bg-[#2E2E28] border-t border-[#E0D8BF] dark:border-white/[0.08] px-3 pt-2 pb-4"
-    >
-      <div className="flex justify-end mb-2">
-        <button
-          onClick={onClose}
-          className="text-[10px] font-black uppercase tracking-wider text-[#D81E1E] px-3 py-1"
-        >
-          OK
-        </button>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {NUM_KEYS.flat().map((k, i) => (
-          <button
-            key={i}
-            onPointerDown={e => { e.preventDefault(); press(k); }}
-            className={cn(
-              'h-12 rounded-xl font-["DM_Mono",monospace] text-lg font-bold flex items-center justify-center',
-              'active:scale-95 transition-transform duration-75',
-              k === '⌫'
-                ? 'bg-[#E8D8C0] dark:bg-[#3D3D35] text-[#1A1A0E] dark:text-white/70'
-                : 'bg-white dark:bg-[#3D3D35] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              'border border-[#E0D8BF] dark:border-white/[0.08]',
-            )}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 // ── Add Transaction Sheet ──────────────────────────────────────────────────────
 
 function TxSheet({
@@ -399,7 +326,6 @@ function TxSheet({
   pendingNotes: LinkedNoteLite[];
   onPendingChange: (notes: LinkedNoteLite[]) => void;
 }) {
-  const [showKbd, setShowKbd] = useState(true);
   const [favSearch, setFavSearch] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -462,7 +388,7 @@ function TxSheet({
           <DateFieldButton
             className={fieldCls}
             value={form.data}
-            onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
+            onOpen={() => setShowDatePicker(true)}
           />
         </div>
 
@@ -474,7 +400,6 @@ function TxSheet({
             value={form.favorecido}
             onChange={e => setForm({ ...form, favorecido: e.target.value })}
             placeholder="Nome do favorecido..."
-            onFocus={() => setShowKbd(false)}
           />
         </div>
 
@@ -485,7 +410,6 @@ function TxSheet({
             className={fieldCls}
             value={form.account_id ?? ''}
             onChange={e => setForm({ ...form, account_id: e.target.value || null })}
-            onFocus={() => setShowKbd(false)}
           >
             <option value="">Selecione a conta...</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
@@ -517,7 +441,6 @@ function TxSheet({
               value={form.numero_cheque ?? ''}
               onChange={e => setForm({ ...form, numero_cheque: e.target.value || null })}
               placeholder="Numeração do cheque (ex: 000123)"
-              onFocus={() => setShowKbd(false)}
             />
           )}
           <button
@@ -545,7 +468,6 @@ function TxSheet({
               value={form.identificacao ?? ''}
               onChange={e => setForm({ ...form, identificacao: e.target.value || null })}
               placeholder="Ex: número, código ou referência"
-              onFocus={() => setShowKbd(false)}
             />
           </div>
         )}
@@ -553,17 +475,17 @@ function TxSheet({
         {/* Valor */}
         <div>
           <span className={labelCls}>Valor</span>
-          <button
-            onClick={() => setShowKbd(true)}
-            className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
-          >
-            <span className={cn(
-              "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.valor_final}
+            onChange={e => setForm({ ...form, valor_final: e.target.value })}
+            placeholder="0,00"
+            className={cn(
+              "w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight focus:outline-none focus:border-[#D81E1E]",
               form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
-            )}>
-              R$ {form.valor_final}
-            </span>
-          </button>
+            )}
+          />
         </div>
 
         {/* Tags */}
@@ -613,7 +535,6 @@ function TxSheet({
             onChange={e => setForm({ ...form, observacoes: e.target.value })}
             placeholder="Comentários sobre esta movimentação... (opcional)"
             rows={3}
-            onFocus={() => setShowKbd(false)}
           />
         </div>
 
@@ -647,17 +568,6 @@ function TxSheet({
           {saving ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Salvar Movimentação'}
         </button>
       </div>
-
-      {/* Numeric keyboard */}
-      <AnimatePresence>
-        {showKbd && (
-          <NumericKeyboard
-            value={form.valor_final}
-            onChange={v => setForm({ ...form, valor_final: v })}
-            onClose={() => setShowKbd(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Seletor de data (Data) */}
       <AnimatePresence>
@@ -1074,7 +984,6 @@ function TxDetailSheet({
   onTogglePago?: (tx: Transaction) => void;
 }) {
   const isHrSalario = tx.origem === 'hr_salario';
-  const [showKbd, setShowKbd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEdit = mode === 'edit';
 
@@ -1176,7 +1085,7 @@ function TxDetailSheet({
             <DateFieldButton
               className={fieldCls}
               value={form.data}
-              onOpen={() => { setShowKbd(false); setShowDatePicker(true); }}
+              onOpen={() => setShowDatePicker(true)}
             />
           ) : (
             <div className={cn(viewBlockCls, 'font-semibold')}>
@@ -1194,7 +1103,6 @@ function TxDetailSheet({
               value={form.favorecido}
               onChange={e => setForm({ ...form, favorecido: e.target.value })}
               placeholder="Nome do favorecido..."
-              onFocus={() => setShowKbd(false)}
             />
           ) : (
             <div className={viewBlockCls}>{tx.favorecido || '—'}</div>
@@ -1209,7 +1117,6 @@ function TxDetailSheet({
               className={fieldCls}
               value={form.account_id ?? ''}
               onChange={e => setForm({ ...form, account_id: e.target.value || null })}
-              onFocus={() => setShowKbd(false)}
             >
               <option value="">Selecione a conta...</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
@@ -1250,7 +1157,6 @@ function TxDetailSheet({
               value={form.numero_cheque ?? ''}
               onChange={e => setForm({ ...form, numero_cheque: e.target.value || null })}
               placeholder="Numeração do cheque (ex: 000123)"
-              onFocus={() => setShowKbd(false)}
             />
           )}
           {isEdit && !isHrSalario && (
@@ -1336,7 +1242,6 @@ function TxDetailSheet({
                 value={form.identificacao ?? ''}
                 onChange={e => setForm({ ...form, identificacao: e.target.value || null })}
                 placeholder="Ex: número, código ou referência"
-                onFocus={() => setShowKbd(false)}
               />
             ) : (
               <div className={viewBlockCls}>{tx.identificacao || '—'}</div>
@@ -1348,17 +1253,17 @@ function TxDetailSheet({
         <div>
           <span className={labelCls}>Valor</span>
           {isEdit && !isHrSalario ? (
-            <button
-              onClick={() => setShowKbd(true)}
-              className="w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-left"
-            >
-              <span className={cn(
-                "font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight",
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.valor_final}
+              onChange={e => setForm({ ...form, valor_final: e.target.value })}
+              placeholder="0,00"
+              className={cn(
+                "w-full bg-[#FDFAF0] dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 font-['DM_Mono',monospace] text-[20px] font-bold tracking-tight focus:outline-none focus:border-[#D81E1E]",
                 form.tipo === 'Receita' ? 'text-[#059669]' : 'text-[#E11D48] dark:text-[#F43F5E]'
-              )}>
-                R$ {form.valor_final}
-              </span>
-            </button>
+              )}
+            />
           ) : (
             <div className={cn(
               "font-['DM_Mono',monospace] text-[24px] font-black tracking-tight",
@@ -1446,7 +1351,6 @@ function TxDetailSheet({
               onChange={e => setForm({ ...form, observacoes: e.target.value })}
               placeholder="Comentários sobre esta movimentação... (opcional)"
               rows={3}
-              onFocus={() => setShowKbd(false)}
             />
           ) : (
             <div className={cn(viewBlockCls, 'font-medium whitespace-pre-wrap')}>{tx.observacoes || '—'}</div>
@@ -1523,17 +1427,6 @@ function TxDetailSheet({
           </div>
         )}
       </div>
-
-      {/* Numeric keyboard (edit mode only) */}
-      <AnimatePresence>
-        {isEdit && !isHrSalario && showKbd && (
-          <NumericKeyboard
-            value={form.valor_final}
-            onChange={v => setForm({ ...form, valor_final: v })}
-            onClose={() => setShowKbd(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Seletor de data (Data, edit mode only) */}
       <AnimatePresence>
