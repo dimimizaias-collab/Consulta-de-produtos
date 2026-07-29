@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextGen Mobility — Slide 2: Equipe</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary-dark: #003BA0;
+      --primary-cyan: #00D4FF;
+      --accent-green: #2ECC71;
+      --dark-gray: #0f0f0f;
+      --white: #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Roboto', -apple-system, sans-serif;
+      background: var(--dark-gray);
+      color: var(--white);
+      overflow: hidden;
+      margin: 0;
+    }
+
+    .slide-container {
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+    }
+
+    .slide-2 {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--dark-gray) 100%);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    h1 {
+      font-size: 64px;
+      margin-bottom: 60px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--white), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 30px;
+      width: 100%;
+      max-width: 1600px;
+    }
+
+    .team-card {
+      background: rgba(0, 212, 255, 0.05);
+      border: 2px solid var(--primary-cyan);
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .team-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(46, 204, 113, 0.2), transparent);
+      animation: team-shimmer 2.5s infinite;
+    }
+
+    @keyframes team-shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .team-card:hover {
+      border-color: var(--accent-green);
+      transform: translateY(-12px);
+      box-shadow: 0 25px 50px rgba(46, 204, 113, 0.25);
+    }
+
+    .role-icon {
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--primary-cyan), var(--accent-green));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+
+    .team-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .team-card p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slide-controls {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 100;
+    }
+
+    button {
+      background: var(--primary-cyan);
+      color: var(--dark-gray);
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      background: var(--accent-green);
+      transform: translateY(-2px);
+    }
+
+    .slide-counter {
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      font-size: 14px;
+      color: var(--primary-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slide-nav {
+      position: fixed;
+      top: 40px;
+      left: 40px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    a {
+      color: var(--primary-cyan);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--accent-green);
+    }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+  function Slide() {
+    return (
+      <>
+        <div className="slide-container slide-2">
+          <h1>Nossa Equipe</h1>
+          <div className="team-grid">
+            <div className="team-card">
+              <div className="role-icon">👔</div>
+              <h3>Dimitri Mizumoto</h3>
+              <p>CEO & Fundador</p>
+            </div>
+            <div className="team-card">
+              <div className="role-icon">⚙️</div>
+              <h3>Diretor Operações</h3>
+              <p>Excelência em Processo</p>
+            </div>
+            <div className="team-card">
+              <div className="role-icon">🎯</div>
+              <h3>Diretor Estratégia</h3>
+              <p>Visão e Planejamento</p>
+            </div>
+            <div className="team-card">
+              <div className="role-icon">📈</div>
+              <h3>Diretor Marketing</h3>
+              <p>Crescimento e Marca</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="slide-nav">
+          <a href="index.html">← Voltar ao Índice</a>
+        </div>
+
+        <div className="slide-controls">
+          <button onClick={() => window.location.href = 'slide-01.html'}>← Anterior</button>
+          <button onClick={() => window.location.href = 'slide-03.html'}>Próximo →</button>
+        </div>
+
+        <div className="slide-counter">Slide 2 / 12</div>
+      </>
+    );
+  }
+
+  ReactDOM.render(<Slide />, document.getElementById('root'));
+</script>
+
+</body>
+</html>

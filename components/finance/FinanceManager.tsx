@@ -296,9 +296,11 @@ export function FinanceManager() {
   const [showTagGuide, setShowTagGuide] = useState(false);
 
   // mini calendar
-  // Mostra só as movimentações do dia por padrão, evitando poluir a tela com o histórico inteiro.
+  // Por padrão mostra o dia atual, mas sem deixá-lo selecionado no calendário.
+  // Se o usuário desativar o filtro de data, não mostra todas as movimentações.
   const [calViewDate, setCalViewDate] = useState(() => new Date());
-  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(() => new Date());
+  const [calDefaultDate] = useState(() => new Date());
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
   const [calRangeMode, setCalRangeMode] = useState(false);
   const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
   const [calRangeEnd, setCalRangeEnd] = useState<Date | null>(null);
@@ -1002,7 +1004,7 @@ export function FinanceManager() {
   const toIsoDay = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  const hasDatePeriod = !!(calRangeStart && calRangeEnd) || !!calSelectedDate;
+  const hasDatePeriod = !!(calRangeStart && calRangeEnd);
 
   // Vencimentos dentro dos próximos 7 dias (a partir de hoje) ganham um alerta na tabela.
   const isDueSoon = (venc: string | null) => {
@@ -1020,7 +1022,7 @@ export function FinanceManager() {
     if (calSelectedDate) {
       return dateStr === toIsoDay(calSelectedDate);
     }
-    return true;
+    return dateStr === toIsoDay(calDefaultDate);
   };
 
   const getColumnValues = (t: Transaction, key: string): string[] => {
@@ -1080,7 +1082,7 @@ export function FinanceManager() {
       });
     }
     return result;
-  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, tags, hasDatePeriod]);
+  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod]);
 
   // Soma o valor de todas as parcelas irmãs para dar ao usuário a visão do valor total do
   // parcelamento. Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem
@@ -1272,7 +1274,7 @@ export function FinanceManager() {
     const receitasPagas = transactions.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
     const despesasPagas = transactions.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
     return { receitas, despesas, saldo: saldoInicial + receitasPagas - despesasPagas };
-  }, [transactions, accounts, calRangeStart, calRangeEnd, calSelectedDate]);
+  }, [transactions, accounts, calRangeStart, calRangeEnd, calSelectedDate, calDefaultDate]);
 
   const vencimentoStats = useMemo(() => {
     const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
@@ -1281,7 +1283,7 @@ export function FinanceManager() {
       valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
       totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
     };
-  }, [transactions, calRangeStart, calRangeEnd, calSelectedDate]);
+  }, [transactions, calRangeStart, calRangeEnd, calSelectedDate, calDefaultDate]);
 
   const accountBalances = useMemo(() => {
     return accounts.map(a => {

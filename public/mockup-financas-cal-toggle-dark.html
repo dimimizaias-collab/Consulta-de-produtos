@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Calendário Toggle (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1E1E18; font-family: 'DM Sans', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 32px; }
+
+  .calendar-card {
+    background: #252520;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 18px;
+    overflow: hidden;
+    width: 320px;
+  }
+
+  /* ── Yellow header ── */
+  .cal-header {
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cal-month {
+    font-size: 13px;
+    font-weight: 900;
+    color: #1A1A0E;
+    white-space: nowrap;
+  }
+
+  /* ── Inline toggle (NEW) ── */
+  .cal-toggle {
+    flex: 1;
+    display: flex;
+    background: rgba(26,26,10,0.10);
+    border-radius: 99px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .cal-toggle button {
+    flex: 1;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 99px;
+    font-size: 8.5px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .cal-toggle button.active {
+    background: #D81E1E;
+    color: #FFFFFF;
+    box-shadow: 0 1px 4px rgba(216,30,30,0.35);
+  }
+  .cal-toggle button:not(.active) {
+    background: transparent;
+    color: rgba(26,26,10,0.45);
+  }
+  .cal-toggle button:not(.active):hover {
+    color: rgba(26,26,10,0.70);
+  }
+
+  /* ── Nav arrows ── */
+  .cal-nav {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .cal-nav button {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(26,26,10,0.08);
+    color: rgba(26,26,10,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: background 0.15s, color 0.15s;
+  }
+  .cal-nav button:hover {
+    background: rgba(26,26,10,0.14);
+    color: #1A1A0E;
+  }
+
+  /* ── Calendar grid ── */
+  .cal-body { padding: 12px; }
+  .cal-dow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+  }
+  .cal-dow span {
+    text-align: center;
+    font-size: 8.5px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(242,240,227,0.25);
+    padding: 4px 0;
+  }
+  .cal-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .cal-day {
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    color: rgba(242,240,227,0.55);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.12s;
+  }
+  .cal-day:hover { background: rgba(242,240,227,0.05); }
+  .cal-day.other { color: rgba(242,240,227,0.20); cursor: default; }
+  .cal-day.today { background: rgba(216,30,30,0.10); color: #D81E1E; font-weight: 900; }
+  .cal-day.selected { background: #D81E1E; color: white; font-weight: 900; box-shadow: 0 2px 6px rgba(216,30,30,0.30); }
+  .dot {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #D81E1E;
+  }
+
+  /* ── Label ── */
+  .label {
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.30);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-new {
+    display: inline-block;
+    background: #D81E1E;
+    color: white;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+<div>
+  <div style="text-align:center; margin-bottom: 20px;">
+    <span class="badge-new">Novo Layout</span>
+    <p class="label">Modo Escuro — Toggle integrado ao header</p>
+  </div>
+
+  <div class="calendar-card">
+    <!-- Yellow header com toggle embutido -->
+    <div class="cal-header">
+      <span class="cal-month">Junho 2026</span>
+
+      <!-- Toggle DATA / VENCIMENTO dentro do header amarelo -->
+      <div class="cal-toggle">
+        <button class="active">Data</button>
+        <button>Vencimento</button>
+      </div>
+
+      <div class="cal-nav">
+        <button>&#8249;</button>
+        <button>&#8250;</button>
+      </div>
+    </div>
+
+    <!-- Grid do calendário -->
+    <div class="cal-body">
+      <div class="cal-dow">
+        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+      </div>
+      <div class="cal-days">
+        <div class="cal-day other">31</div>
+        <div class="cal-day">1</div>
+        <div class="cal-day">2</div>
+        <div class="cal-day">3</div>
+        <div class="cal-day">4</div>
+        <div class="cal-day">5<span class="dot"></span></div>
+        <div class="cal-day">6</div>
+
+        <div class="cal-day">7</div>
+        <div class="cal-day">8<span class="dot"></span></div>
+        <div class="cal-day">9</div>
+        <div class="cal-day">10</div>
+        <div class="cal-day">11</div>
+        <div class="cal-day">12</div>
+        <div class="cal-day">13</div>
+
+        <div class="cal-day">14</div>
+        <div class="cal-day">15</div>
+        <div class="cal-day">16</div>
+        <div class="cal-day">17<span class="dot"></span></div>
+        <div class="cal-day">18</div>
+        <div class="cal-day">19<span class="dot"></span></div>
+        <div class="cal-day">20<span class="dot"></span></div>
+
+        <div class="cal-day">21</div>
+        <div class="cal-day">22<span class="dot"></span></div>
+        <div class="cal-day">23</div>
+        <div class="cal-day">24</div>
+        <div class="cal-day">25</div>
+        <div class="cal-day today selected">26</div>
+        <div class="cal-day">27</div>
+
+        <div class="cal-day">28</div>
+        <div class="cal-day">29<span class="dot"></span></div>
+        <div class="cal-day">30<span class="dot"></span></div>
+        <div class="cal-day other">1</div>
+        <div class="cal-day other">2</div>
+        <div class="cal-day other">3</div>
+        <div class="cal-day other">4</div>
+
+        <div class="cal-day other">5</div>
+        <div class="cal-day other">6</div>
+        <div class="cal-day other">7</div>
+        <div class="cal-day other">8</div>
+        <div class="cal-day other">9</div>
+        <div class="cal-day other">10</div>
+        <div class="cal-day other">11</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

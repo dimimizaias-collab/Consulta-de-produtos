@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('ClipboardList:', !!l.ClipboardList, 'Pencil:', !!l.Pencil, 'SendHorizonal:', !!l.SendHorizonal, 'Ban:', !!l.Ban\\)\")",
+      "Bash(npx next *)",
+      "Bash(npm install *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(cat tailwind.config.ts)",
+      "Bash(cat tailwind.config.js)",
+      "Bash(curl *)",
+      "Bash(git commit *)",
+      "Bash(git -C \"C:\\\\Users\\\\dimit\\\\Documents\\\\App Consulta de Produtos\" status)",
+      "Bash(git -C \"C:\\\\Users\\\\dimit\\\\Documents\\\\App Consulta de Produtos\" log --oneline -3)",
+      "Bash(git -C \"C:\\\\Users\\\\dimit\\\\Documents\\\\App Consulta de Produtos\" add app/page.tsx)",
+      "Bash(git -C 'C:\\\\Users\\\\dimit\\\\Documents\\\\App Consulta de Produtos' commit -m ' *)",
+      "Bash(git *)",
+      "Bash(node -e \"require\\('recharts'\\); console.log\\('recharts OK'\\)\")",
+      "Bash(Get-ChildItem -Recurse -Include \"tailwind.config.*\", \"globals.css\", \"global.css\", \"*.css\")",
+      "Bash(Select-Object FullName)",
+      "Bash(dir supabase *)"
+    ]
+  }
+}

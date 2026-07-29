@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup · Nota Estoque — Comparação de Grades</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #e5e7eb;
+    font-family: Helvetica, Arial, sans-serif;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 2px;
+  }
+
+  .row-compare {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .card {
+    background: white;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.14);
+    padding: 20px 20px;
+    flex: 1;
+    max-width: 500px;
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+  .label.atual  { background: #9ca3af; color: #fff; }
+  .label.proposto { background: #1d4ed8; color: #fff; }
+
+  .page-title { font-size: 17px; font-weight: bold; margin-bottom: 3px; }
+  .page-date  { font-size: 10px; color: #444; margin-bottom: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  /* ── ATUAL: só linha horizontal ── */
+  .atual-table thead th {
+    background: #1e40af; color: #fff;
+    font-size: 9px; font-weight: bold;
+    padding: 5px 5px; text-align: left;
+    border-bottom: 2px solid #1e3a8a;
+  }
+  .atual-table tbody td {
+    font-size: 8px; padding: 4px 5px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #111;
+  }
+  .atual-table tbody tr:nth-child(even) td { background: #f9fafb; }
+  .atual-table tfoot td {
+    font-size: 8px; font-weight: bold;
+    background: #f1f5f9; padding: 5px 5px;
+    border-top: 2px solid #cbd5e1;
+  }
+
+  /* ── PROPOSTO: grade completa (H + V) ── */
+  .proposto-table thead th {
+    background: #1e40af; color: #fff;
+    font-size: 10.5px; font-weight: bold;
+    padding: 7px 6px; text-align: left;
+    /* Grade: todas as bordas */
+    border: 1.5px solid #1e3a8a;
+  }
+  .proposto-table tbody td {
+    font-size: 10.5px; padding: 7px 6px;
+    /* Grade: todas as bordas */
+    border: 1px solid #d1d5db;
+    color: #111;
+  }
+  .proposto-table tbody tr:nth-child(even) td { background: #f9fafb; }
+  .proposto-table tfoot td {
+    font-size: 10.5px; font-weight: bold;
+    background: #f1f5f9; padding: 7px 6px;
+    border: 1px solid #d1d5db;
+    border-top: 2px solid #9ca3af;
+  }
+
+  /* Colunas vermelhas */
+  .proposto-table .rh { color: #fca5a5; }
+  .proposto-table .rd { color: #dc2626; font-weight: 700; }
+
+  /* Alinhamentos */
+  .c { text-align: center; }
+  .r { text-align: right; }
+
+  /* Callout com seta apontando as linhas verticais */
+  .callout {
+    background: #fef3c7;
+    border: 1.5px solid #fbbf24;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    color: #92400e;
+    font-weight: 600;
+    text-align: center;
+    margin-top: 8px;
+  }
+  .callout.green {
+    background: #dcfce7; border-color: #22c55e; color: #166534;
+  }
+</style>
+</head>
+<body>
+
+<div class="row-compare">
+
+  <!-- ATUAL -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:460px">
+    <div class="label atual">Atual</div>
+    <div class="card">
+      <div class="page-title">PASS-SIM — NF 000050397</div>
+      <div class="page-date">Data: 18/05/2026</div>
+      <table class="atual-table">
+        <thead><tr>
+          <th style="width:7%">SKU</th>
+          <th style="width:14%">EAN</th>
+          <th style="width:31%">Produto</th>
+          <th class="c" style="width:6%">Qtde</th>
+          <th class="c" style="width:8%">Distrib.</th>
+          <th class="r" style="width:13%">Preço Un.</th>
+          <th class="r" style="width:12%">Total</th>
+          <th class="r" style="width:9%">P. Venda</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>-</td><td>7898122760055</td><td>desinfetante creo linhal 900ml</td><td class="c">12</td><td class="c">6</td><td class="r">R$ 15,40</td><td class="r">R$ 184,80</td><td class="r">R$ 28,00</td></tr>
+          <tr><td>-</td><td>7898932863014</td><td>rolo de aluminio 4mx30cm lumipam</td><td class="c">50</td><td class="c">20</td><td class="r">R$ 2,28</td><td class="r">R$ 114,00</td><td class="r">R$ 3,50</td></tr>
+          <tr><td>-</td><td>7898378640057</td><td>sacos plasticos 2kg 20un 18x29cm</td><td class="c">50</td><td class="c">20</td><td class="r">R$ 3,15</td><td class="r">R$ 157,50</td><td class="r">R$ 6,00</td></tr>
+          <tr><td>-</td><td>7898378640286</td><td>saco picotado ouropack 3kg 23x34cm</td><td class="c">56</td><td class="c">20</td><td class="r">R$ 3,21</td><td class="r">R$ 179,80</td><td class="r">R$ 4,50</td></tr>
+        </tbody>
+        <tfoot><tr>
+          <td colspan="6"></td><td class="r">TOTAL GERAL</td><td class="r">R$ 636,10</td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <div class="callout">⚠ Só linha horizontal entre linhas — sem separação vertical entre colunas</div>
+  </div>
+
+  <!-- PROPOSTO -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:500px">
+    <div class="label proposto">✦ Proposto</div>
+    <div class="card">
+      <div class="page-title">PASS-SIM — NF 000050397</div>
+      <div class="page-date">Data: 18/05/2026</div>
+      <table class="proposto-table">
+        <thead><tr>
+          <th style="width:7%">SKU</th>
+          <th style="width:14%">EAN</th>
+          <th style="width:31%">Produto</th>
+          <th class="c" style="width:6%">Qtde</th>
+          <th class="c rh" style="width:8%">Distrib.</th>
+          <th class="r" style="width:13%">Preço Un.</th>
+          <th class="r" style="width:12%">Total</th>
+          <th class="r rh" style="width:9%">P. Venda</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>-</td><td>7898122760055</td><td>desinfetante creo linhal 900ml</td><td class="c">12</td><td class="c rd">6</td><td class="r">R$ 15,40</td><td class="r">R$ 184,80</td><td class="r rd">R$ 28,00</td></tr>
+          <tr><td>-</td><td>7898932863014</td><td>rolo de aluminio 4mx30cm lumipam</td><td class="c">50</td><td class="c rd">20</td><td class="r">R$ 2,28</td><td class="r">R$ 114,00</td><td class="r rd">R$ 3,50</td></tr>
+          <tr><td>-</td><td>7898378640057</td><td>sacos plasticos 2kg 20un 18x29cm</td><td class="c">50</td><td class="c rd">20</td><td class="r">R$ 3,15</td><td class="r">R$ 157,50</td><td class="r rd">R$ 6,00</td></tr>
+          <tr><td>-</td><td>7898378640286</td><td>saco picotado ouropack 3kg 23x34cm</td><td class="c">56</td><td class="c rd">20</td><td class="r">R$ 3,21</td><td class="r">R$ 179,80</td><td class="r rd">R$ 4,50</td></tr>
+        </tbody>
+        <tfoot><tr>
+          <td colspan="6"></td><td class="r">TOTAL GERAL</td><td class="r">R$ 636,10</td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <div class="callout green">✓ Grade completa — linhas horizontais E verticais entre todas as células</div>
+  </div>
+
+</div>
+</body>
+</html>

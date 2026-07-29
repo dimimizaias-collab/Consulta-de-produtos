@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=390, initial-scale=1.0" />
+  <title>Entrada de Mercadoria — Mobile (Dark)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+    body {
+      background: #0E0E0A;
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 32px 16px 64px;
+    }
+
+    .device-frame {
+      width: 390px;
+      min-height: 844px;
+      background: #1E1E18;
+      border-radius: 44px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 10px #0A0A08,
+        0 0 0 12px #2A2A22,
+        0 40px 80px rgba(0,0,0,0.70);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: #FFE500;
+      height: 44px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; flex-shrink: 0;
+    }
+    .status-time { font-size: 15px; font-weight: 700; color: rgba(26,26,14,0.80); }
+    .status-icons { display: flex; gap: 6px; align-items: center; }
+
+    /* Header */
+    .page-header {
+      background: #FFE500;
+      padding: 6px 20px 16px;
+      border-bottom: 1.5px solid #C8B800;
+      flex-shrink: 0;
+    }
+    .page-title { font-size: 22px; font-weight: 900; color: #1A1A0E; letter-spacing: -0.03em; }
+    .page-subtitle { font-size: 9px; font-weight: 700; color: rgba(26,26,14,0.45); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 2px; }
+
+    /* Scroll body */
+    .scroll-body {
+      padding: 16px 16px 100px;
+      display: flex; flex-direction: column; gap: 12px;
+      flex: 1; overflow-y: auto;
+    }
+
+    /* ── Action buttons ─────────────────────────────────── */
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .action-btn {
+      background: #252520;
+      border: 1.5px solid rgba(242,240,227,0.08);
+      border-radius: 20px; padding: 0;
+      display: flex; flex-direction: column;
+      cursor: pointer; overflow: hidden;
+    }
+    .action-btn-stripe { width: 100%; height: 6px; flex-shrink: 0; }
+    .action-btn.manual .action-btn-stripe { background: rgba(242,240,227,0.40); }
+    .action-btn.dict   .action-btn-stripe { background: #D97706; }
+
+    .action-btn-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+    .action-btn-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .action-btn.manual .action-btn-icon { background: rgba(242,240,227,0.07); color: #F2F0E3; }
+    .action-btn.dict   .action-btn-icon { background: rgba(251,191,36,0.12);   color: #FCD34D; }
+
+    .action-btn-label { font-size: 12px; font-weight: 900; color: #F2F0E3; letter-spacing: -0.01em; line-height: 1.2; }
+
+    /* ── Tabs ───────────────────────────────────────────── */
+    .tabs-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .tabs-row::-webkit-scrollbar { display: none; }
+
+    .tab-pill {
+      flex-shrink: 0; padding: 7px 14px; border-radius: 50px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+      display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;
+    }
+    .tab-pill.active   { background: #FFE500; color: #1A1A0E; }
+    .tab-pill.inactive { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.35); }
+
+    .tab-badge { font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 50px; }
+    .tab-pill.active   .tab-badge { background: rgba(26,26,14,0.15); color: #1A1A0E; }
+    .tab-pill.inactive .tab-badge { background: rgba(242,240,227,0.10); color: rgba(242,240,227,0.35); }
+
+    /* ── Search ─────────────────────────────────────────── */
+    .search-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: #252520; border: 1.5px solid rgba(242,240,227,0.08);
+      border-radius: 14px; padding: 10px 14px;
+    }
+    .search-bar svg { color: rgba(242,240,227,0.25); flex-shrink: 0; }
+    .search-bar span { font-size: 13px; color: rgba(242,240,227,0.25); font-weight: 500; }
+
+    /* ── Section label ──────────────────────────────────── */
+    .section-label {
+      font-size: 10px; font-weight: 800; color: rgba(242,240,227,0.25);
+      letter-spacing: 0.14em; text-transform: uppercase; padding: 0 2px;
+    }
+
+    /* ── Note card — novo design ────────────────────────── */
+    .note-card {
+      background: #2A2A24;
+      border-radius: 20px;
+      padding: 14px;
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer;
+    }
+
+    .note-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .note-avatar.revisao  { background: rgba(216,30,30,0.18);  color: #D81E1E; }
+    .note-avatar.aprovado { background: rgba(52,211,153,0.18); color: #34D399; }
+
+    .note-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+    .note-title {
+      font-size: 12px; font-weight: 900; color: #F2F0E3;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .note-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 500; color: rgba(242,240,227,0.40);
+    }
+    .note-meta-sep { color: rgba(242,240,227,0.18); }
+
+    .note-number-chip {
+      display: inline-flex; align-items: center;
+      background: rgba(242,240,227,0.08);
+      border-radius: 6px; padding: 2px 8px;
+      font-size: 11px; font-weight: 700;
+      color: rgba(242,240,227,0.50);
+      font-family: 'DM Mono', 'Courier New', monospace;
+      letter-spacing: 0.04em;
+      align-self: flex-start;
+    }
+
+    .note-actions {
+      display: flex; flex-direction: column;
+      align-items: flex-end; justify-content: space-between;
+      gap: 8px; flex-shrink: 0; min-height: 52px;
+    }
+
+    .count-badge {
+      font-size: 12px; font-weight: 900;
+      padding: 4px 10px; border-radius: 50px; white-space: nowrap;
+    }
+    .count-badge.partial { background: #D97706; color: white; }
+    .count-badge.full    { background: rgba(52,211,153,0.20); color: #34D399; }
+
+    .approve-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(52,211,153,0.15); color: #34D399;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .view-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.35);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Bottom nav — pill escuro, 6 itens ──────────────── */
+    .bottom-nav {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 8px 12px 20px;
+      background: #1E1E18;
+    }
+    .nav-pill {
+      display: flex; align-items: center;
+      background: #2E2E28;
+      border: 1.5px solid rgba(242,240,227,0.07);
+      border-radius: 28px; padding: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.30);
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; flex: 1; padding: 7px 4px; border-radius: 22px; cursor: pointer;
+    }
+    .nav-item.active { background: rgba(216,30,30,0.15); }
+    .nav-item svg { width: 20px; height: 20px; }
+    .nav-item svg.i { color: rgba(242,240,227,0.25); }
+    .nav-item svg.a { color: #D81E1E; }
+    .nav-label { font-size: 8px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+    .nav-label.i { color: rgba(242,240,227,0.25); }
+    .nav-label.a { color: #D81E1E; }
+  </style>
+</head>
+<body>
+<div class="device-frame">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,14,0.65)" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="rgba(26,26,14,0.65)"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,14,0.65)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 10v4"/><rect x="3" y="8" width="12" height="8" rx="1" fill="rgba(26,26,14,0.65)" stroke="none"/></svg>
+    </div>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-title">Entrada de Mercadoria</div>
+    <div class="page-subtitle">Logistics Orchestration &amp; Inventory Feed</div>
+  </div>
+
+  <!-- Scroll Body -->
+  <div class="scroll-body">
+
+    <!-- Action Buttons -->
+    <div class="action-grid">
+      <div class="action-btn manual">
+        <div class="action-btn-stripe"></div>
+        <div class="action-btn-body">
+          <div class="action-btn-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <div class="action-btn-label">Inserir<br>Manualmente</div>
+        </div>
+      </div>
+      <div class="action-btn dict">
+        <div class="action-btn-stripe"></div>
+        <div class="action-btn-body">
+          <div class="action-btn-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div class="action-btn-label">Dicionário</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-row">
+      <div class="tab-pill active">Revisões <span class="tab-badge">3</span></div>
+      <div class="tab-pill inactive">Aprovados <span class="tab-badge">1</span></div>
+      <div class="tab-pill inactive">Rascunhos</div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <span>Buscar por fornecedor, EAN, código…</span>
+    </div>
+
+    <!-- Section label -->
+    <div class="section-label">3 notas para revisão</div>
+
+    <!-- Card 1 — parcial -->
+    <div class="note-card">
+      <div class="note-avatar revisao">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      </div>
+      <div class="note-content">
+        <div class="note-title">Distribuidora Sul — 03/06/2026</div>
+        <div class="note-meta">
+          <span>Distribuidora Sul Ltda</span>
+          <span class="note-meta-sep">·</span>
+          <span>03/06/2026 - 14:32</span>
+        </div>
+        <div class="note-number-chip">NF-e 001234</div>
+      </div>
+      <div class="note-actions">
+        <span class="count-badge partial">08/12</span>
+        <button class="approve-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Card 2 — completo -->
+    <div class="note-card">
+      <div class="note-avatar revisao">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      </div>
+      <div class="note-content">
+        <div class="note-title">Atacado Norte — 03/06/2026</div>
+        <div class="note-meta">
+          <span>Atacado Norte S.A.</span>
+          <span class="note-meta-sep">·</span>
+          <span>03/06/2026 - 11:05</span>
+        </div>
+        <div class="note-number-chip">NF-e 005678</div>
+      </div>
+      <div class="note-actions">
+        <span class="count-badge full">05/05</span>
+        <button class="approve-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Card 3 — sem número -->
+    <div class="note-card">
+      <div class="note-avatar revisao">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      </div>
+      <div class="note-content">
+        <div class="note-title" style="color:rgba(242,240,227,0.30);font-style:italic;text-transform:none;">Sem número — Ontem</div>
+        <div class="note-meta">
+          <span>—</span>
+          <span class="note-meta-sep">·</span>
+          <span>02/06/2026 - 09:14</span>
+        </div>
+        <div class="note-number-chip">lista_manual_compras.csv</div>
+      </div>
+      <div class="note-actions">
+        <span class="count-badge partial">00/07</span>
+        <button class="approve-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Section label Aprovados -->
+    <div class="section-label" style="margin-top:4px;">Aprovados</div>
+
+    <!-- Card aprovado -->
+    <div class="note-card">
+      <div class="note-avatar aprovado">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+      </div>
+      <div class="note-content">
+        <div class="note-title">Mercado Central — 03/06/2026</div>
+        <div class="note-meta">
+          <span>Mercado Central Ltda</span>
+          <span class="note-meta-sep">·</span>
+          <span>03/06/2026 - 08:50</span>
+        </div>
+        <div class="note-number-chip">NF-e 003321</div>
+      </div>
+      <div class="note-actions">
+        <span class="count-badge full">10/10</span>
+        <button class="view-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /scroll-body -->
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <div class="nav-pill">
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span class="nav-label i">Dashboard</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span class="nav-label i">Estoque</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="nav-label i">Requisições</span>
+      </div>
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="a"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <span class="nav-label a">Entrada</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3v4M8 3v4M2 11h20"/></svg>
+        <span class="nav-label i">Finanças</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93A10 10 0 0 1 19.07 19.07"/></svg>
+        <span class="nav-label i">Config.</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

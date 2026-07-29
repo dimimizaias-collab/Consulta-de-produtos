@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup Controle Financeiro — Light</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F5F2E4; font-family: 'DM Sans', system-ui, sans-serif; color: #1A1A0E; padding: 24px; min-height: 100vh; }
+
+  .header { background: #FFE500; border: 1px solid #D4C000; border-radius: 20px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-icon { width: 52px; height: 52px; border-radius: 14px; background: rgba(26,26,10,0.09); display: flex; align-items: center; justify-content: center; color: #1A1A0E; font-size: 20px; }
+  .header-sup { font-size: 9px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(26,26,10,0.40); margin-bottom: 2px; }
+  .header-title { font-size: 26px; font-weight: 900; color: #1A1A0E; letter-spacing: -0.02em; }
+  .header-actions { display: flex; gap: 10px; }
+  .btn-primary { background: #D81E1E; color: white; border: none; padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .btn-sec { background: rgba(26,26,10,0.08); border: 1px solid rgba(26,26,10,0.12); color: #1A1A0E; padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* ── GRID: 520px | 280px | 330px ── */
+  .three-col {
+    display: grid;
+    grid-template-columns: 520px 280px 330px;
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 14px;
+  }
+
+  /* COLUNA 1 — Calendário */
+  .cal-wrap { background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 18px; overflow: hidden; }
+  .cal-head { background: #FFE500; border-bottom: 1px solid #D4C000; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; }
+  .cal-month { font-size: 13px; font-weight: 900; color: #1A1A0E; }
+  .cal-navs { display: flex; gap: 4px; }
+  .cal-nb { width: 26px; height: 26px; border-radius: 8px; background: rgba(26,26,10,0.10); border: none; color: rgba(26,26,10,0.55); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .cal-toggle { padding: 10px 14px 4px; }
+  .cal-tog-inner { display: flex; gap: 3px; background: rgba(26,26,10,0.05); border-radius: 999px; padding: 3px; }
+  .cal-tog-btn { flex: 1; padding: 5px 10px; border-radius: 999px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; border: none; cursor: pointer; }
+  .cal-tog-btn.on  { background: #D81E1E; color: white; }
+  .cal-tog-btn.off { background: transparent; color: rgba(26,26,10,0.35); }
+  .cal-body { padding: 14px; }
+  .cal-wds { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; }
+  .cal-wd { text-align: center; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(26,26,10,0.28); padding: 4px 0; }
+  .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-d { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border-radius: 10px; cursor: pointer; position: relative; color: rgba(26,26,10,0.60); }
+  .cal-d.today  { background: rgba(216,30,30,0.08); color: #D81E1E; font-weight: 900; }
+  .cal-d.sel    { background: #D81E1E; color: white; font-weight: 900; }
+  .cal-d.dot::after { content:''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #D81E1E; }
+  .cal-d.sel.dot::after { background: rgba(255,255,255,0.7); }
+  .cal-d.other  { color: rgba(26,26,10,0.20); cursor: default; }
+
+  /* COLUNA 2 — Cards compactos */
+  .summary-col { display: flex; flex-direction: column; gap: 10px; }
+  .s-card { background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .s-top  { display: flex; align-items: center; justify-content: space-between; }
+  .s-lbl  { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.13em; color: rgba(26,26,10,0.40); }
+  .s-ico  { width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .s-ico.g { background: rgba(16,185,129,0.10); color: #0A7A55; }
+  .s-ico.r { background: rgba(216,30,30,0.08); color: #D81E1E; }
+  .s-val  { font-size: 18px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
+  .s-val.g { color: #0A7A55; }
+  .s-val.r { color: #D81E1E; }
+
+  /* COLUNA 3 — Contas */
+  .acc-col { display: flex; flex-direction: column; gap: 10px; }
+  .acc-hd  { background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 14px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+  .acc-hd-ico { width: 28px; height: 28px; border-radius: 8px; background: rgba(26,26,10,0.06); display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.45); font-size: 13px; }
+  .acc-hd-lbl { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.13em; color: rgba(26,26,10,0.50); }
+  .acc-card { background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .acc-ico  { width: 34px; height: 34px; border-radius: 10px; background: rgba(216,30,30,0.08); display: flex; align-items: center; justify-content: center; color: #D81E1E; font-size: 15px; flex-shrink: 0; }
+  .acc-info { flex: 1; min-width: 0; }
+  .acc-name { font-size: 12px; font-weight: 800; color: #1A1A0E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acc-bank { font-size: 10px; color: rgba(26,26,10,0.40); margin-top: 2px; }
+  .acc-bal  { font-size: 13px; font-weight: 900; flex-shrink: 0; }
+  .acc-bal.neg  { color: #D81E1E; }
+  .acc-bal.zero { color: rgba(26,26,10,0.40); }
+
+  .filters { display: flex; gap: 10px; align-items: center; }
+  .f-search { flex: 1; background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 14px; padding: 10px 14px; font-size: 13px; color: rgba(26,26,10,0.35); }
+  .f-chip   { background: #FDFAF0; border: 1px solid #E0D8BF; border-radius: 12px; padding: 9px 14px; font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.60); white-space: nowrap; }
+  .f-chip.on { background: #D81E1E; color: white; border-color: #D81E1E; }
+
+  .ruler { display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(26,26,10,0.30); border-top: 1px dashed rgba(26,26,10,0.15); padding-top: 5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">💳</div>
+    <div>
+      <div class="header-sup">Gestão Financeira</div>
+      <div class="header-title">Controle Financeiro</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="btn-primary">+ Nova Movimentação</div>
+    <div class="btn-sec">+ Adicionar ▾</div>
+    <div class="btn-sec">☑ Selecionar</div>
+    <div class="btn-sec">⬆ Importar Extrato</div>
+  </div>
+</div>
+
+<div class="three-col">
+
+  <!-- CALENDÁRIO — 520px -->
+  <div>
+    <div class="cal-wrap">
+      <div class="cal-head">
+        <span class="cal-month">Junho 2026</span>
+        <div class="cal-navs"><button class="cal-nb">‹</button><button class="cal-nb">›</button></div>
+      </div>
+      <div class="cal-toggle">
+        <div class="cal-tog-inner">
+          <button class="cal-tog-btn on">Data</button>
+          <button class="cal-tog-btn off">Vencimento</button>
+        </div>
+      </div>
+      <div class="cal-body">
+        <div class="cal-wds">
+          <div class="cal-wd">D</div><div class="cal-wd">S</div><div class="cal-wd">T</div><div class="cal-wd">Q</div><div class="cal-wd">Q</div><div class="cal-wd">S</div><div class="cal-wd">S</div>
+        </div>
+        <div class="cal-days">
+          <div class="cal-d other">31</div>
+          <div class="cal-d">1</div><div class="cal-d">2</div><div class="cal-d">3</div><div class="cal-d">4</div><div class="cal-d dot">5</div><div class="cal-d">6</div>
+          <div class="cal-d">7</div><div class="cal-d dot">8</div><div class="cal-d">9</div><div class="cal-d">10</div><div class="cal-d">11</div><div class="cal-d">12</div><div class="cal-d">13</div>
+          <div class="cal-d">14</div><div class="cal-d">15</div><div class="cal-d">16</div><div class="cal-d">17</div><div class="cal-d dot">18</div><div class="cal-d">19</div><div class="cal-d dot">20</div>
+          <div class="cal-d">21</div><div class="cal-d">22</div><div class="cal-d">23</div><div class="cal-d">24</div><div class="cal-d sel today">25</div><div class="cal-d">26</div><div class="cal-d">27</div>
+          <div class="cal-d">28</div><div class="cal-d dot">29</div><div class="cal-d dot">30</div><div class="cal-d other">1</div><div class="cal-d other">2</div><div class="cal-d other">3</div><div class="cal-d other">4</div>
+        </div>
+      </div>
+    </div>
+    <div class="ruler">← 520px →</div>
+  </div>
+
+  <!-- SUMMARY — 280px -->
+  <div>
+    <div class="summary-col">
+      <div class="s-card">
+        <div class="s-top"><div class="s-lbl">Receitas</div><div class="s-ico g">↗</div></div>
+        <div class="s-val g">R$ 5.812,82</div>
+      </div>
+      <div class="s-card">
+        <div class="s-top"><div class="s-lbl">Despesas</div><div class="s-ico r">↘</div></div>
+        <div class="s-val r">R$ 17.222,00</div>
+      </div>
+      <div class="s-card">
+        <div class="s-top"><div class="s-lbl">Saldo</div><div class="s-ico r">⊟</div></div>
+        <div class="s-val r">-R$ 4.125,02</div>
+      </div>
+    </div>
+    <div class="ruler">← 280px →</div>
+  </div>
+
+  <!-- CONTAS — 330px -->
+  <div>
+    <div class="acc-col">
+      <div class="acc-hd">
+        <div class="acc-hd-ico">💳</div>
+        <span class="acc-hd-lbl">Contas</span>
+      </div>
+      <div class="acc-card">
+        <div class="acc-ico">🏦</div>
+        <div class="acc-info"><div class="acc-name">Caixa Universo do R$1,99</div><div class="acc-bank">Caixa</div></div>
+        <div class="acc-bal zero">R$ 0,00</div>
+      </div>
+      <div class="acc-card">
+        <div class="acc-ico">🏦</div>
+        <div class="acc-info"><div class="acc-name">UNIVERSO 19 COM UTIL DO...</div><div class="acc-bank">Itaú</div></div>
+        <div class="acc-bal neg">-R$ 459,78</div>
+      </div>
+      <div class="acc-card">
+        <div class="acc-ico">🏦</div>
+        <div class="acc-info"><div class="acc-name">CASTELO REAL UTIL DOM...</div><div class="acc-bank">Itaú</div></div>
+        <div class="acc-bal neg">-R$ 3.647,34</div>
+      </div>
+    </div>
+    <div class="ruler">← 330px →</div>
+  </div>
+
+</div>
+
+<div class="filters">
+  <div class="f-search">🔍 Buscar favorecido...</div>
+  <div class="f-chip">Todos os tipos ▾</div>
+  <div class="f-chip">Todos os estabelecimentos ▾</div>
+  <div class="f-chip on">Interno 1</div>
+  <div class="f-chip" style="margin-left:auto;">☰ Guia de tags</div>
+</div>
+
+</body>
+</html>

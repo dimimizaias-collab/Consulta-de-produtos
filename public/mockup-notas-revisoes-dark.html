@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Tabela de Itens da Nota · Dark</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#141410;
+  min-height:100vh;
+  padding:32px 24px;
+  color:#F2F0E3;
+}
+h1{font-size:12px;font-weight:700;color:rgba(242,240,227,.28);margin-bottom:24px;letter-spacing:.07em;text-transform:uppercase}
+
+/* Modal shell */
+.modal{
+  background:#1E1E18;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.50);
+  max-width:1480px;
+  margin:0 auto;
+}
+
+/* Modal header */
+.modal-header{
+  background:#252520;
+  padding:16px 22px;
+  display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid rgba(242,240,227,.06);
+}
+.modal-icon{
+  width:38px;height:38px;
+  background:rgba(216,30,30,.13);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.modal-title-block{flex:1}
+.modal-title{font-size:15px;font-weight:800;color:#F2F0E3;letter-spacing:.01em}
+.modal-sub{font-size:11px;color:rgba(242,240,227,.32);margin-top:2px}
+.modal-actions{display:flex;gap:8px;align-items:center}
+.btn-sm{
+  height:32px;padding:0 14px;border-radius:9px;border:none;
+  font-size:11px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-outline{background:rgba(242,240,227,.08);color:rgba(242,240,227,.50);border:1px solid rgba(242,240,227,.10)}
+.btn-excel{background:rgba(74,222,128,.10);color:#4ADE80;border:1px solid rgba(74,222,128,.14)}
+.btn-baixar{background:rgba(129,140,248,.10);color:#818CF8;border:1px solid rgba(129,140,248,.14)}
+.btn-close{width:32px;height:32px;border-radius:9px;border:none;background:rgba(242,240,227,.07);color:rgba(242,240,227,.32);cursor:pointer;font-size:16px;display:inline-flex;align-items:center;justify-content:center}
+
+/* Table container */
+.table-wrap{overflow-x:auto;background:#1E1E18}
+table{border-collapse:collapse;width:100%;min-width:1400px}
+
+/* ─── THEAD — amarelo âncora (igual ao light e ao Criar Manifesto) ─── */
+thead tr{
+  background:#FFE500;
+  border-bottom:1.5px solid #C8B800;
+}
+thead th{
+  padding:9px 10px;
+  text-align:left;
+  font-size:9px;font-weight:900;
+  text-transform:uppercase;letter-spacing:.10em;
+  color:rgba(26,26,10,.58);
+  white-space:nowrap;
+  border-right:1px solid rgba(0,0,0,.08);
+  vertical-align:middle;
+}
+thead th:last-child{border-right:none}
+thead th.center{text-align:center}
+thead th.right{text-align:right}
+
+.th-edit-btn{
+  width:14px;height:14px;border-radius:3px;border:none;
+  background:transparent;color:rgba(26,26,10,.28);
+  cursor:pointer;font-size:9px;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.th-edit-btn.active{color:rgba(5,150,105,.90)}
+
+/* ─── TBODY ─── */
+tbody tr{transition:background .08s}
+tbody tr:nth-child(odd) {background:#252520}
+tbody tr:nth-child(even){background:#1E1E18}
+tbody tr:hover{background:rgba(242,240,227,.025)}
+
+tbody td{
+  padding:4px 3px;
+  border-bottom:1px solid rgba(242,240,227,.06);
+  border-right:1px solid rgba(242,240,227,.06);
+  vertical-align:middle;
+}
+tbody td:last-child{border-right:none}
+tbody tr:last-child td{border-bottom:none}
+
+/* Row number */
+.row-num{font-size:10px;font-weight:900;color:rgba(242,240,227,.22);text-align:center;padding:4px 6px}
+
+/* Rounded input cell (editable) */
+.cell-box{
+  border-radius:8px;border:1.5px solid rgba(242,240,227,.08);
+  background:#252520;height:36px;
+  display:flex;align-items:center;overflow:hidden;padding:0 10px;
+}
+.cell-box .val{background:transparent;border:none;outline:none;font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:500;color:#F2F0E3;width:100%}
+.cell-box.read-only{background:rgba(242,240,227,.03)}
+.cell-box .val-muted{color:rgba(242,240,227,.22);font-size:11px}
+
+/* Código badge */
+.code-badge{font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:700;background:rgba(242,240,227,.08);color:#F2F0E3;padding:3px 8px;border-radius:7px;display:inline-block}
+
+/* QTD badge */
+.qty-badge{background:#FFE500;color:#1A1A0E;font-size:11px;font-weight:900;padding:3px 10px;border-radius:7px;display:inline-flex;align-items:center;gap:5px}
+.qty-badge .qty-unit{font-size:10px;font-weight:700;opacity:.55}
+
+/* Preço custo */
+.price-cell{font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:600;color:#F2F0E3;text-align:right;padding-right:12px}
+
+/* Valor total */
+.total-cell{font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:700;color:#F2F0E3;text-align:right;padding-right:12px;background:rgba(0,0,0,.15)}
+
+/* Preço venda */
+.pv-cell{font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:600;color:rgba(242,240,227,.38);text-align:right;padding-right:12px}
+
+/* Markup */
+.markup-ok{color:#4ADE80;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;text-align:right;padding-right:12px}
+.markup-warn{color:#FBBF24;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;text-align:right;padding-right:12px}
+.markup-bad{color:rgba(242,240,227,.22);font-family:'DM Mono',monospace;font-size:11px;font-weight:500;text-align:right;padding-right:12px}
+
+/* Status badge */
+.status-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px}
+.status-ok{background:rgba(74,222,128,.12);color:#4ADE80}
+.status-warn{background:rgba(251,191,36,.10);color:#FBBF24}
+.status-none{background:rgba(242,240,227,.07);color:rgba(242,240,227,.28)}
+
+/* OK check */
+.ok-btn{width:28px;height:28px;border-radius:8px;border:1.5px solid rgba(242,240,227,.12);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:rgba(242,240,227,.22);transition:all .13s}
+.ok-btn.checked{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.32);color:#4ADE80}
+
+/* Revisão / Distribuição */
+.rev-cell{font-size:11px;color:rgba(242,240,227,.20);text-align:center}
+.dist-cell{font-size:11px;text-align:center;color:rgba(242,240,227,.20)}
+
+/* Delete btn */
+.btn-del{width:28px;height:28px;border-radius:8px;border:none;background:transparent;cursor:pointer;color:rgba(242,240,227,.14);font-size:13px;display:inline-flex;align-items:center;justify-content:center;transition:all .13s}
+.btn-del:hover{background:rgba(248,113,113,.12);color:#F87171}
+
+/* Footer */
+.modal-footer{
+  background:#252520;border-top:1px solid rgba(242,240,227,.06);
+  padding:14px 22px;display:flex;align-items:center;gap:16px;
+}
+.footer-stat{font-size:12px;color:rgba(242,240,227,.35);font-weight:500}
+.footer-stat strong{color:#F2F0E3;font-weight:800}
+.footer-stat .green{color:#4ADE80}
+.footer-actions{margin-left:auto;display:flex;gap:8px}
+.btn-save{height:36px;padding:0 22px;border-radius:10px;background:#D81E1E;color:#fff;border:none;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.btn-footer{height:36px;padding:0 16px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer}
+.btn-footer.ghost{background:rgba(242,240,227,.07);color:rgba(242,240,227,.42)}
+.btn-footer.danger{background:rgba(216,30,30,.12);color:#F87171}
+</style>
+</head>
+<body>
+<h1>Mockup — Tabela de Itens da Nota · Dark Mode</h1>
+
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-icon">📋</div>
+    <div class="modal-title-block">
+      <div class="modal-title">NOVA RENOVO VARÕES – 30/06/2026 <span style="font-size:12px;font-weight:600;color:rgba(242,240,227,.30);margin-left:6px">NOVA RENOVO VARÕES ✏</span></div>
+      <div class="modal-sub">7309 &nbsp;·&nbsp; 30/06/2026, 12:51:06</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-outline">− Desconto</button>
+      <button class="btn-sm btn-outline">+ Acréscimo</button>
+      <button class="btn-sm btn-excel">↓ Excel</button>
+      <button class="btn-sm btn-baixar">↓ Baixar</button>
+      <button class="btn-close">×</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="center" style="width:40px">#</th>
+          <th style="width:80px">Código</th>
+          <th style="min-width:180px">Produto na Nota <button class="th-edit-btn">✏</button></th>
+          <th style="min-width:160px">Identificação Interna</th>
+          <th style="width:90px">EAN <button class="th-edit-btn active">✏</button></th>
+          <th style="width:90px">SKU <button class="th-edit-btn">✏</button></th>
+          <th style="width:80px">QTD. <button class="th-edit-btn">✏</button></th>
+          <th class="right" style="width:110px">Preço Custo</th>
+          <th class="right" style="width:110px">Valor Total</th>
+          <th class="right" style="width:110px">Preço Venda</th>
+          <th class="right" style="width:90px">Markup</th>
+          <th style="width:100px">Status</th>
+          <th class="center" style="width:50px">OK</th>
+          <th class="center" style="width:70px">Revisão</th>
+          <th class="center" style="width:100px">Distribuição</th>
+          <th style="width:36px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-num">1</td>
+          <td style="padding:4px 6px"><span class="code-badge">11</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 1M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 4</span></td>
+          <td class="price-cell">R$ 7,90</td>
+          <td class="total-cell">R$ 31,60</td>
+          <td class="pv-cell">0,00</td>
+          <td class="markup-bad">—</td>
+          <td style="padding:4px 8px"><span class="status-badge status-none">—</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+        <tr>
+          <td class="row-num">2</td>
+          <td style="padding:4px 6px"><span class="code-badge">12</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 1,5M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 29</span></td>
+          <td class="price-cell">R$ 9,00</td>
+          <td class="total-cell">R$ 261,00</td>
+          <td class="pv-cell">0,00</td>
+          <td class="markup-bad">—</td>
+          <td style="padding:4px 8px"><span class="status-badge status-none">—</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+        <tr>
+          <td class="row-num">3</td>
+          <td style="padding:4px 6px"><span class="code-badge">13</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 2M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val">Varão Fino 2m</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">7898762340012</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VF2M-001</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 18</span></td>
+          <td class="price-cell">R$ 11,80</td>
+          <td class="total-cell">R$ 212,40</td>
+          <td class="pv-cell">R$ 18,90</td>
+          <td class="markup-ok">60,2%</td>
+          <td style="padding:4px 8px"><span class="status-badge status-ok">Ativo</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn checked">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+        <tr>
+          <td class="row-num">4</td>
+          <td style="padding:4px 6px"><span class="code-badge">14</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 2,5M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 18</span></td>
+          <td class="price-cell">R$ 14,70</td>
+          <td class="total-cell">R$ 264,60</td>
+          <td class="pv-cell">0,00</td>
+          <td class="markup-bad">—</td>
+          <td style="padding:4px 8px"><span class="status-badge status-warn">Pendente</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+        <tr>
+          <td class="row-num">5</td>
+          <td style="padding:4px 6px"><span class="code-badge">15</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 3M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val">Varão Fino 3m</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">7898762340036</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VF3M-001</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 4</span></td>
+          <td class="price-cell">R$ 18,90</td>
+          <td class="total-cell">R$ 75,60</td>
+          <td class="pv-cell">R$ 29,90</td>
+          <td class="markup-ok">58,2%</td>
+          <td style="padding:4px 8px"><span class="status-badge status-ok">Ativo</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn checked">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+        <tr>
+          <td class="row-num">6</td>
+          <td style="padding:4px 6px"><span class="code-badge">16</span></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">VARAO FINO 4M</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box read-only"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td style="padding:4px 4px"><span class="qty-badge"><span class="qty-unit">UN</span> 2</span></td>
+          <td class="price-cell">R$ 24,75</td>
+          <td class="total-cell">R$ 49,50</td>
+          <td class="pv-cell">0,00</td>
+          <td class="markup-bad">—</td>
+          <td style="padding:4px 8px"><span class="status-badge status-none">—</span></td>
+          <td class="center" style="padding:4px 6px"><button class="ok-btn">✓</button></td>
+          <td class="rev-cell">—</td>
+          <td class="dist-cell">—</td>
+          <td style="padding:4px 2px"><button class="btn-del">🗑</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="modal-footer">
+    <span class="footer-stat">Total: <strong>19 itens</strong></span>
+    <span class="footer-stat"><span class="green">0 verificados</span></span>
+    <span class="footer-stat">Valor total da nota: <strong>R$ 2.190,20</strong></span>
+    <div class="footer-actions">
+      <button class="btn-save">💾 Salvar</button>
+      <button class="btn-footer ghost">↩</button>
+      <button class="btn-footer ghost">↪</button>
+      <button class="btn-footer danger">🗑 Excluir</button>
+      <button class="btn-footer ghost">📱 Mobile</button>
+      <button class="btn-footer ghost">Fechar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

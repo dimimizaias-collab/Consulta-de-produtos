@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Despesas para Vencer — Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #141410;
+    --surface:   #1c1c16;
+    --surface-2: #252519;
+    --surface-3: #2e2e28;
+    --primary:   #D81E1E;
+    --primary-dim:#7a0f0f;
+    --yellow:    #FFE500;
+    --ink:       #f2f0e3;
+    --ink-2:     #a8a49a;
+    --ink-3:     #56544e;
+    --border:    rgba(242,240,227,0.07);
+    --amber:     #F59E0B;
+    --amber-dim: #78400a;
+    --green:     #22c55e;
+    --green-dim: #0d3d1e;
+    --ease-out:  cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 32px;
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+
+  /* ── LEFT COLUMN ── */
+  .left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* Header */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .page-title-block {}
+  .page-eyebrow {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 4px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+  }
+  .page-title span {
+    color: var(--primary);
+  }
+
+  /* Summary chips */
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 130px;
+    transition: background 150ms var(--ease-out), transform 150ms var(--ease-out);
+    cursor: default;
+  }
+  .chip:hover { background: var(--surface-3); transform: translateY(-1px); }
+  .chip-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .chip-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+  }
+  .chip-value.red  { color: var(--primary); }
+  .chip-value.amber { color: var(--amber); }
+
+  /* Section label */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: -8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.red   { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
+  .dot.amber { background: var(--amber);   box-shadow: 0 0 6px var(--amber); }
+  .dot.muted { background: var(--ink-3); }
+
+  /* Bill card */
+  .bill-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bill-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: slideIn 300ms var(--ease-out) forwards;
+    transition: background 150ms var(--ease-out), transform 150ms var(--ease-out);
+    cursor: pointer;
+  }
+  .bill-card:hover {
+    background: var(--surface-2);
+    transform: translateY(-1px);
+  }
+  .bill-card:active { transform: scale(0.985); }
+
+  /* Stagger delays */
+  .bill-card:nth-child(1) { animation-delay: 60ms; }
+  .bill-card:nth-child(2) { animation-delay: 110ms; }
+  .bill-card:nth-child(3) { animation-delay: 160ms; }
+  .bill-card:nth-child(4) { animation-delay: 210ms; }
+  .bill-card:nth-child(5) { animation-delay: 260ms; }
+  .bill-card:nth-child(6) { animation-delay: 310ms; }
+  .bill-card:nth-child(7) { animation-delay: 360ms; }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Left urgency bar */
+  .bill-bar {
+    width: 3px;
+    height: 44px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .bill-bar.red   { background: var(--primary); }
+  .bill-bar.amber { background: var(--amber); }
+  .bill-bar.muted { background: var(--ink-3); }
+
+  /* Icon circle */
+  .bill-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .bill-icon.red   { background: rgba(216,30,30,0.12); }
+  .bill-icon.amber { background: rgba(245,158,11,0.12); }
+  .bill-icon.muted { background: rgba(242,240,227,0.05); }
+
+  /* Bill info */
+  .bill-info { flex: 1; min-width: 0; }
+  .bill-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bill-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+  }
+  .bill-date {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .bill-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 99px;
+  }
+  .bill-tag.red   { background: rgba(216,30,30,0.15); color: #f87171; }
+  .bill-tag.amber { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .bill-tag.muted { background: rgba(242,240,227,0.06); color: var(--ink-3); }
+
+  /* Amount */
+  .bill-amount {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .bill-amount-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+  .bill-amount-value.red   { color: var(--primary); }
+  .bill-amount-value.amber { color: var(--amber); }
+  .bill-amount-value.muted { color: var(--ink-2); }
+  .bill-amount-recur {
+    font-size: 9px;
+    color: var(--ink-3);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  /* ── RIGHT COLUMN — CALENDAR ── */
+  .right {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    opacity: 0;
+    animation: slideIn 400ms 80ms var(--ease-out) forwards;
+    /* Alinha o botão com o título da página (compensa eyebrow + margin-bottom) */
+    padding-top: 26px;
+  }
+
+  /* Selector button */
+  .date-select-btn {
+    width: 100%;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 13px 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 150ms var(--ease-out), transform 150ms var(--ease-out);
+  }
+  .date-select-btn:hover   { background: #b91919; }
+  .date-select-btn:active  { transform: scale(0.97); }
+
+  /* Calendar widget */
+  .calendar-widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 22px;
+    overflow: hidden;
+  }
+
+  /* Month header */
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .cal-month {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.2px;
+  }
+  .cal-nav {
+    display: flex;
+    gap: 4px;
+  }
+  .cal-nav-btn {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
+  }
+  .cal-nav-btn:hover { background: var(--surface-3); color: var(--ink); }
+  .cal-nav-btn:active { transform: scale(0.92); }
+
+  /* Day-of-week header */
+  .cal-dow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .cal-dow span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 4px 0;
+  }
+
+  /* Day grid */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    cursor: pointer;
+    position: relative;
+    transition: background 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-out);
+  }
+  .cal-day:hover      { background: var(--surface-2); color: var(--ink); }
+  .cal-day:active     { transform: scale(0.88); }
+  .cal-day.other      { color: var(--ink-3); opacity: 0.4; }
+  .cal-day.today      {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    color: var(--ink);
+    background: var(--surface-3);
+  }
+  .cal-day.selected   {
+    background: var(--primary);
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    box-shadow: 0 2px 12px rgba(216,30,30,0.4);
+  }
+  .cal-day.selected:hover { background: #b91919; }
+  .cal-day.has-bill::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--amber);
+  }
+  .cal-day.has-bill-red::after {
+    background: var(--primary);
+    box-shadow: 0 0 4px var(--primary);
+  }
+  .cal-day.in-range {
+    background: rgba(216,30,30,0.08);
+    border-radius: 0;
+    color: var(--ink);
+  }
+  .cal-day.in-range:first-child,
+  .cal-day.range-start { border-radius: 10px 0 0 10px; }
+  .cal-day.range-end   { border-radius: 0 10px 10px 0; background: var(--primary); color:#fff; }
+
+  /* Legend */
+  .cal-legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Range info */
+  .range-info {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .range-info-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    margin-bottom: 2px;
+  }
+  .range-info-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .range-clear {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 120ms var(--ease-out), transform 120ms var(--ease-out);
+    border: none;
+    background: transparent;
+  }
+  .range-clear:hover  { background: rgba(216,30,30,0.1); }
+  .range-clear:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<!-- ── LEFT COLUMN ── -->
+<div class="left">
+
+  <div class="page-header">
+    <div class="page-title-block">
+      <div class="page-eyebrow">Controle Financeiro</div>
+      <div class="page-title">Despesas <span>para Vencer</span></div>
+    </div>
+  </div>
+
+  <!-- Summary chips -->
+  <div class="summary-row">
+    <div class="chip">
+      <span class="chip-label">Total a pagar</span>
+      <span class="chip-value">R$ 4.830</span>
+    </div>
+    <div class="chip">
+      <span class="chip-label">Vencidas</span>
+      <span class="chip-value red">R$ 940</span>
+    </div>
+    <div class="chip">
+      <span class="chip-label">Próximos 7 dias</span>
+      <span class="chip-value amber">R$ 1.290</span>
+    </div>
+    <div class="chip">
+      <span class="chip-label">Este mês</span>
+      <span class="chip-value">R$ 2.600</span>
+    </div>
+  </div>
+
+  <!-- OVERDUE -->
+  <div class="section-label"><span class="dot red"></span>Vencidas</div>
+  <div class="bill-list">
+    <div class="bill-card">
+      <div class="bill-bar red"></div>
+      <div class="bill-icon red">🏦</div>
+      <div class="bill-info">
+        <div class="bill-name">Parcela Financiamento — Banco Itaú</div>
+        <div class="bill-meta">
+          <span class="bill-date">Venceu em 12/05/2026</span>
+          <span class="bill-tag red">3 dias atraso</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value red">R$ 640,00</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+
+    <div class="bill-card">
+      <div class="bill-bar red"></div>
+      <div class="bill-icon red">💡</div>
+      <div class="bill-info">
+        <div class="bill-name">Conta de Energia — CEMIG</div>
+        <div class="bill-meta">
+          <span class="bill-date">Venceu em 14/05/2026</span>
+          <span class="bill-tag red">1 dia atraso</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value red">R$ 300,00</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DUE SOON -->
+  <div class="section-label" style="margin-top:4px;"><span class="dot amber"></span>Próximos 7 dias</div>
+  <div class="bill-list">
+    <div class="bill-card">
+      <div class="bill-bar amber"></div>
+      <div class="bill-icon amber">🌐</div>
+      <div class="bill-info">
+        <div class="bill-name">Internet — Vivo Fibra</div>
+        <div class="bill-meta">
+          <span class="bill-date">Vence em 20/05/2026</span>
+          <span class="bill-tag amber">Em 1 dia</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value amber">R$ 140,00</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+
+    <div class="bill-card">
+      <div class="bill-bar amber"></div>
+      <div class="bill-icon amber">🏢</div>
+      <div class="bill-info">
+        <div class="bill-name">Aluguel do Espaço Comercial</div>
+        <div class="bill-meta">
+          <span class="bill-date">Vence em 22/05/2026</span>
+          <span class="bill-tag amber">Em 3 dias</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value amber">R$ 1.150,00</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPCOMING -->
+  <div class="section-label" style="margin-top:4px;"><span class="dot muted"></span>Mais adiante</div>
+  <div class="bill-list">
+    <div class="bill-card">
+      <div class="bill-bar muted"></div>
+      <div class="bill-icon muted">📦</div>
+      <div class="bill-info">
+        <div class="bill-name">Fornecedor PASS-SIM — Fatura Maio</div>
+        <div class="bill-meta">
+          <span class="bill-date">Vence em 28/05/2026</span>
+          <span class="bill-tag muted">Em 9 dias</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value muted">R$ 1.800,00</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+
+    <div class="bill-card">
+      <div class="bill-bar muted"></div>
+      <div class="bill-icon muted">📱</div>
+      <div class="bill-info">
+        <div class="bill-name">Plano Celular Corporativo</div>
+        <div class="bill-meta">
+          <span class="bill-date">Vence em 30/05/2026</span>
+          <span class="bill-tag muted">Em 11 dias</span>
+        </div>
+      </div>
+      <div class="bill-amount">
+        <div class="bill-amount-value muted">R$ 89,90</div>
+        <div class="bill-amount-recur">Mensal</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── RIGHT COLUMN — CALENDAR ── -->
+<div class="right">
+
+  <!-- Selector button -->
+  <button class="date-select-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    Selecionar período
+  </button>
+
+  <!-- Range info -->
+  <div class="range-info">
+    <div>
+      <div class="range-info-label">Exibindo</div>
+      <div class="range-info-value">19 Mai — 25 Mai 2026</div>
+    </div>
+    <button class="range-clear">Limpar</button>
+  </div>
+
+  <!-- Calendar -->
+  <div class="calendar-widget">
+    <div class="cal-header">
+      <div class="cal-month">Maio 2026</div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn">‹</button>
+        <button class="cal-nav-btn">›</button>
+      </div>
+    </div>
+
+    <div class="cal-dow">
+      <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+    </div>
+
+    <div class="cal-grid">
+      <!-- Week 1 (Apr 26-May 2) -->
+      <div class="cal-day other">26</div>
+      <div class="cal-day other">27</div>
+      <div class="cal-day other">28</div>
+      <div class="cal-day other">29</div>
+      <div class="cal-day other">30</div>
+      <div class="cal-day other">1</div>
+      <div class="cal-day">2</div>
+      <!-- Week 2 -->
+      <div class="cal-day">3</div>
+      <div class="cal-day">4</div>
+      <div class="cal-day">5</div>
+      <div class="cal-day">6</div>
+      <div class="cal-day">7</div>
+      <div class="cal-day">8</div>
+      <div class="cal-day">9</div>
+      <!-- Week 3 -->
+      <div class="cal-day">10</div>
+      <div class="cal-day">11</div>
+      <div class="cal-day has-bill-red">12</div>
+      <div class="cal-day">13</div>
+      <div class="cal-day has-bill-red">14</div>
+      <div class="cal-day">15</div>
+      <div class="cal-day">16</div>
+      <!-- Week 4 -->
+      <div class="cal-day">17</div>
+      <div class="cal-day">18</div>
+      <div class="cal-day today">19</div>
+      <div class="cal-day in-range">20</div>
+      <div class="cal-day in-range has-bill">22</div>
+      <div class="cal-day in-range">23</div>
+      <div class="cal-day in-range">24</div>
+      <!-- Week 5 -->
+      <div class="cal-day range-end">25</div>
+      <div class="cal-day">26</div>
+      <div class="cal-day">27</div>
+      <div class="cal-day has-bill">28</div>
+      <div class="cal-day">29</div>
+      <div class="cal-day has-bill">30</div>
+      <div class="cal-day">31</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="cal-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#D81E1E; box-shadow:0 0 4px #D81E1E"></span>Vencida</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#F59E0B"></span>A vencer</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#a8a49a"></span>Futura</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

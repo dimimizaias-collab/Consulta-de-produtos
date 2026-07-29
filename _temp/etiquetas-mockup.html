@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup Etiquetas A4351 · Spiral</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #F5F4F0;
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    padding: 48px;
+    color: #1a1a1a;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 40px;
+  }
+
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #fff;
+    background: #222;
+    border-radius: 4px;
+    padding: 3px 8px;
+    display: inline-block;
+  }
+  .tag.prateleira { background: #1a6b3c; }
+  .tag.estoque    { background: #1a3a6b; }
+
+  .size-label {
+    font-size: 9px;
+    color: #bbb;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .comparison {
+    display: flex;
+    gap: 60px;
+    flex-wrap: wrap;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ─────────────────────────────────── */
+  /* REAL SIZE  144 × 80 px             */
+  /* ─────────────────────────────────── */
+
+  /* ESTOQUE real:
+     top ~18px  → name (bigger)
+     rest       → barcode (taller) */
+  .label-estoque {
+    width: 144px;
+    height: 80px;
+    border: 1.5px solid #222;
+    border-radius: 7px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 6px 3px;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .label-estoque .name {
+    font-size: 7px;          /* bigger than before */
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    color: #111;
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .label-estoque .barcode-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-height: 0;
+  }
+  .label-estoque .barcode-wrap svg { display: block; }
+  .label-estoque .code-num {
+    font-size: 4px;
+    letter-spacing: 0.07em;
+    color: #333;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* PRATELEIRA real:
+     top ~14px  → name (1 line, small)
+     ~16px      → price (center, bold)
+     rest       → barcode */
+  .label-prateleira {
+    width: 144px;
+    height: 80px;
+    border: 1.5px solid #222;
+    border-radius: 7px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 6px 3px;
+    gap: 0;
+    overflow: hidden;
+  }
+  .label-prateleira .name {
+    font-size: 7px;          /* mesmo tamanho do Estoque */
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    color: #111;
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .label-prateleira .price {
+    font-size: 14px;
+    font-weight: 900;
+    color: #111;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .label-prateleira .barcode-wrap {
+    flex: 0 0 28px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1px;
+  }
+  .label-prateleira .barcode-wrap svg { display: block; }
+  .label-prateleira .code-num {
+    font-size: 4px;
+    letter-spacing: 0.07em;
+    color: #333;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ─────────────────────────────────── */
+  /* 3× AMPLIADO  432 × 240 px          */
+  /* ─────────────────────────────────── */
+
+  .label3-estoque {
+    width: 432px;
+    height: 240px;
+    border: 4px solid #222;
+    border-radius: 20px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 18px 10px;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .label3-estoque .name {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    color: #111;
+    flex-shrink: 0;
+  }
+  .label3-estoque .barcode-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 0;
+  }
+  .label3-estoque .code-num {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #333;
+    font-family: 'Courier New', monospace;
+  }
+
+  .label3-prateleira {
+    width: 432px;
+    height: 240px;
+    border: 4px solid #222;
+    border-radius: 20px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 10px;
+    gap: 0;
+    overflow: hidden;
+  }
+  .label3-prateleira .name {
+    font-size: 18px;         /* mesmo tamanho do Estoque 3x */
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    color: #111;
+    flex-shrink: 0;
+  }
+  .label3-prateleira .price {
+    font-size: 42px;
+    font-weight: 900;
+    color: #111;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .label3-prateleira .barcode-wrap {
+    flex: 0 0 84px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .label3-prateleira .code-num {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #333;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ─────────────────────────────────── */
+  /* A4 SHEET PREVIEW                   */
+  /* ─────────────────────────────────── */
+  .a4-sheet {
+    width: 238px;
+    height: 337px;
+    background: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    padding: 4.5px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(13, 1fr);
+    gap: 1.3px 3.1px;
+    position: relative;
+  }
+  .a4-cell {
+    border: 0.8px solid #333;
+    border-radius: 2.5px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: hidden;
+    padding: 1px 1.5px;
+    gap: 0.5px;
+  }
+  .a4-cell .mini-name {
+    font-size: 2.5px;
+    font-weight: 600;
+    text-align: center;
+    color: #111;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  .a4-cell .mini-price {
+    font-size: 4px;
+    font-weight: 900;
+    color: #111;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .a4-cell .mini-bc {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<h1>Spiral A4351 · 38,2 × 21,2 mm · 65 etiq./folha</h1>
+<h2>Mockup de Etiquetas — v2</h2>
+
+<!-- SVG barcodes reutilizáveis -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- barcode 126×28 para real-size estoque -->
+    <g id="bc-est">
+      <rect x="2"   y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="4.5" y="0" width="1"   height="28" fill="#111"/>
+      <rect x="6.5" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="9"   y="0" width="2"   height="28" fill="#111"/>
+      <rect x="12"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="14"  y="0" width="2.5" height="28" fill="#111"/>
+      <rect x="18"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="20.5" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="23"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="25.5" y="0" width="2"  height="28" fill="#111"/>
+      <rect x="29"  y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="31.5" y="0" width="1"  height="28" fill="#111"/>
+      <rect x="34"  y="0" width="2.5" height="28" fill="#111"/>
+      <rect x="38"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="40"  y="0" width="2"   height="28" fill="#111"/>
+      <rect x="43.5" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="46"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="48.5" y="0" width="2"  height="28" fill="#111"/>
+      <rect x="52"  y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="55"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="57"  y="0" width="2.5" height="28" fill="#111"/>
+      <rect x="61"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="63"  y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="65.5" y="0" width="2"  height="28" fill="#111"/>
+      <rect x="69"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="71"  y="0" width="2.5" height="28" fill="#111"/>
+      <rect x="74.5" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="77"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="79.5" y="0" width="2"  height="28" fill="#111"/>
+      <rect x="83"  y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="85.5" y="0" width="1"  height="28" fill="#111"/>
+      <rect x="88"  y="0" width="2.5" height="28" fill="#111"/>
+      <rect x="92"  y="0" width="1"   height="28" fill="#111"/>
+      <rect x="94"  y="0" width="2"   height="28" fill="#111"/>
+      <rect x="97"  y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="100" y="0" width="1"   height="28" fill="#111"/>
+      <rect x="102.5" y="0" width="2" height="28" fill="#111"/>
+      <rect x="106" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="110" y="0" width="1.5" height="28" fill="#111"/>
+      <rect x="112.5" y="0" width="1" height="28" fill="#111"/>
+      <rect x="114.5" y="0" width="2" height="28" fill="#111"/>
+      <rect x="117.5" y="0" width="1" height="28" fill="#111"/>
+      <rect x="120" y="0" width="2"   height="28" fill="#111"/>
+      <rect x="123" y="0" width="1.5" height="28" fill="#111"/>
+    </g>
+    <!-- barcode 118×20 para real-size prateleira -->
+    <g id="bc-prat">
+      <rect x="2"   y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="4.5" y="0" width="1"   height="20" fill="#111"/>
+      <rect x="6.5" y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="9"   y="0" width="2"   height="20" fill="#111"/>
+      <rect x="12"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="14"  y="0" width="2.5" height="20" fill="#111"/>
+      <rect x="18"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="20"  y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="23"  y="0" width="2"   height="20" fill="#111"/>
+      <rect x="26.5" y="0" width="1"  height="20" fill="#111"/>
+      <rect x="29"  y="0" width="2.5" height="20" fill="#111"/>
+      <rect x="32.5" y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="35"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="37.5" y="0" width="2"  height="20" fill="#111"/>
+      <rect x="41"  y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="44"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="46"  y="0" width="2.5" height="20" fill="#111"/>
+      <rect x="50"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="52"  y="0" width="2"   height="20" fill="#111"/>
+      <rect x="55.5" y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="58"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="60.5" y="0" width="2"  height="20" fill="#111"/>
+      <rect x="64"  y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="67"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="69"  y="0" width="2.5" height="20" fill="#111"/>
+      <rect x="73"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="75"  y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="78"  y="0" width="2"   height="20" fill="#111"/>
+      <rect x="81.5" y="0" width="1"  height="20" fill="#111"/>
+      <rect x="84"  y="0" width="2"   height="20" fill="#111"/>
+      <rect x="87.5" y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="90"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="92.5" y="0" width="2"  height="20" fill="#111"/>
+      <rect x="96"  y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="99"  y="0" width="1"   height="20" fill="#111"/>
+      <rect x="101.5" y="0" width="2.5" height="20" fill="#111"/>
+      <rect x="105" y="0" width="1"   height="20" fill="#111"/>
+      <rect x="107" y="0" width="2"   height="20" fill="#111"/>
+      <rect x="110" y="0" width="1.5" height="20" fill="#111"/>
+      <rect x="113" y="0" width="1"   height="20" fill="#111"/>
+      <rect x="115" y="0" width="1.5" height="20" fill="#111"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- TAMANHO REAL                            -->
+<!-- ═══════════════════════════════════════ -->
+<p class="section-title">Tamanho real — 144 × 80 px (1:1 a 96 dpi)</p>
+
+<div class="comparison" style="margin-bottom:52px">
+
+  <!-- ESTOQUE -->
+  <div class="col">
+    <span class="tag estoque">Estoque</span>
+    <span class="size-label">1×</span>
+    <div class="label-estoque">
+      <span class="name">Biscoito Recheado Chocolate 140g</span>
+      <div class="barcode-wrap">
+        <svg width="130" height="28" viewBox="0 0 126 28"><use href="#bc-est"/></svg>
+        <span class="code-num">7891234567890</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRATELEIRA -->
+  <div class="col">
+    <span class="tag prateleira">Prateleira</span>
+    <span class="size-label">1×</span>
+    <div class="label-prateleira">
+      <span class="name">Biscoito Recheado Chocolate 140g</span>
+      <span class="price">R$ 4,99</span>
+      <div class="barcode-wrap">
+        <svg width="122" height="20" viewBox="0 0 118 20"><use href="#bc-prat"/></svg>
+        <span class="code-num">7891234567890</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 3× AMPLIADO                             -->
+<!-- ═══════════════════════════════════════ -->
+<p class="section-title">Ampliado 3× — para detalhe do conteúdo</p>
+
+<div class="comparison" style="margin-bottom:56px">
+
+  <!-- ESTOQUE 3x -->
+  <div class="col">
+    <span class="tag estoque">Estoque</span>
+    <div class="label3-estoque">
+      <span class="name">Biscoito Recheado Chocolate 140g</span>
+      <div class="barcode-wrap">
+        <svg width="390" height="84" viewBox="0 0 126 28" preserveAspectRatio="none">
+          <use href="#bc-est"/>
+        </svg>
+        <span class="code-num">7 89123 456789 0</span>
+      </div>
+    </div>
+    <p style="font-size:10px;color:#aaa">Nome no topo (maior) · barcode ocupa resto</p>
+  </div>
+
+  <!-- PRATELEIRA 3x -->
+  <div class="col">
+    <span class="tag prateleira">Prateleira</span>
+    <div class="label3-prateleira">
+      <span class="name">Biscoito Recheado Chocolate 140g</span>
+      <span class="price">R$ 4,99</span>
+      <div class="barcode-wrap">
+        <svg width="366" height="62" viewBox="0 0 118 20" preserveAspectRatio="none">
+          <use href="#bc-prat"/>
+        </svg>
+        <span class="code-num">7 89123 456789 0</span>
+      </div>
+    </div>
+    <p style="font-size:10px;color:#aaa">Nome pequeno · preço central · barcode embaixo</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- FOLHA A4 COMPLETA                       -->
+<!-- ═══════════════════════════════════════ -->
+<p class="section-title">Folha A4 completa — preview em escala reduzida · 5 × 13 = 65 etiquetas</p>
+
+<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+  <div>
+    <p style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:10px;">Estoque</p>
+    <div class="a4-sheet" id="sheet-est"></div>
+  </div>
+  <div>
+    <p style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:10px;">Prateleira</p>
+    <div class="a4-sheet" id="sheet-prat"></div>
+  </div>
+</div>
+
+<script>
+const miniBC = `<svg width="30" height="7" viewBox="0 0 30 7" xmlns="http://www.w3.org/2000/svg">
+  <rect x=".5" y="0" width=".6" height="7" fill="#111"/>
+  <rect x="1.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="2.5" y="0" width=".7" height="7" fill="#111"/>
+  <rect x="4"   y="0" width=".9" height="7" fill="#111"/>
+  <rect x="5.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="7"   y="0" width="1"  height="7" fill="#111"/>
+  <rect x="9"   y="0" width=".4" height="7" fill="#111"/>
+  <rect x="10"  y="0" width=".7" height="7" fill="#111"/>
+  <rect x="12"  y="0" width=".9" height="7" fill="#111"/>
+  <rect x="13.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="15"  y="0" width="1"  height="7" fill="#111"/>
+  <rect x="17"  y="0" width=".6" height="7" fill="#111"/>
+  <rect x="18.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="20"  y="0" width=".9" height="7" fill="#111"/>
+  <rect x="21.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="23"  y="0" width="1"  height="7" fill="#111"/>
+  <rect x="25"  y="0" width=".7" height="7" fill="#111"/>
+  <rect x="26.5" y="0" width=".4" height="7" fill="#111"/>
+  <rect x="27.5" y="0" width=".9" height="7" fill="#111"/>
+  <rect x="29"  y="0" width=".7" height="7" fill="#111"/>
+</svg>`;
+
+const estSheet = document.getElementById('sheet-est');
+const pratSheet = document.getElementById('sheet-prat');
+for (let i = 0; i < 65; i++) {
+  const ce = document.createElement('div');
+  ce.className = 'a4-cell';
+  ce.innerHTML = `<div class="mini-name">Biscoito Choc.</div><div class="mini-bc">${miniBC}</div>`;
+  estSheet.appendChild(ce);
+
+  const cp = document.createElement('div');
+  cp.className = 'a4-cell';
+  cp.innerHTML = `<div class="mini-name">Biscoito Choc.</div><div class="mini-price">R$4,99</div><div class="mini-bc">${miniBC}</div>`;
+  pratSheet.appendChild(cp);
+}
+</script>
+
+<p style="margin-top:48px;font-size:10px;color:#bbb;letter-spacing:0.06em;">
+  Barcode simulado para fins de mockup · implementação real usa jsbarcode (já instalado no projeto)
+</p>
+</body>
+</html>

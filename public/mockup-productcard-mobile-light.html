@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProductCard Mobile — Light Mode v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #E8E4D8;
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px 80px;
+      min-height: 100vh;
+    }
+
+    .phone {
+      width: 390px;
+      background: #FDFAF0;
+      border-radius: 44px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: #FDFAF0;
+      padding: 14px 24px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1A1A0E;
+    }
+
+    /* ═══════════════════════════════════════
+       TOOLBAR REDESENHADA
+       Linha 1: search bar (com filtro dentro)
+       Linha 2: count chip + icon buttons
+    ═══════════════════════════════════════ */
+    .toolbar {
+      background: #FDFAF0;
+      padding: 8px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Search bar com filtro dentro */
+    .search-bar {
+      background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.10);
+      border-radius: 22px;
+      padding: 10px 12px 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      color: rgba(26,26,10,0.35);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .search-divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(26,26,10,0.10);
+      flex-shrink: 0;
+    }
+
+    .filter-btn-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(26,26,10,0.05);
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(26,26,10,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      white-space: nowrap;
+    }
+
+    /* Linha 2: count + icon buttons */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .count-chip {
+      background: #FFF8C0;
+      border: 1.5px solid #E8D800;
+      border-radius: 16px;
+      padding: 8px 14px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .count-label {
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: rgba(26,26,10,0.45);
+      line-height: 1;
+    }
+
+    .count-value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #1A1A0E;
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    /* Icon action buttons */
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      background: #FFF8C0;
+      border: 1.5px solid rgba(26,26,10,0.10);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(26,26,10,0.55);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    .icon-btn.primary {
+      background: #D81E1E;
+      border-color: #D81E1E;
+      color: #fff;
+    }
+
+    .icon-btn.refresh { color: #C8A000; }
+
+    /* ═══════════════════════════════════════
+       PRODUCT LIST
+    ═══════════════════════════════════════ */
+    .product-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ═══════════════════════════════════════
+       PRODUCT CARD
+    ═══════════════════════════════════════ */
+    .product-card {
+      background: #FFFFFF;
+      /* Borda visível no light mode */
+      border: 1.5px solid rgba(26,26,10,0.12);
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card-body {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 14px 10px;
+    }
+
+    .card-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      background: #F5F2E8;
+      border: 1px solid rgba(26,26,10,0.07);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: rgba(26,26,10,0.20);
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+    }
+
+    .card-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #1A1A0E;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(26,26,10,0.05);
+      border: 1px solid rgba(26,26,10,0.07);
+      border-radius: 8px;
+      padding: 3px 8px;
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(26,26,10,0.40);
+      letter-spacing: 0.03em;
+      font-family: 'DM Mono', monospace;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tags-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .tag {
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(26,26,10,0.30);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+
+    .tag-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: rgba(26,26,10,0.12);
+      flex-shrink: 0;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px 12px;
+      border-top: 1px solid rgba(26,26,10,0.07);
+    }
+
+    .card-price {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .price-currency {
+      font-size: 12px;
+      font-weight: 900;
+      color: #D81E1E;
+    }
+
+    .price-value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #D81E1E;
+      line-height: 1;
+      letter-spacing: -0.5px;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+    }
+
+    .meta-label {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: rgba(26,26,10,0.30);
+    }
+
+    .meta-value {
+      font-size: 13px;
+      font-weight: 900;
+      color: #1A1A0E;
+      line-height: 1;
+    }
+
+    .meta-value.low { color: #D81E1E; }
+
+    .meta-divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(26,26,10,0.08);
+    }
+
+    /* ═══════════════════════════════════════
+       BOTTOM TAB BAR — ESTILO WHATSAPP (light: amarelo igual ao chip)
+    ═══════════════════════════════════════ */
+    .tab-bar-wrapper {
+      padding: 8px 12px 18px;
+      background: #FDFAF0;
+    }
+
+    .tab-bar {
+      background: #FFF8C0;
+      border: 1.5px solid #E8D800;
+      border-radius: 28px;
+      padding: 8px 4px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 4px 16px rgba(200,168,0,0.18);
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(26,26,10,0.30);
+      padding: 4px 2px;
+      border-radius: 20px;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .tab-item.active {
+      background: rgba(26,26,10,0.08);
+      color: rgba(26,26,10,0.70);
+    }
+
+    .tab-item.active-red {
+      background: rgba(216,30,30,0.10);
+      color: #D81E1E;
+    }
+
+    .tab-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .tab-label { line-height: 1; }
+
+    /* Mode badge */
+    .mode-badge {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1A1A0E;
+      color: #FFE500;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 20px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+<div class="mode-badge">☀ LIGHT — v2 MOCKUP</div>
+
+<div class="phone">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span>18:46</span>
+    <div style="display:flex;gap:6px;align-items:center;font-size:13px;">
+      <span>●●●</span><span>WiFi</span><span>50%</span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+
+    <!-- Row 1: Search bar com filtro dentro -->
+    <div class="search-bar">
+      <div class="search-bar-left">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        EAN, SKU...
+      </div>
+      <div class="search-divider"></div>
+      <div class="filter-btn-inline">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros
+      </div>
+    </div>
+
+    <!-- Row 2: Count chip + icon buttons -->
+    <div class="controls-row">
+      <!-- Count -->
+      <div class="count-chip">
+        <span class="count-label">Produtos</span>
+        <span class="count-value">1101</span>
+      </div>
+
+      <!-- Atualizar Estoque -->
+      <div class="icon-btn refresh" title="Atualizar Estoque">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </div>
+
+      <!-- Mobile -->
+      <div class="icon-btn" title="Mobile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </div>
+
+      <!-- Novo -->
+      <div class="icon-btn primary" title="Novo Produto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Product list -->
+  <div class="product-list">
+
+    <!-- Card 1 -->
+    <div class="product-card">
+      <div class="card-body">
+        <div class="card-image">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Sem Foto</span>
+        </div>
+        <div class="card-info">
+          <p class="card-name">Batedeira Prática Master 500W</p>
+          <div class="pills-row">
+            <span class="pill">⬛ 7898132131715</span>
+            <span class="pill"># BAT-500-A</span>
+          </div>
+          <div class="tags-row">
+            <span class="tag">TAUMER</span>
+            <div class="tag-dot"></div>
+            <span class="tag">ELETRODOMÉSTICOS</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-price">
+          <span class="price-currency">R$</span>
+          <span class="price-value">15,00</span>
+        </div>
+        <div class="card-meta">
+          <div class="meta-item">
+            <span class="meta-label">Estoque</span>
+            <span class="meta-value low">0</span>
+          </div>
+          <div class="meta-divider"></div>
+          <div class="meta-item">
+            <span class="meta-label">Localização</span>
+            <span class="meta-value">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="product-card">
+      <div class="card-body">
+        <div class="card-image">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Sem Foto</span>
+        </div>
+        <div class="card-info">
+          <p class="card-name">Protetor Travesseiro Plast Leo 993</p>
+          <div class="pills-row">
+            <span class="pill">⬛ 7896972931434</span>
+          </div>
+          <div class="tags-row">
+            <span class="tag">NEWLOR</span>
+            <div class="tag-dot"></div>
+            <span class="tag">CAMA &amp; BANHO</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-price">
+          <span class="price-currency">R$</span>
+          <span class="price-value">35,00</span>
+        </div>
+        <div class="card-meta">
+          <div class="meta-item">
+            <span class="meta-label">Estoque</span>
+            <span class="meta-value">12</span>
+          </div>
+          <div class="meta-divider"></div>
+          <div class="meta-item">
+            <span class="meta-label">Localização</span>
+            <span class="meta-value">A-04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="product-card">
+      <div class="card-body">
+        <div class="card-image">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Sem Foto</span>
+        </div>
+        <div class="card-info">
+          <p class="card-name">Conjunto Potes Mantimentos Plasnew 216</p>
+          <div class="pills-row">
+            <span class="pill">⬛ 7897848702165</span>
+            <span class="pill"># POT-216</span>
+          </div>
+          <div class="tags-row">
+            <span class="tag">PLASNEW</span>
+            <div class="tag-dot"></div>
+            <span class="tag">UTILIDADES</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-price">
+          <span class="price-currency">R$</span>
+          <span class="price-value">50,00</span>
+        </div>
+        <div class="card-meta">
+          <div class="meta-item">
+            <span class="meta-label">Estoque</span>
+            <span class="meta-value">8</span>
+          </div>
+          <div class="meta-divider"></div>
+          <div class="meta-item">
+            <span class="meta-label">Localização</span>
+            <span class="meta-value">B-12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom tab bar — estilo WhatsApp -->
+  <div class="tab-bar-wrapper">
+    <div class="tab-bar">
+
+      <div class="tab-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="tab-label">Dashboard</span>
+      </div>
+
+      <div class="tab-item active-red">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span class="tab-label">Estoque</span>
+      </div>
+
+      <div class="tab-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span class="tab-label">Requisições</span>
+      </div>
+
+      <div class="tab-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="8"/></svg>
+        <span class="tab-label">Entrada</span>
+      </div>
+
+      <div class="tab-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span class="tab-label">Finanças</span>
+      </div>
+
+      <div class="tab-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="tab-label">Config.</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

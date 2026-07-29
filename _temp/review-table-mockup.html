@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Tabela Revisões / Aprovados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Page ── */
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #18181c;
+    color: #f2f0e3;
+    padding: 48px 32px 80px;
+    min-width: 1800px;
+  }
+  h1 { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(242,240,227,.35); margin-bottom: 36px; }
+  .themes { display: flex; gap: 48px; align-items: flex-start; }
+  .theme-block { flex: 1; min-width: 0; }
+  .theme-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .theme-label .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .theme-label.dark-label .dot { background: #2e2e28; border: 1.5px solid rgba(242,240,227,.18); }
+  .theme-label.light-label .dot { background: #FFE500; border: 1.5px solid #D4C900; }
+  .theme-label.dark-label { color: rgba(242,240,227,.45); }
+  .theme-label.light-label { color: #6b6248; }
+
+  /* ── Shared modal shell ── */
+  .modal-shell {
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,.55);
+  }
+  .modal-header {
+    padding: 18px 22px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom-width: 1px; border-bottom-style: solid;
+  }
+  .modal-header-info { display: flex; flex-direction: column; gap: 3px; }
+  .modal-header-title { font-size: 13px; font-weight: 800; letter-spacing: -.01em; }
+  .modal-header-sub { font-size: 10px; font-weight: 600; letter-spacing: .04em; }
+  .modal-header-actions { display: flex; gap: 8px; }
+  .btn-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 100px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    transition: opacity 120ms;
+  }
+  .btn-pill:hover { opacity: .8; }
+  .btn-pill svg { width: 12px; height: 12px; }
+
+  /* ── Table wrapper ── */
+  .table-scroll {
+    overflow-x: auto;
+    padding: 16px 14px;
+  }
+  table.rt {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 4px; /* gap entre linhas, não entre células na mesma linha */
+    min-width: 1400px;
+  }
+
+  /* ── DARK THEME ── */
+  .dark .modal-shell { background: #1e1e18; }
+  .dark .modal-header { background: #252520; border-bottom-color: rgba(242,240,227,.06); }
+  .dark .modal-header-title { color: #f2f0e3; }
+  .dark .modal-header-sub { color: rgba(242,240,227,.35); }
+  .dark .table-scroll { background: #1e1e18; }
+
+  .dark table.rt thead tr th { padding: 0 3px 0 0; vertical-align: bottom; }
+  .dark table.rt thead tr th:first-child { padding-left: 0; }
+
+  .dark .th-cell {
+    background: #2e2e28;
+    border: 1.5px solid rgba(242,240,227,.07);
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(242,240,227,.45);
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 4px;
+  }
+  .dark .th-cell.required-col::after { content: '*'; color: #D81E1E; margin-left: 1px; }
+
+  /* Row cells */
+  .dark table.rt tbody tr { transition: background 80ms; }
+  .dark table.rt tbody tr:hover .td-cell { border-color: rgba(242,240,227,.1) !important; }
+
+  .dark .td-cell {
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,.06);
+    border-radius: 9px;
+    height: 40px;
+    display: flex; align-items: center;
+    padding: 0 10px;
+    transition: border-color 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 120ms cubic-bezier(0.23,1,0.32,1);
+    overflow: hidden;
+  }
+  .dark .td-cell:focus-within {
+    border-color: rgba(216,30,30,.55) !important;
+    box-shadow: 0 0 0 3px rgba(216,30,30,.12);
+  }
+  .dark .td-cell.alt { background: #1e1e18; }
+
+  /* input inside cell */
+  .dark .td-cell input {
+    background: transparent; border: none; outline: none;
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
+    color: #f2f0e3; width: 100%;
+  }
+  .dark .td-cell input::placeholder { color: rgba(242,240,227,.2); }
+  .dark .td-cell input[type=number] { -moz-appearance: textfield; }
+  .dark .td-cell input[type=number]::-webkit-inner-spin-button,
+  .dark .td-cell input[type=number]::-webkit-outer-spin-button { display: none; }
+
+  .dark .modal-footer {
+    background: #252520; border-top: 1px solid rgba(242,240,227,.06);
+    padding: 14px 22px; display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* ── LIGHT THEME ── */
+  .light .modal-shell { background: #FFFCEC; }
+  .light .modal-header { background: #FFE500; border-bottom-color: rgba(180,155,0,.18); }
+  .light .modal-header-title { color: #1a1a14; }
+  .light .modal-header-sub { color: rgba(26,26,20,.5); }
+  .light .table-scroll { background: #FFFCEC; }
+
+  .light table.rt thead tr th { padding: 0 3px 0 0; vertical-align: bottom; }
+  .light table.rt thead tr th:first-child { padding-left: 0; }
+
+  .light .th-cell {
+    background: #FFE500;
+    border: 1.5px solid #D4C900;
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(26,26,20,.55);
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 4px;
+  }
+  .light .th-cell.required-col::after { content: '*'; color: #D81E1E; margin-left: 1px; }
+
+  .light table.rt tbody tr:hover .td-cell { border-color: #D4C900 !important; }
+
+  .light .td-cell {
+    background: #FFFFFF;
+    border: 1.5px solid #E2D9C5;
+    border-radius: 9px;
+    height: 40px;
+    display: flex; align-items: center;
+    padding: 0 10px;
+    transition: border-color 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 120ms cubic-bezier(0.23,1,0.32,1);
+    overflow: hidden;
+  }
+  .light .td-cell:focus-within {
+    border-color: rgba(216,30,30,.55) !important;
+    box-shadow: 0 0 0 3px rgba(216,30,30,.12);
+  }
+  .light .td-cell.alt { background: #FFFCEC; }
+
+  .light .td-cell input {
+    background: transparent; border: none; outline: none;
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
+    color: #1a1a14; width: 100%;
+  }
+  .light .td-cell input::placeholder { color: rgba(26,26,20,.2); }
+  .light .td-cell input[type=number] { -moz-appearance: textfield; }
+  .light .td-cell input[type=number]::-webkit-inner-spin-button,
+  .light .td-cell input[type=number]::-webkit-outer-spin-button { display: none; }
+
+  .light .modal-footer {
+    background: #FFF8D0; border-top: 1px solid rgba(180,155,0,.14);
+    padding: 14px 22px; display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* ── Shared within-cell elements ── */
+
+  /* # badge */
+  .badge-seq {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 900;
+  }
+  .dark .badge-seq { background: #111110; color: rgba(242,240,227,.3); }
+  .light .badge-seq { background: #F0EDD8; color: rgba(26,26,20,.35); }
+
+  /* Supplier code */
+  .supplier-code { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; }
+  .dark .supplier-code { color: rgba(242,240,227,.4); }
+  .light .supplier-code { color: rgba(26,26,20,.4); }
+
+  /* Product name text */
+  .dark .prod-name { font-size: 11px; font-weight: 600; color: rgba(242,240,227,.75); }
+  .light .prod-name { font-size: 11px; font-weight: 600; color: #1a1a14; }
+
+  /* Linked product name */
+  .link-name { font-size: 11px; font-weight: 800; }
+  .dark .link-name { color: #4ade80; }
+  .light .link-name { color: #16a34a; }
+
+  /* Link / Verify icon buttons */
+  .icon-btn {
+    width: 26px; height: 26px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px dashed; cursor: pointer; flex-shrink: 0;
+    transition: all 120ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .icon-btn svg { width: 11px; height: 11px; }
+  .dark .icon-btn { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.15); color: rgba(255,255,255,.35); }
+  .dark .icon-btn.linked { background: rgba(74,222,128,.08); border-style: solid; border-color: rgba(74,222,128,.25); color: #4ade80; }
+  .light .icon-btn { background: rgba(26,26,20,.04); border-color: rgba(26,26,20,.18); color: rgba(26,26,20,.35); }
+  .light .icon-btn.linked { background: rgba(22,163,74,.08); border-style: solid; border-color: rgba(22,163,74,.3); color: #16a34a; }
+
+  .icon-btn-layers { border-style: dashed !important; }
+  .dark .icon-btn-layers { border-color: rgba(255,255,255,.12) !important; }
+  .light .icon-btn-layers { border-color: rgba(26,26,20,.14) !important; }
+
+  /* EAN / SKU plain text */
+  .ean-text { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; }
+  .dark .ean-text { color: rgba(242,240,227,.4); }
+  .light .ean-text { color: rgba(26,26,20,.4); }
+
+  /* QTD gray pill (view mode) */
+  .qty-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 9px; cursor: pointer;
+    transition: background 120ms;
+  }
+  .dark .qty-pill { background: #2e2e28; }
+  .dark .qty-pill:hover { background: #3a3a32; }
+  .light .qty-pill { background: #F0EDD8; }
+  .light .qty-pill:hover { background: #E8E4CE; }
+
+  .qty-unit { font-size: 11px; font-weight: 900; }
+  .dark .qty-unit { color: rgba(242,240,227,.3); }
+  .light .qty-unit { color: rgba(26,26,20,.3); }
+
+  .qty-val { font-size: 13px; font-weight: 900; }
+  .dark .qty-val { color: #f2f0e3; }
+  .light .qty-val { color: #1a1a14; }
+
+  /* Price cost box */
+  .price-box {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 9px; border-radius: 8px;
+    width: 100%;
+  }
+  .dark .price-box { background: #2e2e28; }
+  .light .price-box { background: #F0EDD8; }
+  .price-currency { font-size: 9px; font-weight: 900; }
+  .dark .price-currency { color: rgba(242,240,227,.35); }
+  .light .price-currency { color: rgba(26,26,20,.35); }
+  .price-val { font-size: 12px; font-weight: 900; flex: 1; background: transparent; border: none; outline: none; font-family: inherit; min-width: 0; }
+  .dark .price-val { color: #f2f0e3; }
+  .light .price-val { color: #1a1a14; }
+  .price-val::placeholder { color: rgba(242,240,227,.2); }
+  .light .price-val::placeholder { color: rgba(26,26,20,.2); }
+
+  /* Total value */
+  .total-val { font-size: 11px; font-weight: 700; text-align: right; }
+  .dark .total-val { color: rgba(242,240,227,.45); }
+  .light .total-val { color: rgba(26,26,20,.45); }
+
+  /* Sell price input */
+  .sell-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: inherit; font-size: 12px; font-weight: 800; text-align: right;
+  }
+  .dark .sell-input { color: #f2f0e3; }
+  .light .sell-input { color: #1a1a14; }
+  .sell-input::placeholder { color: rgba(242,240,227,.2); }
+  .light .sell-input::placeholder { color: rgba(26,26,20,.2); }
+
+  /* Markup badge */
+  .markup-badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px; border-radius: 7px; font-size: 11px; font-weight: 900;
+  }
+  .markup-pos { background: rgba(74,222,128,.1); color: #4ade80; }
+  .markup-neg { background: rgba(248,113,113,.1); color: #f87171; }
+
+  /* Status badge */
+  .status-badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px; border-radius: 7px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  }
+  .status-ok { background: rgba(96,165,250,.1); color: #60a5fa; }
+  .status-notok { background: rgba(248,113,113,.1); color: #f87171; }
+  .status-trans { background: rgba(251,191,36,.1); color: #fbbf24; }
+
+  /* Verified / Timestamp */
+  .verified-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+    transition: all 120ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .verified-btn svg { width: 11px; height: 11px; }
+  .verified-yes { background: #22c55e; color: white; box-shadow: 0 2px 8px rgba(34,197,94,.35); }
+  .verified-no { }
+  .dark .verified-no { background: rgba(255,255,255,.05); color: rgba(255,255,255,.25); }
+  .light .verified-no { background: rgba(26,26,20,.06); color: rgba(26,26,20,.3); }
+
+  .ts-badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 7px; border-radius: 6px; font-size: 9px; font-weight: 800; white-space: nowrap;
+  }
+  .dark .ts-badge { background: rgba(74,222,128,.08); color: #4ade80; }
+  .light .ts-badge { background: rgba(22,163,74,.08); color: #16a34a; }
+
+  /* Distrib input */
+  .distrib-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; text-align: center;
+  }
+  .dark .distrib-input { color: rgba(242,240,227,.55); }
+  .light .distrib-input { color: rgba(26,26,20,.55); }
+  .distrib-input::placeholder { color: rgba(242,240,227,.18); }
+  .light .distrib-input::placeholder { color: rgba(26,26,20,.18); }
+
+  /* Delete btn */
+  .del-btn {
+    width: 26px; height: 26px; border-radius: 8px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 120ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .del-btn svg { width: 12px; height: 12px; }
+  .dark .del-btn { background: transparent; color: rgba(248,113,113,.3); }
+  .dark .del-btn:hover { background: rgba(248,113,113,.12); color: #f87171; }
+  .light .del-btn { background: transparent; color: rgba(220,38,38,.25); }
+  .light .del-btn:hover { background: rgba(220,38,38,.08); color: #dc2626; }
+
+  /* td wrappers — the trick: padding gives spacing between cells in the same row */
+  table.rt td, table.rt th {
+    padding: 0 2px;
+    vertical-align: middle;
+  }
+  table.rt td:first-child, table.rt th:first-child { padding-left: 0; }
+  table.rt td:last-child, table.rt th:last-child { padding-right: 0; }
+
+  /* divider line */
+  .divider { width: 100%; height: 1px; margin: 40px 0; }
+  .dark .divider { background: rgba(242,240,227,.06); }
+  .light .divider { background: rgba(26,26,20,.06); }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 12px 16px; border-radius: 12px; margin-bottom: 16px;
+    font-size: 10px; font-weight: 600;
+  }
+  .dark .legend { background: rgba(255,255,255,.03); color: rgba(242,240,227,.4); border: 1px solid rgba(242,240,227,.05); }
+  .light .legend { background: rgba(26,26,20,.03); color: rgba(26,26,20,.45); border: 1px solid rgba(26,26,20,.07); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* Footer total area */
+  .footer-total { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .dark .footer-total { color: rgba(242,240,227,.4); }
+  .light .footer-total { color: rgba(26,26,20,.45); }
+  .footer-total strong { font-weight: 900; }
+  .dark .footer-total strong { color: #f2f0e3; }
+  .light .footer-total strong { color: #1a1a14; }
+  .footer-sep { opacity: .25; }
+
+  /* Markup total badge */
+  .markup-total { font-size: 12px; font-weight: 900; }
+
+  /* Discount indicator pill */
+  .disc-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 800;
+  }
+  .disc-neg { background: rgba(248,113,113,.1); color: #f87171; }
+  .disc-pos { background: rgba(74,222,128,.1); color: #4ade80; }
+
+  /* Alert (discrepancy) dot */
+  .alert-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .dark .alert-dot { color: rgba(242,240,227,.15); }
+  .light .alert-dot { color: rgba(26,26,20,.12); }
+  .alert-dot svg { width: 10px; height: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Mockup · Tabela Revisões / Aprovados — Células Arredondadas</h1>
+
+<div class="themes">
+
+  <!-- ══════════ DARK THEME ══════════ -->
+  <div class="theme-block dark">
+    <div class="theme-label dark-label">
+      <span class="dot"></span>
+      Modo Escuro (atual)
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span> Produto vinculado</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span> Não identificado</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> Traduzido (aguarda revisão)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#60a5fa"></span> Identificado (SKU/EAN)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:rgba(242,240,227,.3)"></span> Célula editável em foco → borda vermelha</span>
+    </div>
+
+    <div class="modal-shell">
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <span class="modal-header-title">NF-e 003421 · Distribuidora ABC Ltda</span>
+          <span class="modal-header-sub">3 de 5 itens identificados · Revisão em andamento</span>
+        </div>
+        <div class="modal-header-actions">
+          <button class="btn-pill" style="background:rgba(255,255,255,.06);color:rgba(242,240,227,.6);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Pesquisar itens
+          </button>
+          <button class="btn-pill" style="background:rgba(255,255,255,.06);color:rgba(242,240,227,.6);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+            Exportar PDF
+          </button>
+          <button class="btn-pill" style="background:#D81E1E;color:#fff;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Salvar
+          </button>
+        </div>
+      </div>
+
+      <!-- Table scroll -->
+      <div class="table-scroll">
+        <table class="rt">
+          <colgroup>
+            <!-- # -->  <col style="width:32px">
+            <!-- Cód--> <col style="width:72px">
+            <!-- Prod na Nota --> <col style="width:200px">
+            <!-- ID Interna  --> <col style="width:190px">
+            <!-- EAN         --> <col style="width:110px">
+            <!-- SKU         --> <col style="width:90px">
+            <!-- Qtd         --> <col style="width:100px">
+            <!-- P. Custo    --> <col style="width:104px">
+            <!-- V. Total    --> <col style="width:90px">
+            <!-- Desc        --> <col style="width:80px">
+            <!-- Acrés       --> <col style="width:80px">
+            <!-- P. Venda    --> <col style="width:94px">
+            <!-- Markup      --> <col style="width:78px">
+            <!-- Status      --> <col style="width:120px">
+            <!-- ✓           --> <col style="width:34px">
+            <!-- Hora        --> <col style="width:80px">
+            <!-- Distrib     --> <col style="width:54px">
+            <!-- Del         --> <col style="width:34px">
+          </colgroup>
+
+          <thead>
+            <tr>
+              <th><div class="th-cell" style="justify-content:center">#</div></th>
+              <th><div class="th-cell">Código</div></th>
+              <th><div class="th-cell required-col">Produto na Nota</div></th>
+              <th><div class="th-cell">Identificação Interna</div></th>
+              <th><div class="th-cell">EAN</div></th>
+              <th><div class="th-cell">SKU</div></th>
+              <th><div class="th-cell" style="justify-content:center">Qtd.</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Preço Custo</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Valor Total</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Desconto</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Acréscimo</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Preço Venda</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Markup</div></th>
+              <th><div class="th-cell">Status</div></th>
+              <th><div class="th-cell" style="justify-content:center">✓</div></th>
+              <th><div class="th-cell">Hora</div></th>
+              <th><div class="th-cell" style="justify-content:center">Distrib.</div></th>
+              <th><div class="th-cell" style="justify-content:center"></div></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <!-- ROW 1 — linked, verified, markup ok -->
+            <tr>
+              <td><div class="td-cell" style="justify-content:center"><span class="badge-seq">1</span></div></td>
+              <td><div class="td-cell"><span class="supplier-code">ABC-001</span></div></td>
+              <td><div class="td-cell"><span class="prod-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">DETERGENTE LÍQUIDO 500ML</span></div></td>
+              <td>
+                <div class="td-cell" style="gap:6px;">
+                  <span class="link-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">Detergente 500ml</span>
+                  <div class="icon-btn linked" style="border-style:solid;margin-left:auto;flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  </div>
+                  <div class="icon-btn icon-btn-layers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                </div>
+              </td>
+              <td><div class="td-cell"><span class="ean-text">7891234567890</span></div></td>
+              <td><div class="td-cell"><span class="ean-text">DET-500</span></div></td>
+              <td><div class="td-cell" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">CX</span><span class="qty-val">48</span></button>
+                <span class="alert-dot" style="margin-left:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="12.90" style="text-align:right;width:52px">
+                </div>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="total-val">R$ 619,20</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="disc-pill disc-neg">- R$ 1,29</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span style="color:rgba(242,240,227,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><input class="sell-input" type="text" value="19.90" placeholder="0,00"></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="markup-badge markup-pos">+54.3%</span></div></td>
+              <td><div class="td-cell"><span class="status-badge status-ok">Identificado</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="verified-btn verified-yes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+              </button></div></td>
+              <td><div class="td-cell"><span class="ts-badge">10/05 14:32</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—" value="6"></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+
+            <!-- ROW 2 — not linked, no markup (alternate) -->
+            <tr>
+              <td><div class="td-cell alt" style="justify-content:center"><span class="badge-seq">2</span></div></td>
+              <td><div class="td-cell alt"><span class="supplier-code" style="opacity:.4">—</span></div></td>
+              <td><div class="td-cell alt"><span class="prod-name">SABÃO EM PÓ 1KG LAVAGEM</span></div></td>
+              <td>
+                <div class="td-cell alt" style="gap:6px">
+                  <div class="icon-btn" style="flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </div>
+                  <div class="icon-btn icon-btn-layers" style="flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                </div>
+              </td>
+              <td><div class="td-cell alt"><span class="ean-text" style="opacity:.4">—</span></div></td>
+              <td><div class="td-cell alt"><span class="ean-text" style="opacity:.4">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">120</span></button>
+                <span class="alert-dot" style="margin-left:4px;color:#f87171"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="8.50" style="text-align:right;width:52px">
+                </div>
+              </div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span class="total-val">R$ 1.020,00</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="color:rgba(242,240,227,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="color:rgba(242,240,227,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><input class="sell-input" type="text" placeholder="0,00"></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:rgba(242,240,227,.2)">—</span></div></td>
+              <td><div class="td-cell alt"><span class="status-badge status-notok">Não Identificado</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><button class="verified-btn verified-no">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button></div></td>
+              <td><div class="td-cell alt"><span style="font-size:11px;font-weight:700;color:rgba(242,240,227,.2)">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—"></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+
+            <!-- ROW 3 — translated status, markup negative -->
+            <tr>
+              <td><div class="td-cell" style="justify-content:center"><span class="badge-seq">3</span></div></td>
+              <td><div class="td-cell"><span class="supplier-code">XYZ-774</span></div></td>
+              <td><div class="td-cell"><span class="prod-name">AMACIANTE CONC. 2L CX12</span></div></td>
+              <td>
+                <div class="td-cell" style="gap:6px">
+                  <span class="link-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;color:#fbbf24">Amaciante 2L</span>
+                  <div class="icon-btn linked" style="border-style:solid;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.08);color:#fbbf24;margin-left:auto;flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  </div>
+                  <div class="icon-btn icon-btn-layers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                </div>
+              </td>
+              <td><div class="td-cell"><span class="ean-text">7891234567891</span></div></td>
+              <td><div class="td-cell"><span class="ean-text">AMA-2L</span></div></td>
+              <td><div class="td-cell" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">36</span></button>
+                <span class="alert-dot" style="margin-left:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="24.80" style="text-align:right;width:52px">
+                </div>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="total-val">R$ 892,80</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span style="color:rgba(242,240,227,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="disc-pill disc-pos">+ R$ 0,62</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><input class="sell-input" type="text" value="22.00" placeholder="0,00"></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="markup-badge markup-neg">-11.2%</span></div></td>
+              <td><div class="td-cell"><span class="status-badge status-trans">Traduzido</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="verified-btn verified-no">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button></div></td>
+              <td><div class="td-cell"><span style="font-size:11px;font-weight:700;color:rgba(242,240,227,.2)">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—" value="12"></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="footer-total">
+          <span>Valor total da nota:</span>
+          <strong>R$ 2.532,00</strong>
+          <span class="footer-sep">·</span>
+          <span style="color:rgba(242,240,227,.35)">Markup total:</span>
+          <span class="markup-total" style="color:#4ade80">+34.7%</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-pill" style="background:rgba(248,113,113,.08);color:rgba(248,113,113,.7);border:1px solid rgba(248,113,113,.15);">Excluir nota</button>
+          <button class="btn-pill" style="background:#111110;color:rgba(242,240,227,.6);">Fechar</button>
+          <button class="btn-pill" style="background:#D81E1E;color:#fff;">Salvar</button>
+        </div>
+      </div>
+    </div><!-- /modal-shell dark -->
+  </div><!-- /dark -->
+
+  <!-- ══════════ LIGHT THEME ══════════ -->
+  <div class="theme-block light">
+    <div class="theme-label light-label">
+      <span class="dot"></span>
+      Modo Claro
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span> Produto vinculado</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span> Não identificado</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#d97706"></span> Traduzido</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#2563eb"></span> Identificado</span>
+      <span class="legend-item"><span class="legend-dot" style="background:rgba(26,26,20,.2)"></span> Célula editável em foco → borda vermelha</span>
+    </div>
+
+    <div class="modal-shell" style="box-shadow:0 32px 80px rgba(0,0,0,.18)">
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <span class="modal-header-title">NF-e 003421 · Distribuidora ABC Ltda</span>
+          <span class="modal-header-sub">3 de 5 itens identificados · Revisão em andamento</span>
+        </div>
+        <div class="modal-header-actions">
+          <button class="btn-pill" style="background:rgba(26,26,20,.08);color:rgba(26,26,20,.55);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Pesquisar itens
+          </button>
+          <button class="btn-pill" style="background:rgba(26,26,20,.08);color:rgba(26,26,20,.55);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+            Exportar PDF
+          </button>
+          <button class="btn-pill" style="background:#D81E1E;color:#fff;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Salvar
+          </button>
+        </div>
+      </div>
+
+      <!-- Table scroll -->
+      <div class="table-scroll">
+        <table class="rt">
+          <colgroup>
+            <col style="width:32px">
+            <col style="width:72px">
+            <col style="width:200px">
+            <col style="width:190px">
+            <col style="width:110px">
+            <col style="width:90px">
+            <col style="width:100px">
+            <col style="width:104px">
+            <col style="width:90px">
+            <col style="width:80px">
+            <col style="width:80px">
+            <col style="width:94px">
+            <col style="width:78px">
+            <col style="width:120px">
+            <col style="width:34px">
+            <col style="width:80px">
+            <col style="width:54px">
+            <col style="width:34px">
+          </colgroup>
+
+          <thead>
+            <tr>
+              <th><div class="th-cell" style="justify-content:center">#</div></th>
+              <th><div class="th-cell">Código</div></th>
+              <th><div class="th-cell required-col">Produto na Nota</div></th>
+              <th><div class="th-cell">Identificação Interna</div></th>
+              <th><div class="th-cell">EAN</div></th>
+              <th><div class="th-cell">SKU</div></th>
+              <th><div class="th-cell" style="justify-content:center">Qtd.</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Preço Custo</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Valor Total</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Desconto</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Acréscimo</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Preço Venda</div></th>
+              <th><div class="th-cell" style="justify-content:flex-end">Markup</div></th>
+              <th><div class="th-cell">Status</div></th>
+              <th><div class="th-cell" style="justify-content:center">✓</div></th>
+              <th><div class="th-cell">Hora</div></th>
+              <th><div class="th-cell" style="justify-content:center">Distrib.</div></th>
+              <th><div class="th-cell" style="justify-content:center"></div></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <!-- ROW 1 light — linked, verified -->
+            <tr>
+              <td><div class="td-cell" style="justify-content:center"><span class="badge-seq">1</span></div></td>
+              <td><div class="td-cell"><span class="supplier-code">ABC-001</span></div></td>
+              <td><div class="td-cell"><span class="prod-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">DETERGENTE LÍQUIDO 500ML</span></div></td>
+              <td>
+                <div class="td-cell" style="gap:6px">
+                  <span class="link-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">Detergente 500ml</span>
+                  <div class="icon-btn linked" style="border-style:solid;margin-left:auto;flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  </div>
+                  <div class="icon-btn icon-btn-layers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                </div>
+              </td>
+              <td><div class="td-cell"><span class="ean-text">7891234567890</span></div></td>
+              <td><div class="td-cell"><span class="ean-text">DET-500</span></div></td>
+              <td><div class="td-cell" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">CX</span><span class="qty-val">48</span></button>
+                <span class="alert-dot" style="margin-left:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="12.90" style="text-align:right;width:52px;color:#1a1a14">
+                </div>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="total-val">R$ 619,20</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="disc-pill disc-neg">- R$ 1,29</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span style="color:rgba(26,26,20,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><input class="sell-input" type="text" value="19.90" placeholder="0,00" style="color:#1a1a14"></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="markup-badge markup-pos">+54.3%</span></div></td>
+              <td><div class="td-cell"><span class="status-badge status-ok">Identificado</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="verified-btn verified-yes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+              </button></div></td>
+              <td><div class="td-cell"><span class="ts-badge">10/05 14:32</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—" value="6" style="color:rgba(26,26,20,.55)"></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+
+            <!-- ROW 2 light — not linked (alt) -->
+            <tr>
+              <td><div class="td-cell alt" style="justify-content:center"><span class="badge-seq">2</span></div></td>
+              <td><div class="td-cell alt"><span class="supplier-code" style="opacity:.4">—</span></div></td>
+              <td><div class="td-cell alt"><span class="prod-name">SABÃO EM PÓ 1KG LAVAGEM</span></div></td>
+              <td>
+                <div class="td-cell alt" style="gap:6px">
+                  <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+                  <div class="icon-btn icon-btn-layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+                </div>
+              </td>
+              <td><div class="td-cell alt"><span class="ean-text" style="opacity:.35">—</span></div></td>
+              <td><div class="td-cell alt"><span class="ean-text" style="opacity:.35">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">120</span></button>
+                <span class="alert-dot" style="margin-left:4px;color:#dc2626"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="8.50" style="text-align:right;width:52px;color:#1a1a14">
+                </div>
+              </div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span class="total-val">R$ 1.020,00</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="color:rgba(26,26,20,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="color:rgba(26,26,20,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><input class="sell-input" type="text" placeholder="0,00" style="color:#1a1a14"></div></td>
+              <td><div class="td-cell alt" style="justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:rgba(26,26,20,.2)">—</span></div></td>
+              <td><div class="td-cell alt"><span class="status-badge status-notok">Não Identificado</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><button class="verified-btn verified-no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></td>
+              <td><div class="td-cell alt"><span style="font-size:11px;font-weight:700;color:rgba(26,26,20,.2)">—</span></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—" style="color:rgba(26,26,20,.55)"></div></td>
+              <td><div class="td-cell alt" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+
+            <!-- ROW 3 light — translated, negative markup -->
+            <tr>
+              <td><div class="td-cell" style="justify-content:center"><span class="badge-seq">3</span></div></td>
+              <td><div class="td-cell"><span class="supplier-code">XYZ-774</span></div></td>
+              <td><div class="td-cell"><span class="prod-name">AMACIANTE CONC. 2L CX12</span></div></td>
+              <td>
+                <div class="td-cell" style="gap:6px">
+                  <span class="link-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;color:#d97706">Amaciante 2L</span>
+                  <div class="icon-btn linked" style="border-style:solid;border-color:rgba(217,119,6,.3);background:rgba(217,119,6,.08);color:#d97706;margin-left:auto;flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  </div>
+                  <div class="icon-btn icon-btn-layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+                </div>
+              </td>
+              <td><div class="td-cell"><span class="ean-text">7891234567891</span></div></td>
+              <td><div class="td-cell"><span class="ean-text">AMA-2L</span></div></td>
+              <td><div class="td-cell" style="justify-content:center">
+                <button class="qty-pill"><span class="qty-unit">UN</span><span class="qty-val">36</span></button>
+                <span class="alert-dot" style="margin-left:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m10.29 3.86-8.93 15.47A1 1 0 0 0 2.22 21h19.56a1 1 0 0 0 .86-1.5L12.71 3.86a1 1 0 0 0-1.72 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end">
+                <div class="price-box" style="justify-content:flex-end">
+                  <span class="price-currency">R$</span>
+                  <input class="price-val" type="text" value="24.80" style="text-align:right;width:52px;color:#1a1a14">
+                </div>
+              </div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="total-val">R$ 892,80</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span style="color:rgba(26,26,20,.2);font-size:11px;font-weight:700">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="disc-pill disc-pos">+ R$ 0,62</span></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><input class="sell-input" type="text" value="22.00" placeholder="0,00" style="color:#1a1a14"></div></td>
+              <td><div class="td-cell" style="justify-content:flex-end"><span class="markup-badge markup-neg">-11.2%</span></div></td>
+              <td><div class="td-cell"><span class="status-badge status-trans">Traduzido</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="verified-btn verified-no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></td>
+              <td><div class="td-cell"><span style="font-size:11px;font-weight:700;color:rgba(26,26,20,.2)">—</span></div></td>
+              <td><div class="td-cell" style="justify-content:center"><input class="distrib-input" type="text" placeholder="—" value="12" style="color:rgba(26,26,20,.55)"></div></td>
+              <td><div class="td-cell" style="justify-content:center"><button class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer light -->
+      <div class="modal-footer">
+        <div class="footer-total">
+          <span>Valor total da nota:</span>
+          <strong>R$ 2.532,00</strong>
+          <span class="footer-sep">·</span>
+          <span style="color:rgba(26,26,20,.4)">Markup total:</span>
+          <span class="markup-total" style="color:#16a34a">+34.7%</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-pill" style="background:rgba(220,38,38,.06);color:rgba(220,38,38,.65);border:1px solid rgba(220,38,38,.15);">Excluir nota</button>
+          <button class="btn-pill" style="background:rgba(26,26,20,.07);color:rgba(26,26,20,.55);">Fechar</button>
+          <button class="btn-pill" style="background:#D81E1E;color:#fff;">Salvar</button>
+        </div>
+      </div>
+    </div><!-- /modal-shell light -->
+  </div><!-- /light -->
+
+</div><!-- /themes -->
+
+<!-- States highlight note -->
+<div style="margin-top:48px;padding:20px 24px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;font-size:11px;color:rgba(242,240,227,.35);line-height:1.8;max-width:900px">
+  <strong style="color:rgba(242,240,227,.55);display:block;margin-bottom:6px">Mudanças em relação ao design atual</strong>
+  · <strong style="color:rgba(242,240,227,.5)">Cabeçalhos arredondados</strong> — cada coluna é um pill independente (igual ao ProductBulkTable)<br>
+  · <strong style="color:rgba(242,240,227,.5)">Células com border-radius 9px + gap entre linhas</strong> — border-collapse:separate, border-spacing: 0 4px<br>
+  · <strong style="color:rgba(242,240,227,.5)">Modo Claro</strong> — header amarelo (#FFE500), células brancas, alternas em #FFFCEC<br>
+  · <strong style="color:rgba(242,240,227,.5)">Preço Custo</strong> — mantém o gray-box interno (R$ + input)<br>
+  · <strong style="color:rgba(242,240,227,.5)">Qtd.</strong> — mantém o pill cinza clicável no modo view<br>
+  · <strong style="color:rgba(242,240,227,.5)">Foco</strong> — borda vermelha + shadow 3px no contêiner externo (DOM direto, sem estado React)<br>
+  · <strong style="color:rgba(242,240,227,.5)">Toda lógica funcional preservada</strong> — apenas a camada visual muda
+</div>
+
+</body>
+</html>

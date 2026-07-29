@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Painel Resultados/Contas (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1E1E18;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 48px 32px;
+  }
+  .wrap { max-width: 720px; width: 100%; }
+  .label {
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-new {
+    display: inline-block;
+    background: #D81E1E;
+    color: white;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .row {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  /* ── Shared card shell ── */
+  .card {
+    background: #252520;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 18px;
+    overflow: hidden;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-header {
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* ── Calendar (current shipped state — filter icon, no Data/Vencimento) ── */
+  .cal-month { font-size: 13px; font-weight: 900; color: #1A1A0E; white-space: nowrap; flex: 1; }
+  .cal-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .cal-actions button {
+    width: 26px; height: 26px; border-radius: 8px; border: none;
+    background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.55);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  .cal-actions button:hover { background: rgba(26,26,10,0.14); color: #1A1A0E; }
+  .cal-actions button.filter-active { background: #D81E1E; color: #FFFFFF; }
+  .cal-actions svg { width: 12px; height: 12px; }
+
+  .cal-body { padding: 12px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .cal-dow span {
+    text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.08em; color: rgba(242,240,227,0.22); padding: 4px 0;
+  }
+  .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-day {
+    height: 26px; display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; border-radius: 8px; color: rgba(242,240,227,0.55);
+    cursor: pointer; position: relative; transition: all 0.12s;
+  }
+  .cal-day:hover { background: rgba(242,240,227,0.05); }
+  .cal-day.other { color: rgba(242,240,227,0.18); cursor: default; }
+  .cal-day.today { background: rgba(216,30,30,0.13); color: #D81E1E; font-weight: 900; }
+  .cal-day.selected { background: #D81E1E; color: white; font-weight: 900; box-shadow: 0 2px 6px rgba(216,30,30,0.30); }
+  .dot { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #D81E1E; }
+
+  /* ── New tabbed panel ── */
+  .panel-tabs {
+    flex: 1;
+    display: flex;
+    background: rgba(26,26,10,0.10);
+    border-radius: 99px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .panel-tabs button {
+    flex: 1;
+    border: none;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 99px;
+    font-size: 9.5px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .panel-tabs button.active { background: #D81E1E; color: #FFFFFF; box-shadow: 0 1px 4px rgba(216,30,30,0.35); }
+  .panel-tabs button:not(.active) { background: transparent; color: rgba(26,26,10,0.45); }
+  .panel-tabs button:not(.active):hover { color: rgba(26,26,10,0.70); }
+
+  .panel-body { padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .tab-panel { display: flex; flex-direction: column; gap: 8px; }
+  .tab-panel.hidden { display: none; }
+
+  /* Resultados stat cards (reaproveita design das cards atuais) */
+  .stat-card {
+    background: #1E1E18;
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    padding: 11px 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .stat-top { display: flex; align-items: center; justify-content: space-between; }
+  .stat-label { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.13em; color: rgba(242,240,227,0.28); }
+  .stat-icon { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stat-icon svg { width: 14px; height: 14px; }
+  .stat-icon.up { background: rgba(52,211,153,0.10); color: #34D399; }
+  .stat-icon.down { background: rgba(216,30,30,0.13); color: #D81E1E; }
+  .stat-value { font-size: 17px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
+  .stat-value.pos { color: #34D399; }
+  .stat-value.neg { color: #D81E1E; }
+
+  /* Contas */
+  .contas-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 2px 4px;
+  }
+  .contas-header .icon-chip {
+    width: 24px; height: 24px; border-radius: 7px; background: rgba(242,240,227,0.06);
+    display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.45);
+  }
+  .contas-header .icon-chip svg { width: 12px; height: 12px; }
+  .contas-header span { font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.13em; color: rgba(242,240,227,0.50); }
+
+  .account-card {
+    background: #1E1E18;
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 12px;
+    padding: 10px 11px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .account-icon {
+    width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    background: rgba(216,30,30,0.13); color: #D81E1E;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .account-icon svg { width: 13px; height: 13px; }
+  .account-info { min-width: 0; flex: 1; }
+  .account-name { font-size: 10.5px; font-weight: 800; color: #F2F0E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .account-bank { font-size: 9px; font-weight: 600; color: rgba(242,240,227,0.40); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .account-value { font-size: 12px; font-weight: 900; letter-spacing: -0.01em; flex-shrink: 0; }
+  .account-value.neg { color: #D81E1E; }
+  .account-value.pos { color: #34D399; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="text-align:center;">
+    <span class="badge-new">Novo Layout</span>
+    <p class="label">Modo Escuro — Painel com abas Resultados / Contas (clique nas abas para pré-visualizar)</p>
+  </div>
+
+  <div class="row">
+    <!-- Calendário (estado atual já implementado, para referência de tamanho) -->
+    <div class="card">
+      <div class="card-header">
+        <span class="cal-month">Julho 2026</span>
+        <div class="cal-actions">
+          <button title="Filtrar por período">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          </button>
+          <button>&#8249;</button>
+          <button>&#8250;</button>
+        </div>
+      </div>
+      <div class="cal-body">
+        <div class="cal-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+        <div class="cal-days">
+          <div class="cal-day other">28</div>
+          <div class="cal-day other">29</div>
+          <div class="cal-day other">30</div>
+          <div class="cal-day">1</div>
+          <div class="cal-day">2<span class="dot"></span></div>
+          <div class="cal-day">3<span class="dot"></span></div>
+          <div class="cal-day">4</div>
+          <div class="cal-day">5</div>
+          <div class="cal-day">6<span class="dot"></span></div>
+          <div class="cal-day">7<span class="dot"></span></div>
+          <div class="cal-day">8</div>
+          <div class="cal-day">9</div>
+          <div class="cal-day">10</div>
+          <div class="cal-day">11</div>
+          <div class="cal-day">12</div>
+          <div class="cal-day">13<span class="dot"></span></div>
+          <div class="cal-day">14</div>
+          <div class="cal-day">15</div>
+          <div class="cal-day">16</div>
+          <div class="cal-day">17<span class="dot"></span></div>
+          <div class="cal-day">18</div>
+          <div class="cal-day">19</div>
+          <div class="cal-day selected">20</div>
+          <div class="cal-day">21</div>
+          <div class="cal-day">22</div>
+          <div class="cal-day">23</div>
+          <div class="cal-day">24</div>
+          <div class="cal-day today">25</div>
+          <div class="cal-day">26</div>
+          <div class="cal-day">27<span class="dot"></span></div>
+          <div class="cal-day">28</div>
+          <div class="cal-day">29</div>
+          <div class="cal-day">30</div>
+          <div class="cal-day">31</div>
+          <div class="cal-day other">1</div>
+          <div class="cal-day other">2</div>
+          <div class="cal-day other">3</div>
+          <div class="cal-day other">4</div>
+          <div class="cal-day other">5</div>
+          <div class="cal-day other">6</div>
+          <div class="cal-day other">7</div>
+          <div class="cal-day other">8</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel novo: Resultados / Contas -->
+    <div class="card">
+      <div class="card-header">
+        <div class="panel-tabs">
+          <button class="active" data-tab="resultados">Resultados</button>
+          <button data-tab="contas">Contas</button>
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <!-- Aba Resultados -->
+        <div class="tab-panel" id="resultados">
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Receitas</span>
+              <div class="stat-icon up">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+              </div>
+            </div>
+            <div class="stat-value pos">R$ 5.812,82</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Despesas</span>
+              <div class="stat-icon down">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline><polyline points="16 17 22 17 22 11"></polyline></svg>
+              </div>
+            </div>
+            <div class="stat-value neg">R$ 17.339,50</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Saldo</span>
+              <div class="stat-icon down">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 13h.01"></path><path d="M2 10h20"></path></svg>
+              </div>
+            </div>
+            <div class="stat-value neg">-R$ 4.260,42</div>
+          </div>
+        </div>
+
+        <!-- Aba Contas -->
+        <div class="tab-panel hidden" id="contas">
+          <div class="contas-header">
+            <div class="icon-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            </div>
+            <span>Contas</span>
+          </div>
+          <div class="account-card">
+            <div class="account-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            </div>
+            <div class="account-info">
+              <div class="account-name">Caixa Universo do R$1,99</div>
+              <div class="account-bank">—</div>
+            </div>
+            <div class="account-value neg">-R$ 135,40</div>
+          </div>
+          <div class="account-card">
+            <div class="account-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            </div>
+            <div class="account-info">
+              <div class="account-name">Universo 1,99 Cont Util Do…</div>
+              <div class="account-bank">Itaú</div>
+            </div>
+            <div class="account-value neg">-R$ 459,78</div>
+          </div>
+          <div class="account-card">
+            <div class="account-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            </div>
+            <div class="account-info">
+              <div class="account-name">Castelo Real Cont Util Dom…</div>
+              <div class="account-bank">Itaú</div>
+            </div>
+            <div class="account-value neg">-R$ 3.647,34</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.panel-tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.panel-tabs button').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.toggle('hidden', p.id !== tab);
+      });
+    });
+  });
+</script>
+</body>
+</html>

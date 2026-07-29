@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Placa Diminuta v2 — Light Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #E8E4D8;
+    padding: 40px 24px 100px;
+    color: #1A1A0E;
+  }
+
+  .mode-badge {
+    position: fixed;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    background: #1A1A0E;
+    color: #FFE500;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 16px;
+    border-radius: 20px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    z-index: 100;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(26,26,10,0.40);
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(26,26,10,0.55);
+    line-height: 1.5;
+    max-width: 640px;
+  }
+
+  .panel {
+    background: #FDFAF0;
+    border: 1.5px solid rgba(26,26,10,0.08);
+    border-radius: 24px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: rgba(26,26,10,0.40);
+  }
+
+  .panel-title strong { color: #1A1A0E; }
+
+  /* ─── Scale reference: 1mm = 3.7795px (96dpi) ─── */
+  .placa-stage {
+    display: flex;
+    align-items: flex-end;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .placa-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .placa-col-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(26,26,10,0.35);
+  }
+
+  /* Real-scale placa: 50mm x 25mm */
+  .placa {
+    width: 189px;   /* 50mm */
+    height: 94.5px; /* 25mm */
+    position: relative;
+    border: 1px dashed rgba(26,26,10,0.35);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .placa.zoom {
+    width: 756px;   /* 4x */
+    height: 378px;
+  }
+
+  /* ═══ ZONE MAP (wireframe colors from reference mockup) ═══ */
+  .zone {
+    position: absolute;
+    left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    color: rgba(0,0,0,0.55);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .zone-desc   { top: 0; height: 28%; background: #9A9A9A; font-size: 9px; align-items: flex-end; justify-content: flex-start; text-align: left; padding: 0 4px 2px; }
+  .zone-custom { top: 28%; height: 16%; background: #545454; color: #fff; font-size: 8px; align-items: flex-end; justify-content: flex-start; text-align: left; padding: 0 4px 1px; }
+  .zone-barcode{ top: 44%; bottom: 0; left: 0; width: 60%; right: auto; background: #000; color: #fff; font-size: 8px; }
+  .zone-price  { top: 44%; bottom: 0; left: 60%; right: 0; background: #FF7A1E; font-size: 8px; }
+  .zone-desc.expanded { height: 44%; }
+
+  .zoom .zone { font-size: 15px; }
+  .zoom .zone-custom { font-size: 13px; }
+  .zoom .zone-barcode, .zoom .zone-price { font-size: 13px; }
+
+  /* ═══ REALISTIC PRINT RENDER ═══ */
+  .placa.real { background: #fff; border: 1px dashed rgba(26,26,10,0.35); }
+
+  /* Descrição + texto personalizado share ONE container spanning the full
+     44% upper band and pack to its BOTTOM (justify-content: flex-end) — so
+     whichever content exists (just description, or description + custom
+     text) always sits flush against the barcode/price row, instead of each
+     being pinned inside its own fixed sub-slot with dead space above it. */
+  .real .r-info {
+    position: absolute; left: 0; right: 0; top: 0; height: 44%;
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
+    text-align: left;
+  }
+  .placa.real .r-info { padding: 0 4px 2px; gap: 1.5px; }
+  .placa.real.zoom .r-info { padding: 0 16px 8px; gap: 6px; }
+
+  .real .r-desc-text {
+    font-weight: 900; color: #1C1C1A; line-height: 1.05; text-align: left;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .placa.real .r-desc-text { font-size: 11px; }
+  .placa.real.zoom .r-desc-text { font-size: 44px; }
+
+  .real .r-custom-text {
+    font-weight: 700; color: #EE2B2B; line-height: 1; text-align: left;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .placa.real .r-custom-text { font-size: 9px; }
+  .placa.real.zoom .r-custom-text { font-size: 36px; }
+
+  .real .r-barcode {
+    position: absolute; left: 0; width: 60%; top: 44%; bottom: 0;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    gap: 2px;
+  }
+  .placa.real .r-barcode { padding: 2px 2px 2px 4px; gap: 1.5px; }
+  .placa.real.zoom .r-barcode { padding: 8px 8px 8px 16px; gap: 6px; }
+  .real .r-barcode .bars {
+    width: 96%; height: 78%;
+    background-image: repeating-linear-gradient(90deg, #000 0px, #000 1.4px, transparent 1.4px, transparent 2.6px, #000 2.6px, #000 3.2px, transparent 3.2px, transparent 4px);
+    background-size: 100% 100%;
+  }
+  .real .r-barcode .code {
+    font-family: 'DM Mono', monospace; color: #5F5E5A; letter-spacing: 0.02em;
+  }
+  .placa.real .r-barcode .code { font-size: 4.5px; }
+  .placa.real.zoom .r-barcode .code { font-size: 18px; }
+
+  .real .r-price {
+    position: absolute; right: 0; width: 40%; top: 44%; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .placa.real .r-price { padding: 0 3px; }
+  .placa.real.zoom .r-price { padding: 0 12px; }
+  .real .r-price .rp-prefix { color: #8A241C; font-weight: 900; }
+  .real .r-price .rp-main { color: #EE2B2B; font-weight: 900; }
+  .placa.real .r-price .rp-prefix { font-size: 5.75px; }
+  .placa.real .r-price .rp-main { font-size: 19.5px; }
+  .placa.real.zoom .r-price .rp-prefix { font-size: 23px; }
+  .placa.real.zoom .r-price .rp-main { font-size: 78px; }
+  /* auto-shrink target for long price strings (e.g. "1.259,90") so the price
+     never overflows its zone — implementation measures text width like the
+     existing name wrapping and drops to this size only when needed */
+  .placa.real .r-price.tight .rp-prefix { font-size: 4px; }
+  .placa.real .r-price.tight .rp-main { font-size: 13.25px; }
+  .placa.real.zoom .r-price.tight .rp-prefix { font-size: 16px; }
+  .placa.real.zoom .r-price.tight .rp-main { font-size: 53px; }
+
+  .dims-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10.5px;
+    color: rgba(26,26,10,0.45);
+    line-height: 1.7;
+  }
+  .dims-note b { color: #1A1A0E; }
+
+  .assumption-list {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .assumption {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 12.5px; line-height: 1.55; color: rgba(26,26,10,0.70);
+  }
+  .assumption .n {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    background: #FFE500; color: #1A1A0E; font-weight: 900; font-size: 10px;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px;
+  }
+  .assumption strong { color: #1A1A0E; }
+
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-weight: 700; color: rgba(26,26,10,0.65);
+  }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+
+  .edge-case-row {
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+
+  .cta-banner {
+    background: #1A1A0E;
+    color: #FDFAF0;
+    border-radius: 20px;
+    padding: 20px 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .cta-banner p { font-size: 13px; font-weight: 600; color: rgba(253,250,240,0.75); max-width: 560px; line-height: 1.5; }
+  .cta-banner .tag { background: #FFE500; color: #1A1A0E; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 12px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="mode-badge">☀ LIGHT MODE — MOCKUP PARA APROVAÇÃO</div>
+
+<div class="wrap">
+
+  <div class="page-header">
+    <span class="eyebrow">Placas de preço · Modelo "Diminuta"</span>
+    <h1>Redimensionamento 4×2cm → 5×2,5cm</h1>
+    <p class="subtitle">
+      Nova geometria de 4 zonas fixas: descrição do produto, texto personalizado, código de barras e preço.
+      Cada dado é limitado (clamp/ellipsis) rigorosamente à sua área — nenhum texto pode invadir a zona vizinha.
+    </p>
+  </div>
+
+  <!-- ═══ ZONE MAP ═══ -->
+  <div class="panel">
+    <span class="panel-title">1 · <strong>Mapa de zonas</strong> — proporções propostas (a partir do seu esboço)</span>
+    <div class="placa-stage">
+      <div class="placa-col">
+        <div class="placa zone-map">
+          <div class="zone zone-desc">DESCRIÇÃO</div>
+          <div class="zone zone-custom">TEXTO PERSONALIZADO</div>
+          <div class="zone zone-barcode">BARRAS</div>
+          <div class="zone zone-price">PREÇO</div>
+        </div>
+        <span class="placa-col-label">Escala real · 50 × 25mm</span>
+      </div>
+      <div class="placa-col">
+        <div class="placa zoom zone-map">
+          <div class="zone zone-desc">DESCRIÇÃO</div>
+          <div class="zone zone-custom">TEXTO PERSONALIZADO</div>
+          <div class="zone zone-barcode">BARRAS</div>
+          <div class="zone zone-price">PREÇO</div>
+        </div>
+        <span class="placa-col-label">Ampliado 4×</span>
+      </div>
+    </div>
+    <div class="dims-note">
+      <b>Descrição</b> — 50mm × 7mm (28% alt.) &nbsp;·&nbsp;
+      <b>Texto personalizado</b> — 50mm × 4mm (16% alt.) &nbsp;·&nbsp;
+      <b>Barras</b> — 30mm × 14mm (60% larg. da faixa inferior) &nbsp;·&nbsp;
+      <b>Preço</b> — 20mm × 14mm (40% larg. da faixa inferior)
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:#9A9A9A"></span>Descrição</div>
+      <div class="legend-item"><span class="swatch" style="background:#545454"></span>Texto personalizado</div>
+      <div class="legend-item"><span class="swatch" style="background:#000"></span>Código de barras</div>
+      <div class="legend-item"><span class="swatch" style="background:#FF7A1E"></span>Preço</div>
+    </div>
+  </div>
+
+  <!-- ═══ ASSUMPTIONS ═══ -->
+  <div class="panel">
+    <span class="panel-title"><strong>Decisões de projeto</strong> — confirme ou ajuste antes de eu implementar</span>
+    <div class="assumption-list">
+      <div class="assumption"><span class="n">1</span><span>As cores do seu esboço (cinza claro/escuro/preto/laranja) foram tratadas como <strong>guias de zona</strong>, não como cor de tinta real. No preview realista abaixo, o fundo continua branco (papel sulfite comum) com texto preto/vermelho e o código de barras em preto — igual aos modelos Padrão e Compacta já existentes. Se você quiser que as zonas realmente imprimam com esse fundo colorido, me avise.</span></div>
+      <div class="assumption"><span class="n">✓</span><span><strong>Atualizado:</strong> descrição e texto personalizado agora ficam alinhados ao <strong>canto inferior esquerdo</strong> de suas respectivas faixas, em vez de centralizados.</span></div>
+      <div class="assumption"><span class="n">✓</span><span><strong>Atualizado:</strong> quando não há texto personalizado, a faixa de <strong>descrição expande e ocupa as duas faixas superiores</strong> (28% + 16% = 44% de altura) — veja o caso "Sabonete" abaixo.</span></div>
+      <div class="assumption"><span class="n">3</span><span>Dividi a faixa inferior em <strong>60% código de barras / 40% preço</strong>, refletindo a proporção visual do seu esboço (bloco preto nitidamente maior que o laranja). Posso ajustar essa proporção livremente.</span></div>
+      <div class="assumption"><span class="n">4</span><span>"Descrição" foi mapeada para o <strong>nome do produto</strong> (campo já existente) e "texto personalizado" para o campo <strong>customText/batchText</strong> já existente no modal de impressão — nenhum campo novo é necessário.</span></div>
+      <div class="assumption"><span class="n">✓</span><span><strong>Atualizado (v3):</strong> com base na etiqueta de referência que você enviou, aumentei bastante descrição, texto personalizado, código de barras e preço, e reduzi as margens internas ao mínimo necessário — a placa fica bem mais densa/preenchida, igual ao exemplo. O preço mede a própria largura (igual ao nome já faz) e <strong>encolhe automaticamente</strong> só quando o valor é longo (ex: "R$ 1.259,90"), garantindo que nunca ultrapasse a zona laranja — veja o caso extremo abaixo. Verifiquei automaticamente que nada estoura sua zona em nenhum dos exemplos.</span></div>
+    </div>
+  </div>
+
+  <!-- ═══ REALISTIC RENDER ═══ -->
+  <div class="panel">
+    <span class="panel-title">2 · <strong>Preview realista de impressão</strong> — exemplo padrão</span>
+    <div class="placa-stage">
+      <div class="placa-col">
+        <div class="placa real">
+          <div class="r-info">
+            <p class="r-desc-text">Batedeira Prática Master 500W</p>
+            <p class="r-custom-text">Validade 12/2026</p>
+          </div>
+          <div class="r-barcode">
+            <div class="bars"></div>
+            <span class="code">7898132131715</span>
+          </div>
+          <div class="r-price"><span class="rp-prefix">R$&nbsp;</span><span class="rp-main">15,00</span></div>
+        </div>
+        <span class="placa-col-label">Escala real · 50 × 25mm</span>
+      </div>
+      <div class="placa-col">
+        <div class="placa real zoom">
+          <div class="r-info">
+            <p class="r-desc-text">Batedeira Prática Master 500W</p>
+            <p class="r-custom-text">Validade 12/2026</p>
+          </div>
+          <div class="r-barcode">
+            <div class="bars"></div>
+            <span class="code">7898132131715</span>
+          </div>
+          <div class="r-price"><span class="rp-prefix">R$&nbsp;</span><span class="rp-main">15,00</span></div>
+        </div>
+        <span class="placa-col-label">Ampliado 4×</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ EDGE CASES ═══ -->
+  <div class="panel">
+    <span class="panel-title">3 · <strong>Casos extremos</strong> — prova de que nada ultrapassa sua zona</span>
+    <div class="edge-case-row">
+      <div class="placa-col">
+        <div class="placa real zoom">
+          <div class="r-info">
+            <p class="r-desc-text">Conjunto de Potes Organizadores Herméticos para Mantimentos</p>
+            <p class="r-custom-text">Promoção imperdível de fim de semana</p>
+          </div>
+          <div class="r-barcode">
+            <div class="bars"></div>
+            <span class="code">7897848702165</span>
+          </div>
+          <div class="r-price tight"><span class="rp-prefix">R$&nbsp;</span><span class="rp-main">1.259,90</span></div>
+        </div>
+        <span class="placa-col-label">Nome longo (2 linhas) · texto personalizado longo (truncado) · preço com milhar → fonte do preço encolhe automaticamente para caber</span>
+      </div>
+      <div class="placa-col">
+        <div class="placa real zoom">
+          <div class="r-info">
+            <p class="r-desc-text">Sabonete</p>
+          </div>
+          <div class="r-barcode">
+            <div class="bars"></div>
+            <span class="code">789123</span>
+          </div>
+          <div class="r-price"><span class="rp-prefix">R$&nbsp;</span><span class="rp-main">3,50</span></div>
+        </div>
+        <span class="placa-col-label">Sem texto personalizado → descrição expande e ocupa as 2 faixas</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-banner">
+    <p><span class="tag">Aguardando aprovação</span>&nbsp; Confirme as 4 decisões acima (ou peça ajustes) para eu implementar no <code>PlacaPrintModal.tsx</code> e no PDF de impressão real.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

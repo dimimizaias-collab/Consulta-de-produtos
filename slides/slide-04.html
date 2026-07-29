@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextGen Mobility — Slide 4: Análise Ambiental</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary-dark: #003BA0;
+      --primary-cyan: #00D4FF;
+      --accent-green: #2ECC71;
+      --dark-gray: #0f0f0f;
+      --white: #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Roboto', -apple-system, sans-serif;
+      background: var(--dark-gray);
+      color: var(--white);
+      overflow: hidden;
+      margin: 0;
+    }
+
+    .slide-container {
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--dark-gray) 100%);
+      flex-direction: column;
+    }
+
+    h1 {
+      font-size: 64px;
+      margin-bottom: 80px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--white), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      width: 100%;
+      max-width: 1400px;
+    }
+
+    .analysis-column h2 {
+      font-size: 28px;
+      margin-bottom: 30px;
+      color: var(--primary-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .analysis-item {
+      margin-bottom: 20px;
+      padding-left: 30px;
+      position: relative;
+      font-size: 16px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .analysis-item::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      font-size: 28px;
+      color: var(--accent-green);
+      font-weight: bold;
+    }
+
+    .slide-controls {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 100;
+    }
+
+    button {
+      background: var(--primary-cyan);
+      color: var(--dark-gray);
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      background: var(--accent-green);
+      transform: translateY(-2px);
+    }
+
+    .slide-counter {
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      font-size: 14px;
+      color: var(--primary-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slide-nav {
+      position: fixed;
+      top: 40px;
+      left: 40px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    a {
+      color: var(--primary-cyan);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--accent-green);
+    }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+  function Slide() {
+    return (
+      <>
+        <div className="slide-container">
+          <h1>Análise Ambiental & Posicionamento</h1>
+          <div className="analysis-grid">
+            <div className="analysis-column">
+              <h2>Cenário do Mercado</h2>
+              <div className="analysis-item">Transição global para mobilidade elétrica</div>
+              <div className="analysis-item">Competição intensa entre fabricantes</div>
+              <div className="analysis-item">Demanda crescente em mercados emergentes</div>
+              <div className="analysis-item">Pressão por sustentabilidade</div>
+            </div>
+            <div className="analysis-column">
+              <h2>Posicionamento Estratégico</h2>
+              <div className="analysis-item">Foco em veículos sustentáveis</div>
+              <div className="analysis-item">Expansão global estratégica</div>
+              <div className="analysis-item">Investimento em P&D (5-6% da receita)</div>
+              <div className="analysis-item">Responsabilidade ESG como diferencial</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="slide-nav">
+          <a href="index.html">← Voltar ao Índice</a>
+        </div>
+
+        <div className="slide-controls">
+          <button onClick={() => window.location.href = 'slide-03.html'}>← Anterior</button>
+          <button onClick={() => window.location.href = 'slide-05.html'}>Próximo →</button>
+        </div>
+
+        <div className="slide-counter">Slide 4 / 12</div>
+      </>
+    );
+  }
+
+  ReactDOM.render(<Slide />, document.getElementById('root'));
+</script>
+
+</body>
+</html>

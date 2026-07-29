@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finanças Mobile — Light Mode</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #E2DDD3;
+      display: flex; justify-content: center; align-items: flex-start;
+      min-height: 100vh; padding: 40px 16px 80px;
+    }
+
+    /* ── Phone shell ────────────────────── */
+    .phone {
+      width: 390px; height: 844px;
+      background: #FDFAF0; border-radius: 52px; overflow: hidden;
+      box-shadow: 0 48px 120px rgba(0,0,0,0.24), 0 8px 32px rgba(0,0,0,0.12),
+        inset 0 0 0 1.5px rgba(255,255,255,0.70);
+      display: flex; flex-direction: column; position: relative;
+    }
+
+    /* ── Status bar ─────────────────────── */
+    .status-bar {
+      background: #FFE500; padding: 16px 28px 0;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .status-time { font-size: 15px; font-weight: 700; color: #1A1A0E; letter-spacing: -0.3px; }
+    .status-icons { display: flex; gap: 6px; align-items: center; }
+    .status-icons svg { color: #1A1A0E; }
+
+    /* ── App Header ─────────────────────── */
+    .app-header {
+      background: #FFE500; border-bottom: 1.5px solid #D4C000;
+      padding: 8px 16px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; flex-direction: column; gap: 1px; }
+    .header-eyebrow {
+      font-size: 9px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.18em; color: rgba(26,26,10,0.40); line-height: 1;
+    }
+    .header-title {
+      font-size: 19px; font-weight: 900; color: #1A1A0E;
+      line-height: 1.1; letter-spacing: -0.4px;
+    }
+    .header-right { display: flex; gap: 8px; align-items: center; }
+    .btn-icon {
+      width: 34px; height: 34px; border-radius: 12px;
+      background: rgba(26,26,10,0.08); border: 1px solid rgba(26,26,10,0.08);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(26,26,10,0.55); cursor: pointer;
+    }
+    .fab {
+      width: 38px; height: 38px; background: #D81E1E; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(216,30,30,0.32);
+    }
+
+    /* ── Tab pills (top, below header) ───── */
+    .tab-pills {
+      background: #FDFAF0;
+      padding: 10px 12px 8px;
+      display: flex; gap: 6px;
+      border-bottom: 1px solid rgba(26,26,10,0.06);
+      flex-shrink: 0;
+    }
+    .tab-pill-btn {
+      flex: 1;
+      padding: 8px 6px; border-radius: 12px;
+      font-size: 9px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: rgba(26,26,10,0.38);
+      border: 1.5px solid rgba(26,26,10,0.08);
+      background: transparent;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .tab-pill-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .tab-pill-btn.active {
+      background: rgba(216,30,30,0.08);
+      border-color: rgba(216,30,30,0.18);
+      color: #D81E1E;
+    }
+
+    /* ── Scrollable area ─────────────────── */
+    .scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ── Tab panels ─────────────────────── */
+    .tab-panel { display: none; padding-bottom: 32px; }
+    .tab-panel.active { display: block; }
+
+    /* ── Summary chips ───────────────────── */
+    .chips-row {
+      display: flex; gap: 8px; padding: 12px 12px 8px; overflow-x: auto;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 20px;
+      padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;
+      min-width: 112px;
+    }
+    .chip-header { display: flex; align-items: center; gap: 6px; }
+    .chip-dot {
+      width: 20px; height: 20px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; flex-shrink: 0;
+    }
+    .chip-dot.rec  { background: rgba(5,150,105,0.12); color: #059669; }
+    .chip-dot.desp { background: rgba(225,29,72,0.12);  color: #E11D48; }
+    .chip-dot.saldo{ background: rgba(5,150,105,0.12); color: #059669; }
+    .chip-label {
+      font-size: 9px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.10em; color: rgba(26,26,10,0.40);
+    }
+    .chip-value {
+      font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    .chip-value.rec  { color: #059669; }
+    .chip-value.desp { color: #E11D48; }
+    .chip-value.saldo{ color: #059669; }
+
+    /* ── Action row (search + icon btns) ── */
+    .action-row {
+      display: flex; gap: 7px; padding: 4px 12px 10px; align-items: center;
+    }
+    .search-wrap { flex: 1; position: relative; }
+    .search-icon {
+      position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+      color: rgba(26,26,10,0.30);
+    }
+    .search-input {
+      width: 100%; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 16px;
+      padding: 9px 12px 9px 33px; font-size: 13px;
+      color: rgba(26,26,10,0.40); font-family: 'DM Sans', sans-serif; outline: none;
+    }
+    .action-icon-btn {
+      width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+      background: rgba(26,26,10,0.06); border: 1.5px solid rgba(26,26,10,0.09);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(26,26,10,0.45); cursor: pointer;
+    }
+
+    /* ── Date group ─────────────────────── */
+    .date-group {
+      padding: 8px 14px 4px; font-size: 9px; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 0.18em; color: rgba(26,26,10,0.30);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .date-group::after { content: ''; flex: 1; height: 1px; background: rgba(26,26,10,0.07); }
+
+    /* ── Transaction card ───────────────── */
+    .tx-card {
+      margin: 0 12px 8px; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.08); border-radius: 18px;
+      padding: 11px 13px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .tx-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .tx-left { display: flex; align-items: flex-start; gap: 9px; }
+    .tx-badge {
+      width: 30px; height: 30px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 900; flex-shrink: 0; margin-top: 1px;
+    }
+    .tx-badge.rec  { background: rgba(5,150,105,0.11); color: #059669; }
+    .tx-badge.desp { background: rgba(225,29,72,0.11);  color: #E11D48; }
+    .tx-info { display: flex; flex-direction: column; gap: 2px; }
+    .tx-name { font-size: 14px; font-weight: 800; color: #1A1A0E; line-height: 1.2; }
+    .tx-sub  { font-size: 10px; font-weight: 600; color: rgba(26,26,10,0.35); }
+    .tx-amount { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 700; letter-spacing: -0.3px; flex-shrink: 0; margin-top: 1px; }
+    .tx-amount.rec  { color: #059669; }
+    .tx-amount.desp { color: #E11D48; }
+    .tx-bottom {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 7px; border-top: 1px solid rgba(26,26,10,0.06);
+    }
+    .tx-payment {
+      background: rgba(26,26,10,0.06); border-radius: 8px; padding: 3px 8px;
+      font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,10,0.45);
+    }
+    .tx-status { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 8px; }
+    .tx-status.pago     { background: rgba(5,150,105,0.10); color: #059669; }
+    .tx-status.pendente { background: rgba(245,158,11,0.12); color: #B45309; }
+
+    /* ══════════════════════════
+       ABA DASHBOARD
+    ══════════════════════════ */
+    .section-label {
+      font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.20em;
+      color: rgba(26,26,10,0.28); padding: 16px 14px 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: rgba(26,26,10,0.07); }
+
+    /* Period selector */
+    .period-row {
+      display: flex; gap: 6px; padding: 12px 12px 4px; overflow-x: auto;
+    }
+    .period-row::-webkit-scrollbar { display: none; }
+    .period-btn {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 10px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em;
+      border: 1.5px solid rgba(26,26,10,0.09); color: rgba(26,26,10,0.38);
+      background: transparent; cursor: pointer;
+    }
+    .period-btn.active {
+      background: #FFE500; border-color: #D4C000; color: rgba(26,26,10,0.75);
+    }
+
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; padding: 4px 12px 0; }
+    .summary-card {
+      background: #fff; border: 1.5px solid rgba(26,26,10,0.09); border-radius: 16px;
+      padding: 10px 9px 11px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .summary-icon {
+      width: 24px; height: 24px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+    }
+    .summary-icon.rec   { background: rgba(5,150,105,0.12); color: #059669; }
+    .summary-icon.desp  { background: rgba(225,29,72,0.12);  color: #E11D48; }
+    .summary-icon.saldo { background: rgba(5,150,105,0.12); color: #059669; }
+    .summary-lbl {
+      font-size: 8px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.10em; color: rgba(26,26,10,0.40);
+    }
+    .summary-val { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700; color: #1A1A0E; letter-spacing: -0.2px; }
+    .summary-val.rec  { color: #059669; }
+    .summary-val.desp { color: #E11D48; }
+    .summary-val.saldo-pos { color: #059669; }
+
+    .chart-card {
+      margin: 10px 12px 0; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 18px;
+      padding: 14px 14px 10px;
+    }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .chart-title { font-size: 10px; font-weight: 800; color: rgba(26,26,10,0.45); text-transform: uppercase; letter-spacing: 0.08em; }
+    .chart-legend { display: flex; gap: 10px; }
+    .legend-dot { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: rgba(26,26,10,0.38); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .account-item {
+      margin: 0 12px 7px; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 14px;
+      padding: 11px 13px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .account-left { display: flex; align-items: center; gap: 9px; }
+    .account-icon {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: #FFF8C0; border: 1.5px solid #E8D800;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .account-name { font-size: 13px; font-weight: 700; color: #1A1A0E; }
+    .account-bank { font-size: 10px; font-weight: 600; color: rgba(26,26,10,0.35); }
+    .account-balance { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; color: #059669; letter-spacing: -0.2px; }
+
+    /* ══════════════════════════
+       ABA FINANÇAS (contas+cal)
+    ══════════════════════════ */
+    .cal-card {
+      margin: 12px 12px 0; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 18px; padding: 14px;
+    }
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .cal-nav {
+      width: 26px; height: 26px; border-radius: 8px;
+      background: rgba(26,26,10,0.06); display: flex; align-items: center; justify-content: center;
+      color: rgba(26,26,10,0.50); cursor: pointer;
+    }
+    .cal-month { font-size: 13px; font-weight: 800; color: #1A1A0E; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .cal-dow {
+      font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+      color: rgba(26,26,10,0.30); text-align: center; padding-bottom: 4px;
+    }
+    .cal-day {
+      width: 100%; aspect-ratio: 1; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: rgba(26,26,10,0.55); position: relative;
+    }
+    .cal-day.today { background: #FFE500; color: #1A1A0E; font-weight: 900; }
+    .cal-day.other-month { color: rgba(26,26,10,0.18); }
+    .cal-day.has-dot::after {
+      content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: #E11D48;
+    }
+
+    .urgency-row { display: flex; gap: 7px; padding: 12px 12px 4px; }
+    .urgency-chip {
+      flex: 1; padding: 8px 0; border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .urgency-chip.venc { background: rgba(225,29,72,0.09); }
+    .urgency-chip.avc  { background: rgba(245,158,11,0.09); }
+    .urgency-chip.fut  { background: rgba(5,150,105,0.09); }
+    .urgency-count { font-size: 16px; font-weight: 900; font-family: 'DM Mono', monospace; }
+    .urgency-chip.venc .urgency-count { color: #E11D48; }
+    .urgency-chip.avc  .urgency-count { color: #B45309; }
+    .urgency-chip.fut  .urgency-count { color: #059669; }
+    .urgency-lbl { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,10,0.40); }
+
+    .exp-card {
+      margin: 0 12px 7px; background: #fff;
+      border: 1.5px solid rgba(26,26,10,0.09); border-radius: 16px;
+      padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .exp-left { display: flex; align-items: center; gap: 9px; }
+    .exp-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exp-dot.venc { background: #E11D48; }
+    .exp-dot.avc  { background: #D97706; }
+    .exp-dot.fut  { background: #059669; }
+    .exp-name  { font-size: 13px; font-weight: 700; color: #1A1A0E; }
+    .exp-date  { font-size: 10px; font-weight: 600; color: rgba(26,26,10,0.38); font-family: 'DM Mono', monospace; }
+    .exp-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .exp-amount { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; color: #1A1A0E; letter-spacing: -0.2px; }
+    .exp-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 6px; }
+    .exp-badge.venc { background: rgba(225,29,72,0.10); color: #E11D48; }
+    .exp-badge.avc  { background: rgba(245,158,11,0.12); color: #B45309; }
+    .exp-badge.fut  { background: rgba(5,150,105,0.10); color: #059669; }
+
+    /* Accounts quick list in Finanças tab */
+    .fin-accounts { padding: 0 12px; display: flex; flex-direction: column; gap: 7px; }
+    .fin-account-row {
+      background: #fff; border: 1.5px solid rgba(26,26,10,0.09); border-radius: 14px;
+      padding: 11px 13px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .fin-account-left { display: flex; align-items: center; gap: 9px; }
+    .fin-account-icon {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: #FFF8C0; border: 1.5px solid #E8D800;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .fin-account-name { font-size: 13px; font-weight: 700; color: #1A1A0E; }
+    .fin-account-num  { font-size: 10px; font-weight: 600; color: rgba(26,26,10,0.35); }
+    .fin-account-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .fin-account-balance { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; color: #059669; letter-spacing: -0.2px; }
+    .fin-account-lbl { font-size: 9px; font-weight: 700; color: rgba(26,26,10,0.35); text-transform: uppercase; letter-spacing: 0.07em; }
+
+    /* page caption */
+    .page-label { text-align: center; margin-top: 20px; font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.35); text-transform: uppercase; letter-spacing: 0.12em; }
+  </style>
+</head>
+<body>
+
+<div>
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time">09:41</span>
+    <div class="status-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="3" width="3" height="9" rx="1" fill="currentColor" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity=".8"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="currentColor"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M8 2.5C9.8 2.5 11.4 3.3 12.5 4.5L14 3C12.5 1.4 10.4 0.5 8 0.5C5.6 0.5 3.5 1.4 2 3L3.5 4.5C4.6 3.3 6.2 2.5 8 2.5Z" fill="currentColor" opacity=".4"/><path d="M8 5.5C9.1 5.5 10.1 5.9 10.8 6.7L12.3 5.2C11.2 4 9.7 3.5 8 3.5C6.3 3.5 4.8 4 3.7 5.2L5.2 6.7C5.9 5.9 6.9 5.5 8 5.5Z" fill="currentColor" opacity=".7"/><circle cx="8" cy="9.5" r="2" fill="currentColor"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity=".35"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/><path d="M23 4.5V7.5C23.8 7.2 24.5 6.5 24.5 6C24.5 5.5 23.8 4.8 23 4.5Z" fill="currentColor" opacity=".4"/></svg>
+    </div>
+  </div>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <div class="header-left">
+      <span class="header-eyebrow">Finanças</span>
+      <span class="header-title">Controle Financeiro</span>
+    </div>
+    <div class="header-right">
+      <div class="btn-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
+      <div class="fab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab pills (top navigation) -->
+  <div class="tab-pills">
+    <button class="tab-pill-btn active" onclick="switchTab('mov', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 12h6M9 16h4"/></svg>
+      Movimentações
+    </button>
+    <button class="tab-pill-btn" onclick="switchTab('dash', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Dashboard
+    </button>
+    <button class="tab-pill-btn" onclick="switchTab('fin', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/><path d="M12 6v6l4 2"/></svg>
+      Finanças
+    </button>
+  </div>
+
+  <!-- Scrollable content -->
+  <div class="scroll-area">
+
+    <!-- ═══════ ABA: MOVIMENTAÇÕES ═══════ -->
+    <div class="tab-panel active" id="tab-mov">
+      <!-- Summary chips -->
+      <div class="chips-row">
+        <div class="chip">
+          <div class="chip-header"><div class="chip-dot rec">↑</div><span class="chip-label">Receitas</span></div>
+          <span class="chip-value rec">R$12.450</span>
+        </div>
+        <div class="chip">
+          <div class="chip-header"><div class="chip-dot desp">↓</div><span class="chip-label">Despesas</span></div>
+          <span class="chip-value desp">R$8.230</span>
+        </div>
+        <div class="chip">
+          <div class="chip-header"><div class="chip-dot saldo">=</div><span class="chip-label">Saldo</span></div>
+          <span class="chip-value saldo">R$4.220</span>
+        </div>
+      </div>
+
+      <!-- Action row: search + icon buttons -->
+      <div class="action-row">
+        <div class="search-wrap">
+          <div class="search-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <input class="search-input" type="text" placeholder="Buscar transações..." />
+        </div>
+        <!-- Filter icon only -->
+        <div class="action-icon-btn" title="Filtrar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        </div>
+        <!-- Select icon only -->
+        <div class="action-icon-btn" title="Selecionar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="13" rx="2"/><path d="m7 11 3 3 5-5"/><path d="M21 8v13H8"/></svg>
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="date-group">Hoje · Jun 11</div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-badge desp">D</div>
+            <div class="tx-info"><span class="tx-name">Mercado Livro</span><span class="tx-sub">Castelo Real</span></div>
+          </div>
+          <span class="tx-amount desp">−R$450,00</span>
+        </div>
+        <div class="tx-bottom"><span class="tx-payment">PIX</span><span class="tx-status pendente">Pendente</span></div>
+      </div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-badge rec">R</div>
+            <div class="tx-info"><span class="tx-name">Venda Atacado</span><span class="tx-sub">Universo do R$1,99</span></div>
+          </div>
+          <span class="tx-amount rec">+R$3.200,00</span>
+        </div>
+        <div class="tx-bottom"><span class="tx-payment">Transferência</span><span class="tx-status pago">Pago</span></div>
+      </div>
+      <div class="date-group">Ontem · Jun 10</div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-badge desp">D</div>
+            <div class="tx-info"><span class="tx-name">Energia Elétrica</span><span class="tx-sub">Castelo Real</span></div>
+          </div>
+          <span class="tx-amount desp">−R$780,00</span>
+        </div>
+        <div class="tx-bottom"><span class="tx-payment">Boleto</span><span class="tx-status pago">Pago</span></div>
+      </div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-badge desp">D</div>
+            <div class="tx-info"><span class="tx-name">Fornecedor ABC</span><span class="tx-sub">Castelo Real</span></div>
+          </div>
+          <span class="tx-amount desp">−R$1.200,00</span>
+        </div>
+        <div class="tx-bottom"><span class="tx-payment">PIX</span><span class="tx-status pago">Pago</span></div>
+      </div>
+      <div class="date-group">Jun 09</div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-badge rec">R</div>
+            <div class="tx-info"><span class="tx-name">Venda Varejo</span><span class="tx-sub">Universo do R$1,99</span></div>
+          </div>
+          <span class="tx-amount rec">+R$9.250,00</span>
+        </div>
+        <div class="tx-bottom"><span class="tx-payment">Crédito</span><span class="tx-status pago">Pago</span></div>
+      </div>
+    </div><!-- /tab-mov -->
+
+    <!-- ═══════ ABA: DASHBOARD ═══════ -->
+    <div class="tab-panel" id="tab-dash">
+      <!-- Period selector -->
+      <div class="period-row">
+        <button class="period-btn">7 dias</button>
+        <button class="period-btn active">30 dias</button>
+        <button class="period-btn">3 meses</button>
+        <button class="period-btn">6 meses</button>
+        <button class="period-btn">Ano</button>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="section-label">Resumo</div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon rec">↑</div>
+          <span class="summary-lbl">Receitas</span>
+          <span class="summary-val rec">R$12.450</span>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon desp">↓</div>
+          <span class="summary-lbl">Despesas</span>
+          <span class="summary-val desp">R$8.230</span>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon saldo">≡</div>
+          <span class="summary-lbl">Saldo</span>
+          <span class="summary-val saldo-pos">R$4.220</span>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Receitas vs Despesas</span>
+          <div class="chart-legend">
+            <span class="legend-dot"><span class="dot" style="background:#059669"></span>Rec.</span>
+            <span class="legend-dot"><span class="dot" style="background:#E11D48"></span>Desp.</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 330 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;overflow:visible">
+          <line x1="0" y1="20" x2="330" y2="20" stroke="rgba(26,26,10,0.06)" stroke-width="1"/>
+          <line x1="0" y1="55" x2="330" y2="55" stroke="rgba(26,26,10,0.06)" stroke-width="1"/>
+          <line x1="0" y1="90" x2="330" y2="90" stroke="rgba(26,26,10,0.06)" stroke-width="1"/>
+          <text x="0" y="19" font-size="8" fill="rgba(26,26,10,0.28)" font-family="DM Mono">R$15k</text>
+          <text x="0" y="54" font-size="8" fill="rgba(26,26,10,0.28)" font-family="DM Mono">R$8k</text>
+          <text x="0" y="89" font-size="8" fill="rgba(26,26,10,0.28)" font-family="DM Mono">R$0</text>
+          <polyline points="30,75 78,55 126,40 174,45 222,30 270,20 318,38" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <polygon points="30,75 78,55 126,40 174,45 222,30 270,20 318,38 318,90 30,90" fill="rgba(5,150,105,0.07)"/>
+          <polyline points="30,82 78,70 126,65 174,72 222,58 270,62 318,60" stroke="#E11D48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <text x="30" y="105" font-size="8" fill="rgba(26,26,10,0.26)" font-family="DM Mono" text-anchor="middle">Mai</text>
+          <text x="126" y="105" font-size="8" fill="rgba(26,26,10,0.26)" font-family="DM Mono" text-anchor="middle">Jun</text>
+          <text x="222" y="105" font-size="8" fill="rgba(26,26,10,0.26)" font-family="DM Mono" text-anchor="middle">Jul</text>
+          <text x="318" y="105" font-size="8" fill="rgba(26,26,10,0.26)" font-family="DM Mono" text-anchor="middle" font-weight="700">Ago</text>
+          <circle cx="318" cy="38" r="4" fill="#059669"/>
+          <circle cx="318" cy="60" r="4" fill="#E11D48"/>
+        </svg>
+      </div>
+
+      <!-- Top favorecidos -->
+      <div class="section-label">Top Favorecidos</div>
+      <div style="margin:0 12px; background:#fff; border:1.5px solid rgba(26,26,10,0.09); border-radius:16px; overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid rgba(26,26,10,0.06);">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(225,29,72,0.10);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#E11D48;">1</div>
+            <span style="font-size:13px;font-weight:700;color:#1A1A0E;">Fornecedor ABC</span>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:#E11D48;">R$4.200</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid rgba(26,26,10,0.06);">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(225,29,72,0.07);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#E11D48;">2</div>
+            <span style="font-size:13px;font-weight:700;color:#1A1A0E;">Mercado Livro</span>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:#E11D48;">R$2.100</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(225,29,72,0.05);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#E11D48;">3</div>
+            <span style="font-size:13px;font-weight:700;color:#1A1A0E;">Energia Elétrica</span>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:#E11D48;">R$780</span>
+        </div>
+      </div>
+
+    </div><!-- /tab-dash -->
+
+    <!-- ═══════ ABA: FINANÇAS ═══════ -->
+    <div class="tab-panel" id="tab-fin">
+
+      <!-- Account balances -->
+      <div class="section-label">Contas Bancárias</div>
+      <div class="fin-accounts">
+        <div class="fin-account-row">
+          <div class="fin-account-left">
+            <div class="fin-account-icon">🏦</div>
+            <div>
+              <div class="fin-account-name">Principal</div>
+              <div class="fin-account-num">Banco do Brasil · ••• 4521</div>
+            </div>
+          </div>
+          <div class="fin-account-right">
+            <span class="fin-account-balance">R$8.340,00</span>
+            <span class="fin-account-lbl">Disponível</span>
+          </div>
+        </div>
+        <div class="fin-account-row">
+          <div class="fin-account-left">
+            <div class="fin-account-icon">🏛</div>
+            <div>
+              <div class="fin-account-name">Reserva</div>
+              <div class="fin-account-num">Caixa Econômica · ••• 8834</div>
+            </div>
+          </div>
+          <div class="fin-account-right">
+            <span class="fin-account-balance">R$2.100,00</span>
+            <span class="fin-account-lbl">Disponível</span>
+          </div>
+        </div>
+        <div class="fin-account-row">
+          <div class="fin-account-left">
+            <div class="fin-account-icon">💳</div>
+            <div>
+              <div class="fin-account-name">Movimento</div>
+              <div class="fin-account-num">Nubank · ••• 1177</div>
+            </div>
+          </div>
+          <div class="fin-account-right">
+            <span class="fin-account-balance" style="color:#E11D48">−R$220,00</span>
+            <span class="fin-account-lbl">Saldo negativo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calendar -->
+      <div class="section-label" style="padding-top:14px;">Calendário de Vencimentos</div>
+      <div class="cal-card">
+        <div class="cal-header">
+          <div class="cal-nav">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </div>
+          <span class="cal-month">Junho 2026</span>
+          <div class="cal-nav">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>
+          <div class="cal-day other-month">1</div><div class="cal-day other-month">2</div><div class="cal-day other-month">3</div><div class="cal-day other-month">4</div><div class="cal-day other-month">5</div><div class="cal-day other-month">6</div><div class="cal-day other-month">7</div>
+          <div class="cal-day">1</div><div class="cal-day">2</div><div class="cal-day">3</div><div class="cal-day">4</div><div class="cal-day">5</div><div class="cal-day">6</div><div class="cal-day">7</div>
+          <div class="cal-day">8</div><div class="cal-day">9</div><div class="cal-day">10</div><div class="cal-day today">11</div><div class="cal-day has-dot">12</div><div class="cal-day">13</div><div class="cal-day">14</div>
+          <div class="cal-day has-dot">15</div><div class="cal-day">16</div><div class="cal-day">17</div><div class="cal-day">18</div><div class="cal-day">19</div><div class="cal-day has-dot">20</div><div class="cal-day">21</div>
+          <div class="cal-day">22</div><div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day">25</div><div class="cal-day">26</div><div class="cal-day">27</div><div class="cal-day">28</div>
+          <div class="cal-day">29</div><div class="cal-day">30</div><div class="cal-day other-month">1</div><div class="cal-day other-month">2</div><div class="cal-day other-month">3</div><div class="cal-day other-month">4</div><div class="cal-day other-month">5</div>
+        </div>
+      </div>
+
+      <!-- Urgency chips -->
+      <div class="urgency-row">
+        <div class="urgency-chip venc"><span class="urgency-count">1</span><span class="urgency-lbl">Vencida</span></div>
+        <div class="urgency-chip avc"><span class="urgency-count">2</span><span class="urgency-lbl">A Vencer</span></div>
+        <div class="urgency-chip fut"><span class="urgency-count">1</span><span class="urgency-lbl">Futura</span></div>
+      </div>
+
+      <!-- Expense cards -->
+      <div class="section-label">Vencidas</div>
+      <div class="exp-card">
+        <div class="exp-left"><div class="exp-dot venc"></div><div><div class="exp-name">Energia Elétrica</div><div class="exp-date">Venceu 15/05</div></div></div>
+        <div class="exp-right"><span class="exp-amount">R$780,00</span><span class="exp-badge venc">Vencida</span></div>
+      </div>
+      <div class="section-label">A Vencer</div>
+      <div class="exp-card">
+        <div class="exp-left"><div class="exp-dot avc"></div><div><div class="exp-name">Aluguel Junho</div><div class="exp-date">Vence 15/06</div></div></div>
+        <div class="exp-right"><span class="exp-amount">R$3.500,00</span><span class="exp-badge avc">4 dias</span></div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-left"><div class="exp-dot avc"></div><div><div class="exp-name">Fornecedor XYZ</div><div class="exp-date">Vence 20/06</div></div></div>
+        <div class="exp-right"><span class="exp-amount">R$1.200,00</span><span class="exp-badge avc">9 dias</span></div>
+      </div>
+      <div class="section-label">Futuras</div>
+      <div class="exp-card">
+        <div class="exp-left"><div class="exp-dot fut"></div><div><div class="exp-name">Seguro Anual</div><div class="exp-date">Vence 01/08</div></div></div>
+        <div class="exp-right"><span class="exp-amount">R$4.500,00</span><span class="exp-badge fut">51 dias</span></div>
+      </div>
+
+    </div><!-- /tab-fin -->
+
+  </div><!-- /scroll-area -->
+
+</div><!-- /phone -->
+<p class="page-label">Light Mode · 390 × 844</p>
+</div>
+
+<script>
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-pill-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btn.classList.add('active');
+    document.querySelector('.scroll-area').scrollTop = 0;
+  }
+</script>
+</body>
+</html>

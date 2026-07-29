@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Filtro de Busca Mobile (Light)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #1E1E18;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+  .label {
+    text-align: center;
+    margin-bottom: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-new {
+    display: inline-block;
+    background: #D81E1E;
+    color: white;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: #FDFAF0;
+    border-radius: 40px;
+    border: 8px solid #0a0a08;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  }
+  .screen { width: 100%; height: 100%; position: relative; overflow: hidden; }
+
+  .page-header { background: #FFE500; padding: 44px 16px 16px; }
+  .eyebrow { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(26,26,10,0.45); }
+  .title { font-size: 22px; font-weight: 900; color: #1A1A0E; letter-spacing: -0.01em; }
+
+  .tabs { background: #FDFAF0; padding: 10px 12px 8px; display: flex; gap: 8px; border-bottom: 1px solid rgba(26,26,10,0.06); }
+  .tab { flex: 1; border: 1.5px solid rgba(26,26,10,0.09); border-radius: 14px; padding: 9px; text-align: center; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tab.active { background: rgba(216,30,30,0.09); border-color: rgba(216,30,30,0.18); color: #D81E1E; }
+  .tab:not(.active) { background: #FFFFFF; color: rgba(26,26,10,0.35); }
+
+  .chips { display: flex; gap: 8px; padding: 12px 12px 8px; overflow: hidden; }
+  .chip { flex-shrink: 0; min-width: 96px; background: #FFFFFF; border: 1.5px solid rgba(26,26,10,0.09); border-radius: 20px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .chip-top { display: flex; align-items: center; gap: 6px; }
+  .chip-icon { width: 20px; height: 20px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; }
+  .chip-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,26,10,0.40); }
+  .chip-value { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; }
+
+  .action-row { display: flex; gap: 8px; padding: 4px 12px 10px; align-items: center; }
+  .search-box { flex: 1; position: relative; }
+  .search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgba(26,26,10,0.30); }
+  .search-box input {
+    width: 100%; background: #FFFFFF; border: 1.5px solid rgba(26,26,10,0.09); border-radius: 16px;
+    padding: 9px 12px 9px 32px; font-size: 13px; color: rgba(26,26,10,0.55); font-family: inherit;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 12px; border: 1.5px solid rgba(26,26,10,0.09);
+    background: rgba(26,26,10,0.06); display: flex; align-items: center; justify-content: center;
+    color: rgba(26,26,10,0.45); flex-shrink: 0; cursor: pointer; transition: transform 0.12s;
+  }
+  .icon-btn:active { transform: scale(0.90); }
+  .icon-btn.active-filter { background: rgba(216,30,30,0.10); border-color: rgba(216,30,30,0.20); color: #D81E1E; }
+  .icon-btn.new { background: rgba(216,30,30,0.10); border-color: rgba(216,30,30,0.20); color: #D81E1E; }
+  .icon-btn svg { width: 14px; height: 14px; }
+
+  .date-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(26,26,10,0.30); padding: 10px 16px 6px; }
+  .tx-card { margin: 0 12px 8px; background: #FFFFFF; border: 1.5px solid rgba(26,26,10,0.08); border-radius: 18px; padding: 12px 14px; }
+  .tx-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tx-left { display: flex; align-items: center; gap: 10px; }
+  .tx-dot { width: 30px; height: 30px; border-radius: 10px; background: rgba(225,29,72,0.10); color: #E11D48; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; }
+  .tx-name { font-size: 14px; font-weight: 900; color: #1A1A0E; }
+  .tx-estab { font-size: 10px; font-weight: 600; color: rgba(26,26,10,0.35); }
+  .tx-val { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 700; color: #E11D48; }
+
+  .bottom-nav { position: absolute; left: 0; right: 0; bottom: 0; background: #FFF7B0; border-top: 1px solid #DDD000; padding: 10px 6px 14px; display: flex; justify-content: space-around; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 8px; font-weight: 900; text-transform: uppercase; color: rgba(26,26,10,0.40); }
+  .nav-item.active { color: #D81E1E; }
+
+  .backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.55); z-index: 10;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
+  }
+  .backdrop.show { opacity: 1; pointer-events: auto; }
+
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: #FDFAF0; border-radius: 28px 28px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.35);
+    max-height: 88%; display: flex; flex-direction: column; overflow: hidden;
+    transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.23,1,0.32,1);
+  }
+  .sheet.show { transform: translateY(0); }
+
+  .sheet-handle { display: flex; justify-content: center; padding: 10px 0 4px; flex-shrink: 0; }
+  .sheet-handle span { width: 40px; height: 4px; border-radius: 99px; background: rgba(26,26,10,0.15); }
+
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 4px; flex-shrink: 0; }
+  .sheet-title { font-size: 15px; font-weight: 900; color: #1A1A0E; }
+  .sheet-close { width: 30px; height: 30px; border-radius: 99px; background: rgba(26,26,10,0.07); display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.45); }
+  .sheet-close svg { width: 15px; height: 15px; }
+  .sheet-subtitle { padding: 4px 16px 12px; font-size: 11.5px; font-weight: 600; color: rgba(26,26,10,0.40); }
+
+  .sheet-body { overflow-y: auto; padding: 0 16px 8px; }
+
+  .radio-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; border-radius: 16px; margin-bottom: 8px;
+    background: #FFFFFF; border: 1.5px solid rgba(26,26,10,0.08);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .radio-row.active { background: rgba(216,30,30,0.06); border-color: rgba(216,30,30,0.22); }
+  .radio-label { font-size: 14px; font-weight: 800; color: #1A1A0E; }
+  .radio-row.active .radio-label { color: #D81E1E; }
+  .radio-sub { font-size: 10.5px; font-weight: 600; color: rgba(26,26,10,0.35); margin-top: 1px; }
+  .radio-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(26,26,10,0.20); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .radio-row.active .radio-dot { border-color: #D81E1E; background: #D81E1E; }
+  .radio-dot-inner { width: 8px; height: 8px; border-radius: 50%; background: white; opacity: 0; transform: scale(0.5); transition: all 0.15s; }
+  .radio-row.active .radio-dot-inner { opacity: 1; transform: scale(1); }
+
+  .sheet-footer { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); flex-shrink: 0; }
+  .apply-btn {
+    width: 100%; background: #D81E1E; color: #FFFFFF; border: none; border-radius: 16px;
+    padding: 15px; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em;
+    box-shadow: 0 8px 20px rgba(216,30,30,0.28);
+  }
+</style>
+</head>
+<body>
+<div>
+  <div style="text-align:center;">
+    <span class="badge-new">Novo — Mobile</span>
+    <p class="label">Modo Claro — botão de filtro abre seleção de coluna</p>
+  </div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="eyebrow">Finanças</div>
+        <div class="title">Controle Financeiro</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active">📋 Movimentações</div>
+        <div class="tab">📈 Dashboard</div>
+      </div>
+
+      <div class="chips">
+        <div class="chip">
+          <div class="chip-top"><span class="chip-icon" style="background:rgba(5,150,105,0.12); color:#059669;">↑</span><span class="chip-label">Receitas</span></div>
+          <span class="chip-value" style="color:#059669;">R$6k</span>
+        </div>
+        <div class="chip">
+          <div class="chip-top"><span class="chip-icon" style="background:rgba(225,29,72,0.12); color:#E11D48;">↓</span><span class="chip-label">Despesas</span></div>
+          <span class="chip-value" style="color:#E11D48;">R$17k</span>
+        </div>
+        <div class="chip">
+          <div class="chip-top"><span class="chip-icon" style="background:rgba(225,29,72,0.12); color:#E11D48;">=</span><span class="chip-label">Saldo</span></div>
+          <span class="chip-value" style="color:#E11D48;">-R$12k</span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input placeholder="Buscar transações...">
+        </div>
+        <button class="icon-btn" title="Calendário">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        </button>
+        <!-- Novo comportamento: botão Filtrar -->
+        <button class="icon-btn new" id="filterBtnLight" title="Filtrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+        </button>
+        <button class="icon-btn" title="Selecionar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="6" rx="1"></rect><path d="m15 3 6 6-6 6"></path><path d="M9 9h12"></path></svg>
+        </button>
+      </div>
+
+      <div class="date-label">Seg., 27 de Jul.</div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-dot">D</div>
+            <div><div class="tx-name">RAINHA</div><div class="tx-estab">Universo do R$1,99</div></div>
+          </div>
+          <span class="tx-val">−R$ 1.040,00</span>
+        </div>
+      </div>
+      <div class="date-label">Hoje · 20 de Jul.</div>
+      <div class="tx-card">
+        <div class="tx-top">
+          <div class="tx-left">
+            <div class="tx-dot">D</div>
+            <div><div class="tx-name">Descartáveis Mariana</div><div class="tx-estab">Universo do R$1,99</div></div>
+          </div>
+          <span class="tx-val">−R$ 17,90</span>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item">📊<span>Dashboard</span></div>
+        <div class="nav-item">📦<span>Estoque</span></div>
+        <div class="nav-item">📈<span>Requisições</span></div>
+        <div class="nav-item">↗<span>Entrada</span></div>
+        <div class="nav-item active">💰<span>Finanças</span></div>
+        <div class="nav-item">👥<span>RH</span></div>
+        <div class="nav-item">⚙<span>Config.</span></div>
+      </div>
+
+      <!-- Backdrop + Filter Sheet -->
+      <div class="backdrop" id="backdropLight"></div>
+      <div class="sheet" id="sheetLight">
+        <div class="sheet-handle"><span></span></div>
+        <div class="sheet-header">
+          <span class="sheet-title">Filtrar Busca</span>
+          <button class="sheet-close" id="closeLight">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <p class="sheet-subtitle">Escolha em qual coluna o texto digitado deve ser buscado</p>
+        <div class="sheet-body" id="radioListLight">
+          <div class="radio-row active" data-key="default">
+            <div><div class="radio-label">Padrão</div><div class="radio-sub">Favorecido + Estabelec.</div></div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="favorecido">
+            <div class="radio-label">Favorecido</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="estabelecimento">
+            <div class="radio-label">Estabelecimento</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="tipo">
+            <div class="radio-label">Tipo</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="pagamento">
+            <div class="radio-label">Pagamento</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="tags">
+            <div class="radio-label">Tags</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+          <div class="radio-row" data-key="vencimento">
+            <div class="radio-label">Vencimento</div>
+            <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <button class="apply-btn" id="applyLight">Aplicar Filtro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var openBtn = document.getElementById('filterBtnLight');
+    var backdrop = document.getElementById('backdropLight');
+    var sheet = document.getElementById('sheetLight');
+    var closeBtn = document.getElementById('closeLight');
+    var applyBtn = document.getElementById('applyLight');
+    var rows = document.querySelectorAll('#radioListLight .radio-row');
+    function open() { backdrop.classList.add('show'); sheet.classList.add('show'); }
+    function close() { backdrop.classList.remove('show'); sheet.classList.remove('show'); }
+    openBtn.addEventListener('click', open);
+    backdrop.addEventListener('click', close);
+    closeBtn.addEventListener('click', close);
+    applyBtn.addEventListener('click', function () {
+      var active = document.querySelector('#radioListLight .radio-row.active');
+      var key = active ? active.getAttribute('data-key') : 'default';
+      openBtn.classList.toggle('active-filter', key !== 'default');
+      close();
+    });
+    rows.forEach(function (row) {
+      row.addEventListener('click', function () {
+        rows.forEach(function (r) { r.classList.remove('active'); });
+        row.classList.add('active');
+      });
+    });
+    setTimeout(open, 400);
+  })();
+</script>
+</body>
+</html>

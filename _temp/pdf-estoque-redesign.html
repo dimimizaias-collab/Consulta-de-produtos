@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDF Estoque — Redesign Mockup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --bg: #0e0e0c;
+  --surface: #1a1a14;
+  --surface-2: #222218;
+  --surface-3: #2c2c22;
+  --border: rgba(255,255,255,0.07);
+  --border-mid: rgba(255,255,255,0.12);
+  --text: #f2f0e3;
+  --text-muted: rgba(242,240,227,0.55);
+  --text-subtle: rgba(242,240,227,0.28);
+  --primary: #D81E1E;
+  --primary-dim: rgba(216,30,30,0.15);
+  --yellow: #FFE500;
+  --green: #34d399;
+  --amber: #f59e0b;
+  --red: #f87171;
+}
+
+body {
+  background: var(--bg);
+  font-family: -apple-system, 'Inter', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  padding: 56px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+  align-items: center;
+}
+
+/* ─── SECTION LABEL ─────────────────────────────────── */
+.section-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ─── MODAL ─────────────────────────────────────────── */
+.modal-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 620px;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ─── OPTION CARDS ──────────────────────────────────── */
+.cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.option-card {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  user-select: none;
+}
+
+.option-card:hover {
+  border-color: var(--border-mid);
+  background: var(--surface-3);
+}
+
+.option-card.selected {
+  border-color: var(--primary);
+  background: rgba(216,30,30,0.08);
+  box-shadow: 0 0 0 3px rgba(216,30,30,0.08);
+}
+
+.card-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.option-card.selected .card-icon {
+  background: var(--primary-dim);
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.card-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+/* mini table preview inside card */
+.mini-table {
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mini-row {
+  display: flex;
+  gap: 3px;
+}
+
+.mini-cell {
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  flex: 1;
+}
+
+.mini-cell.header {
+  background: rgba(255,255,255,0.16);
+  height: 8px;
+}
+
+.mini-cell.wide { flex: 3; }
+.mini-cell.med  { flex: 2; }
+.mini-cell.sm   { flex: 1; }
+
+/* ─── PERSONALIZADO BUILDER ────────────────────────── */
+.builder-wrap {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.builder-wrap.visible { display: flex; }
+
+.builder-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.slots-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.col-slot {
+  height: 34px;
+  min-width: 80px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-subtle);
+  position: relative;
+  padding: 0 28px 0 10px;
+  transition: border-color 150ms;
+}
+
+.col-slot.filled {
+  border-style: solid;
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.slot-num {
+  position: absolute;
+  left: 7px;
+  font-size: 9px;
+  color: var(--text-subtle);
+  font-weight: 700;
+}
+
+.slot-remove {
+  position: absolute;
+  right: 5px;
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  transition: color 120ms, background 120ms;
+}
+
+.slot-remove:hover {
+  color: var(--red);
+  background: rgba(248,113,113,0.12);
+}
+
+.add-slot-btn {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(255,255,255,0.15);
+  background: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 150ms, color 150ms, background 150ms;
+  flex-shrink: 0;
+}
+
+.add-slot-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(216,30,30,0.06);
+}
+
+.chips-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.col-chip {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  transition: all 150ms;
+}
+
+.col-chip:hover:not(.used) {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+}
+
+.col-chip.used {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.col-chip-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+/* ─── GENERATE BUTTON ───────────────────────────────── */
+.gen-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: opacity 150ms, transform 120ms;
+  letter-spacing: 0.01em;
+}
+
+.gen-btn:hover { opacity: 0.9; }
+.gen-btn:active { transform: scale(0.98); }
+
+/* ─── PDF PREVIEWS ──────────────────────────────────── */
+.pdf-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  width: 100%;
+  max-width: 960px;
+}
+
+/* A4 landscape ratio: 297/210 ≈ 1.414 */
+/* A4 landscape ratio: 297/210 ≈ 1.414 */
+/* At 960px canvas width = 297mm real → 1mm = 3.23px */
+/* 8pt font = 2.82mm → ~9px on canvas */
+/* 6mm row = ~19px on canvas */
+.pdf-canvas {
+  width: 100%;
+  aspect-ratio: 297 / 210;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+  padding: 22px 26px 18px;
+  display: flex;
+  flex-direction: column;
+  color: #1a1a14;
+  font-family: 'Arial', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.pdf-header-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 0;
+}
+
+.pdf-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-right: 14px;
+}
+
+.pdf-box {
+  border: 1px solid #555;
+  border-radius: 1px;
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #222;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.pdf-box.supplier { font-size: 9px; }
+.pdf-box.note-num { font-size: 7.5px; color: #555; font-weight: 400; }
+
+.pdf-title-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.pdf-brand {
+  font-size: 14px;
+  font-weight: 900;
+  color: #D81E1E;
+  letter-spacing: -0.02em;
+}
+
+.pdf-report-label {
+  font-size: 7.5px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* PDF table */
+.pdf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+  flex: 1;
+}
+
+.pdf-table thead tr {
+  background: #c8c8be;
+  color: #111;
+}
+
+.pdf-table thead th {
+  padding: 4px 5px;
+  text-align: left;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 0.8px solid #aaa8a0;
+}
+
+.pdf-table thead th.right { text-align: right; }
+
+.pdf-table tbody tr:nth-child(even) { background: #f5f5f0; }
+.pdf-table tbody tr:nth-child(odd)  { background: #ffffff; }
+
+.pdf-table tbody td {
+  padding: 4px 5px;
+  font-size: 9px;
+  color: #333;
+  border: 0.5px solid #d4d4cc;
+  line-height: 1.15;
+}
+
+.pdf-table tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
+.pdf-table tbody td.green { color: #15803d; font-weight: 600; }
+.pdf-table tbody td.red   { color: #b91c1c; font-weight: 600; }
+.pdf-table tbody td.amber { color: #d97706; font-weight: 600; }
+.pdf-table tbody td.bold  { font-weight: 700; color: #111; }
+
+/* totals row */
+.pdf-table tfoot tr {
+  background: #e8e8e0;
+  border-top: 1px solid #aaa;
+}
+
+.pdf-table tfoot td {
+  padding: 4px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.15;
+  border: 0.5px solid #c8c8c0;
+}
+
+.pdf-table tfoot td.right { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* PDF footer */
+.pdf-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 5px;
+  border-top: 0.5px solid #ddd;
+}
+
+.pdf-footer-text {
+  font-size: 7px;
+  color: #aaa;
+}
+
+/* ─── CALLOUT ─────────────────────────────────────────── */
+.callout {
+  background: rgba(255,229,0,0.06);
+  border: 1px solid rgba(255,229,0,0.15);
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 100%;
+  max-width: 960px;
+}
+
+.callout-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--yellow);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.callout ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.callout li {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 12px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.callout li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--yellow);
+  font-weight: 700;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 1 — MODAL
+════════════════════════════════════════════════════ -->
+<div class="modal-wrap">
+  <div class="section-label">① Modal — Escolha do Tipo de PDF</div>
+
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Exportar PDF — Estoque</span>
+      <button class="modal-close">✕</button>
+    </div>
+
+    <!-- cards -->
+    <div class="cards-row">
+
+      <!-- FINANCEIRO -->
+      <div class="option-card selected" onclick="selectCard(this,'financeiro')">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Financeiro</div>
+        <div class="card-desc">Custos, preços, markup e desconto/acréscimo por item</div>
+        <div class="mini-table">
+          <div class="mini-row">
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header wide"></div>
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESTOQUE -->
+      <div class="option-card" onclick="selectCard(this,'estoque')">
+        <div class="card-icon">📦</div>
+        <div class="card-title">Estoque</div>
+        <div class="card-desc">Código, produto, quantidade, preço de venda e distribuição</div>
+        <div class="mini-table">
+          <div class="mini-row">
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header wide"></div>
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header sm"></div>
+            <div class="mini-cell header sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell sm"></div><div class="mini-cell wide"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div><div class="mini-cell sm"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERSONALIZADO -->
+      <div class="option-card" onclick="selectCard(this,'personalizado')">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">Personalizado</div>
+        <div class="card-desc">Arraste as colunas desejadas para montar seu próprio layout</div>
+        <div class="mini-table">
+          <div class="mini-row">
+            <div class="mini-cell header med" style="border:1px dashed rgba(255,255,255,0.3)"></div>
+            <div class="mini-cell header med" style="border:1px dashed rgba(255,255,255,0.3)"></div>
+            <div class="mini-cell header sm" style="border:1px dashed rgba(255,255,255,0.3)"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell med"></div><div class="mini-cell med"></div><div class="mini-cell sm"></div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-cell med"></div><div class="mini-cell med"></div><div class="mini-cell sm"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personalizado builder (hidden until selected) -->
+    <div class="builder-wrap" id="builder">
+      <div class="builder-label">Colunas do PDF (clique para adicionar)</div>
+      <div class="slots-row" id="slots-row">
+        <div class="col-slot empty" style="min-width:90px">
+          <span class="slot-num">1</span>
+          <span>vazio</span>
+        </div>
+        <div class="col-slot empty" style="min-width:90px">
+          <span class="slot-num">2</span>
+          <span>vazio</span>
+        </div>
+        <div class="col-slot empty" style="min-width:90px">
+          <span class="slot-num">3</span>
+          <span>vazio</span>
+        </div>
+        <button class="add-slot-btn" onclick="addSlot()" title="Adicionar coluna">+</button>
+      </div>
+      <div class="builder-label" style="margin-top:2px">Colunas disponíveis</div>
+      <div class="chips-pool" id="chips-pool">
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Código</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Produto na Nota</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Identificação Interna</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>EAN</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>SKU</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Quantidade</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Preço Custo</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Valor Total</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Desconto</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Acréscimo</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Preço Venda</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Markup</div>
+        <div class="col-chip" onclick="addToSlot(this)"><span class="col-chip-dot"></span>Distribuição</div>
+      </div>
+    </div>
+
+    <button class="gen-btn">
+      <span>↓</span>
+      <span id="btn-label">Gerar PDF Financeiro</span>
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 2 — PDF FINANCEIRO PREVIEW
+════════════════════════════════════════════════════ -->
+<div style="width:100%;max-width:960px">
+  <div class="section-label">② Layout PDF — Financeiro (A4 Paisagem)</div>
+
+  <div class="pdf-canvas">
+
+    <!-- header row -->
+    <div class="pdf-header-row">
+      <div class="pdf-info-col">
+        <div class="pdf-box supplier">DISTRIBUIDORA EXEMPLO LTDA</div>
+        <div class="pdf-box note-num">Nota: 2025-0047 &nbsp;·&nbsp; 21/05/2025</div>
+      </div>
+      <div class="pdf-title-block">
+        <div class="pdf-brand">Universo do R$1,99</div>
+        <div class="pdf-report-label">Relatório Financeiro · Entrada de Mercadoria</div>
+      </div>
+    </div>
+
+    <!-- table — FINANCEIRO: only Markup column has color (red <65%, green >100%) -->
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th style="width:26%">Produto na Nota</th>
+          <th class="right">Qtd</th>
+          <th class="right">P. Custo</th>
+          <th class="right">Vlr Total</th>
+          <th class="right">Desconto</th>
+          <th class="right">Acréscimo</th>
+          <th class="right">P. Venda</th>
+          <th class="right">Markup</th>
+          <th>Distribuição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="bold">7891234000012</td>
+          <td>CANETA ESFEROGRAFICA AZUL CX 12UN</td>
+          <td class="right">50</td>
+          <td class="right">R$ 4,80</td>
+          <td class="right">R$ 240,00</td>
+          <td class="right">−R$ 0,48</td>
+          <td class="right">—</td>
+          <td class="right">R$ 7,99</td>
+          <td class="right">+66,5%</td>
+          <td class="right">48</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000029</td>
+          <td>BORRACHA BRANCA GRANDE PCT 10UN</td>
+          <td class="right">120</td>
+          <td class="right">R$ 1,20</td>
+          <td class="right">R$ 144,00</td>
+          <td class="right">—</td>
+          <td class="right">+R$ 0,10</td>
+          <td class="right">R$ 1,99</td>
+          <td class="right red">+57,4%</td>
+          <td class="right">115</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000036</td>
+          <td>CADERNO ESPIRAL 96 FOLHAS UNIVERSITARIO</td>
+          <td class="right">30</td>
+          <td class="right">R$ 8,50</td>
+          <td class="right">R$ 255,00</td>
+          <td class="right">−R$ 0,85</td>
+          <td class="right">—</td>
+          <td class="right">R$ 14,99</td>
+          <td class="right">+83,9%</td>
+          <td class="right">28</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000043</td>
+          <td>GANCHEIRA PLASTICA COLORIDA PCT 6UN</td>
+          <td class="right">200</td>
+          <td class="right">R$ 0,65</td>
+          <td class="right">R$ 130,00</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+          <td class="right">R$ 0,99</td>
+          <td class="right red">+52,3%</td>
+          <td class="right">200</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000050</td>
+          <td>FITA ADESIVA TRANSPARENTE 18MMX30M</td>
+          <td class="right">80</td>
+          <td class="right">R$ 1,90</td>
+          <td class="right">R$ 152,00</td>
+          <td class="right">−R$ 0,19</td>
+          <td class="right">—</td>
+          <td class="right">R$ 2,99</td>
+          <td class="right">+67,3%</td>
+          <td class="right">80</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000067</td>
+          <td>COLA BASTAO 21G LAVAVEL</td>
+          <td class="right">150</td>
+          <td class="right">R$ 1,10</td>
+          <td class="right">R$ 165,00</td>
+          <td class="right">—</td>
+          <td class="right">+R$ 0,08</td>
+          <td class="right">R$ 1,99</td>
+          <td class="right">+72,6%</td>
+          <td class="right">144</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000074</td>
+          <td>TESOURA ESCOLAR 13CM COLORIDA</td>
+          <td class="right">60</td>
+          <td class="right">R$ 2,30</td>
+          <td class="right">R$ 138,00</td>
+          <td class="right">−R$ 0,23</td>
+          <td class="right">—</td>
+          <td class="right">R$ 3,99</td>
+          <td class="right">+81,2%</td>
+          <td class="right">60</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000081</td>
+          <td>REGUA 30CM PLASTICA TRANSPARENTE</td>
+          <td class="right">100</td>
+          <td class="right">R$ 0,90</td>
+          <td class="right">R$ 90,00</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+          <td class="right">R$ 1,99</td>
+          <td class="right green">+121,1%</td>
+          <td class="right">100</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000098</td>
+          <td>APONTADOR DUPLO COM DEPOSITO CORES</td>
+          <td class="right">200</td>
+          <td class="right">R$ 0,55</td>
+          <td class="right">R$ 110,00</td>
+          <td class="right">—</td>
+          <td class="right">+R$ 0,05</td>
+          <td class="right">R$ 0,99</td>
+          <td class="right">+70,9%</td>
+          <td class="right">196</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000104</td>
+          <td>LAPIS PRETO N2 CX 12UN SEXTAVADO</td>
+          <td class="right">40</td>
+          <td class="right">R$ 3,20</td>
+          <td class="right">R$ 128,00</td>
+          <td class="right">−R$ 0,32</td>
+          <td class="right">—</td>
+          <td class="right">R$ 5,99</td>
+          <td class="right">+95,5%</td>
+          <td class="right">40</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000111</td>
+          <td>CLIPS GALVANIZADO N3 CX 100UN</td>
+          <td class="right">75</td>
+          <td class="right">R$ 1,40</td>
+          <td class="right">R$ 105,00</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+          <td class="right">R$ 1,99</td>
+          <td class="right red">+42,1%</td>
+          <td class="right">75</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000128</td>
+          <td>GRAMPEADOR 26/6 SMALL COLORS</td>
+          <td class="right">25</td>
+          <td class="right">R$ 5,80</td>
+          <td class="right">R$ 145,00</td>
+          <td class="right">−R$ 0,58</td>
+          <td class="right">—</td>
+          <td class="right">R$ 9,99</td>
+          <td class="right">+79,8%</td>
+          <td class="right">25</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000135</td>
+          <td>PAPEL SULFITE A4 75G CX 500FLS</td>
+          <td class="right">15</td>
+          <td class="right">R$ 18,50</td>
+          <td class="right">R$ 277,50</td>
+          <td class="right">—</td>
+          <td class="right">+R$ 1,50</td>
+          <td class="right">R$ 29,99</td>
+          <td class="right red">+55,6%</td>
+          <td class="right">15</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000142</td>
+          <td>MARCADOR PERMANENTE PRETO GROSSO</td>
+          <td class="right">80</td>
+          <td class="right">R$ 1,60</td>
+          <td class="right">R$ 128,00</td>
+          <td class="right">−R$ 0,16</td>
+          <td class="right">—</td>
+          <td class="right">R$ 2,99</td>
+          <td class="right">+90,3%</td>
+          <td class="right">80</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000159</td>
+          <td>ENVELOPE BRANCO A4 CX 250UN</td>
+          <td class="right">10</td>
+          <td class="right">R$ 22,00</td>
+          <td class="right">R$ 220,00</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+          <td class="right">R$ 34,99</td>
+          <td class="right red">+59,0%</td>
+          <td class="right">10</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="color:#777">16 itens</td>
+          <td class="right">1.155 un</td>
+          <td></td>
+          <td class="right">R$ 2.725,50</td>
+          <td class="right">−R$ 2,82</td>
+          <td class="right">+R$ 1,81</td>
+          <td></td>
+          <td class="right">Markup médio: +74,2%</td>
+          <td class="right">1.216</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- footer -->
+    <div class="pdf-footer">
+      <span class="pdf-footer-text">Gerado em 21/05/2025 às 14:32</span>
+      <span class="pdf-footer-text">Universo do R$1,99 · Sistema de Gestão</span>
+      <span class="pdf-footer-text">Página 1 de 1</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 3 — PDF ESTOQUE PREVIEW
+════════════════════════════════════════════════════ -->
+<div style="width:100%;max-width:960px">
+  <div class="section-label">③ Layout PDF — Estoque (A4 Paisagem)</div>
+
+  <div class="pdf-canvas">
+
+    <div class="pdf-header-row">
+      <div class="pdf-info-col">
+        <div class="pdf-box supplier">DISTRIBUIDORA EXEMPLO LTDA</div>
+        <div class="pdf-box note-num">Nota: 2025-0047 &nbsp;·&nbsp; 21/05/2025</div>
+      </div>
+      <div class="pdf-title-block">
+        <div class="pdf-brand">Universo do R$1,99</div>
+        <div class="pdf-report-label">Relatório de Estoque · Entrada de Mercadoria</div>
+      </div>
+    </div>
+
+    <!-- table — ESTOQUE: P.Venda e Distribuição com cabeçalho vermelho, EAN + Check -->
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th style="width:28%">Produto na Nota</th>
+          <th>EAN</th>
+          <th class="right">Quantidade</th>
+          <th class="right" style="color:#b91c1c">Preço Venda</th>
+          <th style="color:#b91c1c">Distribuição</th>
+          <th style="text-align:center;width:5%">Check</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="bold">7891234000012</td>
+          <td>CANETA ESFEROGRAFICA AZUL CX 12UN</td>
+          <td>7891234000012</td>
+          <td class="right">50 un</td>
+          <td class="right bold">R$ 7,99</td>
+          <td class="right">48</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000029</td>
+          <td>BORRACHA BRANCA GRANDE PCT 10UN</td>
+          <td>7891234000029</td>
+          <td class="right">120 un</td>
+          <td class="right bold">R$ 1,99</td>
+          <td class="right">115</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000036</td>
+          <td>CADERNO ESPIRAL 96 FOLHAS UNIVERSITARIO</td>
+          <td>7891234000036</td>
+          <td class="right">30 un</td>
+          <td class="right bold">R$ 14,99</td>
+          <td class="right">28</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000043</td>
+          <td>GANCHEIRA PLASTICA COLORIDA PCT 6UN</td>
+          <td>7891234000043</td>
+          <td class="right">200 un</td>
+          <td class="right bold">R$ 0,99</td>
+          <td class="right">200</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000050</td>
+          <td>FITA ADESIVA TRANSPARENTE 18MMX30M</td>
+          <td>7891234000050</td>
+          <td class="right">80 un</td>
+          <td class="right bold">R$ 2,99</td>
+          <td class="right">80</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000067</td>
+          <td>COLA BASTAO 21G LAVAVEL</td>
+          <td>7891234000067</td>
+          <td class="right">150 un</td>
+          <td class="right bold">R$ 1,99</td>
+          <td class="right">144</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000074</td>
+          <td>TESOURA ESCOLAR 13CM COLORIDA</td>
+          <td>7891234000074</td>
+          <td class="right">60 un</td>
+          <td class="right bold">R$ 3,99</td>
+          <td class="right">60</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000081</td>
+          <td>REGUA 30CM PLASTICA TRANSPARENTE</td>
+          <td>7891234000081</td>
+          <td class="right">100 un</td>
+          <td class="right bold">R$ 1,99</td>
+          <td class="right">100</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000098</td>
+          <td>APONTADOR DUPLO COM DEPOSITO CORES</td>
+          <td>7891234000098</td>
+          <td class="right">200 un</td>
+          <td class="right bold">R$ 0,99</td>
+          <td class="right">196</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000104</td>
+          <td>LAPIS PRETO N2 CX 12UN SEXTAVADO</td>
+          <td>7891234000104</td>
+          <td class="right">40 un</td>
+          <td class="right bold">R$ 5,99</td>
+          <td class="right">40</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000111</td>
+          <td>CLIPS GALVANIZADO N3 CX 100UN</td>
+          <td>7891234000111</td>
+          <td class="right">75 un</td>
+          <td class="right bold">R$ 1,99</td>
+          <td class="right">75</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000128</td>
+          <td>GRAMPEADOR 26/6 SMALL COLORS</td>
+          <td>7891234000128</td>
+          <td class="right">25 un</td>
+          <td class="right bold">R$ 9,99</td>
+          <td class="right">25</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000135</td>
+          <td>PAPEL SULFITE A4 75G CX 500FLS</td>
+          <td>7891234000135</td>
+          <td class="right">15 un</td>
+          <td class="right bold">R$ 29,99</td>
+          <td class="right">15</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000142</td>
+          <td>MARCADOR PERMANENTE PRETO GROSSO</td>
+          <td>7891234000142</td>
+          <td class="right">80 un</td>
+          <td class="right bold">R$ 2,99</td>
+          <td class="right">80</td>
+          <td style="text-align:center">□</td>
+        </tr>
+        <tr>
+          <td class="bold">7891234000159</td>
+          <td>ENVELOPE BRANCO A4 CX 250UN</td>
+          <td>7891234000159</td>
+          <td class="right">10 un</td>
+          <td class="right bold">R$ 34,99</td>
+          <td class="right">10</td>
+          <td style="text-align:center">□</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="color:#777">16 itens</td>
+          <td class="right">1.155 un</td>
+          <td></td>
+          <td class="right">1.216</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="pdf-footer">
+      <span class="pdf-footer-text">Gerado em 21/05/2025 às 14:32</span>
+      <span class="pdf-footer-text">Universo do R$1,99 · Sistema de Gestão</span>
+      <span class="pdf-footer-text">Página 1 de 1</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     CALLOUT
+════════════════════════════════════════════════════ -->
+<div class="callout" style="max-width:960px">
+  <div class="callout-title">⚡ Decisões de design</div>
+  <ul>
+    <li><strong>Paisagem A4</strong> — mais colunas visíveis sem quebrar linhas; obrigatório para o preset Financeiro (10 colunas)</li>
+    <li><strong>Cabeçalho unificado</strong> — fornecedor + nota em caixas empilhadas alinhadas à esquerda com a tabela, igual ao modelo solicitado; nome da marca à direita</li>
+    <li><strong>Desconto/Acréscimo condicionais</strong> — no preset Financeiro, as colunas só aparecem se houver algum item com valor nelas (sem colunas vazias)</li>
+    <li><strong>Markup colorido</strong> — valores acima de 60% em âmbar, acima de 80% em verde, abaixo de 0 em vermelho</li>
+    <li><strong>Personalizado</strong> — clique nos chips para ocupar os slots em ordem; botão + adiciona novos slots; ✕ em cada slot libera o chip de volta</li>
+    <li><strong>Linha de totais</strong> — rodapé da tabela com soma de Qtd, Valor Total, soma de Desconto/Acréscimo e markup médio ponderado</li>
+  </ul>
+</div>
+
+
+<script>
+// ─── Card selection ────────────────────────────────
+function selectCard(el, type) {
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+
+  const labels = {
+    financeiro: 'Gerar PDF Financeiro',
+    estoque: 'Gerar PDF de Estoque',
+    personalizado: 'Gerar PDF Personalizado'
+  };
+  document.getElementById('btn-label').textContent = labels[type] || 'Gerar PDF';
+
+  const builder = document.getElementById('builder');
+  if (type === 'personalizado') {
+    builder.classList.add('visible');
+  } else {
+    builder.classList.remove('visible');
+  }
+}
+
+// ─── Slot management ───────────────────────────────
+let slotCount = 3;
+
+function addSlot() {
+  slotCount++;
+  const row = document.getElementById('slots-row');
+  const addBtn = row.querySelector('.add-slot-btn');
+  const slot = document.createElement('div');
+  slot.className = 'col-slot empty';
+  slot.style.minWidth = '90px';
+  slot.innerHTML = `<span class="slot-num">${slotCount}</span><span>vazio</span>`;
+  row.insertBefore(slot, addBtn);
+}
+
+function removeSlot(btn) {
+  const slot = btn.closest('.col-slot');
+  const text = slot.querySelector('.slot-text');
+  if (text) {
+    // find and un-use the matching chip
+    document.querySelectorAll('.col-chip').forEach(chip => {
+      const chipText = chip.textContent.replace('•','').trim();
+      if (chipText === text.textContent.trim()) {
+        chip.classList.remove('used');
+      }
+    });
+  }
+  slot.remove();
+  // re-number
+  document.querySelectorAll('.col-slot').forEach((s, i) => {
+    const num = s.querySelector('.slot-num');
+    if (num) num.textContent = i + 1;
+  });
+  slotCount--;
+}
+
+function addToSlot(chip) {
+  if (chip.classList.contains('used')) return;
+  const emptySlot = document.querySelector('.col-slot.empty');
+  if (!emptySlot) {
+    alert('Adicione mais slots com o botão +');
+    return;
+  }
+  const chipName = chip.textContent.replace('•','').trim();
+  const slotNum = emptySlot.querySelector('.slot-num').textContent;
+  emptySlot.classList.remove('empty');
+  emptySlot.classList.add('filled');
+  emptySlot.innerHTML = `
+    <span class="slot-num">${slotNum}</span>
+    <button class="slot-remove" onclick="removeSlot(this)">✕</button>
+    <span class="slot-text">${chipName}</span>
+  `;
+  chip.classList.add('used');
+}
+</script>
+</body>
+</html>

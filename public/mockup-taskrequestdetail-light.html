@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskRequestDetailModal — Light</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #FDFAF0;
+    color: #1A1208;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 8, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 199;
+  }
+
+  /* Modal card */
+  .modal {
+    width: 100%;
+    max-width: 460px;
+    background: #FDFAF0;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(26,18,8,0.20), 0 4px 16px rgba(26,18,8,0.10);
+    animation: slideUp 0.22s cubic-bezier(0.23,1,0.32,1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    background: #FFE500;
+    border-bottom: 1px solid #D4C000;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: rgba(26,26,10,0.09);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .header-icon svg { color: #1A1A0E; }
+
+  .header-content { flex: 1; min-width: 0; }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(26,26,10,0.10);
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin-bottom: 4px;
+  }
+
+  .header-badge span {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(26,26,10,0.60);
+  }
+
+  .header-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: #1A1A0E;
+    line-height: 1.2;
+  }
+
+  .header-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(26,26,10,0.08);
+    border: 1px solid rgba(26,26,10,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+    color: rgba(26,26,10,0.45);
+  }
+
+  .header-close:hover { background: rgba(216,30,30,0.10); color: #D81E1E; }
+
+  /* ─── BODY ─── */
+  .body {
+    background: #FDFAF0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* Meta grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+
+  .label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(26,18,8,0.40);
+  }
+
+  .meta-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1A1208;
+  }
+
+  .meta-date {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(26,18,8,0.50);
+  }
+
+  /* Priority badge */
+  .badge-media {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(245,196,0,0.15);
+    border: 1px solid rgba(245,196,0,0.35);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #92680E;
+    width: fit-content;
+  }
+
+  .badge-alta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(216,30,30,0.08);
+    border: 1px solid rgba(216,30,30,0.20);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #D81E1E;
+    width: fit-content;
+  }
+
+  .badge-baixa {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(10,122,85,0.08);
+    border: 1px solid rgba(10,122,85,0.20);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0A7A55;
+    width: fit-content;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* Divider */
+  .divider { height: 1px; background: #E9DFC2; }
+
+  /* Observation box */
+  .obs-box {
+    background: #FAF6E6;
+    border: 1px solid #E9DFC2;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: #1A1208;
+    line-height: 1.55;
+  }
+
+  /* Items section */
+  .section-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(26,18,8,0.40);
+    margin-bottom: 8px;
+  }
+
+  .item-card {
+    background: #FFFFFF;
+    border: 1px solid #E9DFC2;
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .item-card + .item-card { margin-top: 8px; }
+
+  .item-name {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1A1208;
+    line-height: 1.3;
+  }
+
+  .item-codes {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(26,18,8,0.40);
+    letter-spacing: 0.04em;
+  }
+
+  .item-price-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .price-old {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(26,18,8,0.45);
+    text-decoration: line-through;
+  }
+
+  .price-arrow { color: rgba(26,18,8,0.30); font-size: 11px; }
+
+  .price-new {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #D81E1E;
+  }
+
+  .item-meta {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: rgba(26,18,8,0.38);
+  }
+
+  .item-obs {
+    background: rgba(26,18,8,0.03);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: rgba(26,18,8,0.55);
+    font-style: italic;
+  }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    background: #FFF7B0;
+    border-top: 1px solid #DDD000;
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn-close {
+    flex: 1;
+    height: 40px;
+    background: rgba(26,26,10,0.08);
+    border: 1px solid rgba(26,26,10,0.14);
+    border-radius: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: rgba(26,26,10,0.55);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-close:hover { background: rgba(26,26,10,0.12); }
+
+  .btn-approve {
+    flex: 1.5;
+    height: 40px;
+    background: #D81E1E;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #FFFFFF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(216,30,30,0.30);
+    transition: all 0.15s;
+  }
+
+  .btn-approve:hover { background: #A30E0E; }
+  .btn-approve:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+<div class="overlay">
+  <div class="modal">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+      </div>
+      <div class="header-content">
+        <div class="header-badge">
+          <span>Revisão de Mercadoria</span>
+        </div>
+        <div class="header-title">Detalhes da Tarefa</div>
+      </div>
+      <button class="header-close" title="Fechar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- Meta info -->
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="label">Responsável</span>
+          <span class="meta-value">João Silva</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Prioridade</span>
+          <span class="badge-media"><span class="dot"></span> Média</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Data</span>
+          <span class="meta-date">10 jun. 2026, 14:32</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Itens</span>
+          <span class="meta-value">3 produtos</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Observação -->
+      <div>
+        <div class="label" style="margin-bottom:6px;">Observação</div>
+        <div class="obs-box">Verificar preços da seção de limpeza — alguns itens podem estar desatualizados em relação ao fornecedor.</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Itens -->
+      <div>
+        <div class="section-title">Produtos (3)</div>
+
+        <div class="item-card">
+          <div class="item-name">Pano Copa 41×69cm St. Margarida F.A</div>
+          <div class="item-codes">SKU 10482 · EAN 7891234560012</div>
+          <div class="item-price-row">
+            <span class="price-old">R$ 5,90</span>
+            <span class="price-arrow">→</span>
+            <span class="price-new">R$ 4,50</span>
+          </div>
+          <div class="item-meta">Limpeza · Panos · Bettanin</div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-name">Detergente Líquido 500ml Ypê Neutro</div>
+          <div class="item-codes">SKU 20871 · EAN 7896098900056</div>
+          <div class="item-price-row">
+            <span class="price-old">R$ 3,49</span>
+            <span class="price-arrow">→</span>
+            <span class="price-new">R$ 2,99</span>
+          </div>
+          <div class="item-meta">Limpeza · Detergentes · Ypê</div>
+          <div class="item-obs">Checar validade do lote atual antes de confirmar.</div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-name">Esponja de Aço Assolan 8 unidades</div>
+          <div class="item-codes">SKU 33104 · EAN 7896004402039</div>
+          <div class="item-price-row">
+            <span style="font-family:Inter;font-size:13px;font-weight:700;color:#1A1208;">R$ 4,19</span>
+            <span style="font-family:Inter;font-size:10px;color:rgba(26,18,8,0.38);margin-left:4px;">(sem alteração)</span>
+          </div>
+          <div class="item-meta">Limpeza · Esponjas · Assolan</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <button class="btn-close">Fechar</button>
+      <button class="btn-approve">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+        Aprovar
+      </button>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Dicionário de Fornecedores</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #111110;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    color: rgba(242,240,227,0.85);
+  }
+
+  /* ── backdrop ── */
+  .backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+
+  /* ── modal ── */
+  .modal {
+    position: relative;
+    background: #1a1a14;
+    border-radius: 28px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+    width: 95vw;
+    max-width: 1400px;
+    height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(242,240,227,0.06);
+  }
+
+  /* ── header ── */
+  .modal-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid rgba(242,240,227,0.05);
+    background: rgba(255,255,255,0.02);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: #f59e0b;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(245,158,11,0.3);
+  }
+  .header-icon svg { color: white; }
+  .modal-title { font-size: 20px; font-weight: 900; letter-spacing: -0.3px; }
+  .tabs { display: flex; gap: 6px; margin-top: 8px; }
+  .tab {
+    font-size: 9px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.15em; padding: 6px 14px; border-radius: 99px;
+    border: none; cursor: pointer; transition: all 120ms;
+  }
+  .tab.active { background: #D81E1E; color: white; }
+  .tab.inactive { background: transparent; color: rgba(242,240,227,0.3); }
+  .tab.inactive:hover { background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.6); }
+  .close-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: transparent; cursor: pointer; color: rgba(242,240,227,0.25);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 120ms;
+  }
+  .close-btn:hover { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.8); }
+
+  /* ── body ── */
+  .modal-body {
+    flex: 1; display: flex; overflow: hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    width: 42%; flex-shrink: 0;
+    padding: 22px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+    border-right: 1px solid rgba(242,240,227,0.05);
+    /* NO overflow-y-auto — form always fully visible */
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-size: 9px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.18em; color: rgba(242,240,227,0.3);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .label-left { display: flex; align-items: center; gap: 4px; }
+  .dup-star {
+    color: #ef4444; font-size: 13px; font-weight: 900;
+    line-height: 1;
+  }
+  .dup-badge {
+    font-size: 9px; font-weight: 900; color: #ef4444;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 5px; padding: 2px 6px; letter-spacing: 0.05em;
+  }
+
+  /* combobox */
+  .combobox { position: relative; }
+  .combobox-input-row {
+    display: flex; align-items: center; gap: 0;
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.07);
+    border-radius: 14px; overflow: hidden;
+    transition: border-color 120ms;
+  }
+  .combobox-input-row:focus-within { border-color: rgba(216,30,30,0.45); }
+  .combobox-input-row input {
+    flex: 1; background: transparent; border: none; outline: none;
+    padding: 11px 14px; font-size: 13px; font-weight: 600;
+    color: rgba(242,240,227,0.85);
+  }
+  .combobox-input-row input::placeholder { color: rgba(242,240,227,0.2); }
+  .combobox-chevron {
+    padding: 0 12px; color: rgba(242,240,227,0.2); flex-shrink: 0;
+  }
+  .combobox-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #2e2e28; border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 14px; overflow: hidden; z-index: 10;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+  .dropdown-item {
+    padding: 10px 14px; font-size: 13px; font-weight: 600;
+    color: rgba(242,240,227,0.75); cursor: pointer;
+    transition: background 80ms;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dropdown-item:hover, .dropdown-item.selected {
+    background: rgba(216,30,30,0.12); color: #f87171;
+  }
+  .dropdown-item.selected { font-weight: 800; }
+  .dropdown-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #D81E1E;
+    flex-shrink: 0;
+  }
+
+  /* selected supplier pill */
+  .supplier-selected {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(216,30,30,0.08); border: 1.5px solid rgba(216,30,30,0.2);
+    border-radius: 14px; padding: 10px 14px;
+  }
+  .supplier-selected-name { font-size: 13px; font-weight: 800; color: #f87171; flex: 1; }
+  .supplier-clear {
+    width: 22px; height: 22px; border-radius: 50%; border: none;
+    background: rgba(216,30,30,0.15); color: #f87171; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 900;
+  }
+
+  /* code + description row */
+  .two-col { display: flex; gap: 10px; }
+  .two-col .field-group:first-child { flex: 1; }
+  .two-col .field-group:last-child { flex: 2.2; }
+
+  .text-input {
+    background: #252520; border: 1.5px solid rgba(242,240,227,0.07);
+    border-radius: 12px; padding: 10px 13px;
+    font-size: 13px; font-weight: 600; color: rgba(242,240,227,0.85);
+    outline: none; width: 100%; transition: border-color 120ms;
+  }
+  .text-input::placeholder { color: rgba(242,240,227,0.18); }
+  .text-input:focus { border-color: rgba(216,30,30,0.45); }
+  .text-input.has-dup { border-color: rgba(239,68,68,0.35); }
+
+  /* product search */
+  .search-wrap { position: relative; }
+  .search-wrap .search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: rgba(242,240,227,0.2); pointer-events: none;
+  }
+  .search-wrap input {
+    padding-left: 36px;
+  }
+
+  /* product result */
+  .product-result {
+    display: flex; align-items: center; gap: 10px;
+    background: #252520; border: 1.5px solid rgba(242,240,227,0.07);
+    border-radius: 12px; padding: 8px 12px; cursor: pointer;
+    transition: border-color 100ms;
+  }
+  .product-result:hover { border-color: rgba(216,30,30,0.3); background: rgba(216,30,30,0.06); }
+  .product-thumb {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: #3a3a34; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .product-result-name { font-size: 12px; font-weight: 800; flex: 1; color: rgba(242,240,227,0.8); }
+  .product-result-ean { font-size: 10px; color: rgba(242,240,227,0.3); margin-top: 1px; }
+
+  /* selected product card */
+  .product-selected-card {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(216,30,30,0.07); border: 1.5px solid rgba(216,30,30,0.22);
+    border-radius: 14px; padding: 12px 14px; position: relative;
+  }
+  .product-selected-thumb {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: #3a3a34; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; border: 1px solid rgba(216,30,30,0.1);
+  }
+  .product-selected-name { font-size: 14px; font-weight: 900; color: #f87171; }
+  .product-selected-ean { font-size: 10px; font-weight: 700; color: rgba(248,113,113,0.45); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px; }
+  .product-remove {
+    position: absolute; top: -8px; right: -8px;
+    width: 24px; height: 24px; border-radius: 50%; border: none;
+    background: #D81E1E; color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 900;
+    box-shadow: 0 3px 8px rgba(216,30,30,0.4);
+  }
+
+  /* save btn */
+  .save-btn {
+    width: 100%; padding: 13px;
+    background: #D81E1E; color: white; border: none;
+    border-radius: 14px; font-size: 12px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.18em; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: auto;
+    transition: background 120ms;
+  }
+  .save-btn:hover { background: #b91c1c; }
+  .save-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* import btn */
+  .import-btn {
+    width: 100%; padding: 10px 14px;
+    background: #252520; border: 1.5px dashed rgba(242,240,227,0.1);
+    border-radius: 12px; font-size: 10px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.15em;
+    color: rgba(242,240,227,0.4); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 120ms;
+  }
+  .import-btn:hover { border-color: rgba(216,30,30,0.3); color: #f87171; background: rgba(216,30,30,0.05); }
+
+  /* divider */
+  .divider {
+    border: none; border-top: 1px solid rgba(242,240,227,0.05);
+    margin: 0;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    background: rgba(255,255,255,0.01);
+  }
+  .right-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid rgba(242,240,227,0.05);
+    background: rgba(255,255,255,0.015);
+    flex-shrink: 0;
+  }
+  .right-header-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .right-title {
+    font-size: 9px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.25em; color: rgba(242,240,227,0.3);
+  }
+  .count-badge {
+    background: #D81E1E; color: white;
+    font-size: 9px; font-weight: 900;
+    padding: 2px 8px; border-radius: 99px;
+  }
+
+  .list-search-wrap { position: relative; }
+  .list-search-wrap input {
+    width: 100%; background: #252520;
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 10px; padding: 7px 12px 7px 32px;
+    font-size: 12px; color: rgba(242,240,227,0.7); outline: none;
+    transition: border-color 120ms;
+  }
+  .list-search-wrap input:focus { border-color: rgba(216,30,30,0.3); }
+  .list-search-wrap input::placeholder { color: rgba(242,240,227,0.2); }
+  .list-search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: rgba(242,240,227,0.2);
+  }
+
+  /* mapping cards list — THIS scrolls */
+  .mapping-list {
+    flex: 1; overflow-y: auto; padding: 14px 18px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .mapping-list::-webkit-scrollbar { width: 4px; }
+  .mapping-list::-webkit-scrollbar-track { background: transparent; }
+  .mapping-list::-webkit-scrollbar-thumb { background: rgba(242,240,227,0.1); border-radius: 2px; }
+
+  .mapping-card {
+    background: #252520; border: 1.5px solid rgba(242,240,227,0.05);
+    border-radius: 14px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: border-color 100ms; position: relative;
+  }
+  .mapping-card:hover { border-color: rgba(216,30,30,0.2); }
+  .card-actions {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 4px; opacity: 0;
+    transition: opacity 100ms;
+  }
+  .mapping-card:hover .card-actions { opacity: 1; }
+  .card-action-btn {
+    width: 26px; height: 26px; border-radius: 8px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    transition: all 80ms;
+  }
+  .card-action-btn.edit { background: rgba(216,30,30,0.1); color: #f87171; }
+  .card-action-btn.edit:hover { background: #D81E1E; color: white; }
+  .card-action-btn.del { background: rgba(239,68,68,0.08); color: #f87171; }
+  .card-action-btn.del:hover { background: #ef4444; color: white; }
+
+  .card-supplier-row { display: flex; align-items: center; gap: 6px; padding-right: 60px; }
+  .card-code {
+    font-size: 10px; font-weight: 900; background: rgba(242,240,227,0.07);
+    color: rgba(242,240,227,0.5); padding: 2px 7px; border-radius: 6px;
+    flex-shrink: 0; letter-spacing: 0.05em;
+  }
+  .card-desc { font-size: 13px; font-weight: 900; color: rgba(242,240,227,0.85); line-height: 1.3; }
+  .card-arrow-row {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 8px; border-top: 1px solid rgba(242,240,227,0.04);
+  }
+  .arrow-icon {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: rgba(216,30,30,0.08); color: #D81E1E;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 13px;
+  }
+  .card-product-label { font-size: 9px; font-weight: 900; color: rgba(216,30,30,0.5); text-transform: uppercase; letter-spacing: 0.1em; }
+  .card-product-name { font-size: 12px; font-weight: 800; color: rgba(242,240,227,0.65); }
+
+  /* annotation */
+  .annotation {
+    position: fixed; background: #f59e0b; color: #1a1a14;
+    font-size: 10px; font-weight: 900; padding: 4px 10px;
+    border-radius: 99px; letter-spacing: 0.05em; pointer-events: none;
+    white-space: nowrap; z-index: 100;
+    box-shadow: 0 3px 10px rgba(245,158,11,0.35);
+  }
+
+  /* state switcher */
+  .state-switcher {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; background: #2e2e28;
+    border: 1px solid rgba(242,240,227,0.1); border-radius: 99px;
+    padding: 5px; z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .state-btn {
+    font-size: 10px; font-weight: 900; padding: 7px 16px;
+    border-radius: 99px; border: none; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    transition: all 120ms;
+  }
+  .state-btn.on { background: #D81E1E; color: white; }
+  .state-btn.off { background: transparent; color: rgba(242,240,227,0.4); }
+  .state-btn.off:hover { color: rgba(242,240,227,0.7); }
+
+  /* empty state */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: rgba(242,240,227,0.12); gap: 10px;
+  }
+  .empty-state svg { opacity: 0.15; }
+  .empty-state p { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; }
+</style>
+</head>
+<body>
+
+<div class="backdrop">
+  <div class="modal">
+
+    <!-- HEADER -->
+    <div class="modal-header">
+      <div class="header-left">
+        <div class="header-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="modal-title">Dicionário de Fornecedores</div>
+          <div class="tabs">
+            <button class="tab active">Mapeamentos</button>
+            <button class="tab inactive">Unidades de Medida</button>
+          </div>
+        </div>
+      </div>
+      <button class="close-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- BODY -->
+    <div class="modal-body">
+
+      <!-- LEFT PANEL -->
+      <div class="left-panel">
+
+        <!-- 1. SUPPLIER SELECTOR -->
+        <div class="field-group">
+          <div class="field-label">
+            <div class="label-left">Selecionar Fornecedor</div>
+            <button style="font-size:9px;font-weight:900;color:#D81E1E;background:rgba(216,30,30,0.08);border:none;border-radius:99px;padding:4px 10px;cursor:pointer;letter-spacing:0.1em;text-transform:uppercase;">
+              + Novo Fornecedor
+            </button>
+          </div>
+
+          <!-- STATE A: searching -->
+          <div id="state-searching" class="combobox">
+            <div class="combobox-input-row" style="border-color:rgba(216,30,30,0.45);">
+              <input type="text" placeholder="Digite para buscar..." value="Cast" autofocus />
+              <span class="combobox-chevron">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+            <div class="combobox-dropdown">
+              <div class="dropdown-item selected"><span class="dropdown-dot"></span>Castelo Real Distribuidora</div>
+              <div class="dropdown-item">Castelo Branco Ltda.</div>
+              <div class="dropdown-item">Distribuidora Nova Era</div>
+            </div>
+          </div>
+
+          <!-- STATE B: selected (hidden initially) -->
+          <div id="state-selected" class="supplier-selected" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="supplier-selected-name">Castelo Real Distribuidora</span>
+            <button class="supplier-clear">✕</button>
+          </div>
+        </div>
+
+        <!-- import btn (only shown when supplier selected) -->
+        <button class="import-btn" id="import-btn" style="display:none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Importar Planilha
+        </button>
+
+        <hr class="divider" id="fields-divider" style="display:none;" />
+
+        <!-- 2. CODE + DESCRIPTION (only when supplier selected) -->
+        <div id="fields-section" style="display:none; display:flex; flex-direction:column; gap:14px;">
+
+          <!-- Single header above both fields -->
+          <div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:0.18em;color:rgba(242,240,227,0.3);margin-bottom:2px;">
+            Fornecedor
+          </div>
+
+          <div class="two-col" style="align-items:flex-start;">
+            <!-- Supplier Code -->
+            <div class="field-group">
+              <div class="field-label">
+                <div class="label-left">
+                  Código
+                  <span style="color:rgba(242,240,227,0.22);font-weight:400;font-size:8px;">(opcional)</span>
+                </div>
+              </div>
+              <input class="text-input" type="text" placeholder="Ref/SKU" value="CST-001" />
+            </div>
+
+            <!-- Description — has duplicate -->
+            <div class="field-group">
+              <div class="field-label">
+                <div class="label-left">
+                  Descrição
+                  <span id="dup-star" class="dup-star">*</span>
+                </div>
+                <span id="dup-badge" class="dup-badge">Já cadastrado</span>
+              </div>
+              <input class="text-input has-dup" type="text" placeholder="Ex: CHOCOLATE LACTA 1KG..." value="MAXMALLOW 70G DOCILE" />
+            </div>
+          </div>
+
+          <!-- 3. PRODUCT SEARCH -->
+          <div class="field-group">
+            <div class="field-label">Produto Interno</div>
+
+            <!-- search results state -->
+            <div id="search-state" style="display:flex;flex-direction:column;gap:6px;">
+              <div class="search-wrap">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="text-input" type="text" placeholder="Nome, EAN ou SKU..." value="maxmallow" />
+              </div>
+              <div class="product-result">
+                <div class="product-thumb">🍬</div>
+                <div>
+                  <div class="product-result-name">Maxmallows 70g Docile</div>
+                  <div class="product-result-ean">EAN: 7896451929389</div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(242,240,227,0.2)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+              <div class="product-result">
+                <div class="product-thumb">🍭</div>
+                <div>
+                  <div class="product-result-name">Maxmallows Recheado 70g</div>
+                  <div class="product-result-ean">EAN: 7896451929372</div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(242,240,227,0.2)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+            </div>
+
+            <!-- selected product state (hidden) -->
+            <div id="product-selected-state" style="display:none;">
+              <div class="product-selected-card">
+                <div class="product-selected-thumb">🍬</div>
+                <div>
+                  <div class="product-selected-name">Maxmallows 70g Docile</div>
+                  <div class="product-selected-ean">EAN/SKU: 7896451929389</div>
+                </div>
+                <button class="product-remove">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SAVE BTN -->
+        <button class="save-btn" id="save-btn" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Salvar Mapeamento
+        </button>
+
+      </div><!-- /left-panel -->
+
+      <!-- RIGHT PANEL -->
+      <div class="right-panel">
+        <div class="right-header">
+          <div class="right-header-row">
+            <span class="right-title">Dicionário Ativo</span>
+            <span class="count-badge">12</span>
+          </div>
+          <div class="list-search-wrap">
+            <svg class="list-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Pesquisar mapeamentos..." />
+          </div>
+        </div>
+
+        <!-- MAPPING LIST — scrolls -->
+        <div class="mapping-list" id="mapping-list">
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-code">CST-001</span>
+              <span class="card-desc">MAXMALLOW 70G DOCILE</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Maxmallows 70g Docile</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-code">CST-002</span>
+              <span class="card-desc">BALA PAÇOCA ROLHA 300G</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Paçoca Rolha 300g Amendoim</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-desc">CHICLETE TRIDENT MENTA C/21</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Trident Menta 21un</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-code">CST-018</span>
+              <span class="card-desc">CHOCOLATE LACTA AO LEITE 80G</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Chocolate Lacta ao Leite 80g</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-desc">PIRULITO GLOBO TUTTI FRUTTI 12UN</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Pirulito Globo Tutti Frutti 12un</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-code">CST-031</span>
+              <span class="card-desc">WAFER BAUDUCCO CHOCOLATE 130G</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Wafer Bauducco Chocolate 130g</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mapping-card">
+            <div class="card-actions">
+              <button class="card-action-btn edit">✏</button>
+              <button class="card-action-btn del">🗑</button>
+            </div>
+            <div class="card-supplier-row">
+              <span class="card-desc">DROPS HALLS UVA C/21</span>
+            </div>
+            <div class="card-arrow-row">
+              <div class="arrow-icon">→</div>
+              <div>
+                <div class="card-product-label">Produto Interno</div>
+                <div class="card-product-name">Halls Uva 21un</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /right-panel -->
+    </div><!-- /modal-body -->
+  </div><!-- /modal -->
+</div><!-- /backdrop -->
+
+<!-- State switcher -->
+<div class="state-switcher">
+  <button class="state-btn on" onclick="setState('searching')">① Buscando Fornecedor</button>
+  <button class="state-btn off" onclick="setState('selected-searching')">② Fornecedor Selecionado</button>
+  <button class="state-btn off" onclick="setState('product-selected')">③ Produto Vinculado</button>
+</div>
+
+<script>
+function setState(s) {
+  document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.state-btn')[
+    s==='searching'?0:s==='selected-searching'?1:2
+  ].classList.add('on');
+
+  const searchingEl = document.getElementById('state-searching');
+  const selectedEl  = document.getElementById('state-selected');
+  const importBtn   = document.getElementById('import-btn');
+  const divider     = document.getElementById('fields-divider');
+  const fields      = document.getElementById('fields-section');
+  const saveBtn     = document.getElementById('save-btn');
+  const searchState = document.getElementById('search-state');
+  const prodSel     = document.getElementById('product-selected-state');
+  const mappingList = document.getElementById('mapping-list');
+  const dupStar     = document.getElementById('dup-star');
+  const dupBadge    = document.getElementById('dup-badge');
+
+  if (s === 'searching') {
+    searchingEl.style.display = '';
+    selectedEl.style.display  = 'none';
+    importBtn.style.display   = 'none';
+    divider.style.display     = 'none';
+    fields.style.display      = 'none';
+    saveBtn.style.display     = 'none';
+    mappingList.innerHTML = `<div class="empty-state"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><p>Selecione um fornecedor para ver o dicionário</p></div>`;
+  }
+
+  if (s === 'selected-searching') {
+    searchingEl.style.display = 'none';
+    selectedEl.style.display  = '';
+    importBtn.style.display   = '';
+    divider.style.display     = '';
+    fields.style.display      = 'flex';
+    saveBtn.style.display     = '';
+    searchState.style.display = 'flex';
+    prodSel.style.display     = 'none';
+    dupStar.style.display     = '';
+    dupBadge.style.display    = '';
+    restoreList();
+  }
+
+  if (s === 'product-selected') {
+    searchingEl.style.display = 'none';
+    selectedEl.style.display  = '';
+    importBtn.style.display   = '';
+    divider.style.display     = '';
+    fields.style.display      = 'flex';
+    saveBtn.style.display     = '';
+    searchState.style.display = 'none';
+    prodSel.style.display     = 'block';
+    dupStar.style.display     = 'none';
+    dupBadge.style.display    = 'none';
+    restoreList();
+  }
+}
+
+function restoreList() {
+  document.getElementById('mapping-list').innerHTML = document.getElementById('mapping-list-template').innerHTML;
+}
+
+// Store original list HTML as template
+window.addEventListener('DOMContentLoaded', () => {
+  const ml = document.getElementById('mapping-list');
+  const tmpl = document.createElement('div');
+  tmpl.id = 'mapping-list-template';
+  tmpl.style.display = 'none';
+  tmpl.innerHTML = ml.innerHTML;
+  document.body.appendChild(tmpl);
+  const initState = new URLSearchParams(location.search).get('state') || 'searching';
+  setState(initState);
+});
+</script>
+</body>
+</html>

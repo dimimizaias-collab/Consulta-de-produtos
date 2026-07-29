@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista de Produtos — Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --brand-red: #D81E1E;
+  --brand-yellow: #FFE500;
+}
+
+body {
+  font-family: 'DM Mono', monospace;
+  background: #d8d4c8;
+  min-height: 100vh;
+  padding: 48px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+}
+
+/* ── PAGE LABELS ─────────────────────────────────────────────────────────── */
+.section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a7468;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  max-width: 920px;
+  width: 100%;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0,0,0,0.15);
+}
+
+/* ── WINDOW ──────────────────────────────────────────────────────────────── */
+.window {
+  width: 920px;
+  max-width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* DARK */
+.window--dark {
+  background: #141410;
+  border: 1px solid rgba(242,240,227,0.07);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 24px 60px rgba(0,0,0,0.55),
+    0 6px 16px rgba(0,0,0,0.4);
+}
+.window--dark .win-header {
+  background: #1c1c16;
+  border-bottom: 1px solid rgba(216,30,30,0.20);
+}
+.window--dark .win-header-title   { color: #f2f0e3; }
+.window--dark .win-header-sub     { color: rgba(242,240,227,0.35); }
+.window--dark .win-close          { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.45); }
+.window--dark .win-close:hover    { background: rgba(242,240,227,0.13); color: #f2f0e3; }
+.window--dark .table-bg           { background: #141410; }
+
+/* header cells */
+.window--dark .col-header {
+  background: #2e2e28;
+  border: 1.5px solid rgba(242,240,227,0.06);
+  color: rgba(242,240,227,0.5);
+}
+.window--dark .col-header.req::after { color: #e05555; }
+
+/* row */
+.window--dark .bulk-row           { background: #1c1c16; }
+.window--dark .bulk-row.alt       { background: #252520; }
+.window--dark .row-num            { color: rgba(242,240,227,0.18); }
+
+/* cells */
+.window--dark .cell {
+  background: #1e1e18;
+  border: 1.5px solid rgba(242,240,227,0.07);
+}
+.window--dark .cell:focus-within {
+  border-color: #D81E1E;
+  box-shadow: 0 0 0 3px rgba(216,30,30,0.15);
+}
+.window--dark .cell input,
+.window--dark .cell select        { color: #f2f0e3; }
+.window--dark .cell input::placeholder { color: rgba(242,240,227,0.2); }
+
+/* invalid */
+.window--dark .cell.invalid {
+  background: rgba(216,30,30,0.08);
+  border-color: rgba(216,30,30,0.55);
+}
+.window--dark .cell.invalid input { color: #e05555; }
+
+/* delete btn */
+.window--dark .del-btn            { color: rgba(242,240,227,0.18); }
+.window--dark .del-btn:hover      { color: #e05555; background: rgba(216,30,30,0.12); }
+
+/* add row */
+.window--dark .add-row            { color: rgba(242,240,227,0.3); border: 1.5px dashed rgba(242,240,227,0.13); }
+.window--dark .add-row:hover      { color: #e05555; border-color: rgba(216,30,30,0.5); background: rgba(216,30,30,0.06); }
+
+/* footer */
+.window--dark .win-footer         { background: #1c1c16; border-top: 1px solid rgba(242,240,227,0.06); }
+.window--dark .footer-hint        { color: rgba(242,240,227,0.28); }
+.window--dark .btn-cancel         { background: rgba(242,240,227,0.05); color: rgba(242,240,227,0.45); border: 1.5px solid rgba(242,240,227,0.08); }
+.window--dark .btn-cancel:hover   { background: rgba(242,240,227,0.09); color: rgba(242,240,227,0.75); }
+.window--dark .btn-save           { background: #D81E1E; color: #fff; box-shadow: 0 4px 18px rgba(216,30,30,0.38); }
+.window--dark .btn-save:hover     { background: #c01818; box-shadow: 0 6px 22px rgba(216,30,30,0.48); }
+.window--dark .badge-theme        { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.4); }
+
+/* LIGHT */
+.window--light {
+  background: #FFFCEC;
+  border: 1px solid #DDD5BC;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.08),
+    0 24px 60px rgba(0,0,0,0.2),
+    0 6px 16px rgba(0,0,0,0.1);
+}
+.window--light .win-header {
+  background: #FFE500;
+  border-bottom: 1.5px solid #D4C900;
+}
+.window--light .win-header-title  { color: #1a1a14; }
+.window--light .win-header-sub    { color: rgba(26,26,20,0.5); }
+.window--light .win-close         { background: rgba(26,26,20,0.1); color: rgba(26,26,20,0.6); }
+.window--light .win-close:hover   { background: rgba(26,26,20,0.18); color: #1a1a14; }
+.window--light .table-bg          { background: #FFFCEC; }
+
+/* header cells */
+.window--light .col-header {
+  background: #FFE500;
+  border: 1.5px solid #D4C900;
+  color: rgba(26,26,20,0.75);
+}
+.window--light .col-header.req::after { color: #D81E1E; }
+
+/* row */
+.window--light .bulk-row          { background: #FFFFFF; }
+.window--light .bulk-row.alt      { background: #FAF7EE; }
+.window--light .row-num           { color: rgba(26,26,20,0.28); }
+
+/* cells */
+.window--light .cell {
+  background: #FFFFFF;
+  border: 1.5px solid #E2D9C5;
+}
+.window--light .bulk-row.alt .cell { background: #FAF7EE; }
+.window--light .cell:focus-within {
+  border-color: #D81E1E;
+  box-shadow: 0 0 0 3px rgba(216,30,30,0.1);
+  background: #FFFFFF;
+}
+.window--light .cell input,
+.window--light .cell select       { color: #1a1a14; }
+.window--light .cell input::placeholder { color: rgba(26,26,20,0.32); }
+
+/* invalid */
+.window--light .cell.invalid {
+  background: rgba(216,30,30,0.04);
+  border-color: rgba(216,30,30,0.45);
+}
+.window--light .cell.invalid input { color: #c01818; }
+
+/* delete btn */
+.window--light .del-btn           { color: rgba(26,26,20,0.22); }
+.window--light .del-btn:hover     { color: #D81E1E; background: rgba(216,30,30,0.07); }
+
+/* add row */
+.window--light .add-row           { color: rgba(26,26,20,0.38); border: 1.5px dashed #D2C9B5; }
+.window--light .add-row:hover     { color: #D81E1E; border-color: rgba(216,30,30,0.45); background: rgba(216,30,30,0.04); }
+
+/* footer */
+.window--light .win-footer        { background: #FFFCEC; border-top: 1px solid #E9DFC2; }
+.window--light .footer-hint       { color: rgba(26,26,20,0.38); }
+.window--light .btn-cancel        { background: rgba(26,26,20,0.05); color: rgba(26,26,20,0.5); border: 1.5px solid #DDD5BC; }
+.window--light .btn-cancel:hover  { background: rgba(26,26,20,0.09); color: rgba(26,26,20,0.8); }
+.window--light .btn-save          { background: #D81E1E; color: #fff; box-shadow: 0 4px 16px rgba(216,30,30,0.28); }
+.window--light .btn-save:hover    { background: #b91a1a; box-shadow: 0 6px 20px rgba(216,30,30,0.38); }
+.window--light .badge-theme       { background: rgba(26,26,20,0.08); color: rgba(26,26,20,0.5); }
+
+/* ── WINDOW INTERNALS ────────────────────────────────────────────────────── */
+.win-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.win-header-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.window--dark  .win-header-icon { background: rgba(216,30,30,0.14); }
+.window--light .win-header-icon { background: rgba(26,26,20,0.08); }
+.win-header-text { flex: 1; }
+.win-header-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.win-header-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 300;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+.win-close {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 130ms var(--ease-out), color 130ms var(--ease-out), transform 130ms var(--ease-out);
+  flex-shrink: 0;
+}
+.win-close:active { transform: scale(0.92); }
+.badge-theme {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 6px;
+}
+
+/* ── TABLE AREA ──────────────────────────────────────────────────────────── */
+.table-bg {
+  padding: 14px 20px 6px;
+  overflow-x: auto;
+}
+
+/* The key: border-collapse:separate + border-spacing creates gutter between cells */
+.bulk-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 5px 3px; /* col-gap row-gap */
+  table-layout: fixed;
+}
+
+/* ── HEADER CELLS ──────────────────────────────────────────────────────── */
+.col-header {
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.11em; text-transform: uppercase;
+  white-space: nowrap; text-align: left;
+  display: block; /* col-header sits in <th>, fills it */
+}
+.col-header.req::after {
+  content: ' *';
+  font-size: 11px;
+  margin-left: 1px;
+}
+
+/* th holds the col-header div, needs no own styling */
+.bulk-table thead th {
+  padding: 0; vertical-align: bottom;
+}
+
+/* ── ROWS ────────────────────────────────────────────────────────────────── */
+.bulk-row td {
+  padding: 0;
+  vertical-align: middle;
+}
+
+/* row num + delete cols: transparent, no cell style */
+.td-num { width: 32px; }
+.td-del { width: 34px; }
+
+.row-num {
+  font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 300;
+  display: block; text-align: right; padding-right: 5px;
+  letter-spacing: 0.03em;
+}
+
+/* ── DATA CELLS ─────────────────────────────────────────────────────────── */
+/* The <td> itself becomes the rounded rect */
+.bulk-table tbody .bulk-row td.data-cell {
+  border-radius: 9px;
+  transition: border-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out);
+}
+
+/* We use .cell as inner container so we don't fight table TD borders */
+.cell {
+  border-radius: 9px;
+  border: 1.5px solid transparent;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition: border-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out), background 130ms var(--ease-out);
+}
+
+.cell input,
+.cell select {
+  background: transparent;
+  border: none; outline: none;
+  width: 100%; height: 100%;
+  padding: 0 11px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.cell input.num,
+.cell select.num {
+  text-align: right;
+  padding-right: 11px;
+  font-weight: 500;
+}
+
+/* Status select: custom appearance */
+.cell select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  cursor: pointer;
+}
+.cell .select-wrap {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex; align-items: center;
+}
+.cell .select-wrap select { position: absolute; inset: 0; width: 100%; }
+.cell .select-arrow {
+  position: absolute; right: 9px; pointer-events: none; opacity: 0.4;
+  display: flex; align-items: center;
+}
+
+/* ── DELETE BUTTON ───────────────────────────────────────────────────────── */
+.del-btn {
+  border: none; background: transparent; cursor: pointer;
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 130ms var(--ease-out), background 130ms var(--ease-out), transform 130ms var(--ease-out);
+}
+.del-btn:active { transform: scale(0.90); }
+
+/* ── ADD ROW BUTTON ──────────────────────────────────────────────────────── */
+.add-row {
+  margin: 6px 0 4px;
+  width: 100%; height: 36px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 7px;
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out), background 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+.add-row:active { transform: scale(0.98); }
+
+/* ── FOOTER ──────────────────────────────────────────────────────────────── */
+.win-footer {
+  padding: 13px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.footer-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; font-weight: 300;
+  letter-spacing: 0.04em;
+}
+.footer-btns { display: flex; gap: 8px; align-items: center; }
+.btn-cancel, .btn-save {
+  border: none; border-radius: 10px; cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 6px;
+  transition: background 150ms var(--ease-out), color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+.btn-cancel:active, .btn-save:active { transform: scale(0.96); }
+
+/* ── STATE ANNOTATION ────────────────────────────────────────────────────── */
+.state-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; font-weight: 300;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  opacity: 0.45;
+  text-align: right;
+  padding-right: 2px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ── DARK THEME ────────────────────────────────────────────────────────── -->
+<p class="section-label">Modo noturno</p>
+
+<div class="window window--dark">
+  <div class="win-header">
+    <div class="win-header-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/>
+      </svg>
+    </div>
+    <div class="win-header-text">
+      <div class="win-header-title">Lista de Produtos</div>
+      <div class="win-header-sub">Cadastro em lote · 4 linhas · 3 válidas</div>
+    </div>
+    <span class="badge-theme">Noturno</span>
+    <button class="win-close">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="table-bg">
+    <table class="bulk-table">
+      <colgroup>
+        <col style="width:32px">
+        <col style="width:auto">      <!-- Nome -->
+        <col style="width:96px">     <!-- SKU -->
+        <col style="width:132px">    <!-- EAN -->
+        <col style="width:116px">    <!-- Categoria -->
+        <col style="width:72px">     <!-- Qtde -->
+        <col style="width:88px">     <!-- Preço -->
+        <col style="width:130px">    <!-- Status -->
+        <col style="width:34px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th><div class="col-header req">Nome</div></th>
+          <th><div class="col-header">SKU</div></th>
+          <th><div class="col-header">EAN</div></th>
+          <th><div class="col-header">Categoria</div></th>
+          <th><div class="col-header">Qtde</div></th>
+          <th><div class="col-header">Preço R$</div></th>
+          <th><div class="col-header">Status</div></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ROW 1: filled, normal -->
+        <tr class="bulk-row">
+          <td class="td-num"><span class="row-num">1</span></td>
+          <td><div class="cell"><input type="text" value="Chocolate Lacta 80g"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-001"></div></td>
+          <td><div class="cell"><input type="text" value="7891234567890"></div></td>
+          <td><div class="cell"><input type="text" value="Chocolates"></div></td>
+          <td><div class="cell"><input type="number" class="num" value="48"></div></td>
+          <td><div class="cell"><input type="text" class="num" value="1,99"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select><option selected>Em Estoque</option><option>Estoque Baixo</option><option>Fora de Estoque</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <!-- ROW 2: alternate, filled -->
+        <tr class="bulk-row alt">
+          <td class="td-num"><span class="row-num">2</span></td>
+          <td><div class="cell"><input type="text" value="Biscoito Trakinas Morango"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-002"></div></td>
+          <td><div class="cell"><input type="text" value="7892840893186"></div></td>
+          <td><div class="cell"><input type="text" value="Biscoitos"></div></td>
+          <td><div class="cell"><input type="number" class="num" value="120"></div></td>
+          <td><div class="cell"><input type="text" class="num" value="1,99"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select><option>Em Estoque</option><option selected>Estoque Baixo</option><option>Fora de Estoque</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <!-- ROW 3: active cell (focused) -->
+        <tr class="bulk-row">
+          <td class="td-num"><span class="row-num">3</span></td>
+          <td><div class="cell" style="border-color:#D81E1E;box-shadow:0 0 0 3px rgba(216,30,30,0.16)"><input type="text" value="Salgadinho Elma Chips"></div></td>
+          <td><div class="cell"><input type="text" placeholder="SKU-003"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Código de barras"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Categoria"></div></td>
+          <td><div class="cell"><input type="number" class="num" placeholder="0"></div></td>
+          <td><div class="cell"><input type="text" class="num" placeholder="0,00"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select><option selected>Em Estoque</option><option>Estoque Baixo</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <!-- ROW 4: invalid (Nome vazio) -->
+        <tr class="bulk-row alt">
+          <td class="td-num"><span class="row-num">4</span></td>
+          <td><div class="cell invalid"><input type="text" placeholder="Nome obrigatório *"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-004"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Código de barras"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Categoria"></div></td>
+          <td><div class="cell"><input type="number" class="num" placeholder="0"></div></td>
+          <td><div class="cell"><input type="text" class="num" placeholder="0,00"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select><option selected>Em Estoque</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn" style="color:#e05555"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <button class="add-row">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Adicionar linha
+    </button>
+  </div>
+
+  <div class="win-footer">
+    <span class="footer-hint">↑ ↓ navegar · Tab próxima · ⌘V colar coluna</span>
+    <div class="footer-btns">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Salvar 3 produtos
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── LIGHT THEME ────────────────────────────────────────────────────────── -->
+<p class="section-label">Modo claro</p>
+
+<div class="window window--light">
+  <div class="win-header">
+    <div class="win-header-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.55">
+        <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/>
+      </svg>
+    </div>
+    <div class="win-header-text">
+      <div class="win-header-title">Lista de Produtos</div>
+      <div class="win-header-sub">Cadastro em lote · 4 linhas · 3 válidas</div>
+    </div>
+    <span class="badge-theme">Claro</span>
+    <button class="win-close">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="table-bg">
+    <table class="bulk-table">
+      <colgroup>
+        <col style="width:32px">
+        <col style="width:auto">
+        <col style="width:96px">
+        <col style="width:132px">
+        <col style="width:116px">
+        <col style="width:72px">
+        <col style="width:88px">
+        <col style="width:130px">
+        <col style="width:34px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th><div class="col-header req">Nome</div></th>
+          <th><div class="col-header">SKU</div></th>
+          <th><div class="col-header">EAN</div></th>
+          <th><div class="col-header">Categoria</div></th>
+          <th><div class="col-header">Qtde</div></th>
+          <th><div class="col-header">Preço R$</div></th>
+          <th><div class="col-header">Status</div></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="bulk-row">
+          <td class="td-num"><span class="row-num">1</span></td>
+          <td><div class="cell"><input type="text" value="Chocolate Lacta 80g"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-001"></div></td>
+          <td><div class="cell"><input type="text" value="7891234567890"></div></td>
+          <td><div class="cell"><input type="text" value="Chocolates"></div></td>
+          <td><div class="cell"><input type="number" class="num" value="48"></div></td>
+          <td><div class="cell"><input type="text" class="num" value="1,99"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select style="background:transparent"><option selected>Em Estoque</option><option>Estoque Baixo</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <tr class="bulk-row alt">
+          <td class="td-num"><span class="row-num">2</span></td>
+          <td><div class="cell"><input type="text" value="Biscoito Trakinas Morango"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-002"></div></td>
+          <td><div class="cell"><input type="text" value="7892840893186"></div></td>
+          <td><div class="cell"><input type="text" value="Biscoitos"></div></td>
+          <td><div class="cell"><input type="number" class="num" value="120"></div></td>
+          <td><div class="cell"><input type="text" class="num" value="1,99"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select style="background:transparent"><option>Em Estoque</option><option selected>Estoque Baixo</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <tr class="bulk-row">
+          <td class="td-num"><span class="row-num">3</span></td>
+          <td><div class="cell" style="border-color:#D81E1E;box-shadow:0 0 0 3px rgba(216,30,30,0.10);background:#fff"><input type="text" value="Salgadinho Elma Chips"></div></td>
+          <td><div class="cell"><input type="text" placeholder="SKU-003"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Código de barras"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Categoria"></div></td>
+          <td><div class="cell"><input type="number" class="num" placeholder="0"></div></td>
+          <td><div class="cell"><input type="text" class="num" placeholder="0,00"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select style="background:transparent"><option selected>Em Estoque</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+        <tr class="bulk-row alt">
+          <td class="td-num"><span class="row-num">4</span></td>
+          <td><div class="cell invalid"><input type="text" placeholder="Nome obrigatório *"></div></td>
+          <td><div class="cell"><input type="text" value="SKU-004"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Código de barras"></div></td>
+          <td><div class="cell"><input type="text" placeholder="Categoria"></div></td>
+          <td><div class="cell"><input type="number" class="num" placeholder="0"></div></td>
+          <td><div class="cell"><input type="text" class="num" placeholder="0,00"></div></td>
+          <td><div class="cell"><div class="select-wrap">
+            <select style="background:transparent"><option selected>Em Estoque</option></select>
+            <span class="select-arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+          </div></div></td>
+          <td class="td-del"><button class="del-btn" style="color:#D81E1E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <button class="add-row">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Adicionar linha
+    </button>
+  </div>
+
+  <div class="win-footer">
+    <span class="footer-hint">↑ ↓ navegar · Tab próxima · ⌘V colar coluna</span>
+    <div class="footer-btns">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Salvar 3 produtos
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

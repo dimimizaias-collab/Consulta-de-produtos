@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>Nav Redesign · Mockup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #141410;
+    --surface:    #1c1c16;
+    --surface2:   #252519;
+    --surface3:   #2e2e28;
+    --on:         #f2f0e3;
+    --on40:       rgba(242,240,227,0.40);
+    --on20:       rgba(242,240,227,0.20);
+    --on08:       rgba(242,240,227,0.08);
+    --on05:       rgba(242,240,227,0.05);
+    --primary:    #D81E1E;
+    --primary10:  rgba(216,30,30,0.10);
+    --primary20:  rgba(216,30,30,0.20);
+    --ease-out:   cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  body {
+    background: var(--bg);
+    font-family: -apple-system, 'Inter', sans-serif;
+    color: var(--on);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── FLOATING SIDEBAR ─── */
+  .sidebar {
+    position: fixed;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+  }
+
+  .nav-btn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--on40);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 160ms var(--ease-out),
+                color 160ms var(--ease-out),
+                transform 100ms var(--ease-out);
+    outline: none;
+  }
+  .nav-btn:hover {
+    background: var(--on08);
+    color: var(--on);
+  }
+  .nav-btn:active {
+    transform: scale(0.93);
+  }
+  .nav-btn.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(216,30,30,0.35);
+  }
+  .nav-btn.active:hover {
+    background: var(--primary);
+  }
+
+  /* Tooltip */
+  .nav-btn .tooltip {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    background: var(--surface2);
+    border: 1px solid var(--on08);
+    color: var(--on);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 6px 10px;
+    border-radius: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms var(--ease-out),
+                transform 120ms var(--ease-out);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    letter-spacing: 0.03em;
+  }
+  .nav-btn:hover .tooltip {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Separator */
+  .nav-sep {
+    width: 20px;
+    height: 1px;
+    background: var(--on08);
+    margin: 2px 0;
+  }
+
+  /* Notification badge */
+  .nav-btn .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+
+  /* ─── FLOATING TOP NAV ─── */
+  .topnav {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Search floats top-left, after sidebar */
+  .topnav-left {
+    position: fixed;
+    top: 16px;
+    left: 76px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Search pill */
+  .search-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(28,28,22,0.75);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--on08);
+    border-radius: 24px;
+    padding: 0 14px;
+    height: 42px;
+    width: 280px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    transition: opacity 200ms var(--ease-out),
+                transform 200ms var(--ease-out),
+                width 250ms var(--ease-out);
+  }
+  .search-pill.hidden {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    width: 0;
+    padding: 0;
+    border: none;
+  }
+  .search-pill svg { color: var(--primary); opacity: 0.7; flex-shrink: 0; }
+  .search-pill input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--on);
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    placeholder-color: var(--on40);
+  }
+  .search-pill input::placeholder { color: var(--on40); }
+
+  /* Bell button */
+  .bell-btn {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(28,28,22,0.75);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--on08);
+    color: var(--on40);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    transition: color 160ms var(--ease-out),
+                background 160ms var(--ease-out),
+                transform 100ms var(--ease-out);
+    outline: none;
+  }
+  .bell-btn:hover { color: var(--on); background: rgba(40,40,32,0.85); }
+  .bell-btn:active { transform: scale(0.94); }
+  .bell-btn .notif-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+
+  /* Profile pill */
+  .profile-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(28,28,22,0.75);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--on08);
+    border-radius: 24px;
+    padding: 4px 14px 4px 4px;
+    height: 42px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: background 160ms var(--ease-out), transform 100ms var(--ease-out);
+    outline: none;
+    border: none;
+  }
+  .profile-pill:hover { background: rgba(40,40,32,0.85); }
+  .profile-pill:active { transform: scale(0.97); }
+  .profile-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(216,30,30,0.35);
+  }
+  .profile-info { text-align: left; }
+  .profile-info .name { font-size: 10px; font-weight: 800; color: var(--on); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.2; }
+  .profile-info .role { font-size: 9px; font-weight: 600; color: var(--primary); margin-top: 1px; }
+
+  /* ─── CONTENT AREA ─── */
+  .content {
+    margin-left: 76px;
+    padding: 76px 24px 32px;
+    min-height: 100vh;
+  }
+
+  /* Page header */
+  .page-header {
+    margin-bottom: 24px;
+  }
+  .page-title {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--on);
+    letter-spacing: -0.4px;
+    margin-bottom: 4px;
+  }
+  .page-subtitle {
+    font-size: 12px;
+    color: var(--on40);
+    font-weight: 500;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--on08);
+    border-radius: 18px;
+    padding: 16px 20px;
+  }
+  .stat-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--on40);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--on);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .stat-value.primary { color: var(--primary); }
+  .stat-sub {
+    font-size: 10px;
+    color: var(--on40);
+    margin-top: 4px;
+  }
+
+  /* Product grid */
+  .products-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .product-card {
+    background: var(--surface);
+    border: 1px solid var(--on08);
+    border-radius: 22px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: box-shadow 180ms var(--ease-out), transform 100ms var(--ease-out);
+    cursor: default;
+  }
+  .product-card:hover {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    transform: translateY(-1px);
+  }
+  .product-img {
+    width: 80px;
+    height: 66px;
+    border-radius: 14px;
+    background: var(--surface3);
+    border: 1px solid var(--on05);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--on20);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .product-info { flex: 1; min-width: 0; }
+  .product-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--on);
+    margin-bottom: 6px;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .product-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--on05);
+    border: 1px solid var(--on08);
+    border-radius: 7px;
+    padding: 4px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--on40);
+    letter-spacing: 0.03em;
+  }
+  .pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.8;
+  }
+  .product-price {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+  .price-currency { font-size: 13px; font-weight: 900; color: var(--primary); }
+  .price-value { font-size: 22px; font-weight: 900; color: var(--primary); letter-spacing: -0.5px; line-height: 1; }
+  .product-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .meta-box {
+    background: var(--on05);
+    border: 1px solid var(--on08);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 110px;
+  }
+  .meta-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--primary10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--primary);
+  }
+  .meta-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--on40); }
+  .meta-value { font-size: 13px; font-weight: 900; color: var(--on); margin-top: 1px; }
+
+  /* Separator line between label and content areas */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--on40);
+  }
+  .section-line { flex: 1; height: 1px; background: var(--on08); }
+
+  /* ─── ANNOTATION LABELS ─── */
+  .annotation {
+    position: fixed;
+    background: rgba(216,30,30,0.12);
+    border: 1px dashed rgba(216,30,30,0.5);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary);
+    pointer-events: none;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    z-index: 200;
+  }
+  .ann-line {
+    position: fixed;
+    border-left: 1px dashed rgba(216,30,30,0.35);
+    pointer-events: none;
+    z-index: 199;
+  }
+
+  /* Tab indicator for non-inventory view */
+  .other-tab-hint {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    color: var(--on20);
+    gap: 16px;
+  }
+  .other-tab-hint .icon { font-size: 48px; opacity: 0.3; }
+  .other-tab-hint p { font-size: 13px; font-weight: 600; text-align: center; }
+  .other-tab-hint em { color: var(--on40); font-style: normal; }
+
+  .inventory-view { display: block; }
+  .other-view { display: none; }
+  body.non-inventory .inventory-view { display: none; }
+  body.non-inventory .other-view { display: flex; }
+
+</style>
+</head>
+<body>
+
+<!-- ─── FLOATING SIDEBAR ─── -->
+<aside class="sidebar">
+  <button class="nav-btn active" onclick="switchTab(this,'inventory')" title="">
+    <!-- Package2 icon -->
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span class="tooltip">Inventory</span>
+  </button>
+
+  <button class="nav-btn" onclick="switchTab(this,'dashboard')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <span class="tooltip">Dashboard</span>
+  </button>
+
+  <button class="nav-btn" onclick="switchTab(this,'pedidos')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+    <span class="tooltip">Pedidos de Compra</span>
+  </button>
+
+  <button class="nav-btn" onclick="switchTab(this,'requisicoes')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    <span class="tooltip">Requisições</span>
+  </button>
+
+  <div class="nav-sep"></div>
+
+  <button class="nav-btn" onclick="switchTab(this,'entrada')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+    <span class="tooltip">Entrada de Mercadoria</span>
+  </button>
+
+  <button class="nav-btn" onclick="switchTab(this,'financeiro')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+    <span class="tooltip">Controle Financeiro</span>
+  </button>
+
+  <div class="nav-sep"></div>
+
+  <button class="nav-btn" onclick="switchTab(this,'notificacoes')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span class="badge"></span>
+    <span class="tooltip">Notificações</span>
+  </button>
+
+  <button class="nav-btn" onclick="switchTab(this,'configuracoes')" title="">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="tooltip">Configurações</span>
+  </button>
+</aside>
+
+<!-- ─── SEARCH (top-left) ─── -->
+<div class="topnav-left">
+  <div class="search-pill" id="searchPill">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" placeholder="EAN, SKU, nome do produto…">
+  </div>
+</div>
+
+<!-- ─── FLOATING TOP NAV (top-right) ─── -->
+<nav class="topnav">
+  <!-- Bell -->
+  <button class="bell-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span class="notif-dot"></span>
+  </button>
+
+  <!-- Profile -->
+  <button class="profile-pill">
+    <div class="profile-avatar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div class="profile-info">
+      <div class="name">Universo Curator</div>
+      <div class="role">Admin Mode</div>
+    </div>
+  </button>
+</nav>
+
+<!-- ─── CONTENT AREA ─── -->
+<main class="content">
+
+  <!-- INVENTORY VIEW -->
+  <div class="inventory-view">
+    <div class="page-header">
+      <div class="page-title">Inventory</div>
+      <div class="page-subtitle">248 produtos · última atualização agora</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Catálogo</div>
+        <div class="stat-value">248</div>
+        <div class="stat-sub">produtos cadastrados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Estoque Baixo</div>
+        <div class="stat-value primary">12</div>
+        <div class="stat-sub">abaixo do mínimo</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sem Estoque</div>
+        <div class="stat-value primary">5</div>
+        <div class="stat-sub">produtos zerados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Categorias</div>
+        <div class="stat-value">18</div>
+        <div class="stat-sub">grupos ativos</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Produtos</div>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="products-grid">
+
+      <div class="product-card">
+        <div class="product-img">Sem Foto</div>
+        <div class="product-info">
+          <div class="product-name">Chaveiro Porta-moedas Coração Rosa</div>
+          <div class="product-pills" style="margin-bottom:10px">
+            <span class="pill"><span class="pill-dot"></span>7891234567890</span>
+            <span class="pill"># CHV-001</span>
+          </div>
+          <div class="product-price">
+            <span class="price-currency">R$</span>
+            <span class="price-value">1,99</span>
+          </div>
+        </div>
+        <div class="product-meta">
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Estoque</div>
+              <div class="meta-value">42</div>
+            </div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Localização</div>
+              <div class="meta-value">A-04</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-img">Sem Foto</div>
+        <div class="product-info">
+          <div class="product-name">Borracha Divertida Animais da Fazenda c/4un</div>
+          <div class="product-pills" style="margin-bottom:10px">
+            <span class="pill"><span class="pill-dot"></span>7898765432101</span>
+            <span class="pill"># BOR-022</span>
+          </div>
+          <div class="product-price">
+            <span class="price-currency">R$</span>
+            <span class="price-value">1,99</span>
+          </div>
+        </div>
+        <div class="product-meta">
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Estoque</div>
+              <div class="meta-value" style="color:var(--primary)">3</div>
+            </div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Localização</div>
+              <div class="meta-value">C-11</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-img">Sem Foto</div>
+        <div class="product-info">
+          <div class="product-name">Mini Quebra-Cabeça Paisagem 60 Peças</div>
+          <div class="product-pills" style="margin-bottom:10px">
+            <span class="pill"><span class="pill-dot"></span>7893698521470</span>
+            <span class="pill"># QCB-007</span>
+          </div>
+          <div class="product-price">
+            <span class="price-currency">R$</span>
+            <span class="price-value">1,99</span>
+          </div>
+        </div>
+        <div class="product-meta">
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Estoque</div>
+              <div class="meta-value">87</div>
+            </div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div>
+              <div class="meta-label">Localização</div>
+              <div class="meta-value">B-07</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- OTHER TAB VIEW -->
+  <div class="other-view" style="flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--on20)">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <div style="text-align:center">
+      <p style="font-size:14px;font-weight:700;margin-bottom:4px;color:var(--on40)" id="currentTabName">Dashboard</p>
+      <p style="font-size:11px;color:var(--on20)">O campo de busca aparece<br>apenas na aba <strong style="color:var(--on40)">Inventory</strong></p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── ANNOTATION BADGES ─── -->
+<div class="annotation" style="left:65px;top:50%;transform:translateY(-50%);margin-top:-110px">
+  Sidebar flutuante<br>sem painel de fundo
+</div>
+<div class="annotation" style="left:76px;top:66px">
+  Busca visível só no Inventory (top-left)
+</div>
+<div class="annotation" style="right:20px;top:66px">
+  Sino + perfil sempre visíveis
+</div>
+
+<script>
+  function switchTab(btn, tab) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const isInventory = tab === 'inventory';
+    const searchPill = document.getElementById('searchPill');
+
+    if (isInventory) {
+      searchPill.classList.remove('hidden');
+      document.body.classList.remove('non-inventory');
+    } else {
+      searchPill.classList.add('hidden');
+      document.body.classList.add('non-inventory');
+      const tabNames = {
+        dashboard: 'Dashboard', pedidos: 'Pedidos de Compra',
+        requisicoes: 'Requisições', entrada: 'Entrada de Mercadoria',
+        financeiro: 'Controle Financeiro', notificacoes: 'Notificações',
+        configuracoes: 'Configurações'
+      };
+      document.getElementById('currentTabName').textContent = tabNames[tab] || tab;
+    }
+  }
+</script>
+</body>
+</html>

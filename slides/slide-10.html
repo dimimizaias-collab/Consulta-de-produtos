@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextGen Mobility — Slide 10: Cenários Futuros</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary-dark: #003BA0;
+      --primary-cyan: #00D4FF;
+      --accent-green: #2ECC71;
+      --dark-gray: #0f0f0f;
+      --white: #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Roboto', -apple-system, sans-serif;
+      background: var(--dark-gray);
+      color: var(--white);
+      overflow: hidden;
+      margin: 0;
+    }
+
+    .slide-container {
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--dark-gray) 100%);
+      flex-direction: column;
+    }
+
+    h1 {
+      font-size: 64px;
+      margin-bottom: 80px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--white), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .scenarios-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      width: 100%;
+      max-width: 1400px;
+    }
+
+    .scenario-card {
+      background: rgba(0, 212, 255, 0.05);
+      border: 2px solid var(--primary-cyan);
+      border-radius: 12px;
+      padding: 40px;
+      backdrop-filter: blur(10px);
+      transition: all 0.4s ease;
+    }
+
+    .scenario-card.optimistic {
+      border-color: var(--accent-green);
+    }
+
+    .scenario-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 25px 50px rgba(0, 212, 255, 0.15);
+    }
+
+    .scenario-card h3 {
+      font-size: 26px;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .scenario-card.optimistic h3 {
+      color: var(--accent-green);
+    }
+
+    .scenario-card.base h3 {
+      color: var(--primary-cyan);
+    }
+
+    .scenario-item {
+      margin-bottom: 16px;
+      padding-left: 25px;
+      position: relative;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.6;
+    }
+
+    .scenario-item::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--primary-cyan);
+      font-weight: bold;
+    }
+
+    .slide-controls {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 100;
+    }
+
+    button {
+      background: var(--primary-cyan);
+      color: var(--dark-gray);
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      background: var(--accent-green);
+      transform: translateY(-2px);
+    }
+
+    .slide-counter {
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      font-size: 14px;
+      color: var(--primary-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slide-nav {
+      position: fixed;
+      top: 40px;
+      left: 40px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    a {
+      color: var(--primary-cyan);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--accent-green);
+    }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+  function Slide() {
+    return (
+      <>
+        <div className="slide-container">
+          <h1>Cenários Futuros & Visão</h1>
+          <div className="scenarios-grid">
+            <div className="scenario-card optimistic">
+              <h3>Cenário Otimista</h3>
+              <div className="scenario-item">Crescimento 30% ao ano</div>
+              <div className="scenario-item">Liderança em sustentabilidade</div>
+              <div className="scenario-item">Expansão para novos mercados emergentes</div>
+              <div className="scenario-item">Consolidação como top 2 global</div>
+            </div>
+            <div className="scenario-card base">
+              <h3>Cenário Base</h3>
+              <div className="scenario-item">Crescimento sustentável 15-20% a.a.</div>
+              <div className="scenario-item">Consolidação de mercados estratégicos</div>
+              <div className="scenario-item">Inovação contínua em P&D</div>
+              <div className="scenario-item">Manutenção de posição de liderança</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="slide-nav">
+          <a href="index.html">← Voltar ao Índice</a>
+        </div>
+
+        <div className="slide-controls">
+          <button onClick={() => window.location.href = 'slide-09.html'}>← Anterior</button>
+          <button onClick={() => window.location.href = 'slide-11.html'}>Próximo →</button>
+        </div>
+
+        <div className="slide-counter">Slide 10 / 12</div>
+      </>
+    );
+  }
+
+  ReactDOM.render(<Slide />, document.getElementById('root'));
+</script>
+
+</body>
+</html>
