@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Cabeçalho da Tabela — Amarelo Claro · Dark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #141410;
+    --wrapper: rgba(242,240,227,0.03);
+    --border: rgba(242,240,227,0.06);
+    --text: #F2F0E3;
+    --text-muted: rgba(242,240,227,0.50);
+    --cal-yellow: #FFE500;
+    --cal-yellow-border: #C8B800;
+    --thead-yellow: #FFEC4D;
+    --thead-yellow-border: #DCC63D;
+    --chip-bg: rgba(26,26,10,0.10);
+    --chip-text: rgba(26,26,10,0.55);
+    --chip-border: rgba(26,26,10,0.16);
+    --row-alt: rgba(242,240,227,0.02);
+    --hover: rgba(242,240,227,0.045);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 36px 32px;
+  }
+  .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(242,240,227,0.35); text-align: center; }
+
+  /* ── Amostra de referência: cabeçalho do calendário (cor atual, mais escura) ── */
+  .cal-sample {
+    background: var(--cal-yellow);
+    border: 1px solid var(--cal-yellow-border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cal-sample span { font-size: 13px; font-weight: 900; color: #1A1A0E; }
+  .cal-sample .tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,26,10,0.45); }
+
+  /* ── Tabela ── */
+  .wrapper {
+    background: var(--wrapper);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--thead-yellow); border-bottom: 1px solid var(--thead-yellow-border); }
+  th { text-align: left; padding: 10px 12px; white-space: nowrap; }
+  .chip {
+    display: inline-flex; align-items: center;
+    background: var(--chip-bg); border-radius: 99px; padding: 5px 13px;
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--chip-text); border: 1.5px solid var(--chip-border);
+  }
+  td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(odd) td { background: var(--row-alt); }
+  tbody tr:hover td { background: var(--hover); }
+  .muted { color: var(--text-muted); }
+
+  .caption { font-size: 11.5px; font-weight: 700; color: rgba(242,240,227,0.35); text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow">Referência — cor atual do cabeçalho do calendário (#FFE500)</div>
+  <div class="cal-sample">
+    <span>Julho 2026</span>
+    <span class="tag">Cabeçalho do calendário</span>
+  </div>
+
+  <div class="eyebrow">Novo fundo do cabeçalho da tabela (#FFEC4D — um pouco mais claro, mesma cor no claro/escuro)</div>
+  <div class="wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th><span class="chip">Data</span></th>
+          <th><span class="chip">Tipo</span></th>
+          <th><span class="chip">Pagamento</span></th>
+          <th><span class="chip">Favorecido</span></th>
+          <th><span class="chip">Valor final</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>29/07/2026</td>
+          <td class="muted">Despesa</td>
+          <td class="muted">Cheque 1/2</td>
+          <td>Distribuidora Alfa LTDA</td>
+          <td>R$ 1.230,00</td>
+        </tr>
+        <tr>
+          <td>29/07/2026</td>
+          <td class="muted">Despesa</td>
+          <td class="muted">PIX</td>
+          <td>Energia Elétrica S.A.</td>
+          <td>R$ 640,50</td>
+        </tr>
+        <tr>
+          <td>28/07/2026</td>
+          <td class="muted">Receita</td>
+          <td class="muted">Dinheiro</td>
+          <td>Cliente balcão</td>
+          <td>R$ 89,90</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="caption">As molduras (chips) de cada coluna continuam iguais — só o fundo da linha de cabeçalho muda</div>
+</div>
+</body>
+</html>

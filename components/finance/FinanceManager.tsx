@@ -2013,7 +2013,7 @@ export function FinanceManager() {
           <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-on-surface/[0.07]">
+                <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
                   {selectionMode && (
                     <th className="px-3 py-3 w-10" />
                   )}
