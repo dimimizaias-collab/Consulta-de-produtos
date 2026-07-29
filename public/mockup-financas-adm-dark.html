@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Aba ADM (Dark)</title>
+<style>
+  :root {
+    --primary: #D81E1E;
+    --brand-yellow: #FFE500;
+    --brand-yellow-deep: #C8B800;
+    --background: #141410;
+    --surface: #1c1c16;
+    --surface-container: #252519;
+    --surface-container-low: #1e1e15;
+    --on-surface: #f2f0e3;
+    --rose: #D81E1E;
+    --emerald: #34D399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px;
+    background: var(--background);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  .frame { width: 380px; }
+  .panel {
+    background: var(--surface-container-low);
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-header {
+    background: var(--brand-yellow);
+    border-bottom: 1px solid var(--brand-yellow-deep);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+  }
+  .pill-track {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    background: rgba(26,18,8,0.10);
+    border-radius: 999px;
+    padding: 2px;
+  }
+  .pill {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: rgba(26,18,8,0.45);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .pill.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .panel-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── ADM cards ── */
+  .adm-card {
+    background: var(--surface-container);
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    padding: 12px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .adm-card-main { min-width: 0; flex: 1; }
+  .adm-card-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--on-surface);
+    margin: 0 0 3px 0;
+  }
+  .adm-card-value {
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .adm-card-value.rose { color: var(--rose); }
+  .adm-card-value.emerald { color: var(--emerald); }
+
+  .adm-badge {
+    flex-shrink: 0;
+    min-width: 48px;
+    border-radius: 11px;
+    border: 1.5px solid rgba(242,240,227,0.14);
+    background: rgba(242,240,227,0.045);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+  }
+  .adm-badge-num {
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--on-surface);
+    line-height: 1;
+    font-family: 'DM Mono', monospace;
+  }
+  .adm-badge-label {
+    font-size: 6.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(242,240,227,0.35);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .link-connector {
+    display: flex;
+    justify-content: center;
+    margin: -4px 0;
+  }
+  .link-connector::before {
+    content: '';
+    width: 1.5px;
+    height: 8px;
+    background: rgba(242,240,227,0.12);
+  }
+
+  .caption {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(242,240,227,0.4);
+    margin-top: 14px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="pill-track">
+          <div class="pill">Resultados</div>
+          <div class="pill">Contas</div>
+          <div class="pill active">ADM</div>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Vencimento -->
+        <div class="adm-card">
+          <div class="adm-card-main">
+            <p class="adm-card-label">Vencimento</p>
+            <p class="adm-card-value rose">R$ 4.280,00</p>
+          </div>
+          <div class="adm-badge">
+            <span class="adm-badge-num">7</span>
+            <span class="adm-badge-label">mov.</span>
+          </div>
+        </div>
+
+        <div class="link-connector"></div>
+
+        <!-- Total Pago (vinculado) -->
+        <div class="adm-card">
+          <div class="adm-card-main">
+            <p class="adm-card-label">Total Pago</p>
+            <p class="adm-card-value emerald">R$ 2.150,00</p>
+          </div>
+          <div class="adm-badge">
+            <span class="adm-badge-num">4</span>
+            <span class="adm-badge-label">pagas</span>
+          </div>
+        </div>
+
+        <!-- Saídas -->
+        <div class="adm-card">
+          <div class="adm-card-main">
+            <p class="adm-card-label">Saídas</p>
+            <p class="adm-card-value rose">R$ 890,50</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="caption">Modo escuro — aba ADM ativa</p>
+  </div>
+</body>
+</html>

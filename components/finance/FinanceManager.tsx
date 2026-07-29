@@ -308,7 +308,7 @@ export function FinanceManager() {
   const calLegendRef = useRef<HTMLDivElement>(null);
 
   // resultados/contas panel
-  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas'>('resultados');
+  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas' | 'adm'>('resultados');
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -1278,10 +1278,16 @@ export function FinanceManager() {
 
   const vencimentoStats = useMemo(() => {
     const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
+    const despesasVencendoPagas = despesasVencendo.filter(t => t.pago);
+    // Saídas: despesas do período que não têm vencimento (pagamento à vista, sem controle de prazo)
+    const saidasSemVencimento = transactions.filter(t => t.tipo === 'Despesa' && !t.vencimento && inSelectedPeriod(t.data));
     return {
       count: despesasVencendo.length,
       valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
       totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
+      pagoCount: despesasVencendoPagas.length,
+      saidasCount: saidasSemVencimento.length,
+      saidasValor: saidasSemVencimento.reduce((s, t) => s + t.valor_final, 0),
     };
   }, [transactions, calRangeStart, calRangeEnd, calSelectedDate, calDefaultDate]);
 
@@ -1800,7 +1806,7 @@ export function FinanceManager() {
         <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
           <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
             <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
-              {(['resultados', 'contas'] as const).map(tab => (
+              {(['resultados', 'contas', 'adm'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setFinancePanelTab(tab)}
@@ -1811,7 +1817,7 @@ export function FinanceManager() {
                       : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
                   )}
                 >
-                  {tab === 'resultados' ? 'Resultados' : 'Contas'}
+                  {tab === 'resultados' ? 'Resultados' : tab === 'contas' ? 'Contas' : 'ADM'}
                 </button>
               ))}
             </div>
@@ -1856,6 +1862,45 @@ export function FinanceManager() {
                   <div className="min-w-0 flex-1">
                     <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Total Pago</div>
                     <div className="text-[13px] font-black tracking-tight leading-tight truncate text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</div>
+                  </div>
+                </div>
+              </div>
+            ) : financePanelTab === 'adm' ? (
+              <div className="flex flex-col gap-2">
+                {/* Vencimento */}
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-extrabold text-on-surface truncate">Vencimento</p>
+                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</p>
+                  </div>
+                  <div className="shrink-0 min-w-[48px] rounded-[11px] border-[1.5px] border-on-surface/[0.12] dark:border-white/[0.14] bg-on-surface/[0.045] dark:bg-white/[0.045] px-2 py-1.5 flex flex-col items-center justify-center gap-px">
+                    <span className="font-['DM_Mono',monospace] text-[15px] font-black text-on-surface leading-none">{vencimentoStats.count}</span>
+                    <span className="text-[6.5px] font-extrabold uppercase tracking-[0.08em] text-on-surface/40 leading-none whitespace-nowrap">mov.</span>
+                  </div>
+                </div>
+
+                {/* Conector visual — Total Pago é derivado de Vencimento */}
+                <div className="flex justify-center -my-1">
+                  <div className="w-[1.5px] h-2 bg-on-surface/[0.12]" />
+                </div>
+
+                {/* Total Pago (vinculado ao Vencimento) */}
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-extrabold text-on-surface truncate">Total Pago</p>
+                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</p>
+                  </div>
+                  <div className="shrink-0 min-w-[48px] rounded-[11px] border-[1.5px] border-on-surface/[0.12] dark:border-white/[0.14] bg-on-surface/[0.045] dark:bg-white/[0.045] px-2 py-1.5 flex flex-col items-center justify-center gap-px">
+                    <span className="font-['DM_Mono',monospace] text-[15px] font-black text-on-surface leading-none">{vencimentoStats.pagoCount}</span>
+                    <span className="text-[6.5px] font-extrabold uppercase tracking-[0.08em] text-on-surface/40 leading-none whitespace-nowrap">pagas</span>
+                  </div>
+                </div>
+
+                {/* Saídas — despesas sem vencimento */}
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-extrabold text-on-surface truncate">Saídas</p>
+                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.saidasValor)}</p>
                   </div>
                 </div>
               </div>
