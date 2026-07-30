@@ -2171,7 +2171,7 @@ export function FinanceManager() {
                         key={t.id}
                         onClick={selectionMode ? () => toggleSelectRow(t.id) : undefined}
                         className={cn(
-                          'border-b border-on-surface/5 transition-colors',
+                          'border-b border-on-surface/15 dark:border-on-surface/5 transition-colors',
                           selectionMode ? 'cursor-pointer' : 'hover:bg-on-surface/[0.05] dark:hover:bg-on-surface/[0.02]',
                           isSelected
                             ? 'bg-primary/10 hover:bg-primary/15'
