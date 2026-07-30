@@ -1643,6 +1643,7 @@ export function MobileFinancePage() {
   const { tags, createTag } = useFinanceTags();
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // aba Dados — contas e favorecidos
@@ -2365,8 +2366,13 @@ export function MobileFinancePage() {
     });
   }
 
-  async function handleDeleteSelected() {
+  function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
+    setShowDeleteSelectedConfirm(true);
+  }
+
+  async function confirmDeleteSelected() {
+    setShowDeleteSelectedConfirm(false);
     const ids = [...selectedIds].filter(id => transactions.find(t => t.id === id)?.origem !== 'hr_salario');
     if (ids.length === 0) { setSelectedIds(new Set()); setSelectionMode(false); return; }
     await supabase.from('finance_transactions').delete().in('id', ids);
@@ -3109,6 +3115,56 @@ export function MobileFinancePage() {
                   className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold active:scale-[0.97] transition-transform"
                 >
                   Descartar
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Confirmação de exclusão de movimentações selecionadas */}
+    <AnimatePresence>
+      {showDeleteSelectedConfirm && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowDeleteSelectedConfirm(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 z-[151] flex items-center justify-center p-6 pointer-events-none"
+          >
+            <div className="pointer-events-auto bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0">
+                  <AlertTriangle size={17} />
+                </div>
+                <h3 className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3]">
+                  Excluir {selectedIds.size > 1 ? 'movimentações' : 'movimentação'}?
+                </h3>
+              </div>
+              <p className="text-sm text-[rgba(26,26,10,0.55)] dark:text-white/45 mb-5">
+                Esta ação não pode ser desfeita. {selectedIds.size > 1 ? 'As movimentações selecionadas serão excluídas' : 'A movimentação será excluída'} permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteSelectedConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-sm font-bold text-[rgba(26,26,10,0.55)] dark:text-white/45 active:scale-[0.97] transition-transform"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteSelected}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold active:scale-[0.97] transition-transform"
+                >
+                  Excluir
                 </button>
               </div>
             </div>

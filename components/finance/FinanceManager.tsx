@@ -237,6 +237,7 @@ export function FinanceManager() {
   const [txLocked, setTxLocked] = useState(false);
   const [txSnapshot, setTxSnapshot] = useState<{ form: string; parcelas: string; parcelasEnabled: boolean } | null>(null);
   const [showDiscardEditConfirm, setShowDiscardEditConfirm] = useState(false);
+  const [deleteTxConfirmId, setDeleteTxConfirmId] = useState<string | null>(null);
   // Quando preenchido, o salvar faz um diff (update/insert/delete) contra essas linhas —
   // edição do parcelamento inteiro, sem apagar e recriar tudo.
   const [editingGroupIds, setEditingGroupIds] = useState<string[] | null>(null);
@@ -638,9 +639,17 @@ export function FinanceManager() {
     }
   };
 
-  const handleDeleteTx = async (id: string) => {
+  const handleDeleteTx = (id: string) => {
     const tx = transactions.find(t => t.id === id);
     if (tx?.origem === 'hr_salario') return;
+    setDeleteTxConfirmId(id);
+  };
+
+  const confirmDeleteTx = async () => {
+    const id = deleteTxConfirmId;
+    if (!id) return;
+    const tx = transactions.find(t => t.id === id);
+    setDeleteTxConfirmId(null);
     const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
     if (error) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
@@ -2703,6 +2712,40 @@ export function FinanceManager() {
                 </button>
                 <button onClick={confirmDiscardTxEdit} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold hover:opacity-90 transition-opacity">
                   Descartar alterações
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Confirmação de exclusão de movimentação ─────────────────────────── */}
+      <AnimatePresence>
+        {deleteTxConfirmId && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteTxConfirmId(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-2xl p-5 w-full max-w-sm shadow-2xl"
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shrink-0">
+                  <AlertTriangle size={17} />
+                </div>
+                <h3 className="text-base font-manrope font-extrabold text-on-surface">Excluir movimentação?</h3>
+              </div>
+              <p className="text-sm text-on-surface/60 mb-5">
+                Esta ação não pode ser desfeita. A movimentação será excluída permanentemente.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteTxConfirmId(null)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={confirmDeleteTx} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold hover:opacity-90 transition-opacity">
+                  Excluir
                 </button>
               </div>
             </motion.div>
