@@ -47,6 +47,10 @@ import JsBarcode from 'jsbarcode';
 
 const staticProducts: any[] = [];
 
+// Evita que o scroll do mouse altere valores de campos numéricos por acidente
+// (comportamento nativo do input[type=number] ao rolar com o cursor sobre o campo).
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const [error, setError] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -6062,7 +6066,7 @@ export default function Page() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setViewingReviewNote(null)}
+              onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
               className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
             <motion.div
@@ -6210,7 +6214,10 @@ export default function Page() {
                     Baixar
                   </button>
                   <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
-                  <button onClick={() => setViewingReviewNote(null)} className="p-2 hover:bg-on-surface/[0.07] rounded-full transition-colors">
+                  <button
+                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
+                    className="p-2 hover:bg-on-surface/[0.07] rounded-full transition-colors"
+                  >
                     <X size={24} className="text-on-surface/35" />
                   </button>
                 </div>
@@ -6723,6 +6730,7 @@ export default function Page() {
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 3)}
                                   onBlur={captureSnapshot}
+                                  onWheel={blockWheelChange}
                                   className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" style={{ color: 'var(--rn-text)' }} />
                               </div>
                             ) : (
@@ -6842,6 +6850,7 @@ export default function Page() {
                                         onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = e.target.value === '' ? null : parseFloat(e.target.value); setViewingNoteItemPrices(u); }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
                                         onBlur={captureSnapshot}
+                                        onWheel={blockWheelChange}
                                         className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                                       />
                                     )}
@@ -6895,6 +6904,7 @@ export default function Page() {
                                       }}
                                       onKeyDown={tableCellKeyDown('review-note', idx, 5 + colIdx)}
                                       placeholder="0"
+                                      onWheel={blockWheelChange}
                                       className={`w-12 text-right text-xs font-bold ${colorClass} bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
                                     />
                                   </div>
@@ -6921,6 +6931,7 @@ export default function Page() {
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 7)}
                                 placeholder="0,00"
+                                onWheel={blockWheelChange}
                                 className="w-full text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
                               />
                             </div>
@@ -7380,6 +7391,7 @@ export default function Page() {
                                         }
                                       }}
                                       placeholder="0,00"
+                                      onWheel={blockWheelChange}
                                       className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     />
                                   </div>
@@ -7584,6 +7596,7 @@ export default function Page() {
                                     value={noteItemNewSellPrice}
                                     onChange={e => setNoteItemNewSellPrice(e.target.value)}
                                     placeholder="0,00"
+                                    onWheel={blockWheelChange}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                   />
                                 </div>
@@ -7771,17 +7784,6 @@ export default function Page() {
                   })()}
                 </div>
                 <div className="flex items-center gap-3">
-                  <button
-                    disabled={savingNote}
-                    onClick={handleSaveNote}
-                    className="px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
-                  >
-                    {savingNote
-                      ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
-                      : <><Save size={16} />Salvar</>
-                    }
-                  </button>
-
                   {/* Undo / Redo */}
                   <div className="flex items-center gap-1">
                     <button
@@ -7829,18 +7831,14 @@ export default function Page() {
                   )}
 
                   <button
-                    onClick={() => setNoteModeChoiceOpen(true)}
-                    className="px-6 py-3 bg-on-surface/[0.06] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.1] transition-all border border-on-surface/[0.06] flex items-center gap-2"
+                    disabled={savingNote}
+                    onClick={handleSaveNote}
+                    className="px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 disabled:opacity-60"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                    Mobile
-                  </button>
-
-                  <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
-                    className="px-8 py-3 bg-on-surface/[0.08] text-on-surface font-black rounded-xl hover:bg-on-surface/[0.14] transition-all border border-on-surface/[0.08] dark:bg-[#111110] dark:border-white/[0.06] dark:hover:bg-black"
-                  >
-                    Fechar
+                    {savingNote
+                      ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
+                      : <><Save size={16} />Salvar</>
+                    }
                   </button>
                 </div>
               </div>
@@ -7993,6 +7991,7 @@ export default function Page() {
                                         onChange={e => setDiscrepancyQty(e.target.value)}
                                         autoFocus
                                         placeholder="0"
+                                        onWheel={blockWheelChange}
                                         className={cn(
                                           "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
                                           "border-white/[0.08]", accentRing
@@ -8022,6 +8021,7 @@ export default function Page() {
                                   onChange={e => setDiscrepancyQty(e.target.value)}
                                   autoFocus
                                   placeholder="0"
+                                  onWheel={blockWheelChange}
                                   className={cn(
                                     "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
                                     "border-white/[0.08]", accentRing
@@ -8156,6 +8156,7 @@ export default function Page() {
                                   value={adjColDialog.geralValue}
                                   onChange={e => update({ geralValue: e.target.value })}
                                   placeholder="0"
+                                  onWheel={blockWheelChange}
                                   className="flex-1 min-w-0 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                 />
                                 <div className="flex shrink-0 border border-slate-200 rounded-xl overflow-hidden">
@@ -8242,6 +8243,7 @@ export default function Page() {
                           onChange={e => setReviewMeasureMultiplier(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !reviewSavingMeasure) { e.preventDefault(); handleReviewSaveMeasure(); } }}
                           placeholder="Ex: 12"
+                          onWheel={blockWheelChange}
                           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                         />
                       </div>
@@ -8298,6 +8300,7 @@ export default function Page() {
                             </div>
                             <input type="number" value={multiLinkItemQty}
                               onChange={e => setMultiLinkItemQty(e.target.value)}
+                              onWheel={blockWheelChange}
                               className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-center"
                               placeholder="Qtd" min="0" step="any" />
                             <button onClick={handleMultiLinkItemSearch}
@@ -8344,6 +8347,7 @@ export default function Page() {
                                         type="number" min="0" step="any"
                                         value={entry.qty}
                                         onChange={e => setMultiLinkItemEntries(prev => prev.map((en, j) => j === i ? { ...en, qty: e.target.value } : en))}
+                                        onWheel={blockWheelChange}
                                         className="w-16 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                       />
                                       <span className="text-[10px] text-emerald-600 font-medium ml-2">Mult:</span>
@@ -8351,6 +8355,7 @@ export default function Page() {
                                         type="number" min="1" step="any"
                                         value={entry.multiplier}
                                         onChange={e => setMultiLinkItemEntries(prev => prev.map((en, j) => j === i ? { ...en, multiplier: e.target.value } : en))}
+                                        onWheel={blockWheelChange}
                                         className="w-14 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                         title="Unidades por embalagem — divide o preço custo automaticamente"
                                       />
@@ -8387,6 +8392,7 @@ export default function Page() {
                             <div>
                               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Quantidade *</label>
                               <input type="number" value={multiLinkItemQty} onChange={e => setMultiLinkItemQty(e.target.value)}
+                                onWheel={blockWheelChange}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 placeholder="Quantidade" min="0" step="any" />
                             </div>
