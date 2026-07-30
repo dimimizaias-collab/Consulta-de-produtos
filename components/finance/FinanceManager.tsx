@@ -2301,26 +2301,39 @@ export function FinanceManager() {
                         </td>
                         <td className="px-4 py-3 font-semibold text-on-surface max-w-[180px] truncate" title={t.favorecido}>{t.favorecido}</td>
                         <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
-                        <td className="px-4 py-3">
-                          {(t.tag_ids ?? []).length === 0 ? (
-                            <span className="text-[10px] italic text-on-surface/25">sem tag</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {(t.tag_ids ?? []).map(tid => {
-                                const tag = tags.find(tg => tg.id === tid);
-                                if (!tag) return null;
-                                const c = TAG_COLOR_MAP[tag.cor] ?? TAG_COLOR_MAP.gray;
-                                return (
-                                  <span key={tid} className={cn(
-                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border',
-                                    c.bg, c.text, 'border', c.border, c.bgDark, c.textDark, c.borderDark
-                                  )}>
-                                    {tag.nome}
+                        <td className="px-4 py-3 overflow-visible">
+                          {(() => {
+                            const ids = t.tag_ids ?? [];
+                            const mainTag = ids.length > 0 ? tags.find(tg => tg.id === ids[0]) : undefined;
+                            if (!mainTag) return <span className="text-[10px] italic text-on-surface/25">sem tag</span>;
+                            const c = TAG_COLOR_MAP[mainTag.cor] ?? TAG_COLOR_MAP.gray;
+                            const extra = ids.length - 1;
+                            return (
+                              <div className="relative inline-flex items-center w-fit -my-1.5 -mx-2 py-1.5 px-2">
+                                {extra > 0 && (<>
+                                  <span
+                                    className={cn('absolute rounded-full border opacity-35', c.bg, c.border, c.bgDark, c.borderDark)}
+                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(4px, 3px) rotate(5deg)' }}
+                                  />
+                                  <span
+                                    className={cn('absolute rounded-full border opacity-60', c.bg, c.border, c.bgDark, c.borderDark)}
+                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(2px, 1.5px) rotate(2.5deg)' }}
+                                  />
+                                </>)}
+                                <span className={cn(
+                                  'relative z-[2] inline-flex items-center px-2.5 py-[3px] rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm',
+                                  c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark
+                                )}>
+                                  {mainTag.nome}
+                                </span>
+                                {extra > 0 && (
+                                  <span className="absolute -top-0.5 right-0 z-[3] min-w-[15px] h-[15px] px-[3px] rounded-full flex items-center justify-center text-[8.5px] font-black bg-primary text-white border-2 border-surface-container-low leading-none">
+                                    +{extra}
                                   </span>
-                                );
-                              })}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">
                           {fmtDate(t.vencimento)}

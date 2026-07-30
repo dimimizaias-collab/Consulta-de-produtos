@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Tags Empilhadas (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --header-bg: #FFE500;
+    --header-border: #C8B800;
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --thead-bg: #FFE500;
+    --thead-border: #C8B800;
+    --thead-text: rgba(26,26,10,0.58);
+    --row-even: #252520;
+    --row-odd: #1E1E18;
+    --row-hover: rgba(242,240,227,0.03);
+    --cell-border: rgba(242,240,227,0.06);
+    --text: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --accent: #D81E1E;
+
+    --amber-bg: #451A03; --amber-text: #FCD34D; --amber-border: #78350F;
+    --teal-bg: #042F2E; --teal-text: #5EEAD4; --teal-border: #115E59;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+
+  .table-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; overflow: visible; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); }
+  th { text-align: left; padding: 12px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--thead-text); }
+  td { padding: 14px 12px; border-right: 1px solid var(--cell-border); vertical-align: middle; }
+  td:last-child { border-right: none; }
+  tbody tr:nth-child(even) { background: var(--row-even); }
+  tbody tr:nth-child(odd) { background: var(--row-odd); }
+  tbody tr:hover { background: var(--row-hover); }
+
+  .no-tag { font-size: 10px; font-style: italic; color: var(--muted); }
+
+  /* ── Tag empilhada ── */
+  .tag-stack {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 6px 8px 6px 2px;
+    margin: -6px -8px -6px -2px;
+  }
+  .tag-layer {
+    position: absolute;
+    left: 2px; top: 6px; right: 8px; bottom: 6px;
+    border-radius: 9999px;
+  }
+  .tag-layer.l2 { transform: translate(4px, 3px) rotate(5deg); opacity: 0.35; }
+  .tag-layer.l1 { transform: translate(2px, 1.5px) rotate(2.5deg); opacity: 0.6; }
+  .tag-main {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.35), 0 1px 1px rgba(0,0,0,0.25);
+    white-space: nowrap;
+  }
+  .tag-badge {
+    position: absolute;
+    top: -2px;
+    right: 0px;
+    z-index: 3;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8.5px;
+    font-weight: 900;
+    background: var(--accent);
+    color: #fff;
+    border: 2px solid var(--card-bg);
+    line-height: 1;
+  }
+
+  .amber .tag-main { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber-border); }
+  .amber .tag-layer { background: var(--amber-bg); border: 1px solid var(--amber-border); }
+  .teal .tag-main { background: var(--teal-bg); color: var(--teal-text); border-color: var(--teal-border); }
+  .teal .tag-layer { background: var(--teal-bg); border: 1px solid var(--teal-border); }
+
+  .legend { margin-top: 20px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — apenas a tag principal aparece, com efeito de pilha e badge "+N" com o total de tags extras</div>
+  <div class="page">
+    <h1>Controle Financeiro — coluna Tags</h1>
+    <p class="sub">Antes: todas as tags empilhavam verticalmente na célula. Agora: só a primeira tag aparece, com indicação visual de que há mais.</p>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr><th>Favorecido</th><th>Tags</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Distribuidora ABC</td>
+            <td><span class="no-tag">sem tag</span></td>
+          </tr>
+          <tr>
+            <td>Fornecedor XYZ</td>
+            <td>
+              <div class="tag-stack amber">
+                <span class="tag-main">Fornecedor</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Sindicato Comercial</td>
+            <td>
+              <div class="tag-stack amber">
+                <span class="tag-layer l2"></span>
+                <span class="tag-layer l1"></span>
+                <span class="tag-main">Interno</span>
+                <span class="tag-badge">+1</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Ricardo Augusto</td>
+            <td>
+              <div class="tag-stack teal">
+                <span class="tag-layer l2"></span>
+                <span class="tag-layer l1"></span>
+                <span class="tag-main">Insumo interno</span>
+                <span class="tag-badge">+2</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="legend">
+      Linha 1: sem tags · Linha 2: 1 tag (sem efeito de pilha, badge não aparece) · Linhas 3–4: múltiplas tags — a tag principal (primeira adicionada) fica na frente, com duas camadas sutis atrás (levemente rotacionadas/deslocadas) simulando profundidade, e um badge circular vermelho no canto superior direito mostrando quantas tags a mais existem.
+    </div>
+  </div>
+</body>
+</html>
