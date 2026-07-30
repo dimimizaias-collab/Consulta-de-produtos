@@ -1269,27 +1269,29 @@ export function FinanceManager() {
     return counts;
   }, [transactions]);
 
+  // Cards do painel (Resultados/ADM) refletem exatamente o que está filtrado na tabela
+  // (período do calendário + filtros de coluna + busca) — mesma base que `filtered`.
   const totals = useMemo(() => {
     if (hasDatePeriod) {
-      const inPeriod = transactions.filter(t => inSelectedPeriod(t.data));
+      const inPeriod = filtered.filter(t => inSelectedPeriod(t.data));
       const receitas = inPeriod.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
       const despesas = inPeriod.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
       return { receitas, despesas, saldo: receitas - despesas };
     }
-    const receitas = transactions.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
-    const despesas = transactions.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
+    const receitas = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
+    const despesas = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
     const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
     // Saldo: apenas transações quitadas (pago=true) — exclui despesas/receitas com vencimento futuro
-    const receitasPagas = transactions.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
-    const despesasPagas = transactions.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
+    const receitasPagas = filtered.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
+    const despesasPagas = filtered.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
     return { receitas, despesas, saldo: saldoInicial + receitasPagas - despesasPagas };
-  }, [transactions, accounts, calRangeStart, calRangeEnd, calSelectedDate, calDefaultDate]);
+  }, [filtered, accounts, hasDatePeriod]);
 
   const vencimentoStats = useMemo(() => {
-    const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
+    const despesasVencendo = filtered.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
     const despesasVencendoPagas = despesasVencendo.filter(t => t.pago);
     // Saídas: despesas do período que não têm vencimento (pagamento à vista, sem controle de prazo)
-    const saidasSemVencimento = transactions.filter(t => t.tipo === 'Despesa' && !t.vencimento && inSelectedPeriod(t.data));
+    const saidasSemVencimento = filtered.filter(t => t.tipo === 'Despesa' && !t.vencimento && inSelectedPeriod(t.data));
     return {
       count: despesasVencendo.length,
       valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
@@ -1298,7 +1300,7 @@ export function FinanceManager() {
       saidasCount: saidasSemVencimento.length,
       saidasValor: saidasSemVencimento.reduce((s, t) => s + t.valor_final, 0),
     };
-  }, [transactions, calRangeStart, calRangeEnd, calSelectedDate, calDefaultDate]);
+  }, [filtered]);
 
   const accountBalances = useMemo(() => {
     return accounts.map(a => {
