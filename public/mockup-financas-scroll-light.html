@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Scroll Horizontal Fixo (Light)</title>
+<style>
+  :root {
+    --bg: #FDFAF0;
+    --header-bg: #FFE500;
+    --header-border: #D4C000;
+    --panel-bg: #FFF7B0;
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.07);
+    --thead-bg: #FFEC4D;
+    --thead-border: #E6CE33;
+    --thead-text: rgba(26,26,10,0.55);
+    --row-even: #FFFFFF;
+    --row-odd: #FAF7EE;
+    --row-hover: #FFF8D0;
+    --cell-border: rgba(26,26,10,0.05);
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.40);
+    --muted2: rgba(26,26,10,0.28);
+    --accent: #D81E1E;
+    --scrollbar-track: rgba(26,26,10,0.06);
+    --scrollbar-thumb: rgba(216,30,30,0.55);
+    --scrollbar-thumb-hover: rgba(216,30,30,0.75);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .note {
+    position: sticky; top: 0; z-index: 200;
+    background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700; text-align: center;
+    padding: 8px 16px;
+  }
+  .page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  .header {
+    background: var(--header-bg); border: 1px solid var(--header-border);
+    border-radius: 18px; padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .header .icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(26,26,10,0.09); display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .header .titles p { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(26,26,10,0.45); }
+  .header .titles h1 { margin: 2px 0 0; font-size: 22px; font-weight: 900; }
+
+  .filters { display: flex; gap: 10px; margin-bottom: 16px; }
+  .filters input, .filters button {
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    border-radius: 12px; border: 1px solid var(--card-border);
+    background: var(--card-bg); padding: 10px 14px; color: var(--text);
+  }
+
+  .table-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 18px; overflow: hidden;
+    position: relative;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  .table-scroll::-webkit-scrollbar { height: 10px; }
+  .table-scroll::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; }
+  .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+  table { width: 100%; min-width: 1300px; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); }
+  th { text-align: left; padding: 12px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--thead-text); white-space: nowrap; }
+  td { padding: 12px; white-space: nowrap; border-right: 1px solid var(--cell-border); font-size: 13px; }
+  td:last-child { border-right: none; }
+  tbody tr:nth-child(even) { background: var(--row-even); }
+  tbody tr:nth-child(odd) { background: var(--row-odd); }
+  tbody tr:hover { background: var(--row-hover); }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; }
+  .badge.despesa { background: rgba(216,30,30,0.10); color: var(--accent); }
+  .badge.receita { background: rgba(5,150,105,0.10); color: #059669; }
+  .green { color: #059669; font-weight: 800; }
+  .red { color: var(--accent); font-weight: 800; }
+  .muted { color: var(--muted); }
+
+  /* ── Floating horizontal scrollbar ── */
+  #floatingScrollbar {
+    position: fixed;
+    left: 0; width: 0;
+    bottom: 0;
+    height: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    z-index: 150;
+    background: var(--scrollbar-track);
+    border-top: 1px solid var(--card-border);
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+  #floatingScrollbar.visible { opacity: 1; pointer-events: auto; }
+  #floatingScrollbar::-webkit-scrollbar { height: 14px; }
+  #floatingScrollbar::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  #floatingScrollbar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 7px; border: 3px solid var(--scrollbar-track); }
+  #floatingScrollbar::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+  #floatingScrollbarInner { height: 1px; }
+
+  .spacer { height: 900px; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — role a página para baixo devagar: a barra de rolagem horizontal fica fixa na base da tela e some quando a tabela realmente termina</div>
+
+  <div class="page">
+    <div class="header">
+      <div class="icon">💼</div>
+      <div class="titles">
+        <p>Gestão Financeira</p>
+        <h1>Controle Financeiro</h1>
+      </div>
+    </div>
+
+    <div class="filters">
+      <input placeholder="🔍 Buscar favorecido...">
+      <button>▾ Filtrar colunas</button>
+      <button style="background:var(--accent); color:#fff; border-color:var(--accent);">+</button>
+    </div>
+
+    <div class="table-card">
+      <div class="table-scroll" id="tableScroll">
+        <table id="theTable">
+          <thead>
+            <tr>
+              <th>Data</th><th>Tipo</th><th>Pagamento</th><th>Favorecido</th><th>Estabelec.</th>
+              <th>Tags</th><th>Vencimento</th><th>Valor Final</th><th>Total Pago</th><th>Restante</th><th>Pago</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+  </div>
+
+  <div id="floatingScrollbar"><div id="floatingScrollbarInner"></div></div>
+
+<script>
+  const favorecidos = ['Sindicato Comercial', 'Ricardo Augusto', 'Distribuidora ABC', 'Fornecedor XYZ', 'Universo do Umr', 'Castelo Real Ltda'];
+  const estabs = ['Universo do R$1,99', 'Castelo Real', 'Matriz', 'Filial 02'];
+  const tags = ['Fixo Mensal', 'Fornecedor', 'Variável', 'Imposto'];
+  let rows = '';
+  for (let i = 0; i < 26; i++) {
+    const despesa = i % 3 !== 0;
+    rows += `<tr>
+      <td>${10 + (i % 20)}/0${1 + (i%9)}/2026</td>
+      <td><span class="badge ${despesa ? 'despesa' : 'receita'}">${despesa ? 'DESPESA' : 'RECEITA'}</span></td>
+      <td>Boleto ${1+(i%3)}/${3}</td>
+      <td>${favorecidos[i % favorecidos.length]}</td>
+      <td>${estabs[i % estabs.length]}</td>
+      <td>${tags[i % tags.length]}</td>
+      <td>${10 + (i % 20)}/0${1 + ((i+1)%9)}/2026</td>
+      <td>R$ ${(120 + i * 37.5).toFixed(2)}</td>
+      <td class="green">R$ ${(i % 2 === 0 ? (60 + i * 10).toFixed(2) : '0,00')}</td>
+      <td class="red">R$ ${(60 + i * 27.5).toFixed(2)}</td>
+      <td>☐</td>
+      <td class="muted">✎</td>
+    </tr>`;
+  }
+  document.getElementById('tbody').innerHTML = rows;
+
+  const tableScroll = document.getElementById('tableScroll');
+  const floatBar = document.getElementById('floatingScrollbar');
+  const floatInner = document.getElementById('floatingScrollbarInner');
+
+  let syncing = false;
+
+  function layoutFloatingBar() {
+    const rect = tableScroll.getBoundingClientRect();
+    floatBar.style.left = rect.left + 'px';
+    floatBar.style.width = rect.width + 'px';
+    floatInner.style.width = tableScroll.scrollWidth + 'px';
+  }
+
+  function updateVisibility() {
+    const rect = tableScroll.getBoundingClientRect();
+    const needsHScroll = tableScroll.scrollWidth > tableScroll.clientWidth + 1;
+    // Mostra só enquanto a base real da tabela (rect.bottom) ainda está abaixo da viewport —
+    // ou seja, o usuário não alcançou o final físico do card para usar a barra nativa.
+    const tableBottomBelowViewport = rect.bottom > window.innerHeight;
+    const tableIsOnScreen = rect.top < window.innerHeight && rect.bottom > 0;
+    const shouldShow = needsHScroll && tableIsOnScreen && tableBottomBelowViewport;
+    floatBar.classList.toggle('visible', shouldShow);
+  }
+
+  tableScroll.addEventListener('scroll', () => {
+    if (syncing) return;
+    syncing = true;
+    floatBar.scrollLeft = tableScroll.scrollLeft;
+    syncing = false;
+  });
+  floatBar.addEventListener('scroll', () => {
+    if (syncing) return;
+    syncing = true;
+    tableScroll.scrollLeft = floatBar.scrollLeft;
+    syncing = false;
+  });
+
+  function onScrollOrResize() {
+    layoutFloatingBar();
+    updateVisibility();
+  }
+  window.addEventListener('scroll', onScrollOrResize, { passive: true });
+  window.addEventListener('resize', onScrollOrResize);
+  onScrollOrResize();
+</script>
+</body>
+</html>

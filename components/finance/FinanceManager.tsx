@@ -311,6 +311,13 @@ export function FinanceManager() {
   // resultados/contas panel
   const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas' | 'adm'>('resultados');
 
+  // Barra de rolagem horizontal flutuante da tabela — fica fixa na base da viewport
+  // enquanto a tabela ainda continua abaixo da tela, evitando que o usuário precise
+  // descer até o fim de todas as movimentações para rolar a tabela para os lados.
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const floatScrollRef = useRef<HTMLDivElement>(null);
+  const floatScrollInnerRef = useRef<HTMLDivElement>(null);
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchAll = async () => {
@@ -403,6 +410,61 @@ export function FinanceManager() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Sincroniza a barra de rolagem horizontal flutuante com a tabela real e controla
+  // sua visibilidade: só aparece enquanto o rodapé real da tabela ainda está fora da tela.
+  useEffect(() => {
+    const tableScroll = tableScrollRef.current;
+    const floatBar = floatScrollRef.current;
+    const floatInner = floatScrollInnerRef.current;
+    if (!tableScroll || !floatBar || !floatInner) return;
+
+    let syncing = false;
+
+    const layout = () => {
+      const rect = tableScroll.getBoundingClientRect();
+      floatBar.style.left = `${rect.left}px`;
+      floatBar.style.width = `${rect.width}px`;
+      floatInner.style.width = `${tableScroll.scrollWidth}px`;
+
+      const needsHScroll = tableScroll.scrollWidth > tableScroll.clientWidth + 1;
+      const tableBottomBelowViewport = rect.bottom > window.innerHeight;
+      const tableIsOnScreen = rect.top < window.innerHeight && rect.bottom > 0;
+      const shouldShow = needsHScroll && tableIsOnScreen && tableBottomBelowViewport;
+      floatBar.style.opacity = shouldShow ? '1' : '0';
+      floatBar.style.pointerEvents = shouldShow ? 'auto' : 'none';
+    };
+
+    const onTableScroll = () => {
+      if (syncing) return;
+      syncing = true;
+      floatBar.scrollLeft = tableScroll.scrollLeft;
+      syncing = false;
+    };
+    const onFloatScroll = () => {
+      if (syncing) return;
+      syncing = true;
+      tableScroll.scrollLeft = floatBar.scrollLeft;
+      syncing = false;
+    };
+
+    tableScroll.addEventListener('scroll', onTableScroll);
+    floatBar.addEventListener('scroll', onFloatScroll);
+    window.addEventListener('scroll', layout, { passive: true });
+    window.addEventListener('resize', layout);
+    const resizeObserver = new ResizeObserver(layout);
+    resizeObserver.observe(tableScroll);
+
+    layout();
+
+    return () => {
+      tableScroll.removeEventListener('scroll', onTableScroll);
+      floatBar.removeEventListener('scroll', onFloatScroll);
+      window.removeEventListener('scroll', layout);
+      window.removeEventListener('resize', layout);
+      resizeObserver.disconnect();
+    };
+  }, [financeView, loadingData, selectionMode]);
 
   // ── Transactions CRUD ────────────────────────────────────────────────────
 
@@ -2068,7 +2130,7 @@ export function FinanceManager() {
             <span className="text-sm font-semibold">Carregando...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
+          <div ref={tableScrollRef} className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
@@ -2320,6 +2382,16 @@ export function FinanceManager() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Barra de rolagem horizontal flutuante — fixa na base da viewport enquanto a
+          tabela ainda continua abaixo da tela; sincronizada com o scroll real da tabela. */}
+      <div
+        ref={floatScrollRef}
+        style={{ opacity: 0, pointerEvents: 'none' }}
+        className="fixed bottom-0 left-0 w-0 h-3.5 z-[150] overflow-x-auto overflow-y-hidden bg-on-surface/[0.06] dark:bg-white/[0.06] border-t border-on-surface/10 transition-opacity duration-150 [&::-webkit-scrollbar]:h-3.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(216,30,30,0.55)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-padding hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(216,30,30,0.75)]"
+      >
+        <div ref={floatScrollInnerRef} className="h-px" />
       </div>
       </>)}
 
