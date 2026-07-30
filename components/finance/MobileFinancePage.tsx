@@ -48,6 +48,7 @@ interface Transaction {
   tag_ids: string[];
   observacoes: string | null;
   origem?: 'manual' | 'hr_salario';
+  data_pagamento?: string | null;
 }
 
 type TxForm = {
@@ -63,6 +64,7 @@ type TxForm = {
   account_id: string | null;
   numero_cheque: string | null;
   identificacao: string | null;
+  data_pagamento: string | null;
 };
 
 // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
@@ -131,6 +133,7 @@ const emptyForm = (): TxForm => ({
   account_id: null,
   numero_cheque: null,
   identificacao: null,
+  data_pagamento: null,
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -153,6 +156,12 @@ function periodCutoff(period: DashPeriod): string {
   const d = new Date();
   d.setDate(d.getDate() - PERIOD_OPTIONS.find(p => p.key === period)!.days);
   return d.toISOString().split('T')[0];
+}
+
+// Despesas com vencimento (inclusive origem=hr_salario) exigem o questionário de
+// conta + data ao marcar como pagas — receitas e despesas à vista continuam instantâneas.
+function needsPaymentQuestionnaire(t: Pick<Transaction, 'tipo' | 'vencimento'>): boolean {
+  return t.tipo === 'Despesa' && !!t.vencimento;
 }
 
 // ── Seletor de data próprio (sem <input type="date"> nativo) ────────────────
@@ -963,6 +972,8 @@ function TxDetailSheet({
   editingWholeGroup,
   siblingTxs,
   onTogglePago,
+  onRequestMarkPaid,
+  onRequestUnmarkPaid,
 }: {
   tx: Transaction;
   mode: 'view' | 'edit';
@@ -981,6 +992,8 @@ function TxDetailSheet({
   onEditAllParcelas?: () => void;
   editingWholeGroup?: boolean;
   siblingTxs?: { id: string; favorecido: string; valor_final: number }[];
+  onRequestMarkPaid?: () => void;
+  onRequestUnmarkPaid?: () => void;
   onTogglePago?: (tx: Transaction) => void;
 }) {
   const isHrSalario = tx.origem === 'hr_salario';
@@ -1112,7 +1125,28 @@ function TxDetailSheet({
         {/* Conta */}
         <div>
           <span className={labelCls}>Conta</span>
-          {isEdit ? (
+          {isEdit && tx.pago && needsPaymentQuestionnaire(tx) ? (
+            // Movimentação já paga: conta trava contra edições acidentais — a troca só
+            // acontece pelo mesmo mini-formulário usado ao marcar como paga.
+            <div className="flex flex-col gap-1.5">
+              <div className={cn(viewBlockCls, 'flex items-center justify-between gap-2')}>
+                <span className="truncate">{accounts.find(a => a.id === form.account_id)?.nome ?? '—'}</span>
+                <Lock size={13} className="text-[rgba(26,26,10,0.30)] dark:text-white/25 shrink-0" />
+              </div>
+              {form.data_pagamento && (
+                <span className="text-[10px] font-semibold text-[rgba(26,26,10,0.40)] dark:text-white/30">
+                  Pago em {new Date(form.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => onRequestMarkPaid?.()}
+                className="self-start flex items-center gap-1 text-[11px] font-bold text-[#D81E1E]"
+              >
+                <Edit2 size={11} /> Alterar conta do pagamento
+              </button>
+            </div>
+          ) : isEdit ? (
             <select
               className={fieldCls}
               value={form.account_id ?? ''}
@@ -1379,7 +1413,15 @@ function TxDetailSheet({
           ) : isEdit ? (
             <>
               <button
-                onClick={() => setForm({ ...form, pago: !form.pago })}
+                onClick={() => {
+                  if (!form.pago) {
+                    if (needsPaymentQuestionnaire(tx)) { onRequestMarkPaid?.(); return; }
+                    setForm({ ...form, pago: true });
+                    return;
+                  }
+                  // Desmarcar sempre pede confirmação, qualquer tipo de movimentação.
+                  onRequestUnmarkPaid?.();
+                }}
                 className={cn(
                   'w-6 h-6 rounded-[7px] border-[1.5px] flex items-center justify-center transition-colors',
                   form.pago
@@ -1681,6 +1723,18 @@ export function MobileFinancePage() {
   // alterações não salvas ao tentar sair do modo de edição (botão de lápis).
   const [detailSnapshot, setDetailSnapshot] = useState<string | null>(null);
   const [showDiscardDetailConfirm, setShowDiscardDetailConfirm] = useState(false);
+
+  // Marcar/desmarcar como paga — questionário de conta+data para despesas com vencimento.
+  // mode 'immediate' grava direto no banco (quick-toggle hr_salario); 'form' só atualiza o
+  // rascunho local do formulário de edição, persistido junto no "Salvar Alterações".
+  const [markPaidState, setMarkPaidState] = useState<{ tx: Transaction; mode: 'immediate' | 'form' } | null>(null);
+  const [markPaidAccountId, setMarkPaidAccountId] = useState('');
+  const [markPaidDate, setMarkPaidDate] = useState('');
+  const [markPaidSubmitting, setMarkPaidSubmitting] = useState(false);
+  const [unmarkPaidState, setUnmarkPaidState] = useState<{ tx: Transaction; mode: 'immediate' | 'form' } | null>(null);
+  const [unmarkPaidSubmitting, setUnmarkPaidSubmitting] = useState(false);
+  const markPaidFieldCls = 'w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]';
+  const markPaidLabelCls = 'text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block';
 
   // parcelas do pagamento (Nova Movimentação e Editar)
   const [txParcelas, setTxParcelas] = useState<ParcelaRow[]>([]);
@@ -2159,6 +2213,7 @@ export function MobileFinancePage() {
       account_id: tx.account_id ?? null,
       numero_cheque: tx.numero_cheque ?? null,
       identificacao: tx.identificacao ?? null,
+      data_pagamento: tx.data_pagamento ?? null,
     };
     setDetailForm(nextForm);
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
@@ -2254,6 +2309,7 @@ export function MobileFinancePage() {
         valor_final: isSalarioRow ? detailTx.valor_final : valorNum,
         pago: isSalarioRow ? detailTx.pago : detailForm.pago,
         total_pago: isSalarioRow ? detailTx.total_pago : (detailForm.pago ? valorNum : 0),
+        data_pagamento: isSalarioRow ? (detailTx.data_pagamento ?? null) : (detailForm.data_pagamento ?? null),
         codigo_barras: isSalarioRow ? detailTx.codigo_barras : (detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null),
       };
       await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
@@ -2284,6 +2340,10 @@ export function MobileFinancePage() {
           codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
           pago: original?.pago ?? false,
           total_pago: original?.total_pago ?? 0,
+          // Parcela já paga preserva a conta/data do pagamento — a edição em lote do
+          // grupo não deve sobrescrever com a conta genérica do formulário.
+          account_id: original?.pago ? (original.account_id ?? null) : base.account_id,
+          data_pagamento: original?.pago ? (original.data_pagamento ?? null) : null,
         };
       });
       const { data: upserted } = await supabase.from('finance_transactions')
@@ -2346,6 +2406,7 @@ export function MobileFinancePage() {
       valor_final: valorNum,
       pago: detailForm.pago,
       total_pago: detailForm.pago ? valorNum : 0,
+      data_pagamento: null,
       numero_parcela: null,
       total_parcelas: null,
       parcelamento_id: null,
@@ -2384,17 +2445,82 @@ export function MobileFinancePage() {
 
   // Atalho de "marcar como paga" para movimentações origem=hr_salario, que ficam travadas
   // para qualquer outra edição — usado direto no modo de visualização, sem entrar em "edit".
-  async function handleTogglePagoQuick(tx: Transaction) {
-    const next = !tx.pago;
-    const nextTotalPago = next ? tx.valor_final : 0;
-    await supabase.from('finance_transactions').update({ pago: next, total_pago: nextTotalPago }).eq('id', tx.id);
-    setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, pago: next, total_pago: nextTotalPago } : t));
-    setDetailTx(prev => prev && prev.id === tx.id ? { ...prev, pago: next, total_pago: nextTotalPago } : prev);
+  // Como hr_salario sempre tem vencimento, marcar como pago sempre passa pelo questionário;
+  // desmarcar sempre pede confirmação — ambos gravam direto no banco (mode 'immediate').
+  function handleTogglePagoQuick(tx: Transaction) {
+    if (tx.pago) {
+      setUnmarkPaidState({ tx, mode: 'immediate' });
+      return;
+    }
+    openMarkPaid(tx, 'immediate');
+  }
+
+  function openMarkPaid(tx: Transaction, mode: 'immediate' | 'form') {
+    setMarkPaidState({ tx, mode });
+    setMarkPaidAccountId(tx.account_id ?? '');
+    setMarkPaidDate(tx.data_pagamento || new Date().toISOString().split('T')[0]);
+  }
+
+  async function confirmMarkPaid() {
+    if (!markPaidState) return;
+    const { tx, mode } = markPaidState;
+    setMarkPaidSubmitting(true);
+    try {
+      const patch: Partial<Transaction> = {
+        account_id: markPaidAccountId || null,
+        data_pagamento: markPaidDate || null,
+      };
+      if (!tx.pago) { patch.pago = true; patch.total_pago = tx.valor_final; }
+      if (mode === 'immediate') {
+        await supabase.from('finance_transactions').update(patch).eq('id', tx.id);
+        setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, ...patch } : t));
+        setDetailTx(prev => prev && prev.id === tx.id ? { ...prev, ...patch } : prev);
+      }
+      // Sincroniza o rascunho aberto (se o usuário estiver editando esta mesma
+      // movimentação) para o "Salvar Alterações" não reverter para o valor antigo.
+      if (detailTx && detailTx.id === tx.id) {
+        setDetailForm(f => ({
+          ...f,
+          account_id: patch.account_id ?? null,
+          data_pagamento: patch.data_pagamento ?? null,
+          pago: patch.pago ?? f.pago,
+        }));
+      }
+      setMarkPaidState(null);
+    } finally {
+      setMarkPaidSubmitting(false);
+    }
+  }
+
+  async function confirmUnmarkPaid() {
+    if (!unmarkPaidState) return;
+    const { tx, mode } = unmarkPaidState;
+    setUnmarkPaidSubmitting(true);
+    try {
+      const patch = { pago: false, total_pago: 0, data_pagamento: null as string | null };
+      if (mode === 'immediate') {
+        await supabase.from('finance_transactions').update(patch).eq('id', tx.id);
+        setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, ...patch } : t));
+        setDetailTx(prev => prev && prev.id === tx.id ? { ...prev, ...patch } : prev);
+      }
+      if (detailTx && detailTx.id === tx.id) {
+        setDetailForm(f => ({ ...f, pago: false, data_pagamento: null }));
+      }
+      setUnmarkPaidState(null);
+    } finally {
+      setUnmarkPaidSubmitting(false);
+    }
   }
 
   async function handleMarkPaidSelected() {
     if (selectedIds.size === 0) return;
-    const ids = [...selectedIds];
+    // Despesas com vencimento exigem conta+data — ficam de fora da ação em lote e
+    // devem ser marcadas individualmente pelo questionário.
+    const ids = [...selectedIds].filter(id => {
+      const t = transactions.find(tx => tx.id === id);
+      return t && !needsPaymentQuestionnaire(t);
+    });
+    if (ids.length === 0) { setSelectedIds(new Set()); setSelectionMode(false); return; }
     await Promise.all(ids.map(id => {
       const t = transactions.find(tx => tx.id === id);
       if (!t) return null;
@@ -2572,24 +2698,38 @@ export function MobileFinancePage() {
 
               {/* Selection delete bar */}
               <AnimatePresence>
-                {selectionMode && selectedIds.size > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mx-3 mb-2 bg-[rgba(216,30,30,0.10)] border border-[rgba(216,30,30,0.20)] rounded-2xl px-4 py-2.5 flex items-center justify-between overflow-hidden"
-                  >
-                    <span className="text-[12px] font-bold text-[#D81E1E]">{selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
-                    <div className="flex items-center gap-3">
-                      <button onClick={handleMarkPaidSelected} className="flex items-center gap-1.5 text-[#059669] dark:text-[#34D399] text-[12px] font-black">
-                        <Check size={14} /> Marcar Pago
-                      </button>
-                      <button onClick={handleDeleteSelected} className="flex items-center gap-1.5 text-[#D81E1E] text-[12px] font-black">
-                        <Trash2 size={14} /> Excluir
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
+                {selectionMode && selectedIds.size > 0 && (() => {
+                  const skippedCount = [...selectedIds].filter(id => {
+                    const t = transactions.find(tx => tx.id === id);
+                    return t && needsPaymentQuestionnaire(t);
+                  }).length;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mx-3 mb-2 overflow-hidden"
+                    >
+                      <div className="bg-[rgba(216,30,30,0.10)] border border-[rgba(216,30,30,0.20)] rounded-2xl px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-[12px] font-bold text-[#D81E1E]">{selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-3">
+                          <button onClick={handleMarkPaidSelected} className="flex items-center gap-1.5 text-[#059669] dark:text-[#34D399] text-[12px] font-black">
+                            <Check size={14} /> Marcar Pago
+                          </button>
+                          <button onClick={handleDeleteSelected} className="flex items-center gap-1.5 text-[#D81E1E] text-[12px] font-black">
+                            <Trash2 size={14} /> Excluir
+                          </button>
+                        </div>
+                      </div>
+                      {skippedCount > 0 && (
+                        <div className="mt-1.5 flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-[10.5px] font-semibold text-amber-700 dark:text-amber-400 leading-snug">
+                          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                          <span>{skippedCount} despesa{skippedCount > 1 ? 's' : ''} com vencimento será{skippedCount > 1 ? 'ão' : ''} ignorada{skippedCount > 1 ? 's' : ''} — marque individualmente para informar conta e data.</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })()}
               </AnimatePresence>
 
               {/* Loading */}
@@ -3070,6 +3210,8 @@ export function MobileFinancePage() {
             editingWholeGroup={editingGroupIds !== null}
             siblingTxs={getParcelaSiblings(detailTx)}
             onTogglePago={handleTogglePagoQuick}
+            onRequestMarkPaid={() => openMarkPaid(detailTx, 'form')}
+            onRequestUnmarkPaid={() => setUnmarkPaidState({ tx: detailTx, mode: 'form' })}
           />
         </>
       )}
@@ -3115,6 +3257,123 @@ export function MobileFinancePage() {
                   className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold active:scale-[0.97] transition-transform"
                 >
                   Descartar
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Marcar como paga / alterar conta do pagamento */}
+    <AnimatePresence>
+      {markPaidState && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+            onClick={() => setMarkPaidState(null)}
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+            className="fixed inset-x-0 bottom-0 z-[151] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl p-5 pb-[max(20px,env(safe-area-inset-bottom))]"
+          >
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
+            </div>
+            <h3 className="text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] mb-1">
+              {markPaidState.tx.pago ? 'Alterar conta do pagamento' : 'Marcar como paga'}
+            </h3>
+            <p className="text-[12px] text-[rgba(26,26,10,0.45)] dark:text-white/35 mb-4">
+              {markPaidState.tx.favorecido} · {markPaidState.tx.tipo_pagamento} · {fmt(markPaidState.tx.valor_final)}
+            </p>
+            <div className="flex flex-col gap-3">
+              <div>
+                <span className={markPaidLabelCls}>Conta utilizada</span>
+                <select value={markPaidAccountId} onChange={e => setMarkPaidAccountId(e.target.value)} className={markPaidFieldCls}>
+                  <option value="">Selecione a conta...</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
+                </select>
+              </div>
+              <div>
+                <span className={markPaidLabelCls}>Data do pagamento</span>
+                <input
+                  type="date"
+                  value={markPaidDate}
+                  onChange={e => setMarkPaidDate(e.target.value)}
+                  className={markPaidFieldCls}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setMarkPaidState(null)}
+                className="flex-1 py-3 rounded-2xl border border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-[13px] font-bold text-[rgba(26,26,10,0.55)] dark:text-white/45 active:scale-[0.97] transition-transform"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmMarkPaid}
+                disabled={markPaidSubmitting}
+                className="flex-1 py-3 rounded-2xl bg-[#059669] text-white text-[13px] font-black active:scale-[0.97] transition-transform disabled:opacity-60"
+              >
+                {markPaidSubmitting ? 'Salvando...' : 'Confirmar'}
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* Confirmação de desmarcar como paga */}
+    <AnimatePresence>
+      {unmarkPaidState && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+            onClick={() => setUnmarkPaidState(null)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 z-[151] flex items-center justify-center p-6 pointer-events-none"
+          >
+            <div className="pointer-events-auto bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                  <AlertTriangle size={17} />
+                </div>
+                <h3 className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Desmarcar como paga?</h3>
+              </div>
+              <p className="text-sm text-[rgba(26,26,10,0.55)] dark:text-white/45 mb-5">
+                {unmarkPaidState.tx.data_pagamento
+                  ? `A data de pagamento registrada (${new Date(unmarkPaidState.tx.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}) será apagada. A conta vinculada é mantida.`
+                  : 'Esta movimentação voltará a aparecer como pendente.'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUnmarkPaidState(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-[rgba(26,26,10,0.10)] dark:border-white/[0.10] text-sm font-bold text-[rgba(26,26,10,0.55)] dark:text-white/45 active:scale-[0.97] transition-transform"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmUnmarkPaid}
+                  disabled={unmarkPaidSubmitting}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-60"
+                >
+                  {unmarkPaidSubmitting ? 'Salvando...' : 'Desmarcar'}
                 </button>
               </div>
             </div>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Fluxo de Pagamento (Light)</title>
+<style>
+  :root {
+    --page-bg: #FDFAF0;
+    --modal-bg: #FFFFFF;
+    --modal-border: rgba(26,26,10,0.07);
+    --input-bg: #FFFFFF;
+    --input-border: #E0D8BF;
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.45);
+    --muted2: rgba(26,26,10,0.28);
+    --accent: #D81E1E;
+    --accent-bg: rgba(216,30,30,0.08);
+    --amber-bg: rgba(245,158,11,0.10);
+    --amber-text: #92400E;
+    --amber-border: rgba(245,158,11,0.25);
+    --row-even: #FFFFFF;
+    --row-odd: #FAF7EE;
+    --cell-border: rgba(26,26,10,0.05);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.07);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--page-bg); color: var(--text); }
+  .note { position: sticky; top: 0; z-index: 50; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 40px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 4px; }
+  .section-label { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 14px; }
+  .scene-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: start; }
+
+  /* ── Mini modal (conta + data) ── */
+  .modal-card {
+    background: var(--modal-bg); border: 1px solid var(--modal-border);
+    border-radius: 20px; padding: 22px; width: 100%; max-width: 360px;
+    box-shadow: 0 12px 32px rgba(26,26,10,0.10);
+  }
+  .modal-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .modal-icon { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .modal-icon.green { background: rgba(5,150,105,0.10); color: #059669; }
+  .modal-icon.amber { background: var(--amber-bg); color: var(--amber-text); }
+  .modal-title { font-size: 15px; font-weight: 900; }
+  .modal-sub { font-size: 12px; color: var(--muted); margin: 6px 0 18px; line-height: 1.5; }
+
+  label.field-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); display: block; margin-bottom: 5px; }
+  .field { margin-bottom: 14px; }
+  select.input, input.input {
+    width: 100%; font-family: inherit; font-size: 13px; font-weight: 600;
+    background: var(--input-bg); border: 1.5px solid var(--input-border);
+    border-radius: 10px; padding: 9px 12px; color: var(--text);
+  }
+  select.input:focus, input.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(216,30,30,0.12); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 18px; }
+  .btn { flex: 1; padding: 10px; border-radius: 12px; font-size: 12.5px; font-weight: 800; border: none; cursor: pointer; text-align: center; }
+  .btn.cancel { background: rgba(26,26,10,0.06); color: rgba(26,26,10,0.55); }
+  .btn.confirm { background: var(--accent); color: #fff; }
+  .btn.confirm.green { background: #059669; }
+
+  /* ── Tabela — campo conta travado ── */
+  .table-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; overflow: hidden; max-width: 420px; }
+  .table-card-header { padding: 14px 18px; border-bottom: 1px solid var(--cell-border); font-size: 13px; font-weight: 900; }
+  .field-row { padding: 16px 18px; }
+  .locked-field {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: rgba(26,26,10,0.03); border: 1.5px solid var(--input-border);
+    border-radius: 10px; padding: 9px 12px;
+  }
+  .locked-field .val { font-size: 13px; font-weight: 700; }
+  .locked-field .lock-icon { color: var(--muted2); font-size: 13px; }
+  .change-account-btn {
+    margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 800; color: var(--accent); background: none; border: none; cursor: pointer;
+  }
+
+  /* ── Badge "pago em" ── */
+  .paid-meta { font-size: 9.5px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+
+  .footer-note { font-size: 11.5px; color: var(--muted); line-height: 1.6; max-width: 700px; }
+
+  /* ── Mobile phone frame ── */
+  .phone {
+    width: 300px; border-radius: 34px; background: #FDFAF0; border: 8px solid #1A1A0E;
+    overflow: hidden; position: relative; box-shadow: 0 16px 40px rgba(26,26,10,0.18);
+  }
+  .phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 90px; height: 18px; background: #1A1A0E; border-radius: 0 0 12px 12px; z-index: 5; }
+  .phone-body { padding: 26px 14px 18px; min-height: 380px; display: flex; flex-direction: column; }
+
+  .sheet {
+    background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 18px 16px 20px;
+    box-shadow: 0 -8px 24px rgba(26,26,10,0.10); margin-top: auto;
+  }
+  .sheet-handle { width: 36px; height: 4px; background: rgba(26,26,10,0.15); border-radius: 3px; margin: 0 auto 14px; }
+  .sheet-title { font-size: 14px; font-weight: 900; margin-bottom: 3px; }
+  .sheet-sub { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+  .sheet .field { margin-bottom: 12px; }
+  .sheet label.field-label { font-size: 9.5px; }
+  .sheet select.input, .sheet input.input { border-radius: 12px; padding: 10px 12px; font-size: 12.5px; }
+  .sheet .btn-row { margin-top: 14px; }
+  .sheet .btn { padding: 11px; border-radius: 12px; font-size: 12px; }
+
+  .bulk-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(216,30,30,0.10); border: 1px solid rgba(216,30,30,0.20);
+    border-radius: 16px; padding: 10px 14px; margin: 0 0 10px;
+  }
+  .bulk-bar .count { font-size: 11px; font-weight: 800; color: #D81E1E; }
+  .bulk-bar .actions { display: flex; gap: 12px; }
+  .bulk-bar .actions span { font-size: 11px; font-weight: 900; color: #059669; }
+  .bulk-warning {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber-text);
+    border-radius: 12px; padding: 9px 11px; font-size: 10.5px; font-weight: 600; line-height: 1.5;
+  }
+  .mock-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--row-even); border: 1px solid var(--cell-border); border-radius: 12px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 11.5px;
+  }
+  .mock-row.skipped { opacity: 0.55; }
+  .mock-row .name { font-weight: 800; }
+  .mock-row .tag { font-size: 8.5px; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; }
+  .mock-row .tag.ok { background: rgba(5,150,105,0.10); color: #059669; }
+  .mock-row .tag.skip { background: var(--amber-bg); color: var(--amber-text); }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — fluxo de marcar/desmarcar como pago (Controle Financeiro · Desktop)</div>
+  <div class="page">
+
+    <div>
+      <h1>1. Marcar despesa como paga (com vencimento)</h1>
+      <div class="footer-note">Clique no checkbox "Pago" de uma despesa com vencimento abre este modal — pede a conta usada e a data do pagamento antes de confirmar.</div>
+      <div class="scene-grid" style="margin-top:16px;">
+        <div class="modal-card">
+          <div class="modal-icon-row">
+            <div class="modal-icon green">✓</div>
+            <div class="modal-title">Marcar como paga</div>
+          </div>
+          <div class="modal-sub">Ricardo Augusto · Boleto 2/6 · R$ 731,23</div>
+          <div class="field">
+            <label class="field-label">Conta utilizada</label>
+            <select class="input">
+              <option>Universo do R$1,99 — Bradesco</option>
+              <option>Caixa — Loja 02</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label">Data do pagamento</label>
+            <input class="input" type="text" value="30/07/2026" />
+          </div>
+          <div class="btn-row">
+            <button class="btn cancel">Cancelar</button>
+            <button class="btn confirm green">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h1>2. Desmarcar como paga (reverter)</h1>
+      <div class="footer-note">Clique para desmarcar abre uma confirmação simples — sem campos, só o aviso de que a data de pagamento será apagada.</div>
+      <div class="scene-grid" style="margin-top:16px;">
+        <div class="modal-card">
+          <div class="modal-icon-row">
+            <div class="modal-icon amber">!</div>
+            <div class="modal-title">Desmarcar como paga?</div>
+          </div>
+          <div class="modal-sub">A data de pagamento registrada (30/07/2026) será apagada. A conta vinculada é mantida.</div>
+          <div class="btn-row">
+            <button class="btn cancel">Cancelar</button>
+            <button class="btn confirm">Desmarcar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h1>3. Campo Conta travado no modal de edição (movimentação já paga)</h1>
+      <div class="footer-note">Quando a movimentação já está paga, o dropdown de Conta normal vira somente leitura — evita que uma edição qualquer sobrescreva sem querer a conta escolhida no pagamento. Um botão dedicado permite corrigir.</div>
+      <div class="scene-grid" style="margin-top:16px;">
+        <div class="table-card">
+          <div class="table-card-header">Editar Movimentação</div>
+          <div class="field-row">
+            <label class="field-label">Conta</label>
+            <div class="locked-field">
+              <span class="val">Universo do R$1,99 — Bradesco</span>
+              <span class="lock-icon">🔒</span>
+            </div>
+            <div class="paid-meta">Pago em 30/07/2026</div>
+            <button class="change-account-btn">✎ Alterar conta do pagamento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h1>4. Mobile — marcar como paga (bottom sheet)</h1>
+      <div class="footer-note">Mesmo padrão do desktop, em bottom sheet: Conta + Data do pagamento.</div>
+      <div class="scene-grid" style="margin-top:16px;">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-body">
+            <div style="flex:1"></div>
+            <div class="sheet">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Marcar como paga</div>
+              <div class="sheet-sub">Ricardo Augusto · Boleto 2/6 · R$ 731,23</div>
+              <div class="field">
+                <label class="field-label">Conta utilizada</label>
+                <select class="input">
+                  <option>Universo do R$1,99 — Bradesco</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Data do pagamento</label>
+                <input class="input" type="text" value="30/07/2026" />
+              </div>
+              <div class="btn-row">
+                <button class="btn cancel">Cancelar</button>
+                <button class="btn confirm green">Confirmar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-body">
+            <div style="flex:1"></div>
+            <div class="sheet">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Desmarcar como paga?</div>
+              <div class="sheet-sub">A data de pagamento será apagada. A conta vinculada é mantida.</div>
+              <div class="btn-row">
+                <button class="btn cancel">Cancelar</button>
+                <button class="btn confirm">Desmarcar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h1>5. Mobile — ação em massa não afeta despesas com vencimento</h1>
+      <div class="footer-note">Na seleção múltipla, "Marcar Pago" em lote só aplica às movimentações que não precisam do questionário (receitas e despesas sem vencimento). As que precisam ficam esmaecidas com um aviso, e devem ser marcadas individualmente.</div>
+      <div class="scene-grid" style="margin-top:16px;">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-body">
+            <div class="bulk-bar">
+              <span class="count">3 selecionadas</span>
+              <div class="actions">
+                <span>✓ Marcar Pago</span>
+              </div>
+            </div>
+            <div class="bulk-warning">⚠ 2 despesas com vencimento foram ignoradas — marque-as individualmente para informar conta e data.</div>
+            <div style="margin-top:12px;">
+              <div class="mock-row">
+                <span class="name">Salário — Recepção</span>
+                <span class="tag ok">será marcada</span>
+              </div>
+              <div class="mock-row skipped">
+                <span class="name">Boleto Fornecedor XYZ</span>
+                <span class="tag skip">pular</span>
+              </div>
+              <div class="mock-row skipped">
+                <span class="name">Aluguel — Loja 02</span>
+                <span class="tag skip">pular</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
