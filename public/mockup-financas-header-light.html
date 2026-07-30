@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Cabeçalho da Tabela (Light)</title>
+<style>
+  :root {
+    --bg: #FDFAF0;
+    --thead-bg: #FFEC4D;
+    --thead-border: #E6CE33;
+    --chip-bg: rgba(26,26,10,0.05);
+    --chip-text: rgba(26,26,10,0.55);
+    --chip-border: rgba(26,26,10,0.10);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.07);
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.40);
+    --accent: #D81E1E;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+
+  .table-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; overflow: hidden; }
+  .thead-row { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); display: flex; padding: 10px 8px; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center;
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border: 1.5px solid var(--chip-border);
+    border-radius: 9999px;
+    padding: 5px 13px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    white-space: nowrap;
+  }
+  .demo-row { display: flex; padding: 14px 8px; gap: 6px; font-size: 13px; color: var(--muted); }
+  .demo-row div { width: 100px; }
+
+  .label { margin-top: 24px; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — cabeçalho com contraste corrigido (texto/moldura escuros sobre o amarelo, iguais em light e dark)</div>
+  <div class="page">
+    <h1>Controle Financeiro — cabeçalho da tabela</h1>
+    <p class="sub">Modo claro (referência — já funcionava bem, mantido como está).</p>
+
+    <div class="table-card">
+      <div class="thead-row">
+        <span class="chip">Data</span>
+        <span class="chip">Tipo</span>
+        <span class="chip">Pagamento</span>
+        <span class="chip">Favorecido</span>
+        <span class="chip">Estabelec.</span>
+        <span class="chip">Tags</span>
+        <span class="chip">Vencimento</span>
+        <span class="chip">Valor Final</span>
+        <span class="chip">Total Pago</span>
+        <span class="chip">Restante</span>
+        <span class="chip">Pago</span>
+      </div>
+      <div class="demo-row">
+        <div>30/07/2026</div><div>Despesa</div><div>Boleto 1/6</div><div>Plasnew</div><div>Universo...</div>
+      </div>
+    </div>
+
+    <div class="label">Antes / Depois (dark mode)</div>
+  </div>
+</body>
+</html>

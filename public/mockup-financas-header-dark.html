@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Cabeçalho da Tabela (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --thead-bg: #FFEC4D;
+    --thead-border: #DCC63D;
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --text: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --accent: #D81E1E;
+
+    /* Antes (bug) — tokens claros sobre o amarelo */
+    --chip-bg-broken: rgba(242,240,227,0.05);
+    --chip-text-broken: rgba(242,240,227,0.40);
+    --chip-border-broken: rgba(242,240,227,0.10);
+
+    /* Depois (corrigido) — tokens escuros sobre o amarelo, iguais ao light mode */
+    --chip-bg-fixed: rgba(26,26,10,0.05);
+    --chip-text-fixed: rgba(26,26,10,0.58);
+    --chip-border-fixed: rgba(26,26,10,0.12);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .section-label { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; margin: 24px 0 8px; }
+  .section-label.broken { color: #F43F5E; }
+  .section-label.fixed { color: #34D399; }
+
+  .table-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; overflow: hidden; }
+  .thead-row { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); display: flex; padding: 10px 8px; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center;
+    border-radius: 9999px;
+    padding: 5px 13px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    white-space: nowrap;
+    border: 1.5px solid;
+  }
+  .chip.broken { background: var(--chip-bg-broken); color: var(--chip-text-broken); border-color: var(--chip-border-broken); }
+  .chip.fixed { background: var(--chip-bg-fixed); color: var(--chip-text-fixed); border-color: var(--chip-border-fixed); }
+
+  .demo-row { display: flex; padding: 14px 8px; gap: 6px; font-size: 13px; color: var(--muted); }
+  .demo-row div { width: 100px; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — comparação antes (ilegível) × depois (corrigido) no modo escuro</div>
+  <div class="page">
+    <h1>Controle Financeiro — cabeçalho da tabela</h1>
+    <p class="sub">O fundo amarelo do cabeçalho é o mesmo em light/dark (âncora de marca) — o problema é o texto/moldura do chip, que hoje usam tokens claros no dark mode.</p>
+
+    <div class="section-label broken">✗ Antes (bug reportado — quase ilegível)</div>
+    <div class="table-card">
+      <div class="thead-row">
+        <span class="chip broken">Data</span>
+        <span class="chip broken">Tipo</span>
+        <span class="chip broken">Pagamento</span>
+        <span class="chip broken">Favorecido</span>
+        <span class="chip broken">Estabelec.</span>
+        <span class="chip broken">Tags</span>
+        <span class="chip broken">Vencimento</span>
+        <span class="chip broken">Valor Final</span>
+        <span class="chip broken">Total Pago</span>
+        <span class="chip broken">Restante</span>
+        <span class="chip broken">Pago</span>
+      </div>
+      <div class="demo-row">
+        <div>30/07/2026</div><div>Despesa</div><div>Boleto 1/6</div><div>Plasnew</div><div>Universo...</div>
+      </div>
+    </div>
+
+    <div class="section-label fixed">✓ Depois (corrigido — texto/moldura escuros sobre o amarelo)</div>
+    <div class="table-card">
+      <div class="thead-row">
+        <span class="chip fixed">Data</span>
+        <span class="chip fixed">Tipo</span>
+        <span class="chip fixed">Pagamento</span>
+        <span class="chip fixed">Favorecido</span>
+        <span class="chip fixed">Estabelec.</span>
+        <span class="chip fixed">Tags</span>
+        <span class="chip fixed">Vencimento</span>
+        <span class="chip fixed">Valor Final</span>
+        <span class="chip fixed">Total Pago</span>
+        <span class="chip fixed">Restante</span>
+        <span class="chip fixed">Pago</span>
+      </div>
+      <div class="demo-row">
+        <div>30/07/2026</div><div>Despesa</div><div>Boleto 1/6</div><div>Plasnew</div><div>Universo...</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

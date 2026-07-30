@@ -2152,10 +2152,12 @@ export function FinanceManager() {
                               onClick={columnFiltersEnabled && key ? () => { setFilterOpenKey(prev => prev === key ? null : key); setFilterSearchQuery(''); } : undefined}
                               title={columnFiltersEnabled && key ? (hasFilter ? 'Filtro ativo' : 'Filtrar') : undefined}
                               className={cn(
-                                'inline-flex items-center bg-[rgba(26,26,10,0.05)] dark:bg-[rgba(242,240,227,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.50)] dark:text-[rgba(242,240,227,0.40)] whitespace-nowrap border-[1.5px] transition-colors',
+                                // Cabeçalho da tabela é sempre amarelo (âncora de marca), em light e dark —
+                                // por isso o chip usa tokens escuros nos dois modos, sem variante dark: clara.
+                                'inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] transition-colors',
                                 columnFiltersEnabled
                                   ? cn('border-[#D81E1E]/45', key && 'cursor-pointer', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E]')
-                                  : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.10)]',
+                                  : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]',
                               )}
                             >
                               {label}
