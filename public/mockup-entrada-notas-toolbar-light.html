@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Toolbar Janela de Notas (Light)</title>
+<style>
+  :root {
+    --bg: #FDFAF0;
+    --modal-bg: #F0E6C8;
+    --header-bg: #FAF6E6;
+    --header-border: #E9DFC2;
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.40);
+    --muted2: rgba(26,26,10,0.28);
+    --accent: #D81E1E;
+
+    --th-bg: #FFEC4D;
+    --th-border: #E6CE33;
+    --th-chip-bg: rgba(0,0,0,0.05);
+    --th-chip-border: rgba(26,26,10,0.10);
+    --th-chip-text: rgba(26,26,10,0.55);
+
+    --row-even: #FFFFFF;
+    --row-odd: #FAF7EE;
+    --cell-border: rgba(224,216,191,0.80);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .note { position: sticky; top: 0; z-index: 50; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { padding: 32px 24px; }
+  h1 { font-size: 18px; font-weight: 900; margin: 0 0 16px; }
+
+  .modal { width: 100%; background: var(--modal-bg); border-radius: 20px; box-shadow: 0 12px 40px rgba(26,26,10,0.14); overflow: hidden; border: 1px solid var(--header-border); }
+
+  .header { background: var(--header-bg); border-bottom: 1px solid var(--header-border); padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .file-icon { width: 46px; height: 46px; border-radius: 12px; background: rgba(245,158,11,0.12); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .file-title { font-size: 18px; font-weight: 900; }
+  .file-sub { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+  .badge-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .badge-num { padding: 3px 9px; border-radius: 8px; background: rgba(26,26,10,0.07); font-size: 11px; font-weight: 900; color: rgba(26,26,10,0.55); }
+  .badge-time { padding: 3px 9px; border-radius: 8px; border: 1.5px solid rgba(26,26,10,0.14); background: transparent; font-size: 11px; font-weight: 700; color: var(--muted); }
+
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: rgba(26,26,10,0.06); color: rgba(26,26,10,0.45); border: none; cursor: pointer;
+  }
+  .icon-btn.round { border-radius: 9999px; }
+  .icon-btn:hover { background: rgba(26,26,10,0.1); }
+  .divider { width: 1px; height: 20px; background: rgba(26,26,10,0.10); margin: 0 4px; }
+  .pill-btn {
+    display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px;
+    font-size: 11px; font-weight: 700; border: 1px solid; cursor: pointer; background: rgba(26,26,10,0.06);
+    border-color: rgba(26,26,10,0.08); color: rgba(26,26,10,0.45);
+  }
+  .filter-btn { width: 34px; height: 34px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(26,26,10,0.06); color: rgba(26,26,10,0.45); border: none; cursor: pointer; }
+  .excel-icon { width: 18px; height: 18px; border-radius: 4px; background: #1D6F42; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; font-style: italic; }
+  .close-btn {
+    width: 40px; height: 40px; border-radius: 9999px; border: 1.5px solid rgba(26,26,10,0.12);
+    background: transparent; color: rgba(26,26,10,0.40); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .close-btn:hover { background: rgba(26,26,10,0.06); }
+
+  .table-wrap { padding: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--th-bg); border-bottom: 1.5px solid var(--th-border); }
+  th { padding: 9px 10px; text-align: left; }
+  .th-chip {
+    display: inline-flex; align-items: center; background: var(--th-chip-bg); border: 1.5px solid var(--th-chip-border);
+    border-radius: 9999px; padding: 5px 12px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: var(--th-chip-text); white-space: nowrap;
+  }
+  td { padding: 11px 10px; font-size: 13px; border-right: 1px solid var(--cell-border); }
+  td:last-child { border-right: none; }
+  tbody tr:nth-child(even) { background: var(--row-even); }
+  tbody tr:nth-child(odd) { background: var(--row-odd); }
+
+  .footer { padding: 18px 22px; border-top: 1px solid var(--header-border); background: var(--header-bg); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .stats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .stat-chip {
+    display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 12px;
+    border: 1.5px solid rgba(26,26,10,0.10); background: rgba(26,26,10,0.03); font-size: 12px;
+  }
+  .stat-chip .lbl { color: var(--muted); font-weight: 600; }
+  .stat-chip .val { font-weight: 900; color: var(--text); }
+  .stat-chip .val.green { color: #059669; }
+  .footer-actions { display: flex; align-items: center; gap: 10px; }
+  .btn-primary { padding: 10px 18px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 900; font-size: 13px; border: none; }
+  .btn-danger { padding: 10px 16px; border-radius: 12px; background: rgba(216,30,30,0.10); color: var(--accent); font-weight: 700; font-size: 13px; border: 1px solid rgba(216,30,30,0.20); }
+
+  .legend { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — reorganização da janela de notas (Entrada de Mercadoria · Light)</div>
+  <div class="page">
+    <h1>Janela de Notas — cabeçalho, tabela e rodapé reorganizados</h1>
+
+    <div class="modal">
+      <div class="header">
+        <div class="header-left">
+          <div class="file-icon">📄</div>
+          <div>
+            <div class="file-title">NF_Plasnew_08492.xml</div>
+            <div class="file-sub">Plasnew Distribuidora</div>
+            <div class="badge-row">
+              <span class="badge-num">08492</span>
+              <span class="badge-time">30/07/2026 · 14:32</span>
+            </div>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="icon-btn" title="Desfazer (Ctrl+Z)">↶</button>
+          <button class="icon-btn" title="Refazer (Ctrl+Y)">↷</button>
+          <div class="divider"></div>
+          <button class="filter-btn" title="Filtrar por coluna">▽</button>
+          <button class="pill-btn" title="Adicionar coluna de Desconto">− Desconto</button>
+          <button class="pill-btn" title="Adicionar coluna de Acréscimo">+ Acréscimo</button>
+          <div class="divider"></div>
+          <button class="icon-btn" title="Baixar Excel"><span class="excel-icon">X</span></button>
+          <button class="icon-btn" title="Baixar para Estoque">⬇</button>
+          <div class="divider"></div>
+          <button class="close-btn" title="Fechar">✕</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="th-chip">Produto na Nota</span></th>
+              <th><span class="th-chip">Identificação Interna</span></th>
+              <th><span class="th-chip">EAN</span></th>
+              <th><span class="th-chip">Qtd.</span></th>
+              <th><span class="th-chip">Preço Custo</span></th>
+              <th><span class="th-chip">Preço Venda</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>ARROZ TIPO 1 5KG</td>
+              <td>Arroz Tio João 5kg</td>
+              <td>7891234567890</td>
+              <td>24</td>
+              <td>R$ 18,50</td>
+              <td>R$ 24,90</td>
+            </tr>
+            <tr>
+              <td>FEIJAO CARIOCA 1KG</td>
+              <td>Feijão Camil 1kg</td>
+              <td>7899876543210</td>
+              <td>36</td>
+              <td>R$ 6,20</td>
+              <td>R$ 8,50</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <div class="stats">
+          <div class="stat-chip"><span class="lbl">Total:</span><span class="val">60 itens</span></div>
+          <div class="stat-chip"><span class="lbl">Valor total da nota:</span><span class="val">R$ 668,80</span></div>
+          <div class="stat-chip"><span class="lbl">Markup total:</span><span class="val green">+32.4%</span></div>
+        </div>
+        <div class="footer-actions">
+          <button class="btn-danger">🗑 Excluir</button>
+          <button class="btn-primary">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      Header (esquerda → direita): Desfazer, Refazer · Filtro · Desconto, Acréscimo · Excel (ícone), Baixar (ícone) · Fechar (moldura circular).<br>
+      Número da nota + data/hora agora na mesma linha — número com fundo preenchido, data/hora só com borda.<br>
+      Cabeçalho da tabela: mesmo amarelo/chip da tabela de Controle Financeiro.<br>
+      Rodapé: Total, Valor total da nota e Markup total agora em molduras individuais arredondadas; Salvar e Excluir na posição já ajustada anteriormente.
+    </div>
+  </div>
+</body>
+</html>

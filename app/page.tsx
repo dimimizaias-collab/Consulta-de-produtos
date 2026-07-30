@@ -6127,7 +6127,7 @@ export default function Page() {
                             <Pencil size={14} />
                           </button>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {viewingReviewNote.noteNumber ? (
                             <span className="px-2 py-0.5 bg-on-surface/[0.07] rounded-lg text-xs font-black text-on-surface/50">{viewingReviewNote.noteNumber}</span>
                           ) : (
@@ -6138,16 +6138,50 @@ export default function Page() {
                               + Número da nota
                             </button>
                           )}
+                          <span className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40">{viewingReviewNote.timestamp}</span>
                         </div>
                       </div>
                     )}
                     {viewingReviewNote.accessKey && (
                       <p className="text-[10px] font-mono text-on-surface/30 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
                     )}
-                    <p className="text-xs text-on-surface/35 font-medium mt-0.5">{viewingReviewNote.timestamp}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    title="Desfazer (Ctrl+Z)"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Undo2 size={16} />
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    title="Refazer (Ctrl+Y)"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Redo2 size={16} />
+                  </button>
+                  <div className="w-px h-5 bg-on-surface/10" />
+                  <button
+                    onClick={() => {
+                      const next = !reviewFilterActive;
+                      setReviewFilterActive(next);
+                      if (!next) { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }
+                    }}
+                    title={reviewFilterActive ? 'Desativar filtros' : 'Filtrar por coluna'}
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center transition-all',
+                      reviewFilterActive
+                        ? 'bg-primary text-white shadow-md'
+                        : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                      Object.values(reviewColumnFilters).some(s => s.size > 0) && !reviewFilterActive && 'ring-2 ring-primary/40',
+                    )}
+                  >
+                    <Filter size={13} />
+                  </button>
                   <div className="flex items-center gap-1.5">
                     {/* Adj column buttons */}
                     <button
@@ -6172,33 +6206,18 @@ export default function Page() {
                         <span className="bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
                       )}
                     </button>
-                    <div className="w-px h-5 bg-on-surface/10" />
-                    <button
-                      onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjLegacy())}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
-                    >
-                      <Download size={16} />
-                      Excel
-                    </button>
-                    <div className="w-px h-5 bg-on-surface/10" />
-                    <button
-                      onClick={() => {
-                        const next = !reviewFilterActive;
-                        setReviewFilterActive(next);
-                        if (!next) { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }
-                      }}
-                      title={reviewFilterActive ? 'Desativar filtros' : 'Filtrar por coluna'}
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center transition-all',
-                        reviewFilterActive
-                          ? 'bg-primary text-white shadow-md'
-                          : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
-                        Object.values(reviewColumnFilters).some(s => s.size > 0) && !reviewFilterActive && 'ring-2 ring-primary/40',
-                      )}
-                    >
-                      <Filter size={13} />
-                    </button>
                   </div>
+                  <div className="w-px h-5 bg-on-surface/10" />
+                  <button
+                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjLegacy())}
+                    title="Baixar Excel"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <rect x="2" y="2" width="20" height="20" rx="4" fill="#1D6F42" />
+                      <path d="M7 7l4 5-4 5M17 7l-4 5 4 5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => {
                       setEstoquePickerArgs({
@@ -6208,38 +6227,41 @@ export default function Page() {
                       });
                       setShowEstoqueLayoutPicker(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold hover:bg-blue-500/18 transition-colors border border-blue-500/15"
+                    title="Baixar para Estoque"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/18 transition-colors border border-blue-500/15"
                   >
                     <Download size={16} />
-                    Baixar
                   </button>
                   <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
                   <button
                     onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
-                    className="p-2 hover:bg-on-surface/[0.07] rounded-full transition-colors"
+                    className="w-10 h-10 flex items-center justify-center rounded-full border-[1.5px] border-on-surface/15 hover:bg-on-surface/[0.07] transition-colors"
                   >
-                    <X size={24} className="text-on-surface/35" />
+                    <X size={22} className="text-on-surface/40" />
                   </button>
                 </div>
               </div>
 
               <div
-                className="flex-1 overflow-auto [--rn-th-bg:#FFE500] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFE500] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
-                style={{ padding: '12px 14px 0' }}
+                className="flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                style={{ padding: 0 }}
               >
                 <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: '1400px' }}>
                   <thead className="sticky top-0 z-10">
-                    <tr className="text-left" style={{ borderBottom: '1.5px solid #D4C000' }}>
-                      {/* Single connected header bar — all th share bg, radius only on corners */}
+                    <tr className="text-left" style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
+                      {/* Cabeçalho igual ao da tabela de Controle Financeiro: barra amarela contínua
+                          com um "chip" pill arredondado por coluna, sem divisórias verticais. */}
                       {(() => {
-                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 10px', verticalAlign: 'middle', height: '36px', borderRight: '1px solid rgba(0,0,0,0.08)' };
+                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
                         const thFirst: React.CSSProperties = { ...thBar, paddingLeft: '10px' };
-                        const thLast: React.CSSProperties = { ...thBar, borderRight: 'none', width: '36px' };
+                        const thLast: React.CSSProperties = { ...thBar, width: '36px' };
                         const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
                           display: 'inline-flex', alignItems: 'center', gap: '4px',
                           fontSize: '9px', fontWeight: 900,
                           letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-                          color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, ...extra,
+                          color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
+                          background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
+                          borderRadius: '9999px', padding: '5px 13px', ...extra,
                         });
                         // ── Filter helpers (used when reviewFilterActive) ──
                         const colFilterKey: Record<string, string> = {
@@ -7711,7 +7733,9 @@ export default function Page() {
 
               <div className="p-6 border-t border-line dark:border-white/[0.07] bg-surface-container dark:bg-[#252520] flex items-center justify-between shrink-0">
                 <div className="text-sm text-on-surface/40 flex items-center gap-2 flex-wrap">
-                  Total: <span className="font-bold text-on-surface">{viewingReviewNote.itemCount} itens</span>
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-on-surface/10 bg-on-surface/[0.03]">
+                    Total: <span className="font-bold text-on-surface">{viewingReviewNote.itemCount} itens</span>
+                  </span>
                   {reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0) && (() => {
                     const totalCount = viewingReviewNote.items.length;
                     const _getFilterVal = (key: string, it: any, i: number): string => {
@@ -7768,42 +7792,23 @@ export default function Page() {
                       : null;
                     return (
                       <>
-                        <span className="text-on-surface/40">Valor total da nota:</span>
-                        <span className="font-black text-on-surface">R$ {noteTotalCost.toFixed(2)}</span>
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-on-surface/10 bg-on-surface/[0.03]">
+                          <span className="text-on-surface/40">Valor total da nota:</span>
+                          <span className="font-black text-on-surface">R$ {noteTotalCost.toFixed(2)}</span>
+                        </span>
                         {noteMarkup !== null && (
-                          <>
-                            <span className="text-on-surface/15">·</span>
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-on-surface/10 bg-on-surface/[0.03]">
                             <span className="text-on-surface/40">Markup total:</span>
                             <span className={cn('font-black', noteMarkup >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                               {noteMarkup >= 0 ? '+' : ''}{noteMarkup.toFixed(1)}%
                             </span>
-                          </>
+                          </span>
                         )}
                       </>
                     );
                   })()}
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* Undo / Redo */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={handleUndo}
-                      disabled={!canUndo}
-                      title="Desfazer (Ctrl+Z)"
-                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Undo2 size={16} />
-                    </button>
-                    <button
-                      onClick={handleRedo}
-                      disabled={!canRedo}
-                      title="Refazer (Ctrl+Y)"
-                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Redo2 size={16} />
-                    </button>
-                  </div>
-
                   {confirmDeleteNote ? (
                     <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
                       <span className="text-sm font-bold text-red-400 whitespace-nowrap">Excluir nota?</span>
