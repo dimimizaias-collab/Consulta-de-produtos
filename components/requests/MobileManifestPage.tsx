@@ -36,6 +36,7 @@ interface ManifestDraft {
   label: string;
   savedAt: string;
   supplierId: string;
+  receivedDate: string;
   rows: ManifestRow[];
 }
 
@@ -61,7 +62,7 @@ const UNIT_OPTIONS = ['UN', 'CX', 'KG', 'CX12', 'PCT', 'FD', 'DZ', 'SC', 'LT', '
 async function fetchDrafts(): Promise<ManifestDraft[]> {
   const { data, error } = await supabase
     .from('review_notes')
-    .select('id, file_name, timestamp_label, supplier_id, raw_rows')
+    .select('id, file_name, timestamp_label, supplier_id, raw_rows, received_date')
     .eq('is_draft', true)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -70,6 +71,7 @@ async function fetchDrafts(): Promise<ManifestDraft[]> {
     label: d.file_name,
     savedAt: d.timestamp_label,
     supplierId: d.supplier_id ?? '',
+    receivedDate: d.received_date ?? '',
     rows: d.raw_rows || [],
   }));
 }
@@ -81,6 +83,7 @@ async function upsertDraft(draft: ManifestDraft) {
     timestamp_label: draft.savedAt,
     supplier_id: draft.supplierId || null,
     supplier_name: null,
+    received_date: draft.receivedDate || null,
     raw_rows: draft.rows,
     is_draft: true,
     item_count: draft.rows.length,
@@ -104,6 +107,19 @@ function makeRow(): ManifestRow {
 function fmtBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+// Converte data ISO (yyyy-mm-dd, do <input type="date">) para dd/mm/yyyy — usada no nome padrão da nota.
+function fmtDateBR(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+// Nome padrão da nota: "Fornecedor - Data de recebimento" — cai para o timestamp de criação
+// quando algum dos dois ainda não foi preenchido (rascunho recém-aberto).
+function buildNoteLabel(supplierName: string, receivedDateIso: string, timestamp: string): string {
+  if (supplierName && receivedDateIso) return `${supplierName} - ${fmtDateBR(receivedDateIso)}`;
+  if (supplierName) return `${supplierName} — ${timestamp}`;
+  return `Manifesto — ${timestamp}`;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -117,6 +133,7 @@ export function MobileManifestPage({
   const [supplierId, setSupplierId] = useState('');
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState('');
+  const [receivedDate, setReceivedDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -165,6 +182,7 @@ export function MobileManifestPage({
         const latest = drafts[0];
         setCurrentDraftId(latest.id);
         setSupplierId(latest.supplierId);
+        setReceivedDate(latest.receivedDate || '');
         const loaded = latest.rows.length > 0 ? latest.rows : [makeRow()];
         setRows(loaded);
         setSelectedIdx(0);
@@ -172,6 +190,7 @@ export function MobileManifestPage({
         setRows([makeRow()]);
         setSelectedIdx(0);
         setSupplierId('');
+        setReceivedDate('');
       }
     }).catch(() => {
       setRows([makeRow()]);
@@ -190,15 +209,16 @@ export function MobileManifestPage({
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
         id: currentDraftId,
-        label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
+        label: buildNoteLabel(supplierName, receivedDate, timestamp),
         savedAt: timestamp,
         supplierId,
+        receivedDate,
         rows,
       };
       try { await upsertDraft(draft); } catch { /* silent */ }
     }, 1500);
     return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
-  }, [rows, supplierId, isOpen, currentDraftId]);
+  }, [rows, supplierId, receivedDate, isOpen, currentDraftId]);
 
   // Close supplier dropdown on outside click
   useEffect(() => {
@@ -355,9 +375,10 @@ export function MobileManifestPage({
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
         id: currentDraftId,
-        label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
+        label: buildNoteLabel(supplierName, receivedDate, timestamp),
         savedAt: timestamp,
         supplierId,
+        receivedDate,
         rows,
       };
       await upsertDraft(draft);
@@ -373,6 +394,10 @@ export function MobileManifestPage({
     const valid = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (valid.length === 0) {
       setNotification({ type: 'error', message: 'Adicione ao menos um item ao manifesto.' });
+      return;
+    }
+    if (!receivedDate) {
+      setNotification({ type: 'error', message: 'Informe a data de recebimento.' });
       return;
     }
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
@@ -402,10 +427,11 @@ export function MobileManifestPage({
       const timestamp = new Date().toLocaleString('pt-BR');
       const note: ReviewNote = {
         id: noteId, timestamp,
-        fileName: `Manifesto Manual — ${timestamp}`,
+        fileName: buildNoteLabel(supplierName, receivedDate, timestamp),
         items, itemCount: items.length,
         verifiedCount: items.filter(i => i.verified).length,
         supplierName: supplierName || undefined,
+        receivedDate,
       };
       const { error } = await supabase.from('review_notes').upsert({
         id: note.id,
@@ -415,6 +441,7 @@ export function MobileManifestPage({
         verified_count: note.verifiedCount,
         items: note.items,
         supplier_name: supplierName || null,
+        received_date: receivedDate,
         is_draft: false,
         raw_rows: null,
         supplier_id: null,
@@ -569,6 +596,20 @@ export function MobileManifestPage({
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Row 3: data de recebimento */}
+        <div className="mt-2 flex items-center gap-2 bg-black/[0.06] dark:bg-white/[0.06] border border-black/[0.10] dark:border-white/[0.10] rounded-[14px] px-3 py-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/38 dark:text-white/30 shrink-0">
+            Recebimento <span className="text-red-500">*</span>
+          </span>
+          <input
+            type="date"
+            value={receivedDate}
+            onChange={e => setReceivedDate(e.target.value)}
+            required
+            className="flex-1 bg-transparent text-[13px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] outline-none min-w-0"
+          />
         </div>
       </div>
 

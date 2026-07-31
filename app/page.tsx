@@ -917,6 +917,7 @@ export default function Page() {
         accessKey: n.access_key ?? undefined,
         supplierName: n.supplier_name ?? undefined,
         supplierId: n.supplier_id ?? null,
+        receivedDate: n.received_date ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
       })));
     }
@@ -2678,6 +2679,7 @@ export default function Page() {
         items: updatedItems,
         file_name: viewingReviewNote.fileName,
         note_number: viewingReviewNote.noteNumber || null,
+        received_date: viewingReviewNote.receivedDate || null,
         updated_at: new Date().toISOString(),
       }).eq('id', viewingReviewNote.id);
       if (saveError) throw saveError;
@@ -2687,9 +2689,9 @@ export default function Page() {
       if (priceUpdates.length > 0) await Promise.all(priceUpdates);
       setReviewNotes(prev => prev.map(n => {
         if (n.id !== viewingReviewNote.id) return n;
-        return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber };
+        return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber, receivedDate: viewingReviewNote.receivedDate };
       }));
-      setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber } : null);
+      setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber, receivedDate: viewingReviewNote.receivedDate } : null);
       setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
       fetchProducts(); // Reflete preços de venda e dados atualizados no state global
     } catch (err: any) {
@@ -6106,6 +6108,15 @@ export default function Page() {
                             className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent w-48 placeholder:text-on-surface/20"
                           />
                         </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold uppercase text-on-surface/40 shrink-0">Recebimento</label>
+                          <input
+                            type="date"
+                            value={viewingReviewNote.receivedDate || ''}
+                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, receivedDate: e.target.value || undefined })}
+                            className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent placeholder:text-on-surface/20"
+                          />
+                        </div>
                         {viewingReviewNote.supplierName && (
                           <span className="text-xs font-bold text-on-surface/40">{viewingReviewNote.supplierName}</span>
                         )}
@@ -6139,6 +6150,18 @@ export default function Page() {
                             </button>
                           )}
                           <span className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40">{viewingReviewNote.timestamp}</span>
+                          {viewingReviewNote.receivedDate ? (
+                            <span className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40">
+                              Recebido em {viewingReviewNote.receivedDate.split('-').reverse().join('/')}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setEditingNoteHeader(true)}
+                              className="text-xs text-on-surface/20 hover:text-on-surface/50 transition-colors"
+                            >
+                              + Data de recebimento
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}

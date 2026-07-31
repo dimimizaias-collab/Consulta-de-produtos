@@ -49,6 +49,7 @@ interface ManifestDraft {
   label: string;
   savedAt: string;
   supplierId: string;
+  receivedDate: string;
   rows: ManifestRow[];
 }
 
@@ -77,7 +78,7 @@ export interface ManualManifestModalProps {
 async function fetchDrafts(): Promise<ManifestDraft[]> {
   const { data, error } = await supabase
     .from('review_notes')
-    .select('id, file_name, timestamp_label, supplier_id, raw_rows')
+    .select('id, file_name, timestamp_label, supplier_id, raw_rows, received_date')
     .eq('is_draft', true)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -86,6 +87,7 @@ async function fetchDrafts(): Promise<ManifestDraft[]> {
     label: d.file_name,
     savedAt: d.timestamp_label,
     supplierId: d.supplier_id ?? '',
+    receivedDate: d.received_date ?? '',
     rows: d.raw_rows || [],
   }));
 }
@@ -97,6 +99,7 @@ async function upsertDraft(draft: ManifestDraft) {
     timestamp_label: draft.savedAt,
     supplier_id: draft.supplierId || null,
     supplier_name: null,
+    received_date: draft.receivedDate || null,
     raw_rows: draft.rows,
     is_draft: true,
     item_count: draft.rows.length,
@@ -124,6 +127,19 @@ function makeRow(): ManifestRow {
 function fmtBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+// Converte data ISO (yyyy-mm-dd, do <input type="date">) para dd/mm/yyyy — usada no nome padrão da nota.
+function fmtDateBR(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+// Nome padrão da nota: "Fornecedor - Data de recebimento" — cai para o timestamp de criação
+// quando algum dos dois ainda não foi preenchido (rascunho recém-aberto).
+function buildNoteLabel(supplierName: string, receivedDateIso: string, timestamp: string): string {
+  if (supplierName && receivedDateIso) return `${supplierName} - ${fmtDateBR(receivedDateIso)}`;
+  if (supplierName) return `${supplierName} — ${timestamp}`;
+  return `Manifesto — ${timestamp}`;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -140,6 +156,7 @@ export function ManualManifestModal({
   const [supplierId, setSupplierId] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const [receivedDate, setReceivedDate] = useState('');
   const [rows, setRows] = useState<ManifestRow[]>([makeRow(), makeRow(), makeRow()]);
   const [pastedRange, setPastedRange] = useState<{ start: number; end: number; field: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -212,9 +229,10 @@ export function ManualManifestModal({
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
         id: currentDraftId,
-        label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
+        label: buildNoteLabel(supplierName, receivedDate, timestamp),
         savedAt: timestamp,
         supplierId,
+        receivedDate,
         rows,
       };
       try {
@@ -227,7 +245,7 @@ export function ManualManifestModal({
       } catch { /* silent — manual Salvar will surface errors */ }
     }, 1500);
     return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
-  }, [rows, supplierId, view, currentDraftId]);
+  }, [rows, supplierId, receivedDate, view, currentDraftId]);
 
   // On open: load drafts from Supabase
   useEffect(() => {
@@ -253,12 +271,12 @@ export function ManualManifestModal({
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const openNewEditor = () => {
-    setCurrentDraftId(Date.now().toString()); setSupplierId('');
+    setCurrentDraftId(Date.now().toString()); setSupplierId(''); setReceivedDate('');
     setRows([makeRow(), makeRow(), makeRow()]);
     setLinkingRowId(null); setView('editor');
   };
   const openDraft = (draft: ManifestDraft) => {
-    setCurrentDraftId(draft.id); setSupplierId(draft.supplierId);
+    setCurrentDraftId(draft.id); setSupplierId(draft.supplierId); setReceivedDate(draft.receivedDate || '');
     setRows(draft.rows); setLinkingRowId(null); setView('editor');
   };
   const goToList = async () => {
@@ -282,9 +300,10 @@ export function ManualManifestModal({
     const id = currentDraftId ?? Date.now().toString();
     const draft: ManifestDraft = {
       id,
-      label: supplierName ? `${supplierName} — ${timestamp}` : `Manifesto — ${timestamp}`,
+      label: buildNoteLabel(supplierName, receivedDate, timestamp),
       savedAt: timestamp,
       supplierId,
+      receivedDate,
       rows,
     };
     try {
@@ -631,6 +650,7 @@ export function ManualManifestModal({
   const handleSubmit = async () => {
     const validRows = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (validRows.length === 0) { setNotification({ type: 'error', message: 'Adicione ao menos um item ao manifesto.' }); return; }
+    if (!receivedDate) { setNotification({ type: 'error', message: 'Informe a data de recebimento.' }); return; }
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
     setSubmitting(true);
     try {
@@ -657,9 +677,10 @@ export function ManualManifestModal({
       const noteId = currentDraftId ?? Date.now().toString();
       const timestamp = new Date().toLocaleString('pt-BR');
       const note: ReviewNote = {
-        id: noteId, timestamp, fileName: `Manifesto Manual — ${timestamp}`,
+        id: noteId, timestamp, fileName: buildNoteLabel(supplierName, receivedDate, timestamp),
         items, itemCount: items.length, verifiedCount: items.filter(i => i.verified).length,
         supplierName: supplierName || undefined,
+        receivedDate,
       };
       const { error } = await supabase.from('review_notes').upsert({
         id: note.id,
@@ -669,6 +690,7 @@ export function ManualManifestModal({
         verified_count: note.verifiedCount,
         items: note.items,
         supplier_name: supplierName || null,
+        received_date: receivedDate,
         is_draft: false,
         raw_rows: null,
         supplier_id: null,
@@ -948,6 +970,19 @@ export function ManualManifestModal({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase block mb-1 text-[#1A1A0E]/40 dark:text-white/30">
+                  Data de recebimento <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={receivedDate}
+                  onChange={e => setReceivedDate(e.target.value)}
+                  required
+                  className="rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/20 bg-black/[0.05] dark:bg-white/[0.06] border border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E] dark:text-[#F2F0E3]"
+                />
               </div>
 
               {/* Import invoice button */}
