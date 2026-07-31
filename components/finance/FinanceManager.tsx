@@ -103,6 +103,10 @@ const TABLE_COLUMNS: { label: string; key: string }[] = [
   { label: '', key: '' },
 ];
 
+// Altura mínima (em linhas) da tabela — evita que o dropdown de filtro de coluna seja
+// cortado pelo wrapper com overflow-x-auto quando poucas movimentações estão visíveis.
+const MIN_TABLE_ROWS_FOR_FILTER_MENU = 6;
+
 // Colunas com opção de ordenação no dropdown de filtro — rótulos por direção (asc/desc).
 const COLUMN_SORT_OPTIONS: Record<string, { asc: string; desc: string }> = {
   data: { asc: 'Mais antigos primeiro', desc: 'Mais recentes primeiro' },
@@ -297,6 +301,9 @@ export function FinanceManager() {
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [filterOpenKey, setFilterOpenKey] = useState<string | null>(null);
   const [filterSearchQuery, setFilterSearchQuery] = useState('');
+  // Seleção do dropdown de filtro de coluna aberto — só é aplicada em `columnFilters` ao
+  // confirmar (OK), evitando que a tabela mude de tamanho (e corte o próprio menu) a cada clique.
+  const [filterPendingSelection, setFilterPendingSelection] = useState<Set<string> | null>(null);
   const [columnSort, setColumnSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   // selection
@@ -2136,7 +2143,7 @@ export function FinanceManager() {
           onClick={() => {
             const next = !columnFiltersEnabled;
             setColumnFiltersEnabled(next);
-            if (!next) { setColumnFilters({}); setColumnSort(null); setFilterOpenKey(null); setFilterSearchQuery(''); }
+            if (!next) { setColumnFilters({}); setColumnSort(null); setFilterOpenKey(null); setFilterPendingSelection(null); setFilterSearchQuery(''); }
           }}
           title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
           className={cn(
@@ -2249,15 +2256,38 @@ export function FinanceManager() {
                     const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
                     const isOpen = columnFiltersEnabled && filterOpenKey === key;
                     const uniqueVals = isOpen ? getColumnUniqueValues(key) : [];
-                    const selected = columnFilters[key] ?? new Set<string>();
+                    const selected = isOpen ? (filterPendingSelection ?? new Set<string>()) : (columnFilters[key] ?? new Set<string>());
                     const searchLower = filterSearchQuery.toLowerCase();
                     const displayed = searchLower ? uniqueVals.filter(v => v.toLowerCase().includes(searchLower)) : uniqueVals;
+                    // Abrir o dropdown pré-marca exatamente o que a tabela já está mostrando para a
+                    // coluna: o filtro ativo (se houver) ou, sem filtro, todas as opções visíveis no
+                    // momento — assim o usuário só precisa desmarcar o que quer excluir.
+                    const openFilter = () => {
+                      const current = columnFilters[key];
+                      setFilterPendingSelection(new Set(current && current.size > 0 ? current : getColumnUniqueValues(key)));
+                      setFilterOpenKey(key);
+                      setFilterSearchQuery('');
+                    };
+                    const closeFilter = () => {
+                      setFilterOpenKey(null);
+                      setFilterPendingSelection(null);
+                      setFilterSearchQuery('');
+                    };
+                    const confirmFilter = () => {
+                      setColumnFilters(prev => {
+                        const nxt = { ...prev };
+                        const sel = filterPendingSelection ?? new Set<string>();
+                        if (sel.size === 0) delete nxt[key]; else nxt[key] = sel;
+                        return nxt;
+                      });
+                      closeFilter();
+                    };
                     return (
                       <th key={label || 'actions'} className="px-3 py-3 text-left whitespace-nowrap relative">
                         {label ? (
                           <div className="inline-flex items-center gap-1">
                             <span
-                              onClick={columnFiltersEnabled && key ? () => { setFilterOpenKey(prev => prev === key ? null : key); setFilterSearchQuery(''); } : undefined}
+                              onClick={columnFiltersEnabled && key ? () => { isOpen ? closeFilter() : openFilter(); } : undefined}
                               title={columnFiltersEnabled && key ? (hasFilter ? 'Filtro ativo' : 'Filtrar') : undefined}
                               className={cn(
                                 // Cabeçalho da tabela é sempre amarelo (âncora de marca), em light e dark —
@@ -2271,7 +2301,7 @@ export function FinanceManager() {
                               {label}
                             </span>
                             {isOpen && key && (<>
-                              <div className="fixed inset-0 z-[90]" onClick={() => { setFilterOpenKey(null); setFilterSearchQuery(''); }} />
+                              <div className="fixed inset-0 z-[90]" onClick={closeFilter} />
                               <div className="absolute left-0 top-full mt-1 z-[100] rounded-xl shadow-2xl border border-on-surface/10 bg-surface-container overflow-hidden normal-case" style={{ minWidth: '200px', maxWidth: '280px' }}>
                                 {COLUMN_SORT_OPTIONS[key] && (
                                   <div className="flex flex-col gap-0.5 p-1.5 border-b border-on-surface/10">
@@ -2306,14 +2336,14 @@ export function FinanceManager() {
                                 </div>
                                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-on-surface/10">
                                   <button
-                                    onClick={e => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [key]: new Set(uniqueVals) })); }}
+                                    onClick={e => { e.stopPropagation(); setFilterPendingSelection(new Set(uniqueVals)); }}
                                     className="text-[10px] font-bold text-on-surface/40 hover:text-on-surface/70 transition-colors"
                                   >
                                     Selecionar tudo
                                   </button>
                                   <span className="text-on-surface/15">·</span>
                                   <button
-                                    onClick={e => { e.stopPropagation(); setColumnFilters(prev => { const n = { ...prev }; delete n[key]; return n; }); }}
+                                    onClick={e => { e.stopPropagation(); setFilterPendingSelection(new Set()); }}
                                     className="text-[10px] font-bold text-on-surface/40 hover:text-red-400 transition-colors"
                                   >
                                     Limpar
@@ -2331,12 +2361,10 @@ export function FinanceManager() {
                                           checked={checked}
                                           className="w-3 h-3 accent-primary"
                                           onChange={() => {
-                                            setColumnFilters(prev => {
-                                              const cur = new Set<string>(prev[key] ?? []);
+                                            setFilterPendingSelection(prev => {
+                                              const cur = new Set<string>(prev ?? []);
                                               if (checked) cur.delete(val); else cur.add(val);
-                                              const nxt = { ...prev };
-                                              if (cur.size === 0) delete nxt[key]; else nxt[key] = cur;
-                                              return nxt;
+                                              return cur;
                                             });
                                           }}
                                         />
@@ -2344,6 +2372,20 @@ export function FinanceManager() {
                                       </label>
                                     );
                                   })}
+                                </div>
+                                <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-on-surface/10">
+                                  <button
+                                    onClick={e => { e.stopPropagation(); closeFilter(); }}
+                                    className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-on-surface/50 hover:bg-on-surface/[0.06] hover:text-on-surface/80 transition-colors"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); confirmFilter(); }}
+                                    className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-primary text-on-primary hover:opacity-90 transition-opacity"
+                                  >
+                                    OK
+                                  </button>
                                 </div>
                               </div>
                             </>)}
@@ -2521,6 +2563,15 @@ export function FinanceManager() {
                     );
                   })
                 )}
+                {/* Linhas de preenchimento invisíveis — garantem altura mínima na tabela para que o
+                    dropdown de filtro de coluna não seja cortado quando poucas linhas são exibidas
+                    (o wrapper com overflow-x-auto corta overflow vertical de conteúdo mais alto que ele). */}
+                {filtered.length > 0 && filtered.length < MIN_TABLE_ROWS_FOR_FILTER_MENU &&
+                  Array.from({ length: MIN_TABLE_ROWS_FOR_FILTER_MENU - filtered.length }).map((_, i) => (
+                    <tr key={`filler-${i}`} aria-hidden="true">
+                      <td colSpan={selectionMode ? 13 : 12} className="px-4 h-[52px]" />
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
