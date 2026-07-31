@@ -394,9 +394,11 @@ export default function Page() {
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [noteItemSaveTranslation, setNoteItemSaveTranslation] = useState(false);
-  const [noteItemSaveTranslationKey, setNoteItemSaveTranslationKey] = useState<'codigo' | 'descricao'>('descricao');
   const [multiLinkSaveTranslation, setMultiLinkSaveTranslation] = useState(false);
-  const [multiLinkSaveTranslationKey, setMultiLinkSaveTranslationKey] = useState<'codigo' | 'descricao'>('descricao');
+  // Atalho "Criar e Vincular" na coluna Identificação Interna: item pendente de confirmação
+  // (produto não encontrado no dicionário) e estado de submissão do modal de confirmação.
+  const [quickCreateConfirmIdx, setQuickCreateConfirmIdx] = useState<number | null>(null);
+  const [quickCreateSubmitting, setQuickCreateSubmitting] = useState(false);
   const [multiLinkItemIdx, setMultiLinkItemIdx] = useState<number | null>(null);
   const [multiLinkItemSearch, setMultiLinkItemSearch] = useState('');
   const [multiLinkItemQty, setMultiLinkItemQty] = useState('');
@@ -2600,18 +2602,21 @@ export default function Page() {
             setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
           } else {
             const sourceItem = viewingReviewNote.items[linkingItemIdx];
-            const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
-              supplier_id: supplierId,
-              supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
-              supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
-              internal_product_id: created.id,
-            });
+            // upsert (não insert): supplier_mappings tem UNIQUE (supplier_id, supplier_description) —
+            // reconfirmar a tradução de uma descrição já mapeada deve atualizar o produto, não falhar.
+            const { error: mappingErr } = await supabase.from('supplier_mappings')
+              .upsert({
+                supplier_id: supplierId,
+                supplier_description: sourceItem?.original_description || null,
+                supplier_sku: sourceItem?.supplier_code || null,
+                internal_product_id: created.id,
+              }, { onConflict: 'supplier_id,supplier_description' });
             if (mappingErr) {
               setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
             } else {
               setNoteSupplierMappings(prev => [...prev, {
-                supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (sourceItem?.supplier_code || null) : null,
-                supplier_description: noteItemSaveTranslationKey === 'descricao' ? (sourceItem?.original_description || null) : null,
+                supplier_sku: sourceItem?.supplier_code || null,
+                supplier_description: sourceItem?.original_description || null,
                 internal_product_id: created.id,
               }]);
             }
@@ -2620,7 +2625,7 @@ export default function Page() {
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
         setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
-        setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
+        setNoteItemSaveTranslation(false);
         if (extraEanRows.length === 0 || !eanInsertFailed) {
           setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
         }
@@ -2636,6 +2641,96 @@ export default function Page() {
       setNotification({ type: 'error', message: friendly });
     } finally {
       setNoteItemCreating(false);
+    }
+  };
+
+  // Mesma busca usada na lista do modal "Vincular ao Dicionário" — reaproveitada para decidir,
+  // ao clicar em "Vincular" ou no atalho de criação rápida, se o produto já existe no sistema
+  // (abre a busca) ou não (pula direto para a criação), sem divergir do que a lista mostraria.
+  const searchProductsForLink = useCallback((query: string) => {
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+    return products.filter((p: any) =>
+      p.name?.toLowerCase().includes(q) ||
+      p.sku?.toLowerCase().includes(q) ||
+      (p.ean && p.ean.toLowerCase().includes(q)) ||
+      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
+    ).slice(0, 12);
+  }, [products]);
+
+  // Abre o modal de vínculo a partir da coluna Identificação Interna: se o EAN do item já
+  // corresponde a algum produto cadastrado, abre a busca (fluxo normal); se não há nenhum
+  // resultado, pula direto para "Criar Novo Produto" com nome/EAN pré-preenchidos.
+  const openNoteItemLink = (idx: number, item: any) => {
+    const q = viewingNoteEans[idx] ?? item.ean ?? '';
+    const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
+    setLinkingItemIdx(idx);
+    setNoteItemLinkQuery(q);
+    setNoteItemNewEan(q);
+    setNoteItemNewSku('');
+    setNoteItemNewName((item.original_description || item.description || '').toLowerCase());
+    setNoteItemShowCreate(q.trim().length > 0 && !hasMatch);
+  };
+
+  // Atalho "Criar e Vincular" da coluna Identificação Interna: mesma checagem de existência do
+  // botão "Vincular" — se já existe produto compatível, abre a busca normal; se não, pede
+  // confirmação antes de criar (a criação em si acontece em handleQuickCreateAndLink).
+  const openQuickCreateOrLink = (idx: number, item: any) => {
+    const q = viewingNoteEans[idx] ?? item.ean ?? '';
+    const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
+    if (q.trim().length === 0 || hasMatch) {
+      openNoteItemLink(idx, item);
+      return;
+    }
+    setQuickCreateConfirmIdx(idx);
+  };
+
+  // Cria o produto direto (nome do item em minúsculas, preço de venda da linha, EAN do item)
+  // e já vincula à movimentação — sem passar pela tela de criação manual.
+  const handleQuickCreateAndLink = async (idx: number) => {
+    if (!viewingReviewNote) return;
+    const item = viewingReviewNote.items[idx];
+    const name = (item.original_description || item.description || '').trim().toLowerCase();
+    const ean = (viewingNoteEans[idx] ?? item.ean ?? '').trim();
+    const price = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
+    if (!name) {
+      setNotification({ type: 'error', message: 'Item sem descrição — não é possível criar o produto automaticamente.' });
+      setQuickCreateConfirmIdx(null);
+      return;
+    }
+    setQuickCreateSubmitting(true);
+    try {
+      const { data: created, error } = await supabase.from('products')
+        .insert({ name, sku: null, ean: ean || null, count: 0, is_low: true, status: 'Fora de Estoque', price })
+        .select('id, name, sku, ean, price').single();
+      if (error) throw error;
+      const updatedItems = [...viewingReviewNote.items];
+      updatedItems[idx] = {
+        ...updatedItems[idx],
+        name: created.name,
+        sku: created.sku || updatedItems[idx].sku,
+        ean: created.ean || updatedItems[idx].ean,
+        product_id: created.id,
+        product_price: price,
+        verified: true,
+        status_translation: 'Identificado (SKU/EAN)',
+      };
+      setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+      const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
+      const uS = [...viewingNoteSkus]; uS[idx] = created.sku || ''; setViewingNoteSkus(uS);
+      const uE = [...viewingNoteEans]; uE[idx] = created.ean || ''; setViewingNoteEans(uE);
+      const uP = [...viewingNoteSellPrices]; uP[idx] = price; setViewingNoteSellPrices(uP);
+      setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
+      fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
+    } catch (err: any) {
+      const msg = err.message || '';
+      const friendly = msg.includes('products_ean') || msg.includes('ean')
+        ? 'Este EAN já está cadastrado em outro produto.'
+        : msg || 'Erro ao criar produto.';
+      setNotification({ type: 'error', message: friendly });
+    } finally {
+      setQuickCreateSubmitting(false);
+      setQuickCreateConfirmIdx(null);
     }
   };
 
@@ -2853,24 +2948,41 @@ export default function Page() {
       if (!supplierId) {
         setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
       } else {
+        // supplier_mappings tem UNIQUE (supplier_id, supplier_description) — como o "Vincular Vários"
+        // divide UMA descrição entre VÁRIOS produtos, só o primeiro pode reivindicar a descrição
+        // (via upsert, atualizando um mapeamento anterior se já existir); os demais são salvos
+        // somente pelo código próprio de cada produto, que não tem essa restrição de unicidade.
         const seen = new Set<string>();
+        let descriptionClaimed = false;
         for (const e of multiLinkItemEntries) {
           if (seen.has(e.product.id)) continue;
           seen.add(e.product.id);
-          const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
-            supplier_id: supplierId,
-            supplier_sku: multiLinkSaveTranslationKey === 'codigo' ? (e.supplierCode.trim() || null) : null,
-            supplier_description: multiLinkSaveTranslationKey === 'descricao' ? (sourceItem.original_description || null) : null,
-            internal_product_id: e.product.id,
-          });
-          if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+          const sku = e.supplierCode.trim() || null;
+          if (!descriptionClaimed && sourceItem.original_description) {
+            descriptionClaimed = true;
+            const { error: mappingErr } = await supabase.from('supplier_mappings')
+              .upsert({
+                supplier_id: supplierId,
+                supplier_sku: sku,
+                supplier_description: sourceItem.original_description,
+                internal_product_id: e.product.id,
+              }, { onConflict: 'supplier_id,supplier_description' });
+            if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+          } else if (sku) {
+            const { error: mappingErr } = await supabase.from('supplier_mappings').insert({
+              supplier_id: supplierId,
+              supplier_sku: sku,
+              supplier_description: null,
+              internal_product_id: e.product.id,
+            });
+            if (mappingErr) console.warn('Erro ao salvar tradução permanente:', mappingErr.message);
+          }
         }
       }
     }
 
     setNotification({ type: 'success', message: `${newItems.length} linha${newItems.length !== 1 ? 's' : ''} criada${newItems.length !== 1 ? 's' : ''}.` });
     setMultiLinkSaveTranslation(false);
-    setMultiLinkSaveTranslationKey('descricao');
     setMultiLinkItemIdx(null); setMultiLinkItemEntries([]);
   };
 
@@ -6653,7 +6765,7 @@ export default function Page() {
                                 /* Não vinculado: ícone link */
                                 <div className="relative group shrink-0">
                                   <button
-                                    onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
+                                    onClick={() => openNoteItemLink(idx, item)}
                                     className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
                                     style={{ background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
                                   >
@@ -6693,6 +6805,19 @@ export default function Page() {
                                 </button>
                                 <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
                                   Vários
+                                </span>
+                              </div>
+                              {/* Atalho: cria o produto (se ainda não existir) e já vincula, sem passar pela tela de criação */}
+                              <div className="relative group shrink-0">
+                                <button
+                                  onClick={() => openQuickCreateOrLink(idx, item)}
+                                  className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
+                                  style={{ background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
+                                >
+                                  <Zap size={12} />
+                                </button>
+                                <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
+                                  Criar e Vincular
                                 </span>
                               </div>
                             </div>
@@ -7361,35 +7486,18 @@ export default function Page() {
                                 </button>
                                 {noteItemSaveTranslation && (
                                   <div className="mt-2 space-y-1.5">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vincular pelo campo</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => setNoteItemSaveTranslationKey('codigo')}
-                                      disabled={!linkItem?.supplier_code}
-                                      className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'codigo' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.supplier_code && 'opacity-40 cursor-not-allowed')}
-                                    >
-                                      <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'codigo' ? 'border-primary' : 'border-slate-300')}>
-                                        {noteItemSaveTranslationKey === 'codigo' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                      </div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
+                                    <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
                                         <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
                                       </div>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setNoteItemSaveTranslationKey('descricao')}
-                                      disabled={!linkItem?.original_description}
-                                      className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'descricao' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.original_description && 'opacity-40 cursor-not-allowed')}
-                                    >
-                                      <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'descricao' ? 'border-primary' : 'border-slate-300')}>
-                                        {noteItemSaveTranslationKey === 'descricao' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                      </div>
+                                      <div className="w-px bg-slate-200 shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
                                         <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
                                       </div>
-                                    </button>
+                                    </div>
                                   </div>
                                 )}
 
@@ -7425,16 +7533,16 @@ export default function Page() {
                                             if (!supplierId) {
                                               setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
                                             } else {
-                                              const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                              const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
                                               if (mappingErr) {
                                                 setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
                                               } else {
-                                                setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                                setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
                                                 setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
                                               }
                                             }
                                           }
-                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
+                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                         }
                                       }}
                                       placeholder="0,00"
@@ -7467,16 +7575,16 @@ export default function Page() {
                                       if (!supplierId) {
                                         setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
                                       } else {
-                                        const { error: mappingErr } = await supabase.from('supplier_mappings').insert({ supplier_id: supplierId, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, internal_product_id: p.id });
+                                        const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
                                         if (mappingErr) {
                                           setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
                                         } else {
-                                          setNoteSupplierMappings(prev => [...prev, { supplier_sku: noteItemSaveTranslationKey === 'codigo' ? (linkItem?.supplier_code || null) : null, supplier_description: noteItemSaveTranslationKey === 'descricao' ? (linkItem?.original_description || null) : null, internal_product_id: p.id }]);
+                                          setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
                                           setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
                                         }
                                       }
                                     }
-                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemSaveTranslationKey('descricao');
+                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                   }}
                                   className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                 >
@@ -7712,29 +7820,18 @@ export default function Page() {
                             </button>
                             {noteItemSaveTranslation && (
                               <div className="mt-2 space-y-1.5">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vincular pelo campo</p>
-                                <button type="button" onClick={() => setNoteItemSaveTranslationKey('codigo')} disabled={!linkItem?.supplier_code}
-                                  className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'codigo' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.supplier_code && 'opacity-40 cursor-not-allowed')}
-                                >
-                                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'codigo' ? 'border-primary' : 'border-slate-300')}>
-                                    {noteItemSaveTranslationKey === 'codigo' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                  </div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
+                                <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
                                     <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
                                   </div>
-                                </button>
-                                <button type="button" onClick={() => setNoteItemSaveTranslationKey('descricao')} disabled={!linkItem?.original_description}
-                                  className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', noteItemSaveTranslationKey === 'descricao' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !linkItem?.original_description && 'opacity-40 cursor-not-allowed')}
-                                >
-                                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', noteItemSaveTranslationKey === 'descricao' ? 'border-primary' : 'border-slate-300')}>
-                                    {noteItemSaveTranslationKey === 'descricao' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                  </div>
+                                  <div className="w-px bg-slate-200 shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
                                     <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
                                   </div>
-                                </button>
+                                </div>
                               </div>
                             )}
 
@@ -7750,6 +7847,63 @@ export default function Page() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    </motion.div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Confirmação do atalho "Criar e Vincular" — produto não encontrado ────── */}
+              {quickCreateConfirmIdx !== null && (() => {
+                const item = viewingReviewNote.items[quickCreateConfirmIdx];
+                const name = (item.original_description || item.description || '').toLowerCase();
+                const ean = viewingNoteEans[quickCreateConfirmIdx] ?? item.ean ?? '';
+                const price = viewingNoteSellPrices[quickCreateConfirmIdx] ?? item.product_price ?? 0;
+                return (
+                  <div className="fixed inset-0 z-[195] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                      onClick={() => { if (!quickCreateSubmitting) setQuickCreateConfirmIdx(null); }}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                      transition={{ duration: 0.18 }}
+                      className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5"
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                          <AlertTriangle size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto não encontrado</p>
+                          <p className="text-sm font-bold text-slate-800">Criar e vincular mesmo assim?</p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 space-y-1">
+                        <p className="text-xs text-slate-500">Nome: <span className="font-bold text-slate-800">{name || '—'}</span></p>
+                        <p className="text-xs text-slate-500">EAN: <span className="font-bold text-slate-800">{ean || '—'}</span></p>
+                        <p className="text-xs text-slate-500">Preço de venda: <span className="font-bold text-slate-800">R$ {price.toFixed(2).replace('.', ',')}</span></p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setQuickCreateConfirmIdx(null)}
+                          disabled={quickCreateSubmitting}
+                          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-40"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => handleQuickCreateAndLink(quickCreateConfirmIdx)}
+                          disabled={quickCreateSubmitting}
+                          className="flex-1 py-2.5 rounded-xl bg-primary text-white font-black text-sm hover:bg-primary/90 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                        >
+                          {quickCreateSubmitting
+                            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                            : <><Zap size={13} />Criar e vincular</>
+                          }
+                        </button>
                       </div>
                     </motion.div>
                   </div>
@@ -8297,7 +8451,7 @@ export default function Page() {
               {/* Vincular Vários modal */}
               {multiLinkItemIdx !== null && (
                 <div className="fixed inset-0 z-[170] flex items-center justify-center p-4">
-                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); setMultiLinkSaveTranslation(false); setMultiLinkSaveTranslationKey('descricao'); }} />
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); }} />
                   <motion.div
                     initial={{ opacity: 0, scale: 0.94, y: 16 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -8312,7 +8466,7 @@ export default function Page() {
                         </div>
                         <h3 className="text-base font-black text-slate-900">Vincular Vários</h3>
                       </div>
-                      <button onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); setMultiLinkSaveTranslation(false); setMultiLinkSaveTranslationKey('descricao'); }} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                      <button onClick={() => { setMultiLinkItemIdx(null); setMultiLinkItemEntries([]); }} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
                         <X size={16} className="text-slate-400" />
                       </button>
                     </div>
@@ -8389,7 +8543,7 @@ export default function Page() {
                                         className="w-14 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                                         title="Unidades por embalagem — divide o preço custo automaticamente"
                                       />
-                                      {multiLinkSaveTranslation && multiLinkSaveTranslationKey === 'codigo' && (
+                                      {multiLinkSaveTranslation && (
                                         <>
                                           <span className="text-[10px] text-emerald-600 font-medium ml-2">Cód.:</span>
                                           <input
@@ -8474,39 +8628,14 @@ export default function Page() {
                             <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão estes itens automaticamente</p>
                           </div>
                         </button>
-                        {/* Seletor de chave */}
+                        {/* Cada produto será vinculado pelo Código (editável por linha acima) e pela descrição, juntos */}
                         {multiLinkSaveTranslation && (() => {
                           const srcItem = viewingReviewNote?.items[multiLinkItemIdx!];
                           return (
-                            <div className="space-y-1.5">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vincular pelo campo</p>
-                              <button
-                                type="button"
-                                onClick={() => setMultiLinkSaveTranslationKey('codigo')}
-                                className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', multiLinkSaveTranslationKey === 'codigo' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300')}
-                              >
-                                <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', multiLinkSaveTranslationKey === 'codigo' ? 'border-primary' : 'border-slate-300')}>
-                                  {multiLinkSaveTranslationKey === 'codigo' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código <span className="normal-case font-normal text-slate-400">(editável por produto acima)</span></p>
-                                  <p className="text-xs font-bold text-slate-800 truncate">{srcItem?.supplier_code || '—'}</p>
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMultiLinkSaveTranslationKey('descricao')}
-                                disabled={!srcItem?.original_description}
-                                className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-left', multiLinkSaveTranslationKey === 'descricao' ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300', !srcItem?.original_description && 'opacity-40 cursor-not-allowed')}
-                              >
-                                <div className={cn('w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center', multiLinkSaveTranslationKey === 'descricao' ? 'border-primary' : 'border-slate-300')}>
-                                  {multiLinkSaveTranslationKey === 'descricao' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
-                                  <p className="text-xs font-bold text-slate-800 truncate">{srcItem?.original_description || '—'}</p>
-                                </div>
-                              </button>
+                            <div className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
+                              <p className="text-xs font-bold text-slate-800 truncate">{srcItem?.original_description || '—'}</p>
+                              <p className="text-[10px] text-slate-400 mt-1.5">Cada produto também será vinculado pelo código informado em "Cód." acima.</p>
                             </div>
                           );
                         })()}
