@@ -558,6 +558,11 @@ export default function Page() {
   const [editProductPriceDisplay, setEditProductPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductExtraEans, setEditingProductExtraEans] = useState<EanCodeEntry[]>([]);
+  // Aba "Editar Produto": Dados x Histórico em Notas. EANs-alvo do histórico são "congelados" ao
+  // abrir o modal (não acompanham edições ao vivo do campo EAN) para não confundir o que já foi
+  // gravado nas notas com o que o usuário está digitando agora.
+  const [editProductTab, setEditProductTab] = useState<'dados' | 'historico'>('dados');
+  const [editProductHistoryEans, setEditProductHistoryEans] = useState<string[]>([]);
 
   // Memoized derived values
   const unreadNotificationCount = useMemo(
@@ -2432,6 +2437,67 @@ export default function Page() {
     setCanRedo(false);
   }, []);
 
+  // Carrega os states de edição de uma nota de revisão a partir do objeto ReviewNote — extraído
+  // para ser reutilizado tanto ao abrir uma nota pela lista de Entrada de Mercadoria (desktop e
+  // mobile) quanto pelo atalho "Ver nota" no histórico de EAN da aba Editar Produto.
+  const openReviewNoteForEditing = useCallback((note: ReviewNote) => {
+    fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
+    setViewingReviewNote(note);
+    setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
+    setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
+    setViewingNoteEans([]);
+    setViewingNoteSkus([]);
+    setViewingNoteQtys([]);
+    setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
+    setViewingNoteExtraEans(note.items.map((item: any) => (item.extraEans as EanCodeEntry[]) ?? []));
+    setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
+    setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
+    setViewingDistribMode([]);
+    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
+    setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
+    setReviewUnitMenuIdx(null);
+    setReviewMeasureIdx(null);
+    setReviewEditableCols(new Set());
+    setEditingNoteHeader(false);
+    setReviewFilterActive(false);
+    setReviewColumnFilters({});
+    setReviewFilterOpen(null);
+    setReviewFilterSearch('');
+    setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
+    setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
+    const fi = note.items[0] as any;
+    let loadedCols: AdjColumn[] = [];
+    if (Array.isArray(fi?.adj_columns_full) && fi.adj_columns_full.length > 0) {
+      loadedCols = fi.adj_columns_full as AdjColumn[];
+    } else {
+      const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
+      if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
+        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
+      } else if (savedDiscountMode === 'individual') {
+        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
+      }
+      const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
+      if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
+        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
+      } else if (savedSurchargeMode === 'individual') {
+        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
+      }
+    }
+    setAdjColumns(loadedCols);
+    setAdjColDialog(null);
+    resetNoteHistory();
+    const sidForNote = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
+    if (sidForNote) {
+      supabase.from('supplier_mappings')
+        .select('supplier_sku, supplier_description, internal_product_id')
+        .eq('supplier_id', sidForNote)
+        .then(({ data }) => setNoteSupplierMappings(data || []));
+    } else {
+      setNoteSupplierMappings([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierNames]);
+
   // Auto-sync distribuição na seção Revisões quando QTD muda e há preset ativo
   useEffect(() => {
     if (!nfDistribMode.some(m => m)) return;
@@ -3366,6 +3432,12 @@ export default function Page() {
       units_per_mother: product.units_per_mother || 1
     });
     setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
+    setEditProductTab('dados');
+    setEditProductHistoryEans(
+      [product.ean, ...(product.extraEans || []).map((e: any) => e.ean)]
+        .map((e: string) => (e || '').trim())
+        .filter(Boolean)
+    );
     const initialPrice = isNaN(product.price) ? 0 : (product.price || 0);
     setEditProductPriceDisplay(initialPrice > 0 ? initialPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
     setOriginalProductSnapshot({
@@ -3389,6 +3461,22 @@ export default function Page() {
     setShowEditModal(true);
     setShowDeleteConfirm(false);
   };
+
+  // Histórico em Notas: percorre as notas já aprovadas (mesmo state usado pela lista de Entrada
+  // de Mercadoria — até as 300 mais recentes) procurando itens cujo EAN bate com o produto em
+  // edição, considerando também os EANs adicionais cadastrados.
+  const editProductEanHistory = useMemo(() => {
+    if (editProductHistoryEans.length === 0) return [];
+    const targetEans = new Set(editProductHistoryEans);
+    const matches: { note: ReviewNote; item: any; idx: number }[] = [];
+    for (const note of reviewNotes) {
+      (note.items as any[] || []).forEach((item, idx) => {
+        const itemEan = String(item?.ean || '').trim();
+        if (itemEan && targetEans.has(itemEan)) matches.push({ note, item, idx });
+      });
+    }
+    return matches;
+  }, [editProductHistoryEans, reviewNotes]);
 
   const handleDeleteProduct = async () => {
     if (!editingProduct) return;
@@ -3594,118 +3682,11 @@ export default function Page() {
                   }}
                   reviewNotes={reviewNotes}
                   onViewReviewNote={(note) => {
-                    fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
-                    setViewingReviewNote(note);
-                    setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
-                    setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
-                    setViewingNoteEans([]);
-                    setViewingNoteSkus([]);
-                    setViewingNoteQtys([]);
-                    setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
-                    setViewingNoteExtraEans(note.items.map((item: any) => (item.extraEans as EanCodeEntry[]) ?? []));
-                    setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
-                    setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
-                    setViewingDistribMode([]);
-                    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
-                    setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
-                    setReviewUnitMenuIdx(null);
-                    setReviewMeasureIdx(null);
-                    setReviewEditableCols(new Set());
-                    setEditingNoteHeader(false);
-                    setReviewFilterActive(false);
-                    setReviewColumnFilters({});
-                    setReviewFilterOpen(null);
-                    setReviewFilterSearch('');
-                    setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
-                    setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
-                    const fi = note.items[0] as any;
-                    let loadedCols: AdjColumn[] = [];
-                    if (Array.isArray(fi?.adj_columns_full) && fi.adj_columns_full.length > 0) {
-                      loadedCols = fi.adj_columns_full as AdjColumn[];
-                    } else {
-                      const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                      if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
-                      } else if (savedDiscountMode === 'individual') {
-                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
-                      }
-                      const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                      if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
-                      } else if (savedSurchargeMode === 'individual') {
-                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
-                      }
-                    }
-                    setAdjColumns(loadedCols);
-                    setAdjColDialog(null);
-                    resetNoteHistory();
+                    openReviewNoteForEditing(note);
                     setTimeout(() => captureSnapshot(), 0);
-                    // Busca mapeamentos permanentes do fornecedor desta nota
-                    const sidForNote = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
-                    if (sidForNote) {
-                      supabase.from('supplier_mappings')
-                        .select('supplier_sku, supplier_description, internal_product_id')
-                        .eq('supplier_id', sidForNote)
-                        .then(({ data }) => setNoteSupplierMappings(data || []));
-                    } else {
-                      setNoteSupplierMappings([]);
-                    }
                   }}
                   onViewMobile={(note) => {
-                    fetchProducts();
-                    setViewingReviewNote(note);
-                    setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
-                    setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
-                    setViewingNoteEans([]);
-                    setViewingNoteSkus([]);
-                    setViewingNoteQtys([]);
-                    setViewingNoteEanVariants(note.items.map((item: any) => (item.eanVariants as EanVariant[]) ?? []));
-                    setViewingNoteExtraEans(note.items.map((item: any) => (item.extraEans as EanCodeEntry[]) ?? []));
-                    setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
-                    setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
-                    setViewingDistribMode([]);
-                    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
-                    setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
-                    setReviewUnitMenuIdx(null);
-                    setReviewMeasureIdx(null);
-                    setReviewEditableCols(new Set());
-                    setEditingNoteHeader(false);
-                    setReviewFilterActive(false);
-                    setReviewColumnFilters({});
-                    setReviewFilterOpen(null);
-                    setReviewFilterSearch('');
-                    setViewingNoteReviewTimestamps(note.items.map((item: any) => item.review_timestamp || null));
-                    setViewingNoteDiscrepancies(note.items.map((item: any) => item.discrepancy ?? null));
-                    const fi = note.items[0] as any;
-                    let loadedCols: AdjColumn[] = [];
-                    if (Array.isArray(fi?.adj_columns_full) && fi.adj_columns_full.length > 0) {
-                      loadedCols = fi.adj_columns_full as AdjColumn[];
-                    } else {
-                      const savedDiscountMode: AdjMode = fi?.adj_discount_mode ?? 'none';
-                      if (savedDiscountMode === 'geral' && fi?.adj_discount_applied) {
-                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'geral', geralValue: fi.adj_discount_applied.value, geralType: fi.adj_discount_applied.type, individualType: 'pct', items: [] });
-                      } else if (savedDiscountMode === 'individual') {
-                        loadedCols.push({ id: 'legacy-disc', name: 'Desconto', kind: 'desconto', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_discount_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_discount_value != null ? String(it.adj_discount_value) : '') });
-                      }
-                      const savedSurchargeMode: AdjMode = fi?.adj_surcharge_mode ?? 'none';
-                      if (savedSurchargeMode === 'geral' && fi?.adj_surcharge_applied) {
-                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'geral', geralValue: fi.adj_surcharge_applied.value, geralType: fi.adj_surcharge_applied.type, individualType: 'pct', items: [] });
-                      } else if (savedSurchargeMode === 'individual') {
-                        loadedCols.push({ id: 'legacy-sur', name: 'Acréscimo', kind: 'acrescimo', mode: 'individual', geralValue: 0, geralType: 'pct', individualType: fi?.adj_surcharge_individual_type ?? 'pct', items: note.items.map((it: any) => it.adj_surcharge_value != null ? String(it.adj_surcharge_value) : '') });
-                      }
-                    }
-                    setAdjColumns(loadedCols);
-                    setAdjColDialog(null);
-                    resetNoteHistory();
-                    const sidForNote2 = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
-                    if (sidForNote2) {
-                      supabase.from('supplier_mappings')
-                        .select('supplier_sku, supplier_description, internal_product_id')
-                        .eq('supplier_id', sidForNote2)
-                        .then(({ data }) => setNoteSupplierMappings(data || []));
-                    } else {
-                      setNoteSupplierMappings([]);
-                    }
+                    openReviewNoteForEditing(note);
                     setNoteModeChoiceOpen(true);
                   }}
                   onApproveNote={handleApproveNote}
@@ -3785,24 +3766,63 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white dark:bg-[#2D2D2D] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
             >
-              <div className="p-6 border-b border-slate-100 dark:border-[#3A3A3A] flex items-center justify-between">
-                <h2 className="text-xl font-manrope font-extrabold text-on-surface">Editar Produto</h2>
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Editar Produto</h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{editingProduct.name || 'Produto sem nome'}</p>
+                </div>
                 <button
                   onClick={() => {
                     setShowEditModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-[#3A3A3A] rounded-full transition-colors"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                 >
-                  <X size={20} className="text-secondary" />
+                  <X size={18} />
                 </button>
               </div>
-              
-              <form onSubmit={handleEditProduct} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                {editStatus === 'success' && (
-                  <motion.div 
+
+              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setEditProductTab('dados')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    editProductTab === 'dados'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditProductTab('historico')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
+                    editProductTab === 'historico'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Histórico em Notas
+                  <span className={cn(
+                    'px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none',
+                    editProductTab === 'historico' ? 'bg-primary/10 text-primary' : 'bg-black/[0.06] dark:bg-white/[0.08] text-secondary/70'
+                  )}>
+                    {editProductEanHistory.length}
+                  </span>
+                </button>
+              </div>
+
+              <form onSubmit={handleEditProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {editProductTab === 'dados' && editStatus === 'success' && (
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
@@ -3812,8 +3832,8 @@ export default function Page() {
                   </motion.div>
                 )}
 
-                {editStatus === 'error' && (
-                  <motion.div 
+                {editProductTab === 'dados' && editStatus === 'error' && (
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
@@ -3822,112 +3842,137 @@ export default function Page() {
                   </motion.div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">SKU (Código Interno)</label>
-                    <input 
-                      type="text" 
-                      value={editingProduct.sku}
-                      onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Nome do Produto</label>
-                    <input 
-                      required
-                      type="text" 
-                      value={editingProduct.name}
-                      onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Código EAN</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={editingProduct.ean || ''}
-                        onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
-                        className="flex-1 min-w-0 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        placeholder="Código de barras..."
-                      />
-                      <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
+                {editProductTab === 'dados' && (() => {
+                  const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+                  const sectionHeadCls = 'flex items-center gap-2';
+                  const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+                  const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+                  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
+                  const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+                  const statusOptions: { value: string; label: string }[] = [
+                    { value: 'Estoque Baixo', label: 'Estoque Baixo' },
+                    { value: 'Em Estoque', label: 'Em Estoque' },
+                    { value: 'Estoque em Alta', label: 'Estoque em Alta' },
+                    { value: 'Fora de Estoque', label: 'Fora de Estoque' },
+                  ];
+                  return (
+                <>
+                <div className="space-y-4">
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <Package size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Identificação</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>SKU (Código Interno)</label>
+                        <input
+                          type="text"
+                          value={editingProduct.sku}
+                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Nome do Produto</label>
+                        <input
+                          required
+                          type="text"
+                          value={editingProduct.name}
+                          onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Código EAN</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingProduct.ean || ''}
+                            onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
+                            className={cn(inputCls, 'flex-1 min-w-0')}
+                            placeholder="Código de barras..."
+                          />
+                          <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Quantidade em Estoque</label>
-                    <input 
-                      type="number" 
-                      value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
-                      onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={editProductPriceDisplay}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, '');
-                        if (!digits) {
-                          setEditProductPriceDisplay('');
-                          setEditingProduct({...editingProduct, price: 0});
-                          return;
-                        }
-                        const cents = parseInt(digits, 10);
-                        const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        setEditProductPriceDisplay(display);
-                        setEditingProduct({...editingProduct, price: cents / 100});
-                      }}
-                      placeholder="0,00"
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Localização</label>
-                    <SearchableSelect 
-                      value={editingProduct.location}
-                      onChange={(val) => setEditingProduct({...editingProduct, location: val})}
-                      options={uniqueLocations}
-                      placeholder="Pesquisar localização..."
-                      isAddingNew={isAddingNew.location}
-                      onToggleAddingNew={() => toggleAddingNew('location')}
-                      addNewPlaceholder="Nova localização..."
-                      defaultValue="Não atribuído"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Status</label>
-                    <select 
-                      value={editingProduct.status}
-                      onChange={(e) => setEditingProduct({...editingProduct, status: e.target.value})}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    >
-                      <option value="Em Estoque">Em Estoque</option>
-                      <option value="Estoque em Alta">Estoque em Alta</option>
-                      <option value="Estoque Baixo">Estoque Baixo</option>
-                      <option value="Fora de Estoque">Fora de Estoque</option>
-                    </select>
-                  </div>
-                  
-                  <div className="md:col-span-2 p-4 bg-purple-50 dark:bg-[#232323] rounded-2xl border border-purple-100 dark:border-[#3A3A3A] space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                        <LinkIcon size={18} />
-                        <span className="text-sm font-bold">Relacionamento Mãe/Filho</span>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BarChart3 size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Quantidade em Estoque</label>
+                        <input
+                          type="number"
+                          value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
+                          onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
+                          className={inputCls}
+                        />
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Preço (R$)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editProductPriceDisplay}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setEditProductPriceDisplay('');
+                              setEditingProduct({...editingProduct, price: 0});
+                              return;
+                            }
+                            const cents = parseInt(digits, 10);
+                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            setEditProductPriceDisplay(display);
+                            setEditingProduct({...editingProduct, price: cents / 100});
+                          }}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Status</label>
+                        <div className="flex flex-wrap gap-2">
+                          {statusOptions.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setEditingProduct({...editingProduct, status: opt.value})}
+                              className={cn(
+                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
+                                editingProduct.status === opt.value
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/[0.045] dark:bg-primary/[0.07] border border-primary/20 dark:border-primary/25 shadow-sm rounded-2xl p-5 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-primary-deep dark:text-red-300">
+                        <LinkIcon size={16} />
+                        <span className="text-xs font-extrabold uppercase tracking-wide">Relacionamento Mãe/Filho</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           className="sr-only peer"
                           checked={editingProduct.is_mother}
                           onChange={(e) => setEditingProduct({...editingProduct, is_mother: e.target.checked})}
                         />
-                        <div className="w-11 h-6 bg-slate-200 dark:bg-[#3A3A3A] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                        <span className="ml-3 text-xs font-bold text-purple-700 dark:text-purple-400 uppercase">Produto Mãe</span>
+                        <div className="w-10 h-[22px] bg-black/15 dark:bg-white/15 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary shadow-inner" />
                       </label>
                     </div>
 
@@ -3935,130 +3980,173 @@ export default function Page() {
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 pt-2 border-t border-purple-100 dark:border-[#3A3A3A]"
+                        className="space-y-3.5 pt-3.5 border-t border-primary/15"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-purple-700 dark:text-purple-400 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
+                          <label className={labelCls}>Unidades por Mãe (Ex: 50un na caixa)</label>
                           <input
                             type="number"
                             value={editingProduct.units_per_mother}
                             onChange={(e) => setEditingProduct({...editingProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                            className="w-full bg-white dark:!bg-[#3A3A3A] border border-purple-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            className={inputCls}
                             placeholder="Ex: 50"
                           />
                         </div>
-                        <p className="text-[10px] text-purple-600 dark:text-purple-400/70 italic">
-                          * Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
+                        <p className="text-[10.5px] font-medium text-secondary/75 leading-relaxed">
+                          Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
                         </p>
                       </motion.div>
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Categoria</label>
-                    <SearchableSelect 
-                      value={editingProduct.category}
-                      onChange={(val) => setEditingProduct({...editingProduct, category: val})}
-                      options={uniqueCategories}
-                      placeholder="Pesquisar categoria..."
-                      isAddingNew={isAddingNew.category}
-                      onToggleAddingNew={() => toggleAddingNew('category')}
-                      addNewPlaceholder="Nova categoria..."
-                      defaultValue="Geral"
-                    />
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BookText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Organização</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Localização</label>
+                        <SearchableSelect
+                          value={editingProduct.location}
+                          onChange={(val) => setEditingProduct({...editingProduct, location: val})}
+                          options={uniqueLocations}
+                          placeholder="Pesquisar localização..."
+                          isAddingNew={isAddingNew.location}
+                          onToggleAddingNew={() => toggleAddingNew('location')}
+                          addNewPlaceholder="Nova localização..."
+                          defaultValue="Não atribuído"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Categoria</label>
+                        <SearchableSelect
+                          value={editingProduct.category}
+                          onChange={(val) => setEditingProduct({...editingProduct, category: val})}
+                          options={uniqueCategories}
+                          placeholder="Pesquisar categoria..."
+                          isAddingNew={isAddingNew.category}
+                          onToggleAddingNew={() => toggleAddingNew('category')}
+                          addNewPlaceholder="Nova categoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Subcategoria</label>
+                        <SearchableSelect
+                          value={editingProduct.subcategory}
+                          onChange={(val) => setEditingProduct({...editingProduct, subcategory: val})}
+                          options={uniqueSubcategories}
+                          placeholder="Pesquisar subcategoria..."
+                          isAddingNew={isAddingNew.subcategory}
+                          onToggleAddingNew={() => toggleAddingNew('subcategory')}
+                          addNewPlaceholder="Nova subcategoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Marca</label>
+                        <SearchableSelect
+                          value={editingProduct.brand}
+                          onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
+                          options={uniqueBrands}
+                          placeholder="Pesquisar marca..."
+                          isAddingNew={isAddingNew.brand}
+                          onToggleAddingNew={() => toggleAddingNew('brand')}
+                          addNewPlaceholder="Nova marca..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Subcategoria</label>
-                    <SearchableSelect 
-                      value={editingProduct.subcategory}
-                      onChange={(val) => setEditingProduct({...editingProduct, subcategory: val})}
-                      options={uniqueSubcategories}
-                      placeholder="Pesquisar subcategoria..."
-                      isAddingNew={isAddingNew.subcategory}
-                      onToggleAddingNew={() => toggleAddingNew('subcategory')}
-                      addNewPlaceholder="Nova subcategoria..."
-                      defaultValue="Geral"
-                    />
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <FileText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Detalhes</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Fabricante</label>
+                        <input
+                          type="text"
+                          value={editingProduct.fabricante || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
+                          placeholder="Nome do fabricante..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>CNPJ</label>
+                        <input
+                          type="text"
+                          value={editingProduct.cnpj || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
+                          placeholder="00.000.000/0000-00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Composição</label>
+                        <textarea
+                          value={editingProduct.composicao || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
+                          placeholder="Ingredientes / composição do produto..."
+                          rows={2}
+                          className={cn(inputCls, 'resize-none')}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Marca</label>
-                    <SearchableSelect
-                      value={editingProduct.brand}
-                      onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
-                      options={uniqueBrands}
-                      placeholder="Pesquisar marca..."
-                      isAddingNew={isAddingNew.brand}
-                      onToggleAddingNew={() => toggleAddingNew('brand')}
-                      addNewPlaceholder="Nova marca..."
-                      defaultValue="Geral"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Fabricante</label>
-                    <input
-                      type="text"
-                      value={editingProduct.fabricante || ''}
-                      onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
-                      placeholder="Nome do fabricante..."
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">CNPJ</label>
-                    <input
-                      type="text"
-                      value={editingProduct.cnpj || ''}
-                      onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
-                      placeholder="00.000.000/0000-00"
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Composição</label>
-                    <textarea
-                      value={editingProduct.composicao || ''}
-                      onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
-                      placeholder="Ingredientes / composição do produto..."
-                      rows={2}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">URL da Imagem</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={editingProduct.image}
-                        onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
-                        className="flex-1 bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        placeholder="https://..."
-                      />
-                      <input 
-                        type="file" 
-                        ref={editImageInputRef}
-                        onChange={(e) => handleImageUpload(e, true)}
-                        className="hidden" 
-                        accept="image/*"
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => editImageInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-4 bg-slate-100 dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg text-secondary hover:bg-slate-200 dark:hover:bg-[#444] transition-all flex items-center justify-center shrink-0"
-                        title="Upload do computador"
-                      >
-                        {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
-                      </button>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <ImageIcon size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Imagem</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                        {editingProduct.image ? (
+                          <ProductImage src={editingProduct.image} alt={editingProduct.name} />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1 flex gap-2 min-w-0">
+                        <input
+                          type="text"
+                          value={editingProduct.image}
+                          onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
+                          className={cn(inputCls, 'flex-1 min-w-0')}
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="file"
+                          ref={editImageInputRef}
+                          onChange={(e) => handleImageUpload(e, true)}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => editImageInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                          title="Upload do computador"
+                        >
+                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                <div className="pt-4 flex flex-col gap-3">
+
+                <div className="pt-2 flex flex-col gap-3">
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={() => setShowEditModal(false)}
-                      className="flex-1 bg-slate-100 dark:bg-[#3A3A3A] text-secondary dark:text-[#aaa] font-bold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-[#444] transition-colors"
+                      className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
                     >
                       Cancelar
                     </button>
@@ -4068,7 +4156,7 @@ export default function Page() {
                         setLinkTarget('editing');
                         setShowLinkModal(true);
                       }}
-                      className="flex-1 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 font-bold py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors border border-red-100 dark:border-red-900 flex items-center justify-center gap-2"
+                      className="flex-1 bg-primary/[0.07] text-primary font-bold py-3 rounded-xl hover:bg-primary/[0.12] transition-colors border border-primary/20 flex items-center justify-center gap-2"
                     >
                       <LinkIcon size={18} />
                       {editingProduct.linked_product_id ? 'Alterar vínculo' : 'Vincular produto'}
@@ -4076,7 +4164,7 @@ export default function Page() {
                     <button
                       type="submit"
                       disabled={editStatus === 'loading' || editStatus === 'success'}
-                      className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
+                      className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50"
                     >
                       {editStatus === 'loading' ? 'Salvando...' : editStatus === 'success' ? 'Sucesso!' : 'Salvar Alterações'}
                     </button>
@@ -4086,7 +4174,7 @@ export default function Page() {
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full text-red-500 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
+                      className="w-full text-primary text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
                     >
                       Excluir Produto
                     </button>
@@ -4094,14 +4182,14 @@ export default function Page() {
                     <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border border-red-100 dark:border-red-900 flex flex-col gap-3">
                       <p className="text-xs text-red-700 dark:text-red-400 font-bold text-center uppercase">Confirmar Exclusão?</p>
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 bg-white dark:bg-[#3A3A3A] border border-slate-200 dark:border-transparent text-secondary dark:text-[#aaa] text-[10px] font-bold py-2 rounded uppercase"
+                          className="flex-1 bg-white dark:bg-white/10 border border-slate-200 dark:border-transparent text-secondary text-[10px] font-bold py-2 rounded uppercase"
                         >
                           Não, Manter
                         </button>
-                        <button 
+                        <button
                           type="button"
                           onClick={handleDeleteProduct}
                           className="flex-1 bg-red-500 text-white text-[10px] font-bold py-2 rounded uppercase"
@@ -4112,6 +4200,87 @@ export default function Page() {
                     </div>
                   )}
                 </div>
+                </>
+                  );
+                })()}
+
+                {editProductTab === 'historico' && (
+                  <div className="space-y-3">
+                    {editProductEanHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center text-secondary/60">
+                        <FileText size={32} className="mb-3 opacity-40" />
+                        <p className="text-sm font-bold">Nenhum registro encontrado</p>
+                        <p className="text-xs mt-1 max-w-xs">
+                          Nenhuma nota aprovada (entre as 300 mais recentes) contém um item com este EAN.
+                        </p>
+                      </div>
+                    ) : editProductEanHistory.map(({ note, item, idx }) => {
+                      const qty = item.qty ?? 0;
+                      const unitCost = (item.price ?? 0) / (item.multiplier || 1);
+                      const total = unitCost * qty;
+                      const sellPrice = item.product_price ?? 0;
+                      const markup = unitCost > 0 && sellPrice > 0 ? ((sellPrice - unitCost) / unitCost) * 100 : null;
+                      const dateLabel = note.receivedDate ? note.receivedDate.split('-').reverse().join('/') : note.timestamp;
+                      const description = item.original_description || item.description || '—';
+                      const code = item.supplier_code || '—';
+                      return (
+                        <div key={`${note.id}-${idx}`} className="bg-surface border border-black/[0.09] dark:border-white/[0.08] shadow-sm rounded-2xl p-4">
+                          <div className="mb-3">
+                            <p className="text-sm font-bold text-on-surface truncate">{note.supplierName || note.fileName}</p>
+                            <p className="text-[10px] text-secondary/70 font-semibold uppercase tracking-wide">{dateLabel}</p>
+                          </div>
+                          <div className="flex gap-2 mb-3">
+                            <div className="flex-1 min-w-0 bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-[10px] px-2.5 py-1.5">
+                              <p className="text-[8.5px] font-extrabold uppercase tracking-wide text-secondary/50 mb-0.5">Produto na Nota</p>
+                              <p className="text-xs font-bold text-on-surface whitespace-nowrap overflow-hidden text-ellipsis" title={description}>{description}</p>
+                            </div>
+                            <div className="shrink-0 w-32 max-w-[8rem] bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-[10px] px-2.5 py-1.5">
+                              <p className="text-[8.5px] font-extrabold uppercase tracking-wide text-secondary/50 mb-0.5">Código</p>
+                              <p className="text-xs font-bold text-on-surface font-mono whitespace-nowrap overflow-hidden text-ellipsis" title={code}>{code}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-3">
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Qtd.</p>
+                              <p className="text-sm font-bold text-on-surface">{qty}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Valor Unit.</p>
+                              <p className="text-sm font-bold text-on-surface">R$ {unitCost.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Valor Total</p>
+                              <p className="text-sm font-bold text-on-surface">R$ {total.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Preço Venda</p>
+                              <p className="text-sm font-bold text-on-surface">{sellPrice > 0 ? `R$ ${sellPrice.toFixed(2).replace('.', ',')}` : '—'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={cn(
+                              'text-xs font-black',
+                              markup === null ? 'text-secondary/40' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                            )}>
+                              {markup === null ? 'Markup —' : `Markup ${markup.toFixed(1).replace('.', ',')}%`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowEditModal(false);
+                                openReviewNoteForEditing(note);
+                                setTimeout(() => captureSnapshot(), 0);
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline underline-offset-2"
+                            >
+                              Ver nota <ArrowRight size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </form>
             </motion.div>
           </div>
