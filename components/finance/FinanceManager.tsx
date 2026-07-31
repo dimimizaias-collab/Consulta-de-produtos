@@ -7,6 +7,7 @@ import {
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, Database, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
+  ArrowUp, ArrowDown,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,16 @@ const TABLE_COLUMNS: { label: string; key: string }[] = [
   { label: 'Pago', key: 'pago' },
   { label: '', key: '' },
 ];
+
+// Colunas com opção de ordenação no dropdown de filtro — rótulos por direção (asc/desc).
+const COLUMN_SORT_OPTIONS: Record<string, { asc: string; desc: string }> = {
+  data: { asc: 'Mais antigos primeiro', desc: 'Mais recentes primeiro' },
+  vencimento: { asc: 'Mais antigos primeiro', desc: 'Mais recentes primeiro' },
+  valor_final: { asc: 'Menor para maior', desc: 'Maior para menor' },
+  total_pago: { asc: 'Menor para maior', desc: 'Maior para menor' },
+  restante: { asc: 'Menor para maior', desc: 'Maior para menor' },
+  favorecido: { asc: 'A → Z', desc: 'Z → A' },
+};
 
 const emptyTxForm = (): TxForm => ({
   data: new Date().toISOString().split('T')[0],
@@ -286,6 +297,7 @@ export function FinanceManager() {
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
   const [filterOpenKey, setFilterOpenKey] = useState<string | null>(null);
   const [filterSearchQuery, setFilterSearchQuery] = useState('');
+  const [columnSort, setColumnSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   // selection
   const [selectionMode, setSelectionMode] = useState(false);
@@ -310,7 +322,7 @@ export function FinanceManager() {
   const calLegendRef = useRef<HTMLDivElement>(null);
 
   // resultados/contas panel
-  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas' | 'adm'>('resultados');
+  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas' | 'adm'>('adm');
 
   // Barra de rolagem horizontal flutuante da tabela — fica fixa na base da viewport
   // enquanto a tabela ainda continua abaixo da tela, evitando que o usuário precise
@@ -1212,10 +1224,35 @@ export function FinanceManager() {
     return Array.from(new Set(all)).sort();
   };
 
+  // Valor "cru" (não formatado) usado para ordenar por coluna — datas em ISO e valores
+  // numéricos, para que a comparação seja cronológica/numérica e não alfabética.
+  const getColumnSortValue = (t: Transaction, key: string): string | number | null => {
+    switch (key) {
+      case 'data': return t.data;
+      case 'vencimento': return t.vencimento;
+      case 'valor_final': return t.valor_final;
+      case 'total_pago': return t.total_pago;
+      case 'restante': return t.valor_final - t.total_pago;
+      case 'favorecido': return t.favorecido.toLowerCase();
+      default: return null;
+    }
+  };
+
   const filtered = useMemo(() => {
     const result = transactions.filter(t => passesBaseFilters(t));
-    // Com um período selecionado no calendário, prioriza vencimentos mais próximos do início do período.
-    if (hasDatePeriod) {
+    if (columnSort) {
+      const { key, direction } = columnSort;
+      result.sort((a, b) => {
+        const av = getColumnSortValue(a, key);
+        const bv = getColumnSortValue(b, key);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+        return direction === 'asc' ? cmp : -cmp;
+      });
+    } else if (hasDatePeriod) {
+      // Com um período selecionado no calendário, prioriza vencimentos mais próximos do início do período.
       result.sort((a, b) => {
         if (!a.vencimento && !b.vencimento) return 0;
         if (!a.vencimento) return 1;
@@ -1224,7 +1261,7 @@ export function FinanceManager() {
       });
     }
     return result;
-  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod]);
+  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod, columnSort]);
 
   // Soma o valor de todas as parcelas irmãs para dar ao usuário a visão do valor total do
   // parcelamento. Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem
@@ -2099,7 +2136,7 @@ export function FinanceManager() {
           onClick={() => {
             const next = !columnFiltersEnabled;
             setColumnFiltersEnabled(next);
-            if (!next) { setColumnFilters({}); setFilterOpenKey(null); setFilterSearchQuery(''); }
+            if (!next) { setColumnFilters({}); setColumnSort(null); setFilterOpenKey(null); setFilterSearchQuery(''); }
           }}
           title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
           className={cn(
@@ -2236,6 +2273,26 @@ export function FinanceManager() {
                             {isOpen && key && (<>
                               <div className="fixed inset-0 z-[90]" onClick={() => { setFilterOpenKey(null); setFilterSearchQuery(''); }} />
                               <div className="absolute left-0 top-full mt-1 z-[100] rounded-xl shadow-2xl border border-on-surface/10 bg-surface-container overflow-hidden normal-case" style={{ minWidth: '200px', maxWidth: '280px' }}>
+                                {COLUMN_SORT_OPTIONS[key] && (
+                                  <div className="flex flex-col gap-0.5 p-1.5 border-b border-on-surface/10">
+                                    {(['desc', 'asc'] as const).map(dir => {
+                                      const active = columnSort?.key === key && columnSort.direction === dir;
+                                      return (
+                                        <button
+                                          key={dir}
+                                          onClick={e => { e.stopPropagation(); setColumnSort(active ? null : { key, direction: dir }); }}
+                                          className={cn(
+                                            'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold text-left transition-colors',
+                                            active ? 'bg-primary/15 text-primary' : 'text-on-surface/60 hover:bg-on-surface/[0.05]'
+                                          )}
+                                        >
+                                          {dir === 'desc' ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
+                                          {COLUMN_SORT_OPTIONS[key][dir]}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                                 <div className="p-2 border-b border-on-surface/10">
                                   <input
                                     autoFocus
