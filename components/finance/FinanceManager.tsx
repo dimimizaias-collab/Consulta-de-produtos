@@ -1182,31 +1182,38 @@ export function FinanceManager() {
     }
   };
 
+  // Testa se uma movimentação passa pelo período do calendário + busca + filtros de coluna,
+  // opcionalmente ignorando o filtro de uma coluna específica — usado para que as opções do
+  // dropdown de uma coluna reflitam o que a tabela já está mostrando (período + demais filtros),
+  // sem esconder as próprias opções já selecionadas nessa coluna.
+  const passesBaseFilters = (t: Transaction, excludeKey?: string): boolean => {
+    for (const [key, selected] of Object.entries(columnFilters)) {
+      if (key === excludeKey) continue;
+      if (selected.size === 0) continue;
+      if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
+    }
+    // Parcelas de salário compartilham a mesma "data" de lançamento (a do último mês
+    // do período) — filtrar por ela lotaria o dia com todas as parcelas do contrato.
+    // Para essas, o filtro de calendário só deve considerar o vencimento de cada parcela.
+    if (t.origem === 'hr_salario') {
+      if (!inSelectedPeriod(t.vencimento)) return false;
+    } else if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) {
+      return false;
+    }
+    return true;
+  };
+
   const getColumnUniqueValues = (key: string): string[] => {
-    const all = transactions.flatMap(t => getColumnValues(t, key));
+    const all = transactions.filter(t => passesBaseFilters(t, key)).flatMap(t => getColumnValues(t, key));
     return Array.from(new Set(all)).sort();
   };
 
   const filtered = useMemo(() => {
-    const result = transactions.filter(t => {
-      for (const [key, selected] of Object.entries(columnFilters)) {
-        if (selected.size === 0) continue;
-        if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
-      }
-      if (search) {
-        const q = search.toLowerCase();
-        if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
-      }
-      // Parcelas de salário compartilham a mesma "data" de lançamento (a do último mês
-      // do período) — filtrar por ela lotaria o dia com todas as parcelas do contrato.
-      // Para essas, o filtro de calendário só deve considerar o vencimento de cada parcela.
-      if (t.origem === 'hr_salario') {
-        if (!inSelectedPeriod(t.vencimento)) return false;
-      } else if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) {
-        return false;
-      }
-      return true;
-    });
+    const result = transactions.filter(t => passesBaseFilters(t));
     // Com um período selecionado no calendário, prioriza vencimentos mais próximos do início do período.
     if (hasDatePeriod) {
       result.sort((a, b) => {
