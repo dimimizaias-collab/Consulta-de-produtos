@@ -6654,7 +6654,8 @@ export default function Page() {
                                 <div className="relative group shrink-0">
                                   <button
                                     onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
-                                    className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] bg-white/[0.04] border border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
+                                    className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
+                                    style={{ background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
                                   >
                                     <Plus size={12} />
                                   </button>
@@ -6684,8 +6685,9 @@ export default function Page() {
                                     'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
                                     (item as any).multiLinked
                                       ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/18'
-                                      : 'bg-white/[0.04] border-dashed border-white/15 text-white/35 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                                      : 'border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
                                   )}
+                                  style={(item as any).multiLinked ? undefined : { background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
                                 >
                                   <Layers size={12} />
                                 </button>
