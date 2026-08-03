@@ -207,15 +207,26 @@ export function InventoryManager({
 
         {/* Mobile layout: search on its own row, icon buttons + count below */}
         <div className="flex flex-col gap-2.5 lg:hidden">
-          <div className="h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4">
-            <Search size={16} className="text-on-surface/30 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar..."
-              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
-            />
+          <div className="flex items-center gap-2.5">
+            <div className="flex-1 h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4 min-w-0">
+              <Search size={16} className="text-on-surface/30 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar..."
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+              />
+            </div>
+
+            {/* Produtos count chip — mesmo tamanho dos botões */}
+            <div
+              title="Produtos"
+              className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
+            >
+              <span className="text-sm font-black text-on-surface">{products.length}</span>
+              <span className="text-[6px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -317,29 +328,29 @@ export function InventoryManager({
                 )}
               </AnimatePresence>
             </div>
-
-            {/* Produtos count chip — mesmo tamanho dos botões */}
-            <div
-              title="Produtos"
-              className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
-            >
-              <span className="text-sm font-black text-on-surface">{products.length}</span>
-              <span className="text-[6px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
-            </div>
           </div>
         </div>
 
-        {/* Desktop layout: search + icon buttons + count, tudo do mesmo tamanho */}
+        {/* Desktop layout: search + count + icon buttons, tudo do mesmo tamanho */}
         <div className="hidden lg:flex lg:items-center gap-3">
-          <div className="flex-1 h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm">
+          <div className="flex-1 max-w-[440px] h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm min-w-0">
             <Search size={16} className="text-on-surface/30 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar por nome, EAN, SKU..."
-              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
             />
+          </div>
+
+          {/* Produtos count chip — mesmo tamanho dos botões, ao lado da busca */}
+          <div
+            title="Produtos"
+            className="w-12 h-12 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
+          >
+            <span className="text-[15px] font-black text-on-surface">{products.length}</span>
+            <span className="text-[6.5px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
           </div>
 
           <button
@@ -435,15 +446,6 @@ export function InventoryManager({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-
-          {/* Produtos count chip — mesmo tamanho dos botões */}
-          <div
-            title="Produtos"
-            className="w-12 h-12 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
-          >
-            <span className="text-[15px] font-black text-on-surface">{products.length}</span>
-            <span className="text-[6.5px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
           </div>
         </div>
 

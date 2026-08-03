@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Smartphone, Monitor } from 'lucide-react';
+import { Smartphone, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 import type { AppNotification } from './NotificationsPage';
@@ -15,45 +15,11 @@ interface TopNavProps {
   onGoToNotificationsPage?: () => void;
 }
 
-export function TopNav({
-  searchQuery, onSearchChange, activeTab,
-}: TopNavProps) {
+export function TopNav({}: TopNavProps) {
   const { isMobileView, toggleMode } = useViewMode();
-
-  const showSearch = !activeTab || activeTab === 'Inventory';
 
   return (
     <>
-      {/* ── Search pill — top-left, only on Inventory ── */}
-      <div
-        className={cn(
-          'fixed top-4 z-50 flex items-center gap-2.5',
-          isMobileView ? 'left-4' : 'left-[84px]',
-          'h-[42px] rounded-2xl px-4',
-          'bg-surface/85 backdrop-blur-xl',
-          'border border-on-surface/[0.08]',
-          'shadow-[0_2px_16px_rgba(0,0,0,0.18),0_0_0_1px_rgba(255,255,255,0.03)_inset]',
-          'transition-[opacity,transform] duration-200 ease-out',
-          showSearch
-            ? 'opacity-100 translate-y-0 pointer-events-auto'
-            : 'opacity-0 -translate-y-2 pointer-events-none'
-        )}
-        style={{
-          width: isMobileView
-            ? 'calc(100vw - 1rem - 1rem - 42px - 0.5rem - 42px - 0.5rem - 46px - 0.5rem)'
-            : 'min(600px, calc(100vw - 84px - 300px))'
-        }}
-      >
-        <Search size={14} className="text-primary/70 shrink-0" strokeWidth={2.5} />
-        <input
-          className="flex-1 !bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
-          placeholder="EAN, SKU..."
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-      </div>
-
       {/* ── View Mode Toggle — top-right ── */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <button
