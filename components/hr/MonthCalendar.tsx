@@ -57,9 +57,10 @@ interface MonthCalendarProps {
   setSelectedDate: (d: Date) => void;
   eventsByDate: Record<string, CalendarEvent[]>;
   size?: 'full' | 'compact';
+  hideHeader?: boolean;
 }
 
-export function MonthCalendar({ viewDate, setViewDate, selectedDate, setSelectedDate, eventsByDate, size = 'full' }: MonthCalendarProps) {
+export function MonthCalendar({ viewDate, setViewDate, selectedDate, setSelectedDate, eventsByDate, size = 'full', hideHeader = false }: MonthCalendarProps) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
@@ -82,29 +83,31 @@ export function MonthCalendar({ viewDate, setViewDate, selectedDate, setSelected
 
   return (
     <div>
-      <div className={cn('flex items-center justify-between', isFull ? 'mb-[18px]' : 'mb-3')}>
-        <button
-          onClick={() => setViewDate(new Date(year, month - 1, 1))}
-          className={cn(
-            'rounded-[11px] bg-on-surface/[0.06] border border-on-surface/[0.08] flex items-center justify-center text-on-surface/50 active:scale-90 transition-transform',
-            isFull ? 'w-[34px] h-[34px]' : 'w-[26px] h-[26px]',
-          )}
-        >
-          <ChevronLeft size={isFull ? 14 : 12} />
-        </button>
-        <span className={cn('font-extrabold text-on-surface', isFull ? 'text-[17px] min-w-[160px] text-center' : 'text-[13px]')}>
-          {MONTHS_PT[month]} {year}
-        </span>
-        <button
-          onClick={() => setViewDate(new Date(year, month + 1, 1))}
-          className={cn(
-            'rounded-[11px] bg-on-surface/[0.06] border border-on-surface/[0.08] flex items-center justify-center text-on-surface/50 active:scale-90 transition-transform',
-            isFull ? 'w-[34px] h-[34px]' : 'w-[26px] h-[26px]',
-          )}
-        >
-          <ChevronRight size={isFull ? 14 : 12} />
-        </button>
-      </div>
+      {!hideHeader && (
+        <div className={cn('flex items-center justify-between', isFull ? 'mb-[18px]' : 'mb-3')}>
+          <button
+            onClick={() => setViewDate(new Date(year, month - 1, 1))}
+            className={cn(
+              'rounded-[11px] bg-on-surface/[0.06] border border-on-surface/[0.08] flex items-center justify-center text-on-surface/50 active:scale-90 transition-transform',
+              isFull ? 'w-[34px] h-[34px]' : 'w-[26px] h-[26px]',
+            )}
+          >
+            <ChevronLeft size={isFull ? 14 : 12} />
+          </button>
+          <span className={cn('font-extrabold text-on-surface', isFull ? 'text-[17px] min-w-[160px] text-center' : 'text-[13px]')}>
+            {MONTHS_PT[month]} {year}
+          </span>
+          <button
+            onClick={() => setViewDate(new Date(year, month + 1, 1))}
+            className={cn(
+              'rounded-[11px] bg-on-surface/[0.06] border border-on-surface/[0.08] flex items-center justify-center text-on-surface/50 active:scale-90 transition-transform',
+              isFull ? 'w-[34px] h-[34px]' : 'w-[26px] h-[26px]',
+            )}
+          >
+            <ChevronRight size={isFull ? 14 : 12} />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-7 mb-1">
         {(isFull ? DAYS_PT_FULL : DAYS_PT_SHORT).map((d, i) => (

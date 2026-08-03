@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, X, Trash2, ChevronRight, CalendarDays, ClipboardCheck, Wallet, CalendarRange, BookText, Lock, TrendingDown } from 'lucide-react';
+import { Users, Plus, X, Trash2, ChevronLeft, ChevronRight, CalendarDays, ClipboardCheck, Wallet, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -226,85 +226,99 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     }
   };
 
+  const hrMonthLabel = viewDate.toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    + ' ' + viewDate.getFullYear();
+
   return (
     <div className="max-w-[1300px]">
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
-          <Users size={28} strokeWidth={2.2} />
+      {/* Header */}
+      <div className="relative mb-14">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <Users size={24} strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Recursos Humanos</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Planejamento Interno</div>
+          </div>
         </div>
-        <div>
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-on-surface/45">Planejamento Interno</div>
-          <h1 className="text-3xl font-black text-on-surface tracking-tight">Recursos Humanos</h1>
-        </div>
-      </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setActiveView('calendario')}
-            className={cn(
-              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-              activeView === 'calendario' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
-            )}
-          >
-            <CalendarRange size={14} strokeWidth={2.5} />
-            Calendário
-          </button>
-          <button
-            onClick={() => setActiveView('financas')}
-            className={cn(
-              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-              activeView === 'financas' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
-            )}
-          >
-            <TrendingDown size={14} strokeWidth={2.5} />
-            Finanças
-          </button>
-          <button
-            onClick={() => handleProtectedTabClick('colaboradores')}
-            className={cn(
-              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-              activeView === 'colaboradores' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
-            )}
-          >
-            <Users size={14} strokeWidth={2.5} />
-            Colaboradores
-            {!isHRUnlocked && <Lock size={11} strokeWidth={2.5} className="opacity-40" />}
-          </button>
-          <button
-            onClick={() => handleProtectedTabClick('caderninho')}
-            className={cn(
-              'flex items-center gap-2 px-[22px] py-[13px] rounded-[15px] text-[12.5px] font-extrabold uppercase tracking-wide border-[1.5px] transition-colors',
-              activeView === 'caderninho' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-on-surface/[0.10] text-on-surface/50',
-            )}
-          >
-            <BookText size={14} strokeWidth={2.5} />
-            Caderninho
-            {!isHRUnlocked && <Lock size={11} strokeWidth={2.5} className="opacity-40" />}
-          </button>
+        <div className="absolute left-0 top-full flex">
+          {([
+            { key: 'calendario', label: 'Calendário' },
+            { key: 'financas', label: 'Finanças' },
+            { key: 'colaboradores', label: 'Colaboradores' },
+            { key: 'caderninho', label: 'Caderninho' },
+          ] as const).map((tab, i, arr) => {
+            const HEADER_TAB_LABEL_MAX = 12;
+            const label = tab.label.length > HEADER_TAB_LABEL_MAX
+              ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
+              : tab.label;
+            const active = activeView === tab.key;
+            const protectedTab = tab.key === 'colaboradores' || tab.key === 'caderninho';
+            return (
+              <button
+                key={tab.key}
+                title={tab.label}
+                onClick={() => protectedTab ? handleProtectedTabClick(tab.key) : setActiveView(tab.key)}
+                className={cn(
+                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                  i === arr.length - 1 && 'rounded-br-[12px]',
+                  'text-[12px] font-extrabold uppercase tracking-wide truncate',
+                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  active
+                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
-        {activeView === 'calendario' && (
-          <button
-            onClick={openCreateModal}
-            className="bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wide text-[13px] flex items-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
-          >
-            <Plus size={16} strokeWidth={2.8} />
-            Novo Evento
-          </button>
-        )}
       </div>
 
       {activeView === 'calendario' ? (
         <>
-          <div className="bg-surface-container border border-on-surface/[0.07] rounded-[28px] p-7">
-            <div className="flex items-center justify-between mb-3">
-              <CalendarLegend size="full" />
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
+            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap min-w-[140px]">{hrMonthLabel}</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                    className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                  >
+                    <ChevronLeft size={12} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                    className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                  >
+                    <ChevronRight size={12} strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={openCreateModal}
+                title="Novo Evento"
+                className="w-[26px] h-[26px] rounded-[8px] bg-[#D81E1E] text-white flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <Plus size={14} strokeWidth={2.8} />
+              </button>
             </div>
-            <MonthCalendar
-              viewDate={viewDate} setViewDate={setViewDate}
-              selectedDate={selectedDate} setSelectedDate={setSelectedDate}
-              eventsByDate={eventsByDate} size="full"
-            />
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <CalendarLegend size="full" />
+              </div>
+              <MonthCalendar
+                viewDate={viewDate} setViewDate={setViewDate}
+                selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+                eventsByDate={eventsByDate} size="full" hideHeader
+              />
+            </div>
           </div>
 
           <div className="mt-6 bg-surface-container border border-on-surface/[0.07] rounded-[20px] p-5">
