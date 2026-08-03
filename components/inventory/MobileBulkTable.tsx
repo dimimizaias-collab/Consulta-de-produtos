@@ -10,6 +10,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type BulkRow = {
@@ -680,6 +682,7 @@ export function MobileBulkTable({
                   type="number"
                   value={selectedRow?.count ?? ''}
                   onChange={e => updateField(selectedIdx, 'count', e.target.value)}
+                  onWheel={blockWheelChange}
                   placeholder="0"
                   className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E] [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                 />

@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import { generateBarcodeDataUrl, defaultCodeField, type CodeField } from './labelPrintUtils';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 function loadImageAsDataUrl(src: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1212,6 +1214,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                                 min={1}
                                 value={sel.qty === 1 ? '' : sel.qty}
                                 placeholder="0"
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const val = parseInt(e.target.value);
                                   setQty(id, val > 0 ? val : 1);
@@ -1280,6 +1283,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                                 min={1}
                                 value={cp.qty === 1 ? '' : cp.qty}
                                 placeholder="1"
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const val = parseInt(e.target.value);
                                   updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });
@@ -1320,6 +1324,7 @@ export function PlacaPrintModal({ isOpen, onClose, products }: PlacaPrintModalPr
                                 min={1}
                                 value={cp.qty === 1 ? '' : cp.qty}
                                 placeholder="1"
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const val = parseInt(e.target.value);
                                   updateCustomPlaca(cp.id, { qty: val > 0 ? val : 1 });

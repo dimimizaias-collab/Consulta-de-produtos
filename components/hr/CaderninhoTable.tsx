@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { type Employee } from '@/lib/hrEmployees';
 import { recomputeParcelasForCaderninhoEntry } from '@/lib/hrSalarioFinance';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 type Modalidade = 'Mercadoria' | 'Vale' | 'Bônus' | 'Outros';
 type TipoLancamento = 'Despesa' | 'Receita';
 
@@ -570,6 +572,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                       type="number"
                       step="0.01"
                       min="0.01"
+                      onWheel={blockWheelChange}
                       className={cn(fieldCls, 'no-spinner')}
                       placeholder="0,00"
                       value={draft.valor}
@@ -1101,6 +1104,7 @@ export function CaderninhoTable({ employees, compact = false }: CaderninhoTableP
                       type="number"
                       step="0.01"
                       min="0.01"
+                      onWheel={blockWheelChange}
                       className={cn(modalFieldCls, 'no-spinner')}
                       placeholder="0,00"
                       value={deskDraft.valor}

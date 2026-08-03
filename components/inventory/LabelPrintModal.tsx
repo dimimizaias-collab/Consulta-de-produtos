@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import { generateBarcodeDataUrl, formatPrice, defaultCodeField, formatCNPJ, type CodeField } from './labelPrintUtils';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // A4351 sheet constants (mm) — from official Pimaco template
 const LABEL_W    = 38.1;
 const LABEL_H    = 21.2;
@@ -546,6 +548,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                                 min={1}
                                 value={sel.qty === 1 ? '' : sel.qty}
                                 placeholder="0"
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const val = parseInt(e.target.value);
                                   setQty(product.id, val > 0 ? val : 1);

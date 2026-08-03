@@ -12,6 +12,8 @@ import type { ReviewNote } from '@/components/requests/LogisticsCenter';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import type { EanCodeEntry } from '@/components/shared/EanCodesEditor';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ─── types ───────────────────────────────────────────────────────────────────
 
 export interface EanVariant {
@@ -1626,6 +1628,7 @@ export function MobileNoteView({
                                 type="number"
                                 value={variant.qty || ''}
                                 onChange={e => updateVariant(vi, { qty: parseFloat(e.target.value) || 0 })}
+                                onWheel={blockWheelChange}
                                 placeholder="0"
                                 min="0"
                                 className="w-full bg-transparent text-sm font-black text-[#f2f0e3] outline-none placeholder:text-white/15 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
@@ -1762,6 +1765,7 @@ export function MobileNoteView({
                           value={qty(activeIdx)}
                           onChange={e => setQtys(prev => { const u = [...prev]; u[activeIdx] = parseFloat(e.target.value) || 0; return u; })}
                           onKeyDown={blurOnEnter}
+                          onWheel={blockWheelChange}
                           className="w-16 text-center bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                         <button

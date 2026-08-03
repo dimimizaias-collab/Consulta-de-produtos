@@ -3911,6 +3911,7 @@ export default function Page() {
                           type="number"
                           value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
                           onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
+                          onWheel={blockWheelChange}
                           className={inputCls}
                         />
                       </div>
@@ -3988,6 +3989,7 @@ export default function Page() {
                             type="number"
                             value={editingProduct.units_per_mother}
                             onChange={(e) => setEditingProduct({...editingProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
+                            onWheel={blockWheelChange}
                             className={inputCls}
                             placeholder="Ex: 50"
                           />
@@ -4484,19 +4486,21 @@ export default function Page() {
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-secondary uppercase">Quantidade</label>
                       <input 
-                        type="number" 
+                        type="number"
                         value={newProductRequest.count}
                         onChange={(e) => setNewProductRequest({...newProductRequest, count: parseInt(e.target.value || '0') || 0})}
+                        onWheel={blockWheelChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
                       <input 
-                        type="number" 
+                        type="number"
                         step="0.01"
                         value={newProductRequest.price}
                         onChange={(e) => setNewProductRequest({...newProductRequest, price: parseFloat(e.target.value || '0') || 0})}
+                        onWheel={blockWheelChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -4528,9 +4532,10 @@ export default function Page() {
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-purple-700 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
                             <input 
-                              type="number" 
+                              type="number"
                               value={newProductRequest.units_per_mother}
                               onChange={(e) => setNewProductRequest({...newProductRequest, units_per_mother: parseInt(e.target.value || '1') || 1})}
+                              onWheel={blockWheelChange}
                               className="w-full bg-white border border-purple-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
                               placeholder="Ex: 50"
                             />
@@ -4861,6 +4866,7 @@ export default function Page() {
                       type="number"
                       value={isNaN(newProduct.count) ? 0 : newProduct.count}
                       onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
+                      onWheel={blockWheelChange}
                       className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                     />
                   </div>
@@ -4943,6 +4949,7 @@ export default function Page() {
                             type="number"
                             value={newProduct.units_per_mother}
                             onChange={(e) => setNewProduct({...newProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
+                            onWheel={blockWheelChange}
                             className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-purple-200 dark:border-purple-500/[0.25] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
                             placeholder="Ex: 50"
                           />
@@ -5519,9 +5526,10 @@ export default function Page() {
                             -
                           </button>
                           <input 
-                            type="number" 
+                            type="number"
                             value={manualStockChange}
                             onChange={(e) => setManualStockChange(parseInt(e.target.value) || 0)}
+                            onWheel={blockWheelChange}
                             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-black focus:outline-none focus:ring-2 focus:ring-primary/20"
                           />
                           <button 
@@ -6073,6 +6081,7 @@ export default function Page() {
                             {nfEditableCols.has('Qtd.') ? (
                               <input type="number" min="0" value={nfItemQtys[idx] ?? item.qty}
                                 onChange={e => { const u = [...nfItemQtys]; u[idx] = parseInt(e.target.value) || 0; setNfItemQtys(u); }}
+                                onWheel={blockWheelChange}
                                 className="w-16 text-center text-xs font-black text-slate-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             ) : (
                               <span className="inline-block px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-700">{nfItemQtys[idx] ?? item.qty}</span>
@@ -6086,6 +6095,7 @@ export default function Page() {
                                 min="0"
                                 step="0.01"
                                 value={nfItemPrices[idx] ?? item.price}
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const updated = [...nfItemPrices];
                                   updated[idx] = parseFloat(e.target.value) || 0;
@@ -6103,6 +6113,7 @@ export default function Page() {
                                 min="0"
                                 step="0.01"
                                 value={nfItemSellPrices[idx] ?? item.product_price ?? 0}
+                                onWheel={blockWheelChange}
                                 onChange={e => {
                                   const updated = [...nfItemSellPrices];
                                   updated[idx] = parseFloat(e.target.value) || 0;

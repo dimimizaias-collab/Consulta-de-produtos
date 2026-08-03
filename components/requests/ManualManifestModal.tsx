@@ -14,6 +14,8 @@ import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import type { ReviewNote } from './LogisticsCenter';
 import { InvoiceImportModal, type ImportedRow } from './InvoiceImportModal';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ManifestRow {
@@ -1152,6 +1154,7 @@ export function ManualManifestModal({
                           onChange={e => updateRow(row.id, { quantity: e.target.value })}
                           onPaste={e => handleColumnPaste(e, idx, 'quantity')}
                           onKeyDown={tableCellKeyDown('manifest', idx, 3)}
+                          onWheel={blockWheelChange}
                           className={cn(
                             "no-spinner w-full bg-transparent border-b border-transparent hover:border-black/25 dark:hover:border-white/20 focus:border-amber-500/55 dark:focus:border-amber-400/50 outline-none py-1 px-1 text-xs font-medium text-right text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/22 dark:placeholder:text-white/25",
                             pastedRange && pastedRange.field === 'quantity' && idx >= pastedRange.start && idx <= pastedRange.end && "ring-1 ring-emerald-400 rounded bg-emerald-50/40"
@@ -1165,6 +1168,7 @@ export function ManualManifestModal({
                           onChange={e => updateRow(row.id, { unitPrice: e.target.value, unitTranslated: false })}
                           onPaste={e => handleColumnPaste(e, idx, 'unitPrice')}
                           onKeyDown={tableCellKeyDown('manifest', idx, 4)}
+                          onWheel={blockWheelChange}
                           className={cn(
                             'no-spinner w-full border-b border-transparent outline-none py-1 px-1 text-xs font-medium text-right',
                             pastedRange && pastedRange.field === 'unitPrice' && idx >= pastedRange.start && idx <= pastedRange.end
@@ -1341,6 +1345,7 @@ export function ManualManifestModal({
                   </label>
                   <input type="number" value={measureMultiplier}
                     onChange={e => setMeasureMultiplier(e.target.value)}
+                    onWheel={blockWheelChange}
                     className="no-spinner w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 font-bold text-center"
                     placeholder="ex: 12" min="0.001" step="any" />
                 </div>
@@ -1578,6 +1583,7 @@ export function ManualManifestModal({
                         type="number"
                         value={multiLinkQty}
                         onChange={e => setMultiLinkQty(e.target.value)}
+                        onWheel={blockWheelChange}
                         className="w-20 bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] focus:outline-none focus:ring-2 focus:ring-amber-400/20 text-center"
                         placeholder="Qtd"
                         min="0"
@@ -1661,6 +1667,7 @@ export function ManualManifestModal({
                       <div>
                         <label className="text-[10px] font-bold text-white/40 uppercase block mb-1">Quantidade *</label>
                         <input type="number" value={multiLinkQty} onChange={e => setMultiLinkQty(e.target.value)}
+                          onWheel={blockWheelChange}
                           className="w-full bg-[#2e2e28] border border-white/[0.10] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
                           placeholder="Quantidade" min="0" step="any" />
                       </div>

@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { ReviewNote } from './LogisticsCenter';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
@@ -695,7 +697,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                               <div key={idx} className="grid grid-cols-3 gap-2 items-center">
                                 <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none')}>{p.seq}</div>
                                 <input type="date" value={p.data} onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))} className={inputCls} />
-                                <input type="number" step="0.01" min="0" value={p.valor} onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))} placeholder="0,00" className={inputCls} />
+                                <input type="number" step="0.01" min="0" value={p.valor} onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))} onWheel={blockWheelChange} placeholder="0,00" className={inputCls} />
                               </div>
                             ))}
                             <button onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '' }])} className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity pt-1">
@@ -735,7 +737,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                             {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
                           </div>
                         ) : (
-                          <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} placeholder="0,00" className={inputCls} />
+                          <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={inputCls} />
                         )}
                       </div>
 
@@ -812,7 +814,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                         <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
-                          <input type="number" step="0.01" min="0" value={accountForm.saldo_inicial} onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))} placeholder="0,00" className={cn(inputCls, 'pl-9')} />
+                          <input type="number" step="0.01" min="0" value={accountForm.saldo_inicial} onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, 'pl-9')} />
                         </div>
                       </div>
 

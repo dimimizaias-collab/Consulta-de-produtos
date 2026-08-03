@@ -5,6 +5,8 @@ import { X, Upload, FileText, Loader2, CheckSquare, Square, ArrowRight, Trash2 }
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ImportedRow {
@@ -328,12 +330,14 @@ export function InvoiceImportModal({ isOpen, onClose, onImport }: Props) {
                               <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Quantidade</label>
                               <input value={item.quantity} type="number" min="0"
                                 onChange={e => updateParsed(idx, 'quantity', e.target.value)}
+                                onWheel={blockWheelChange}
                                 className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono text-right focus:outline-none focus:ring-1 focus:ring-blue-300" />
                             </div>
                             <div>
                               <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Preço Unit.</label>
                               <input value={item.unitPrice} type="number" min="0" step="0.01"
                                 onChange={e => updateParsed(idx, 'unitPrice', e.target.value)}
+                                onWheel={blockWheelChange}
                                 className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono text-right focus:outline-none focus:ring-1 focus:ring-blue-300"
                                 placeholder="0,00" />
                             </div>

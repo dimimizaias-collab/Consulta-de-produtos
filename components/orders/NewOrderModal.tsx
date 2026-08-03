@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 import Image from 'next/image';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 
@@ -300,6 +302,7 @@ export function NewOrderModal({ onClose, setNotification }: NewOrderModalProps) 
                             min="1"
                             value={quantity}
                             onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                            onWheel={blockWheelChange}
                             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-center"
                         />
                     </div>

@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
+
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import * as XLSX from 'xlsx';
@@ -825,7 +827,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9.5px] font-black text-[#1A1A0E]/30 dark:text-white/25 uppercase tracking-[0.18em]">4. Qtd Real</label>
-                        <input type="number" value={unitMultiplier} onChange={(e) => setUnitMultiplier(e.target.value)} placeholder="12" className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl px-4 text-sm font-black text-[#D81E1E] outline-none focus:border-[#D81E1E]" />
+                        <input type="number" value={unitMultiplier} onChange={(e) => setUnitMultiplier(e.target.value)} onWheel={blockWheelChange} placeholder="12" className="w-full h-[52px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-2xl px-4 text-sm font-black text-[#D81E1E] outline-none focus:border-[#D81E1E]" />
                       </div>
                     </div>
 
@@ -1304,6 +1306,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                                type="number"
                                value={unitMultiplier}
                                onChange={(e) => setUnitMultiplier(e.target.value)}
+                               onWheel={blockWheelChange}
                                placeholder="Ex: 12"
                                className="w-full bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 py-4 text-sm font-black text-primary"
                              />
