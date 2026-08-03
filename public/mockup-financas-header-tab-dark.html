@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Header Controle Financeiro (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --header-bg: #252520;
+    --header-border: rgba(242,240,227,0.07);
+    --chip-bg: rgba(216,30,30,0.13);
+    --chip-icon: #D81E1E;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --accent: #D81E1E;
+    --tab-bg: #252520;
+    --tab-text: rgba(242,240,227,0.75);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--title); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 900px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  .header-wrap {
+    position: relative;
+    margin-bottom: 34px;
+  }
+
+  .header {
+    background: var(--header-bg);
+    border: 1px solid var(--header-border);
+    border-radius: 20px 20px 20px 0;
+    padding: 22px 26px 26px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+  }
+
+  .icon-chip {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: var(--chip-bg);
+    color: var(--chip-icon);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 24px; height: 24px; }
+
+  .title-block h1 {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    margin: 0 0 4px;
+    color: var(--title);
+  }
+  .title-block .eyebrow {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+  }
+
+  .dados-strip {
+    position: absolute;
+    left: -1px;
+    bottom: -34px;
+    display: flex;
+    align-items: stretch;
+    height: 34px;
+  }
+
+  .dados-tab {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 22px;
+    background: var(--tab-bg);
+    color: var(--tab-text);
+    border-radius: 0 0 12px 0;
+    border: 1px solid var(--header-border);
+    border-top: none;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    /* shadow only at the top, as if cast down by the header sitting above it */
+    box-shadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+    cursor: pointer;
+    transition: opacity 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .dados-tab:hover { opacity: 0.85; }
+  .dados-tab:active { transform: scale(0.97); }
+
+  .content-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP v2 — canto inferior esquerdo do header quadrado + ledge de recuo + aba "Dados" (esquerda quadrada / direita arredondada) alinhada ao título</div>
+  <div class="page">
+    <div class="header-wrap">
+      <div class="header">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 11h.01"/><path d="M2 10h20"/></svg>
+        </div>
+        <div class="title-block">
+          <h1>Controle Financeiro</h1>
+          <div class="eyebrow">Gestão Financeira</div>
+        </div>
+      </div>
+      <div class="dados-strip">
+        <button class="dados-tab">Dados</button>
+      </div>
+    </div>
+
+    <div class="content-card">
+      Conteúdo da página (tabela de lançamentos, calendário etc.) segue abaixo normalmente.
+    </div>
+  </div>
+</body>
+</html>

@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, Database, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
+  AlertTriangle, Info, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
   ArrowUp, ArrowDown,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -1574,14 +1574,14 @@ export function FinanceManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
+      <div className="relative mb-9">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
           <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
             <Wallet size={24} strokeWidth={2} />
           </div>
           <div>
-            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Gestão Financeira</div>
             <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Controle Financeiro</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Gestão Financeira</div>
           </div>
         </div>
 
@@ -1592,15 +1592,8 @@ export function FinanceManager() {
               return v === 'main' ? 'dados' : 'main';
             });
           }}
-          className={cn(
-            'flex items-center gap-2 px-[18px] py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide transition-all active:scale-[0.97]',
-            financeView === 'dados'
-              ? 'bg-[rgba(26,26,10,0.10)] dark:bg-white/10 text-[#1A1A0E] dark:text-[#F2F0E3]'
-              : 'bg-primary text-on-primary shadow-lg shadow-primary/20 hover:opacity-90'
-          )}
-          style={{ transition: 'opacity 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1), background-color 160ms' }}
+          className="absolute left-0 top-full h-[34px] px-[22px] flex items-center bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07] rounded-br-[12px] text-[12px] font-extrabold uppercase tracking-wide text-[#1A1A0E] dark:text-white/75 shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)] transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.97]"
         >
-          {financeView === 'dados' ? <ArrowLeft size={16} /> : <Database size={16} />}
           {financeView === 'dados' ? 'Voltar' : 'Dados'}
         </button>
       </div>
