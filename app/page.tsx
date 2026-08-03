@@ -29,7 +29,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -514,6 +514,10 @@ export default function Page() {
   const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
   const [reviewFilterOpen, setReviewFilterOpen] = useState<string | null>(null);
   const [reviewFilterSearch, setReviewFilterSearch] = useState('');
+  // ── Ocultar colunas ──
+  const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set());
+  const [showHideColsModal, setShowHideColsModal] = useState(false);
+  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -6504,28 +6508,38 @@ export default function Page() {
                   >
                     <Filter size={13} />
                   </button>
+                  <button
+                    onClick={() => setShowHideColsModal(true)}
+                    title={reviewHiddenCols.size > 0 ? `${reviewHiddenCols.size} coluna(s) oculta(s)` : 'Ocultar colunas'}
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center transition-all',
+                      reviewHiddenCols.size > 0
+                        ? 'bg-[#FFE500] text-[#1A1A0E] shadow-md'
+                        : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                    )}
+                  >
+                    <EyeOff size={13} />
+                  </button>
                   <div className="flex items-center gap-1.5">
                     {/* Adj column buttons */}
                     <button
                       onClick={() => setAdjColDialog({ kind: 'desconto', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
-                      className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border", adjColumns.some(c => c.kind === 'desconto') ? "bg-red-500/15 text-red-400 border-red-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/15")}
+                      className={cn("relative flex items-center justify-center w-9 h-9 rounded-xl transition-colors border", adjColumns.some(c => c.kind === 'desconto') ? "bg-red-500/15 text-red-400 border-red-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/15")}
                       title="Adicionar coluna de Desconto"
                     >
-                      <Minus size={12} />
-                      Desconto
+                      <Minus size={14} />
                       {adjColumns.filter(c => c.kind === 'desconto').length > 0 && (
-                        <span className="bg-red-400/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'desconto').length}</span>
+                        <span className="absolute -top-1 -right-1 bg-red-400/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'desconto').length}</span>
                       )}
                     </button>
                     <button
                       onClick={() => setAdjColDialog({ kind: 'acrescimo', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
-                      className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border", adjColumns.some(c => c.kind === 'acrescimo') ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/15")}
+                      className={cn("relative flex items-center justify-center w-9 h-9 rounded-xl transition-colors border", adjColumns.some(c => c.kind === 'acrescimo') ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/15")}
                       title="Adicionar coluna de Acréscimo"
                     >
-                      <Plus size={12} />
-                      Acréscimo
+                      <Plus size={14} />
                       {adjColumns.filter(c => c.kind === 'acrescimo').length > 0 && (
-                        <span className="bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
+                        <span className="absolute -top-1 -right-1 bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
                       )}
                     </button>
                   </div>
@@ -6697,6 +6711,7 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('seq')}
                           </th>
+                          {!reviewHiddenCols.has('Código') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl()}>
                               <span style={{ color: reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit' }}>Código</span>
@@ -6712,7 +6727,9 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('codigo')}
                           </th>
+                          )}
                           {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
+                            if (reviewHiddenCols.has(col)) return null;
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
                             const filterKey = colFilterKey[col];
@@ -6736,6 +6753,7 @@ export default function Page() {
                               </th>
                             );
                           })}
+                          {!reviewHiddenCols.has('Preço Custo') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Preço Custo
@@ -6743,6 +6761,8 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('preco_custo')}
                           </th>
+                          )}
+                          {!reviewHiddenCols.has('Valor Total') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Valor Total
@@ -6750,6 +6770,7 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('valor_total')}
                           </th>
+                          )}
                           {/* Dynamic adj column headers */}
                           {adjColumns.map(col => (
                             <th key={col.id} style={{ ...thBar, position: 'relative' }}>
@@ -6765,7 +6786,10 @@ export default function Page() {
                               </div>
                             </th>
                           ))}
+                          {!reviewHiddenCols.has('Preço Venda') && (
                           <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
+                          )}
+                          {!reviewHiddenCols.has('Markup') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Markup
@@ -6773,7 +6797,9 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('markup')}
                           </th>
+                          )}
                           {/* Status — with filter */}
+                          {!reviewHiddenCols.has('Status') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl()}>
                               <span>Status</span>
@@ -6781,9 +6807,16 @@ export default function Page() {
                             </div>
                             {renderFilterDropdown('status')}
                           </th>
+                          )}
+                          {!reviewHiddenCols.has('Ok') && (
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Ok</div></th>
+                          )}
+                          {!reviewHiddenCols.has('Revisão') && (
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Revisão</div></th>
+                          )}
+                          {!reviewHiddenCols.has('Distribuição') && (
                           <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Distribuição</div></th>
+                          )}
                           <th style={thLast}><div style={lbl({ justifyContent: 'center', minWidth: 0 })}></div></th>
                         </>);
                       })()}
@@ -6873,6 +6906,7 @@ export default function Page() {
                             </div>
                           </td>
                           {/* Código fornecedor */}
+                          {!reviewHiddenCols.has('Código') && (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -6890,6 +6924,8 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
+                          {!reviewHiddenCols.has('Produto na Nota') && (
                           <td style={{ ...tdP, maxWidth: '220px' }}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -6921,6 +6957,8 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
+                          {!reviewHiddenCols.has('Identificação Interna') && (
                           <td style={{ ...tdP, maxWidth: '200px', position: 'relative' }}>
                             <div style={cell({ padding: '0 8px', overflow: 'visible', gap: '6px' })}>
                               {item.verified ? (
@@ -7009,6 +7047,8 @@ export default function Page() {
                               </div>
                             </div>
                           </td>
+                          )}
+                          {!reviewHiddenCols.has('EAN') && (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -7040,6 +7080,8 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
+                          {!reviewHiddenCols.has('SKU') && (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -7057,6 +7099,8 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
+                          {!reviewHiddenCols.has('Qtd.') && (
                           <td style={{ ...tdP, position: 'relative' }}>
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
                             {/* Discrepancy trigger — always rendered, flanks the qty block */}
@@ -7168,7 +7212,9 @@ export default function Page() {
                             </div>
                             </div>
                           </td>
+                          )}
                           {/* Preço Custo — shows adjCost when discount/surcharge active */}
+                          {!reviewHiddenCols.has('Preço Custo') && (
                           <td style={tdP}>
                             {(() => {
                               const hasAdj = (hasDiscount || hasSurcharge) && Math.abs(adjCost - cost) > 0.001;
@@ -7231,7 +7277,9 @@ export default function Page() {
                               );
                             })()}
                           </td>
+                          )}
                           {/* Valor Total */}
+                          {!reviewHiddenCols.has('Valor Total') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
                               <span className="text-xs font-bold" style={{ color: totalValue > 0 ? 'var(--rn-text-muted)' : 'var(--rn-text-subtle)' }}>
@@ -7239,6 +7287,7 @@ export default function Page() {
                               </span>
                             </div>
                           </td>
+                          )}
                           {/* Dynamic adj column cells */}
                           {adjColumns.map((col, colIdx) => {
                             const isDisc = col.kind === 'desconto';
@@ -7285,6 +7334,7 @@ export default function Page() {
                             );
                           })}
                           {/* Preço Venda */}
+                          {!reviewHiddenCols.has('Preço Venda') && (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -7308,7 +7358,9 @@ export default function Page() {
                               />
                             </div>
                           </td>
+                          )}
                           {/* Markup */}
+                          {!reviewHiddenCols.has('Markup') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
                               {markup !== null ? (
@@ -7323,7 +7375,9 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
                           {/* Status */}
+                          {!reviewHiddenCols.has('Status') && (
                           <td style={tdP}>
                             <div style={cell({ padding: '0 10px' })}>
                               <span className={cn(
@@ -7336,7 +7390,9 @@ export default function Page() {
                               </span>
                             </div>
                           </td>
+                          )}
                           {/* Ok */}
+                          {!reviewHiddenCols.has('Ok') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
                               {viewingNoteVerified[idx] ? (
@@ -7367,7 +7423,9 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
                           {/* Revisão (timestamp) */}
+                          {!reviewHiddenCols.has('Revisão') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center', padding: '0 8px' })}>
                               {viewingNoteReviewTimestamps[idx] ? (
@@ -7379,7 +7437,9 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
                           {/* Distribuição */}
+                          {!reviewHiddenCols.has('Distribuição') && (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -7435,6 +7495,7 @@ export default function Page() {
                               )}
                             </div>
                           </td>
+                          )}
                           {/* Botão excluir item */}
                           <td style={{ ...tdP, borderRight: 'none' }}>
                             <div style={cell({ justifyContent: 'center', overflow: 'visible' })}>
@@ -8645,6 +8706,71 @@ export default function Page() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Ocultar Colunas modal */}
+              {showHideColsModal && (
+                <div className="fixed inset-0 z-[170] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowHideColsModal(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.97 }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    className="relative w-full max-w-lg bg-surface-container rounded-2xl shadow-2xl overflow-hidden"
+                  >
+                    <div className="p-5 border-b border-on-surface/[0.07] flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#FFE500]/15 text-[#B8A600] dark:text-[#FFE500] flex items-center justify-center shrink-0">
+                        <EyeOff size={17} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black text-on-surface">Ocultar Colunas</h3>
+                        <p className="text-xs text-on-surface/40">Clique num card para ocultar/mostrar a coluna na tabela</p>
+                      </div>
+                      <button
+                        onClick={() => setShowHideColsModal(false)}
+                        className="ml-auto w-8 h-8 rounded-lg bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] flex items-center justify-center shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="p-5 grid grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto">
+                      {REVIEW_HIDEABLE_COLS.map(col => {
+                        const isHidden = reviewHiddenCols.has(col);
+                        return (
+                          <button
+                            key={col}
+                            onClick={() => setReviewHiddenCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                            className={cn(
+                              'relative text-left px-3 py-2.5 rounded-xl border-[1.5px] transition-colors',
+                              isHidden
+                                ? 'bg-[#FFE500]/10 border-[#FFE500]/50'
+                                : 'bg-on-surface/[0.03] border-on-surface/[0.07] hover:bg-on-surface/[0.06]'
+                            )}
+                          >
+                            {isHidden && (
+                              <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-[5px] bg-[#FFE500] text-[#1A1A0E] flex items-center justify-center">
+                                <Check size={10} strokeWidth={3} />
+                              </span>
+                            )}
+                            <span className={cn('block text-xs font-extrabold', isHidden ? 'text-[#B8A600] dark:text-[#FFE500] line-through decoration-[#FFE500]/50' : 'text-on-surface')}>{col}</span>
+                            <span className={cn('block text-[9px] font-bold uppercase tracking-wide mt-0.5', isHidden ? 'text-[#B8A600]/70 dark:text-[#FFE500]/70' : 'text-on-surface/35')}>{isHidden ? 'Oculta' : 'Visível'}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="px-5 py-3.5 border-t border-on-surface/[0.07] flex items-center justify-between">
+                      <span className="text-xs text-on-surface/40">{reviewHiddenCols.size} de {REVIEW_HIDEABLE_COLS.length} colunas ocultas</span>
+                      <button
+                        onClick={() => setReviewHiddenCols(new Set())}
+                        disabled={reviewHiddenCols.size === 0}
+                        className="text-xs font-black text-[#B8A600] dark:text-[#FFE500] uppercase tracking-wide disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-80 transition-opacity"
+                      >
+                        Mostrar todas
+                      </button>
+                    </div>
+                  </motion.div>
                 </div>
               )}
 

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Ocultar Colunas (Janela de Nota)</title>
+<style>
+  :root {
+    --bg: #14140f;
+    --panel: #1c1c16;
+    --toolbar: #20201a;
+    --border: rgba(242,240,227,0.08);
+    --text: #f2f0e3;
+    --muted: rgba(242,240,227,0.40);
+    --card-bg: #23231c;
+    --card-border: rgba(242,240,227,0.08);
+    --card-hover: #2a2a22;
+    --red: #D81E1E;
+    --yellow: #FFE500;
+    --yellow-border: #C8B800;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .note { background: var(--red); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 100px; }
+  .section-label {
+    font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--red); margin: 40px 0 14px; padding-bottom: 6px; border-bottom: 2px solid var(--red);
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--toolbar); border: 1px solid var(--border); border-radius: 16px;
+    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .icon-toggle {
+    width: 32px; height: 32px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.4);
+    border: none; transition: all 150ms;
+  }
+  .icon-toggle svg { width: 13px; height: 13px; }
+  .icon-toggle.active-red { background: var(--red); color: #fff; box-shadow: 0 2px 8px rgba(216,30,30,0.4); }
+  .icon-toggle.active-yellow { background: var(--yellow); color: #1A1A0E; box-shadow: 0 2px 8px rgba(255,229,0,0.35); }
+  .sep { width: 1px; height: 20px; background: rgba(242,240,227,0.1); margin: 0 4px; }
+  .label-hint { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
+  /* Modal */
+  .modal-overlay {
+    background: rgba(0,0,0,0.6);
+    border-radius: 20px;
+    padding: 40px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 24px;
+  }
+  .modal {
+    width: 100%; max-width: 560px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 20px 22px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-header .ic {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: rgba(255,229,0,0.12); color: var(--yellow);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .modal-header .ic svg { width: 18px; height: 18px; }
+  .modal-header h3 { font-size: 15px; font-weight: 900; margin: 0; }
+  .modal-header p { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+  .modal-close {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 10px;
+    background: rgba(242,240,227,0.06); color: var(--muted); border: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close svg { width: 14px; height: 14px; }
+
+  .cards-grid {
+    padding: 18px 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .col-card {
+    position: relative;
+    padding: 12px 10px;
+    border-radius: 12px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    text-align: left;
+    cursor: pointer;
+    transition: all 150ms;
+  }
+  .col-card:hover { background: var(--card-hover); }
+  .col-card .name { font-size: 12px; font-weight: 800; color: var(--text); display: block; }
+  .col-card .state { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 3px; display: block; }
+  .col-card.hidden-col {
+    background: rgba(255,229,0,0.07);
+    border-color: rgba(255,229,0,0.35);
+  }
+  .col-card.hidden-col .name { color: var(--yellow); text-decoration: line-through; text-decoration-color: rgba(255,229,0,0.4); }
+  .col-card.hidden-col .state { color: var(--yellow); opacity: 0.75; }
+  .col-card .check {
+    position: absolute; top: 8px; right: 8px;
+    width: 16px; height: 16px; border-radius: 5px;
+    border: 1.5px solid rgba(242,240,227,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .col-card.hidden-col .check {
+    background: var(--yellow); border-color: var(--yellow);
+  }
+  .col-card.hidden-col .check svg { width: 10px; height: 10px; color: #1A1A0E; }
+
+  .modal-footer {
+    padding: 14px 22px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-footer .count { font-size: 11px; color: var(--muted); }
+  .modal-footer button {
+    font-size: 11px; font-weight: 800; color: var(--yellow);
+    background: none; border: none; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+
+  .content-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 16px 18px; font-size: 12px; color: var(--muted); margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — Botão "Ocultar Colunas" (amarelo quando ativo) ao lado do Filtro, e modal com cards de colunas</div>
+  <div class="page">
+
+    <div class="section-label">1. Barra de ferramentas — estado padrão (nenhuma coluna oculta)</div>
+    <div class="toolbar">
+      <button class="icon-toggle" title="Filtrar por coluna">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+      <button class="icon-toggle" title="Ocultar colunas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+      </button>
+      <div class="sep"></div>
+      <span class="label-hint">Desfazer / Refazer / Descontos...</span>
+    </div>
+
+    <div class="section-label">2. Barra de ferramentas — 3 colunas ocultas (botão amarelo)</div>
+    <div class="toolbar">
+      <button class="icon-toggle active-red" title="Desativar filtros">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+      <button class="icon-toggle active-yellow" title="3 colunas ocultas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+      </button>
+      <div class="sep"></div>
+      <span class="label-hint">Desfazer / Refazer / Descontos...</span>
+    </div>
+
+    <div class="section-label">3. Modal "Ocultar Colunas"</div>
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+          </span>
+          <div>
+            <h3>Ocultar Colunas</h3>
+            <p>Clique num card para ocultar/mostrar a coluna na tabela</p>
+          </div>
+          <button class="modal-close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="cards-grid">
+          <button class="col-card"><span class="name">Código</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Produto na Nota</span><span class="state">Visível</span></button>
+          <button class="col-card hidden-col">
+            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="name">Identificação Interna</span><span class="state">Oculta</span>
+          </button>
+          <button class="col-card"><span class="name">EAN</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">SKU</span><span class="state">Visível</span></button>
+          <button class="col-card hidden-col">
+            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="name">Qtd.</span><span class="state">Oculta</span>
+          </button>
+          <button class="col-card"><span class="name">Preço Custo</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Valor Total</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Preço Venda</span><span class="state">Visível</span></button>
+          <button class="col-card hidden-col">
+            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="name">Markup</span><span class="state">Oculta</span>
+          </button>
+          <button class="col-card"><span class="name">Status</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Ok</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Revisão</span><span class="state">Visível</span></button>
+          <button class="col-card"><span class="name">Distribuição</span><span class="state">Visível</span></button>
+        </div>
+        <div class="modal-footer">
+          <span class="count">3 de 14 colunas ocultas</span>
+          <button>Mostrar todas</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-card">A tabela por trás do modal reflete as colunas ocultas em tempo real, sem precisar fechar o modal para ver o resultado.</div>
+
+  </div>
+</body>
+</html>
