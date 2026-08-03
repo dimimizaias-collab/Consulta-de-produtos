@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Header Entrada de Mercadoria (Light)</title>
+<style>
+  :root {
+    --bg: #FDFAF0;
+    --header-bg: #FFE500;
+    --header-border: #D4C000;
+    --chip-bg: rgba(26,26,10,0.09);
+    --chip-icon: #1A1A0E;
+    --title: #1A1A0E;
+    --muted: rgba(26,26,10,0.40);
+    --accent: #D81E1E;
+    --tab-bg: #FFE500;
+    --tab-text: #1A1A0E;
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--title); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  .header-wrap { position: relative; margin-bottom: 56px; }
+
+  .header {
+    background: var(--header-bg);
+    border: 1px solid var(--header-border);
+    border-radius: 20px 20px 20px 0;
+    padding: 22px 26px 26px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .icon-chip {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: var(--chip-bg);
+    color: var(--chip-icon);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 24px; height: 24px; }
+
+  .title-block h1 {
+    font-size: 26px; font-weight: 900; letter-spacing: -0.01em; line-height: 1.1;
+    margin: 0 0 4px; color: var(--title);
+  }
+  .title-block .eyebrow {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted);
+  }
+
+  .dados-strip { position: absolute; left: -1px; bottom: -34px; display: flex; align-items: stretch; height: 34px; }
+
+  .dados-tab {
+    width: 136px; height: 34px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--tab-bg); color: var(--tab-text);
+    border: 1px solid var(--header-border); border-top: none;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    box-shadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    cursor: pointer;
+    padding: 0 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dados-tab:last-child { border-radius: 0 0 12px 0; }
+  .dados-tab.active { opacity: 1; font-weight: 900; }
+  .dados-tab.inactive { opacity: 0.55; }
+  .tab-count {
+    font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 9999px;
+    background: rgba(26,26,10,0.12); flex-shrink: 0;
+  }
+
+  .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  .action-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px;
+    padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  }
+  .action-card .ic { width: 46px; height: 46px; border-radius: 14px; background: rgba(26,26,10,0.06); display: flex; align-items: center; justify-content: center; }
+  .action-card h3 { font-size: 14px; font-weight: 900; margin: 0; }
+
+  .content-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP — Entrada de Mercadoria com o mesmo padrão de header/abas (Revisões, Aprovados, Rascunhos)</div>
+  <div class="page">
+    <div class="header-wrap">
+      <div class="header">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l2 2 4-4"/><path d="M21 12V7a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 7v10a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l1.5-.87"/><path d="M3.29 7L12 12l8.71-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <div class="title-block">
+          <h1>Entrada de Mercadoria</h1>
+          <div class="eyebrow">Logistics Orchestration &amp; Inventory Feed</div>
+        </div>
+      </div>
+
+      <div class="dados-strip">
+        <div class="dados-tab active">Revisões <span class="tab-count">3</span></div>
+        <div class="dados-tab inactive">Aprovados <span class="tab-count">12</span></div>
+        <div class="dados-tab inactive">Rascunhos</div>
+      </div>
+    </div>
+
+    <div class="actions-grid">
+      <div class="action-card">
+        <div class="ic">📥</div>
+        <h3>Importar Nota</h3>
+      </div>
+      <div class="action-card">
+        <div class="ic">📝</div>
+        <h3>Inserir Manualmente</h3>
+      </div>
+      <div class="action-card">
+        <div class="ic">📖</div>
+        <h3>Dicionário</h3>
+      </div>
+    </div>
+
+    <div class="content-card">
+      Lista de notas da seção ativa (Revisões / Aprovados / Rascunhos) segue aqui normalmente.
+    </div>
+  </div>
+</body>
+</html>

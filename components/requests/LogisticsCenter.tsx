@@ -137,21 +137,10 @@ export function LogisticsCenter({
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
   const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados' | 'rascunhos'>('revisoes');
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
-  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
   const [noteSearch, setNoteSearch]                  = useState('');
   const [noteSearchField, setNoteSearchField]        = useState<'all' | 'supplier_code' | 'original_description' | 'name' | 'ean' | 'sku'>('all');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
-        setShowSectionDropdown(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // Abre nota aprovada vinda de "Ir para nota" nas notificações
   useEffect(() => {
@@ -208,14 +197,60 @@ export function LogisticsCenter({
 
   const visibleNotes   = activeSection === 'rascunhos' ? [] : filterNotesBySearch(activeSection === 'revisoes' ? pendingNotes : approvedNotes);
 
-  const sectionLabel   = activeSection === 'revisoes' ? 'Revisões' : activeSection === 'aprovados' ? 'Aprovados' : 'Rascunhos';
   const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
 
   return (
     <div className="space-y-4 md:space-y-12">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl md:text-4xl font-black text-on-surface tracking-tighter">Entrada de Mercadoria</h1>
-        <p className="text-sm text-on-surface/40 font-medium uppercase tracking-[0.2em]">Logistics Orchestration & Inventory Feed</p>
+      {/* Header */}
+      <div className="relative mb-6 md:mb-14">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <ClipboardList size={24} strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Entrada de Mercadoria</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Logistics Orchestration &amp; Inventory Feed</div>
+          </div>
+        </div>
+
+        <div className="hidden md:flex absolute left-0 top-full">
+          {([
+            { key: 'revisoes', label: 'Revisões', count: pendingNotes.length },
+            { key: 'aprovados', label: 'Aprovados', count: approvedNotes.length },
+            { key: 'rascunhos', label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
+          ] as const).map((tab, i, arr) => {
+            const HEADER_TAB_LABEL_MAX = 12;
+            const label = tab.label.length > HEADER_TAB_LABEL_MAX
+              ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
+              : tab.label;
+            const active = activeSection === tab.key;
+            return (
+              <button
+                key={tab.key}
+                title={tab.label}
+                onClick={() => setActiveSection(tab.key)}
+                className={cn(
+                  'w-[136px] h-[34px] flex items-center justify-center gap-1.5 shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                  i === arr.length - 1 && 'rounded-br-[12px]',
+                  'text-[12px] font-extrabold uppercase tracking-wide',
+                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  active
+                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                <span className="truncate">{label}</span>
+                {tab.count > 0 && (
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[rgba(26,26,10,0.12)] dark:bg-white/10 shrink-0">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="hidden md:grid grid-cols-3 gap-8">
@@ -494,63 +529,8 @@ export function LogisticsCenter({
       {/* ── Revisões / Aprovados Section ──────────────────────────────────── */}
       <div className="hidden md:block space-y-6">
 
-        {/* Section header with dropdown + search */}
+        {/* Search bar row */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Dropdown Revisões / Aprovados */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setShowSectionDropdown(v => !v)}
-              className="flex items-center gap-2 text-lg font-black text-on-surface uppercase tracking-[0.1em] hover:text-primary transition-colors"
-            >
-              {sectionLabel}
-              <ChevronDown
-                size={18}
-                className={cn('transition-transform duration-200 mt-0.5', showSectionDropdown && 'rotate-180')}
-              />
-            </button>
-
-            <AnimatePresence>
-              {showSectionDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute left-0 top-full mt-2 w-48 bg-surface-container-lowest border border-on-surface/[0.06] rounded-2xl shadow-xl z-30 overflow-hidden"
-                >
-                  {[
-                    { key: 'revisoes' as const,  label: 'Revisões',  count: pendingNotes.length, color: 'primary' },
-                    { key: 'aprovados' as const, label: 'Aprovados', count: approvedNotes.length, color: 'primary' },
-                    { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0, color: 'emerald' },
-                  ].map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => { setActiveSection(opt.key); setShowSectionDropdown(false); }}
-                      className={cn(
-                        'flex items-center justify-between w-full px-4 py-3 text-sm font-bold transition-colors text-left',
-                        activeSection === opt.key
-                          ? opt.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
-                          : 'text-on-surface hover:bg-on-surface/5'
-                      )}
-                    >
-                      <span>{opt.label}</span>
-                      {opt.count > 0 && (
-                        <span className={cn(
-                          'text-[10px] font-black px-2 py-0.5 rounded-full',
-                          activeSection === opt.key
-                            ? opt.color === 'emerald' ? 'bg-emerald-500/20 text-emerald-600' : 'bg-primary/20 text-primary'
-                            : 'bg-on-surface/10 text-on-surface/50'
-                        )}>
-                          {opt.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
           {/* Badge de contagem */}
           {visibleNotes.length > 0 && (
             <span className={cn(
