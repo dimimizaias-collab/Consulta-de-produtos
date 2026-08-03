@@ -5,7 +5,6 @@ import {
   Plus,
   Search,
   Filter,
-  RefreshCw,
   Tag,
   Edit2,
   Package,
@@ -206,93 +205,171 @@ export function InventoryManager({
 
         <input type="file" ref={stockFileInputRef} onChange={onStockUpdate} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
 
-        {/* Mobile layout: count chip + icon buttons in one row */}
-        <div className="flex items-center gap-2 lg:hidden">
-          {/* Produtos count chip */}
-          <div className="bg-[#FFF8C0] dark:bg-surface-container-low border border-[#E8D800] dark:border-on-surface/[0.06] rounded-2xl px-4 py-2 shrink-0">
-            <span className="block text-[8px] font-black text-on-surface/40 uppercase tracking-[0.18em] leading-none mb-1">Produtos</span>
-            <span className="text-xl font-black text-on-surface leading-none">{products.length}</span>
+        {/* Mobile layout: search on its own row, icon buttons + count below */}
+        <div className="flex flex-col gap-2.5 lg:hidden">
+          <div className="h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4">
+            <Search size={16} className="text-on-surface/30 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar..."
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+            />
           </div>
 
-          {/* Atualizar — ícone */}
-          <button
-            onClick={() => setShowStockUpdateChoiceModal(true)}
-            disabled={importing}
-            title="Atualizar Estoque"
-            className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low text-amber-600 flex items-center justify-center active:scale-95 transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={17} className={cn(importing ? 'animate-spin' : '')} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Mobile — ícone */}
+            <button
+              onClick={onOpenMobileBulkTable}
+              title="Mobile"
+              className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
+            >
+              <Smartphone size={17} />
+            </button>
 
-          {/* Mobile — ícone */}
+            {/* Filtros — ícone */}
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              title="Filtros"
+              className={cn(
+                'w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center active:scale-95 transition-all',
+                showFilters
+                  ? 'bg-primary/10 border-primary/20 text-primary'
+                  : 'bg-surface-container-low border-on-surface/[0.06] text-on-surface/55 hover:text-on-surface'
+              )}
+            >
+              <Filter size={17} />
+            </button>
+
+            {/* Novo — ícone vermelho */}
+            <div ref={newDropdownRef} className="relative">
+              <button
+                onClick={() => setShowNewDropdown(v => !v)}
+                title="Novo"
+                className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
+              >
+                <Plus size={19} />
+              </button>
+              <AnimatePresence>
+                {showNewDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Rows3 size={14} className="text-primary" />
+                      Lista de produtos
+                    </button>
+                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Plus size={14} />
+                      Novo Produto
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Etiquetas / Placas — ícone com menu */}
+            <div ref={printMenuRefMobile} className="relative">
+              <button
+                onClick={() => setShowPrintMenu(v => !v)}
+                title="Imprimir"
+                className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
+              >
+                <Tag size={17} />
+              </button>
+              <AnimatePresence>
+                {showPrintMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Tag size={14} className="text-primary" />
+                      Etiquetas
+                    </button>
+                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                    <button
+                      onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <StickyNote size={14} className="text-primary" />
+                      Placas
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Produtos count chip — mesmo tamanho dos botões */}
+            <div
+              title="Produtos"
+              className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
+            >
+              <span className="text-sm font-black text-on-surface">{products.length}</span>
+              <span className="text-[6px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout: search + icon buttons + count, tudo do mesmo tamanho */}
+        <div className="hidden lg:flex lg:items-center gap-3">
+          <div className="flex-1 h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm">
+            <Search size={16} className="text-on-surface/30 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nome, EAN, SKU..."
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+            />
+          </div>
+
           <button
             onClick={onOpenMobileBulkTable}
             title="Mobile"
-            className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] dark:border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
+            className="w-12 h-12 shrink-0 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center justify-center shadow-sm active:scale-95"
           >
-            <Smartphone size={17} />
+            <Smartphone size={16} />
           </button>
 
-          {/* Etiquetas / Placas — ícone com menu */}
-          <div ref={printMenuRefMobile} className="relative">
-            <button
-              onClick={() => setShowPrintMenu(v => !v)}
-              title="Imprimir"
-              className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
-            >
-              <Tag size={17} />
-            </button>
-            <AnimatePresence>
-              {showPrintMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                  className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                >
-                  <button
-                    onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                  >
-                    <Tag size={14} className="text-primary" />
-                    Etiquetas
-                  </button>
-                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                  <button
-                    onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                  >
-                    <StickyNote size={14} className="text-primary" />
-                    Placas
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Filtros — ícone */}
           <button
-            onClick={() => setShowFilters(v => !v)}
+            onClick={() => setShowFilters(!showFilters)}
             title="Filtros"
             className={cn(
-              'w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center active:scale-95 transition-all',
+              "w-12 h-12 shrink-0 rounded-2xl transition-[colors,transform] flex items-center justify-center shadow-sm border active:scale-95",
               showFilters
-                ? 'bg-primary/10 border-primary/20 text-primary'
-                : 'bg-surface-container-low border-on-surface/[0.06] text-on-surface/55 hover:text-on-surface'
+                ? "bg-primary/10 border-primary/20 text-primary"
+                : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
             )}
           >
-            <Filter size={17} />
+            <Filter size={16} />
           </button>
 
-          {/* Novo — ícone vermelho */}
           <div ref={newDropdownRef} className="relative">
             <button
               onClick={() => setShowNewDropdown(v => !v)}
               title="Novo"
-              className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
+              className="w-12 h-12 shrink-0 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-transform"
             >
-              <Plus size={19} />
+              <Plus size={18} />
             </button>
             <AnimatePresence>
               {showNewDropdown && (
@@ -323,135 +400,50 @@ export function InventoryManager({
             </AnimatePresence>
           </div>
 
-        </div>
-
-        {/* Desktop layout — original, preservado */}
-        <div className="hidden lg:flex lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex items-center gap-4 bg-surface-container-low/50 backdrop-blur-xl px-2 py-2 rounded-[2rem] border border-on-surface/[0.03] shadow-sm ring-1 ring-on-surface/[0.02]">
-            <div className="flex items-center gap-4 px-6 py-2">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.2em] leading-none mb-1.5">Produtos</span>
-                <span className="text-2xl font-black text-on-surface leading-none">{products.length}</span>
-              </div>
-              <div className="h-8 w-[1px] bg-on-surface/[0.05]"></div>
-            </div>
+          <div ref={printMenuRefDesktop} className="relative">
             <button
-              onClick={() => setShowStockUpdateChoiceModal(true)}
-              disabled={importing}
-              className="bg-amber-500/10 text-amber-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-[colors,transform] flex items-center gap-2.5 disabled:opacity-50 group active:scale-95"
+              onClick={() => setShowPrintMenu(v => !v)}
+              title="Imprimir"
+              className="w-12 h-12 shrink-0 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl text-on-surface/60 hover:text-on-surface hover:bg-surface-container flex items-center justify-center shadow-sm transition-[colors,transform] active:scale-95"
             >
-              <RefreshCw size={14} className={cn("transition-transform", importing ? "animate-spin" : "group-hover:rotate-180")} />
-              Atualizar Estoque
+              <Tag size={16} />
             </button>
+            <AnimatePresence>
+              {showPrintMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Tag size={14} className="text-primary" />
+                    Etiquetas
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                  <button
+                    onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <StickyNote size={14} className="text-primary" />
+                    Placas
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={onOpenMobileBulkTable}
-              className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2.5 shadow-sm uppercase tracking-widest active:scale-95"
-            >
-              <Smartphone size={14} />
-              Mobile
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "h-12 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-[colors,transform] flex items-center gap-2.5 shadow-sm border active:scale-95",
-                showFilters
-                  ? "bg-primary/10 border-primary/20 text-primary"
-                  : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
-              )}
-            >
-              <Filter size={14} />
-              Filtros
-            </button>
-            <div ref={newDropdownRef} className="relative">
-              <button
-                onClick={() => setShowNewDropdown(v => !v)}
-                className="h-12 bg-surface-container-low border border-on-surface/[0.03] px-5 rounded-2xl font-black text-[11px] text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center gap-2 shadow-sm uppercase tracking-widest active:scale-[0.97]"
-                style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
-              >
-                <Plus size={15} />
-                Novo
-                <motion.span
-                  animate={{ rotate: showNewDropdown ? 180 : 0 }}
-                  transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                  style={{ display: 'flex' }}
-                >
-                  <ChevronDown size={13} />
-                </motion.span>
-              </button>
-              <AnimatePresence>
-                {showNewDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Rows3 size={14} className="text-primary" />
-                      Lista de produtos
-                    </button>
-                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Plus size={14} />
-                      Novo Produto
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div ref={printMenuRefDesktop} className="relative">
-              <button
-                onClick={() => setShowPrintMenu(v => !v)}
-                className="h-12 bg-primary text-white px-8 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-on-surface transition-[colors,transform] flex items-center gap-3 shadow-xl shadow-primary/20 active:scale-95"
-              >
-                <Tag size={16} />
-                Imprimir
-                <motion.span
-                  animate={{ rotate: showPrintMenu ? 180 : 0 }}
-                  transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                  style={{ display: 'flex' }}
-                >
-                  <ChevronDown size={13} />
-                </motion.span>
-              </button>
-              <AnimatePresence>
-                {showPrintMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Tag size={14} className="text-primary" />
-                      Etiquetas
-                    </button>
-                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                    <button
-                      onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <StickyNote size={14} className="text-primary" />
-                      Placas
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          {/* Produtos count chip — mesmo tamanho dos botões */}
+          <div
+            title="Produtos"
+            className="w-12 h-12 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
+          >
+            <span className="text-[15px] font-black text-on-surface">{products.length}</span>
+            <span className="text-[6.5px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
           </div>
         </div>
 
