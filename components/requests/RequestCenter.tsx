@@ -156,23 +156,17 @@ export function RequestCenter({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
-            <ArrowLeftRight size={32} />
+      {/* Header */}
+      <div className="mb-6">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <ArrowLeftRight size={24} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-on-surface tracking-tight">Requisições</h1>
-            <p className="text-sm text-on-surface/40 font-medium uppercase tracking-[0.1em]">Protocol Management & Product Revisions</p>
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Requisições</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Protocol Management &amp; Product Revisions</div>
           </div>
         </div>
-        <button
-          onClick={onAddRequest}
-          className="bg-primary text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all flex items-center gap-3 shadow-xl shadow-primary/20 uppercase tracking-[0.2em] group active:scale-95"
-        >
-          <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-          Add Request
-        </button>
       </div>
 
       {/* Campo de filtro */}
@@ -187,6 +181,13 @@ export function RequestCenter({
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
           />
         </div>
+        <button
+          onClick={onAddRequest}
+          className="shrink-0 h-full px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 bg-primary text-white shadow-md shadow-primary/20 hover:opacity-90 active:scale-95"
+        >
+          <Plus size={14} />
+          Add Request
+        </button>
         <button
           onClick={toggleSelectionMode}
           className={cn(

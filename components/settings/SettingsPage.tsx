@@ -17,6 +17,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -139,9 +140,15 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black text-on-surface tracking-tighter">Configurações</h1>
-        <p className="text-sm text-on-surface/40 font-medium uppercase tracking-[0.2em]">Store Identity & Display Preferences</p>
+      {/* Header */}
+      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex items-center gap-3.5">
+        <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+          <Settings size={24} strokeWidth={2} />
+        </div>
+        <div>
+          <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Configurações</h1>
+          <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Store Identity &amp; Display Preferences</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

@@ -38,19 +38,22 @@ export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead }: 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <Bell size={24} />
+      <div className="mb-6">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <Bell size={24} strokeWidth={2} />
           </div>
           <div>
-            <h2 className="text-xl font-black text-on-surface tracking-tight">Notificações</h2>
-            <p className="text-xs text-on-surface/40 font-medium">
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Notificações</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">
               {unread > 0 ? `${unread} não lida${unread > 1 ? 's' : ''}` : 'Tudo em dia'}
-            </p>
+            </div>
           </div>
         </div>
-        {unread > 0 && (
+      </div>
+
+      {unread > 0 && (
+        <div className="flex justify-end -mt-2">
           <button
             onClick={onMarkAllRead}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-primary hover:bg-primary/5 transition-all"
@@ -58,8 +61,8 @@ export function NotificationsPage({ notifications, onGoToNote, onMarkAllRead }: 
             <CheckCheck size={14} />
             Marcar todas como lidas
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Lista */}
       {notifications.length === 0 ? (

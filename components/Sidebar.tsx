@@ -23,7 +23,8 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard' },
+  // Dashboard — oculto do menu lateral (desktop). Componente/rota mantidos para reativação futura.
+  // { icon: LayoutDashboard, label: 'Dashboard' },
   { icon: Package2,        label: 'Inventory' },
   // Pedidos de Compra — DESATIVADO da navegação (componente/schema mantidos em components/orders/ e db/schema.ts).
   // { icon: ShoppingCart, label: 'Pedidos de Compra' },
