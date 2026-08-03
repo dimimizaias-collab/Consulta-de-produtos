@@ -207,29 +207,27 @@ export function InventoryManager({
 
         {/* Mobile layout: search on its own row, icon buttons + count below */}
         <div className="flex flex-col gap-2.5 lg:hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="flex-1 h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4 min-w-0">
-              <Search size={16} className="text-on-surface/30 shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Buscar..."
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
-              />
-            </div>
-
-            {/* Produtos count chip — mesmo tamanho dos botões */}
-            <div
-              title="Produtos"
-              className="w-11 h-11 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
-            >
-              <span className="text-sm font-black text-on-surface">{products.length}</span>
-              <span className="text-[6px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
-            </div>
+          <div className="h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4">
+            <Search size={16} className="text-on-surface/30 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar..."
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+            />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Produtos count pill — uma linha */}
+            <div
+              title="Produtos"
+              className="h-11 shrink-0 flex items-center gap-1.5 px-4 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low whitespace-nowrap"
+            >
+              <span className="text-sm font-black text-on-surface">{products.length}</span>
+              <span className="text-[11px] font-bold text-on-surface/45">produtos</span>
+            </div>
+
             {/* Mobile — ícone */}
             <button
               onClick={onOpenMobileBulkTable}
@@ -252,44 +250,6 @@ export function InventoryManager({
             >
               <Filter size={17} />
             </button>
-
-            {/* Novo — ícone vermelho */}
-            <div ref={newDropdownRef} className="relative">
-              <button
-                onClick={() => setShowNewDropdown(v => !v)}
-                title="Novo"
-                className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
-              >
-                <Plus size={19} />
-              </button>
-              <AnimatePresence>
-                {showNewDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Rows3 size={14} className="text-primary" />
-                      Lista de produtos
-                    </button>
-                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Plus size={14} />
-                      Novo Produto
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
 
             {/* Etiquetas / Placas — ícone com menu */}
             <div ref={printMenuRefMobile} className="relative">
@@ -328,12 +288,50 @@ export function InventoryManager({
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Novo — ícone vermelho, na ponta */}
+            <div ref={newDropdownRef} className="relative">
+              <button
+                onClick={() => setShowNewDropdown(v => !v)}
+                title="Novo"
+                className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
+              >
+                <Plus size={19} />
+              </button>
+              <AnimatePresence>
+                {showNewDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Rows3 size={14} className="text-primary" />
+                      Lista de produtos
+                    </button>
+                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                    <button
+                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                    >
+                      <Plus size={14} />
+                      Novo Produto
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
-        {/* Desktop layout: search + count + icon buttons, tudo do mesmo tamanho */}
+        {/* Desktop layout: search + count + icon buttons, Novo na ponta direita */}
         <div className="hidden lg:flex lg:items-center gap-3">
-          <div className="flex-1 max-w-[440px] h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm min-w-0">
+          <div className="flex-1 max-w-[600px] h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm min-w-0">
             <Search size={16} className="text-on-surface/30 shrink-0" />
             <input
               type="text"
@@ -344,13 +342,13 @@ export function InventoryManager({
             />
           </div>
 
-          {/* Produtos count chip — mesmo tamanho dos botões, ao lado da busca */}
+          {/* Produtos count pill — uma linha, ao lado da busca */}
           <div
             title="Produtos"
-            className="w-12 h-12 shrink-0 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low flex flex-col items-center justify-center leading-none"
+            className="h-12 shrink-0 flex items-center gap-1.5 px-5 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low whitespace-nowrap"
           >
             <span className="text-[15px] font-black text-on-surface">{products.length}</span>
-            <span className="text-[6.5px] font-black text-on-surface/40 uppercase tracking-[0.08em] mt-0.5">Prod.</span>
+            <span className="text-xs font-bold text-on-surface/45">produtos</span>
           </div>
 
           <button
@@ -373,43 +371,6 @@ export function InventoryManager({
           >
             <Filter size={16} />
           </button>
-
-          <div ref={newDropdownRef} className="relative">
-            <button
-              onClick={() => setShowNewDropdown(v => !v)}
-              title="Novo"
-              className="w-12 h-12 shrink-0 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-transform"
-            >
-              <Plus size={18} />
-            </button>
-            <AnimatePresence>
-              {showNewDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                  className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                >
-                  <button
-                    onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                  >
-                    <Rows3 size={14} className="text-primary" />
-                    Lista de produtos
-                  </button>
-                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                  <button
-                    onClick={() => { setShowNewDropdown(false); onAdd(); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                  >
-                    <Plus size={14} />
-                    Novo Produto
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
 
           <div ref={printMenuRefDesktop} className="relative">
             <button
@@ -442,6 +403,43 @@ export function InventoryManager({
                   >
                     <StickyNote size={14} className="text-primary" />
                     Placas
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div ref={newDropdownRef} className="relative">
+            <button
+              onClick={() => setShowNewDropdown(v => !v)}
+              title="Novo"
+              className="w-12 h-12 shrink-0 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+            >
+              <Plus size={18} />
+            </button>
+            <AnimatePresence>
+              {showNewDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Rows3 size={14} className="text-primary" />
+                    Lista de produtos
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.05]" />
+                  <button
+                    onClick={() => { setShowNewDropdown(false); onAdd(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Plus size={14} />
+                    Novo Produto
                   </button>
                 </motion.div>
               )}

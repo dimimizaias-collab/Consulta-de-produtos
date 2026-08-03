@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Barra de Ações Inventory v2 (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --accent: #D81E1E;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --btn-bg: #252520;
+    --btn-border: rgba(242,240,227,0.07);
+    --btn-text: rgba(242,240,227,0.55);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--title); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1300px; margin: 0 auto; padding: 40px 24px 100px; }
+  .section-label {
+    font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); margin: 40px 0 14px; padding-bottom: 6px; border-bottom: 2px solid var(--accent);
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  .action-row { display: flex; align-items: center; gap: 10px; }
+
+  .search-input {
+    flex: 1;
+    max-width: 600px;
+    height: 48px;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 0 16px;
+    min-width: 0;
+  }
+  .search-input svg { width: 16px; height: 16px; color: var(--muted); flex-shrink: 0; }
+  .search-input input {
+    border: none; outline: none; background: transparent; flex: 1; min-width: 0;
+    font-size: 13px; font-weight: 600; color: var(--title);
+  }
+  .search-input input::placeholder { color: rgba(242,240,227,0.25); }
+
+  .icon-btn {
+    width: 48px; height: 48px; flex-shrink: 0;
+    border-radius: 16px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: var(--btn-text);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .icon-btn svg { width: 17px; height: 17px; }
+  .icon-btn.primary { background: var(--accent); color: #fff; border: none; box-shadow: 0 6px 14px rgba(0,0,0,0.4); }
+
+  .count-pill {
+    height: 48px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 16px;
+    border-radius: 16px;
+    background: #2E2A10;
+    border: 1px solid rgba(232,216,0,0.25);
+    white-space: nowrap;
+  }
+  .count-pill .n { font-size: 15px; font-weight: 900; color: var(--title); }
+  .count-pill .l { font-size: 11px; font-weight: 800; text-transform: lowercase; color: rgba(242,240,227,0.40); }
+
+  .content-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 20px 24px; font-size: 13px; color: var(--muted); margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP v2 — busca com meio-termo de largura, Imprimir/Novo trocados (Novo na ponta), contagem em pill de uma linha "N produtos"</div>
+  <div class="page">
+
+    <div class="section-label">Desktop</div>
+    <div class="action-row">
+      <div class="search-input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Buscar por nome, EAN, SKU...">
+      </div>
+      <div class="count-pill" title="Produtos">
+        <span class="n">2505</span>
+        <span class="l">produtos</span>
+      </div>
+      <button class="icon-btn" title="Mobile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </button>
+      <button class="icon-btn" title="Filtros">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+      <button class="icon-btn" title="Imprimir">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v6H9z"/><path d="M9 18h6v4H9z"/><path d="M4 8h16a2 2 0 0 1 2 2v6h-4M2 16v-6a2 2 0 0 1 2-2"/></svg>
+      </button>
+      <button class="icon-btn primary" title="Novo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+      </button>
+    </div>
+    <div class="content-card">Grid de produtos segue abaixo.</div>
+
+    <div class="section-label">Mobile</div>
+    <div style="max-width: 420px; display:flex; flex-direction:column; gap:10px;">
+      <div class="search-input" style="height: 44px; max-width: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Buscar...">
+      </div>
+      <div class="action-row" style="flex-wrap: wrap;">
+        <div class="count-pill" style="height:44px;" title="Produtos">
+          <span class="n" style="font-size:13px;">2505</span>
+          <span class="l">produtos</span>
+        </div>
+        <button class="icon-btn" style="width:44px;height:44px;" title="Mobile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </button>
+        <button class="icon-btn" style="width:44px;height:44px;" title="Filtros">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        </button>
+        <button class="icon-btn" style="width:44px;height:44px;" title="Imprimir">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v6H9z"/><path d="M9 18h6v4H9z"/><path d="M4 8h16a2 2 0 0 1 2 2v6h-4M2 16v-6a2 2 0 0 1 2-2"/></svg>
+        </button>
+        <button class="icon-btn primary" style="width:44px;height:44px;" title="Novo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="content-card">Lista de produtos segue abaixo.</div>
+
+  </div>
+</body>
+</html>
