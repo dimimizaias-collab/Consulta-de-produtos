@@ -29,7 +29,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -475,6 +475,13 @@ export default function Page() {
   }));
 
   const [viewingNoteEans, setViewingNoteEans] = useState<string[]>([]);
+  const [copiedEanIdx, setCopiedEanIdx] = useState<number | null>(null);
+  const handleCopyEan = (idx: number, value: string) => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopiedEanIdx(idx);
+    setTimeout(() => setCopiedEanIdx(prev => (prev === idx ? null : prev)), 1200);
+  };
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
   const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
   const [viewingNoteEanVariants, setViewingNoteEanVariants] = useState<EanVariant[][]>([]);
@@ -7016,7 +7023,20 @@ export default function Page() {
                                   onBlur={captureSnapshot}
                                   className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
-                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
+                                <div className="flex items-center justify-between gap-1 w-full">
+                                  <p className="text-[11px] font-bold font-mono truncate" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
+                                  {(viewingNoteEans[idx] ?? item.ean) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyEan(idx, String(viewingNoteEans[idx] ?? item.ean ?? ''))}
+                                      title="Copiar EAN"
+                                      className="shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                                      style={{ color: 'var(--rn-text-muted)' }}
+                                    >
+                                      {copiedEanIdx === idx ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </td>
