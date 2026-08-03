@@ -1574,7 +1574,7 @@ export function FinanceManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative mb-9">
+      <div className="relative mb-14">
         <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
           <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
             <Wallet size={24} strokeWidth={2} />
@@ -1585,17 +1585,43 @@ export function FinanceManager() {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            setFinanceView(v => {
-              if (v === 'main') { fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos'); }
-              return v === 'main' ? 'dados' : 'main';
-            });
-          }}
-          className="absolute left-0 top-full h-[34px] px-[22px] flex items-center bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07] rounded-br-[12px] text-[12px] font-extrabold uppercase tracking-wide text-[#1A1A0E] dark:text-white/75 shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)] transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.97]"
-        >
-          {financeView === 'dados' ? 'Voltar' : 'Dados'}
-        </button>
+        <div className="absolute left-0 top-full flex">
+          {([
+            { key: 'main', label: 'Controle Financeiro' },
+            { key: 'dados', label: 'Dados' },
+          ] as const).map((tab, i, arr) => {
+            const HEADER_TAB_LABEL_MAX = 12;
+            const label = tab.label.length > HEADER_TAB_LABEL_MAX
+              ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
+              : tab.label;
+            const active = financeView === tab.key;
+            return (
+              <button
+                key={tab.key}
+                title={tab.label}
+                onClick={() => {
+                  if (tab.key === 'dados' && financeView !== 'dados') {
+                    fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos');
+                  }
+                  setFinanceView(tab.key);
+                }}
+                className={cn(
+                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                  i === arr.length - 1 && 'rounded-br-[12px]',
+                  'text-[12px] font-extrabold uppercase tracking-wide truncate',
+                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  active
+                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {financeView === 'dados' ? (
