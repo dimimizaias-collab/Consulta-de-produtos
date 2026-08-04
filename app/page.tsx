@@ -3626,7 +3626,8 @@ export default function Page() {
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
           />
           <div className={cn(
-            'pb-8 max-w-[1400px]',
+            'pb-8',
+            (!isMobileView && isSidebarCollapsed) ? 'max-w-none' : 'max-w-[1400px]',
             isMobileView ? 'px-5 space-y-4' : 'px-7 space-y-8',
             isMobileView ? 'pt-[74px]' : 'pt-5'
           )}>
