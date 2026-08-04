@@ -1,7 +1,8 @@
 // Ponte entre um período de Informações Contratuais (hr_contratos) e o Controle Financeiro:
 // gera 1 parcela por mês do período (vencimento = N-ésimo dia útil do mês) e recalcula o
 // valor de parcelas ainda não pagas quando o Caderninho lança um Bônus/Vale/Mercadoria dentro
-// da janela de 30 dias (10 a 40 dias antes do pagamento) daquele colaborador.
+// do mês calendário (dia 1 ao último dia) imediatamente anterior ao mês do pagamento daquele
+// colaborador — ex: lançamentos de maio entram na parcela de junho.
 
 import { supabase } from '@/lib/supabase';
 import { nthBusinessDay, toIsoDate } from '@/lib/hrBusinessDays';
@@ -19,11 +20,25 @@ async function fetchSalarioTagId(): Promise<string | null> {
   return data?.id ?? null;
 }
 
-function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setDate(date.getDate() + n);
-  return toIsoDate(date);
+// Primeiro e último dia (ISO) do mês calendário imediatamente anterior ao mês do vencimento
+// informado, com rollover de ano (vencimento em janeiro → mês de referência é dezembro anterior).
+function previousMonthRange(vencimento: string): { inicio: string; fim: string } {
+  const [y, m] = vencimento.split('-').map(Number);
+  let prevY = y, prevM = m - 1;
+  if (prevM === 0) { prevM = 12; prevY = y - 1; }
+  const inicio = `${prevY}-${String(prevM).padStart(2, '0')}-01`;
+  const ultimoDia = new Date(prevY, prevM, 0).getDate();
+  const fim = `${prevY}-${String(prevM).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+  return { inicio, fim };
+}
+
+// Mês/ano (yyyy-mm) da parcela de salário que deve considerar lançamentos feitos no mês/ano
+// de `dataIso` — sempre o mês seguinte, com rollover de ano (dezembro → janeiro do ano seguinte).
+function nextMonthPrefix(dataIso: string): string {
+  const [y, m] = dataIso.split('-').map(Number);
+  let targetY = y, targetM = m + 1;
+  if (targetM === 13) { targetM = 1; targetY = y + 1; }
+  return `${targetY}-${String(targetM).padStart(2, '0')}`;
 }
 
 // Gera (ou regenera) as parcelas de salário no Controle Financeiro para um período.
@@ -94,8 +109,8 @@ export async function deleteUnpaidParcelasForPeriodo(periodoId: string): Promise
 }
 
 // Recalcula o valor_final de UMA parcela (identificada por colaborador + vencimento) a partir
-// do salário base do período + o saldo líquido do Caderninho na janela de 30 dias
-// (vencimento - 40 a vencimento - 10). Parcelas já pagas nunca são tocadas.
+// do salário base do período + o saldo líquido do Caderninho no mês calendário anterior ao
+// mês do vencimento (dia 1 ao último dia). Parcelas já pagas nunca são tocadas.
 export async function recomputeInstallmentByVencimento(colaboradorId: string, vencimento: string): Promise<void> {
   const { data: parcela } = await supabase
     .from('finance_transactions')
@@ -114,8 +129,7 @@ export async function recomputeInstallmentByVencimento(colaboradorId: string, ve
   if (!contrato) return;
 
   const salarioTotal = contrato.salario_base + contrato.salario_complementar;
-  const janelaFim = addDays(vencimento, -10);
-  const janelaInicio = addDays(vencimento, -40);
+  const { inicio: janelaInicio, fim: janelaFim } = previousMonthRange(vencimento);
 
   const { data: lancamentos } = await supabase
     .from('hr_caderninho')
@@ -132,7 +146,7 @@ export async function recomputeInstallmentByVencimento(colaboradorId: string, ve
 }
 
 // Dado um lançamento do Caderninho (novo/editado/excluído), localiza e recalcula a(s)
-// parcela(s) de salário cuja janela de 30 dias contém a data do lançamento.
+// parcela(s) de salário cujo mês de vencimento é o mês seguinte ao mês do lançamento.
 export async function recomputeParcelasForCaderninhoEntry(colaboradorId: string, entryData: string): Promise<void> {
   const { data: parcelas } = await supabase
     .from('finance_transactions')
@@ -142,11 +156,11 @@ export async function recomputeParcelasForCaderninhoEntry(colaboradorId: string,
     .eq('pago', false)
     .not('vencimento', 'is', null);
 
+  const targetPrefix = nextMonthPrefix(entryData);
+
   for (const p of parcelas || []) {
     const vencimento = p.vencimento as string;
-    const janelaFim = addDays(vencimento, -10);
-    const janelaInicio = addDays(vencimento, -40);
-    if (entryData >= janelaInicio && entryData <= janelaFim) {
+    if (vencimento.startsWith(targetPrefix)) {
       await recomputeInstallmentByVencimento(colaboradorId, vencimento);
     }
   }
