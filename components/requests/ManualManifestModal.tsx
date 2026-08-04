@@ -53,6 +53,7 @@ interface ManifestDraft {
   supplierId: string;
   receivedDate: string;
   rows: ManifestRow[];
+  updatedAt?: string | null;
 }
 
 interface UnitConversion {
@@ -80,7 +81,7 @@ export interface ManualManifestModalProps {
 async function fetchDrafts(): Promise<ManifestDraft[]> {
   const { data, error } = await supabase
     .from('review_notes')
-    .select('id, file_name, timestamp_label, supplier_id, raw_rows, received_date')
+    .select('id, file_name, timestamp_label, supplier_id, raw_rows, received_date, updated_at')
     .eq('is_draft', true)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -91,11 +92,37 @@ async function fetchDrafts(): Promise<ManifestDraft[]> {
     supplierId: d.supplier_id ?? '',
     receivedDate: d.received_date ?? '',
     rows: d.raw_rows || [],
+    updatedAt: d.updated_at ?? null,
   }));
 }
 
-async function upsertDraft(draft: ManifestDraft) {
-  const { error } = await supabase.from('review_notes').upsert({
+// Busca só o carimbo de versão — usada para detectar, antes de gravar, se
+// outro usuário salvou a mesma nota nesse meio-tempo (checagem de concorrência otimista).
+async function fetchRemoteUpdatedAt(id: string): Promise<string | null> {
+  const { data } = await supabase.from('review_notes').select('updated_at').eq('id', id).maybeSingle();
+  return data?.updated_at ?? null;
+}
+
+async function fetchRemoteDraft(id: string): Promise<ManifestDraft | null> {
+  const { data, error } = await supabase
+    .from('review_notes')
+    .select('id, file_name, timestamp_label, supplier_id, raw_rows, received_date, updated_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    label: data.file_name,
+    savedAt: data.timestamp_label,
+    supplierId: data.supplier_id ?? '',
+    receivedDate: data.received_date ?? '',
+    rows: data.raw_rows || [],
+    updatedAt: data.updated_at ?? null,
+  };
+}
+
+async function upsertDraft(draft: ManifestDraft): Promise<string> {
+  const { data, error } = await supabase.from('review_notes').upsert({
     id: draft.id,
     file_name: draft.label,
     timestamp_label: draft.savedAt,
@@ -108,13 +135,27 @@ async function upsertDraft(draft: ManifestDraft) {
     verified_count: 0,
     items: [],
     updated_at: new Date().toISOString(),
-  });
+  }).select('updated_at').single();
   if (error) throw error;
+  return data.updated_at as string;
 }
 
 async function deleteDraft(id: string) {
   const { error } = await supabase.from('review_notes').delete().eq('id', id).eq('is_draft', true);
   if (error) throw error;
+}
+
+// Identificador anônimo e estável por navegador/dispositivo, usado só para
+// distinguir "eu" dos outros na presença em tempo real (não há login individual no app).
+function getClientId(): string {
+  if (typeof window === 'undefined') return 'server';
+  const KEY = 'manifest_client_id';
+  let id = window.localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    window.localStorage.setItem(KEY, id);
+  }
+  return id;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,6 +203,17 @@ export function ManualManifestModal({
   const [rows, setRows] = useState<ManifestRow[]>([makeRow(), makeRow(), makeRow()]);
   const [pastedRange, setPastedRange] = useState<{ start: number; end: number; field: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Conflito de edição concorrente (dois usuários na mesma nota)
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{ remote: ManifestDraft } | null>(null);
+  const [resolvingConflict, setResolvingConflict] = useState(false);
+  const [othersEditing, setOthersEditing] = useState(0);
+  const clientIdRef = useRef<string>(getClientId());
+  const loadedUpdatedAtRef = useRef<string | null>(null);
+  const conflictActiveRef = useRef(false);
+  useEffect(() => { loadedUpdatedAtRef.current = loadedUpdatedAt; }, [loadedUpdatedAt]);
+  useEffect(() => { conflictActiveRef.current = !!conflict; }, [conflict]);
 
   // Link-product sub-modal
   const [linkingRowId, setLinkingRowId] = useState<string | null>(null);
@@ -220,13 +272,37 @@ export function ManualManifestModal({
     return () => document.removeEventListener('mousedown', handler);
   }, [unitMenuRowId]);
 
-  // Auto-save draft whenever rows / supplier change (debounced 1.5 s)
+  // Presença em tempo real: avisa quando outro dispositivo está com esta mesma
+  // nota aberta, para reduzir a chance de dois usuários editarem em paralelo.
+  useEffect(() => {
+    if (view !== 'editor' || !currentDraftId) { setOthersEditing(0); return; }
+    const channel = supabase.channel(`manifest-presence-${currentDraftId}`, {
+      config: { presence: { key: clientIdRef.current } },
+    });
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const others = Object.keys(state).filter(k => k !== clientIdRef.current);
+        setOthersEditing(others.length);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+    return () => { supabase.removeChannel(channel); setOthersEditing(0); };
+  }, [view, currentDraftId]);
+
+  // Auto-save draft whenever rows / supplier change (debounced 1.5 s).
+  // Antes de gravar, confere se alguém salvou a nota nesse meio-tempo; se sim,
+  // não sobrescreve silenciosamente — levanta o modal de conflito.
   useEffect(() => {
     if (view !== 'editor' || !currentDraftId) return;
     const hasContent = rows.some(r => r.description.trim() || r.supplierCode.trim());
     if (!hasContent) return;
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(async () => {
+      if (conflictActiveRef.current) return;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
@@ -238,11 +314,19 @@ export function ManualManifestModal({
         rows,
       };
       try {
-        await upsertDraft(draft);
+        const knownUpdatedAt = loadedUpdatedAtRef.current;
+        const remoteUpdatedAt = await fetchRemoteUpdatedAt(currentDraftId);
+        if (knownUpdatedAt && remoteUpdatedAt && remoteUpdatedAt !== knownUpdatedAt) {
+          const remote = await fetchRemoteDraft(currentDraftId);
+          if (remote) { setConflict({ remote }); return; }
+        }
+        const newUpdatedAt = await upsertDraft(draft);
+        setLoadedUpdatedAt(newUpdatedAt);
         setDrafts(prev => {
           const idx = prev.findIndex(d => d.id === currentDraftId);
-          if (idx >= 0) { const next = [...prev]; next[idx] = draft; return next; }
-          return [draft, ...prev];
+          const withVersion = { ...draft, updatedAt: newUpdatedAt };
+          if (idx >= 0) { const next = [...prev]; next[idx] = withVersion; return next; }
+          return [withVersion, ...prev];
         });
       } catch { /* silent — manual Salvar will surface errors */ }
     }, 1500);
@@ -276,10 +360,12 @@ export function ManualManifestModal({
     setCurrentDraftId(Date.now().toString()); setSupplierId(''); setReceivedDate('');
     setRows([makeRow(), makeRow(), makeRow()]);
     setLinkingRowId(null); setView('editor');
+    setLoadedUpdatedAt(null); setConflict(null);
   };
   const openDraft = (draft: ManifestDraft) => {
     setCurrentDraftId(draft.id); setSupplierId(draft.supplierId); setReceivedDate(draft.receivedDate || '');
     setRows(draft.rows); setLinkingRowId(null); setView('editor');
+    setLoadedUpdatedAt(draft.updatedAt ?? null); setConflict(null);
   };
   const goToList = async () => {
     setLoadingDrafts(true);
@@ -297,9 +383,16 @@ export function ManualManifestModal({
       setNotification({ type: 'error', message: 'Adicione ao menos um item antes de salvar.' });
       return;
     }
+    const id = currentDraftId ?? Date.now().toString();
+    if (currentDraftId) {
+      const remoteUpdatedAt = await fetchRemoteUpdatedAt(currentDraftId).catch(() => null);
+      if (loadedUpdatedAt && remoteUpdatedAt && remoteUpdatedAt !== loadedUpdatedAt) {
+        const remote = await fetchRemoteDraft(currentDraftId);
+        if (remote) { setConflict({ remote }); return; }
+      }
+    }
     const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
     const timestamp = new Date().toLocaleString('pt-BR');
-    const id = currentDraftId ?? Date.now().toString();
     const draft: ManifestDraft = {
       id,
       label: buildNoteLabel(supplierName, receivedDate, timestamp),
@@ -309,16 +402,62 @@ export function ManualManifestModal({
       rows,
     };
     try {
-      await upsertDraft(draft);
+      const newUpdatedAt = await upsertDraft(draft);
       setCurrentDraftId(id);
+      setLoadedUpdatedAt(newUpdatedAt);
       setDrafts(prev => {
         const idx = prev.findIndex(d => d.id === id);
-        if (idx >= 0) { const next = [...prev]; next[idx] = draft; return next; }
-        return [draft, ...prev];
+        const withVersion = { ...draft, updatedAt: newUpdatedAt };
+        if (idx >= 0) { const next = [...prev]; next[idx] = withVersion; return next; }
+        return [withVersion, ...prev];
       });
       setNotification({ type: 'success', message: 'Rascunho salvo! Continue editando ou envie para revisão.' });
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao salvar rascunho.' });
+    }
+  };
+
+  // ── Resolução de conflito ────────────────────────────────────────────────────
+
+  const handleReloadRemote = () => {
+    if (!conflict) return;
+    const { remote } = conflict;
+    setSupplierId(remote.supplierId);
+    setReceivedDate(remote.receivedDate || '');
+    setRows(remote.rows.length ? remote.rows : [makeRow(), makeRow(), makeRow()]);
+    setLoadedUpdatedAt(remote.updatedAt ?? null);
+    setConflict(null);
+    setNotification({ type: 'success', message: 'Nota atualizada com a versão mais recente salva por outro usuário.' });
+  };
+
+  const handleOverwriteConflict = async () => {
+    if (!conflict || !currentDraftId) return;
+    setResolvingConflict(true);
+    try {
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
+      const timestamp = new Date().toLocaleString('pt-BR');
+      const draft: ManifestDraft = {
+        id: currentDraftId,
+        label: buildNoteLabel(supplierName, receivedDate, timestamp),
+        savedAt: timestamp,
+        supplierId,
+        receivedDate,
+        rows,
+      };
+      const newUpdatedAt = await upsertDraft(draft);
+      setLoadedUpdatedAt(newUpdatedAt);
+      setDrafts(prev => {
+        const idx = prev.findIndex(d => d.id === currentDraftId);
+        const withVersion = { ...draft, updatedAt: newUpdatedAt };
+        if (idx >= 0) { const next = [...prev]; next[idx] = withVersion; return next; }
+        return [withVersion, ...prev];
+      });
+      setConflict(null);
+      setNotification({ type: 'success', message: 'Suas alterações sobrescreveram a versão do outro usuário.' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao sobrescrever.' });
+    } finally {
+      setResolvingConflict(false);
     }
   };
 
@@ -653,6 +792,13 @@ export function ManualManifestModal({
     const validRows = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (validRows.length === 0) { setNotification({ type: 'error', message: 'Adicione ao menos um item ao manifesto.' }); return; }
     if (!receivedDate) { setNotification({ type: 'error', message: 'Informe a data de recebimento.' }); return; }
+    if (currentDraftId) {
+      const remoteUpdatedAt = await fetchRemoteUpdatedAt(currentDraftId).catch(() => null);
+      if (loadedUpdatedAt && remoteUpdatedAt && remoteUpdatedAt !== loadedUpdatedAt) {
+        const remote = await fetchRemoteDraft(currentDraftId);
+        if (remote) { setConflict({ remote }); return; }
+      }
+    }
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
     setSubmitting(true);
     try {
@@ -932,9 +1078,20 @@ export function ManualManifestModal({
               <FileSpreadsheet size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-black leading-none text-[#1A1A0E] dark:text-[#F2F0E3]">
-                {currentDraftId ? 'Editar Rascunho' : 'Nova Entrada Manual'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-black leading-none text-[#1A1A0E] dark:text-[#F2F0E3]">
+                  {currentDraftId ? 'Editar Rascunho' : 'Nova Entrada Manual'}
+                </h2>
+                {othersEditing > 0 && (
+                  <span
+                    title="Outra pessoa está com esta nota aberta agora — suas alterações podem gerar conflito ao salvar."
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wider"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    {othersEditing === 1 ? 'Outra pessoa editando' : `${othersEditing} pessoas editando`}
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-medium mt-0.5 text-[#1A1A0E]/40 dark:text-white/[0.28]">Preencha os itens e vincule ao dicionário do fornecedor</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -1716,6 +1873,48 @@ export function ManualManifestModal({
                   </button>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Conflito de edição concorrente ────────────────────────────────────── */}
+      <AnimatePresence>
+        {conflict && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 20 }} transition={{ duration: 0.2 }}
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-md p-6 border border-black/[0.08] dark:border-white/[0.07]">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-500/10 text-red-600 dark:text-red-400">
+                  <Zap size={20} />
+                </div>
+                <h2 className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Conflito de edição</h2>
+              </div>
+              <p className="text-sm font-medium text-[#1A1A0E]/70 dark:text-white/60 mb-5">
+                Outra pessoa salvou alterações nesta nota enquanto você editava (última atualização: {conflict.remote.savedAt}).
+                Escolha o que fazer antes de continuar.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleReloadRemote}
+                  className="w-full px-4 py-3 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-900 hover:bg-primary text-white transition-all"
+                >
+                  Recarregar versão mais recente
+                </button>
+                <button
+                  onClick={handleOverwriteConflict}
+                  disabled={resolvingConflict}
+                  className="w-full px-4 py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                >
+                  {resolvingConflict ? 'Sobrescrevendo...' : 'Sobrescrever com minhas alterações'}
+                </button>
+              </div>
+              <p className="text-[10px] font-medium text-[#1A1A0E]/40 dark:text-white/30 mt-3">
+                Recarregar descarta suas alterações locais não salvas. Sobrescrever apaga as alterações do outro usuário.
+              </p>
             </motion.div>
           </div>
         )}
