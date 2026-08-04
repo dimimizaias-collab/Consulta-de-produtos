@@ -77,6 +77,13 @@ async function fetchDrafts(): Promise<ManifestDraft[]> {
   }));
 }
 
+// Confere se a nota já foi finalizada (enviada para revisão) no servidor —
+// usada pelo autosave para nunca reverter uma nota já enviada de volta a rascunho.
+async function fetchRemoteIsDraft(id: string): Promise<boolean | null> {
+  const { data } = await supabase.from('review_notes').select('is_draft').eq('id', id).maybeSingle();
+  return data?.is_draft ?? null;
+}
+
 async function upsertDraft(draft: ManifestDraft) {
   const { error } = await supabase.from('review_notes').upsert({
     id: draft.id,
@@ -158,6 +165,9 @@ export function MobileManifestPage({
 
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supplierRef = useRef<HTMLDivElement>(null);
+  // IDs já enviados para revisão nesta sessão — o autosave nunca mais escreve
+  // nesses ids, mesmo que um ciclo de 1.5s já estivesse em voo no envio.
+  const finalizedIdsRef = useRef<Set<string>>(new Set());
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
@@ -205,10 +215,12 @@ export function MobileManifestPage({
   // Auto-save
   useEffect(() => {
     if (!isOpen || !currentDraftId) return;
+    if (finalizedIdsRef.current.has(currentDraftId)) return;
     const hasContent = rows.some(r => r.description.trim() || r.supplierCode.trim());
     if (!hasContent) return;
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(async () => {
+      if (finalizedIdsRef.current.has(currentDraftId)) return;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
@@ -219,7 +231,15 @@ export function MobileManifestPage({
         receivedDate,
         rows,
       };
-      try { await upsertDraft(draft); setRegisteredLabel(timestamp); } catch { /* silent */ }
+      try {
+        // A nota já pode ter sido enviada para revisão (por este autosave "atrasado"
+        // ou por outra aba) enquanto este ciclo estava em voo — nunca reverte.
+        const remoteIsDraft = await fetchRemoteIsDraft(currentDraftId);
+        if (remoteIsDraft === false) { finalizedIdsRef.current.add(currentDraftId); return; }
+        if (finalizedIdsRef.current.has(currentDraftId)) return;
+        await upsertDraft(draft);
+        setRegisteredLabel(timestamp);
+      } catch { /* silent */ }
     }, 1500);
     return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
   }, [rows, supplierId, receivedDate, isOpen, currentDraftId]);
@@ -406,6 +426,9 @@ export function MobileManifestPage({
       return;
     }
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
+    // Marcado antes de qualquer chamada de rede: fecha a corrida em que um ciclo de
+    // autosave já estava em voo no instante do envio e reverteria a nota a rascunho.
+    finalizedIdsRef.current.add(currentDraftId);
     setSubmitting(true);
     try {
       const items = valid.map((r, i) => {
@@ -457,6 +480,7 @@ export function MobileManifestPage({
       setNotification({ type: 'success', message: `Manifesto enviado com ${items.length} item(s).` });
       onClose();
     } catch (err: any) {
+      finalizedIdsRef.current.delete(currentDraftId);
       setNotification({ type: 'error', message: err.message || 'Erro ao enviar manifesto.' });
     } finally {
       setSubmitting(false);

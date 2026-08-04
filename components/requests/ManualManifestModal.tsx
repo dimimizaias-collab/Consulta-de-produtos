@@ -104,6 +104,13 @@ async function fetchRemoteUpdatedAt(id: string): Promise<string | null> {
   return data?.updated_at ?? null;
 }
 
+// Também confere is_draft — usada pelo autosave para nunca reescrever uma nota
+// que já foi finalizada (enviada para revisão) enquanto o autosave estava em voo.
+async function fetchRemoteDraftState(id: string): Promise<{ updatedAt: string | null; isDraft: boolean | null }> {
+  const { data } = await supabase.from('review_notes').select('updated_at, is_draft').eq('id', id).maybeSingle();
+  return { updatedAt: data?.updated_at ?? null, isDraft: data?.is_draft ?? null };
+}
+
 async function fetchRemoteDraft(id: string): Promise<ManifestDraft | null> {
   const { data, error } = await supabase
     .from('review_notes')
@@ -213,6 +220,10 @@ export function ManualManifestModal({
   // Data/hora de registro da nota (timestamp_label) — mostrada só dentro do popup de data.
   const [registeredLabel, setRegisteredLabel] = useState('');
   const clientIdRef = useRef<string>(getClientId());
+  // IDs já enviados para revisão nesta sessão do componente — o autosave nunca
+  // mais escreve nesses ids, mesmo que um ciclo de 1.5s já estivesse em voo
+  // no momento do envio (evita reverter a nota finalizada de volta a rascunho).
+  const finalizedIdsRef = useRef<Set<string>>(new Set());
   const loadedUpdatedAtRef = useRef<string | null>(null);
   const conflictActiveRef = useRef(false);
   useEffect(() => { loadedUpdatedAtRef.current = loadedUpdatedAt; }, [loadedUpdatedAt]);
@@ -301,11 +312,12 @@ export function ManualManifestModal({
   // não sobrescreve silenciosamente — levanta o modal de conflito.
   useEffect(() => {
     if (view !== 'editor' || !currentDraftId) return;
+    if (finalizedIdsRef.current.has(currentDraftId)) return;
     const hasContent = rows.some(r => r.description.trim() || r.supplierCode.trim());
     if (!hasContent) return;
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(async () => {
-      if (conflictActiveRef.current) return;
+      if (conflictActiveRef.current || finalizedIdsRef.current.has(currentDraftId)) return;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
       const timestamp = new Date().toLocaleString('pt-BR');
       const draft: ManifestDraft = {
@@ -318,11 +330,15 @@ export function ManualManifestModal({
       };
       try {
         const knownUpdatedAt = loadedUpdatedAtRef.current;
-        const remoteUpdatedAt = await fetchRemoteUpdatedAt(currentDraftId);
-        if (knownUpdatedAt && remoteUpdatedAt && remoteUpdatedAt !== knownUpdatedAt) {
-          const remote = await fetchRemoteDraft(currentDraftId);
-          if (remote) { setConflict({ remote }); return; }
+        const remote = await fetchRemoteDraftState(currentDraftId);
+        // A nota já foi enviada para revisão (por este autosave "atrasado" ou por outra
+        // aba) enquanto este ciclo estava em voo — nunca reverte de volta a rascunho.
+        if (remote.isDraft === false) { finalizedIdsRef.current.add(currentDraftId); return; }
+        if (knownUpdatedAt && remote.updatedAt && remote.updatedAt !== knownUpdatedAt) {
+          const remoteDraft = await fetchRemoteDraft(currentDraftId);
+          if (remoteDraft) { setConflict({ remote: remoteDraft }); return; }
         }
+        if (finalizedIdsRef.current.has(currentDraftId)) return;
         const newUpdatedAt = await upsertDraft(draft);
         setLoadedUpdatedAt(newUpdatedAt);
         setRegisteredLabel(timestamp);
@@ -807,6 +823,11 @@ export function ManualManifestModal({
       }
     }
     if (autoSaveRef.current) { clearTimeout(autoSaveRef.current); autoSaveRef.current = null; }
+    const noteId = currentDraftId ?? Date.now().toString();
+    // Marcado antes de qualquer chamada de rede: fecha a corrida em que um ciclo de
+    // autosave já estava em voo (após o debounce de 1.5s) no instante do envio e
+    // reverteria a nota de volta a rascunho ao terminar depois deste upsert.
+    finalizedIdsRef.current.add(noteId);
     setSubmitting(true);
     try {
       const items = validRows.map((r, i) => {
@@ -829,7 +850,6 @@ export function ManualManifestModal({
         };
       });
       const supplierName = suppliers.find(s => s.id === supplierId)?.name ?? '';
-      const noteId = currentDraftId ?? Date.now().toString();
       const timestamp = new Date().toLocaleString('pt-BR');
       const note: ReviewNote = {
         id: noteId, timestamp, fileName: buildNoteLabel(supplierName, receivedDate, timestamp),
@@ -854,8 +874,16 @@ export function ManualManifestModal({
       if (error) throw error;
       onManifestSaved(note);
       setNotification({ type: 'success', message: `Manifesto enviado para revisão com ${items.length} item(s).` });
+      // Zera o estado do editor: o componente não desmonta ao fechar (fica pronto
+      // para reabrir), então isso evita que qualquer estado da nota já enviada
+      // permaneça pendurado em memória.
+      setCurrentDraftId(null);
+      setRows([makeRow(), makeRow(), makeRow()]);
+      setSupplierId(''); setReceivedDate('');
+      setLoadedUpdatedAt(null); setRegisteredLabel('');
       onClose();
     } catch (err: any) {
+      finalizedIdsRef.current.delete(noteId);
       setNotification({ type: 'error', message: err.message || 'Erro ao enviar manifesto.' });
     } finally { setSubmitting(false); }
   };
