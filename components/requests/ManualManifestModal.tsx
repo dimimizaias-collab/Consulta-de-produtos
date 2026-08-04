@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { tableCellKeyDown } from '@/lib/tableKeyNav';
 import type { ReviewNote } from './LogisticsCenter';
 import { InvoiceImportModal, type ImportedRow } from './InvoiceImportModal';
+import { ReceivedDateField } from './ReceivedDateField';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -209,6 +210,8 @@ export function ManualManifestModal({
   const [conflict, setConflict] = useState<{ remote: ManifestDraft } | null>(null);
   const [resolvingConflict, setResolvingConflict] = useState(false);
   const [othersEditing, setOthersEditing] = useState(0);
+  // Data/hora de registro da nota (timestamp_label) — mostrada só dentro do popup de data.
+  const [registeredLabel, setRegisteredLabel] = useState('');
   const clientIdRef = useRef<string>(getClientId());
   const loadedUpdatedAtRef = useRef<string | null>(null);
   const conflictActiveRef = useRef(false);
@@ -322,6 +325,7 @@ export function ManualManifestModal({
         }
         const newUpdatedAt = await upsertDraft(draft);
         setLoadedUpdatedAt(newUpdatedAt);
+        setRegisteredLabel(timestamp);
         setDrafts(prev => {
           const idx = prev.findIndex(d => d.id === currentDraftId);
           const withVersion = { ...draft, updatedAt: newUpdatedAt };
@@ -360,12 +364,12 @@ export function ManualManifestModal({
     setCurrentDraftId(Date.now().toString()); setSupplierId(''); setReceivedDate('');
     setRows([makeRow(), makeRow(), makeRow()]);
     setLinkingRowId(null); setView('editor');
-    setLoadedUpdatedAt(null); setConflict(null);
+    setLoadedUpdatedAt(null); setConflict(null); setRegisteredLabel('');
   };
   const openDraft = (draft: ManifestDraft) => {
     setCurrentDraftId(draft.id); setSupplierId(draft.supplierId); setReceivedDate(draft.receivedDate || '');
     setRows(draft.rows); setLinkingRowId(null); setView('editor');
-    setLoadedUpdatedAt(draft.updatedAt ?? null); setConflict(null);
+    setLoadedUpdatedAt(draft.updatedAt ?? null); setConflict(null); setRegisteredLabel(draft.savedAt);
   };
   const goToList = async () => {
     setLoadingDrafts(true);
@@ -405,6 +409,7 @@ export function ManualManifestModal({
       const newUpdatedAt = await upsertDraft(draft);
       setCurrentDraftId(id);
       setLoadedUpdatedAt(newUpdatedAt);
+      setRegisteredLabel(timestamp);
       setDrafts(prev => {
         const idx = prev.findIndex(d => d.id === id);
         const withVersion = { ...draft, updatedAt: newUpdatedAt };
@@ -426,6 +431,7 @@ export function ManualManifestModal({
     setReceivedDate(remote.receivedDate || '');
     setRows(remote.rows.length ? remote.rows : [makeRow(), makeRow(), makeRow()]);
     setLoadedUpdatedAt(remote.updatedAt ?? null);
+    setRegisteredLabel(remote.savedAt);
     setConflict(null);
     setNotification({ type: 'success', message: 'Nota atualizada com a versão mais recente salva por outro usuário.' });
   };
@@ -446,6 +452,7 @@ export function ManualManifestModal({
       };
       const newUpdatedAt = await upsertDraft(draft);
       setLoadedUpdatedAt(newUpdatedAt);
+      setRegisteredLabel(timestamp);
       setDrafts(prev => {
         const idx = prev.findIndex(d => d.id === currentDraftId);
         const withVersion = { ...draft, updatedAt: newUpdatedAt };
@@ -1036,7 +1043,7 @@ export function ManualManifestModal({
                           {linkedCnt > 0 && <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">{linkedCnt} vinculado{linkedCnt !== 1 ? 's' : ''}</span>}
                         </div>
                         <div className="flex items-center gap-1 mt-1 text-[10px] text-white/30">
-                          <Clock size={9} />{d.savedAt}
+                          <Clock size={9} />{d.receivedDate ? fmtDateBR(d.receivedDate) : 'Sem data de recebimento'}
                         </div>
                       </div>
                       <button onClick={e => handleDeleteDraft(d.id, e)}
@@ -1135,12 +1142,10 @@ export function ManualManifestModal({
                 <label className="text-[10px] font-bold uppercase block mb-1 text-[#1A1A0E]/40 dark:text-white/30">
                   Data de recebimento <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={receivedDate}
-                  onChange={e => setReceivedDate(e.target.value)}
-                  required
-                  className="rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400/20 bg-black/[0.05] dark:bg-white/[0.06] border border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E] dark:text-[#F2F0E3]"
+                <ReceivedDateField
+                  receivedDate={receivedDate}
+                  onChange={setReceivedDate}
+                  registeredLabel={registeredLabel || 'Ainda não salva'}
                 />
               </div>
 

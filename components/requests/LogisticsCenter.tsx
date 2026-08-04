@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
 import { LinkTransactionModal } from './LinkTransactionModal';
+import { fmtDateBR } from './ReceivedDateField';
 
 export interface ReviewNote {
   id: string;
@@ -488,13 +489,13 @@ export function LogisticsCenter({
                 <div className="flex-1 min-w-0 flex flex-col gap-1">
                   <p className="text-[12px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
                     {note.supplierName
-                      ? `${note.supplierName} — ${note.timestamp}`
+                      ? `${note.supplierName} — ${note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}`
                       : note.fileName}
                   </p>
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#1A1A0E]/40 dark:text-white/35">
                     <span className="truncate">{note.supplierName || '—'}</span>
                     <span className="text-[#1A1A0E]/18 dark:text-white/18">·</span>
-                    <span className="whitespace-nowrap shrink-0">{note.timestamp}</span>
+                    <span className="whitespace-nowrap shrink-0">{note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}</span>
                   </div>
                   <span className="self-start max-w-full truncate bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
                     {note.noteNumber || note.fileName}
@@ -697,9 +698,9 @@ export function LogisticsCenter({
                         <p className="text-xs text-on-surface/60 truncate">{note.supplierName || '—'}</p>
                       </td>
 
-                      {/* Data */}
+                      {/* Data (recebimento) */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-on-surface/50">
-                        {note.timestamp}
+                        {note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}
                       </td>
 
                       {/* Itens */}

@@ -15,6 +15,7 @@ import { ProductAlterationModal } from '@/components/requests/ProductAlterationM
 import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { MobileManifestPage } from '@/components/requests/MobileManifestPage';
+import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -6412,12 +6413,10 @@ export default function Page() {
                           />
                         </div>
                         <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-bold uppercase text-on-surface/40 shrink-0">Recebimento</label>
-                          <input
-                            type="date"
-                            value={viewingReviewNote.receivedDate || ''}
-                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, receivedDate: e.target.value || undefined })}
-                            className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent placeholder:text-on-surface/20"
+                          <ReceivedDateField
+                            receivedDate={viewingReviewNote.receivedDate || ''}
+                            onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
+                            registeredLabel={viewingReviewNote.timestamp}
                           />
                         </div>
                         {viewingReviewNote.supplierName && (
@@ -6452,19 +6451,12 @@ export default function Page() {
                               + Número da nota
                             </button>
                           )}
-                          <span className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40">{viewingReviewNote.timestamp}</span>
-                          {viewingReviewNote.receivedDate ? (
-                            <span className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40">
-                              Recebido em {viewingReviewNote.receivedDate.split('-').reverse().join('/')}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => setEditingNoteHeader(true)}
-                              className="text-xs text-on-surface/20 hover:text-on-surface/50 transition-colors"
-                            >
-                              + Data de recebimento
-                            </button>
-                          )}
+                          <ReceivedDateField
+                            receivedDate={viewingReviewNote.receivedDate || ''}
+                            onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
+                            registeredLabel={viewingReviewNote.timestamp}
+                            className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40 hover:bg-on-surface/[0.05] transition-colors flex items-center gap-1"
+                          />
                         </div>
                       </div>
                     )}

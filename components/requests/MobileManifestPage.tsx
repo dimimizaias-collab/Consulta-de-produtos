@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { ReviewNote } from './LogisticsCenter';
+import { ReceivedDateField } from './ReceivedDateField';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,7 @@ export function MobileManifestPage({
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [receivedDate, setReceivedDate] = useState('');
+  const [registeredLabel, setRegisteredLabel] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -183,6 +185,7 @@ export function MobileManifestPage({
         setCurrentDraftId(latest.id);
         setSupplierId(latest.supplierId);
         setReceivedDate(latest.receivedDate || '');
+        setRegisteredLabel(latest.savedAt);
         const loaded = latest.rows.length > 0 ? latest.rows : [makeRow()];
         setRows(loaded);
         setSelectedIdx(0);
@@ -191,6 +194,7 @@ export function MobileManifestPage({
         setSelectedIdx(0);
         setSupplierId('');
         setReceivedDate('');
+        setRegisteredLabel('');
       }
     }).catch(() => {
       setRows([makeRow()]);
@@ -215,7 +219,7 @@ export function MobileManifestPage({
         receivedDate,
         rows,
       };
-      try { await upsertDraft(draft); } catch { /* silent */ }
+      try { await upsertDraft(draft); setRegisteredLabel(timestamp); } catch { /* silent */ }
     }, 1500);
     return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
   }, [rows, supplierId, receivedDate, isOpen, currentDraftId]);
@@ -382,6 +386,7 @@ export function MobileManifestPage({
         rows,
       };
       await upsertDraft(draft);
+      setRegisteredLabel(timestamp);
       setNotification({ type: 'success', message: 'Rascunho salvo!' });
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao salvar rascunho.' });
@@ -603,12 +608,11 @@ export function MobileManifestPage({
           <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/38 dark:text-white/30 shrink-0">
             Recebimento <span className="text-red-500">*</span>
           </span>
-          <input
-            type="date"
-            value={receivedDate}
-            onChange={e => setReceivedDate(e.target.value)}
-            required
-            className="flex-1 bg-transparent text-[13px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] outline-none min-w-0"
+          <ReceivedDateField
+            receivedDate={receivedDate}
+            onChange={setReceivedDate}
+            registeredLabel={registeredLabel || 'Ainda não salva'}
+            className="flex-1 bg-transparent text-[13px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] outline-none min-w-0 text-left"
           />
         </div>
       </div>
