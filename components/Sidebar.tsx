@@ -11,14 +11,15 @@ import {
   Users
 } from 'lucide-react';
 import Image from 'next/image';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  isCollapsed?: boolean;         // kept for API compat, ignored
-  onToggleCollapse?: () => void; // kept for API compat, ignored
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   unreadNotifications?: number;
 }
 
@@ -36,8 +37,10 @@ const navItems = [
   { icon: Settings,        label: 'Configurações' },
 ] as const;
 
-export function Sidebar({ activeTab, setActiveTab, unreadNotifications = 0 }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, onToggleCollapse, unreadNotifications = 0 }: SidebarProps) {
   const { isMobileView } = useViewMode();
+
+  if (isCollapsed && !isMobileView) return null;
 
   return (
     <aside className={cn(
@@ -45,8 +48,13 @@ export function Sidebar({ activeTab, setActiveTab, unreadNotifications = 0 }: Si
       isMobileView ? 'hidden' : 'flex'
     )}>
 
-      {/* ── Logo circle — slightly larger than nav circles ── */}
-      <div className="w-14 h-14 rounded-full bg-on-surface/[0.10] flex items-center justify-center shrink-0 mb-6 overflow-hidden">
+      {/* ── Logo circle — doubles as the collapse toggle ── */}
+      <motion.button
+        layoutId="sidebar-toggle"
+        onClick={onToggleCollapse}
+        title="Ocultar menu"
+        className="w-14 h-14 rounded-full bg-on-surface/[0.10] hover:bg-on-surface/[0.18] flex items-center justify-center shrink-0 mb-6 overflow-hidden outline-none transition-colors duration-150 active:scale-[0.93]"
+      >
         <div className="relative w-9 h-9">
           <Image
             src="/brand/logo.png"
@@ -57,7 +65,7 @@ export function Sidebar({ activeTab, setActiveTab, unreadNotifications = 0 }: Si
             priority
           />
         </div>
-      </div>
+      </motion.button>
 
       {/* ── Nav items — spread across remaining vertical space ── */}
       <nav className="flex flex-col items-center justify-between flex-1 w-full">

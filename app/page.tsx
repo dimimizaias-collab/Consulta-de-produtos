@@ -30,7 +30,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -3600,7 +3600,22 @@ export default function Page() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={unreadNotificationCount}
         />
-        <main className={cn('flex-1 min-w-0 overflow-x-clip', isMobileView ? 'ml-0' : 'ml-[80px]')}>
+        {isSidebarCollapsed && !isMobileView && (
+          <motion.button
+            layoutId="sidebar-toggle"
+            onClick={() => setIsSidebarCollapsed(false)}
+            title="Mostrar menu"
+            className={cn(
+              'fixed left-0 top-10 z-40 w-7 h-[52px] rounded-r-2xl',
+              'bg-on-surface/[0.10] hover:bg-on-surface/[0.18] text-on-surface/60 hover:text-on-surface',
+              'flex items-center justify-center outline-none',
+              'transition-colors duration-150 active:scale-[0.93]'
+            )}
+          >
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </motion.button>
+        )}
+        <main className={cn('flex-1 min-w-0 overflow-x-clip', (isMobileView || isSidebarCollapsed) ? 'ml-0' : 'ml-[80px]')}>
           <TopNav
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
