@@ -222,15 +222,6 @@ export function LogisticsCenter({
   const [filterPendingSelection, setFilterPendingSelection] = useState<Set<string> | null>(null);
   const [filterSearchQuery, setFilterSearchQuery] = useState('');
 
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setShowAddMenu(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // Abre nota aprovada vinda de "Ir para nota" nas notificações
   useEffect(() => {
@@ -1056,46 +1047,13 @@ export function LogisticsCenter({
             </button>
 
             {activeSection === 'revisoes' && (
-              <div className="relative ml-auto" ref={addMenuRef}>
-                <button
-                  onClick={() => setShowAddMenu(v => !v)}
-                  title="Nova nota"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
-                >
-                  <Plus size={16} />
-                </button>
-                <AnimatePresence>
-                  {showAddMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                      className="absolute right-0 top-[44px] z-30 w-[210px] bg-surface-container-lowest border border-on-surface/10 rounded-2xl shadow-2xl overflow-hidden"
-                    >
-                      <button
-                        onClick={() => { setShowAddMenu(false); onManualNoteClick(); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-[12.5px] font-extrabold text-on-surface hover:bg-on-surface/5 transition-colors border-b border-on-surface/[0.06]"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <FileText size={14} />
-                        </span>
-                        Criar Manifesto
-                      </button>
-                      <button
-                        onClick={() => { setShowAddMenu(false); onImportClick(); }}
-                        disabled={importing}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-[12.5px] font-extrabold text-on-surface hover:bg-on-surface/5 transition-colors disabled:opacity-50"
-                      >
-                        <span className="w-7 h-7 rounded-lg bg-on-surface/[0.06] text-on-surface/60 flex items-center justify-center shrink-0">
-                          <Download size={14} />
-                        </span>
-                        Executar Importação
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <button
+                onClick={onManualNoteClick}
+                title="Criar Manifesto"
+                className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                <Plus size={16} />
+              </button>
             )}
           </div>
 
