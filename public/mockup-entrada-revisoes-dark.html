@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Entrada de Mercadoria / Revisões (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --header-bg: #252520;
+    --header-border: rgba(242,240,227,0.07);
+    --chip-bg: rgba(216,30,30,0.13);
+    --chip-icon: #D81E1E;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --accent: #D81E1E;
+    --tab-bg: #252520;
+    --tab-text: #F2F0E3;
+    --panel-bg: #252520;
+    --panel-border: rgba(242,240,227,0.08);
+    --panel-header-bg: #FFE500;
+    --panel-header-border: #C8B800;
+    --card-bg: #1E1E18;
+    --card-border: rgba(242,240,227,0.07);
+    --thead-bg: #FFEC4D;
+    --thead-border: #DCC63D;
+    --row-border: rgba(242,240,227,0.05);
+    --row-hover: rgba(242,240,227,0.025);
+    --input-bg: #252520;
+    --input-border: rgba(242,240,227,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--title); }
+  .note { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 10px 16px; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 48px 24px 100px; }
+
+  .header-wrap { position: relative; margin-bottom: 56px; }
+  .header {
+    background: var(--header-bg); border: 1px solid var(--header-border);
+    border-radius: 20px 20px 20px 0; padding: 22px 26px 26px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .icon-chip {
+    width: 52px; height: 52px; border-radius: 14px; background: var(--chip-bg); color: var(--chip-icon);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-chip svg { width: 24px; height: 24px; }
+  .title-block h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.01em; line-height: 1.1; margin: 0 0 4px; color: var(--title); }
+  .title-block .eyebrow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); }
+
+  .tab-strip { position: absolute; left: -1px; bottom: -34px; display: flex; align-items: stretch; height: 34px; }
+  .tab {
+    width: 136px; height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--tab-bg); color: var(--tab-text);
+    border: 1px solid var(--header-border); border-top: none;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    box-shadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+    cursor: pointer; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tab:last-child { border-radius: 0 0 12px 0; }
+  .tab.active { opacity: 1; font-weight: 900; }
+  .tab.inactive { opacity: 0.55; }
+  .tab-count { font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 9999px; background: rgba(255,255,255,0.10); flex-shrink: 0; }
+
+  .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; overflow: hidden; }
+  .panel-head { background: var(--panel-header-bg); border-bottom: 1px solid var(--panel-header-border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .panel-head .month { font-size: 13px; font-weight: 900; color: #1A1A0E; text-transform: capitalize; }
+  .panel-head .icon-btn { width: 26px; height: 26px; border-radius: 8px; background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.55); display: flex; align-items: center; justify-content: center; }
+  .cal-body { padding: 12px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+  .cal-dow span { text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase; color: rgba(242,240,227,0.22); padding: 4px 0; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+  .cal-cell { height: 26px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; border-radius: 8px; color: rgba(242,240,227,0.55); position: relative; }
+  .cal-cell.dim { color: rgba(242,240,227,0.15); }
+  .cal-cell.today { background: rgba(216,30,30,0.16); color: #FF6B6B; font-weight: 900; }
+  .cal-cell.selected { background: var(--accent); color: #fff; font-weight: 900; }
+  .cal-cell .dot { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #FF6B6B; }
+  .cal-cell.today .dot { background: rgba(255,255,255,0.7); }
+  .period-badge { margin: 0 12px 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: rgba(242,240,227,0.05); border: 1px solid rgba(242,240,227,0.08); border-radius: 10px; padding: 6px 10px; }
+  .period-badge span { font-size: 9.5px; font-weight: 800; color: rgba(242,240,227,0.45); }
+  .period-badge.active { background: rgba(216,30,30,0.12); border-color: rgba(216,30,30,0.30); }
+  .period-badge.active span { color: #FF6B6B; }
+
+  .results-tabs { flex: 1; display: flex; gap: 2px; background: rgba(26,26,10,0.10); border-radius: 9999px; padding: 2px; }
+  .results-tabs button { flex: 1; padding: 6px 8px; border-radius: 9999px; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; border: none; background: transparent; color: rgba(26,26,10,0.45); cursor: pointer; }
+  .results-tabs button.active { background: var(--accent); color: #fff; }
+  .cards-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; padding: 14px; }
+  .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 8px; }
+  .stat-card .ic { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; }
+  .stat-card .label { font-size: 7.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.35); white-space: nowrap; }
+  .stat-card .value { font-size: 14px; font-weight: 900; letter-spacing: -0.01em; color: var(--title); }
+  .ic.blue { background: rgba(96,165,250,0.15); color: #60A5FA; }
+  .ic.emerald { background: rgba(52,211,153,0.15); color: #34D399; }
+  .ic.amber { background: rgba(252,211,77,0.15); color: #FCD34D; }
+  .ic.violet { background: rgba(167,139,250,0.18); color: #A78BFA; }
+
+  /* Fornecedores tab — chart */
+  .fornecedores-pane { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .fornec-toolbar { display: flex; align-items: center; gap: 8px; }
+  .fornec-toolbar input[type="date"] { font-size: 11px; font-family: inherit; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--title); color-scheme: dark; }
+  .fornec-toolbar .sep { font-size: 10px; color: rgba(242,240,227,0.30); font-weight: 800; }
+  .fornec-total-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 9px 12px; display: flex; align-items: center; gap: 8px; width: fit-content; }
+  .chart-scroll { overflow-x: auto; padding-bottom: 4px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 18px; height: 140px; min-width: 480px; padding: 0 6px; border-bottom: 1.5px solid rgba(242,240,227,0.10); }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; width: 48px; height: 100%; flex-shrink: 0; }
+  .bar-col .bar-value { font-size: 8.5px; font-weight: 900; color: rgba(242,240,227,0.55); white-space: nowrap; }
+  .bar-col .bar { width: 26px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #FF6B6B, #D81E1E); }
+  .bar-col .bar-label { font-size: 8px; font-weight: 800; color: rgba(242,240,227,0.40); text-align: center; line-height: 1.2; max-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+
+  /* Filter row */
+  .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .search-box { position: relative; }
+  .search-box input {
+    padding: 9px 14px 9px 34px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px;
+    font-size: 13px; color: var(--title); width: 220px; font-family: inherit;
+  }
+  .search-box .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: rgba(242,240,227,0.30); font-size: 14px; }
+  .btn-filter { display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 12px; font-size: 13px; font-weight: 700; border: 1px solid var(--input-border); background: var(--input-bg); color: rgba(242,240,227,0.55); cursor: pointer; }
+  .btn-filter.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .add-menu-wrap { position: relative; margin-left: auto; }
+  .btn-add { width: 38px; height: 38px; border-radius: 12px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 10px rgba(216,30,30,0.35); }
+  .add-dropdown { position: absolute; right: 0; top: 44px; width: 210px; background: #2E2E28; border: 1px solid var(--panel-border); border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,0.45); overflow: hidden; }
+  .add-dropdown .item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 12.5px; font-weight: 800; color: var(--title); cursor: pointer; border-bottom: 1px solid var(--row-border); }
+  .add-dropdown .item:last-child { border-bottom: none; }
+  .add-dropdown .item .ic { width: 26px; height: 26px; border-radius: 8px; background: rgba(242,240,227,0.07); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; }
+  .add-dropdown .item.primary .ic { background: rgba(216,30,30,0.16); color: #FF6B6B; }
+
+  /* Table finance-style */
+  .table-wrap { background: rgba(37,37,32,0.8); border: 1px solid rgba(242,240,227,0.05); border-radius: 16px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); }
+  thead th { padding: 10px 14px; text-align: left; white-space: nowrap; }
+  .th-chip { display: inline-flex; align-items: center; background: rgba(26,26,10,0.05); border: 1.5px solid rgba(26,26,10,0.12); border-radius: 9999px; padding: 4px 12px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(26,26,10,0.58); }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--row-border); border-right: 1px solid rgba(242,240,227,0.03); color: var(--title); }
+  tbody td:last-child { border-right: none; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr:last-child td { border-bottom: none; }
+  .mono-chip { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700; background: rgba(242,240,227,0.08); padding: 3px 8px; border-radius: 8px; }
+  .badge-emerald { background: rgba(52,211,153,0.15); color: #34D399; padding: 3px 9px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+  .badge-amber { background: rgba(252,211,77,0.15); color: #FCD34D; padding: 3px 9px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions .ac { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .ac.edit { background: rgba(216,30,30,0.15); color: #FF6B6B; }
+  .ac.approve { background: rgba(52,211,153,0.15); color: #34D399; }
+</style>
+</head>
+<body>
+  <div class="note">MOCKUP v2 — bolinha vermelha p/ dias com nota recebida · filtro no calendário (padrão = mês atual) · cards refletem tabela + card "Fornecedores" · aba Fornecedores com gráfico de barras + filtro de data + total · mesmo padrão replicado em "Aprovados"</div>
+  <div class="page">
+    <div class="header-wrap">
+      <div class="header">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l2 2 4-4"/><path d="M21 12V7a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 7v10a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l1.5-.87"/><path d="M3.29 7L12 12l8.71-5"/><path d="M12 22V12"/></svg>
+        </div>
+        <div class="title-block">
+          <h1>Entrada de Mercadoria</h1>
+          <div class="eyebrow">Logistics Orchestration &amp; Inventory Feed</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab active">Revisões <span class="tab-count">3</span></div>
+        <div class="tab inactive">Aprovados <span class="tab-count">12</span></div>
+        <div class="tab inactive">Dicionário</div>
+        <div class="tab inactive">Rascunhos</div>
+      </div>
+    </div>
+
+    <div class="top-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="month">Agosto 2026</span>
+          <div style="display:flex; gap:4px;">
+            <div class="icon-btn">i</div>
+            <div class="icon-btn" title="Filtrar por dia/período">⏳</div>
+            <div class="icon-btn">◀</div>
+            <div class="icon-btn">▶</div>
+          </div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+          <div class="cal-grid">
+            <div class="cal-cell dim">26</div><div class="cal-cell dim">27</div><div class="cal-cell dim">28</div><div class="cal-cell dim">29</div><div class="cal-cell dim">30</div><div class="cal-cell dim">31</div><div class="cal-cell">1</div>
+            <div class="cal-cell">2</div><div class="cal-cell">3</div><div class="cal-cell">4</div><div class="cal-cell">5</div><div class="cal-cell">6</div><div class="cal-cell selected">7<span class="dot" style="background:#fff;"></span></div><div class="cal-cell">8</div>
+            <div class="cal-cell">9</div><div class="cal-cell">10</div><div class="cal-cell">11<span class="dot"></span></div><div class="cal-cell">12</div><div class="cal-cell today">13<span class="dot"></span></div><div class="cal-cell">14</div><div class="cal-cell">15</div>
+            <div class="cal-cell">16</div><div class="cal-cell">17</div><div class="cal-cell">18<span class="dot"></span></div><div class="cal-cell">19</div><div class="cal-cell">20</div><div class="cal-cell">21</div><div class="cal-cell">22</div>
+            <div class="cal-cell">23</div><div class="cal-cell">24</div><div class="cal-cell">25</div><div class="cal-cell">26</div><div class="cal-cell">27<span class="dot"></span></div><div class="cal-cell">28</div><div class="cal-cell">29</div>
+            <div class="cal-cell">30</div><div class="cal-cell">31</div><div class="cal-cell dim">1</div><div class="cal-cell dim">2</div><div class="cal-cell dim">3</div><div class="cal-cell dim">4</div><div class="cal-cell dim">5</div>
+          </div>
+        </div>
+        <div class="period-badge active">
+          <span>● Data selecionada: 07/08/2026</span>
+          <span style="cursor:pointer;">✕</span>
+        </div>
+        <!-- Sem seleção no calendário, o badge mostraria: "Mostrando: Agosto/2026 (mês atual)" -->
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="results-tabs">
+            <button class="active" onclick="showPane('resultados')">Resultados</button>
+            <button onclick="showPane('fornecedores')">Fornecedores</button>
+          </div>
+        </div>
+        <div id="pane-resultados" class="cards-grid">
+          <div class="stat-card"><div class="ic blue">📄</div><div><div class="label">Total de Notas</div><div class="value">147</div></div></div>
+          <div class="stat-card"><div class="ic amber">📈</div><div><div class="label">Markup Geral</div><div class="value">32,4%</div></div></div>
+          <div class="stat-card"><div class="ic emerald">💰</div><div><div class="label">Valor Total</div><div class="value">R$ 284.930</div></div></div>
+          <div class="stat-card"><div class="ic violet">🏭</div><div><div class="label">Fornecedores</div><div class="value">9</div></div></div>
+        </div>
+        <div id="pane-fornecedores" class="fornecedores-pane" style="display:none;">
+          <div class="fornec-toolbar">
+            <input type="date" value="2026-08-01" />
+            <span class="sep">até</span>
+            <input type="date" value="2026-08-31" />
+            <div class="fornec-total-card" style="margin-left:auto;">
+              <div class="ic violet" style="width:22px;height:22px;font-size:11px;">🏭</div>
+              <div><div class="label" style="font-size:7px;">Total Fornecedores</div><div class="value" style="font-size:12px;">9</div></div>
+            </div>
+          </div>
+          <div class="chart-scroll">
+            <div class="chart-bars">
+              <div class="bar-col"><span class="bar-value">R$ 62k</span><div class="bar" style="height:120px;"></div><span class="bar-label">Distribuidora Central</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 48k</span><div class="bar" style="height:95px;"></div><span class="bar-label">Atacadista Rio Sul</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 41k</span><div class="bar" style="height:82px;"></div><span class="bar-label">Fornecedor Norte</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 33k</span><div class="bar" style="height:66px;"></div><span class="bar-label">Comercial Silva</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 27k</span><div class="bar" style="height:54px;"></div><span class="bar-label">Mercearia Boa Vista</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 19k</span><div class="bar" style="height:38px;"></div><span class="bar-label">Alfa Distribuição</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 12k</span><div class="bar" style="height:24px;"></div><span class="bar-label">Beta Alimentos</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 8k</span><div class="bar" style="height:16px;"></div><span class="bar-label">Casa do Grão</span></div>
+              <div class="bar-col"><span class="bar-value">R$ 5k</span><div class="bar" style="height:10px;"></div><span class="bar-label">Vale Verde</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-box">
+        <span class="ic">🔍</span>
+        <input type="text" placeholder="Pesquisar nos itens..." />
+      </div>
+      <button class="btn-filter">🧰 Filtrar colunas</button>
+      <div class="add-menu-wrap">
+        <div class="btn-add">+</div>
+        <div class="add-dropdown">
+          <div class="item primary"><span class="ic">📝</span> Criar Manifesto</div>
+          <div class="item"><span class="ic">📥</span> Executar Importação</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><span class="th-chip">Código</span></th>
+            <th><span class="th-chip">Arquivo</span></th>
+            <th><span class="th-chip">Fornecedor</span></th>
+            <th><span class="th-chip">Data</span></th>
+            <th><span class="th-chip">Itens</span></th>
+            <th><span class="th-chip">Verificados</span></th>
+            <th><span class="th-chip">Total</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono-chip">NF-00231</span></td>
+            <td>nota_fornecedorA_ago.pdf</td>
+            <td>Distribuidora Central</td>
+            <td>07/08/2026</td>
+            <td><span class="mono-chip">18</span></td>
+            <td><span class="badge-emerald">18/18</span></td>
+            <td>R$ 4.230,00</td>
+            <td><div class="row-actions"><div class="ac edit">✎</div><div class="ac approve">✓</div></div></td>
+          </tr>
+          <tr>
+            <td><span class="mono-chip">NF-00232</span></td>
+            <td>nota_atacadista.xml</td>
+            <td>Atacadista Rio Sul</td>
+            <td>06/08/2026</td>
+            <td><span class="mono-chip">9</span></td>
+            <td><span class="badge-amber">6/9</span></td>
+            <td>R$ 1.870,50</td>
+            <td><div class="row-actions"><div class="ac edit">✎</div><div class="ac approve">✓</div></div></td>
+          </tr>
+          <tr>
+            <td><span class="mono-chip">NF-00233</span></td>
+            <td>manifesto_manual_03.json</td>
+            <td>Fornecedor Norte Ltda</td>
+            <td>05/08/2026</td>
+            <td><span class="mono-chip">27</span></td>
+            <td><span class="badge-emerald">27/27</span></td>
+            <td>R$ 9.120,00</td>
+            <td><div class="row-actions"><div class="ac edit">✎</div><div class="ac approve">✓</div></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:64px; padding-top:24px; border-top:2px dashed rgba(242,240,227,0.15);">
+      <p style="font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em; color:#FF6B6B; margin-bottom:16px;">↓ Mesmo padrão aplicado à aba "Aprovados" (sem o botão "+", já que Importação/Manifesto não fazem sentido aqui)</p>
+
+      <div class="header-wrap" style="margin-bottom:56px;">
+        <div class="header">
+          <div class="icon-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l2 2 4-4"/><path d="M21 12V7a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 7v10a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l1.5-.87"/><path d="M3.29 7L12 12l8.71-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div class="title-block">
+            <h1>Entrada de Mercadoria</h1>
+            <div class="eyebrow">Logistics Orchestration &amp; Inventory Feed</div>
+          </div>
+        </div>
+        <div class="tab-strip">
+          <div class="tab inactive">Revisões <span class="tab-count">3</span></div>
+          <div class="tab active">Aprovados <span class="tab-count">12</span></div>
+          <div class="tab inactive">Dicionário</div>
+          <div class="tab inactive">Rascunhos</div>
+        </div>
+      </div>
+
+      <div class="top-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="month">Agosto 2026</span>
+            <div style="display:flex; gap:4px;">
+              <div class="icon-btn">i</div>
+              <div class="icon-btn" title="Filtrar por dia/período">⏳</div>
+              <div class="icon-btn">◀</div>
+              <div class="icon-btn">▶</div>
+            </div>
+          </div>
+          <div class="cal-body">
+            <div class="cal-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+            <div class="cal-grid">
+              <div class="cal-cell dim">26</div><div class="cal-cell dim">27</div><div class="cal-cell dim">28</div><div class="cal-cell dim">29</div><div class="cal-cell dim">30</div><div class="cal-cell dim">31</div><div class="cal-cell">1</div>
+              <div class="cal-cell">2</div><div class="cal-cell">3</div><div class="cal-cell">4<span class="dot"></span></div><div class="cal-cell">5</div><div class="cal-cell">6</div><div class="cal-cell">7</div><div class="cal-cell">8</div>
+              <div class="cal-cell">9</div><div class="cal-cell">10<span class="dot"></span></div><div class="cal-cell">11</div><div class="cal-cell">12</div><div class="cal-cell today">13</div><div class="cal-cell">14</div><div class="cal-cell">15</div>
+              <div class="cal-cell">16</div><div class="cal-cell">17</div><div class="cal-cell">18</div><div class="cal-cell">19</div><div class="cal-cell">20</div><div class="cal-cell">21</div><div class="cal-cell">22</div>
+              <div class="cal-cell">23</div><div class="cal-cell">24</div><div class="cal-cell">25</div><div class="cal-cell">26</div><div class="cal-cell">27</div><div class="cal-cell">28</div><div class="cal-cell">29</div>
+              <div class="cal-cell">30</div><div class="cal-cell">31</div><div class="cal-cell dim">1</div><div class="cal-cell dim">2</div><div class="cal-cell dim">3</div><div class="cal-cell dim">4</div><div class="cal-cell dim">5</div>
+            </div>
+          </div>
+          <div class="period-badge">
+            <span>Mostrando: Agosto/2026 (mês atual)</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="results-tabs">
+              <button class="active" onclick="showPane('resultados-ap')">Resultados</button>
+              <button onclick="showPane('fornecedores-ap')">Fornecedores</button>
+            </div>
+          </div>
+          <div id="pane-resultados-ap" class="cards-grid">
+            <div class="stat-card"><div class="ic blue">📄</div><div><div class="label">Total de Notas</div><div class="value">12</div></div></div>
+            <div class="stat-card"><div class="ic amber">📈</div><div><div class="label">Markup Geral</div><div class="value">29,8%</div></div></div>
+            <div class="stat-card"><div class="ic emerald">💰</div><div><div class="label">Valor Total</div><div class="value">R$ 58.410</div></div></div>
+            <div class="stat-card"><div class="ic violet">🏭</div><div><div class="label">Fornecedores</div><div class="value">6</div></div></div>
+          </div>
+          <div id="pane-fornecedores-ap" class="fornecedores-pane" style="display:none;">
+            <div class="fornec-toolbar">
+              <input type="date" value="2026-08-01" />
+              <span class="sep">até</span>
+              <input type="date" value="2026-08-31" />
+              <div class="fornec-total-card" style="margin-left:auto;">
+                <div class="ic violet" style="width:22px;height:22px;font-size:11px;">🏭</div>
+                <div><div class="label" style="font-size:7px;">Total Fornecedores</div><div class="value" style="font-size:12px;">6</div></div>
+              </div>
+            </div>
+            <div class="chart-scroll">
+              <div class="chart-bars">
+                <div class="bar-col"><span class="bar-value">R$ 22k</span><div class="bar" style="height:120px;"></div><span class="bar-label">Distribuidora Central</span></div>
+                <div class="bar-col"><span class="bar-value">R$ 14k</span><div class="bar" style="height:76px;"></div><span class="bar-label">Atacadista Rio Sul</span></div>
+                <div class="bar-col"><span class="bar-value">R$ 9k</span><div class="bar" style="height:49px;"></div><span class="bar-label">Fornecedor Norte</span></div>
+                <div class="bar-col"><span class="bar-value">R$ 6k</span><div class="bar" style="height:32px;"></div><span class="bar-label">Comercial Silva</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="search-box">
+          <span class="ic">🔍</span>
+          <input type="text" placeholder="Pesquisar nos itens..." />
+        </div>
+        <button class="btn-filter">🧰 Filtrar colunas</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="th-chip">Código</span></th>
+              <th><span class="th-chip">Arquivo</span></th>
+              <th><span class="th-chip">Fornecedor</span></th>
+              <th><span class="th-chip">Data</span></th>
+              <th><span class="th-chip">Itens</span></th>
+              <th><span class="th-chip">Verificados</span></th>
+              <th><span class="th-chip">Total</span></th>
+              <th><span class="th-chip">Financeiro</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="mono-chip">NF-00201</span></td>
+              <td>nota_distribuidora_jul.pdf</td>
+              <td>Distribuidora Central</td>
+              <td>04/08/2026</td>
+              <td><span class="mono-chip">22</span></td>
+              <td><span class="badge-emerald">22/22</span></td>
+              <td>R$ 6.010,00</td>
+              <td><span class="badge-emerald">Vinculada</span></td>
+              <td><div class="row-actions"><div class="ac edit">✎</div></div></td>
+            </tr>
+            <tr>
+              <td><span class="mono-chip">NF-00198</span></td>
+              <td>nota_riosul.xml</td>
+              <td>Atacadista Rio Sul</td>
+              <td>10/08/2026</td>
+              <td><span class="mono-chip">14</span></td>
+              <td><span class="badge-emerald">14/14</span></td>
+              <td>R$ 3.220,00</td>
+              <td><span class="badge-amber">—</span></td>
+              <td><div class="row-actions"><div class="ac edit">✎</div></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showPane(id) {
+      const suffix = id.endsWith('-ap') ? '-ap' : '';
+      const resultadosId = 'pane-resultados' + suffix;
+      const fornecedoresId = 'pane-fornecedores' + suffix;
+      document.getElementById(resultadosId).style.display = id.startsWith('resultados') ? 'grid' : 'none';
+      document.getElementById(fornecedoresId).style.display = id.startsWith('fornecedores') ? 'flex' : 'none';
+      const wrap = document.getElementById(resultadosId).closest('.panel');
+      wrap.querySelectorAll('.results-tabs button').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

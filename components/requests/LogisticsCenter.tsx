@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   FileUp,
   FileText,
@@ -11,17 +11,25 @@ import {
   ClipboardList,
   Pencil,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   AlertTriangle,
   Search,
   X,
   Building2,
   Link2,
+  Filter,
+  Info,
+  Check,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
+import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { fmtDateBR } from './ReceivedDateField';
 
@@ -44,6 +52,7 @@ export interface ReviewNote {
 }
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')}%`;
 
 type AdjType = 'pct' | 'fixed' | 'fixed_total';
 type AdjColumnFull = { id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual'; geralValue: number; geralType: AdjType; individualType: AdjType; items: string[] };
@@ -97,11 +106,47 @@ const noteTotal = (note: ReviewNote): number => {
   }, 0);
 };
 
+// Custo ajustado x preço de venda registrado no item (snapshot usado nas telas de revisão),
+// usado para agregar o Markup Geral do conjunto de notas visível sem reabrir cada nota.
+const noteCostSell = (note: ReviewNote): { cost: number; sell: number } => {
+  const items = note.items || [];
+  const fullCols = Array.isArray(items[0]?.adj_columns_full) && items[0].adj_columns_full.length > 0
+    ? (items[0].adj_columns_full as AdjColumnFull[])
+    : null;
+  let cost = 0, sell = 0;
+  items.forEach((it, idx) => {
+    const qty = parseFloat(it?.qty) || 0;
+    const unitCost = (parseFloat(it?.price) || 0) / (parseFloat(it?.multiplier) || 1);
+    const { disc, sur } = fullCols ? calcAdjAmountsFull(unitCost, qty, idx, fullCols) : calcAdjAmountsLegacy(it, unitCost, qty);
+    const adjCost = unitCost - disc + sur;
+    const sellPrice = parseFloat(it?.product_price) || 0;
+    if (adjCost > 0 && sellPrice > 0) {
+      cost += adjCost * qty;
+      sell += sellPrice * qty;
+    }
+  });
+  return { cost, sell };
+};
+
+const toIsoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const noteDateIso = (note: ReviewNote): string | null => note.receivedDate ? note.receivedDate.slice(0, 10) : null;
+
+type Section = 'revisoes' | 'aprovados' | 'dicionario' | 'fornecedores' | 'rascunhos';
+
+const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
+  { key: 'noteNumber', label: 'Código' },
+  { key: 'fileName', label: 'Arquivo' },
+  { key: 'supplierName', label: 'Fornecedor' },
+  { key: 'receivedDate', label: 'Data' },
+  { key: 'itemCount', label: 'Itens' },
+  { key: 'verifiedCount', label: 'Verificados' },
+  { key: 'total', label: 'Total' },
+];
+
 interface LogisticsCenterProps {
   importing: boolean;
   onImportClick: () => void;
   onManualNoteClick: () => void;
-  onSuppliersClick: () => void;
   reviewNotes: ReviewNote[];
   onViewReviewNote: (note: ReviewNote) => void;
   onApproveNote: (noteId: string) => void;
@@ -112,13 +157,13 @@ interface LogisticsCenterProps {
   onApproveBulkDraft?: (noteId: string, items: any[]) => void;
   onDeleteBulkDraft?: (noteId: string) => void;
   onViewMobile?: (note: ReviewNote) => void;
+  setNotification: (notif: { type: 'success' | 'error', message: string } | null) => void;
 }
 
 export function LogisticsCenter({
   importing,
   onImportClick,
   onManualNoteClick,
-  onSuppliersClick,
   reviewNotes,
   onViewReviewNote,
   onApproveNote,
@@ -129,19 +174,63 @@ export function LogisticsCenter({
   onApproveBulkDraft,
   onDeleteBulkDraft,
   onViewMobile,
+  setNotification,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
-  const [showSupplierPicker, setShowSupplierPicker] = useState(false);
   const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
   const [supplierSearch, setSupplierSearch]         = useState('');
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
-  const [activeSection, setActiveSection]            = useState<'revisoes' | 'aprovados' | 'rascunhos'>('revisoes');
+  const [activeSection, setActiveSection]            = useState<Section>('revisoes');
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
   const [noteSearch, setNoteSearch]                  = useState('');
-  const [noteSearchField, setNoteSearchField]        = useState<'all' | 'supplier_code' | 'original_description' | 'name' | 'ean' | 'sku'>('all');
+
+  // ── Calendário (mesmo padrão do Controle Financeiro) ──────────────────
+  const today = useMemo(() => new Date(), []);
+  const [calViewDate, setCalViewDate]     = useState(() => new Date());
+  const [calSelectedDate, setCalSelectedDate] = useState<Date | null>(null);
+  const [calRangeMode, setCalRangeMode]   = useState(false);
+  const [calRangeStart, setCalRangeStart] = useState<Date | null>(null);
+  const [calRangeEnd, setCalRangeEnd]     = useState<Date | null>(null);
+  const [calLegendOpen, setCalLegendOpen] = useState(false);
+  const calLegendRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (calLegendRef.current && !calLegendRef.current.contains(e.target as Node)) setCalLegendOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── Painel de resultados ───────────────────────────────────────────────
+  const [resultsPanelTab, setResultsPanelTab] = useState<'resultados' | 'fornecedores'>('resultados');
+  const [fornecRangeStart, setFornecRangeStart] = useState<string>(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [fornecRangeEnd, setFornecRangeEnd] = useState<string>(() => {
+    const d = new Date(); const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return toIsoDay(last);
+  });
+
+  // ── Filtro de colunas da tabela (mesmo padrão do Controle Financeiro) ─
+  const [columnFiltersEnabled, setColumnFiltersEnabled] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+  const [filterOpenKey, setFilterOpenKey] = useState<string | null>(null);
+  const [filterPendingSelection, setFilterPendingSelection] = useState<Set<string> | null>(null);
+  const [filterSearchQuery, setFilterSearchQuery] = useState('');
+
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setShowAddMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Abre nota aprovada vinda de "Ir para nota" nas notificações
   useEffect(() => {
@@ -161,11 +250,11 @@ export function LogisticsCenter({
     setLoadingPicker(false);
   };
 
-  const openSupplierPicker = () => {
-    setShowSupplierPicker(true);
-    setSupplierSearch('');
-    fetchPickerSuppliers();
-  };
+  useEffect(() => {
+    if (activeSection === 'fornecedores' && pickerSuppliers.length === 0 && !loadingPicker) {
+      fetchPickerSuppliers();
+    }
+  }, [activeSection]);
 
   const filteredSuppliers = pickerSuppliers.filter(s => {
     if (!supplierSearch.trim()) return true;
@@ -177,28 +266,136 @@ export function LogisticsCenter({
   const pendingNotes   = reviewNotes.filter(n => !n.approved);
   const approvedNotes  = reviewNotes.filter(n => n.approved);
 
-  const filterNotesBySearch = (notes: typeof reviewNotes) => {
+  // Notas "cruas" da seção ativa (Revisões/Aprovados), antes de filtro de período/busca/coluna —
+  // usadas para marcar os pontinhos do calendário do mês inteiro.
+  const sectionNotesRaw = activeSection === 'aprovados' ? approvedNotes : pendingNotes;
+
+  const filterNotesBySearch = (notes: ReviewNote[]) => {
     const q = noteSearch.trim().toLowerCase();
     if (!q) return notes;
     return notes.filter(note =>
-      (note.items || []).some((item: any) => {
-        if (noteSearchField === 'all') {
-          return (
-            (item.supplier_code  || '').toLowerCase().includes(q) ||
-            (item.original_description || '').toLowerCase().includes(q) ||
-            (item.name           || '').toLowerCase().includes(q) ||
-            (item.ean            || '').toLowerCase().includes(q) ||
-            (item.sku            || '').toLowerCase().includes(q)
-          );
-        }
-        return (item[noteSearchField] || '').toLowerCase().includes(q);
-      })
+      (note.supplierName || '').toLowerCase().includes(q) ||
+      (note.noteNumber || '').toLowerCase().includes(q) ||
+      (note.fileName || '').toLowerCase().includes(q) ||
+      (note.items || []).some((item: any) =>
+        (item.supplier_code || '').toLowerCase().includes(q) ||
+        (item.original_description || '').toLowerCase().includes(q) ||
+        (item.name || '').toLowerCase().includes(q) ||
+        (item.ean || '').toLowerCase().includes(q) ||
+        (item.sku || '').toLowerCase().includes(q)
+      )
     );
   };
 
-  const visibleNotes   = activeSection === 'rascunhos' ? [] : filterNotesBySearch(activeSection === 'revisoes' ? pendingNotes : approvedNotes);
+  const filterNotesByPeriod = (notes: ReviewNote[]) => notes.filter(note => {
+    const d = noteDateIso(note);
+    if (!d) return true; // sem data de recebimento conhecida — não é excluída pelo filtro de período
+    if (calRangeStart && calRangeEnd) return d >= toIsoDay(calRangeStart) && d <= toIsoDay(calRangeEnd);
+    if (calSelectedDate) return d === toIsoDay(calSelectedDate);
+    const monthPrefix = `${calViewDate.getFullYear()}-${String(calViewDate.getMonth() + 1).padStart(2, '0')}`;
+    return d.startsWith(monthPrefix);
+  });
 
-  const confirmNote    = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
+  const getColumnValue = (note: ReviewNote, key: string): string => {
+    switch (key) {
+      case 'noteNumber':     return note.noteNumber || '—';
+      case 'fileName':       return note.fileName || '—';
+      case 'supplierName':   return note.supplierName || '—';
+      case 'receivedDate':   return note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp;
+      case 'itemCount':      return String(note.itemCount);
+      case 'verifiedCount':  return `${note.verifiedCount}/${note.itemCount}`;
+      case 'total':          return fmtBRL(noteTotal(note));
+      case 'finance':        return note.finance_transaction_id ? 'Vinculada' : 'Não vinculada';
+      default:               return '—';
+    }
+  };
+
+  const periodSearchedNotes = filterNotesBySearch(filterNotesByPeriod(sectionNotesRaw));
+
+  const getColumnUniqueValues = (key: string): string[] => {
+    const vals = new Set<string>();
+    periodSearchedNotes.forEach(n => vals.add(getColumnValue(n, key)));
+    return Array.from(vals).sort();
+  };
+
+  const applyColumnFilters = (notes: ReviewNote[]) => {
+    if (!columnFiltersEnabled) return notes;
+    return notes.filter(n => Object.entries(columnFilters).every(([key, set]) => set.size === 0 || set.has(getColumnValue(n, key))));
+  };
+
+  const visibleNotes = activeSection === 'rascunhos' ? [] : applyColumnFilters(periodSearchedNotes);
+
+  const confirmNote = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
+
+  const tableColumns = activeSection === 'aprovados' ? [...TABLE_COLUMNS_BASE, { key: 'finance', label: 'Financeiro' }] : TABLE_COLUMNS_BASE;
+
+  const openFilter = (key: string) => {
+    const current = columnFilters[key];
+    setFilterPendingSelection(new Set(current && current.size > 0 ? current : getColumnUniqueValues(key)));
+    setFilterOpenKey(key);
+    setFilterSearchQuery('');
+  };
+  const closeFilter = () => { setFilterOpenKey(null); setFilterPendingSelection(null); setFilterSearchQuery(''); };
+  const confirmFilter = (key: string) => {
+    setColumnFilters(prev => {
+      const nxt = { ...prev };
+      const sel = filterPendingSelection ?? new Set<string>();
+      if (sel.size === 0) delete nxt[key]; else nxt[key] = sel;
+      return nxt;
+    });
+    closeFilter();
+  };
+
+  // ── Calendário: células do mês exibido + marcação de dias com nota recebida ─
+  const calDays = useMemo(() => {
+    const year = calViewDate.getFullYear(), month = calViewDate.getMonth();
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const notesByDay = new Set(sectionNotesRaw.map(noteDateIso).filter(Boolean) as string[]);
+    const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasNote: boolean }[] = [];
+    for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, type: 'prev', hasNote: false });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      cells.push({ day: d, type: 'curr', hasNote: notesByDay.has(iso) });
+    }
+    let n = 1;
+    while (cells.length < 42) cells.push({ day: n++, type: 'next', hasNote: false });
+    return cells;
+  }, [calViewDate, sectionNotesRaw]);
+
+  const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  // ── Stats do painel de Resultados — refletem exatamente o que está na tabela ─
+  const statTotalNotas = visibleNotes.length;
+  const statValorTotal = visibleNotes.reduce((acc, n) => acc + noteTotal(n), 0);
+  const statMarkup = useMemo(() => {
+    let cost = 0, sell = 0;
+    visibleNotes.forEach(n => { const cs = noteCostSell(n); cost += cs.cost; sell += cs.sell; });
+    return cost > 0 ? ((sell - cost) / cost * 100) : null;
+  }, [visibleNotes]);
+  const statFornecedores = new Set(visibleNotes.map(n => n.supplierName).filter(Boolean)).size;
+
+  // ── Sub-aba Fornecedores do painel de Resultados: gráfico de gasto por fornecedor ─
+  const fornecFilteredNotes = useMemo(() => sectionNotesRaw.filter(note => {
+    const d = noteDateIso(note);
+    if (!d) return true;
+    if (!fornecRangeStart || !fornecRangeEnd) return true;
+    return d >= fornecRangeStart && d <= fornecRangeEnd;
+  }), [sectionNotesRaw, fornecRangeStart, fornecRangeEnd]);
+
+  const fornecChartData = useMemo(() => {
+    const map = new Map<string, number>();
+    fornecFilteredNotes.forEach(n => {
+      const name = n.supplierName || 'Sem fornecedor';
+      map.set(name, (map.get(name) || 0) + noteTotal(n));
+    });
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [fornecFilteredNotes]);
+  const fornecMaxValue = Math.max(1, ...fornecChartData.map(f => f.value));
+  const fornecTotalCount = fornecChartData.length;
+
+  const showCalendarResultsPanel = activeSection === 'revisoes' || activeSection === 'aprovados';
 
   return (
     <div className="space-y-4 md:space-y-12">
@@ -218,6 +415,8 @@ export function LogisticsCenter({
           {([
             { key: 'revisoes', label: 'Revisões', count: pendingNotes.length },
             { key: 'aprovados', label: 'Aprovados', count: approvedNotes.length },
+            { key: 'dicionario', label: 'Dicionário', count: 0 },
+            { key: 'fornecedores', label: 'Fornecedores', count: 0 },
             { key: 'rascunhos', label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
           ] as const).map((tab, i, arr) => {
             const HEADER_TAB_LABEL_MAX = 12;
@@ -231,10 +430,10 @@ export function LogisticsCenter({
                 title={tab.label}
                 onClick={() => setActiveSection(tab.key)}
                 className={cn(
-                  'w-[136px] h-[34px] flex items-center justify-center gap-1.5 shrink-0',
+                  'w-[122px] h-[34px] flex items-center justify-center gap-1.5 shrink-0',
                   'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
                   i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[12px] font-extrabold uppercase tracking-wide',
+                  'text-[11.5px] font-extrabold uppercase tracking-wide',
                   'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
                   'transition-[opacity,transform] duration-150 active:scale-[0.97]',
                   active
@@ -254,85 +453,10 @@ export function LogisticsCenter({
         </div>
       </div>
 
-      <div className="hidden md:grid grid-cols-3 gap-8">
-        {/* Import Card */}
-        <motion.div
-          whileHover={{ y: -5 }}
-          className="bg-surface-container-lowest p-10 rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] flex flex-col items-center text-center group relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-primary transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-          <div className="w-24 h-24 rounded-[2rem] bg-primary/5 text-primary flex items-center justify-center mb-8 group-hover:bg-primary group-hover:text-white transition-all transform group-hover:rotate-6 shadow-inner">
-            <FileUp size={48} />
-          </div>
-          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Importar Nota</h3>
-          <button
-            onClick={onImportClick}
-            disabled={importing}
-            className="bg-primary text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-primary/20 flex items-center gap-3 w-full justify-center uppercase tracking-widest disabled:opacity-50 active:scale-95"
-          >
-            {importing ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-            ) : (
-              <>
-                <Download size={20} />
-                Executar Importação
-              </>
-            )}
-          </button>
-        </motion.div>
-
-        {/* Manual Note Card */}
-        <motion.div
-          whileHover={{ y: -5 }}
-          className="bg-surface-container-lowest p-10 rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] flex flex-col items-center text-center group relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-on-surface transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-          <div className="w-24 h-24 rounded-[2rem] bg-on-surface/5 text-on-surface flex items-center justify-center mb-8 group-hover:bg-on-surface group-hover:text-white transition-all transform group-hover:-rotate-6 shadow-inner">
-            <FileText size={48} />
-          </div>
-          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Inserir Manualmente</h3>
-          <button
-            onClick={onManualNoteClick}
-            className="bg-on-surface/[0.12] text-on-surface border border-on-surface/10 px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface/20 transition-all w-full justify-center flex items-center gap-3 uppercase tracking-widest active:scale-95"
-          >
-            <Plus size={20} />
-            Criar Manifesto
-          </button>
-        </motion.div>
-
-        {/* Suppliers Card */}
-        <motion.div
-          whileHover={{ y: -5 }}
-          className="bg-surface-container-lowest p-10 rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] flex flex-col items-center text-center group relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-          <div className="w-24 h-24 rounded-[2rem] bg-amber-500/10 text-amber-600 flex items-center justify-center mb-8 group-hover:bg-amber-500 group-hover:text-white transition-all transform group-hover:rotate-12 shadow-inner">
-            <Users size={48} />
-          </div>
-          <h3 className="text-2xl font-black text-on-surface mb-8 tracking-tight">Dicionário</h3>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={onSuppliersClick}
-              className="bg-amber-600 text-white px-5 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-all shadow-xl shadow-amber-600/20 w-36 justify-center flex items-center gap-2 uppercase tracking-widest active:scale-95"
-            >
-              <BookText size={16} />
-              Abrir
-            </button>
-            <button
-              onClick={openSupplierPicker}
-              className="border-2 border-amber-500/40 text-amber-600 px-5 py-4 rounded-2xl font-black text-sm hover:bg-amber-500/10 transition-all w-36 justify-center flex items-center gap-2 uppercase tracking-widest active:scale-95"
-            >
-              <Users size={16} />
-              Fornecedores
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
       {/* ── MOBILE LAYOUT ─────────────────────────────────────────────────── */}
       <div className="md:hidden space-y-4">
 
-        {/* Mobile action buttons — 2 col grid, sem Importar Nota */}
+        {/* Mobile action buttons — 2 col grid */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={onManualNoteClick}
@@ -348,15 +472,16 @@ export function LogisticsCenter({
           </button>
 
           <button
-            onClick={onSuppliersClick}
-            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform"
+            onClick={onImportClick}
+            disabled={importing}
+            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform disabled:opacity-50"
           >
-            <div className="w-full h-[6px] bg-[#D97706] shrink-0" />
+            <div className="w-full h-[6px] bg-primary shrink-0" />
             <div className="p-3 flex flex-col gap-2.5">
-              <div className="w-9 h-9 rounded-[10px] bg-amber-500/10 flex items-center justify-center text-[#92400E] dark:text-[#FCD34D]">
-                <BookText size={18} />
+              <div className="w-9 h-9 rounded-[10px] bg-primary/10 flex items-center justify-center text-primary">
+                <Download size={18} />
               </div>
-              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Dicionário</span>
+              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Executar<br/>Importação</span>
             </div>
           </button>
         </div>
@@ -366,6 +491,8 @@ export function LogisticsCenter({
           {([
             { key: 'revisoes'  as const, label: 'Revisões',  count: pendingNotes.length },
             { key: 'aprovados' as const, label: 'Aprovados', count: approvedNotes.length },
+            { key: 'dicionario' as const, label: 'Dicionário', count: 0 },
+            { key: 'fornecedores' as const, label: 'Fornecedores', count: 0 },
             { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
           ]).map(tab => (
             <button
@@ -393,35 +520,112 @@ export function LogisticsCenter({
           ))}
         </div>
 
-        {/* Mobile search */}
-        <div className="relative flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3.5 py-2.5">
-          <Search size={14} className="text-[#1A1A0E]/28 dark:text-white/25 shrink-0" />
-          <input
-            type="text"
-            value={noteSearch}
-            onChange={e => setNoteSearch(e.target.value)}
-            placeholder="Buscar por fornecedor, EAN, código…"
-            className="bg-transparent border-none outline-none text-[13px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/25 w-full"
-          />
-          {noteSearch && (
-            <button onClick={() => setNoteSearch('')} className="shrink-0 text-[#1A1A0E]/30 dark:text-white/30">
-              <X size={13} />
-            </button>
-          )}
-        </div>
+        {(activeSection === 'revisoes' || activeSection === 'aprovados') && (<>
+          {/* Mobile search */}
+          <div className="relative flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3.5 py-2.5">
+            <Search size={14} className="text-[#1A1A0E]/28 dark:text-white/25 shrink-0" />
+            <input
+              type="text"
+              value={noteSearch}
+              onChange={e => setNoteSearch(e.target.value)}
+              placeholder="Buscar por fornecedor, EAN, código…"
+              className="bg-transparent border-none outline-none text-[13px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/25 w-full"
+            />
+            {noteSearch && (
+              <button onClick={() => setNoteSearch('')} className="shrink-0 text-[#1A1A0E]/30 dark:text-white/30">
+                <X size={13} />
+              </button>
+            )}
+          </div>
 
-        {/* Mobile section label */}
-        {activeSection !== 'rascunhos' && (
+          {/* Mobile section label */}
           <p className="text-[10px] font-black text-[#1A1A0E]/35 dark:text-white/25 uppercase tracking-[0.14em] px-0.5">
             {activeSection === 'revisoes'
               ? `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} para revisão`
               : `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} aprovada${visibleNotes.length !== 1 ? 's' : ''}`}
           </p>
-        )}
 
-        {/* Mobile notes list */}
-        {activeSection === 'rascunhos' ? (
-          /* Rascunhos — reusa os mesmos cards do desktop */
+          {/* Mobile notes list */}
+          {visibleNotes.length === 0 ? (
+            <div className="flex items-center gap-4 bg-[#FDFAF0] dark:bg-[#252520] border border-dashed border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-5">
+              <div className="w-11 h-11 bg-[#1A1A0E]/[0.04] dark:bg-white/[0.04] rounded-[12px] flex items-center justify-center shrink-0">
+                <ClipboardList size={22} className="text-[#1A1A0E]/20 dark:text-white/20" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-[#1A1A0E]/45 dark:text-white/35 uppercase tracking-[0.06em]">
+                  {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+                </p>
+                <p className="text-[11px] text-[#1A1A0E]/28 dark:text-white/22 mt-0.5 leading-relaxed">
+                  {activeSection === 'revisoes'
+                    ? 'Notas importadas aparecerão aqui.'
+                    : 'Notas aprovadas aparecerão aqui.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {visibleNotes.map(note => (
+                <div
+                  key={note.id}
+                  onClick={() => (onViewMobile ?? onViewReviewNote)(note)}
+                  className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                >
+                  {/* Avatar */}
+                  <div className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                    note.approved
+                      ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
+                      : 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
+                  )}>
+                    {note.approved
+                      ? <CheckCircle2 size={22} />
+                      : <FileText size={22} />
+                    }
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <p className="text-[12px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
+                      {note.supplierName
+                        ? `${note.supplierName} — ${note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}`
+                        : note.fileName}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#1A1A0E]/40 dark:text-white/35">
+                      <span className="truncate">{note.supplierName || '—'}</span>
+                      <span className="text-[#1A1A0E]/18 dark:text-white/18">·</span>
+                      <span className="whitespace-nowrap shrink-0">{note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}</span>
+                    </div>
+                    <span className="self-start max-w-full truncate bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
+                      {note.noteNumber || note.fileName}
+                    </span>
+                  </div>
+
+                  {/* Right — badge + botão aprovar */}
+                  <div className="flex flex-col items-end justify-between gap-2 shrink-0 self-stretch py-0.5">
+                    <span className={cn(
+                      'text-[12px] font-black px-2.5 py-1 rounded-full',
+                      note.verifiedCount === note.itemCount && note.itemCount > 0
+                        ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
+                        : 'bg-[#D97706] text-white'
+                    )}>
+                      {String(note.verifiedCount).padStart(2, '0')}/{String(note.itemCount).padStart(2, '0')}
+                    </span>
+                    {!note.approved && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmApproveId(note.id); }}
+                        className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
+                      >
+                        <CheckCircle2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>)}
+
+        {activeSection === 'rascunhos' && (
           <div className="space-y-3">
             {(!bulkDrafts || bulkDrafts.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-10 text-[#1A1A0E]/20 dark:text-white/20">
@@ -448,122 +652,371 @@ export function LogisticsCenter({
               </div>
             ))}
           </div>
-        ) : visibleNotes.length === 0 ? (
-          <div className="flex items-center gap-4 bg-[#FDFAF0] dark:bg-[#252520] border border-dashed border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-5">
-            <div className="w-11 h-11 bg-[#1A1A0E]/[0.04] dark:bg-white/[0.04] rounded-[12px] flex items-center justify-center shrink-0">
-              <ClipboardList size={22} className="text-[#1A1A0E]/20 dark:text-white/20" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-[#1A1A0E]/45 dark:text-white/35 uppercase tracking-[0.06em]">
-                {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
-              </p>
-              <p className="text-[11px] text-[#1A1A0E]/28 dark:text-white/22 mt-0.5 leading-relaxed">
-                {activeSection === 'revisoes'
-                  ? 'Notas importadas aparecerão aqui.'
-                  : 'Notas aprovadas aparecerão aqui.'}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {visibleNotes.map(note => (
-              <div
-                key={note.id}
-                onClick={() => (onViewMobile ?? onViewReviewNote)(note)}
-                className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
-              >
-                {/* Avatar */}
-                <div className={cn(
-                  'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
-                  note.approved
-                    ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
-                    : 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
-                )}>
-                  {note.approved
-                    ? <CheckCircle2 size={22} />
-                    : <FileText size={22} />
-                  }
-                </div>
+        )}
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 flex flex-col gap-1">
-                  <p className="text-[12px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] uppercase tracking-[0.04em] truncate">
-                    {note.supplierName
-                      ? `${note.supplierName} — ${note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}`
-                      : note.fileName}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#1A1A0E]/40 dark:text-white/35">
-                    <span className="truncate">{note.supplierName || '—'}</span>
-                    <span className="text-[#1A1A0E]/18 dark:text-white/18">·</span>
-                    <span className="whitespace-nowrap shrink-0">{note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}</span>
-                  </div>
-                  <span className="self-start max-w-full truncate bg-[#1A1A0E]/[0.05] dark:bg-white/[0.08] rounded-[6px] px-2 py-0.5 text-[11px] font-mono font-bold text-[#1A1A0E]/50 dark:text-white/50 tracking-[0.04em]">
-                    {note.noteNumber || note.fileName}
-                  </span>
-                </div>
+        {activeSection === 'dicionario' && (
+          <SupplierDictionary embedded isOpen onClose={() => {}} setNotification={setNotification} />
+        )}
 
-                {/* Right — badge + botão aprovar */}
-                <div className="flex flex-col items-end justify-between gap-2 shrink-0 self-stretch py-0.5">
-                  <span className={cn(
-                    'text-[12px] font-black px-2.5 py-1 rounded-full',
-                    note.verifiedCount === note.itemCount && note.itemCount > 0
-                      ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
-                      : 'bg-[#D97706] text-white'
-                  )}>
-                    {String(note.verifiedCount).padStart(2, '0')}/{String(note.itemCount).padStart(2, '0')}
-                  </span>
-                  {!note.approved && (
-                    <button
-                      onClick={e => { e.stopPropagation(); setConfirmApproveId(note.id); }}
-                      className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
-                    >
-                      <CheckCircle2 size={14} />
-                    </button>
-                  )}
-                </div>
+        {activeSection === 'fornecedores' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                <input
+                  type="text"
+                  value={supplierSearch}
+                  onChange={e => setSupplierSearch(e.target.value)}
+                  placeholder="Buscar fornecedor..."
+                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface/30 focus:outline-none"
+                />
               </div>
-            ))}
+              <button
+                onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
+                className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            {loadingPicker ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+              </div>
+            ) : filteredSuppliers.length === 0 ? (
+              <p className="text-sm text-on-surface/30 text-center py-10">
+                {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
+              </p>
+            ) : filteredSuppliers.map(s => {
+              const displayName = s.nome_fantasia || s.name;
+              const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
+              return (
+                <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-[#FDFAF0] dark:bg-[#252520]">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-on-surface truncate">{displayName}</p>
+                    {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
+                  </div>
+                  <button
+                    onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
+                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* ── Revisões / Aprovados Section ──────────────────────────────────── */}
-      <div className="hidden md:block space-y-6">
+      {/* ── DESKTOP LAYOUT ───────────────────────────────────────────────── */}
 
-        {/* Search bar row */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Badge de contagem */}
-          {visibleNotes.length > 0 && (
-            <span className={cn(
-              'px-2.5 py-0.5 text-xs font-black rounded-full',
-              activeSection === 'revisoes'
-                ? 'bg-primary/10 text-primary'
-                : 'bg-emerald-500/10 text-emerald-600'
-            )}>
-              {visibleNotes.length}
-            </span>
-          )}
-
-          {/* Barra de pesquisa + filtro de coluna */}
-          <div className="flex items-center gap-2 ml-auto">
-            {/* Filtro de coluna */}
-            <div className="relative">
-              <select
-                value={noteSearchField}
-                onChange={e => setNoteSearchField(e.target.value as typeof noteSearchField)}
-                className="appearance-none bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-3 pr-7 py-2 text-xs font-bold text-on-surface/60 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                <option value="all">Todas colunas</option>
-                <option value="supplier_code">Código</option>
-                <option value="original_description">Produto na Nota</option>
-                <option value="name">Identificação Interna</option>
-                <option value="ean">EAN</option>
-                <option value="sku">SKU</option>
-              </select>
-              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+      {/* Calendário + Painel de Resultados (Revisões / Aprovados) */}
+      {showCalendarResultsPanel && (
+        <div className="hidden md:grid grid-cols-2 gap-3.5 items-start">
+          {/* Calendário */}
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
+              <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                <div className="relative" ref={calLegendRef}>
+                  <button
+                    onClick={() => setCalLegendOpen(v => !v)}
+                    className={cn(
+                      'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                      calLegendOpen
+                        ? 'bg-[#1A1A0E]/14 text-[#1A1A0E]'
+                        : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
+                    )}
+                    title="Legenda"
+                  >
+                    <Info size={12} strokeWidth={2.5} />
+                  </button>
+                  <AnimatePresence>
+                    {calLegendOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                        transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute left-0 top-[30px] z-20 w-[196px] bg-surface border border-on-surface/10 rounded-xl shadow-lg p-2.5 flex flex-col gap-1.5"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                          <span className="text-[10.5px] font-bold text-on-surface/70">Nota recebida no dia</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <button
+                  onClick={() => {
+                    if (calRangeMode) {
+                      setCalRangeMode(false);
+                      setCalRangeStart(null);
+                      setCalRangeEnd(null);
+                    } else {
+                      setCalRangeMode(true);
+                      setCalSelectedDate(null);
+                    }
+                  }}
+                  title="Filtrar por período"
+                  className={cn(
+                    'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                    calRangeMode
+                      ? 'bg-[#D81E1E] text-white hover:opacity-90'
+                      : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
+                  )}
+                >
+                  <Filter size={12} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                >
+                  <ChevronLeft size={12} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                >
+                  <ChevronRight size={12} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
 
-            {/* Input de pesquisa */}
+            <div className="p-3">
+              <div className="grid grid-cols-7 mb-1">
+                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                  <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5">
+                {calDays.map((cell, i) => {
+                  const isToday = cell.type === 'curr'
+                    && cell.day === today.getDate()
+                    && calViewDate.getMonth() === today.getMonth()
+                    && calViewDate.getFullYear() === today.getFullYear();
+                  const isSelected = !calRangeMode && calSelectedDate !== null
+                    && cell.type === 'curr'
+                    && cell.day === calSelectedDate.getDate()
+                    && calViewDate.getMonth() === calSelectedDate.getMonth()
+                    && calViewDate.getFullYear() === calSelectedDate.getFullYear();
+                  const cellIso = cell.type === 'curr' ? toIsoDay(new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day)) : null;
+                  const rangeStartIso = calRangeStart ? toIsoDay(calRangeStart) : null;
+                  const rangeEndIso = calRangeEnd ? toIsoDay(calRangeEnd) : null;
+                  const isRangeEndpoint = cellIso !== null && (cellIso === rangeStartIso || cellIso === rangeEndIso);
+                  const isInRange = cellIso !== null && rangeStartIso !== null && rangeEndIso !== null
+                    && cellIso > rangeStartIso && cellIso < rangeEndIso;
+                  return (
+                    <button
+                      key={i}
+                      disabled={cell.type !== 'curr'}
+                      onClick={() => {
+                        if (cell.type !== 'curr') return;
+                        const cellDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), cell.day);
+                        if (calRangeMode) {
+                          if (!calRangeStart || (calRangeStart && calRangeEnd)) {
+                            setCalRangeStart(cellDate);
+                            setCalRangeEnd(null);
+                          } else {
+                            const startIso = toIsoDay(calRangeStart);
+                            const clickIso = toIsoDay(cellDate);
+                            if (clickIso < startIso) {
+                              setCalRangeEnd(calRangeStart);
+                              setCalRangeStart(cellDate);
+                            } else {
+                              setCalRangeEnd(cellDate);
+                            }
+                          }
+                          return;
+                        }
+                        setCalSelectedDate(isSelected ? null : cellDate);
+                      }}
+                      className={cn(
+                        'h-[26px] flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
+                        cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
+                        cell.type === 'curr' && !isToday && !isSelected && !isRangeEndpoint && !isInRange && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
+                        isToday && !isSelected && !isRangeEndpoint && !isInRange && 'bg-primary/10 text-primary font-black',
+                        isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                        isRangeEndpoint && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                        isInRange && 'bg-primary/15 text-primary font-bold',
+                      )}
+                    >
+                      {cell.day}
+                      {cell.hasNote && !isSelected && !isRangeEndpoint && (
+                        <span className={cn('absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full', isToday ? 'bg-primary/70' : 'bg-primary')} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Range selection hint */}
+              {calRangeMode && !(calRangeStart && calRangeEnd) && (
+                <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.05] border border-on-surface/10 rounded-[10px] px-2.5 py-1.5">
+                  <span className="text-[9.5px] font-bold text-on-surface/50 leading-none">
+                    {!calRangeStart ? 'Selecione o dia inicial do período' : 'Selecione o dia final do período'}
+                  </span>
+                </div>
+              )}
+
+              {/* Badge de período — filtro ativo ou padrão (mês exibido) */}
+              {(calSelectedDate || (calRangeStart && calRangeEnd)) ? (
+                <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] dark:bg-primary/[0.12] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
+                  <span className="text-[9.5px] font-bold text-primary leading-none">
+                    {calRangeStart && calRangeEnd
+                      ? `Período: ${calRangeStart.toLocaleDateString('pt-BR')} – ${calRangeEnd.toLocaleDateString('pt-BR')}`
+                      : `Data: ${calSelectedDate!.toLocaleDateString('pt-BR')}`}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setCalSelectedDate(null);
+                      setCalRangeMode(false);
+                      setCalRangeStart(null);
+                      setCalRangeEnd(null);
+                    }}
+                    className="text-primary/60 hover:text-primary transition-colors shrink-0"
+                  >
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-[10px] px-2.5 py-1.5">
+                  <span className="text-[9.5px] font-bold text-on-surface/45 leading-none capitalize">
+                    Mostrando: {calMonthLabel} (mês atual)
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Painel de Resultados */}
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
+              <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
+                {(['resultados', 'fornecedores'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setResultsPanelTab(tab)}
+                    className={cn(
+                      'flex-1 px-2 py-[6px] rounded-full text-[9.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
+                      resultsPanelTab === tab
+                        ? 'bg-[#D81E1E] text-white shadow-sm'
+                        : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
+                    )}
+                  >
+                    {tab === 'resultados' ? 'Resultados' : 'Fornecedores'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {resultsPanelTab === 'resultados' ? (
+              <div className="grid grid-cols-2 gap-1.5 p-2.5">
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
+                    <FileText size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Total de Notas</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statTotalNotas}</div>
+                  </div>
+                </div>
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                    <TrendingUp size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Markup Geral</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statMarkup !== null ? fmtPct(statMarkup) : '—'}</div>
+                  </div>
+                </div>
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                    <Wallet size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Valor Total</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{fmtBRL(statValorTotal)}</div>
+                  </div>
+                </div>
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-[8px] bg-violet-500/10 flex items-center justify-center shrink-0 text-violet-600 dark:text-violet-400">
+                    <Building2 size={12} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Fornecedores</div>
+                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statFornecedores}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 flex flex-col gap-2.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <input
+                    type="date"
+                    value={fornecRangeStart}
+                    onChange={e => setFornecRangeStart(e.target.value)}
+                    className="text-[10.5px] font-bold px-1.5 py-1.5 rounded-lg border border-on-surface/10 bg-surface-container text-on-surface min-w-0 flex-1"
+                  />
+                  <span className="text-[10px] font-black text-on-surface/30 shrink-0">até</span>
+                  <input
+                    type="date"
+                    value={fornecRangeEnd}
+                    onChange={e => setFornecRangeEnd(e.target.value)}
+                    className="text-[10.5px] font-bold px-1.5 py-1.5 rounded-lg border border-on-surface/10 bg-surface-container text-on-surface min-w-0 flex-1"
+                  />
+                  <div className="w-full flex items-center gap-1.5 bg-surface-container border border-on-surface/[0.07] rounded-[10px] px-2.5 py-1.5">
+                    <Building2 size={11} className="text-violet-600 dark:text-violet-400 shrink-0" />
+                    <span className="text-[8px] font-black uppercase tracking-[0.09em] text-on-surface/40">Total</span>
+                    <span className="text-[12px] font-black text-on-surface">{fornecTotalCount}</span>
+                  </div>
+                </div>
+                {fornecChartData.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-on-surface/25">
+                    <p className="text-xs font-bold">Nenhum gasto no período</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto pb-1">
+                    <div className="flex items-end gap-4 h-[120px] min-w-max px-1 border-b-[1.5px] border-on-surface/10">
+                      {fornecChartData.map(f => (
+                        <div key={f.name} className="flex flex-col items-center justify-end gap-1.5 w-11 h-full shrink-0" title={`${f.name}: ${fmtBRL(f.value)}`}>
+                          <span className="text-[7.5px] font-black text-on-surface/50 whitespace-nowrap">{fmtBRL(f.value).replace('R$ ', 'R$ ')}</span>
+                          <div
+                            className="w-6 rounded-t-[6px] bg-gradient-to-b from-primary to-[#B31616]"
+                            style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}px` }}
+                          />
+                          <span className="text-[7px] font-bold text-on-surface/45 text-center leading-tight max-w-[44px] truncate">{f.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(activeSection === 'revisoes' || activeSection === 'aprovados') && (
+        <div className="hidden md:block space-y-6">
+
+          {/* Search + filtro + menu "+" */}
+          <div className="flex flex-wrap items-center gap-3">
+            {visibleNotes.length > 0 && (
+              <span className={cn(
+                'px-2.5 py-0.5 text-xs font-black rounded-full',
+                activeSection === 'revisoes'
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-emerald-500/10 text-emerald-600'
+              )}>
+                {visibleNotes.length}
+              </span>
+            )}
+
             <div className="relative group">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
@@ -571,7 +1024,7 @@ export function LogisticsCenter({
                 value={noteSearch}
                 onChange={e => setNoteSearch(e.target.value)}
                 placeholder="Pesquisar nos itens..."
-                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-52 transition-all"
+                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
               />
               {noteSearch && (
                 <button
@@ -583,216 +1036,433 @@ export function LogisticsCenter({
               )}
             </div>
 
-            {/* Indicador de filtro ativo */}
-            {noteSearch && (
-              <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-1 rounded-lg whitespace-nowrap">
-                {visibleNotes.length} nota{visibleNotes.length !== 1 ? 's' : ''}
-              </span>
+            <button
+              onClick={() => {
+                const next = !columnFiltersEnabled;
+                setColumnFiltersEnabled(next);
+                if (!next) { setColumnFilters({}); setFilterOpenKey(null); setFilterPendingSelection(null); setFilterSearchQuery(''); }
+              }}
+              title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all',
+                columnFiltersEnabled
+                  ? 'bg-primary text-white border-primary shadow-md'
+                  : 'bg-surface-container-lowest border-on-surface/[0.06] text-on-surface/60 hover:bg-on-surface/5',
+                Object.values(columnFilters).some(s => s.size > 0) && !columnFiltersEnabled && 'ring-2 ring-primary/40',
+              )}
+            >
+              <Filter size={14} />
+              Filtrar colunas
+            </button>
+
+            {activeSection === 'revisoes' && (
+              <div className="relative ml-auto" ref={addMenuRef}>
+                <button
+                  onClick={() => setShowAddMenu(v => !v)}
+                  title="Nova nota"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+                >
+                  <Plus size={16} />
+                </button>
+                <AnimatePresence>
+                  {showAddMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                      className="absolute right-0 top-[44px] z-30 w-[210px] bg-surface-container-lowest border border-on-surface/10 rounded-2xl shadow-2xl overflow-hidden"
+                    >
+                      <button
+                        onClick={() => { setShowAddMenu(false); onManualNoteClick(); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-[12.5px] font-extrabold text-on-surface hover:bg-on-surface/5 transition-colors border-b border-on-surface/[0.06]"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <FileText size={14} />
+                        </span>
+                        Criar Manifesto
+                      </button>
+                      <button
+                        onClick={() => { setShowAddMenu(false); onImportClick(); }}
+                        disabled={importing}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-[12.5px] font-extrabold text-on-surface hover:bg-on-surface/5 transition-colors disabled:opacity-50"
+                      >
+                        <span className="w-7 h-7 rounded-lg bg-on-surface/[0.06] text-on-surface/60 flex items-center justify-center shrink-0">
+                          <Download size={14} />
+                        </span>
+                        Executar Importação
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Notes table */}
-        {activeSection === 'rascunhos' ? (
-          <div className="space-y-4">
-            {(!bulkDrafts || bulkDrafts.length === 0) ? (
-              <div className="flex flex-col items-center justify-center py-16 text-on-surface/20">
-                <ClipboardList size={48} className="mb-4 opacity-30" />
-                <p className="text-sm font-black uppercase tracking-widest">Nenhum rascunho</p>
+          {/* Notes table */}
+          {visibleNotes.length === 0 ? (
+            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
+              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                <ClipboardList size={32} />
               </div>
-            ) : bulkDrafts.map(draft => {
-              const isConfirmingDelete = confirmDeleteDraftId === draft.id;
-              return (
-                <div key={draft.id} className="bg-surface-container-lowest border border-on-surface/[0.04] rounded-[2rem] p-6 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-1">Rascunho · Lista de Produtos</p>
-                      <p className="text-base font-black text-on-surface">{draft.file_name || 'Rascunho sem nome'}</p>
-                      <p className="text-xs text-on-surface/40 mt-1">{draft.timestamp_label || ''} · {draft.item_count || 0} produto(s)</p>
-                    </div>
+              <div>
+                <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
+                  {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+                </h4>
+                <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
+                  {activeSection === 'revisoes'
+                    ? 'Notas importadas e enviadas para aprovação aparecerão aqui, no período selecionado.'
+                    : 'Notas aprovadas serão listadas aqui após a confirmação, no período selecionado.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
+              <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
+                      {tableColumns.map(({ label, key }) => {
+                        const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
+                        const isOpen = columnFiltersEnabled && filterOpenKey === key;
+                        const uniqueVals = isOpen ? getColumnUniqueValues(key) : [];
+                        const selected = isOpen ? (filterPendingSelection ?? new Set<string>()) : (columnFilters[key] ?? new Set<string>());
+                        const searchLower = filterSearchQuery.toLowerCase();
+                        const displayed = searchLower ? uniqueVals.filter(v => v.toLowerCase().includes(searchLower)) : uniqueVals;
+                        return (
+                          <th key={key} className="px-3 py-3 text-left whitespace-nowrap relative">
+                            <div className="inline-flex items-center gap-1">
+                              <span
+                                onClick={columnFiltersEnabled ? () => { isOpen ? closeFilter() : openFilter(key); } : undefined}
+                                title={columnFiltersEnabled ? (hasFilter ? 'Filtro ativo' : 'Filtrar') : undefined}
+                                className={cn(
+                                  'inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] transition-colors',
+                                  columnFiltersEnabled
+                                    ? cn('border-[#D81E1E]/45 cursor-pointer', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E]')
+                                    : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]',
+                                )}
+                              >
+                                {label}
+                              </span>
+                              {isOpen && (<>
+                                <div className="fixed inset-0 z-[90]" onClick={closeFilter} />
+                                <div className="absolute left-0 top-full mt-1 z-[100] rounded-xl shadow-2xl border border-on-surface/10 bg-surface-container overflow-hidden normal-case" style={{ minWidth: '200px', maxWidth: '280px' }}>
+                                  <div className="p-2 border-b border-on-surface/10">
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={filterSearchQuery}
+                                      onChange={e => setFilterSearchQuery(e.target.value)}
+                                      placeholder="Buscar valor..."
+                                      onClick={e => e.stopPropagation()}
+                                      className="w-full px-3 py-1.5 text-xs rounded-lg outline-none bg-on-surface/[0.05] text-on-surface placeholder-on-surface/30 border border-on-surface/[0.08] focus:border-primary/50"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2 px-3 py-1.5 border-b border-on-surface/10">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setFilterPendingSelection(new Set(uniqueVals)); }}
+                                      className="text-[10px] font-bold text-on-surface/40 hover:text-on-surface/70 transition-colors"
+                                    >
+                                      Selecionar tudo
+                                    </button>
+                                    <span className="text-on-surface/15">·</span>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setFilterPendingSelection(new Set()); }}
+                                      className="text-[10px] font-bold text-on-surface/40 hover:text-red-400 transition-colors"
+                                    >
+                                      Limpar
+                                    </button>
+                                  </div>
+                                  <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
+                                    {displayed.length === 0 ? (
+                                      <div className="px-3 py-3 text-[11px] text-on-surface/30 text-center">Nenhum resultado</div>
+                                    ) : displayed.map(val => {
+                                      const checked = selected.has(val);
+                                      return (
+                                        <label key={val} className="flex items-center gap-2 px-3 py-1.5 hover:bg-on-surface/[0.04] cursor-pointer" onClick={e => e.stopPropagation()}>
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            className="w-3 h-3 accent-primary"
+                                            onChange={() => {
+                                              setFilterPendingSelection(prev => {
+                                                const cur = new Set<string>(prev ?? []);
+                                                if (checked) cur.delete(val); else cur.add(val);
+                                                return cur;
+                                              });
+                                            }}
+                                          />
+                                          <span className="text-[11px] font-medium normal-case text-on-surface/70 truncate" title={val}>{val}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-on-surface/10">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); closeFilter(); }}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-on-surface/50 hover:bg-on-surface/[0.06] hover:text-on-surface/80 transition-colors"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); confirmFilter(key); }}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-primary text-on-primary hover:opacity-90 transition-opacity"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
+                                </div>
+                              </>)}
+                            </div>
+                          </th>
+                        );
+                      })}
+                      <th className="px-3 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleNotes.map((note, idx) => (
+                      <tr
+                        key={note.id}
+                        className={cn(
+                          'transition-colors',
+                          idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40',
+                          'hover:bg-on-surface/[0.03]'
+                        )}
+                      >
+                        {/* Código */}
+                        <td className="px-4 py-3.5">
+                          {note.noteNumber ? (
+                            <span className="font-mono text-xs font-bold text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                              {note.noteNumber}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-on-surface/25 font-medium">—</span>
+                          )}
+                        </td>
+
+                        {/* Arquivo */}
+                        <td className="px-4 py-3.5 max-w-[180px]">
+                          <p className="text-sm font-semibold text-on-surface truncate">{note.fileName}</p>
+                        </td>
+
+                        {/* Fornecedor */}
+                        <td className="px-4 py-3.5 max-w-[140px]">
+                          <p className="text-xs text-on-surface/60 truncate">{note.supplierName || '—'}</p>
+                        </td>
+
+                        {/* Data (recebimento) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-xs text-on-surface/50">
+                          {note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}
+                        </td>
+
+                        {/* Itens */}
+                        <td className="px-4 py-3.5">
+                          <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                            {note.itemCount}
+                          </span>
+                        </td>
+
+                        {/* Verificados */}
+                        <td className="px-4 py-3.5">
+                          <span className={cn(
+                            'text-[10px] font-black px-2 py-1 rounded-lg',
+                            note.verifiedCount === note.itemCount && note.itemCount > 0
+                              ? 'bg-emerald-500/10 text-emerald-700'
+                              : 'bg-amber-500/10 text-amber-700'
+                          )}>
+                            {note.verifiedCount}/{note.itemCount}
+                          </span>
+                        </td>
+
+                        {/* Total */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span className="text-xs font-bold text-on-surface/70">
+                            {fmtBRL(noteTotal(note))}
+                          </span>
+                        </td>
+
+                        {/* Financeiro (Aprovados only) */}
+                        {activeSection === 'aprovados' && (
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2">
+                              {note.finance_transaction_id ? (
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-emerald-700 truncate max-w-[120px]">
+                                    {note.finance_tx_favorecido ?? 'Vinculada'}
+                                  </span>
+                                  {note.finance_tx_valor != null && (
+                                    <span className="text-[10px] text-emerald-600">
+                                      {fmtBRL(note.finance_tx_valor)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-on-surface/30 font-medium">—</span>
+                              )}
+                              <button
+                                onClick={() => setLinkingNote(note)}
+                                title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
+                                className={cn(
+                                  'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
+                                  note.finance_transaction_id
+                                    ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                                    : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                                )}
+                              >
+                                <Link2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* Ações */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => onViewReviewNote(note)}
+                              title="Ver / editar nota"
+                              className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
+                            >
+                              <Pencil size={14} />
+                            </button>
+
+                            {activeSection === 'revisoes' && (
+                              <button
+                                onClick={() => setConfirmApproveId(note.id)}
+                                title="Aprovar nota"
+                                className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"
+                              >
+                                <CheckCircle2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Rascunhos ────────────────────────────────────────────────────── */}
+      {activeSection === 'rascunhos' && (
+        <div className="hidden md:block space-y-4">
+          {(!bulkDrafts || bulkDrafts.length === 0) ? (
+            <div className="flex flex-col items-center justify-center py-16 text-on-surface/20">
+              <ClipboardList size={48} className="mb-4 opacity-30" />
+              <p className="text-sm font-black uppercase tracking-widest">Nenhum rascunho</p>
+            </div>
+          ) : bulkDrafts.map(draft => {
+            const isConfirmingDelete = confirmDeleteDraftId === draft.id;
+            return (
+              <div key={draft.id} className="bg-surface-container-lowest border border-on-surface/[0.04] rounded-[2rem] p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-1">Rascunho · Lista de Produtos</p>
+                    <p className="text-base font-black text-on-surface">{draft.file_name || 'Rascunho sem nome'}</p>
+                    <p className="text-xs text-on-surface/40 mt-1">{draft.timestamp_label || ''} · {draft.item_count || 0} produto(s)</p>
                   </div>
-                  {isConfirmingDelete ? (
-                    <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl">
-                      <p className="text-sm font-bold text-red-600 dark:text-red-400 flex-1">Excluir este rascunho?</p>
-                      <button onClick={() => { onDeleteBulkDraft?.(draft.id); setConfirmDeleteDraftId(null); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-black rounded-xl hover:bg-red-600 transition-colors">Sim</button>
-                      <button onClick={() => setConfirmDeleteDraftId(null)} className="px-3 py-1.5 bg-on-surface/10 text-on-surface/60 text-xs font-black rounded-xl transition-colors">Não</button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-3">
-                      <button onClick={() => onApproveBulkDraft?.(draft.id, draft.items || [])} className="flex-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-4 py-3 rounded-2xl font-black text-sm hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 uppercase tracking-widest active:scale-95">
-                        <CheckCircle2 size={16} />
-                        Aprovar
-                      </button>
-                      <button onClick={() => setConfirmDeleteDraftId(draft.id)} className="px-4 py-3 rounded-2xl font-black text-sm bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest active:scale-95">
-                        Excluir
-                      </button>
-                    </div>
-                  )}
+                </div>
+                {isConfirmingDelete ? (
+                  <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400 flex-1">Excluir este rascunho?</p>
+                    <button onClick={() => { onDeleteBulkDraft?.(draft.id); setConfirmDeleteDraftId(null); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-black rounded-xl hover:bg-red-600 transition-colors">Sim</button>
+                    <button onClick={() => setConfirmDeleteDraftId(null)} className="px-3 py-1.5 bg-on-surface/10 text-on-surface/60 text-xs font-black rounded-xl transition-colors">Não</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button onClick={() => onApproveBulkDraft?.(draft.id, draft.items || [])} className="flex-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-4 py-3 rounded-2xl font-black text-sm hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 uppercase tracking-widest active:scale-95">
+                      <CheckCircle2 size={16} />
+                      Aprovar
+                    </button>
+                    <button onClick={() => setConfirmDeleteDraftId(draft.id)} className="px-4 py-3 rounded-2xl font-black text-sm bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest active:scale-95">
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Dicionário (aba) ─────────────────────────────────────────────── */}
+      {activeSection === 'dicionario' && (
+        <div className="hidden md:block">
+          <SupplierDictionary embedded isOpen onClose={() => {}} setNotification={setNotification} />
+        </div>
+      )}
+
+      {/* ── Fornecedores (aba) ───────────────────────────────────────────── */}
+      {activeSection === 'fornecedores' && (
+        <div className="hidden md:block bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
+          <div className="p-6 border-b border-on-surface/[0.06] flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+              <Users size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-black text-on-surface leading-none">Fornecedores</h2>
+              <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerSuppliers.length} cadastrado{pickerSuppliers.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="relative w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+              <input
+                type="text"
+                value={supplierSearch}
+                onChange={e => setSupplierSearch(e.target.value)}
+                placeholder="Buscar fornecedor..."
+                className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
+              />
+            </div>
+            <button
+              onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
+              className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
+              title="Cadastrar novo fornecedor"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {loadingPicker ? (
+              <div className="col-span-full flex items-center justify-center py-10">
+                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+              </div>
+            ) : filteredSuppliers.length === 0 ? (
+              <p className="col-span-full text-sm text-on-surface/30 text-center py-10">
+                {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
+              </p>
+            ) : filteredSuppliers.map(s => {
+              const displayName = s.nome_fantasia || s.name;
+              const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
+              return (
+                <div key={s.id}
+                  className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{displayName}</p>
+                    {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
+                    {s.documento && <p className="text-[10px] text-on-surface/30 font-mono">{s.documento}</p>}
+                  </div>
+                  <button
+                    onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
+                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
+                    title="Editar fornecedor"
+                  >
+                    <Pencil size={14} />
+                  </button>
                 </div>
               );
             })}
           </div>
-        ) : visibleNotes.length === 0 ? (
-          <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
-            <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-              <ClipboardList size={32} />
-            </div>
-            <div>
-              <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
-                {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
-              </h4>
-              <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
-                {activeSection === 'revisoes'
-                  ? 'Notas importadas e enviadas para aprovação aparecerão aqui.'
-                  : 'Notas aprovadas serão listadas aqui após a confirmação.'}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-on-surface/[0.06]">
-                    {[
-                      'Código',
-                      'Arquivo',
-                      'Fornecedor',
-                      'Data',
-                      'Itens',
-                      'Verificados',
-                      'Total',
-                      ...(activeSection === 'aprovados' ? ['Financeiro'] : []),
-                      '',
-                    ].map(h => (
-                      <th key={h} className="px-4 py-3.5 text-left text-[10px] font-black uppercase tracking-widest text-on-surface/35 whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleNotes.map((note) => (
-                    <tr
-                      key={note.id}
-                      className="border-b border-on-surface/[0.04] last:border-0 hover:bg-on-surface/[0.015] transition-colors"
-                    >
-                      {/* Código */}
-                      <td className="px-4 py-3.5">
-                        {note.noteNumber ? (
-                          <span className="font-mono text-xs font-bold text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
-                            {note.noteNumber}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-on-surface/25 font-medium">—</span>
-                        )}
-                      </td>
-
-                      {/* Arquivo */}
-                      <td className="px-4 py-3.5 max-w-[180px]">
-                        <p className="text-sm font-semibold text-on-surface truncate">{note.fileName}</p>
-                      </td>
-
-                      {/* Fornecedor */}
-                      <td className="px-4 py-3.5 max-w-[140px]">
-                        <p className="text-xs text-on-surface/60 truncate">{note.supplierName || '—'}</p>
-                      </td>
-
-                      {/* Data (recebimento) */}
-                      <td className="px-4 py-3.5 whitespace-nowrap text-xs text-on-surface/50">
-                        {note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}
-                      </td>
-
-                      {/* Itens */}
-                      <td className="px-4 py-3.5">
-                        <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
-                          {note.itemCount}
-                        </span>
-                      </td>
-
-                      {/* Verificados */}
-                      <td className="px-4 py-3.5">
-                        <span className={cn(
-                          'text-[10px] font-black px-2 py-1 rounded-lg',
-                          note.verifiedCount === note.itemCount && note.itemCount > 0
-                            ? 'bg-emerald-500/10 text-emerald-700'
-                            : 'bg-amber-500/10 text-amber-700'
-                        )}>
-                          {note.verifiedCount}/{note.itemCount}
-                        </span>
-                      </td>
-
-                      {/* Total */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="text-xs font-bold text-on-surface/70">
-                          {fmtBRL(noteTotal(note))}
-                        </span>
-                      </td>
-
-                      {/* Financeiro (Aprovados only) */}
-                      {activeSection === 'aprovados' && (
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2">
-                            {note.finance_transaction_id ? (
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-emerald-700 truncate max-w-[120px]">
-                                  {note.finance_tx_favorecido ?? 'Vinculada'}
-                                </span>
-                                {note.finance_tx_valor != null && (
-                                  <span className="text-[10px] text-emerald-600">
-                                    {fmtBRL(note.finance_tx_valor)}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-on-surface/30 font-medium">—</span>
-                            )}
-                            <button
-                              onClick={() => setLinkingNote(note)}
-                              title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
-                              className={cn(
-                                'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
-                                note.finance_transaction_id
-                                  ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                                  : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
-                              )}
-                            >
-                              <Link2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      )}
-
-                      {/* Ações */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onViewReviewNote(note)}
-                            title="Ver / editar nota"
-                            className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
-                          >
-                            <Pencil size={14} />
-                          </button>
-
-                          {activeSection === 'revisoes' && (
-                            <button
-                              onClick={() => setConfirmApproveId(note.id)}
-                              title="Aprovar nota"
-                              className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"
-                            >
-                              <CheckCircle2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Confirm Approve Dialog ─────────────────────────────────────────── */}
       <AnimatePresence>
@@ -847,101 +1517,6 @@ export function LogisticsCenter({
               >
                 Cancelar
               </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Supplier Picker Modal ──────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showSupplierPicker && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowSupplierPicker(false)}
-              className="absolute inset-0 bg-on-surface/50 backdrop-blur-sm" />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              transition={{ duration: 0.2 }}
-              className="relative bg-surface-container-lowest rounded-3xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[80vh]"
-            >
-              {/* Header */}
-              <div className="px-6 py-5 border-b border-on-surface/[0.06] flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                    <Users size={20} />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-on-surface leading-none">Fornecedores</h2>
-                    <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerSuppliers.length} cadastrado{pickerSuppliers.length !== 1 ? 's' : ''}</p>
-                  </div>
-                </div>
-                <button onClick={() => setShowSupplierPicker(false)}
-                  className="p-2 hover:bg-on-surface/5 rounded-xl transition-colors">
-                  <X size={18} className="text-on-surface/40" />
-                </button>
-              </div>
-
-              {/* Search + Add */}
-              <div className="px-5 pt-4 pb-3 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={supplierSearch}
-                      onChange={e => setSupplierSearch(e.target.value)}
-                      placeholder="Buscar fornecedor..."
-                      className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
-                      autoFocus
-                    />
-                  </div>
-                  <button
-                    onClick={() => { setEditingSupplier(null); setShowAddSupplier(true); }}
-                    className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
-                    title="Cadastrar novo fornecedor"
-                  >
-                    <Plus size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* List */}
-              <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-1.5">
-                {loadingPicker ? (
-                  <div className="flex items-center justify-center py-10">
-                    <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
-                  </div>
-                ) : filteredSuppliers.length === 0 ? (
-                  <p className="text-sm text-on-surface/30 text-center py-10">
-                    {supplierSearch ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}
-                  </p>
-                ) : filteredSuppliers.map(s => {
-                  const displayName = s.nome_fantasia || s.name;
-                  const subtitle = s.razao_social && s.razao_social !== displayName ? s.razao_social : null;
-                  return (
-                    <div key={s.id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
-                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                        <Building2 size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{displayName}</p>
-                        {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
-                        {s.documento && <p className="text-[10px] text-on-surface/30 font-mono">{s.documento}</p>}
-                      </div>
-                      <button
-                        onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
-                        className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
-                        title="Editar fornecedor"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
             </motion.div>
           </div>
         )}

@@ -72,6 +72,8 @@ interface SupplierDictionaryProps {
   isOpen: boolean;
   onClose: () => void;
   setNotification: (notif: { type: 'success' | 'error', message: string } | null) => void;
+  /** Quando true, renderiza como painel de aba (sem overlay/backdrop/botão fechar) em vez de modal fullscreen. */
+  embedded?: boolean;
 }
 
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
@@ -100,7 +102,7 @@ function ProductImage({ src, alt, className }: { src: string, alt: string, class
   );
 }
 
-export function SupplierDictionary({ isOpen, onClose, setNotification }: SupplierDictionaryProps) {
+export function SupplierDictionary({ isOpen, onClose, setNotification, embedded = false }: SupplierDictionaryProps) {
   const [supplierNames, setSupplierNames] = useState<Supplier[]>([]);
   const [supplierMappings, setSupplierMappings] = useState<Mapping[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
@@ -545,27 +547,33 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
     <>
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 overflow-hidden">
+          <div className={embedded ? "" : "fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 overflow-hidden"}>
+            {!embedded && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="absolute inset-0 bg-black/45 md:bg-on-surface/40 backdrop-blur-sm"
+              />
+            )}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="absolute inset-0 bg-black/45 md:bg-on-surface/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              initial={embedded ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
+              exit={embedded ? undefined : { opacity: 0, y: 40 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               className={cn(
-                "relative flex flex-col overflow-hidden shadow-2xl",
-                "w-full h-[92dvh] rounded-t-[28px] bg-[#FDFAF0] dark:bg-[#1E1E18]",
-                "md:w-[95vw] md:max-w-[1400px] md:h-auto md:max-h-[92vh] md:rounded-[2.5rem] md:bg-surface-container-lowest md:ring-1 md:ring-on-surface/5"
+                "relative flex flex-col overflow-hidden",
+                embedded
+                  ? "w-full min-h-[560px] rounded-[1.75rem] bg-surface-container-lowest ring-1 ring-on-surface/5"
+                  : cn(
+                    "shadow-2xl w-full h-[92dvh] rounded-t-[28px] bg-[#FDFAF0] dark:bg-[#1E1E18]",
+                    "md:w-[95vw] md:max-w-[1400px] md:h-auto md:max-h-[92vh] md:rounded-[2.5rem] md:bg-surface-container-lowest md:ring-1 md:ring-on-surface/5"
+                  )
               )}
             >
               {/* ── Handle (mobile only) ── */}
-              <div className="md:hidden w-9 h-1 bg-[#1A1A0E]/15 dark:bg-white/12 rounded-full mx-auto mt-3 shrink-0" />
+              {!embedded && <div className="md:hidden w-9 h-1 bg-[#1A1A0E]/15 dark:bg-white/12 rounded-full mx-auto mt-3 shrink-0" />}
 
               {/* ── Mobile header ── */}
               <div className="md:hidden px-5 pt-3 shrink-0">
@@ -577,9 +585,11 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                     <h3 className="text-[17px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Dicionário de Fornecedores</h3>
                     <p className="text-[11px] font-bold text-[#1A1A0E]/40 dark:text-white/28 uppercase tracking-[0.08em]">Mapeamentos & Unidades</p>
                   </div>
-                  <button onClick={onClose} className="w-9 h-9 rounded-full bg-[#1A1A0E]/[0.07] dark:bg-white/[0.06] border border-[#1A1A0E]/[0.09] dark:border-white/[0.08] flex items-center justify-center shrink-0 transition-all active:scale-90">
-                    <X size={18} className="text-[#1A1A0E]/45 dark:text-white/35" />
-                  </button>
+                  {!embedded && (
+                    <button onClick={onClose} className="w-9 h-9 rounded-full bg-[#1A1A0E]/[0.07] dark:bg-white/[0.06] border border-[#1A1A0E]/[0.09] dark:border-white/[0.08] flex items-center justify-center shrink-0 transition-all active:scale-90">
+                      <X size={18} className="text-[#1A1A0E]/45 dark:text-white/35" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-1 mt-3">
                   <button onClick={() => setActiveTab('mappings')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'mappings' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Mapeamentos</button>
@@ -601,7 +611,9 @@ export function SupplierDictionary({ isOpen, onClose, setNotification }: Supplie
                     </div>
                   </div>
                 </div>
-                <button onClick={onClose} className="p-3 hover:bg-on-surface/5 rounded-full transition-colors text-on-surface/20 hover:text-on-surface"><X size={24} /></button>
+                {!embedded && (
+                  <button onClick={onClose} className="p-3 hover:bg-on-surface/5 rounded-full transition-colors text-on-surface/20 hover:text-on-surface"><X size={24} /></button>
+                )}
               </div>
 
               {/* ── Mobile divider ── */}

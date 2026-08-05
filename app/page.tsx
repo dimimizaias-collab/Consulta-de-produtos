@@ -6,7 +6,6 @@ import { TopNav } from '@/components/TopNav';
 import { NotificationsPage, type AppNotification } from '@/components/NotificationsPage';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
-import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
 import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
@@ -327,7 +326,6 @@ export default function Page() {
   const noteFileInputRef = useRef<HTMLInputElement>(null);
 
   // Supplier Dictionary states
-  const [showSuppliersModal, setShowSuppliersModal] = useState(false);
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
   const [supplierNames, setSupplierNames] = useState<any[]>([]);
   
@@ -896,12 +894,11 @@ export default function Page() {
     const anyModalOpen = !!(
       viewingReviewNote ||
       showEstoqueLayoutPicker ||
-      showSuppliersModal ||
       linkingItemIdx !== null
     );
     document.body.style.overflow = anyModalOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [viewingReviewNote, showEstoqueLayoutPicker, showSuppliersModal, linkingItemIdx]);
+  }, [viewingReviewNote, showEstoqueLayoutPicker, linkingItemIdx]);
 
   const fetchNotifications = async () => {
     const { data, error } = await supabase
@@ -3704,10 +3701,7 @@ export default function Page() {
                     setNoteSearchQuery('');
                     fetchSuppliers();
                   }}
-                  onSuppliersClick={() => {
-                    setShowSuppliersModal(true);
-                    fetchSuppliers();
-                  }}
+                  setNotification={setNotification}
                   reviewNotes={reviewNotes}
                   onViewReviewNote={(note) => {
                     openReviewNoteForEditing(note);
@@ -9100,13 +9094,6 @@ export default function Page() {
           />
         )}
       </AnimatePresence>
-
-      {/* Suppliers Dictionary Modal */}
-      <SupplierDictionary
-        isOpen={showSuppliersModal}
-        onClose={() => setShowSuppliersModal(false)}
-        setNotification={setNotification}
-      />
 
       {/* Hidden File Inputs */}
       <input
