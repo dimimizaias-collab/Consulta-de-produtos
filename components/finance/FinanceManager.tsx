@@ -7,7 +7,7 @@ import {
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
-  ArrowUp, ArrowDown,
+  ArrowUp, ArrowDown, Eye,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
+import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -271,6 +272,7 @@ export function FinanceManager() {
   const [editingFavorecido, setEditingFavorecido] = useState<Favorecido | null>(null);
   const [loadingFavorecidos, setLoadingFavorecidos] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [detailsFavorecido, setDetailsFavorecido] = useState<Favorecido | null>(null);
 
   // import extrato modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -2490,7 +2492,29 @@ export function FinanceManager() {
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3 font-semibold text-on-surface max-w-[180px] truncate" title={t.favorecido}>{t.favorecido}</td>
+                        <td className="px-4 py-3 max-w-[180px]">
+                          {(() => {
+                            const favMatch = favorecidos.find(f => f.nome_fiscal.trim().toLowerCase() === t.favorecido.trim().toLowerCase());
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-on-surface truncate min-w-0" title={t.favorecido}>{t.favorecido}</span>
+                                <button
+                                  onClick={() => favMatch && setDetailsFavorecido(favMatch)}
+                                  disabled={!favMatch}
+                                  title={favMatch ? 'Ver detalhes do favorecido' : 'Favorecido sem cadastro'}
+                                  className={cn(
+                                    'w-[22px] h-[22px] rounded-[7px] flex items-center justify-center shrink-0 transition-[background-color,color,transform]',
+                                    favMatch
+                                      ? 'text-on-surface/35 hover:bg-primary/10 hover:text-primary active:scale-[0.9]'
+                                      : 'text-on-surface/15 cursor-not-allowed'
+                                  )}
+                                >
+                                  <Eye size={12} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
                         <td className="px-4 py-3 overflow-visible">
                           {(() => {
@@ -3321,6 +3345,13 @@ export function FinanceManager() {
         suppliers={suppliers}
         onClose={() => { setShowFavorecidoEditModal(false); setPendingFavLinkGroup(null); }}
         onSaved={handleFavorecidoSaved}
+        variant="modal"
+      />
+
+      <FavorecidoDetailsModal
+        open={!!detailsFavorecido}
+        favorecido={detailsFavorecido}
+        onClose={() => setDetailsFavorecido(null)}
         variant="modal"
       />
 

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Detalhes do Favorecido (Light)</title>
+<style>
+  :root {
+    --color-primary: #D81E1E;
+    --color-primary-deep: #A30E0E;
+    --color-background: #FFFCEC;
+    --color-surface: #ffffff;
+    --color-surface-container: #FAF6E6;
+    --color-surface-container-low: #FFF6C9;
+    --color-on-surface: #1A1208;
+    --color-secondary: #4A3F2E;
+    --color-line: #E9DFC2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 24px;
+    background: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: 'DM Sans', Inter, system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 40px;
+  }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* ── Tabela (referência) ─────────────────────── */
+  .table-demo {
+    width: 640px; background: var(--color-surface); border: 1.5px solid var(--color-line);
+    border-radius: 14px; overflow: hidden;
+  }
+  .table-demo table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table-demo th {
+    text-align: left; padding: 10px 16px; background: #FFE500; border-bottom: 1px solid #D4C000;
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: rgba(26,26,10,.62);
+  }
+  .table-demo td { padding: 12px 16px; border-bottom: 1px solid var(--color-line); }
+  .table-demo tr:last-child td { border-bottom: none; }
+  .fav-cell { display: flex; align-items: center; gap: 8px; }
+  .fav-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fav-view-btn {
+    width: 24px; height: 24px; border-radius: 8px; border: none; flex-shrink: 0;
+    background: rgba(26,18,8,.06); color: rgba(26,18,8,.45);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background-color .15s, color .15s, transform .15s;
+  }
+  .fav-view-btn:hover { background: rgba(216,30,30,.12); color: var(--color-primary); }
+  .fav-view-btn:active { transform: scale(.9); }
+
+  /* ── Modal ─────────────────────── */
+  .overlay {
+    width: 560px; background: var(--color-surface-container);
+    border: 1px solid rgba(26,18,8,.08); border-radius: 24px; padding: 24px;
+    box-shadow: 0 24px 60px -12px rgba(26,18,8,.28);
+  }
+  .modal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+  .icon-chip {
+    width: 36px; height: 36px; border-radius: 12px; background: rgba(216,30,30,.10); color: var(--color-primary);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .modal-title { font-size: 16px; font-weight: 800; display: block; }
+  .modal-sub { font-size: 11px; color: rgba(26,18,8,.40); font-weight: 500; }
+  .close-btn {
+    width: 30px; height: 30px; border-radius: 10px; background: rgba(26,18,8,.06); border: none;
+    color: rgba(26,18,8,.45); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer;
+  }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 18px; background: rgba(26,18,8,.04); padding: 4px; border-radius: 12px; }
+  .tab-btn {
+    flex: 1; padding: 8px 0; border-radius: 9px; border: none; background: transparent; cursor: pointer;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: rgba(26,18,8,.42);
+    transition: background-color .15s, color .15s;
+  }
+  .tab-btn.active { background: var(--color-surface); color: var(--color-primary); box-shadow: 0 1px 3px rgba(26,18,8,.10); }
+
+  .field-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: rgba(26,18,8,.45); margin-bottom: 6px; display: block; }
+  .field-block {
+    width: 100%; background: rgba(26,18,8,.03); border: 1.5px dashed rgba(26,18,8,.14); border-radius: 12px;
+    padding: 10px 14px; font-size: 13px; color: rgba(26,18,8,.75); min-height: 18px;
+  }
+  .field-empty { color: rgba(26,18,8,.28); font-style: italic; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row > div { flex: 1; min-width: 0; }
+  .section-title {
+    display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: .04em; color: rgba(26,18,8,.38); margin-top: 4px;
+  }
+  .section-title .line { flex: 1; height: 1px; background: rgba(26,18,8,.08); }
+  .doc-badge {
+    display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .04em; background: rgba(216,30,30,.10); color: var(--color-primary); width: fit-content;
+  }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 32px 16px;
+    border: 1.5px dashed rgba(26,18,8,.14); border-radius: 16px; color: rgba(26,18,8,.32);
+  }
+  .empty-state span { font-size: 12px; font-weight: 700; max-width: 260px; }
+
+  .conta-card {
+    background: var(--color-surface); border: 1px solid rgba(26,18,8,.09); border-radius: 16px; padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .conta-card .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .conta-card .nome { font-size: 13.5px; font-weight: 800; }
+  .conta-card .doc-inline { font-size: 10.5px; font-weight: 700; color: rgba(26,18,8,.40); }
+  .conta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 11.5px; }
+  .conta-grid .k { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: rgba(26,18,8,.35); display: block; margin-bottom: 2px; }
+  .conta-grid .v { font-weight: 600; color: rgba(26,18,8,.80); }
+  .conta-grid .v.mono { font-family: 'DM Mono', monospace; }
+
+  /* ── Adicionar Conta (edit modal) — nova seção Agência/Conta ── */
+  .edit-conta-card {
+    background: var(--color-surface); border: 1px solid rgba(26,18,8,.09); border-radius: 16px; padding: 12px;
+    display: flex; flex-direction: column; gap: 8px; width: 520px;
+  }
+  .input-mini { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .input-mini span { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: rgba(26,18,8,.38); }
+  .input-mini input {
+    width: 100%; background: var(--color-surface-container-low); border: 1px solid rgba(26,18,8,.08); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--color-on-surface); outline: none;
+  }
+  .row2 { display: flex; gap: 8px; }
+
+  h2.section { font-size: 13px; font-weight: 800; color: rgba(26,18,8,.5); margin: 0 0 -8px 0; }
+</style>
+</head>
+<body>
+
+  <h2 class="section">1. Botão na célula Favorecido (tabela)</h2>
+  <div class="table-demo">
+    <table>
+      <thead><tr><th>Data</th><th>Favorecido</th><th>Estabelecimento</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono" style="font-size:12px;color:rgba(26,18,8,.6)">05/08/2026</td>
+          <td>
+            <div class="fav-cell">
+              <span class="fav-name">Distribuidora Sol Nascente Ltda</span>
+              <button class="fav-view-btn" title="Ver detalhes do favorecido">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </td>
+          <td style="color:rgba(26,18,8,.6)">Posto Sol Nascente</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="section">2. Modal de Detalhes — aba Cadastro</h2>
+  <div class="overlay">
+    <div class="modal-head">
+      <div class="icon-chip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <span class="modal-title">Distribuidora Sol Nascente Ltda</span>
+        <span class="modal-sub">Detalhes do favorecido</span>
+      </div>
+      <button class="close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active">Cadastro</button>
+      <button class="tab-btn">Contas (2)</button>
+    </div>
+
+    <div class="stack">
+      <div>
+        <span class="field-label">Nome Fiscal</span>
+        <div class="field-block">Distribuidora Sol Nascente Ltda</div>
+      </div>
+      <div>
+        <span class="field-label">Nome no Extrato</span>
+        <div class="field-block">SOL NASCENTE DISTRIB</div>
+      </div>
+
+      <div class="section-title">Identificação do Fornecedor<span class="line"></span></div>
+
+      <div>
+        <span class="field-label">Identificação</span>
+        <div style="margin-bottom:8px"><span class="doc-badge">CNPJ</span></div>
+        <div class="field-block mono">12.345.678/0001-90</div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <span class="field-label">Razão Social</span>
+          <div class="field-block">Distribuidora Sol Nascente Ltda</div>
+        </div>
+        <div>
+          <span class="field-label">Nome Fantasia</span>
+          <div class="field-block">Sol Nascente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">2b. Modal de Detalhes — aba Contas</h2>
+  <div class="overlay">
+    <div class="modal-head">
+      <div class="icon-chip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <span class="modal-title">Distribuidora Sol Nascente Ltda</span>
+        <span class="modal-sub">Detalhes do favorecido</span>
+      </div>
+      <button class="close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn">Cadastro</button>
+      <button class="tab-btn active">Contas (2)</button>
+    </div>
+
+    <div class="stack">
+      <div class="conta-card">
+        <div class="top">
+          <span class="nome">Sócio — João Pereira</span>
+          <span class="doc-inline mono">CPF · 123.456.789-00</span>
+        </div>
+        <div class="conta-grid">
+          <div><span class="k">Instituição</span><span class="v">Nubank</span></div>
+          <div><span class="k">Chave Pix</span><span class="v mono">joao@pix.com</span></div>
+          <div><span class="k">Agência</span><span class="v mono">0001</span></div>
+          <div><span class="k">Conta</span><span class="v mono">98765-4</span></div>
+        </div>
+      </div>
+      <div class="conta-card">
+        <div class="top">
+          <span class="nome">Conta secundária PJ</span>
+          <span class="doc-inline mono">CNPJ · 12.345.678/0001-90</span>
+        </div>
+        <div class="conta-grid">
+          <div><span class="k">Instituição</span><span class="v">Banco do Brasil</span></div>
+          <div><span class="k">Chave Pix</span><span class="v field-empty">—</span></div>
+          <div><span class="k">Agência</span><span class="v mono">3344</span></div>
+          <div><span class="k">Conta</span><span class="v mono">112233-5</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">3. Novos campos Agência/Conta em "Adicionar Conta" (Editar Favorecido)</h2>
+  <div class="edit-conta-card">
+    <div style="display:flex;gap:8px">
+      <div class="input-mini" style="flex:2"><span>Nome</span><input value="Sócio — João" /></div>
+      <div class="input-mini" style="flex:0 0 90px"><span>Tipo</span><input value="CPF" /></div>
+    </div>
+    <div class="input-mini"><span>Identificação</span><input class="mono" value="123.456.789-00" /></div>
+    <div class="row2">
+      <div class="input-mini"><span>Instituição</span><input value="Nubank" /></div>
+      <div class="input-mini"><span>Chave Pix</span><input value="joao@pix.com" /></div>
+    </div>
+    <div class="row2">
+      <div class="input-mini"><span>Agência</span><input class="mono" inputmode="numeric" value="0001" /></div>
+      <div class="input-mini"><span>Conta</span><input class="mono" inputmode="numeric" value="987654" /></div>
+    </div>
+  </div>
+
+</body>
+</html>

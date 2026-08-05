@@ -33,11 +33,13 @@ interface ContaDraft {
   identificacaoTipo: DocumentoTipo;
   identificacao: string;
   instituicao: string;
+  agencia: string;
+  conta: string;
   chavePix: string;
 }
 
 function emptyConta(): ContaDraft {
-  return { localId: crypto.randomUUID(), id: null, nome: '', identificacaoTipo: 'CNPJ', identificacao: '', instituicao: '', chavePix: '' };
+  return { localId: crypto.randomUUID(), id: null, nome: '', identificacaoTipo: 'CNPJ', identificacao: '', instituicao: '', agencia: '', conta: '', chavePix: '' };
 }
 
 interface FavorecidoEditModalProps {
@@ -103,7 +105,8 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
     const rows = (contasRes.data ?? []) as any[];
     setContas(rows.map(c => ({
       localId: c.id, id: c.id, nome: c.nome, identificacaoTipo: c.identificacao_tipo,
-      identificacao: c.identificacao, instituicao: c.instituicao, chavePix: c.chave_pix ?? '',
+      identificacao: c.identificacao, instituicao: c.instituicao,
+      agencia: c.agencia ?? '', conta: c.conta ?? '', chavePix: c.chave_pix ?? '',
     })));
     setInitialContaIds(new Set(rows.map(c => c.id as string)));
     setLoadingSupplier(false);
@@ -193,6 +196,8 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
             identificacao_tipo: c.identificacaoTipo,
             identificacao: c.identificacao.trim(),
             instituicao: c.instituicao.trim(),
+            agencia: c.agencia.trim(),
+            conta: c.conta.trim(),
             chave_pix: c.chavePix.trim() || null,
           };
           if (c.id) {
@@ -346,12 +351,21 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
                   >
                     <Trash2 size={12} />
                   </button>
-                  <div className="flex gap-2 mb-2 pr-8">
+                  <div className="mb-2 pr-8">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Nome</span>
+                    <input
+                      className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50"
+                      value={c.nome} onChange={e => updateConta(c.localId, { nome: e.target.value })} placeholder="Ex: Sócio — João"
+                    />
+                  </div>
+                  <div className="flex gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Nome</span>
+                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Identificação</span>
                       <input
-                        className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50"
-                        value={c.nome} onChange={e => updateConta(c.localId, { nome: e.target.value })} placeholder="Ex: Sócio — João"
+                        className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50 font-mono"
+                        value={c.identificacao}
+                        onChange={e => updateConta(c.localId, { identificacao: maskDocumento(e.target.value, c.identificacaoTipo) })}
+                        placeholder={c.identificacaoTipo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
                       />
                     </div>
                     <div className="w-[110px] shrink-0">
@@ -369,21 +383,34 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
                       </select>
                     </div>
                   </div>
-                  <div className="mb-2">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Identificação</span>
-                    <input
-                      className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50 font-mono"
-                      value={c.identificacao}
-                      onChange={e => updateConta(c.localId, { identificacao: maskDocumento(e.target.value, c.identificacaoTipo) })}
-                      placeholder={c.identificacaoTipo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                    />
-                  </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-2">
                     <div className="flex-1 min-w-0">
                       <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Instituição</span>
                       <input
                         className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50"
                         value={c.instituicao} onChange={e => updateConta(c.localId, { instituicao: e.target.value })} placeholder="Ex: Nubank"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Conta</span>
+                      <input
+                        className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50 font-mono"
+                        inputMode="numeric"
+                        value={c.conta}
+                        onChange={e => updateConta(c.localId, { conta: e.target.value.replace(/\D/g, '') })}
+                        placeholder="000000"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/38 mb-1 block">Agência</span>
+                      <input
+                        className="w-full bg-surface-container-low border border-on-surface/[0.08] rounded-lg px-2.5 py-2 text-[12px] text-on-surface outline-none focus:border-primary/50 font-mono"
+                        inputMode="numeric"
+                        value={c.agencia}
+                        onChange={e => updateConta(c.localId, { agencia: e.target.value.replace(/\D/g, '') })}
+                        placeholder="0000"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
