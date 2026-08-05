@@ -1830,9 +1830,10 @@ export default function Page() {
     };
 
     const ws = XLSX.utils.json_to_sheet(items.map((item, idx) => {
-      const isTranslated = item.verified;
-      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
-      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      // Mesma fonte de verdade da tabela de revisão: item.qty já é a quantidade
+      // final (pós-conversão de unidade), independente do item estar verificado.
+      const displayQty = item.qty || 0;
+      const rawCost = (item.price || 0) / (item.multiplier || 1);
       const adjCost = calcAdjCost(rawCost, idx, adj);
       const displayPriceTotal = adjCost * displayQty;
 
@@ -1918,9 +1919,10 @@ export default function Page() {
     }
 
     const tableData = items.map((item, idx) => {
-      const isTranslated = item.verified;
-      const displayQty = isTranslated ? item.qty : (item.original_qty || 1);
-      const rawCost = isTranslated ? (item.price / (item.multiplier || 1)) : item.price;
+      // Mesma fonte de verdade da tabela de revisão: item.qty já é a quantidade
+      // final (pós-conversão de unidade), independente do item estar verificado.
+      const displayQty = item.qty || 0;
+      const rawCost = (item.price || 0) / (item.multiplier || 1);
       const adjCost = calcCost(rawCost, idx);
       const displayPriceTotal = adjCost * displayQty;
 
@@ -2051,9 +2053,10 @@ export default function Page() {
       pvenda: number; markup: number | null; distribuicao: number | null;
     }
     const rows: RowData[] = items.map((item, idx) => {
-      const isT    = item.verified;
-      const qty    = isT ? (item.qty || 0) : (item.original_qty || 1);
-      const raw    = isT ? ((item.price || 0) / (item.multiplier || 1)) : (item.price || 0);
+      // Mesma fonte de verdade da tabela de revisão: item.qty já é a quantidade
+      // final (pós-conversão de unidade), independente do item estar verificado.
+      const qty    = item.qty || 0;
+      const raw    = (item.price || 0) / (item.multiplier || 1);
       const { disc, sur } = calcAdj(raw, idx);
       const adj2   = raw - disc + sur;
       const pvenda = item.product_price ?? 0;
@@ -6559,7 +6562,13 @@ export default function Page() {
                   <button
                     onClick={() => {
                       setEstoquePickerArgs({
-                        items: viewingReviewNote.items.map((item: any, idx: number) => ({ ...item, distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null) })),
+                        items: viewingReviewNote.items.map((item: any, idx: number) => ({
+                          ...item,
+                          qty: viewingNoteQtys[idx] ?? item.qty,
+                          unit: viewingNoteUnits[idx] ?? item.unit,
+                          multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+                          distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null),
+                        })),
                         adj: adjLegacy(),
                         meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
                       });
@@ -9065,6 +9074,9 @@ export default function Page() {
               setEstoquePickerArgs({
                 items: viewingReviewNote.items.map((item: any, idx: number) => ({
                   ...item,
+                  qty: viewingNoteQtys[idx] ?? item.qty,
+                  unit: viewingNoteUnits[idx] ?? item.unit,
+                  multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                   distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
                     ? parseInt(viewingNoteDistribuicao[idx]) || null
                     : (item.distribuicao ?? null),
