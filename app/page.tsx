@@ -2856,10 +2856,28 @@ export default function Page() {
         updated_at: new Date().toISOString(),
       }).eq('id', viewingReviewNote.id);
       if (saveError) throw saveError;
-      const priceUpdates = updatedItems
-        .filter((item: any) => item.product_id && item.product_price > 0)
-        .map((item: any) => supabase.from('products').update({ price: item.product_price }).eq('id', item.product_id));
-      if (priceUpdates.length > 0) await Promise.all(priceUpdates);
+      const priceCandidates = updatedItems.filter((item: any) => item.product_id && item.product_price > 0);
+      if (priceCandidates.length > 0) {
+        const noteReceivedDate = viewingReviewNote.receivedDate || null;
+        let currentDatesById: Record<string, string | null> = {};
+        if (noteReceivedDate) {
+          const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
+          const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
+          (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
+        }
+        const priceUpdates = priceCandidates
+          .filter((item: any) => {
+            // So nao atualiza se ja existe um preco vindo de uma nota com data de recebimento mais recente
+            const existingDate = currentDatesById[item.product_id];
+            return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+          })
+          .map((item: any) => {
+            const payload: any = { price: item.product_price };
+            if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
+            return supabase.from('products').update(payload).eq('id', item.product_id);
+          });
+        if (priceUpdates.length > 0) await Promise.all(priceUpdates);
+      }
       setReviewNotes(prev => prev.map(n => {
         if (n.id !== viewingReviewNote.id) return n;
         return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber, receivedDate: viewingReviewNote.receivedDate };
