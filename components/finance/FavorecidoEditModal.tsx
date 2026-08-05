@@ -166,12 +166,15 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
       const payload = { nome_fiscal: nomeFiscal.trim(), nome_banco: nomeBanco.trim(), supplier_id: finalSupplierId };
 
       if (favorecido) {
-        await supabase.from('finance_favorecidos').update(payload).eq('id', favorecido.id);
+        const { error: updErr } = await supabase.from('finance_favorecidos').update(payload).eq('id', favorecido.id);
+        if (updErr) throw updErr;
       } else {
-        await supabase.from('finance_favorecidos').insert([payload]);
+        const { error: insErr } = await supabase.from('finance_favorecidos').insert([payload]);
+        if (insErr) throw insErr;
         // Re-traduz movimentações já importadas que usavam o nome bruto do extrato.
         if (nomeBanco.trim()) {
-          await supabase.from('finance_transactions').update({ favorecido: nomeFiscal.trim() }).eq('favorecido', nomeBanco.trim());
+          const { error: txErr } = await supabase.from('finance_transactions').update({ favorecido: nomeFiscal.trim() }).eq('favorecido', nomeBanco.trim());
+          if (txErr) throw txErr;
         }
       }
 
@@ -179,7 +182,8 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
         const keptIds = new Set(contas.filter(c => c.id).map(c => c.id as string));
         const toDelete = [...initialContaIds].filter(id => !keptIds.has(id));
         if (toDelete.length > 0) {
-          await supabase.from('supplier_bank_accounts').delete().in('id', toDelete);
+          const { error: delErr } = await supabase.from('supplier_bank_accounts').delete().in('id', toDelete);
+          if (delErr) throw delErr;
         }
         for (const c of contas) {
           if (!c.nome.trim()) continue; // ignora linhas em branco deixadas incompletas
@@ -192,9 +196,11 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
             chave_pix: c.chavePix.trim() || null,
           };
           if (c.id) {
-            await supabase.from('supplier_bank_accounts').update(rowPayload).eq('id', c.id);
+            const { error: contaUpdErr } = await supabase.from('supplier_bank_accounts').update(rowPayload).eq('id', c.id);
+            if (contaUpdErr) throw contaUpdErr;
           } else {
-            await supabase.from('supplier_bank_accounts').insert([rowPayload]);
+            const { error: contaInsErr } = await supabase.from('supplier_bank_accounts').insert([rowPayload]);
+            if (contaInsErr) throw contaInsErr;
           }
         }
       }
