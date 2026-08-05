@@ -353,7 +353,7 @@ export function FinanceManager() {
     setLoadingData(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); fetchFavorecidos(); }, []);
 
   const fetchFavorecidos = async () => {
     setLoadingFavorecidos(true);
