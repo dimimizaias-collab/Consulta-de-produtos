@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Nota Unificada (Manifesto + Nota) — Light</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #EDE9D6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 32px 24px 80px;
+    gap: 40px;
+  }
+
+  .page-label {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    color: rgba(26,26,10,0.35); margin-bottom: -18px;
+  }
+
+  /* ── tokens ─────────────────────────── */
+  :root {
+    --cm-bg:                 #FDFAF0;
+    --cm-overlay:            rgba(40,36,18,0.45);
+    --cm-header-bg:          #FFE500;
+    --cm-header-border:      #D4C000;
+    --cm-icon-bg:            rgba(26,26,10,0.09);
+    --cm-icon:               #1A1A0E;
+    --cm-title:              #1A1A0E;
+    --cm-subtitle:           rgba(26,26,10,0.40);
+    --cm-close:              rgba(26,26,10,0.45);
+    --cm-btn-close-bg:       rgba(26,26,10,0.08);
+    --cm-btn-close-border:   rgba(26,26,10,0.10);
+    --cm-col-header-bg:      #FFE500;
+    --cm-col-header-border:  #D4C000;
+    --cm-col-header-text:    rgba(26,26,10,0.55);
+    --cm-row-even:           #FFFFFF;
+    --cm-row-odd:            #FAF7EE;
+    --cm-row-hover:          #FFF8D0;
+    --cm-row-num:            rgba(26,26,10,0.28);
+    --cm-cell-border:        #E0D8BF;
+    --cm-cell-text:          #1A1A0E;
+    --cm-cell-muted:         rgba(26,26,10,0.22);
+    --cm-linked-bg:          rgba(16,185,129,0.10);
+    --cm-linked-border:      rgba(16,185,129,0.30);
+    --cm-linked-text:        #0A7A55;
+    --cm-translated-bg:      rgba(16,185,129,0.08);
+    --cm-translated-text:    #0A7A55;
+    --cm-vincular-border:    rgba(26,26,10,0.22);
+    --cm-vincular-text:      rgba(26,26,10,0.40);
+    --cm-add-border:         rgba(26,26,10,0.22);
+    --cm-add-text:           rgba(26,26,10,0.30);
+    --cm-footer-bg:          #FFF7B0;
+    --cm-footer-border:      #DDD000;
+    --cm-footer-text:        #1A1A0E;
+    --cm-footer-muted:       rgba(26,26,10,0.38);
+    --cm-stat-linked:        #0A7A55;
+    --cm-btn-ghost-border:   rgba(26,26,10,0.18);
+    --cm-btn-ghost-text:     rgba(26,26,10,0.55);
+    --cm-btn-primary-bg:     #1A1A0E;
+    --cm-btn-primary-text:   #FFE500;
+    --cm-select-bg:          rgba(26,26,10,0.05);
+    --cm-select-border:      rgba(26,26,10,0.14);
+    --cm-import-border:      rgba(26,26,10,0.22);
+    --cm-import-text:        rgba(26,26,10,0.45);
+    --cm-valor-bg:           rgba(26,26,10,0.03);
+    --cm-disabled-bg:        rgba(26,26,10,0.03);
+    --cm-disabled-text:      rgba(26,26,10,0.24);
+    --ease: cubic-bezier(0.23,1,0.32,1);
+
+    /* status colors */
+    --st-registro-fg:     #57534E;
+    --st-registro-bg:     rgba(26,26,10,0.07);
+    --st-registro-border: rgba(26,26,10,0.16);
+    --st-aguardando-fg:     #B45309;
+    --st-aguardando-bg:     rgba(217,119,6,0.10);
+    --st-aguardando-border: rgba(217,119,6,0.30);
+    --st-revisao-fg:     #1D4ED8;
+    --st-revisao-bg:     rgba(37,99,235,0.09);
+    --st-revisao-border: rgba(37,99,235,0.28);
+    --st-aprovada-fg:     #0A7A55;
+    --st-aprovada-bg:     rgba(16,185,129,0.10);
+    --st-aprovada-border: rgba(16,185,129,0.32);
+  }
+
+  /* ── modal shell ────────────────────── */
+  .modal {
+    position: relative;
+    background: var(--cm-bg);
+    border-radius: 24px;
+    box-shadow: 0 32px 80px rgba(60,55,10,0.18), 0 2px 8px rgba(60,55,10,0.08);
+    width: 100%;
+    max-width: 1340px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(26,26,10,0.08);
+  }
+
+  /* ── header ─────────────────────────── */
+  .header {
+    background: var(--cm-header-bg);
+    border-bottom: 1.5px solid var(--cm-header-border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .icon-chip {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    background: var(--cm-icon-bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-chip svg { color: var(--cm-icon); }
+
+  .title-block { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
+  .title-block h2 {
+    font-size: 14px; font-weight: 900;
+    color: var(--cm-title); line-height: 1;
+    letter-spacing: -0.2px;
+  }
+  .title-block p {
+    font-size: 11px; color: var(--cm-subtitle);
+    font-weight: 500; margin-top: 3px;
+  }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px 5px 9px;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border: 1.5px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .header-controls {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+
+  .btn-close {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: var(--cm-btn-close-bg);
+    border: 1.5px solid var(--cm-btn-close-border);
+    color: var(--cm-close);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+  }
+  .btn-close:hover {
+    background: rgba(200,26,26,0.10);
+    border-color: rgba(200,26,26,0.22);
+    color: #C81A1A;
+  }
+
+  /* ── tabs ───────────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 24px 0;
+    background: var(--cm-bg);
+    border-bottom: 1px solid rgba(26,26,10,0.08);
+    flex-shrink: 0;
+  }
+  .tab-btn {
+    display: flex; align-items: center; gap: 7px;
+    background: transparent;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    color: rgba(26,26,10,0.42);
+    padding: 10px 6px 12px;
+    font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+    margin-right: 22px;
+  }
+  .tab-btn:hover { color: rgba(26,26,10,0.65); }
+  .tab-btn.active {
+    color: #1A1A0E;
+    border-bottom-color: #1A1A0E;
+  }
+  .tab-btn .tab-badge {
+    background: rgba(26,26,10,0.10);
+    color: rgba(26,26,10,0.55);
+    font-size: 9px; font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+  }
+
+  .tab-panel { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .tab-panel.active { display: flex; }
+
+  /* ── produtos toolbar ───────────────── */
+  .produtos-toolbar {
+    display: flex; align-items: flex-end; gap: 12px;
+    padding: 14px 24px 4px;
+    flex-shrink: 0;
+  }
+  .supplier-block label, .field-block label {
+    display: block;
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(26,26,10,0.40);
+    margin-bottom: 4px;
+  }
+  .supplier-select {
+    background: var(--cm-select-bg);
+    border: 1.5px solid var(--cm-select-border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px; font-weight: 700;
+    color: var(--cm-title);
+    min-width: 240px;
+    outline: none;
+    cursor: pointer;
+  }
+  .field-note-num input {
+    background: var(--cm-select-bg);
+    border: 1.5px solid var(--cm-select-border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px; font-weight: 700;
+    color: var(--cm-title);
+    width: 140px;
+    outline: none;
+  }
+  .btn-import {
+    display: flex; align-items: center; gap: 6px;
+    border: 1.5px solid var(--cm-import-border);
+    background: transparent;
+    color: var(--cm-import-text);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  .btn-import:hover {
+    border-color: rgba(26,26,10,0.38);
+    background: rgba(26,26,10,0.04);
+    color: rgba(26,26,10,0.65);
+  }
+
+  .lock-note {
+    display: flex; align-items: center; gap: 7px;
+    margin: 4px 24px 0;
+    padding: 8px 12px;
+    background: rgba(217,119,6,0.08);
+    border: 1px solid rgba(217,119,6,0.22);
+    border-radius: 10px;
+    color: #B45309;
+    font-size: 11px; font-weight: 700;
+  }
+
+  /* ── table area ─────────────────────── */
+  .table-area {
+    flex: 1;
+    overflow: auto;
+    background: var(--cm-bg);
+    padding: 8px 0 8px 0;
+  }
+
+  table { width: 100%; border-collapse: collapse; min-width: 920px; }
+  thead { position: sticky; top: 0; z-index: 10; }
+  thead th {
+    background: var(--cm-col-header-bg);
+    border-bottom: 1.5px solid var(--cm-col-header-border);
+    padding: 9px 10px;
+    font-size: 9px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--cm-col-header-text);
+    white-space: nowrap;
+    user-select: none;
+  }
+  thead th + th { border-left: 1px solid rgba(26,26,10,0.08); }
+  thead th.center { text-align: center; }
+  thead th.right  { text-align: right;  }
+  thead th.left   { text-align: left;   }
+
+  tbody tr:nth-child(even) { background: var(--cm-row-even); }
+  tbody tr:nth-child(odd)  { background: var(--cm-row-odd);  }
+  tbody tr:hover           { background: var(--cm-row-hover); }
+
+  tbody td { padding: 0; vertical-align: middle; border-bottom: 1px solid var(--cm-cell-border); }
+  tbody td + td { border-left: 1px solid var(--cm-cell-border); }
+
+  .cell-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    padding: 8px 10px; font-size: 12px; font-weight: 500;
+    color: var(--cm-cell-text); font-family: inherit;
+  }
+  .cell-input::placeholder { color: var(--cm-cell-muted); }
+  .cell-input.mono { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 11px; }
+  .cell-input.right { text-align: right; }
+
+  .row-num {
+    padding: 8px 6px; text-align: center; font-size: 11px; font-weight: 700;
+    color: var(--cm-row-num); font-family: 'SF Mono', monospace; user-select: none;
+  }
+
+  .valor-cell {
+    background: var(--cm-valor-bg); padding: 8px 10px; text-align: right;
+    font-size: 12px; font-weight: 700; color: var(--cm-cell-text);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.1px;
+  }
+
+  .vincular-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1.5px dashed var(--cm-vincular-border);
+    background: transparent; color: var(--cm-vincular-text);
+    padding: 4px 10px; border-radius: 7px;
+    font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    margin: 6px 10px; transition: all 150ms var(--ease);
+  }
+  .vincular-btn:hover {
+    border-color: rgba(26,26,10,0.40); color: rgba(26,26,10,0.65);
+    background: rgba(26,26,10,0.03);
+  }
+
+  .linked-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--cm-linked-bg); border: 1px solid var(--cm-linked-border);
+    color: var(--cm-linked-text); padding: 4px 10px; border-radius: 7px;
+    font-size: 11px; font-weight: 700; margin: 6px 10px;
+    max-width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+
+  .desc-wrapper { display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+  .desc-wrapper input {
+    flex: 1; background: transparent; border: none; outline: none;
+    padding: 8px 0; font-size: 12px; font-weight: 500;
+    color: var(--cm-cell-text); font-family: inherit;
+  }
+
+  .unid-wrapper { display: flex; align-items: center; justify-content: center; padding: 0 8px; }
+  .unid-wrapper input {
+    background: transparent; border: none; outline: none; padding: 8px 0;
+    font-size: 12px; font-weight: 600; color: var(--cm-cell-text);
+    font-family: inherit; text-align: center; width: 48px;
+  }
+
+  .delete-btn {
+    width: 28px; height: 28px; border-radius: 7px; background: transparent; border: none;
+    color: rgba(26,26,10,0.18); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; margin: auto; transition: all 150ms var(--ease);
+  }
+  .delete-btn:hover { background: rgba(200,26,26,0.08); color: #C81A1A; }
+  .delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .delete-btn:disabled:hover { background: transparent; color: rgba(26,26,10,0.18); }
+
+  .add-row-area { padding: 8px 10px; display: flex; }
+  .btn-add-row {
+    width: 32px; height: 32px; border-radius: 7px; border: 1.5px dashed var(--cm-add-border);
+    background: transparent; color: var(--cm-add-text);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: all 150ms var(--ease);
+  }
+  .btn-add-row:hover {
+    border-color: rgba(200,26,26,0.35); background: rgba(200,26,26,0.04);
+    color: rgba(200,26,26,0.55); transform: scale(1.04);
+  }
+  .btn-add-row:disabled {
+    opacity: 0.4; cursor: not-allowed; border-style: solid;
+    border-color: var(--cm-add-border); color: var(--cm-add-text);
+  }
+  .btn-add-row:disabled:hover { transform: none; background: transparent; }
+
+  /* ── recebimento tab ────────────────── */
+  .recebimento-panel { padding: 26px 32px 24px; overflow: auto; }
+  .receb-field-row { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 30px; }
+  .receb-field-row input[type="date"] {
+    background: var(--cm-select-bg);
+    border: 1.5px solid var(--cm-select-border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px; font-weight: 700;
+    color: var(--cm-title);
+    outline: none;
+    width: 200px;
+  }
+  .receb-field-row input[type="date"].needs-attn {
+    border-color: #D81E1E;
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.14);
+  }
+  .receb-hint {
+    font-size: 11px; font-weight: 600; color: rgba(26,26,10,0.35);
+  }
+  .receb-hint.warn { color: #D81E1E; font-weight: 700; }
+
+  .situacao-title {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(26,26,10,0.45); margin-bottom: 14px;
+  }
+
+  .situacao-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    max-width: 900px;
+  }
+
+  .situacao-card {
+    position: relative;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+    padding: 18px 16px;
+    border-radius: 16px;
+    border: 2px solid var(--cm-cell-border);
+    background: #FFFFFF;
+    cursor: pointer;
+    transition: all 150ms var(--ease);
+    text-align: left;
+  }
+  .situacao-card:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(26,26,10,0.08); }
+  .situacao-card:active { transform: scale(0.98); }
+
+  .situacao-card .sc-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .situacao-card .sc-label { font-size: 12.5px; font-weight: 800; color: var(--cm-title); }
+  .situacao-card .sc-desc { font-size: 10.5px; font-weight: 500; color: rgba(26,26,10,0.40); line-height: 1.4; }
+
+  .situacao-card.sc-registro   .sc-icon { background: var(--st-registro-bg);   color: var(--st-registro-fg); }
+  .situacao-card.sc-aguardando .sc-icon { background: var(--st-aguardando-bg); color: var(--st-aguardando-fg); }
+  .situacao-card.sc-revisao    .sc-icon { background: var(--st-revisao-bg);    color: var(--st-revisao-fg); }
+  .situacao-card.sc-aprovada   .sc-icon { background: var(--st-aprovada-bg);   color: var(--st-aprovada-fg); }
+
+  .situacao-card.active.sc-registro   { border-color: var(--st-registro-border);   background: var(--st-registro-bg); }
+  .situacao-card.active.sc-aguardando { border-color: var(--st-aguardando-border); background: var(--st-aguardando-bg); }
+  .situacao-card.active.sc-revisao    { border-color: var(--st-revisao-border);    background: var(--st-revisao-bg); }
+  .situacao-card.active.sc-aprovada   { border-color: var(--st-aprovada-border);   background: var(--st-aprovada-bg); }
+
+  .situacao-card .sc-check {
+    position: absolute; top: 12px; right: 12px;
+    width: 18px; height: 18px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+  }
+  .situacao-card.active .sc-check { display: flex; }
+  .situacao-card.sc-registro.active   .sc-check { background: var(--st-registro-fg); color: #fff; }
+  .situacao-card.sc-aguardando.active .sc-check { background: var(--st-aguardando-fg); color: #fff; }
+  .situacao-card.sc-revisao.active    .sc-check { background: var(--st-revisao-fg); color: #fff; }
+  .situacao-card.sc-aprovada.active   .sc-check { background: var(--st-aprovada-fg); color: #fff; }
+
+  .demo-note {
+    margin-top: 26px;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 10.5px; font-weight: 600; color: rgba(26,26,10,0.32);
+    background: rgba(26,26,10,0.04);
+    border: 1px dashed rgba(26,26,10,0.16);
+    padding: 8px 12px; border-radius: 10px;
+  }
+
+  /* ── footer ─────────────────────────── */
+  .footer {
+    background: var(--cm-footer-bg);
+    border-top: 1.5px solid var(--cm-footer-border);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .stats { display: flex; align-items: center; gap: 32px; }
+  .stat-block p.label {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--cm-footer-muted); margin-bottom: 2px;
+  }
+  .stat-block p.value {
+    font-size: 20px; font-weight: 900; color: var(--cm-footer-text); line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+  }
+  .stat-block p.value.linked { color: var(--cm-stat-linked); }
+
+  .footer-actions { display: flex; align-items: center; gap: 10px; }
+  .btn-ghost {
+    display: flex; align-items: center; gap: 7px;
+    border: 2px solid var(--cm-btn-ghost-border); background: transparent; color: var(--cm-btn-ghost-text);
+    padding: 10px 18px; border-radius: 14px;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer; transition: all 150ms var(--ease);
+  }
+  .btn-ghost:hover { border-color: rgba(26,26,10,0.32); background: rgba(26,26,10,0.04); color: rgba(26,26,10,0.75); }
+
+  .btn-primary {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--cm-btn-primary-bg); color: var(--cm-btn-primary-text);
+    padding: 10px 22px; border-radius: 14px; border: none;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(26,26,10,0.12);
+    transition: all 150ms var(--ease); white-space: nowrap;
+  }
+  .btn-primary:hover { background: #2e2e1a; box-shadow: 0 6px 20px rgba(26,26,10,0.18); transform: translateY(-1px); }
+
+  .col-num  { width: 48px; }
+  .col-cod  { width: 116px; }
+  .col-desc { min-width: 220px; }
+  .col-unid { width: 88px; }
+  .col-qty  { width: 108px; }
+  .col-prc  { width: 132px; }
+  .col-tot  { width: 132px; }
+  .col-dic  { min-width: 196px; }
+  .col-del  { width: 40px; }
+
+  /* ── confirm dialog overlay ─────────── */
+  .confirm-overlay {
+    position: absolute; inset: 0; z-index: 50;
+    background: var(--cm-overlay);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .confirm-overlay.show { display: flex; }
+  .confirm-box {
+    background: var(--cm-bg);
+    border-radius: 22px;
+    width: 100%; max-width: 380px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.30);
+    text-align: center;
+  }
+  .confirm-box .cb-icon {
+    width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .confirm-box h3 { font-size: 15px; font-weight: 900; color: var(--cm-title); margin-bottom: 8px; }
+  .confirm-box p { font-size: 12.5px; color: rgba(26,26,10,0.55); line-height: 1.55; margin-bottom: 20px; }
+  .confirm-box p b { color: var(--cm-title); font-weight: 800; }
+  .confirm-box .cb-confirm {
+    width: 100%; padding: 13px; border-radius: 14px; border: none;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #fff; cursor: pointer; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 150ms var(--ease);
+  }
+  .confirm-box .cb-confirm:active { transform: scale(0.97); }
+  .confirm-box .cb-cancel {
+    width: 100%; padding: 11px; border-radius: 14px; border: none;
+    background: rgba(26,26,10,0.06); color: rgba(26,26,10,0.55);
+    font-size: 11.5px; font-weight: 700; cursor: pointer;
+  }
+
+  .section-label {
+    font-size: 13px; font-weight: 900; color: #1A1A0E; margin-bottom: -8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-label">1 · ABA PRODUTOS (janela unificada — situação atual: Registro, edição liberada)</div>
+<div class="modal" id="modalProdutos">
+  <div class="header">
+    <div class="icon-chip">
+      <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    </div>
+    <div class="title-block">
+      <div>
+        <h2>Nota — Distribuidora ABC Ltda.</h2>
+        <p>Criada em 04/08/2026 · sem número de nota</p>
+      </div>
+    </div>
+    <div class="header-controls">
+      <span class="status-pill" style="color:var(--st-registro-fg); background:var(--st-registro-bg); border-color:var(--st-registro-border);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        Registro
+      </span>
+      <button class="btn-close"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.91 8.84 8.56 21.19a2 2 0 0 1-2.83 0L1.14 16.6a2 2 0 0 1 0-2.83l12.35-12.35a2 2 0 0 1 2.83 0l4.59 4.59a2 2 0 0 1 0 2.83Z"/></svg>
+      Produtos <span class="tab-badge">4</span>
+    </button>
+    <button class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      Recebimento
+    </button>
+  </div>
+
+  <div class="tab-panel active">
+    <div class="produtos-toolbar">
+      <div class="supplier-block">
+        <label>Fornecedor</label>
+        <select class="supplier-select"><option>Distribuidora ABC Ltda.</option></select>
+      </div>
+      <div class="field-block field-note-num">
+        <label>Nº da nota</label>
+        <input placeholder="—" />
+      </div>
+      <button class="btn-import">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        Importar Nota
+      </button>
+    </div>
+
+    <div class="table-area">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-num center">#</th>
+            <th class="col-cod left">Código</th>
+            <th class="col-desc left">Descrição</th>
+            <th class="col-unid center">Unid.</th>
+            <th class="col-qty right">Quantidade</th>
+            <th class="col-prc right">Preço Unit.</th>
+            <th class="col-tot right">Valor Total</th>
+            <th class="col-dic left">Dicionário</th>
+            <th class="col-del"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="row-num">1</div></td>
+            <td><input class="cell-input mono" value="FRN-00847" /></td>
+            <td><div class="desc-wrapper"><input value="Detergente Líquido 500ml Neutro" /></div></td>
+            <td><div class="unid-wrapper"><input value="UN" /></div></td>
+            <td><input class="cell-input right" value="48" /></td>
+            <td><input class="cell-input right" value="3,90" /></td>
+            <td><div class="valor-cell">R$ 187,20</div></td>
+            <td>
+              <span class="linked-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Detergente Ypê 500ml
+              </span>
+            </td>
+            <td><button class="delete-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>
+          </tr>
+          <tr>
+            <td><div class="row-num">2</div></td>
+            <td><input class="cell-input mono" value="FRN-00391" /></td>
+            <td><div class="desc-wrapper"><input value="Sabão em Pó 1kg Concentrado" /></div></td>
+            <td><div class="unid-wrapper"><input value="CX" /></div></td>
+            <td><input class="cell-input right" value="12" /></td>
+            <td><input class="cell-input right" value="28,50" /></td>
+            <td><div class="valor-cell">R$ 342,00</div></td>
+            <td>
+              <span class="linked-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Sabão Ypê 1kg Conc.
+              </span>
+            </td>
+            <td><button class="delete-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>
+          </tr>
+          <tr>
+            <td><div class="row-num">3</div></td>
+            <td><input class="cell-input mono" placeholder="—" /></td>
+            <td><div class="desc-wrapper"><input value="Amaciante Concentrado 2L Lavanda" /></div></td>
+            <td><div class="unid-wrapper"><input value="FD" /></div></td>
+            <td><input class="cell-input right" value="24" /></td>
+            <td><input class="cell-input right" value="14,80" /></td>
+            <td><div class="valor-cell">R$ 355,20</div></td>
+            <td>
+              <button class="vincular-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Vincular
+              </button>
+            </td>
+            <td><button class="delete-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>
+          </tr>
+          <tr>
+            <td><div class="row-num">4</div></td>
+            <td><input class="cell-input mono" placeholder="" /></td>
+            <td><div class="desc-wrapper"><input placeholder="Descrição do produto..." /></div></td>
+            <td><div class="unid-wrapper"><input placeholder="UN" /></div></td>
+            <td><input class="cell-input right" placeholder="0" /></td>
+            <td><input class="cell-input right" placeholder="0,00" /></td>
+            <td><div class="valor-cell" style="color:var(--cm-cell-muted)">—</div></td>
+            <td>
+              <button class="vincular-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Vincular
+              </button>
+            </td>
+            <td><button class="delete-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="add-row-area">
+        <button class="btn-add-row" title="Adicionar linha">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="stats">
+      <div class="stat-block"><p class="label">Itens</p><p class="value">4</p></div>
+      <div class="stat-block"><p class="label">Vinculados</p><p class="value linked">2</p></div>
+      <div class="stat-block"><p class="label">Total Geral</p><p class="value">R$ 884,40</p></div>
+    </div>
+    <div class="footer-actions">
+      <button class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="page-label">2 · ABA RECEBIMENTO (situação atual selecionada: Revisão)</div>
+<div class="modal" id="modalRecebimento" style="max-height:none;">
+  <div class="header">
+    <div class="icon-chip">
+      <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    </div>
+    <div class="title-block">
+      <div>
+        <h2>Nota — Distribuidora ABC Ltda.</h2>
+        <p>Criada em 04/08/2026 · nota 55.219</p>
+      </div>
+    </div>
+    <div class="header-controls">
+      <span class="status-pill" style="color:var(--st-revisao-fg); background:var(--st-revisao-bg); border-color:var(--st-revisao-border);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        Revisão
+      </span>
+      <button class="btn-close"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.91 8.84 8.56 21.19a2 2 0 0 1-2.83 0L1.14 16.6a2 2 0 0 1 0-2.83l12.35-12.35a2 2 0 0 1 2.83 0l4.59 4.59a2 2 0 0 1 0 2.83Z"/></svg>
+      Produtos <span class="tab-badge">4</span>
+    </button>
+    <button class="tab-btn active">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      Recebimento
+    </button>
+  </div>
+
+  <div class="recebimento-panel">
+    <div class="receb-field-row">
+      <div class="field-block">
+        <label>Data de recebimento</label>
+        <input type="date" value="2026-08-04" />
+      </div>
+      <div class="receb-hint">Necessária para colocar a nota em "Revisão"</div>
+    </div>
+
+    <div class="situacao-title">Situação de Entrada</div>
+    <div class="situacao-grid">
+      <button class="situacao-card sc-registro" onclick="openConfirm('registro', this)">
+        <div class="sc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+        <div class="sc-label">Registro</div>
+        <div class="sc-desc">Itens ainda podem ser adicionados livremente.</div>
+      </button>
+      <button class="situacao-card sc-aguardando" onclick="openConfirm('aguardando', this)">
+        <div class="sc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <div class="sc-label">Aguardando Recebimento</div>
+        <div class="sc-desc">Trava adição/remoção de itens até a mercadoria chegar.</div>
+      </button>
+      <button class="situacao-card sc-revisao active" onclick="openConfirm('revisao', this)">
+        <div class="sc-check"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="sc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div class="sc-label">Revisão</div>
+        <div class="sc-desc">Exige data de recebimento. Verificação de itens em curso.</div>
+      </button>
+      <button class="situacao-card sc-aprovada" onclick="openConfirm('aprovada', this)">
+        <div class="sc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg></div>
+        <div class="sc-label">Aprovada</div>
+        <div class="sc-desc">Move a nota para Aprovados. Ação não pode ser desfeita.</div>
+      </button>
+    </div>
+
+    <div class="demo-note">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      Clique em um card para simular o diálogo de confirmação (ver mockup abaixo)
+    </div>
+  </div>
+
+  <!-- confirm overlay demo -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <div class="cb-icon" id="cbIcon"></div>
+      <h3 id="cbTitle">Mudar situação da nota?</h3>
+      <p id="cbText">A nota <b>Distribuidora ABC Ltda.</b> vai para a situação <b id="cbStatusName">Revisão</b>.</p>
+      <button class="cb-confirm" id="cbConfirmBtn">Confirmar</button>
+      <button class="cb-cancel" onclick="closeConfirm()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="page-label">3 · TABELA "REVISÕES" — nova coluna de status antes de "Código"</div>
+<div class="modal" style="max-width:1100px;">
+  <div class="table-area" style="padding:0;">
+    <table style="min-width:auto;">
+      <thead>
+        <tr>
+          <th class="center" style="width:44px;">Situação</th>
+          <th class="left col-cod">Código</th>
+          <th class="left">Arquivo</th>
+          <th class="left">Fornecedor</th>
+          <th class="center">Recebimento</th>
+          <th class="center">Itens</th>
+          <th class="center">Verificados</th>
+          <th class="right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align:center; padding:10px 0;">
+            <span title="Registro" style="display:inline-flex; width:24px; height:24px; border-radius:8px; align-items:center; justify-content:center; background:var(--st-registro-bg); color:var(--st-registro-fg);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </span>
+          </td>
+          <td style="padding:10px 12px; font-weight:700; font-size:12px;">—</td>
+          <td style="padding:10px 12px; font-size:12px;">Nota — Distribuidora ABC Ltda.</td>
+          <td style="padding:10px 12px; font-size:12px;">Distribuidora ABC Ltda.</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px; color:var(--cm-cell-muted);">—</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">04</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">00/04</td>
+          <td style="padding:10px 12px; text-align:right; font-size:12px; font-weight:700;">R$ 884,40</td>
+        </tr>
+        <tr>
+          <td style="text-align:center; padding:10px 0;">
+            <span title="Aguardando Recebimento" style="display:inline-flex; width:24px; height:24px; border-radius:8px; align-items:center; justify-content:center; background:var(--st-aguardando-bg); color:var(--st-aguardando-fg);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </span>
+          </td>
+          <td style="padding:10px 12px; font-weight:700; font-size:12px;">55.204</td>
+          <td style="padding:10px 12px; font-size:12px;">Nota — Comercial Nordeste</td>
+          <td style="padding:10px 12px; font-size:12px;">Comercial Nordeste</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px; color:var(--cm-cell-muted);">—</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">12</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">12/12</td>
+          <td style="padding:10px 12px; text-align:right; font-size:12px; font-weight:700;">R$ 3.140,00</td>
+        </tr>
+        <tr>
+          <td style="text-align:center; padding:10px 0;">
+            <span title="Revisão" style="display:inline-flex; width:24px; height:24px; border-radius:8px; align-items:center; justify-content:center; background:var(--st-revisao-bg); color:var(--st-revisao-fg);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+          </td>
+          <td style="padding:10px 12px; font-weight:700; font-size:12px;">55.219</td>
+          <td style="padding:10px 12px; font-size:12px;">Nota — Distribuidora ABC Ltda.</td>
+          <td style="padding:10px 12px; font-size:12px;">Distribuidora ABC Ltda.</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">04/08/2026</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">04</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">02/04</td>
+          <td style="padding:10px 12px; text-align:right; font-size:12px; font-weight:700;">R$ 884,40</td>
+        </tr>
+        <tr>
+          <td style="text-align:center; padding:10px 0;">
+            <span title="Aprovada" style="display:inline-flex; width:24px; height:24px; border-radius:8px; align-items:center; justify-content:center; background:var(--st-aprovada-bg); color:var(--st-aprovada-fg);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+            </span>
+          </td>
+          <td style="padding:10px 12px; font-weight:700; font-size:12px;">55.190</td>
+          <td style="padding:10px 12px; font-size:12px;">Nota — Atacado Sul Ltda.</td>
+          <td style="padding:10px 12px; font-size:12px;">Atacado Sul Ltda.</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">02/08/2026</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">08</td>
+          <td style="padding:10px 12px; text-align:center; font-size:12px;">08/08</td>
+          <td style="padding:10px 12px; text-align:right; font-size:12px; font-weight:700;">R$ 1.920,00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const STATUS = {
+    registro:   { name: 'Registro',              fg: 'var(--st-registro-fg)',   bg: 'var(--st-registro-bg)',   icon: '<path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>' },
+    aguardando: { name: 'Aguardando Recebimento', fg: 'var(--st-aguardando-fg)', bg: 'var(--st-aguardando-bg)', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>' },
+    revisao:    { name: 'Revisão',                fg: 'var(--st-revisao-fg)',    bg: 'var(--st-revisao-bg)',    icon: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>' },
+    aprovada:   { name: 'Aprovada',                fg: 'var(--st-aprovada-fg)',   bg: 'var(--st-aprovada-bg)',   icon: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/>' },
+  };
+  let pendingCard = null;
+  function openConfirm(key, el) {
+    pendingCard = { key, el };
+    const s = STATUS[key];
+    document.getElementById('cbStatusName').textContent = s.name;
+    document.getElementById('cbIcon').style.background = s.bg;
+    document.getElementById('cbIcon').style.color = s.fg;
+    document.getElementById('cbIcon').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">${s.icon}</svg>`;
+    const btn = document.getElementById('cbConfirmBtn');
+    btn.style.background = s.fg;
+    document.getElementById('confirmOverlay').classList.add('show');
+  }
+  function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('show');
+    pendingCard = null;
+  }
+  document.getElementById('cbConfirmBtn').addEventListener('click', () => {
+    if (!pendingCard) return;
+    document.querySelectorAll('.situacao-card').forEach(c => c.classList.remove('active'));
+    pendingCard.el.classList.add('active');
+    closeConfirm();
+  });
+
+  // tab switching demo (both modal instances independently)
+  document.querySelectorAll('.modal').forEach(modal => {
+    const tabs = modal.querySelectorAll('.tab-btn');
+    const panels = modal.querySelectorAll('.tab-panel');
+    tabs.forEach((btn, i) => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

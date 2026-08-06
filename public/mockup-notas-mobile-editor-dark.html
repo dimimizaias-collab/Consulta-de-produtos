@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Editor de Nota Mobile, modo Administrador (Dark-only)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #111109;
+    display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center;
+    gap: 32px; min-height: 100vh; padding: 32px 24px 80px;
+  }
+  .note {
+    width: 390px; font-size: 11px; font-weight: 600; color: rgba(242,240,227,0.35);
+    line-height: 1.5; margin-bottom: 18px;
+  }
+  .note b { color: #FCD34D; }
+  .page-label {
+    width: 390px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    color: rgba(242,240,227,0.30); margin-bottom: 6px;
+  }
+  .phone {
+    width: 390px; background: #0e0e0a;
+    border-radius: 32px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+    border: 8px solid #000;
+    position: relative;
+    height: 760px;
+    display: flex; flex-direction: column;
+  }
+
+  /* top bar */
+  .topbar { flex-shrink: 0; background: #1a1a14; border-bottom: 1px solid rgba(242,240,227,0.07); padding: 16px 14px 12px; }
+  .topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .btn-x {
+    width: 34px; height: 34px; border-radius: 999px; background: rgba(242,240,227,0.06);
+    color: rgba(242,240,227,0.55); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .topbar-title p.t { font-size: 14px; font-weight: 900; color: #F2F0E3; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .topbar-title p.s { font-size: 9.5px; color: rgba(242,240,227,0.35); font-weight: 600; margin-top: 2px; }
+
+  .status-pill-mobile {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px 4px 7px; border-radius: 999px;
+    font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;
+    border: 1.5px solid; white-space: nowrap; flex-shrink: 0;
+  }
+
+  .progress-bar-outer { margin-top: 10px; height: 4px; background: rgba(242,240,227,0.06); border-radius: 999px; overflow: hidden; }
+  .progress-bar-inner { height: 100%; background: #10B981; border-radius: 999px; }
+
+  /* segmented control */
+  .segmented { flex-shrink: 0; display: flex; gap: 4px; padding: 10px 14px; background: #0e0e0a; }
+  .seg-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 0; border-radius: 12px; font-size: 11.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    background: rgba(242,240,227,0.05); color: rgba(242,240,227,0.40); border: 1.5px solid transparent;
+  }
+  .seg-btn.active { background: rgba(216,30,30,0.12); color: #F87171; border-color: rgba(216,30,30,0.30); }
+  .seg-btn .badge { font-size: 9px; padding: 1px 6px; border-radius: 999px; background: rgba(242,240,227,0.10); }
+  .seg-btn.active .badge { background: rgba(216,30,30,0.20); color: #F87171; }
+
+  .content { flex: 1; overflow: auto; padding: 4px 14px 16px; }
+
+  /* produtos tab: item list */
+  .toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .supplier-chip {
+    flex: 1; display: flex; flex-direction: column; gap: 2px;
+    background: rgba(242,240,227,0.05); border: 1.5px solid rgba(242,240,227,0.09);
+    border-radius: 12px; padding: 8px 12px;
+  }
+  .supplier-chip .lbl { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.35); }
+  .supplier-chip .val { font-size: 12px; font-weight: 800; color: #F2F0E3; }
+  .btn-import-icon {
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    border: 1.5px solid rgba(242,240,227,0.12); color: rgba(242,240,227,0.40);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .item-card {
+    background: #1a1a14; border: 1px solid rgba(242,240,227,0.07); border-radius: 16px;
+    padding: 12px; margin-bottom: 8px;
+  }
+  .item-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .item-card .desc { font-size: 12px; font-weight: 700; color: #F2F0E3; line-height: 1.35; }
+  .item-card .meta { font-size: 10.5px; color: rgba(242,240,227,0.35); margin-top: 4px; }
+  .item-card .price { font-size: 13px; font-weight: 900; color: #F2F0E3; white-space: nowrap; }
+  .item-card .link-badge {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
+    background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.25); color: #34D399;
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 7px;
+  }
+  .item-card .vincular-badge {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
+    border: 1.5px dashed rgba(242,240,227,0.20); color: rgba(242,240,227,0.35);
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 7px;
+  }
+
+  .btn-add-line {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1.5px dashed rgba(242,240,227,0.20); border-radius: 14px; padding: 12px;
+    color: rgba(242,240,227,0.35); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+  .lock-banner {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    background: rgba(252,211,77,0.08); border: 1px solid rgba(252,211,77,0.22); color: #FCD34D;
+    padding: 9px 12px; border-radius: 12px; font-size: 10.5px; font-weight: 700; line-height: 1.4;
+  }
+
+  /* recebimento tab */
+  .field-block { margin-bottom: 20px; }
+  .field-block label { display: block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.35); margin-bottom: 6px; }
+  .field-block input[type="date"] {
+    width: 100%; background: rgba(242,240,227,0.05); border: 1.5px solid rgba(242,240,227,0.10);
+    border-radius: 12px; padding: 11px 12px; font-size: 13px; font-weight: 700; color: #F2F0E3;
+    outline: none; color-scheme: dark;
+  }
+  .field-hint { font-size: 10px; font-weight: 600; color: rgba(242,240,227,0.32); margin-top: 6px; }
+
+  .situacao-title { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.42); margin-bottom: 12px; }
+  .situacao-grid-mobile { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sit-card {
+    position: relative; border-radius: 16px; border: 2px solid rgba(242,240,227,0.08);
+    background: #1a1a14; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .sit-card .ic { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .sit-card .lbl { font-size: 11.5px; font-weight: 800; color: #F2F0E3; line-height: 1.2; }
+  .sit-card .desc { font-size: 9.5px; font-weight: 500; color: rgba(242,240,227,0.32); line-height: 1.35; }
+  .sit-card .chk {
+    position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; color: #1A1A0E;
+  }
+
+  /* bottom sheet */
+  .sheet-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: flex-end; z-index: 10;
+  }
+  .sheet {
+    width: 100%; background: #161610; border-top: 1px solid rgba(242,240,227,0.08);
+    border-radius: 24px 24px 0 0; padding: 22px 20px 26px;
+  }
+  .sheet .sh-icon { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .sheet h3 { font-size: 15px; font-weight: 900; color: #F2F0E3; margin-bottom: 6px; }
+  .sheet p { font-size: 12px; color: rgba(242,240,227,0.45); line-height: 1.5; margin-bottom: 18px; }
+  .sheet p b { color: #F2F0E3; }
+  .sheet .btn-confirm {
+    width: 100%; padding: 14px; border-radius: 14px; border: none; color: #1A1A0E;
+    font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em;
+    display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;
+  }
+  .sheet .btn-cancel {
+    width: 100%; padding: 12px; border-radius: 14px; border: none;
+    background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.55); font-size: 11.5px; font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="page-label">1 · Modo Administrador — aba Produtos (situação: Registro)</div>
+  <div class="phone">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-left">
+          <div class="btn-x"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div class="topbar-title">
+            <p class="t">Distribuidora ABC Ltda.</p>
+            <p class="s">4 itens</p>
+          </div>
+        </div>
+        <span class="status-pill-mobile" style="color:#D8D3C0; background:rgba(242,240,227,0.08); border-color:rgba(242,240,227,0.20);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Registro
+        </span>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:50%;"></div></div>
+    </div>
+
+    <div class="segmented">
+      <div class="seg-btn active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.91 8.84 8.56 21.19a2 2 0 0 1-2.83 0L1.14 16.6a2 2 0 0 1 0-2.83l12.35-12.35a2 2 0 0 1 2.83 0l4.59 4.59a2 2 0 0 1 0 2.83Z"/></svg>
+        Produtos <span class="badge">4</span>
+      </div>
+      <div class="seg-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+        Recebimento
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="toolbar-row">
+        <div class="supplier-chip">
+          <span class="lbl">Fornecedor</span>
+          <span class="val">Distribuidora ABC Ltda.</span>
+        </div>
+        <div class="btn-import-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        </div>
+      </div>
+
+      <div class="item-card">
+        <div class="top">
+          <div>
+            <p class="desc">Detergente Líquido 500ml Neutro</p>
+            <p class="meta">48 UN · R$ 3,90/un</p>
+          </div>
+          <span class="price">R$ 187,20</span>
+        </div>
+        <span class="link-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Detergente Ypê 500ml
+        </span>
+      </div>
+
+      <div class="item-card">
+        <div class="top">
+          <div>
+            <p class="desc">Amaciante Concentrado 2L Lavanda</p>
+            <p class="meta">24 FD · R$ 14,80/un</p>
+          </div>
+          <span class="price">R$ 355,20</span>
+        </div>
+        <span class="vincular-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Vincular produto
+        </span>
+      </div>
+
+      <button class="btn-add-line">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Adicionar linha
+      </button>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="page-label">2 · Aba Recebimento — grade 2×2, situação "Revisão" ativa</div>
+  <div class="phone">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-left">
+          <div class="btn-x"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div class="topbar-title">
+            <p class="t">Distribuidora ABC Ltda.</p>
+            <p class="s">55.219 · 4 itens</p>
+          </div>
+        </div>
+        <span class="status-pill-mobile" style="color:#60A5FA; background:rgba(96,165,250,0.14); border-color:rgba(96,165,250,0.32);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          Revisão
+        </span>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:50%;"></div></div>
+    </div>
+
+    <div class="segmented">
+      <div class="seg-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.91 8.84 8.56 21.19a2 2 0 0 1-2.83 0L1.14 16.6a2 2 0 0 1 0-2.83l12.35-12.35a2 2 0 0 1 2.83 0l4.59 4.59a2 2 0 0 1 0 2.83Z"/></svg>
+        Produtos <span class="badge">4</span>
+      </div>
+      <div class="seg-btn active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+        Recebimento
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="field-block">
+        <label>Data de recebimento</label>
+        <input type="date" value="2026-08-04" />
+        <p class="field-hint">Necessária para colocar a nota em "Revisão"</p>
+      </div>
+
+      <div class="situacao-title">Situação de Entrada</div>
+      <div class="situacao-grid-mobile">
+        <div class="sit-card">
+          <div class="ic" style="background:rgba(242,240,227,0.08); color:#D8D3C0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </div>
+          <p class="lbl">Registro</p>
+          <p class="desc">Itens liberados p/ edição.</p>
+        </div>
+        <div class="sit-card">
+          <div class="ic" style="background:rgba(252,211,77,0.14); color:#FCD34D;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <p class="lbl">Aguardando</p>
+          <p class="desc">Trava adição de itens.</p>
+        </div>
+        <div class="sit-card" style="border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.09);">
+          <div class="chk" style="background:#60A5FA;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div class="ic" style="background:rgba(96,165,250,0.16); color:#60A5FA;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <p class="lbl">Revisão</p>
+          <p class="desc">Exige data preenchida.</p>
+        </div>
+        <div class="sit-card">
+          <div class="ic" style="background:rgba(52,211,153,0.15); color:#34D399;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+          </div>
+          <p class="lbl">Aprovada</p>
+          <p class="desc">Não pode ser desfeita.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="page-label">3 · Bottom sheet de confirmação (mesmo padrão do sheet "Administrador vs Estoque")</div>
+  <div class="phone">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-left">
+          <div class="btn-x"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div class="topbar-title">
+            <p class="t">Distribuidora ABC Ltda.</p>
+            <p class="s">55.219 · 4 itens</p>
+          </div>
+        </div>
+        <span class="status-pill-mobile" style="color:#60A5FA; background:rgba(96,165,250,0.14); border-color:rgba(96,165,250,0.32);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          Revisão
+        </span>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:50%;"></div></div>
+    </div>
+    <div class="segmented">
+      <div class="seg-btn">Produtos <span class="badge">4</span></div>
+      <div class="seg-btn active">Recebimento</div>
+    </div>
+    <div class="content" style="opacity:0.4;">
+      <div class="field-block">
+        <label>Data de recebimento</label>
+        <input type="date" value="2026-08-04" />
+      </div>
+    </div>
+
+    <div class="sheet-backdrop">
+      <div class="sheet">
+        <div class="sh-icon" style="background:rgba(16,185,129,0.15); color:#34D399;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+        </div>
+        <h3>Mudar situação da nota?</h3>
+        <p>A nota <b>Distribuidora ABC Ltda.</b> vai para a situação <b>Aprovada</b>. Essa ação não pode ser desfeita.</p>
+        <button class="btn-confirm" style="background:#34D399;">Confirmar</button>
+        <button class="btn-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note" style="width:100%; max-width:1240px;">
+  Obs.: este editor é <b>dark-only</b> propositalmente — o `MobileNoteView` atual já é uma tela fixa sempre escura no código (bg <code>#0e0e0a</code>), sem variante clara, então não existe versão "light" para replicar aqui.
+</div>
+
+</body>
+</html>

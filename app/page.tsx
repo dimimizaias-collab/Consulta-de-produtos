@@ -11,7 +11,7 @@ import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
-import { LogisticsCenter, ReviewNote } from '@/components/requests/LogisticsCenter';
+import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
 import { MobileManifestPage } from '@/components/requests/MobileManifestPage';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
@@ -29,7 +29,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -508,6 +508,10 @@ export default function Page() {
   const [reviewSavingMeasure, setReviewSavingMeasure] = useState(false);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
   const [editingNoteHeader, setEditingNoteHeader] = useState(false);
+  // ── Aba Produtos/Recebimento + Situação de Entrada ──
+  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento'>('produtos');
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
+  const [savingNoteStatus, setSavingNoteStatus] = useState(false);
   // ── Column filters (Excel-like) ──
   const [reviewFilterActive, setReviewFilterActive] = useState(false);
   const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
@@ -929,6 +933,7 @@ export default function Page() {
         itemCount: n.item_count,
         verifiedCount: n.verified_count,
         approved: n.approved ?? false,
+        status: n.status ?? (n.approved ? 'aprovada' : 'revisao'),
         noteNumber: n.note_number ?? undefined,
         accessKey: n.access_key ?? undefined,
         supplierName: n.supplier_name ?? undefined,
@@ -1066,8 +1071,8 @@ export default function Page() {
   };
 
   const handleApproveNote = async (noteId: string) => {
-    await supabase.from('review_notes').update({ approved: true }).eq('id', noteId);
-    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true } : n));
+    await supabase.from('review_notes').update({ approved: true, status: 'aprovada' }).eq('id', noteId);
+    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true, status: 'aprovada' } : n));
 
     // Gera notificação de aprovação
     const note = reviewNotes.find(n => n.id === noteId);
@@ -1103,6 +1108,25 @@ export default function Page() {
   const handleMarkAllNotificationsRead = async () => {
     await supabase.from('notifications').update({ read: true }).eq('read', false);
     setAppNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  // Muda a Situação de Entrada da nota (Registro/Aguardando Recebimento/Revisão/Aprovada).
+  // Usada pelos cards da aba Recebimento (desktop e mobile), sempre após confirmação do usuário.
+  const changeNoteStatus = async (noteId: string, status: NoteStatus) => {
+    setSavingNoteStatus(true);
+    try {
+      const approved = status === 'aprovada';
+      const { error } = await supabase.from('review_notes').update({ status, approved }).eq('id', noteId);
+      if (error) throw error;
+      setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, status, approved } : n));
+      setViewingReviewNote(prev => prev && prev.id === noteId ? { ...prev, status, approved } : prev);
+      setNotification({ type: 'success', message: `Situação alterada para "${STATUS_META[status].label}".` });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao alterar situação da nota.' });
+    } finally {
+      setSavingNoteStatus(false);
+      setStatusConfirmTarget(null);
+    }
   };
 
   const handleGoToNote = (noteId: string) => {
@@ -2455,6 +2479,8 @@ export default function Page() {
   const openReviewNoteForEditing = useCallback((note: ReviewNote) => {
     fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
     setViewingReviewNote(note);
+    setNoteEditorTab('produtos');
+    setStatusConfirmTarget(null);
     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
     setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
     setViewingNoteEans([]);
@@ -5744,7 +5770,10 @@ export default function Page() {
         onClose={() => setShowManualNoteModal(false)}
         suppliers={supplierNames}
         setNotification={setNotification}
-        onManifestSaved={(note) => setReviewNotes(prev => [note, ...prev])}
+        onManifestSaved={(note) => {
+          setReviewNotes(prev => [note, ...prev]);
+          openReviewNoteForEditing(note);
+        }}
       />
 
       {/* Manual Manifest — mobile */}
@@ -5755,7 +5784,12 @@ export default function Page() {
             onClose={() => setShowManualNoteModal(false)}
             suppliers={supplierNames}
             setNotification={setNotification}
-            onManifestSaved={(note) => setReviewNotes(prev => [note, ...prev])}
+            onManifestSaved={(note) => {
+              setReviewNotes(prev => [note, ...prev]);
+              openReviewNoteForEditing(note);
+              changeNoteViewMode('admin');
+              setShowMobileNoteView(true);
+            }}
           />
         )}
       </AnimatePresence>
@@ -6443,13 +6477,6 @@ export default function Page() {
                             className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent w-48 placeholder:text-on-surface/20"
                           />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <ReceivedDateField
-                            receivedDate={viewingReviewNote.receivedDate || ''}
-                            onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
-                            registeredLabel={viewingReviewNote.timestamp}
-                          />
-                        </div>
                         {viewingReviewNote.supplierName && (
                           <span className="text-xs font-bold text-on-surface/40">{viewingReviewNote.supplierName}</span>
                         )}
@@ -6482,12 +6509,6 @@ export default function Page() {
                               + Número da nota
                             </button>
                           )}
-                          <ReceivedDateField
-                            receivedDate={viewingReviewNote.receivedDate || ''}
-                            onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
-                            registeredLabel={viewingReviewNote.timestamp}
-                            className="px-2 py-0.5 border border-on-surface/15 rounded-lg text-xs font-semibold text-on-surface/40 hover:bg-on-surface/[0.05] transition-colors flex items-center gap-1"
-                          />
                         </div>
                       </div>
                     )}
@@ -6598,8 +6619,18 @@ export default function Page() {
                     <Download size={16} />
                   </button>
                   <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
+                  {(() => {
+                    const noteStatus = getNoteStatus(viewingReviewNote);
+                    const meta = STATUS_META[noteStatus];
+                    return (
+                      <span className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border', meta.bg, meta.fg, meta.border)}>
+                        <StatusIcon status={noteStatus} size={12} />
+                        {meta.label}
+                      </span>
+                    );
+                  })()}
                   <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
+                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); setNoteEditorTab('produtos'); }}
                     className="w-10 h-10 flex items-center justify-center rounded-full border-[1.5px] border-on-surface/15 hover:bg-on-surface/[0.07] transition-colors"
                   >
                     <X size={22} className="text-on-surface/40" />
@@ -6607,8 +6638,77 @@ export default function Page() {
                 </div>
               </div>
 
+              {/* Abas Produtos / Recebimento */}
+              <div className="flex gap-6 px-6 border-b border-line dark:border-white/[0.07] bg-white dark:bg-[#1e1e18] shrink-0">
+                <button
+                  onClick={() => setNoteEditorTab('produtos')}
+                  className={cn(
+                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
+                    noteEditorTab === 'produtos' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
+                  )}
+                >
+                  <FileText size={13} /> Produtos
+                  <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{viewingReviewNote.items?.length ?? 0}</span>
+                </button>
+                <button
+                  onClick={() => setNoteEditorTab('recebimento')}
+                  className={cn(
+                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
+                    noteEditorTab === 'recebimento' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
+                  )}
+                >
+                  <Calendar size={13} /> Recebimento
+                </button>
+              </div>
+
+              {noteEditorTab === 'recebimento' && (
+                <div className="flex-1 overflow-auto p-8">
+                  <div className="max-w-2xl">
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>
+                    <ReceivedDateField
+                      receivedDate={viewingReviewNote.receivedDate || ''}
+                      onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
+                      registeredLabel={viewingReviewNote.timestamp}
+                      className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors flex items-center gap-1.5 w-fit"
+                    />
+
+                    <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mt-8 mb-3">Situação de Entrada</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {(Object.keys(STATUS_META) as NoteStatus[]).map(key => {
+                        const meta = STATUS_META[key];
+                        const isActive = getNoteStatus(viewingReviewNote) === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setStatusConfirmTarget(key)}
+                            className={cn(
+                              'relative flex flex-col items-start gap-2.5 p-4 rounded-2xl border-2 text-left transition-all hover:-translate-y-0.5',
+                              isActive ? cn(meta.bg, meta.border) : 'border-on-surface/10 bg-white dark:bg-[#252520] hover:border-on-surface/20'
+                            )}
+                          >
+                            {isActive && (
+                              <span className={cn('absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center', meta.fg)} style={{ backgroundColor: 'currentColor' }}>
+                                <Check size={10} className="text-white" />
+                              </span>
+                            )}
+                            <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center', meta.bg, meta.fg)}>
+                              <StatusIcon status={key} size={17} />
+                            </span>
+                            <span className="text-xs font-black text-on-surface">{meta.label}</span>
+                            <span className="text-[10.5px] font-medium text-on-surface/40 leading-snug">{meta.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div
-                className="flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                className={cn(
+                  "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]",
+                  noteEditorTab === 'recebimento' && 'hidden'
+                )}
                 style={{ padding: 0 }}
               >
                 <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: '1400px' }}>
@@ -9010,6 +9110,70 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* Confirmação de mudança de Situação de Entrada (cards da aba Recebimento) */}
+      <AnimatePresence>
+        {statusConfirmTarget && viewingReviewNote && (() => {
+          const meta = STATUS_META[statusConfirmTarget];
+          const blockedByMissingDate = statusConfirmTarget === 'revisao' && !viewingReviewNote.receivedDate;
+          return (
+            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setStatusConfirmTarget(null)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="relative w-full max-w-sm bg-white dark:bg-[#1e1e18] border border-line dark:border-white/10 rounded-3xl p-6 text-center shadow-2xl"
+              >
+                <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4', meta.bg, meta.fg)}>
+                  <StatusIcon status={statusConfirmTarget} size={22} />
+                </div>
+                {blockedByMissingDate ? (
+                  <>
+                    <h3 className="text-base font-black text-on-surface mb-2">Falta a data de recebimento</h3>
+                    <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
+                      Para colocar essa nota em <b>Revisão</b> é preciso preencher a "Data de recebimento" acima nesta mesma aba.
+                    </p>
+                    <button
+                      onClick={() => setStatusConfirmTarget(null)}
+                      className="w-full py-3 rounded-2xl bg-on-surface/10 text-on-surface font-black text-xs uppercase tracking-widest hover:bg-on-surface/15 transition-all"
+                    >
+                      Entendi
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-base font-black text-on-surface mb-2">Mudar situação da nota?</h3>
+                    <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
+                      A nota <b className="text-on-surface">{viewingReviewNote.supplierName || viewingReviewNote.fileName}</b> vai para a situação <b className="text-on-surface">{meta.label}</b>.
+                      {statusConfirmTarget === 'aprovada' && ' Essa ação não pode ser desfeita.'}
+                    </p>
+                    <button
+                      disabled={savingNoteStatus}
+                      onClick={() => changeNoteStatus(viewingReviewNote.id, statusConfirmTarget)}
+                      className={cn('w-full py-3.5 rounded-2xl text-white font-black text-xs uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2 mb-2', meta.fg)}
+                      style={{ backgroundColor: 'currentColor' }}
+                    >
+                      <span className="text-white flex items-center gap-2">
+                        <CheckCircle2 size={15} /> {savingNoteStatus ? 'Salvando...' : 'Confirmar'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setStatusConfirmTarget(null)}
+                      className="w-full py-2.5 text-on-surface/45 font-bold text-xs hover:text-on-surface/70 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* Mode choice — Administrador vs Estoque, ao abrir uma nota no mobile */}
       <AnimatePresence>
         {noteModeChoiceOpen && viewingReviewNote && (
@@ -9109,6 +9273,8 @@ export default function Page() {
             onSave={handleSaveNote}
             savingNote={savingNote}
             onDelete={handleDeleteNote}
+            onChangeStatus={changeNoteStatus}
+            savingStatus={savingNoteStatus}
             onVarios={(idx) => { setShowMobileNoteView(false); setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
             eanProblems={eanProblems}
             onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}

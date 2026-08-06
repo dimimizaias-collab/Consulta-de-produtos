@@ -814,7 +814,8 @@ export function ManualManifestModal({
   const handleSubmit = async () => {
     const validRows = rows.filter(r => r.description.trim() || r.supplierCode.trim());
     if (validRows.length === 0) { setNotification({ type: 'error', message: 'Adicione ao menos um item ao manifesto.' }); return; }
-    if (!receivedDate) { setNotification({ type: 'error', message: 'Informe a data de recebimento.' }); return; }
+    // Data de recebimento agora é preenchida na aba "Recebimento" da nota, ao mover a
+    // situação para "Revisão" — não é mais exigida aqui no registro inicial da nota.
     if (currentDraftId) {
       const remoteUpdatedAt = await fetchRemoteUpdatedAt(currentDraftId).catch(() => null);
       if (loadedUpdatedAt && remoteUpdatedAt && remoteUpdatedAt !== loadedUpdatedAt) {
@@ -855,7 +856,9 @@ export function ManualManifestModal({
         id: noteId, timestamp, fileName: buildNoteLabel(supplierName, receivedDate, timestamp),
         items, itemCount: items.length, verifiedCount: items.filter(i => i.verified).length,
         supplierName: supplierName || undefined,
-        receivedDate,
+        receivedDate: receivedDate || undefined,
+        status: 'registro',
+        approved: false,
       };
       const { error } = await supabase.from('review_notes').upsert({
         id: note.id,
@@ -865,7 +868,8 @@ export function ManualManifestModal({
         verified_count: note.verifiedCount,
         items: note.items,
         supplier_name: supplierName || null,
-        received_date: receivedDate,
+        received_date: receivedDate || null,
+        status: 'registro',
         is_draft: false,
         raw_rows: null,
         supplier_id: null,
@@ -873,7 +877,7 @@ export function ManualManifestModal({
       });
       if (error) throw error;
       onManifestSaved(note);
-      setNotification({ type: 'success', message: `Manifesto enviado para revisão com ${items.length} item(s).` });
+      setNotification({ type: 'success', message: `Nota registrada com ${items.length} item(s).` });
       // Zera o estado do editor: o componente não desmonta ao fechar (fica pronto
       // para reabrir), então isso evita que qualquer estado da nota já enviada
       // permaneça pendurado em memória.
@@ -1464,7 +1468,7 @@ export function ManualManifestModal({
                 onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; }}>
                 {submitting
                   ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-                  : <><ArrowRight size={16} />Enviar para Revisão</>
+                  : <><ArrowRight size={16} />Registrar Nota</>
                 }
               </button>
             </div>

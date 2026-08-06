@@ -24,6 +24,9 @@ import {
   Check,
   TrendingUp,
   Wallet,
+  Edit3,
+  Clock,
+  Eye,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -33,6 +36,8 @@ import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { fmtDateBR } from './ReceivedDateField';
 
+export type NoteStatus = 'registro' | 'aguardando_recebimento' | 'revisao' | 'aprovada';
+
 export interface ReviewNote {
   id: string;
   timestamp: string;
@@ -41,6 +46,7 @@ export interface ReviewNote {
   itemCount: number;
   verifiedCount: number;
   approved?: boolean;
+  status?: NoteStatus;
   noteNumber?: string;
   accessKey?: string;
   supplierName?: string;
@@ -131,9 +137,10 @@ const noteCostSell = (note: ReviewNote): { cost: number; sell: number } => {
 const toIsoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const noteDateIso = (note: ReviewNote): string | null => note.receivedDate ? note.receivedDate.slice(0, 10) : null;
 
-type Section = 'revisoes' | 'aprovados' | 'dicionario' | 'fornecedores' | 'rascunhos';
+type Section = 'notas' | 'dicionario' | 'fornecedores' | 'rascunhos';
 
 const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
+  { key: 'status', label: 'Situação' },
   { key: 'noteNumber', label: 'Código' },
   { key: 'fileName', label: 'Arquivo' },
   { key: 'supplierName', label: 'Fornecedor' },
@@ -141,7 +148,27 @@ const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
   { key: 'itemCount', label: 'Itens' },
   { key: 'verifiedCount', label: 'Verificados' },
   { key: 'total', label: 'Total' },
+  { key: 'finance', label: 'Financeiro' },
 ];
+
+export const getNoteStatus = (note: ReviewNote): NoteStatus =>
+  note.status ?? (note.approved ? 'aprovada' : 'revisao');
+
+export const STATUS_META: Record<NoteStatus, { label: string; fg: string; bg: string; border: string; desc: string }> = {
+  registro:               { label: 'Registro',               fg: 'text-[#57534E] dark:text-[#D8D3C0]', bg: 'bg-[#1A1A0E]/[0.07] dark:bg-white/[0.08]',      border: 'border-[#1A1A0E]/15 dark:border-white/20',      desc: 'Itens ainda podem ser adicionados livremente.' },
+  aguardando_recebimento: { label: 'Aguardando Recebimento', fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]',      border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30', desc: 'Trava adição/remoção de itens até a mercadoria chegar.' },
+  revisao:                { label: 'Revisão',                fg: 'text-[#1D4ED8] dark:text-[#60A5FA]', bg: 'bg-[#2563EB]/10 dark:bg-[#60A5FA]/[0.13]',      border: 'border-[#2563EB]/25 dark:border-[#60A5FA]/30', desc: 'Exige data de recebimento. Verificação de itens em curso.' },
+  aprovada:                { label: 'Aprovada',                fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/10 dark:bg-emerald-500/[0.14]', border: 'border-emerald-500/25 dark:border-emerald-500/35', desc: 'Move a nota para Aprovadas. Ação não pode ser desfeita.' },
+};
+
+export function StatusIcon({ status, size = 13 }: { status: NoteStatus; size?: number }) {
+  switch (status) {
+    case 'registro':               return <Edit3 size={size} />;
+    case 'aguardando_recebimento': return <Clock size={size} />;
+    case 'revisao':                return <Eye size={size} />;
+    case 'aprovada':                return <CheckCircle2 size={size} />;
+  }
+}
 
 interface LogisticsCenterProps {
   importing: boolean;
@@ -181,7 +208,7 @@ export function LogisticsCenter({
   const [supplierSearch, setSupplierSearch]         = useState('');
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
-  const [activeSection, setActiveSection]            = useState<Section>('revisoes');
+  const [activeSection, setActiveSection]            = useState<Section>('notas');
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
@@ -228,7 +255,7 @@ export function LogisticsCenter({
     if (!pendingOpenNoteId) return;
     const note = reviewNotes.find(n => n.id === pendingOpenNoteId);
     if (note) {
-      setActiveSection('aprovados');
+      setActiveSection('notas');
       onViewReviewNote(note);
     }
     onPendingOpenNoteHandled?.();
@@ -254,12 +281,9 @@ export function LogisticsCenter({
       (s.razao_social || '').toLowerCase().includes(q);
   });
 
-  const pendingNotes   = reviewNotes.filter(n => !n.approved);
-  const approvedNotes  = reviewNotes.filter(n => n.approved);
-
-  // Notas "cruas" da seção ativa (Revisões/Aprovados), antes de filtro de período/busca/coluna —
+  // Notas "cruas" da seção ativa (Notas), antes de filtro de período/busca/coluna —
   // usadas para marcar os pontinhos do calendário do mês inteiro.
-  const sectionNotesRaw = activeSection === 'aprovados' ? approvedNotes : pendingNotes;
+  const sectionNotesRaw = reviewNotes;
 
   const filterNotesBySearch = (notes: ReviewNote[]) => {
     const q = noteSearch.trim().toLowerCase();
@@ -289,6 +313,7 @@ export function LogisticsCenter({
 
   const getColumnValue = (note: ReviewNote, key: string): string => {
     switch (key) {
+      case 'status':         return STATUS_META[getNoteStatus(note)].label;
       case 'noteNumber':     return note.noteNumber || '—';
       case 'fileName':       return note.fileName || '—';
       case 'supplierName':   return note.supplierName || '—';
@@ -318,7 +343,7 @@ export function LogisticsCenter({
 
   const confirmNote = confirmApproveId ? reviewNotes.find(n => n.id === confirmApproveId) : null;
 
-  const tableColumns = activeSection === 'aprovados' ? [...TABLE_COLUMNS_BASE, { key: 'finance', label: 'Financeiro' }] : TABLE_COLUMNS_BASE;
+  const tableColumns = TABLE_COLUMNS_BASE;
 
   const openFilter = (key: string) => {
     const current = columnFilters[key];
@@ -386,7 +411,7 @@ export function LogisticsCenter({
   const fornecMaxValue = Math.max(1, ...fornecChartData.map(f => f.value));
   const fornecTotalCount = fornecChartData.length;
 
-  const showCalendarResultsPanel = activeSection === 'revisoes' || activeSection === 'aprovados';
+  const showCalendarResultsPanel = activeSection === 'notas';
 
   return (
     <div className="space-y-4 md:space-y-12">
@@ -404,8 +429,7 @@ export function LogisticsCenter({
 
         <div className="hidden md:flex absolute left-0 top-full">
           {([
-            { key: 'revisoes', label: 'Revisões', count: pendingNotes.length },
-            { key: 'aprovados', label: 'Aprovados', count: approvedNotes.length },
+            { key: 'notas', label: 'Notas', count: reviewNotes.length },
             { key: 'dicionario', label: 'Dicionário', count: 0 },
             { key: 'fornecedores', label: 'Fornecedores', count: 0 },
             { key: 'rascunhos', label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
@@ -480,8 +504,7 @@ export function LogisticsCenter({
         {/* Mobile tabs */}
         <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
           {([
-            { key: 'revisoes'  as const, label: 'Revisões',  count: pendingNotes.length },
-            { key: 'aprovados' as const, label: 'Aprovados', count: approvedNotes.length },
+            { key: 'notas'  as const, label: 'Notas',  count: reviewNotes.length },
             { key: 'dicionario' as const, label: 'Dicionário', count: 0 },
             { key: 'fornecedores' as const, label: 'Fornecedores', count: 0 },
             { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
@@ -511,7 +534,7 @@ export function LogisticsCenter({
           ))}
         </div>
 
-        {(activeSection === 'revisoes' || activeSection === 'aprovados') && (<>
+        {activeSection === 'notas' && (<>
           {/* Mobile search */}
           <div className="relative flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3.5 py-2.5">
             <Search size={14} className="text-[#1A1A0E]/28 dark:text-white/25 shrink-0" />
@@ -531,9 +554,7 @@ export function LogisticsCenter({
 
           {/* Mobile section label */}
           <p className="text-[10px] font-black text-[#1A1A0E]/35 dark:text-white/25 uppercase tracking-[0.14em] px-0.5">
-            {activeSection === 'revisoes'
-              ? `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} para revisão`
-              : `${visibleNotes.length} nota${visibleNotes.length !== 1 ? 's' : ''} aprovada${visibleNotes.length !== 1 ? 's' : ''}`}
+            {visibleNotes.length} nota{visibleNotes.length !== 1 ? 's' : ''}
           </p>
 
           {/* Mobile notes list */}
@@ -544,34 +565,27 @@ export function LogisticsCenter({
               </div>
               <div>
                 <p className="text-xs font-black text-[#1A1A0E]/45 dark:text-white/35 uppercase tracking-[0.06em]">
-                  {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+                  Sem Notas
                 </p>
                 <p className="text-[11px] text-[#1A1A0E]/28 dark:text-white/22 mt-0.5 leading-relaxed">
-                  {activeSection === 'revisoes'
-                    ? 'Notas importadas aparecerão aqui.'
-                    : 'Notas aprovadas aparecerão aqui.'}
+                  Notas criadas ou importadas aparecerão aqui.
                 </p>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
-              {visibleNotes.map(note => (
+              {visibleNotes.map(note => {
+                const status = getNoteStatus(note);
+                const meta = STATUS_META[status];
+                return (
                 <div
                   key={note.id}
                   onClick={() => (onViewMobile ?? onViewReviewNote)(note)}
                   className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
                 >
                   {/* Avatar */}
-                  <div className={cn(
-                    'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
-                    note.approved
-                      ? 'bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399]'
-                      : 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
-                  )}>
-                    {note.approved
-                      ? <CheckCircle2 size={22} />
-                      : <FileText size={22} />
-                    }
+                  <div className={cn('w-12 h-12 rounded-full flex items-center justify-center shrink-0', meta.bg, meta.fg)}>
+                    <StatusIcon status={status} size={22} />
                   </div>
 
                   {/* Content */}
@@ -601,7 +615,7 @@ export function LogisticsCenter({
                     )}>
                       {String(note.verifiedCount).padStart(2, '0')}/{String(note.itemCount).padStart(2, '0')}
                     </span>
-                    {!note.approved && (
+                    {status !== 'aprovada' && (
                       <button
                         onClick={e => { e.stopPropagation(); setConfirmApproveId(note.id); }}
                         className="w-7 h-7 rounded-full bg-[rgba(52,211,153,0.15)] text-[#0A7A55] dark:text-[#34D399] flex items-center justify-center active:scale-90 transition-transform"
@@ -611,7 +625,7 @@ export function LogisticsCenter({
                     )}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </>)}
@@ -992,18 +1006,13 @@ export function LogisticsCenter({
         </div>
       )}
 
-      {(activeSection === 'revisoes' || activeSection === 'aprovados') && (
+      {activeSection === 'notas' && (
         <div className="hidden md:block space-y-6">
 
           {/* Search + filtro + menu "+" */}
           <div className="flex flex-wrap items-center gap-3">
             {visibleNotes.length > 0 && (
-              <span className={cn(
-                'px-2.5 py-0.5 text-xs font-black rounded-full',
-                activeSection === 'revisoes'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-emerald-500/10 text-emerald-600'
-              )}>
+              <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-primary/10 text-primary">
                 {visibleNotes.length}
               </span>
             )}
@@ -1046,7 +1055,7 @@ export function LogisticsCenter({
               Filtrar colunas
             </button>
 
-            {activeSection === 'revisoes' && (
+            {activeSection === 'notas' && (
               <button
                 onClick={onManualNoteClick}
                 title="Criar Manifesto"
@@ -1065,12 +1074,10 @@ export function LogisticsCenter({
               </div>
               <div>
                 <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
-                  {activeSection === 'revisoes' ? 'Sem Notas para Revisão' : 'Nenhuma Nota Aprovada'}
+                  Sem Notas
                 </h4>
                 <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
-                  {activeSection === 'revisoes'
-                    ? 'Notas importadas e enviadas para aprovação aparecerão aqui, no período selecionado.'
-                    : 'Notas aprovadas serão listadas aqui após a confirmação, no período selecionado.'}
+                  Notas criadas ou importadas aparecerão aqui, no período selecionado.
                 </p>
               </div>
             </div>
@@ -1179,7 +1186,10 @@ export function LogisticsCenter({
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleNotes.map((note, idx) => (
+                    {visibleNotes.map((note, idx) => {
+                      const status = getNoteStatus(note);
+                      const meta = STATUS_META[status];
+                      return (
                       <tr
                         key={note.id}
                         className={cn(
@@ -1188,6 +1198,16 @@ export function LogisticsCenter({
                           'hover:bg-on-surface/[0.03]'
                         )}
                       >
+                        {/* Situação */}
+                        <td className="px-4 py-3.5">
+                          <span
+                            title={meta.label}
+                            className={cn('w-7 h-7 rounded-lg flex items-center justify-center border', meta.bg, meta.fg, meta.border)}
+                          >
+                            <StatusIcon status={status} />
+                          </span>
+                        </td>
+
                         {/* Código */}
                         <td className="px-4 py-3.5">
                           {note.noteNumber ? (
@@ -1240,39 +1260,37 @@ export function LogisticsCenter({
                           </span>
                         </td>
 
-                        {/* Financeiro (Aprovados only) */}
-                        {activeSection === 'aprovados' && (
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-2">
-                              {note.finance_transaction_id ? (
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-emerald-700 truncate max-w-[120px]">
-                                    {note.finance_tx_favorecido ?? 'Vinculada'}
+                        {/* Financeiro */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2">
+                            {note.finance_transaction_id ? (
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-emerald-700 truncate max-w-[120px]">
+                                  {note.finance_tx_favorecido ?? 'Vinculada'}
+                                </span>
+                                {note.finance_tx_valor != null && (
+                                  <span className="text-[10px] text-emerald-600">
+                                    {fmtBRL(note.finance_tx_valor)}
                                   </span>
-                                  {note.finance_tx_valor != null && (
-                                    <span className="text-[10px] text-emerald-600">
-                                      {fmtBRL(note.finance_tx_valor)}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-on-surface/30 font-medium">—</span>
-                              )}
-                              <button
-                                onClick={() => setLinkingNote(note)}
-                                title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
-                                className={cn(
-                                  'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
-                                  note.finance_transaction_id
-                                    ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                                    : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
                                 )}
-                              >
-                                <Link2 size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-on-surface/30 font-medium">—</span>
+                            )}
+                            <button
+                              onClick={() => setLinkingNote(note)}
+                              title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
+                              className={cn(
+                                'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
+                                note.finance_transaction_id
+                                  ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                                  : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                              )}
+                            >
+                              <Link2 size={13} />
+                            </button>
+                          </div>
+                        </td>
 
                         {/* Ações */}
                         <td className="px-4 py-3.5">
@@ -1285,7 +1303,7 @@ export function LogisticsCenter({
                               <Pencil size={14} />
                             </button>
 
-                            {activeSection === 'revisoes' && (
+                            {status !== 'aprovada' && (
                               <button
                                 onClick={() => setConfirmApproveId(note.id)}
                                 title="Aprovar nota"
@@ -1297,7 +1315,8 @@ export function LogisticsCenter({
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2,
+  AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Calendar, Camera, CheckCircle2,
   ChevronRight, Delete, Download, FileText, Filter, Hash, Layers, Link as LinkIcon,
   List, Keyboard, Minus, Package, Pencil, Plus, Ruler, Save, Search, ShieldCheck, Trash2, X, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ReviewNote } from '@/components/requests/LogisticsCenter';
+import { getNoteStatus, STATUS_META, StatusIcon, type ReviewNote, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import type { EanCodeEntry } from '@/components/shared/EanCodesEditor';
 
@@ -99,6 +99,9 @@ interface MobileNoteViewProps {
   onSave: () => Promise<void>;
   savingNote: boolean;
   onDelete: () => Promise<void>;
+  /** Situação de Entrada — aba "Recebimento", só disponível no modo Administrador */
+  onChangeStatus: (noteId: string, status: NoteStatus) => Promise<void> | void;
+  savingStatus?: boolean;
   onVarios: (idx: number) => void;
   eanProblems?: EanProblem[];
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
@@ -393,6 +396,7 @@ export function MobileNoteView({
   distribMode, setDistribMode,
   mode, onModeChange, adjColumns, onAddAdjColumn, onRemoveAdjColumn, onDownload,
   setNote, onClose, onSave, savingNote, onDelete, onVarios,
+  onChangeStatus, savingStatus = false,
   eanProblems = [],
   onReportEanProblem,
   eanVariants, setEanVariants,
@@ -401,6 +405,8 @@ export function MobileNoteView({
   loadingUnitIdx = null, savingMeasure = false,
 }: MobileNoteViewProps) {
   const [tab, setTab] = useState<Tab>('itens');
+  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento'>('produtos');
+  const [statusConfirm, setStatusConfirm] = useState<NoteStatus | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [query, setQuery] = useState('');
   const [itemFilter, setItemFilter] = useState<'todos' | 'sem_ean' | 'pendentes' | 'duplicados' | 'sem_preco_venda' | 'sem_unidade'>('todos');
@@ -1045,10 +1051,22 @@ export function MobileNoteView({
               </p>
             </div>
           </div>
-          {/* progress chip */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-            <span className="text-emerald-400 font-black text-sm">{verifiedCount}</span>
-            <span className="text-white/25 text-xs font-bold">/ {totalItems}</span>
+          {/* situação + progress chip */}
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {(() => {
+              const status = getNoteStatus(note);
+              const meta = STATUS_META[status];
+              return (
+                <span className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wide border', meta.bg, meta.fg, meta.border)}>
+                  <StatusIcon status={status} size={10} />
+                  {meta.label}
+                </span>
+              );
+            })()}
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-black text-sm">{verifiedCount}</span>
+              <span className="text-white/25 text-xs font-bold">/ {totalItems}</span>
+            </div>
           </div>
         </div>
         {/* progress bar */}
@@ -1060,6 +1078,139 @@ export function MobileNoteView({
           />
         </div>
       </div>
+
+      {/* ── ABAS Produtos / Recebimento (só no modo Administrador) ────── */}
+      {isAdmin && (
+        <div className="shrink-0 flex gap-1 px-3 py-2 bg-[#0e0e0a]">
+          <button
+            onClick={() => setNoteEditorTab('produtos')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-colors',
+              noteEditorTab === 'produtos' ? 'bg-[#D81E1E]/12 text-[#f87171] border border-[#D81E1E]/30' : 'bg-white/[0.05] text-white/40 border border-transparent'
+            )}
+          >
+            <FileText size={13} /> Produtos <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10">{totalItems}</span>
+          </button>
+          <button
+            onClick={() => setNoteEditorTab('recebimento')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-colors',
+              noteEditorTab === 'recebimento' ? 'bg-[#D81E1E]/12 text-[#f87171] border border-[#D81E1E]/30' : 'bg-white/[0.05] text-white/40 border border-transparent'
+            )}
+          >
+            <Calendar size={13} /> Recebimento
+          </button>
+        </div>
+      )}
+
+      {/* ── ABA RECEBIMENTO ─────────────────────────────────────────── */}
+      {isAdmin && noteEditorTab === 'recebimento' && (
+        <div className="flex-1 overflow-auto px-4 py-4">
+          <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">Data de recebimento</label>
+          <input
+            type="date"
+            value={note.receivedDate || ''}
+            onChange={e => setNote({ ...note, receivedDate: e.target.value || undefined })}
+            className="w-full bg-white/[0.05] border border-white/[0.10] rounded-xl px-3.5 py-3 text-[13px] font-bold text-[#f2f0e3] outline-none focus:border-[#D81E1E]/50"
+            style={{ colorScheme: 'dark' }}
+          />
+          <p className="text-[10px] text-white/30 font-medium mt-1.5">Necessária para colocar a nota em "Revisão"</p>
+
+          <p className="text-[10px] font-black uppercase tracking-wider text-white/40 mt-6 mb-2.5">Situação de Entrada</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {(Object.keys(STATUS_META) as NoteStatus[]).map(key => {
+              const meta = STATUS_META[key];
+              const isActive = getNoteStatus(note) === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusConfirm(key)}
+                  className={cn(
+                    'relative flex flex-col items-start gap-2 p-3.5 rounded-2xl border-2 text-left transition-colors',
+                    isActive ? cn(meta.bg, meta.border) : 'border-white/[0.08] bg-[#1a1a14]'
+                  )}
+                >
+                  {isActive && (
+                    <span className={cn('absolute top-2.5 right-2.5 w-4 h-4 rounded-full flex items-center justify-center', meta.fg)} style={{ backgroundColor: 'currentColor' }}>
+                      <CheckCircle2 size={10} className="text-[#0e0e0a]" />
+                    </span>
+                  )}
+                  <span className={cn('w-8 h-8 rounded-lg flex items-center justify-center', meta.bg, meta.fg)}>
+                    <StatusIcon status={key} size={15} />
+                  </span>
+                  <span className="text-[11.5px] font-black text-[#f2f0e3] leading-tight">{meta.label}</span>
+                  <span className="text-[9.5px] font-medium text-white/32 leading-snug">{meta.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── SHEET DE CONFIRMAÇÃO DE SITUAÇÃO ────────────────────────── */}
+      <AnimatePresence>
+        {statusConfirm && (() => {
+          const meta = STATUS_META[statusConfirm];
+          const blockedByMissingDate = statusConfirm === 'revisao' && !note.receivedDate;
+          return (
+            <>
+              <motion.div
+                key="status-confirm-backdrop"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="absolute inset-0 z-50 bg-black/60"
+                onClick={() => setStatusConfirm(null)}
+              />
+              <motion.div
+                key="status-confirm-sheet"
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                className="absolute bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden p-5 pb-8"
+              >
+                <div className={cn('w-11 h-11 rounded-2xl flex items-center justify-center mb-3', meta.bg, meta.fg)}>
+                  <StatusIcon status={statusConfirm} size={20} />
+                </div>
+                {blockedByMissingDate ? (
+                  <>
+                    <p className="text-sm font-black text-[#f2f0e3] mb-1.5">Falta a data de recebimento</p>
+                    <p className="text-[11px] text-white/40 font-medium leading-relaxed mb-4">
+                      Para colocar essa nota em Revisão é preciso preencher a "Data de recebimento" acima.
+                    </p>
+                    <button
+                      onClick={() => setStatusConfirm(null)}
+                      className="w-full py-3 bg-white/[0.07] rounded-xl text-white/60 text-sm font-bold"
+                    >
+                      Entendi
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-black text-[#f2f0e3] mb-1.5">Mudar situação da nota?</p>
+                    <p className="text-[11px] text-white/40 font-medium leading-relaxed mb-4">
+                      A nota vai para a situação <span className="text-[#f2f0e3] font-bold">{meta.label}</span>.
+                      {statusConfirm === 'aprovada' && ' Essa ação não pode ser desfeita.'}
+                    </p>
+                    <button
+                      disabled={savingStatus}
+                      onClick={async () => { await onChangeStatus(note.id, statusConfirm); setStatusConfirm(null); }}
+                      className={cn('w-full py-3.5 rounded-xl text-sm font-black active:scale-[0.97] transition-transform disabled:opacity-50 mb-2', meta.fg)}
+                      style={{ backgroundColor: 'currentColor' }}
+                    >
+                      <span className="text-[#0e0e0a]">{savingStatus ? 'Salvando...' : 'Confirmar'}</span>
+                    </button>
+                    <button
+                      onClick={() => setStatusConfirm(null)}
+                      className="w-full py-3 bg-white/[0.06] border border-white/[0.08] rounded-xl text-white/60 text-sm font-bold"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* ── CONFIRMAÇÃO DE SAÍDA (botão X) ─────────────────────────────
            Vale para os dois modos (Administrador e Estoque). ──────────── */}
@@ -1238,7 +1389,7 @@ export function MobileNoteView({
       </AnimatePresence>
 
       {/* ── TAB CONTENT ─────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className={cn('flex-1 overflow-hidden relative', isAdmin && noteEditorTab === 'recebimento' && 'hidden')}>
 
         {/* ════ ITENS TAB ════════════════════════════════════════════ */}
         {tab === 'itens' && (
@@ -2138,7 +2289,7 @@ export function MobileNoteView({
       </div>
 
       {/* ── BOTTOM TAB BAR ──────────────────────────────────────────── */}
-      <div className="shrink-0 bg-[#1a1a14] border-t border-white/[0.07] flex safe-area-inset-bottom">
+      <div className={cn('shrink-0 bg-[#1a1a14] border-t border-white/[0.07] flex safe-area-inset-bottom', isAdmin && noteEditorTab === 'recebimento' && 'hidden')}>
         {TABS.map(t => {
           const active = tab === t.id;
           // badge for Itens tab: pending count
