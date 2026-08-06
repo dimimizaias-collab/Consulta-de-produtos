@@ -102,6 +102,8 @@ interface MobileNoteViewProps {
   /** Situação de Entrada — aba "Recebimento", só disponível no modo Administrador */
   onChangeStatus: (noteId: string, status: NoteStatus) => Promise<void> | void;
   savingStatus?: boolean;
+  /** Adiciona uma linha em branco à nota — só disponível na situação "Registro" */
+  onAddRow: () => void;
   onVarios: (idx: number) => void;
   eanProblems?: EanProblem[];
   onReportEanProblem?: (ean: string, desc: string, obs: string) => Promise<void>;
@@ -396,7 +398,7 @@ export function MobileNoteView({
   distribMode, setDistribMode,
   mode, onModeChange, adjColumns, onAddAdjColumn, onRemoveAdjColumn, onDownload,
   setNote, onClose, onSave, savingNote, onDelete, onVarios,
-  onChangeStatus, savingStatus = false,
+  onChangeStatus, savingStatus = false, onAddRow,
   eanProblems = [],
   onReportEanProblem,
   eanVariants, setEanVariants,
@@ -1424,6 +1426,15 @@ export function MobileNoteView({
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#D81E1E]" />
                   )}
                 </button>
+                {isAdmin && getNoteStatus(note) === 'registro' && (
+                  <button
+                    onClick={onAddRow}
+                    title="Adicionar linha"
+                    className="shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-xl border-2 border-dashed border-white/20 text-white/40 active:scale-90 transition-transform"
+                  >
+                    <Plus size={16} />
+                  </button>
+                )}
               </div>
 
               <AnimatePresence>

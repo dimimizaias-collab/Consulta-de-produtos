@@ -6466,14 +6466,20 @@ export default function Page() {
                     {editingNoteHeader ? (
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
-                          <input
+                          <select
                             autoFocus
-                            type="text"
-                            value={viewingReviewNote.fileName}
-                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, fileName: e.target.value })}
-                            placeholder="Nome da nota"
-                            className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent w-64 placeholder:text-on-surface/20"
-                          />
+                            value={viewingReviewNote.supplierId || ''}
+                            disabled={getNoteStatus(viewingReviewNote) !== 'registro'}
+                            onChange={e => {
+                              const sid = e.target.value || null;
+                              const sName = supplierNames.find((s: any) => s.id === sid)?.name || '';
+                              setViewingReviewNote({ ...viewingReviewNote, supplierId: sid, supplierName: sName || undefined, fileName: sName });
+                            }}
+                            className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent max-w-[280px] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Selecionar fornecedor…</option>
+                            {supplierNames.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                          </select>
                           <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors" title="Confirmar">
                             <CheckCircle2 size={16} className="text-primary" />
                           </button>
@@ -6487,23 +6493,17 @@ export default function Page() {
                             className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent w-48 placeholder:text-on-surface/20"
                           />
                         </div>
-                        {viewingReviewNote.supplierName && (
-                          <span className="text-xs font-bold text-on-surface/40">{viewingReviewNote.supplierName}</span>
-                        )}
                       </div>
                     ) : (
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-xl font-black text-on-surface">
-                            {viewingReviewNote.fileName || <span className="text-on-surface/30 font-medium">Nota sem nome</span>}
+                            {viewingReviewNote.supplierName || viewingReviewNote.fileName || <span className="text-on-surface/30 font-medium">Sem fornecedor</span>}
                           </h3>
-                          {viewingReviewNote.supplierName && (
-                            <span className="text-sm font-bold text-on-surface/45">{viewingReviewNote.supplierName}</span>
-                          )}
                           <button
                             onClick={() => setEditingNoteHeader(true)}
                             className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60"
-                            title="Editar nome e número"
+                            title="Editar fornecedor e número"
                           >
                             <Pencil size={14} />
                           </button>
@@ -6670,38 +6670,6 @@ export default function Page() {
                   <Calendar size={13} /> Recebimento
                 </button>
               </div>
-
-              {noteEditorTab === 'produtos' && (() => {
-                const canEditItems = getNoteStatus(viewingReviewNote) === 'registro';
-                return (
-                  <div className="flex items-end gap-3 px-6 py-3 border-b border-line dark:border-white/[0.06] bg-white dark:bg-[#1e1e18] shrink-0">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black uppercase tracking-wider text-on-surface/35">Fornecedor</label>
-                      <select
-                        value={viewingReviewNote.supplierId || ''}
-                        disabled={!canEditItems}
-                        onChange={e => {
-                          const sid = e.target.value || null;
-                          const sName = supplierNames.find((s: any) => s.id === sid)?.name;
-                          setViewingReviewNote({ ...viewingReviewNote, supplierId: sid, supplierName: sName || viewingReviewNote.supplierName });
-                        }}
-                        className="bg-on-surface/[0.04] border border-on-surface/15 rounded-lg px-2.5 py-1.5 text-xs font-bold text-on-surface outline-none disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
-                      >
-                        <option value="">Selecionar fornecedor…</option>
-                        {supplierNames.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                      </select>
-                    </div>
-                    <button
-                      onClick={handleAddNoteRow}
-                      disabled={!canEditItems}
-                      title={!canEditItems ? 'Só é possível adicionar linhas na situação "Registro"' : 'Adicionar linha'}
-                      className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-on-surface/20 text-on-surface/50 text-xs font-black uppercase tracking-wide hover:border-primary/40 hover:text-primary transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-on-surface/20 disabled:hover:text-on-surface/50"
-                    >
-                      <Plus size={13} /> Adicionar linha
-                    </button>
-                  </div>
-                );
-              })()}
 
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
@@ -6996,6 +6964,8 @@ export default function Page() {
                   <tbody>
                     {(() => {
                       // ── Build filtered items list, preserving original indices ──
+                      // Em "Registro", todas as colunas ficam destravadas por padrão — igual à antiga janela "Criar Manifesto".
+                      const canEditItems = getNoteStatus(viewingReviewNote!) === 'registro';
                       const _allItems: any[] = viewingReviewNote!.items;
                       const _getVal = (key: string, it: any, i: number): string => {
                         if (key === 'produto') return it.original_description || '-';
@@ -7083,7 +7053,7 @@ export default function Page() {
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
                             <div data-cell style={cell({ padding: '0 10px' })}>
-                              {reviewEditableCols.has('Código') ? (
+                              {(canEditItems || reviewEditableCols.has('Código')) ? (
                                 <input type="text" value={item.supplier_code || ''}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], supplier_code: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                   onBlur={captureSnapshot}
@@ -7101,8 +7071,8 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ padding: '0 10px', overflow: reviewEditableCols.has('Produto na Nota') ? 'visible' : 'hidden' })}>
-                              {reviewEditableCols.has('Produto na Nota') ? (
+                            <div data-cell style={cell({ padding: '0 10px', overflow: (canEditItems || reviewEditableCols.has('Produto na Nota')) ? 'visible' : 'hidden' })}>
+                              {(canEditItems || reviewEditableCols.has('Produto na Nota')) ? (
                                 <input type="text" value={item.original_description || ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
@@ -7225,7 +7195,7 @@ export default function Page() {
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
                             <div data-cell style={cell({ padding: '0 10px' })}>
-                              {reviewEditableCols.has('EAN') ? (
+                              {(canEditItems || reviewEditableCols.has('EAN')) ? (
                                 <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
                                   onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
@@ -7258,7 +7228,7 @@ export default function Page() {
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
                             <div data-cell style={cell({ padding: '0 10px' })}>
-                              {reviewEditableCols.has('SKU') ? (
+                              {(canEditItems || reviewEditableCols.has('SKU')) ? (
                                 <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                   onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
@@ -7276,7 +7246,7 @@ export default function Page() {
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
                             {/* Discrepancy trigger — always rendered, flanks the qty block */}
                             <div className="flex items-center gap-1.5">
-                            {reviewEditableCols.has('Qtd.') ? (
+                            {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
                               /* ── EDIT MODE: unit selector + qty input ── */
                               <div className="flex flex-col items-center gap-1">
                                 <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
@@ -7805,6 +7775,20 @@ export default function Page() {
                       return [parentRow, ...childRows];
                       }); // end _filtered.flatMap
                     })(/* tbody IIFE */)}
+                    {getNoteStatus(viewingReviewNote) === 'registro' && (
+                      <tr>
+                        <td style={{ padding: '6px 3px' }}>
+                          <button
+                            onClick={handleAddNoteRow}
+                            title="Adicionar linha"
+                            className="w-full h-8 rounded-lg border-2 border-dashed flex items-center justify-center transition-all hover:border-primary/50 hover:text-primary hover:bg-primary/5"
+                            style={{ borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-subtle)' }}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -9318,6 +9302,7 @@ export default function Page() {
             onDelete={handleDeleteNote}
             onChangeStatus={changeNoteStatus}
             savingStatus={savingNoteStatus}
+            onAddRow={handleAddNoteRow}
             onVarios={(idx) => { setShowMobileNoteView(false); setMultiLinkItemIdx(idx); setMultiLinkItemSearch(''); setMultiLinkItemQty(''); setMultiLinkItemResults([]); setMultiLinkItemEntries([]); setMultiLinkItemShowCreate(false); }}
             eanProblems={eanProblems}
             onReportEanProblem={(ean, desc, obs) => handleReportEanProblem(ean, desc, obs, 'note_item')}
