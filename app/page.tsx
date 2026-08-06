@@ -12,8 +12,6 @@ import { RequestCenter } from '@/components/requests/RequestCenter';
 import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
 import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, type NoteStatus } from '@/components/requests/LogisticsCenter';
-import { ManualManifestModal } from '@/components/requests/ManualManifestModal';
-import { MobileManifestPage } from '@/components/requests/MobileManifestPage';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
@@ -318,7 +316,6 @@ export default function Page() {
   const [isUpdatingManualStock, setIsUpdatingManualStock] = useState(false);
   
   // Entrada de Mercadoria states
-  const [showManualNoteModal, setShowManualNoteModal] = useState(false);
   const [noteItems, setNoteItems] = useState<any[]>([]);
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
   const [noteSearchResults, setNoteSearchResults] = useState<any[]>([]);
@@ -1809,7 +1806,6 @@ export default function Page() {
       
       setNotification({ type: 'success', message: 'Entrada de mercadoria processada com sucesso!' });
       setNoteItems([]);
-      setShowManualNoteModal(false);
       fetchProducts();
     } catch (err: any) {
       console.error('Erro ao processar nota manual:', err);
@@ -2838,6 +2834,55 @@ export default function Page() {
     }
   };
 
+  // Adiciona uma linha em branco à nota em edição (aba Produtos, situação "Registro").
+  // Espelha o mesmo conjunto de arrays paralelos tratado por "Excluir produto da nota" (linha 7648+).
+  const handleAddNoteRow = () => {
+    if (!viewingReviewNote) return;
+    const blankItem = {
+      seq: viewingReviewNote.items.length + 1,
+      original_description: '', name: '', supplier_code: '',
+      ean: '', sku: '', unit: 'UN', multiplier: 1,
+      qty: 0, price: 0, product_price: 0, verified: false, product_id: null,
+    };
+    setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, blankItem] } : prev);
+    setViewingNoteVerified(prev => [...prev, false]);
+    setViewingNoteQtys(prev => [...prev, 0]);
+    setViewingNoteItemPrices(prev => [...prev, 0]);
+    setViewingNoteSellPrices(prev => [...prev, 0]);
+    setViewingNoteEans(prev => [...prev, '']);
+    setViewingNoteSkus(prev => [...prev, '']);
+    setViewingNoteUnits(prev => [...prev, 'UN']);
+    setViewingNoteMultipliers(prev => [...prev, 1]);
+    setViewingNoteReviewTimestamps(prev => [...prev, null]);
+    setViewingNoteDistribuicao(prev => [...prev, '']);
+    setViewingDistribMode(prev => [...prev, '']);
+    setAdjColumns(prev => prev.map(col => ({ ...col, items: [...col.items, ''] })));
+    setViewingNoteDiscrepancies(prev => [...prev, null]);
+    setViewingNoteEanVariants(prev => [...prev, []]);
+    setViewingNoteExtraEans(prev => [...prev, []]);
+  };
+
+  // "Criar Manifesto" — cria a nota vazia direto no banco (situação "Registro") e abre
+  // a mesma janela usada para editar notas já existentes, em vez de um formulário à parte.
+  const handleCreateManifestNote = async () => {
+    fetchSuppliers();
+    const id = crypto.randomUUID();
+    const timestamp = new Date().toLocaleString('pt-BR');
+    const { error } = await supabase.from('review_notes').insert({
+      id, timestamp_label: timestamp, file_name: '', item_count: 0, verified_count: 0,
+      items: [], supplier_name: null, supplier_id: null, received_date: null,
+      status: 'registro', approved: false, is_draft: false, updated_at: new Date().toISOString(),
+    });
+    if (error) { setNotification({ type: 'error', message: error.message || 'Erro ao criar nota.' }); return; }
+    const note: ReviewNote = {
+      id, timestamp, fileName: '', items: [], itemCount: 0, verifiedCount: 0,
+      status: 'registro', approved: false, supplierId: null,
+    };
+    setReviewNotes(prev => [note, ...prev]);
+    openReviewNoteForEditing(note);
+    if (isMobileView) { changeNoteViewMode('admin'); setShowMobileNoteView(true); }
+  };
+
   const handleSaveNote = useCallback(async () => {
     if (!viewingReviewNote) return;
     setSavingNote(true);
@@ -3742,12 +3787,7 @@ export default function Page() {
                     setShowImportSupplierModal(true);
                     fetchSuppliers();
                   }}
-                  onManualNoteClick={() => {
-                    setShowManualNoteModal(true);
-                    setNoteItems([]);
-                    setNoteSearchQuery('');
-                    fetchSuppliers();
-                  }}
+                  onManualNoteClick={handleCreateManifestNote}
                   setNotification={setNotification}
                   reviewNotes={reviewNotes}
                   onViewReviewNote={(note) => {
@@ -5764,36 +5804,6 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {/* Manual Manifest — desktop */}
-      <ManualManifestModal
-        isOpen={showManualNoteModal && !isMobileView}
-        onClose={() => setShowManualNoteModal(false)}
-        suppliers={supplierNames}
-        setNotification={setNotification}
-        onManifestSaved={(note) => {
-          setReviewNotes(prev => [note, ...prev]);
-          openReviewNoteForEditing(note);
-        }}
-      />
-
-      {/* Manual Manifest — mobile */}
-      <AnimatePresence>
-        {showManualNoteModal && isMobileView && (
-          <MobileManifestPage
-            isOpen={showManualNoteModal}
-            onClose={() => setShowManualNoteModal(false)}
-            suppliers={supplierNames}
-            setNotification={setNotification}
-            onManifestSaved={(note) => {
-              setReviewNotes(prev => [note, ...prev]);
-              openReviewNoteForEditing(note);
-              changeNoteViewMode('admin');
-              setShowMobileNoteView(true);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Import Supplier Selection Modal */}
       <AnimatePresence>
         {showImportSupplierModal && (
@@ -6660,6 +6670,38 @@ export default function Page() {
                   <Calendar size={13} /> Recebimento
                 </button>
               </div>
+
+              {noteEditorTab === 'produtos' && (() => {
+                const canEditItems = getNoteStatus(viewingReviewNote) === 'registro';
+                return (
+                  <div className="flex items-end gap-3 px-6 py-3 border-b border-line dark:border-white/[0.06] bg-white dark:bg-[#1e1e18] shrink-0">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-on-surface/35">Fornecedor</label>
+                      <select
+                        value={viewingReviewNote.supplierId || ''}
+                        disabled={!canEditItems}
+                        onChange={e => {
+                          const sid = e.target.value || null;
+                          const sName = supplierNames.find((s: any) => s.id === sid)?.name;
+                          setViewingReviewNote({ ...viewingReviewNote, supplierId: sid, supplierName: sName || viewingReviewNote.supplierName });
+                        }}
+                        className="bg-on-surface/[0.04] border border-on-surface/15 rounded-lg px-2.5 py-1.5 text-xs font-bold text-on-surface outline-none disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
+                      >
+                        <option value="">Selecionar fornecedor…</option>
+                        {supplierNames.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleAddNoteRow}
+                      disabled={!canEditItems}
+                      title={!canEditItems ? 'Só é possível adicionar linhas na situação "Registro"' : 'Adicionar linha'}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-on-surface/20 text-on-surface/50 text-xs font-black uppercase tracking-wide hover:border-primary/40 hover:text-primary transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-on-surface/20 disabled:hover:text-on-surface/50"
+                    >
+                      <Plus size={13} /> Adicionar linha
+                    </button>
+                  </div>
+                );
+              })()}
 
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
@@ -7663,8 +7705,9 @@ export default function Page() {
                             ) : (
                               <button
                                 onClick={() => setDeleteConfirmIdx(idx)}
-                                className="w-7 h-7 rounded-lg bg-transparent flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all" style={{ color: 'var(--rn-text-subtle)' }}
-                                title="Excluir produto da nota"
+                                disabled={getNoteStatus(viewingReviewNote!) !== 'registro'}
+                                className="w-7 h-7 rounded-lg bg-transparent flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 transition-all disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-inherit" style={{ color: 'var(--rn-text-subtle)' }}
+                                title={getNoteStatus(viewingReviewNote!) !== 'registro' ? 'Só é possível remover itens na situação "Registro"' : 'Excluir produto da nota'}
                               >
                                 <Trash2 size={13} />
                               </button>
