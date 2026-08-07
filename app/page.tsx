@@ -7367,7 +7367,7 @@ export default function Page() {
                           )}
                           {!reviewHiddenCols.has('Qtd.') && (
                           <td style={{ ...tdP, position: 'relative' }}>
-                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px', height: 'auto', minHeight: '40px', padding: '4px 2px' })}>
                             {/* Discrepancy trigger — always rendered, flanks the qty block */}
                             <div className="flex items-center gap-1.5">
                             {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
@@ -7413,7 +7413,7 @@ export default function Page() {
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
                                   onBlur={captureSnapshot}
                                   onWheel={blockWheelChange}
-                                  className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" style={{ color: 'var(--rn-text)' }} />
+                                  className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
                               </div>
                             ) : (
                               /* ── VIEW MODE: single gray box [UN  qty] ── */
