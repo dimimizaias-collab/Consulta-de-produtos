@@ -51,6 +51,7 @@ export interface ReviewNote {
   accessKey?: string;
   supplierName?: string;
   receivedDate?: string;
+  createdAt?: string;
   transporte?: 'fornecedor' | 'proprio' | 'transportadora';
   supplierId?: string | null;
   finance_transaction_id?: string | null;
@@ -136,7 +137,15 @@ const noteCostSell = (note: ReviewNote): { cost: number; sell: number } => {
 };
 
 const toIsoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Data de recebimento — usada pros pontinhos do calendário e pela coluna "Data" (só conta o que foi de fato recebido).
 const noteDateIso = (note: ReviewNote): string | null => note.receivedDate ? note.receivedDate.slice(0, 10) : null;
+// Data usada pro filtro de período da tabela/painel: recebimento, ou (se ainda não recebida) a data de criação da nota —
+// nunca deixa a nota "escapar" do filtro de mês/período por falta de data de recebimento.
+const notePeriodIso = (note: ReviewNote): string | null => {
+  if (note.receivedDate) return note.receivedDate.slice(0, 10);
+  if (note.createdAt) return note.createdAt.slice(0, 10);
+  return null;
+};
 
 type Section = 'notas' | 'dicionario' | 'fornecedores' | 'rascunhos';
 
@@ -304,8 +313,8 @@ export function LogisticsCenter({
   };
 
   const filterNotesByPeriod = (notes: ReviewNote[]) => notes.filter(note => {
-    const d = noteDateIso(note);
-    if (!d) return true; // sem data de recebimento conhecida — não é excluída pelo filtro de período
+    const d = notePeriodIso(note);
+    if (!d) return false; // sem data de recebimento nem de criação — não há como posicioná-la no período
     if (calRangeStart && calRangeEnd) return d >= toIsoDay(calRangeStart) && d <= toIsoDay(calRangeEnd);
     if (calSelectedDate) return d === toIsoDay(calSelectedDate);
     const monthPrefix = `${calViewDate.getFullYear()}-${String(calViewDate.getMonth() + 1).padStart(2, '0')}`;

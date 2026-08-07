@@ -947,6 +947,7 @@ export default function Page() {
         supplierName: n.supplier_name ?? undefined,
         supplierId: n.supplier_id ?? null,
         receivedDate: n.received_date ?? undefined,
+        createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
       })));
     }
@@ -2337,6 +2338,7 @@ export default function Page() {
       const newNote: ReviewNote = {
         id: Date.now().toString(),
         timestamp: currentNfTimestamp,
+        createdAt: new Date().toISOString(),
         fileName: currentNfFileName,
         items: itemsWithFinalPrices,
         itemCount: pendingNfItems.length,
@@ -2919,7 +2921,7 @@ export default function Page() {
     const id = crypto.randomUUID();
     const timestamp = new Date().toLocaleString('pt-BR');
     const note: ReviewNote = {
-      id, timestamp, fileName: '', items: [], itemCount: 0, verifiedCount: 0,
+      id, timestamp, createdAt: new Date().toISOString(), fileName: '', items: [], itemCount: 0, verifiedCount: 0,
       status: 'registro', approved: false, supplierId: null,
     };
     openReviewNoteForEditing(note);
