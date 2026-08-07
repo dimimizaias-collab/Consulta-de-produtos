@@ -2856,6 +2856,16 @@ export default function Page() {
       const uS = [...viewingNoteSkus]; uS[idx] = created.sku || ''; setViewingNoteSkus(uS);
       const uE = [...viewingNoteEans]; uE[idx] = created.ean || ''; setViewingNoteEans(uE);
       const uP = [...viewingNoteSellPrices]; uP[idx] = price; setViewingNoteSellPrices(uP);
+
+      const supplierId = await resolveNoteSupplierId();
+      if (supplierId) {
+        const { error: mappingErr } = await supabase.from('supplier_mappings')
+          .upsert({ supplier_id: supplierId, supplier_description: item?.original_description || null, supplier_sku: item?.supplier_code || null, internal_product_id: created.id }, { onConflict: 'supplier_id,supplier_description' });
+        if (!mappingErr) {
+          setNoteSupplierMappings(prev => [...prev, { supplier_sku: item?.supplier_code || null, supplier_description: item?.original_description || null, internal_product_id: created.id }]);
+        }
+      }
+
       setNotification({ type: 'success', message: 'Produto criado e vinculado com sucesso!' });
       fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
     } catch (err: any) {
