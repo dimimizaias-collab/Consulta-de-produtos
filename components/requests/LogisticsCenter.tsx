@@ -1127,24 +1127,26 @@ export function LogisticsCenter({
                       <p className="text-sm font-bold">Nenhuma nota aprovada no periodo</p>
                     </div>
                   ) : (
-                    <div className="flex-1 flex items-end gap-5 px-1 pb-2.5 border-b-[1.5px] border-on-surface/10">
-                      {fornecChartData.map(f => (
-                        <div key={f.name} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1.5 h-full">
-                          <span className="text-[11px] font-black text-violet-600 dark:text-violet-400 whitespace-nowrap">
-                            {fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}
-                          </span>
-                          <div
-                            className={cn(
-                              'w-full max-w-[56px] rounded-t-xl',
-                              fornecChartMode === 'markup'
-                                ? 'bg-gradient-to-b from-violet-400 to-violet-700'
-                                : 'bg-gradient-to-b from-red-300 to-primary'
-                            )}
-                            style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}%` }}
-                          />
-                          <span className="text-[10px] font-extrabold text-on-surface/55 text-center truncate max-w-full">{f.name}</span>
-                        </div>
-                      ))}
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden pb-2.5">
+                      <div className="flex items-end gap-5 h-full min-w-full px-1 pb-2.5 border-b-[1.5px] border-on-surface/10">
+                        {fornecChartData.map(f => (
+                          <div key={f.name} className="w-16 shrink-0 flex flex-col items-center justify-end gap-1.5 h-full">
+                            <span className="text-[11px] font-black text-violet-600 dark:text-violet-400 whitespace-nowrap">
+                              {fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}
+                            </span>
+                            <div
+                              className={cn(
+                                'w-full max-w-[56px] rounded-t-xl',
+                                fornecChartMode === 'markup'
+                                  ? 'bg-gradient-to-b from-violet-400 to-violet-700'
+                                  : 'bg-gradient-to-b from-red-300 to-primary'
+                              )}
+                              style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}%` }}
+                            />
+                            <span className="text-[10px] font-extrabold text-on-surface/55 text-center truncate max-w-full">{f.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
