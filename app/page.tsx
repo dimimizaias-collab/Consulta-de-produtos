@@ -2782,11 +2782,14 @@ export default function Page() {
   const openNoteItemLink = (idx: number, item: any) => {
     const q = viewingNoteEans[idx] ?? item.ean ?? '';
     const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
+    const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
     setLinkingItemIdx(idx);
     setNoteItemLinkQuery(q);
     setNoteItemNewEan(q);
     setNoteItemNewSku('');
     setNoteItemNewName((item.original_description || item.description || '').toLowerCase());
+    setNoteItemNewSellPrice(sellPrice > 0 ? String(sellPrice) : '');
+    setNoteItemSellPriceInput(sellPrice > 0 ? String(sellPrice) : '');
     setNoteItemShowCreate(q.trim().length > 0 && !hasMatch);
   };
 
