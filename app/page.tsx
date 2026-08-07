@@ -509,6 +509,17 @@ export default function Page() {
   const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento'>('produtos');
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
   const [savingNoteStatus, setSavingNoteStatus] = useState(false);
+  // Combobox de Fornecedor no cabeçalho da nota (mesmo padrão do campo Favorecido em Nova Movimentação)
+  const [noteSupplierQuery, setNoteSupplierQuery] = useState('');
+  const [noteSupplierOpen, setNoteSupplierOpen] = useState(false);
+  const noteSupplierRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (noteSupplierRef.current && !noteSupplierRef.current.contains(e.target as Node)) setNoteSupplierOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   // ── Column filters (Excel-like) ──
   const [reviewFilterActive, setReviewFilterActive] = useState(false);
   const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
@@ -2474,9 +2485,12 @@ export default function Page() {
   // mobile) quanto pelo atalho "Ver nota" no histórico de EAN da aba Editar Produto.
   const openReviewNoteForEditing = useCallback((note: ReviewNote) => {
     fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
+    if (supplierNames.length === 0) fetchSuppliers();
     setViewingReviewNote(note);
     setNoteEditorTab('produtos');
     setStatusConfirmTarget(null);
+    setNoteSupplierQuery(note.supplierName || '');
+    setNoteSupplierOpen(false);
     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
     setViewingNoteVerified(note.items.map((item: any) => item.verified || false));
     setViewingNoteEans([]);
@@ -6466,21 +6480,54 @@ export default function Page() {
                     {editingNoteHeader ? (
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
-                          <select
-                            autoFocus
-                            value={viewingReviewNote.supplierId || ''}
-                            disabled={getNoteStatus(viewingReviewNote) !== 'registro'}
-                            onChange={e => {
-                              const sid = e.target.value || null;
-                              const sName = supplierNames.find((s: any) => s.id === sid)?.name || '';
-                              setViewingReviewNote({ ...viewingReviewNote, supplierId: sid, supplierName: sName || undefined, fileName: sName });
-                            }}
-                            className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent max-w-[280px] disabled:opacity-50 disabled:cursor-not-allowed"
+                          <div className="relative w-[280px]" ref={noteSupplierRef}>
+                            <input
+                              autoFocus
+                              value={noteSupplierQuery}
+                              disabled={getNoteStatus(viewingReviewNote) !== 'registro'}
+                              onChange={e => { setNoteSupplierQuery(e.target.value); setNoteSupplierOpen(true); }}
+                              onFocus={() => setNoteSupplierOpen(true)}
+                              placeholder="Selecionar fornecedor…"
+                              autoComplete="off"
+                              className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent w-full placeholder:text-on-surface/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <AnimatePresence>
+                              {noteSupplierOpen && getNoteStatus(viewingReviewNote) === 'registro' && (
+                                <motion.ul
+                                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                                  transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                                  className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-line dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto"
+                                >
+                                  {supplierNames
+                                    .filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase()))
+                                    .map((s: any) => (
+                                      <li
+                                        key={s.id}
+                                        onMouseDown={() => {
+                                          setViewingReviewNote({ ...viewingReviewNote, supplierId: s.id, supplierName: s.name, fileName: s.name });
+                                          setNoteSupplierQuery(s.name);
+                                          setNoteSupplierOpen(false);
+                                        }}
+                                        className="px-3 py-2.5 text-sm font-semibold text-on-surface hover:bg-on-surface/5 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
+                                      >
+                                        {s.name}
+                                      </li>
+                                    ))}
+                                  {supplierNames.filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase())).length === 0 && (
+                                    <li className="px-3 py-2.5 text-sm text-on-surface/35 italic">
+                                      {supplierNames.length === 0 ? 'Carregando fornecedores…' : 'Nenhum resultado'}
+                                    </li>
+                                  )}
+                                </motion.ul>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                          <button
+                            onClick={() => { setEditingNoteHeader(false); setNoteSupplierQuery(viewingReviewNote.supplierName || ''); setNoteSupplierOpen(false); }}
+                            className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors" title="Confirmar"
                           >
-                            <option value="">Selecionar fornecedor…</option>
-                            {supplierNames.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                          </select>
-                          <button onClick={() => setEditingNoteHeader(false)} className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors" title="Confirmar">
                             <CheckCircle2 size={16} className="text-primary" />
                           </button>
                         </div>
@@ -6501,7 +6548,7 @@ export default function Page() {
                             {viewingReviewNote.supplierName || viewingReviewNote.fileName || <span className="text-on-surface/30 font-medium">Sem fornecedor</span>}
                           </h3>
                           <button
-                            onClick={() => setEditingNoteHeader(true)}
+                            onClick={() => { setEditingNoteHeader(true); setNoteSupplierQuery(viewingReviewNote.supplierName || ''); }}
                             className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60"
                             title="Editar fornecedor e número"
                           >
