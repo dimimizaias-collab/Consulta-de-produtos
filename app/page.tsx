@@ -2788,6 +2788,24 @@ export default function Page() {
   // Atalho "Criar e Vincular" da coluna Identificação Interna: mesma checagem de existência do
   // botão "Vincular" — se já existe produto compatível, abre a busca normal; se não, pede
   // confirmação antes de criar (a criação em si acontece em handleQuickCreateAndLink).
+  // Aplica direto a tradução permanente já cadastrada para este item — sem abrir modal,
+  // sem pedir preço (usa o que já está na coluna Preço Venda) e sem re-perguntar se quer
+  // salvar como tradução permanente (ela já existe). Usado pelo raio quando já há vínculo.
+  const handleUsePermanentTranslation = (idx: number, item: any, mappedProductId: string) => {
+    if (!viewingReviewNote) return;
+    const p = products.find((prod: any) => prod.id === mappedProductId);
+    if (!p) { openQuickCreateOrLink(idx, item); return; } // produto removido — cai no fluxo normal
+    captureSnapshot();
+    const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
+    const updatedItems = [...viewingReviewNote.items];
+    updatedItems[idx] = { ...updatedItems[idx], name: p.name, sku: p.sku || updatedItems[idx].sku, ean: p.ean || updatedItems[idx].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+    setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+    const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
+    const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
+    const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
+    setNotification({ type: 'success', message: `Vinculado via tradução permanente: ${p.name}` });
+  };
+
   const openQuickCreateOrLink = (idx: number, item: any) => {
     const q = viewingNoteEans[idx] ?? item.ean ?? '';
     const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
@@ -7296,17 +7314,29 @@ export default function Page() {
                                   Vários
                                 </span>
                               </div>
-                              {/* Atalho: cria o produto (se ainda não existir) e já vincula, sem passar pela tela de criação */}
+                              {/* Atalho: se já existe tradução permanente, vincula na hora; senão cria/vincula normalmente */}
                               <div className="relative group shrink-0">
-                                <button
-                                  onClick={() => openQuickCreateOrLink(idx, item)}
-                                  className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
-                                  style={{ background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
-                                >
-                                  <Zap size={12} />
-                                </button>
+                                {(() => {
+                                  const permanentMapping = getItemMapping(item);
+                                  return (
+                                    <button
+                                      onClick={() => permanentMapping
+                                        ? handleUsePermanentTranslation(idx, item, permanentMapping.internal_product_id)
+                                        : openQuickCreateOrLink(idx, item)}
+                                      className={cn(
+                                        'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
+                                        permanentMapping
+                                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-500 hover:bg-amber-500/25'
+                                          : 'border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                                      )}
+                                      style={permanentMapping ? undefined : { background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
+                                    >
+                                      <Zap size={12} className={permanentMapping ? 'fill-amber-500/30' : undefined} />
+                                    </button>
+                                  );
+                                })()}
                                 <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
-                                  Criar e Vincular
+                                  {getItemMapping(item) ? 'Usar tradução permanente' : 'Criar e Vincular'}
                                 </span>
                               </div>
                             </div>
