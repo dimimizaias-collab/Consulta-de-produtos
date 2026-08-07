@@ -2998,7 +2998,30 @@ export default function Page() {
     setConfirmDeleteNote(false);
   }, [viewingReviewNote]);
 
-  const handleNoteEanPaste = (e: React.ClipboardEvent, rowIndex: number) => {
+  // Normaliza um valor colado para campos numéricos (formato BR: vírgula decimal, ponto milhar),
+  // igual à antiga janela "Criar Manifesto" — trata texto extra vindo de PDFs (ex: "48 UN").
+  const normalizeNumericPaste = (raw: string): string => {
+    const cleaned = raw.replace(/[^\d.,]/g, '').trim();
+    if (!cleaned) return '';
+    if (cleaned.includes(',')) {
+      const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+      return isNaN(parseFloat(normalized)) ? '' : normalized;
+    }
+    const dotIdx = cleaned.lastIndexOf('.');
+    if (dotIdx !== -1 && cleaned.length - dotIdx - 1 === 3) {
+      const normalized = cleaned.replace(/\./g, '');
+      return isNaN(parseFloat(normalized)) ? '' : normalized;
+    }
+    return isNaN(parseFloat(cleaned)) ? '' : cleaned;
+  };
+
+  // Colagem em coluna (distribui multi-linhas para baixo, criando linhas novas quando falta espaço) —
+  // só ativa com a nota em "Registro", igual funcionava na antiga janela "Criar Manifesto".
+  const handleNoteColumnPaste = (
+    e: React.ClipboardEvent, rowIndex: number,
+    field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'qty' | 'price',
+  ) => {
+    if (!viewingReviewNote || getNoteStatus(viewingReviewNote) !== 'registro') return;
     const text = e.clipboardData.getData('text');
     const lines = text
       .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -3007,11 +3030,51 @@ export default function Page() {
       .filter(l => l.length > 0);
     if (lines.length <= 1) return; // comportamento padrão do browser para linha única
     e.preventDefault();
-    setViewingNoteEans(prev => {
-      const updated = [...prev];
-      lines.forEach((value, i) => { updated[rowIndex + i] = value; });
-      return updated;
-    });
+    const isNumeric = field === 'qty' || field === 'price';
+    const values = isNumeric ? lines.map(normalizeNumericPaste).filter(v => v.length > 0) : lines;
+    if (values.length === 0) return;
+
+    const currentLen = viewingReviewNote.items.length;
+    const rowsToAdd = Math.max(0, (rowIndex + values.length) - currentLen);
+    if (rowsToAdd > 0) {
+      const blanks = Array.from({ length: rowsToAdd }, (_, i) => ({
+        seq: currentLen + i + 1, original_description: '', name: '', supplier_code: '',
+        ean: '', sku: '', unit: 'UN', multiplier: 1, qty: 0, price: 0, product_price: 0, verified: false, product_id: null,
+      }));
+      setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, ...blanks] } : prev);
+      setViewingNoteVerified(prev => [...prev, ...blanks.map(() => false)]);
+      setViewingNoteQtys(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteItemPrices(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteSellPrices(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteEans(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteSkus(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteUnits(prev => [...prev, ...blanks.map(() => 'UN')]);
+      setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
+      setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
+      setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingDistribMode(prev => [...prev, ...blanks.map(() => '')]);
+      setAdjColumns(prev => prev.map(col => ({ ...col, items: [...col.items, ...blanks.map(() => '')] })));
+      setViewingNoteDiscrepancies(prev => [...prev, ...blanks.map(() => null)]);
+      setViewingNoteEanVariants(prev => [...prev, ...blanks.map(() => [])]);
+      setViewingNoteExtraEans(prev => [...prev, ...blanks.map(() => [])]);
+    }
+
+    if (field === 'supplier_code' || field === 'original_description') {
+      setViewingReviewNote(prev => {
+        if (!prev) return prev;
+        const u = [...prev.items];
+        values.forEach((v, i) => { const idx = rowIndex + i; u[idx] = { ...u[idx], [field]: v }; });
+        return { ...prev, items: u };
+      });
+    } else if (field === 'ean') {
+      setViewingNoteEans(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
+    } else if (field === 'sku') {
+      setViewingNoteSkus(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
+    } else if (field === 'qty') {
+      setViewingNoteQtys(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
+    } else if (field === 'price') {
+      setViewingNoteItemPrices(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
+    }
   };
 
   const handleMultiLinkItemSearch = async () => {
@@ -7114,6 +7177,7 @@ export default function Page() {
                               {(canEditItems || reviewEditableCols.has('Código')) ? (
                                 <input type="text" value={item.supplier_code || ''}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], supplier_code: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'supplier_code')}
                                   onBlur={captureSnapshot}
                                   className="w-full font-mono text-xs font-bold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
                               ) : item.supplier_code ? (
@@ -7135,6 +7199,7 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 0)}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'original_description')}
                                   className="w-full text-[11px] font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
                               ) : (
                                 <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -7257,7 +7322,7 @@ export default function Page() {
                                 <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
                                   onChange={e => { const u = [...viewingNoteEans]; u[idx] = e.target.value; setViewingNoteEans(u); }}
-                                  onPaste={e => handleNoteEanPaste(e, idx)}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'ean')}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 1)}
                                   onBlur={captureSnapshot}
                                   className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
@@ -7291,6 +7356,7 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                   onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'sku')}
                                   onBlur={captureSnapshot}
                                   className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
                               ) : (
@@ -7344,6 +7410,7 @@ export default function Page() {
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
                                   onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 3)}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
                                   onBlur={captureSnapshot}
                                   onWheel={blockWheelChange}
                                   className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400" style={{ color: 'var(--rn-text)' }} />
@@ -7466,6 +7533,7 @@ export default function Page() {
                                         value={viewingNoteItemPrices[idx] === null ? '' : (viewingNoteItemPrices[idx] ?? item.price ?? '')}
                                         onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = e.target.value === '' ? null : parseFloat(e.target.value); setViewingNoteItemPrices(u); }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
+                                        onPaste={e => handleNoteColumnPaste(e, idx, 'price')}
                                         onBlur={captureSnapshot}
                                         onWheel={blockWheelChange}
                                         className="w-14 text-xs font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
