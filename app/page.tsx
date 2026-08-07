@@ -528,7 +528,7 @@ export default function Page() {
   // ── Ocultar colunas ──
   const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set());
   const [showHideColsModal, setShowHideColsModal] = useState(false);
-  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
+  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -6864,7 +6864,7 @@ export default function Page() {
                           'Produto na Nota': 'produto',
                           'Identificação Interna': 'interno',
                           'EAN': 'ean',
-                          'SKU': 'sku',
+                          'Medida': 'medida',
                           'Qtd.': 'qtd',
                         };
                         const _computeNumerics = (it: any, i: number) => {
@@ -6880,7 +6880,7 @@ export default function Page() {
                             if (key === 'produto') return it.original_description || '-';
                             if (key === 'interno') return it.name || '-';
                             if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
-                            if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                            if (key === 'medida') return viewingNoteUnits[i] || it.unit || '-';
                             if (key === 'status') return it.status_translation || '-';
                             if (key === 'seq') return String(i + 1);
                             if (key === 'codigo') return it.supplier_code || '-';
@@ -6988,7 +6988,7 @@ export default function Page() {
                             {renderFilterDropdown('codigo')}
                           </th>
                           )}
-                          {(['Produto na Nota', 'Identificação Interna', 'EAN', 'SKU', 'Qtd.'] as const).map(col => {
+                          {(['Produto na Nota', 'Identificação Interna', 'EAN', 'Medida', 'Qtd.'] as const).map(col => {
                             if (reviewHiddenCols.has(col)) return null;
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
@@ -7092,7 +7092,7 @@ export default function Page() {
                         if (key === 'produto') return it.original_description || '-';
                         if (key === 'interno') return it.name || '-';
                         if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
-                        if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                        if (key === 'medida') return viewingNoteUnits[i] || it.unit || '-';
                         if (key === 'status') return it.status_translation || '-';
                         if (key === 'seq') return String(i + 1);
                         if (key === 'codigo') return it.supplier_code || '-';
@@ -7345,78 +7345,49 @@ export default function Page() {
                             </div>
                           </td>
                           )}
-                          {!reviewHiddenCols.has('SKU') && (
-                          <td style={tdP}
-                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                          >
-                            <div data-cell style={cell({ padding: '0 10px' })}>
-                              {(canEditItems || reviewEditableCols.has('SKU')) ? (
-                                <input type="text" value={viewingNoteSkus[idx] ?? item.sku ?? ''}
-                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
-                                  onChange={e => { const u = [...viewingNoteSkus]; u[idx] = e.target.value; setViewingNoteSkus(u); }}
-                                  onKeyDown={tableCellKeyDown('review-note', idx, 2)}
-                                  onPaste={e => handleNoteColumnPaste(e, idx, 'sku')}
-                                  onBlur={captureSnapshot}
-                                  className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
-                              ) : (
-                                <p className="text-[11px] font-bold font-mono" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteSkus[idx] ?? item.sku) || '—'}</p>
-                              )}
-                            </div>
-                          </td>
-                          )}
-                          {!reviewHiddenCols.has('Qtd.') && (
+                          {/* Medida — unidade/multiplicador, junto com Usar tradução / Adicionar medida */}
+                          {!reviewHiddenCols.has('Medida') && (
                           <td style={{ ...tdP, position: 'relative' }}>
-                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px', height: 'auto', minHeight: '40px', padding: '4px 2px' })}>
-                            {/* Discrepancy trigger — always rendered, flanks the qty block */}
-                            <div className="flex items-center gap-1.5">
-                            {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
-                              /* ── EDIT MODE: unit selector + qty input ── */
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                                  <input
-                                    type="text"
-                                    value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
-                                    onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
-                                    className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-white/40 text-center transition-colors"
-                                    placeholder="UN"
-                                  />
-                                  {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
-                                    <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${viewingNoteMultipliers[idx] ?? item.multiplier}`}>
-                                      ×{viewingNoteMultipliers[idx] ?? item.multiplier}
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      const next = reviewUnitMenuIdx === idx ? null : idx;
-                                      if (next !== null) {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const dropdownH = 120;
-                                        const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
-                                        setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
-                                        reviewUnitTriggerRef.current = e.currentTarget;
-                                      } else { setReviewUnitMenuPos(null); }
-                                      setReviewUnitMenuIdx(next);
-                                    }}
-                                    className={cn(
-                                      'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
-                                      reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-white/30 hover:text-primary hover:bg-primary/10'
-                                    )}
-                                  >
-                                    <Plus size={10} />
-                                  </button>
-                                </div>
-                                <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
-                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
-                                  onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
-                                  onKeyDown={tableCellKeyDown('review-note', idx, 3)}
-                                  onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible', padding: '4px 6px' })}>
+                            {(canEditItems || reviewEditableCols.has('Medida')) ? (
+                              <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="text"
+                                  value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
+                                  data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
+                                  onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
+                                  onKeyDown={tableCellKeyDown('review-note', idx, 2)}
                                   onBlur={captureSnapshot}
-                                  onWheel={blockWheelChange}
-                                  className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
+                                  className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-center transition-colors"
+                                  style={{ color: 'var(--rn-text-muted)' }}
+                                  placeholder="UN"
+                                />
+                                {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
+                                  <span className="text-[8px] font-black text-primary/60 leading-none shrink-0" title={`×${viewingNoteMultipliers[idx] ?? item.multiplier}`}>
+                                    ×{viewingNoteMultipliers[idx] ?? item.multiplier}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    const next = reviewUnitMenuIdx === idx ? null : idx;
+                                    if (next !== null) {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const dropdownH = 120;
+                                      const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
+                                      setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+                                      reviewUnitTriggerRef.current = e.currentTarget;
+                                    } else { setReviewUnitMenuPos(null); }
+                                    setReviewUnitMenuIdx(next);
+                                  }}
+                                  className={cn(
+                                    'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
+                                    reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-white/30 hover:text-primary hover:bg-primary/10'
+                                  )}
+                                >
+                                  <Plus size={10} />
+                                </button>
                               </div>
                             ) : (
-                              /* ── VIEW MODE: single gray box [UN  qty] ── */
                               <button
                                 onClick={(e) => {
                                   const next = reviewUnitMenuIdx === idx ? null : idx;
@@ -7429,18 +7400,40 @@ export default function Page() {
                                   } else { setReviewUnitMenuPos(null); }
                                   setReviewUnitMenuIdx(next);
                                 }}
-                                className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
+                                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
                               >
                                 <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
-                                <span className="text-sm font-black inline-flex items-baseline gap-0.5" style={{ color: 'var(--rn-text)' }}>
-                                  {viewingNoteQtys[idx] ?? item.qty}
-                                  {(() => {
-                                    const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
-                                    if (!d) return null;
-                                    return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
-                                  })()}
-                                </span>
+                                {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
+                                  <span className="text-[9px] font-black text-primary/60 leading-none shrink-0">×{viewingNoteMultipliers[idx] ?? item.multiplier}</span>
+                                )}
                               </button>
+                            )}
+                            </div>
+                          </td>
+                          )}
+                          {/* Quantidade — só o número; medida/tradução vivem na coluna Medida */}
+                          {!reviewHiddenCols.has('Qtd.') && (
+                          <td style={{ ...tdP, position: 'relative' }}>
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
+                            <div className="flex items-center gap-1.5">
+                            {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
+                              <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
+                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                onKeyDown={tableCellKeyDown('review-note', idx, 3)}
+                                onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
+                                onBlur={captureSnapshot}
+                                onWheel={blockWheelChange}
+                                className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
+                            ) : (
+                              <span className="text-sm font-black inline-flex items-baseline gap-0.5 px-3 py-1.5 rounded-[9px]" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text)' }}>
+                                {viewingNoteQtys[idx] ?? item.qty}
+                                {(() => {
+                                  const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                                  if (!d) return null;
+                                  return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
+                                })()}
+                              </span>
                             )}
                             {/* Discrepancy trigger button */}
                             {(() => {
@@ -8464,7 +8457,7 @@ export default function Page() {
                       if (key === 'produto') return it.original_description || '-';
                       if (key === 'interno') return it.name || '-';
                       if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
-                      if (key === 'sku') return viewingNoteSkus[i] || it.sku || '-';
+                      if (key === 'medida') return viewingNoteUnits[i] || it.unit || '-';
                       if (key === 'status') return it.status_translation || '-';
                       return '-';
                     };
