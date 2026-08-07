@@ -2401,8 +2401,13 @@ export default function Page() {
       const mult = Number(conv.multiplier);
       const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
       const newQty = originalQty * mult;
+      // Mesmo tratamento de "Adicionar medida": divide o preço pelo multiplicador e reseta pra 1,
+      // senão a célula de Preço Custo (ligada direto ao preço bruto) fica com o valor antigo na tela.
+      const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
+      const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
       const u = [...viewingNoteUnits]; u[idx] = conv.unit_name; setViewingNoteUnits(u);
-      const m = [...viewingNoteMultipliers]; m[idx] = mult; setViewingNoteMultipliers(m);
+      const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
+      const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
       const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
       setNotification({ type: 'success', message: `Tradução aplicada: ×${mult}` });
     } catch {
@@ -6813,13 +6818,30 @@ export default function Page() {
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
                   <div className="max-w-2xl">
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>
-                    <ReceivedDateField
-                      receivedDate={viewingReviewNote.receivedDate || ''}
-                      onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
-                      registeredLabel={viewingReviewNote.timestamp}
-                      className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors flex items-center gap-1.5 w-fit"
-                    />
+                    <div className="flex items-start gap-8">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>
+                        <ReceivedDateField
+                          receivedDate={viewingReviewNote.receivedDate || ''}
+                          onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
+                          registeredLabel={viewingReviewNote.timestamp}
+                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors flex items-center gap-1.5 w-fit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Transporte</label>
+                        <select
+                          value={viewingReviewNote.transporte || ''}
+                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, transporte: (e.target.value || undefined) as ReviewNote['transporte'] })}
+                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors w-fit cursor-pointer"
+                        >
+                          <option value="">Selecionar...</option>
+                          <option value="fornecedor">Fornecedor</option>
+                          <option value="proprio">Transporte próprio</option>
+                          <option value="transportadora">Transportadora</option>
+                        </select>
+                      </div>
+                    </div>
 
                     <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mt-8 mb-3">Situação de Entrada</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
