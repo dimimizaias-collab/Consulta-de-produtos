@@ -27,6 +27,7 @@ import {
   Edit3,
   Clock,
   Eye,
+  Maximize2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -244,13 +245,8 @@ export function LogisticsCenter({
 
   // ── Painel de resultados ───────────────────────────────────────────────
   const [resultsPanelTab, setResultsPanelTab] = useState<'resultados' | 'fornecedores'>('resultados');
-  const [fornecRangeStart, setFornecRangeStart] = useState<string>(() => {
-    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-  });
-  const [fornecRangeEnd, setFornecRangeEnd] = useState<string>(() => {
-    const d = new Date(); const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    return toIsoDay(last);
-  });
+  const [fornecChartMode, setFornecChartMode] = useState<'markup' | 'valor'>('markup');
+  const [showFornecFullscreen, setShowFornecFullscreen] = useState(false);
 
   // ── Filtro de colunas da tabela (mesmo padrão do Controle Financeiro) ─
   const [columnFiltersEnabled, setColumnFiltersEnabled] = useState(false);
@@ -404,24 +400,35 @@ export function LogisticsCenter({
   }, [approvedVisibleNotes]);
   const statFornecedores = new Set(approvedVisibleNotes.map(n => n.supplierName).filter(Boolean)).size;
 
-  // ── Sub-aba Fornecedores do painel de Resultados: gráfico de gasto por fornecedor ─
-  const fornecFilteredNotes = useMemo(() => sectionNotesRaw.filter(note => {
-    const d = noteDateIso(note);
-    if (!d) return true;
-    if (!fornecRangeStart || !fornecRangeEnd) return true;
-    return d >= fornecRangeStart && d <= fornecRangeEnd;
-  }), [sectionNotesRaw, fornecRangeStart, fornecRangeEnd]);
+  // ── Sub-aba Fornecedores do painel de Resultados: mesmo recorte que a aba "Resultados"
+  // (approvedVisibleNotes — período do calendário + busca + filtros de coluna + só aprovadas),
+  // agrupado por fornecedor, com o valor de cada barra alternando entre markup % e valor R$ ─
+  const fornecPerSupplier = useMemo(() => {
+    const map = new Map<string, { cost: number; sell: number; total: number }>();
+    approvedVisibleNotes.forEach(n => {
+      const name = n.supplierName || 'Sem fornecedor';
+      const cs = noteCostSell(n);
+      const entry = map.get(name) || { cost: 0, sell: 0, total: 0 };
+      entry.cost += cs.cost;
+      entry.sell += cs.sell;
+      entry.total += noteTotal(n);
+      map.set(name, entry);
+    });
+    return Array.from(map.entries()).map(([name, { cost, sell, total }]) => ({
+      name,
+      total,
+      markup: cost > 0 ? ((sell - cost) / cost * 100) : null,
+    }));
+  }, [approvedVisibleNotes]);
 
   const fornecChartData = useMemo(() => {
-    const map = new Map<string, number>();
-    fornecFilteredNotes.forEach(n => {
-      const name = n.supplierName || 'Sem fornecedor';
-      map.set(name, (map.get(name) || 0) + noteTotal(n));
-    });
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [fornecFilteredNotes]);
+    if (fornecChartMode === 'valor') {
+      return fornecPerSupplier.map(f => ({ name: f.name, value: f.total })).sort((a, b) => b.value - a.value);
+    }
+    return fornecPerSupplier.filter(f => f.markup !== null).map(f => ({ name: f.name, value: f.markup as number })).sort((a, b) => b.value - a.value);
+  }, [fornecPerSupplier, fornecChartMode]);
   const fornecMaxValue = Math.max(1, ...fornecChartData.map(f => f.value));
-  const fornecTotalCount = fornecChartData.length;
+  const fornecTotalCount = fornecPerSupplier.length;
 
   const showCalendarResultsPanel = activeSection === 'notas';
 
@@ -972,44 +979,58 @@ export function LogisticsCenter({
               </div>
             ) : (
               <div className="p-3 flex flex-col gap-2.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <input
-                    type="date"
-                    value={fornecRangeStart}
-                    onChange={e => setFornecRangeStart(e.target.value)}
-                    className="text-[10.5px] font-bold px-1.5 py-1.5 rounded-lg border border-on-surface/10 bg-surface-container text-on-surface min-w-0 flex-1"
-                  />
-                  <span className="text-[10px] font-black text-on-surface/30 shrink-0">até</span>
-                  <input
-                    type="date"
-                    value={fornecRangeEnd}
-                    onChange={e => setFornecRangeEnd(e.target.value)}
-                    className="text-[10.5px] font-bold px-1.5 py-1.5 rounded-lg border border-on-surface/10 bg-surface-container text-on-surface min-w-0 flex-1"
-                  />
-                  <div className="w-full flex items-center gap-1.5 bg-surface-container border border-on-surface/[0.07] rounded-[10px] px-2.5 py-1.5">
-                    <Building2 size={11} className="text-violet-600 dark:text-violet-400 shrink-0" />
-                    <span className="text-[8px] font-black uppercase tracking-[0.09em] text-on-surface/40">Total</span>
-                    <span className="text-[12px] font-black text-on-surface">{fornecTotalCount}</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 flex items-center gap-1.5 bg-surface-container border border-on-surface/[0.07] rounded-[10px] px-2.5 py-1.5 min-w-0">
+                    <Building2 size={12} className="text-violet-600 dark:text-violet-400 shrink-0" />
+                    <span className="text-[8px] font-black uppercase tracking-[0.09em] text-on-surface/40">Fornecedores</span>
+                    <span className="text-[12px] font-black text-on-surface ml-auto">{fornecTotalCount}</span>
                   </div>
+                  <button
+                    onClick={() => setShowFornecFullscreen(true)}
+                    title="Ver em tela cheia"
+                    className="w-[30px] h-[30px] rounded-[10px] border border-on-surface/10 bg-surface-container text-on-surface/55 hover:bg-on-surface hover:text-[#FFE500] hover:border-on-surface flex items-center justify-center transition-all shrink-0"
+                  >
+                    <Maximize2 size={14} />
+                  </button>
                 </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[8.5px] font-black uppercase tracking-wider text-on-surface/35">
+                    {fornecChartMode === 'markup' ? 'Markup por fornecedor' : 'Valor por fornecedor'}
+                  </span>
+                  <button
+                    onClick={() => setFornecChartMode(m => m === 'markup' ? 'valor' : 'markup')}
+                    title={fornecChartMode === 'markup' ? 'Ver valor (R$)' : 'Ver markup'}
+                    className={cn(
+                      'w-[22px] h-[22px] rounded-[7px] border border-on-surface/10 bg-surface-container text-violet-600 dark:text-violet-400 flex items-center justify-center transition-all shrink-0 hover:bg-violet-600 hover:text-white hover:border-violet-600',
+                      fornecChartMode === 'valor' && 'rotate-180'
+                    )}
+                  >
+                    <ChevronDown size={12} strokeWidth={2.5} />
+                  </button>
+                </div>
+
                 {fornecChartData.length === 0 ? (
                   <div className="flex items-center justify-center py-8 text-on-surface/25">
-                    <p className="text-xs font-bold">Nenhum gasto no período</p>
+                    <p className="text-xs font-bold">Nenhuma nota aprovada no período</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto pb-1">
-                    <div className="flex items-end gap-4 h-[120px] min-w-max px-1 border-b-[1.5px] border-on-surface/10">
-                      {fornecChartData.map(f => (
-                        <div key={f.name} className="flex flex-col items-center justify-end gap-1.5 w-11 h-full shrink-0" title={`${f.name}: ${fmtBRL(f.value)}`}>
-                          <span className="text-[7.5px] font-black text-on-surface/50 whitespace-nowrap">{fmtBRL(f.value).replace('R$ ', 'R$ ')}</span>
+                  <div className="flex items-end gap-1.5 h-[118px] px-0.5 pb-2 border-b-[1.5px] border-on-surface/10">
+                    {fornecChartData.map(f => (
+                      <div key={f.name} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1 h-full" title={`${f.name}: ${fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}`}>
+                          <span className="text-[8px] font-black text-violet-600/85 dark:text-violet-400/85 whitespace-nowrap">{fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}</span>
                           <div
-                            className="w-6 rounded-t-[6px] bg-gradient-to-b from-primary to-[#B31616]"
+                            className={cn(
+                              'w-full max-w-[22px] rounded-t-[6px]',
+                              fornecChartMode === 'markup'
+                                ? 'bg-gradient-to-b from-violet-400 to-violet-600'
+                                : 'bg-gradient-to-b from-red-300 to-primary'
+                            )}
                             style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}px` }}
                           />
-                          <span className="text-[7px] font-bold text-on-surface/45 text-center leading-tight max-w-[44px] truncate">{f.name}</span>
+                          <span className="text-[7px] font-bold text-on-surface/45 text-center leading-tight max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{f.name}</span>
                         </div>
                       ))}
-                    </div>
                   </div>
                 )}
               </div>
@@ -1017,6 +1038,121 @@ export function LogisticsCenter({
           </div>
         </div>
       )}
+
+      {/* Fornecedores em tela cheia - mesmo padrao da janela de edicao de notas */}
+      <AnimatePresence>
+        {showFornecFullscreen && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-[10px]">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFornecFullscreen(false)}
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              className="relative w-full h-full bg-[#FDFAF0] dark:bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
+            >
+              <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between bg-surface-container dark:bg-[#252520] shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                    <Building2 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-on-surface">Markup por Fornecedor</h3>
+                    <p className="text-xs font-semibold text-on-surface/40 mt-0.5 capitalize">{calMonthLabel}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFornecFullscreen(false)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full border-[1.5px] border-on-surface/15 hover:bg-on-surface/[0.07] transition-colors"
+                >
+                  <X size={22} className="text-on-surface/40" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6 flex flex-col gap-5">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-2xl px-4 py-3.5 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0 text-violet-600 dark:text-violet-400">
+                      <Building2 size={16} strokeWidth={2.3} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/40">Fornecedores</div>
+                      <div className="text-lg font-black tracking-tight leading-tight truncate text-on-surface">{statFornecedores}</div>
+                    </div>
+                  </div>
+                  <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-2xl px-4 py-3.5 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                      <Wallet size={16} strokeWidth={2.3} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/40">Valor Total</div>
+                      <div className="text-lg font-black tracking-tight leading-tight truncate text-on-surface">{fmtBRL(statValorTotal)}</div>
+                    </div>
+                  </div>
+                  <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-2xl px-4 py-3.5 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                      <TrendingUp size={16} strokeWidth={2.3} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/40">Markup Geral</div>
+                      <div className="text-lg font-black tracking-tight leading-tight truncate text-on-surface">{statMarkup !== null ? fmtPct(statMarkup) : '—'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-surface-container-low border border-on-surface/[0.07] rounded-2xl p-5 flex flex-col gap-3 min-h-[280px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-black uppercase tracking-wider text-on-surface/40">
+                      {fornecChartMode === 'markup' ? 'Markup geral por fornecedor' : 'Valor por fornecedor'}
+                    </span>
+                    <button
+                      onClick={() => setFornecChartMode(m => m === 'markup' ? 'valor' : 'markup')}
+                      title={fornecChartMode === 'markup' ? 'Ver valor (R$)' : 'Ver markup'}
+                      className={cn(
+                        'w-7 h-7 rounded-[9px] border border-on-surface/10 bg-surface-container text-violet-600 dark:text-violet-400 flex items-center justify-center transition-all shrink-0 hover:bg-violet-600 hover:text-white hover:border-violet-600',
+                        fornecChartMode === 'valor' && 'rotate-180'
+                      )}
+                    >
+                      <ChevronDown size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                  {fornecChartData.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-on-surface/25">
+                      <p className="text-sm font-bold">Nenhuma nota aprovada no periodo</p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-end gap-5 px-1 pb-2.5 border-b-[1.5px] border-on-surface/10">
+                      {fornecChartData.map(f => (
+                        <div key={f.name} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1.5 h-full">
+                          <span className="text-[11px] font-black text-violet-600 dark:text-violet-400 whitespace-nowrap">
+                            {fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}
+                          </span>
+                          <div
+                            className={cn(
+                              'w-full max-w-[56px] rounded-t-xl',
+                              fornecChartMode === 'markup'
+                                ? 'bg-gradient-to-b from-violet-400 to-violet-700'
+                                : 'bg-gradient-to-b from-red-300 to-primary'
+                            )}
+                            style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}%` }}
+                          />
+                          <span className="text-[10px] font-extrabold text-on-surface/55 text-center truncate max-w-full">{f.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {activeSection === 'notas' && (
         <div className="hidden md:block space-y-6">

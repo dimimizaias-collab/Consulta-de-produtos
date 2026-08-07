@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Painel Fornecedores (Dark)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #17170F;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 48px 32px;
+  }
+  .section { max-width: 760px; margin: 0 auto 64px; }
+  .label {
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .row { display: flex; align-items: stretch; gap: 14px; justify-content: center; }
+
+  /* ── Shared card shell ── */
+  .card {
+    background: #1E1E18;
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 18px;
+    overflow: hidden;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-header {
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* ── Calendar (unchanged reference, for context only) ── */
+  .cal-month { font-size: 13px; font-weight: 900; color: #1A1A0E; white-space: nowrap; flex: 1; }
+  .cal-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .cal-actions button {
+    width: 26px; height: 26px; border-radius: 8px; border: none;
+    background: rgba(26,26,10,0.10); color: rgba(26,26,10,0.55);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-actions svg { width: 12px; height: 12px; }
+  .cal-body { padding: 12px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .cal-dow span {
+    text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.08em; color: rgba(242,240,227,0.25); padding: 4px 0;
+  }
+  .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-day {
+    height: 26px; display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; border-radius: 8px; color: rgba(242,240,227,0.55);
+    position: relative;
+  }
+  .cal-day.other { color: rgba(242,240,227,0.18); }
+  .cal-day.today { background: rgba(216,30,30,0.14); color: #F87171; font-weight: 900; }
+  .dot { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #D81E1E; }
+  .cal-badge {
+    margin: 0 12px 12px; background: rgba(242,240,227,0.04); border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 10px; padding: 6px 10px; font-size: 9.5px; font-weight: 700; color: rgba(242,240,227,0.40);
+    text-transform: capitalize;
+  }
+
+  /* ── Tabs ── */
+  .panel-tabs {
+    flex: 1;
+    display: flex;
+    background: rgba(26,26,10,0.12);
+    border-radius: 99px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .panel-tabs button {
+    flex: 1; border: none; cursor: pointer; padding: 6px 8px; border-radius: 99px;
+    font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    font-family: inherit; color: rgba(26,26,10,0.48);
+    background: transparent;
+  }
+  .panel-tabs button.active { background: #D81E1E; color: #FFFFFF; box-shadow: 0 1px 4px rgba(216,30,30,0.40); }
+
+  /* ── Fornecedores mini panel ── */
+  .fornec-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .fornec-toprow { display: flex; align-items: center; gap: 8px; }
+  .fornec-count {
+    flex: 1; display: flex; align-items: center; gap: 6px;
+    background: #252520; border: 1px solid rgba(242,240,227,0.07); border-radius: 10px;
+    padding: 6px 10px;
+  }
+  .fornec-count svg { width: 12px; height: 12px; color: #C4B5FD; }
+  .fornec-count .fc-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.09em; color: rgba(242,240,227,0.40); }
+  .fornec-count .fc-value { font-size: 12px; font-weight: 900; color: #F2F0E3; margin-left: auto; }
+
+  .expand-btn {
+    width: 30px; height: 30px; border-radius: 10px; border: 1px solid rgba(242,240,227,0.10);
+    background: #252520; color: rgba(242,240,227,0.55);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .expand-btn:hover { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+  .expand-btn svg { width: 14px; height: 14px; }
+
+  /* Chart header row — label + toggle arrow (markup ⇄ valor) */
+  .chart-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .chart-header-label { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.35); }
+  .toggle-arrow {
+    width: 22px; height: 22px; border-radius: 7px; border: 1px solid rgba(242,240,227,0.10);
+    background: #252520; color: #C4B5FD;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .toggle-arrow:hover { background: #7C3AED; color: #FFFFFF; border-color: #7C3AED; }
+  .toggle-arrow svg { width: 12px; height: 12px; }
+  .toggle-arrow.big { width: 28px; height: 28px; border-radius: 9px; }
+  .toggle-arrow.big svg { width: 14px; height: 14px; }
+
+  /* Chart — no scroll: bars fit to container width via flex + min-width:0 */
+  .chart-wrap {
+    display: flex; align-items: flex-end; gap: 6px; height: 118px;
+    padding: 0 2px 8px; border-bottom: 1.5px solid rgba(242,240,227,0.10);
+  }
+  .chart-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
+  .chart-pct { font-size: 8px; font-weight: 900; color: #C4B5FD; white-space: nowrap; }
+  .chart-bar { width: 100%; max-width: 22px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #A78BFA 0%, #7C3AED 100%); }
+  .chart-bar.valor { background: linear-gradient(180deg, #FCA5A5 0%, #D81E1E 100%); }
+  .chart-name { font-size: 7px; font-weight: 700; color: rgba(242,240,227,0.45); text-align: center; line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Fullscreen modal ── */
+  .modal-frame {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    height: 560px;
+    margin: 0 auto;
+    background: #1E1E18;
+    border-radius: 20px;
+    border: 1px solid rgba(242,240,227,0.08);
+    box-shadow: 0 30px 70px rgba(0,0,0,0.55);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    background: #252520;
+    border-bottom: 1px solid rgba(242,240,227,0.07);
+    padding: 18px 22px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
+  }
+  .modal-header-left { display: flex; align-items: center; gap: 12px; }
+  .modal-icon {
+    width: 42px; height: 42px; border-radius: 12px; background: rgba(167,139,250,0.14);
+    color: #C4B5FD; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .modal-icon svg { width: 20px; height: 20px; }
+  .modal-title { font-size: 18px; font-weight: 900; color: #F2F0E3; letter-spacing: -0.01em; }
+  .modal-subtitle { font-size: 11px; font-weight: 600; color: rgba(242,240,227,0.40); margin-top: 1px; }
+  .modal-close {
+    width: 36px; height: 36px; border-radius: 999px; border: 1.5px solid rgba(242,240,227,0.15);
+    background: transparent; color: rgba(242,240,227,0.40); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .modal-close svg { width: 18px; height: 18px; }
+
+  .modal-body { flex: 1; overflow: auto; padding: 22px; display: flex; flex-direction: column; gap: 20px; }
+
+  .stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat-card {
+    background: #252520; border: 1px solid rgba(242,240,227,0.08); border-radius: 14px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .stat-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stat-icon svg { width: 15px; height: 15px; }
+  .stat-icon.violet { background: rgba(167,139,250,0.14); color: #C4B5FD; }
+  .stat-icon.emerald { background: rgba(52,211,153,0.14); color: #34D399; }
+  .stat-icon.amber { background: rgba(252,211,77,0.14); color: #FCD34D; }
+  .stat-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.40); }
+  .stat-value { font-size: 19px; font-weight: 900; color: #F2F0E3; letter-spacing: -0.01em; margin-top: 1px; }
+
+  .chart-big-frame {
+    flex: 1; background: #252520; border: 1px solid rgba(242,240,227,0.08); border-radius: 16px;
+    padding: 20px; display: flex; flex-direction: column; gap: 8px; min-height: 260px;
+  }
+  .chart-big-titlerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .chart-big-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(242,240,227,0.40); }
+  .chart-big-wrap { flex: 1; display: flex; align-items: flex-end; gap: 22px; padding: 0 4px 10px; border-bottom: 1.5px solid rgba(242,240,227,0.10); }
+  .chart-big-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+  .chart-big-pct { font-size: 11px; font-weight: 900; color: #C4B5FD; }
+  .chart-big-pct.valor { color: #FCA5A5; }
+  .chart-big-bar { width: 100%; max-width: 56px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #A78BFA 0%, #6D28D9 100%); }
+  .chart-big-bar.valor { background: linear-gradient(180deg, #FCA5A5 0%, #D81E1E 100%); }
+  .chart-big-name { font-size: 10px; font-weight: 800; color: rgba(242,240,227,0.55); text-align: center; }
+
+  h2 { font-size: 13px; color: rgba(242,240,227,0.5); margin: 40px 0 14px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; text-align: center; }
+</style>
+</head>
+<body>
+
+  <div class="section">
+    <div class="label">Estado atual (referência) → Painel de Resultados / Fornecedores</div>
+    <h2>1 · Painel compacto — aba "Fornecedores" (sem filtro próprio, sem scroll, com botão de tela cheia)</h2>
+    <div class="row">
+      <!-- Calendar (unchanged, contextual reference) -->
+      <div class="card">
+        <div class="card-header">
+          <span class="cal-month">Agosto 2026</span>
+          <div class="cal-actions">
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></button>
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+          <div class="cal-days">
+            <div class="cal-day other">26</div><div class="cal-day other">27</div><div class="cal-day other">28</div><div class="cal-day other">29</div><div class="cal-day other">30</div><div class="cal-day other">31</div>
+            <div class="cal-day">1</div><div class="cal-day">2</div><div class="cal-day">3</div><div class="cal-day">4</div><div class="cal-day">5</div><div class="cal-day">6</div><div class="cal-day today">7</div>
+            <div class="cal-day">8</div><div class="cal-day">9</div><div class="cal-day">10</div><div class="cal-day">11</div><div class="cal-day">12</div><div class="cal-day">13</div><div class="cal-day">14</div>
+            <div class="cal-day">15</div><div class="cal-day">16</div><div class="cal-day">17</div><div class="cal-day">18</div><div class="cal-day">19</div><div class="cal-day">20</div><div class="cal-day">21</div>
+            <div class="cal-day">22</div><div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day">25</div><div class="cal-day">26</div><div class="cal-day">27</div><div class="cal-day">28</div>
+            <div class="cal-day">29</div><div class="cal-day">30</div><div class="cal-day">31</div><div class="cal-day other">1</div><div class="cal-day other">2</div><div class="cal-day other">3</div><div class="cal-day other">4</div>
+          </div>
+        </div>
+        <div class="cal-badge">Mostrando: agosto de 2026 (mês atual)</div>
+      </div>
+
+      <!-- Resultados panel — Fornecedores tab active -->
+      <div class="card">
+        <div class="card-header">
+          <div class="panel-tabs">
+            <button>Resultados</button>
+            <button class="active">Fornecedores</button>
+          </div>
+        </div>
+        <div class="fornec-body">
+          <div class="fornec-toprow">
+            <div class="fornec-count">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg>
+              <span class="fc-label">Fornecedores</span>
+              <span class="fc-value">6</span>
+            </div>
+            <button class="expand-btn" title="Ver em tela cheia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+          </div>
+
+          <div class="chart-header">
+            <span class="chart-header-label">Markup por fornecedor</span>
+            <button class="toggle-arrow" title="Ver valor (R$)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 10l5 5 5-5"/></svg>
+            </button>
+          </div>
+
+          <div class="chart-wrap">
+            <div class="chart-col"><span class="chart-pct">+38%</span><div class="chart-bar" style="height: 88%;"></div><span class="chart-name">Distrib. Sul</span></div>
+            <div class="chart-col"><span class="chart-pct">+31%</span><div class="chart-bar" style="height: 73%;"></div><span class="chart-name">Vitalle</span></div>
+            <div class="chart-col"><span class="chart-pct">+24%</span><div class="chart-bar" style="height: 57%;"></div><span class="chart-name">Bom Gosto</span></div>
+            <div class="chart-col"><span class="chart-pct">+19%</span><div class="chart-bar" style="height: 45%;"></div><span class="chart-name">Aurora</span></div>
+            <div class="chart-col"><span class="chart-pct">+11%</span><div class="chart-bar" style="height: 26%;"></div><span class="chart-name">Kanay</span></div>
+            <div class="chart-col"><span class="chart-pct">+6%</span><div class="chart-bar" style="height: 14%;"></div><span class="chart-name">Real Alim.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Toggle acionado — seta no canto superior direito do painel do gráfico</div>
+    <h2>1b · Painel compacto — variação "Valor" (R$ por fornecedor)</h2>
+    <div class="row">
+      <div class="card" style="width: 320px;">
+        <div class="card-header">
+          <div class="panel-tabs">
+            <button>Resultados</button>
+            <button class="active">Fornecedores</button>
+          </div>
+        </div>
+        <div class="fornec-body">
+          <div class="fornec-toprow">
+            <div class="fornec-count">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg>
+              <span class="fc-label">Fornecedores</span>
+              <span class="fc-value">6</span>
+            </div>
+            <button class="expand-btn" title="Ver em tela cheia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+          </div>
+
+          <div class="chart-header">
+            <span class="chart-header-label">Valor por fornecedor</span>
+            <button class="toggle-arrow" title="Ver markup" style="transform: rotate(180deg);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 10l5 5 5-5"/></svg>
+            </button>
+          </div>
+
+          <div class="chart-wrap">
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 24,9k</span><div class="chart-bar valor" style="height: 88%;"></div><span class="chart-name">Distrib. Sul</span></div>
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 19,4k</span><div class="chart-bar valor" style="height: 69%;"></div><span class="chart-name">Vitalle</span></div>
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 15,1k</span><div class="chart-bar valor" style="height: 54%;"></div><span class="chart-name">Bom Gosto</span></div>
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 12,8k</span><div class="chart-bar valor" style="height: 46%;"></div><span class="chart-name">Aurora</span></div>
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 8,3k</span><div class="chart-bar valor" style="height: 30%;"></div><span class="chart-name">Kanay</span></div>
+            <div class="chart-col"><span class="chart-pct" style="color:#FCA5A5;">R$ 3,7k</span><div class="chart-bar valor" style="height: 13%;"></div><span class="chart-name">Real Alim.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>2 · Janela em tela cheia (mesmo padrão da janela de notas — overlay escuro, cantos 20px)</h2>
+    <div class="modal-frame">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg>
+          </div>
+          <div>
+            <div class="modal-title">Markup por Fornecedor</div>
+            <div class="modal-subtitle">Agosto de 2026 · notas aprovadas</div>
+          </div>
+        </div>
+        <button class="modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="stat-cards">
+          <div class="stat-card">
+            <div class="stat-icon violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg></div>
+            <div><div class="stat-label">Fornecedores</div><div class="stat-value">6</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4M3 5v14a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+            <div><div class="stat-label">Valor Total</div><div class="stat-value">R$ 84.230,00</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+            <div><div class="stat-label">Markup Geral</div><div class="stat-value">+24,6%</div></div>
+          </div>
+        </div>
+
+        <div class="chart-big-frame">
+          <div class="chart-big-titlerow">
+            <span class="chart-big-title">Markup geral por fornecedor</span>
+            <button class="toggle-arrow big" title="Ver valor (R$)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 10l5 5 5-5"/></svg>
+            </button>
+          </div>
+          <div class="chart-big-wrap">
+            <div class="chart-big-col"><span class="chart-big-pct">+38%</span><div class="chart-big-bar" style="height: 88%;"></div><span class="chart-big-name">Distrib. Sul</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct">+31%</span><div class="chart-big-bar" style="height: 73%;"></div><span class="chart-big-name">Vitalle</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct">+24%</span><div class="chart-big-bar" style="height: 57%;"></div><span class="chart-big-name">Bom Gosto</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct">+19%</span><div class="chart-big-bar" style="height: 45%;"></div><span class="chart-big-name">Aurora</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct">+11%</span><div class="chart-big-bar" style="height: 26%;"></div><span class="chart-big-name">Kanay</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct">+6%</span><div class="chart-big-bar" style="height: 14%;"></div><span class="chart-big-name">Real Aliment.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">Toggle acionado — seta no canto superior direito do painel do gráfico</div>
+    <h2>2b · Janela em tela cheia — variação "Valor" (R$ por fornecedor)</h2>
+    <div class="modal-frame">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg>
+          </div>
+          <div>
+            <div class="modal-title">Markup por Fornecedor</div>
+            <div class="modal-subtitle">Agosto de 2026 · notas aprovadas</div>
+          </div>
+        </div>
+        <button class="modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="stat-cards">
+          <div class="stat-card">
+            <div class="stat-icon violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h1M9 13h1M14 9h1M14 13h1"/></svg></div>
+            <div><div class="stat-label">Fornecedores</div><div class="stat-value">6</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4M3 5v14a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+            <div><div class="stat-label">Valor Total</div><div class="stat-value">R$ 84.230,00</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+            <div><div class="stat-label">Markup Geral</div><div class="stat-value">+24,6%</div></div>
+          </div>
+        </div>
+
+        <div class="chart-big-frame">
+          <div class="chart-big-titlerow">
+            <span class="chart-big-title">Valor por fornecedor</span>
+            <button class="toggle-arrow big" title="Ver markup" style="transform: rotate(180deg);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 10l5 5 5-5"/></svg>
+            </button>
+          </div>
+          <div class="chart-big-wrap">
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 24.930</span><div class="chart-big-bar valor" style="height: 88%;"></div><span class="chart-big-name">Distrib. Sul</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 19.410</span><div class="chart-big-bar valor" style="height: 69%;"></div><span class="chart-big-name">Vitalle</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 15.120</span><div class="chart-big-bar valor" style="height: 54%;"></div><span class="chart-big-name">Bom Gosto</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 12.780</span><div class="chart-big-bar valor" style="height: 46%;"></div><span class="chart-big-name">Aurora</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 8.300</span><div class="chart-big-bar valor" style="height: 30%;"></div><span class="chart-big-name">Kanay</span></div>
+            <div class="chart-big-col"><span class="chart-big-pct valor">R$ 3.700</span><div class="chart-big-bar valor" style="height: 13%;"></div><span class="chart-big-name">Real Aliment.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
