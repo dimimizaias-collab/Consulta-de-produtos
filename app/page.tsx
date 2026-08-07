@@ -1120,14 +1120,13 @@ export default function Page() {
 
   // Muda a Situação de Entrada da nota (Registro/Aguardando Recebimento/Revisão/Aprovada).
   // Usada pelos cards da aba Recebimento (desktop e mobile), sempre após confirmação do usuário.
+  // Passa pelo mesmo upsert de persistNote (não um update solto) porque a nota pode ainda nem
+  // existir no banco (criada mas nunca salva) e porque isso também grava qualquer edição pendente.
   const changeNoteStatus = async (noteId: string, status: NoteStatus) => {
+    if (!viewingReviewNote || viewingReviewNote.id !== noteId) return;
     setSavingNoteStatus(true);
     try {
-      const approved = status === 'aprovada';
-      const { error } = await supabase.from('review_notes').update({ status, approved }).eq('id', noteId);
-      if (error) throw error;
-      setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, status, approved } : n));
-      setViewingReviewNote(prev => prev && prev.id === noteId ? { ...prev, status, approved } : prev);
+      await persistNote(status);
       setNotification({ type: 'success', message: `Situação alterada para "${STATUS_META[status].label}".` });
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao alterar situação da nota.' });
@@ -2876,98 +2875,111 @@ export default function Page() {
     setViewingNoteExtraEans(prev => [...prev, []]);
   };
 
-  // "Criar Manifesto" — cria a nota vazia direto no banco (situação "Registro") e abre
-  // a mesma janela usada para editar notas já existentes, em vez de um formulário à parte.
-  const handleCreateManifestNote = async () => {
+  // "Criar Manifesto" — abre a mesma janela usada para editar notas já existentes, mas
+  // com uma nota que só existe em memória: só vira registro no banco no primeiro "Salvar"
+  // (ver persistNote), pra não deixar nota vazia sobrando se o usuário fechar sem preencher nada.
+  const handleCreateManifestNote = () => {
     fetchSuppliers();
     const id = crypto.randomUUID();
     const timestamp = new Date().toLocaleString('pt-BR');
-    const { error } = await supabase.from('review_notes').insert({
-      id, timestamp_label: timestamp, file_name: '', item_count: 0, verified_count: 0,
-      items: [], supplier_name: null, supplier_id: null, received_date: null,
-      status: 'registro', approved: false, is_draft: false, updated_at: new Date().toISOString(),
-    });
-    if (error) { setNotification({ type: 'error', message: error.message || 'Erro ao criar nota.' }); return; }
     const note: ReviewNote = {
       id, timestamp, fileName: '', items: [], itemCount: 0, verifiedCount: 0,
       status: 'registro', approved: false, supplierId: null,
     };
-    setReviewNotes(prev => [note, ...prev]);
     openReviewNoteForEditing(note);
     if (isMobileView) { changeNoteViewMode('admin'); setShowMobileNoteView(true); }
   };
+
+  // Grava a nota no banco via upsert (cria na primeira vez, atualiza depois) — usada tanto
+  // pelo botão "Salvar" quanto pela confirmação de mudança de Situação de Entrada, pra nunca
+  // gravar uma nota que o usuário só abriu e fechou sem preencher nada (ver handleCreateManifestNote).
+  const persistNote = useCallback(async (statusOverride?: NoteStatus) => {
+    if (!viewingReviewNote) return;
+    const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
+      ...item,
+      ean: viewingNoteEans[idx] ?? item.ean,
+      eanVariants: (viewingNoteEanVariants[idx]?.length ?? 0) > 0 ? viewingNoteEanVariants[idx] : undefined,
+      extraEans: (viewingNoteExtraEans[idx]?.length ?? 0) > 0 ? viewingNoteExtraEans[idx] : undefined,
+      sku: viewingNoteSkus[idx] ?? item.sku,
+      qty: viewingNoteQtys[idx] ?? item.qty,
+      price: viewingNoteItemPrices[idx] ?? item.price,
+      unit: viewingNoteUnits[idx] ?? item.unit,
+      multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+      product_price: viewingNoteSellPrices[idx] ?? item.product_price,
+      verified: viewingNoteVerified[idx] ?? item.verified,
+      review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+      distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
+        ? parseInt(viewingNoteDistribuicao[idx]) || null
+        : (item.distribuicao ?? null),
+      ...((() => { const leg = adjLegacy(); return {
+        adj_discount_mode: leg.discountMode,
+        adj_discount_applied: leg.discountMode === 'geral' ? leg.discountApplied : null,
+        adj_discount_individual_type: leg.discountIndividualType,
+        adj_discount_value: leg.discountMode === 'individual' ? (parseFloat(leg.itemDiscounts[idx] ?? '') || null) : null,
+        adj_surcharge_mode: leg.surchargeMode,
+        adj_surcharge_applied: leg.surchargeMode === 'geral' ? leg.surchargeApplied : null,
+        adj_surcharge_individual_type: leg.surchargeIndividualType,
+        adj_surcharge_value: leg.surchargeMode === 'individual' ? (parseFloat(leg.itemSurcharges[idx] ?? '') || null) : null,
+      }; })()),
+      // full adj columns serialized on first item for full restore on reload
+      ...(idx === 0 ? { adj_columns_full: adjColumns } : {}),
+      discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
+    }));
+    const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
+    const status = statusOverride ?? getNoteStatus(viewingReviewNote);
+    const approved = status === 'aprovada';
+    const { error: saveError } = await supabase.from('review_notes').upsert({
+      id: viewingReviewNote.id,
+      timestamp_label: viewingReviewNote.timestamp,
+      verified_count: updatedVerifiedCount,
+      item_count: updatedItems.length,
+      items: updatedItems,
+      file_name: viewingReviewNote.fileName,
+      note_number: viewingReviewNote.noteNumber || null,
+      received_date: viewingReviewNote.receivedDate || null,
+      supplier_id: viewingReviewNote.supplierId || null,
+      supplier_name: viewingReviewNote.supplierName || null,
+      status,
+      approved,
+      is_draft: false,
+      updated_at: new Date().toISOString(),
+    });
+    if (saveError) throw saveError;
+    const priceCandidates = updatedItems.filter((item: any) => item.product_id && item.product_price > 0);
+    if (priceCandidates.length > 0) {
+      const noteReceivedDate = viewingReviewNote.receivedDate || null;
+      let currentDatesById: Record<string, string | null> = {};
+      if (noteReceivedDate) {
+        const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
+        const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
+        (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
+      }
+      const priceUpdates = priceCandidates
+        .filter((item: any) => {
+          // So nao atualiza se ja existe um preco vindo de uma nota com data de recebimento mais recente
+          const existingDate = currentDatesById[item.product_id];
+          return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+        })
+        .map((item: any) => {
+          const payload: any = { price: item.product_price };
+          if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
+          return supabase.from('products').update(payload).eq('id', item.product_id);
+        });
+      if (priceUpdates.length > 0) await Promise.all(priceUpdates);
+    }
+    const nextNote: ReviewNote = {
+      ...viewingReviewNote, items: updatedItems, verifiedCount: updatedVerifiedCount, itemCount: updatedItems.length, status, approved,
+    };
+    setReviewNotes(prev => prev.some(n => n.id === nextNote.id) ? prev.map(n => n.id === nextNote.id ? nextNote : n) : [nextNote, ...prev]);
+    setViewingReviewNote(nextNote);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans]);
 
   const handleSaveNote = useCallback(async () => {
     if (!viewingReviewNote) return;
     setSavingNote(true);
     try {
-      const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
-        ...item,
-        ean: viewingNoteEans[idx] ?? item.ean,
-        eanVariants: (viewingNoteEanVariants[idx]?.length ?? 0) > 0 ? viewingNoteEanVariants[idx] : undefined,
-        extraEans: (viewingNoteExtraEans[idx]?.length ?? 0) > 0 ? viewingNoteExtraEans[idx] : undefined,
-        sku: viewingNoteSkus[idx] ?? item.sku,
-        qty: viewingNoteQtys[idx] ?? item.qty,
-        price: viewingNoteItemPrices[idx] ?? item.price,
-        unit: viewingNoteUnits[idx] ?? item.unit,
-        multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
-        product_price: viewingNoteSellPrices[idx] ?? item.product_price,
-        verified: viewingNoteVerified[idx] ?? item.verified,
-        review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
-        distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
-          ? parseInt(viewingNoteDistribuicao[idx]) || null
-          : (item.distribuicao ?? null),
-        ...((() => { const leg = adjLegacy(); return {
-          adj_discount_mode: leg.discountMode,
-          adj_discount_applied: leg.discountMode === 'geral' ? leg.discountApplied : null,
-          adj_discount_individual_type: leg.discountIndividualType,
-          adj_discount_value: leg.discountMode === 'individual' ? (parseFloat(leg.itemDiscounts[idx] ?? '') || null) : null,
-          adj_surcharge_mode: leg.surchargeMode,
-          adj_surcharge_applied: leg.surchargeMode === 'geral' ? leg.surchargeApplied : null,
-          adj_surcharge_individual_type: leg.surchargeIndividualType,
-          adj_surcharge_value: leg.surchargeMode === 'individual' ? (parseFloat(leg.itemSurcharges[idx] ?? '') || null) : null,
-        }; })()),
-        // full adj columns serialized on first item for full restore on reload
-        ...(idx === 0 ? { adj_columns_full: adjColumns } : {}),
-        discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
-      }));
-      const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
-      const { error: saveError } = await supabase.from('review_notes').update({
-        verified_count: updatedVerifiedCount,
-        items: updatedItems,
-        file_name: viewingReviewNote.fileName,
-        note_number: viewingReviewNote.noteNumber || null,
-        received_date: viewingReviewNote.receivedDate || null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', viewingReviewNote.id);
-      if (saveError) throw saveError;
-      const priceCandidates = updatedItems.filter((item: any) => item.product_id && item.product_price > 0);
-      if (priceCandidates.length > 0) {
-        const noteReceivedDate = viewingReviewNote.receivedDate || null;
-        let currentDatesById: Record<string, string | null> = {};
-        if (noteReceivedDate) {
-          const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
-          const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
-          (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
-        }
-        const priceUpdates = priceCandidates
-          .filter((item: any) => {
-            // So nao atualiza se ja existe um preco vindo de uma nota com data de recebimento mais recente
-            const existingDate = currentDatesById[item.product_id];
-            return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
-          })
-          .map((item: any) => {
-            const payload: any = { price: item.product_price };
-            if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
-            return supabase.from('products').update(payload).eq('id', item.product_id);
-          });
-        if (priceUpdates.length > 0) await Promise.all(priceUpdates);
-      }
-      setReviewNotes(prev => prev.map(n => {
-        if (n.id !== viewingReviewNote.id) return n;
-        return { ...n, verifiedCount: updatedVerifiedCount, items: updatedItems, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber, receivedDate: viewingReviewNote.receivedDate };
-      }));
-      setViewingReviewNote(prev => prev ? { ...prev, items: updatedItems, verifiedCount: updatedVerifiedCount, fileName: viewingReviewNote.fileName, noteNumber: viewingReviewNote.noteNumber, receivedDate: viewingReviewNote.receivedDate } : null);
+      await persistNote();
       setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
       fetchProducts(); // Reflete preços de venda e dados atualizados no state global
     } catch (err: any) {
@@ -2975,8 +2987,7 @@ export default function Page() {
     } finally {
       setSavingNote(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans]);
+  }, [viewingReviewNote, persistNote]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
