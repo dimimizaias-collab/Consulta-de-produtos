@@ -51,6 +51,7 @@ export interface ReviewNote {
   accessKey?: string;
   supplierName?: string;
   receivedDate?: string;
+  transporte?: 'fornecedor' | 'proprio' | 'transportadora';
   supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;
