@@ -392,15 +392,17 @@ export function LogisticsCenter({
 
   const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  // ── Stats do painel de Resultados — refletem exatamente o que está na tabela ─
-  const statTotalNotas = visibleNotes.length;
-  const statValorTotal = visibleNotes.reduce((acc, n) => acc + noteTotal(n), 0);
+  // ── Stats do painel de Resultados — mesmo recorte de período/busca/coluna da tabela,
+  // mas só considera notas com selo de Aprovado ────────────────────────────────────
+  const approvedVisibleNotes = useMemo(() => visibleNotes.filter(n => getNoteStatus(n) === 'aprovada'), [visibleNotes]);
+  const statTotalNotas = approvedVisibleNotes.length;
+  const statValorTotal = approvedVisibleNotes.reduce((acc, n) => acc + noteTotal(n), 0);
   const statMarkup = useMemo(() => {
     let cost = 0, sell = 0;
-    visibleNotes.forEach(n => { const cs = noteCostSell(n); cost += cs.cost; sell += cs.sell; });
+    approvedVisibleNotes.forEach(n => { const cs = noteCostSell(n); cost += cs.cost; sell += cs.sell; });
     return cost > 0 ? ((sell - cost) / cost * 100) : null;
-  }, [visibleNotes]);
-  const statFornecedores = new Set(visibleNotes.map(n => n.supplierName).filter(Boolean)).size;
+  }, [approvedVisibleNotes]);
+  const statFornecedores = new Set(approvedVisibleNotes.map(n => n.supplierName).filter(Boolean)).size;
 
   // ── Sub-aba Fornecedores do painel de Resultados: gráfico de gasto por fornecedor ─
   const fornecFilteredNotes = useMemo(() => sectionNotesRaw.filter(note => {
