@@ -230,7 +230,7 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
     + ' ' + viewDate.getFullYear();
 
   return (
-    <div className="max-w-[1300px]">
+    <div className="w-full">
       {/* Header */}
       <div className="relative mb-14">
         <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
