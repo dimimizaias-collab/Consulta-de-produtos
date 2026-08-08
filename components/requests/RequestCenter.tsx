@@ -178,7 +178,7 @@ export function RequestCenter({
             value={filterQuery}
             onChange={e => setFilterQuery(e.target.value)}
             placeholder="Filtrar requisições..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-on-surface/[0.06] bg-[#FFF6C9] dark:bg-surface-container-low/30 text-sm text-on-surface/70 focus:outline-none focus:border-primary/30 transition-colors placeholder:text-on-surface/30"
           />
         </div>
         <button

@@ -1174,7 +1174,7 @@ export function LogisticsCenter({
                 value={noteSearch}
                 onChange={e => setNoteSearch(e.target.value)}
                 placeholder="Pesquisar nos itens..."
-                className="bg-[#FFF6C9] dark:bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
+                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
               />
               {noteSearch && (
                 <button
