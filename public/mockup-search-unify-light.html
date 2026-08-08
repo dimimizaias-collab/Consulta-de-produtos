@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Busca unificada Inventory/Requisições (Light)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: #EDEADD;
+    min-height: 100vh;
+    padding: 48px 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 40px;
+  }
+  .section { width: 100%; max-width: 720px; }
+  .section h2 { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,10,0.40); margin-bottom: 12px; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Inventory search (referência, inalterado) */
+  .inv-search {
+    flex: 1; max-width: 600px; height: 48px;
+    display: flex; align-items: center; gap: 12px;
+    background: #FFF6C9; border: 1px solid rgba(26,26,10,0.03);
+    border-radius: 16px; padding: 0 20px; box-shadow: 0 1px 2px rgba(26,26,10,0.04);
+  }
+  .inv-search input { flex: 1; background: transparent; border: none; outline: none; font-size: 14px; font-weight: 600; color: #1A1A0E; }
+  .inv-search input::placeholder { color: rgba(26,26,10,0.30); }
+
+  /* Requisições — ANTES */
+  .req-before {
+    height: 34px; display: flex; align-items: center; gap: 0;
+    background: #ffffff; border: 1px solid rgba(26,26,10,0.06);
+    border-radius: 12px; padding: 0 8px 0 30px; position: relative; width: 224px;
+  }
+  .req-before input { width: 100%; background: transparent; border: none; outline: none; font-size: 12px; font-weight: 600; color: #1A1A0E; }
+  .req-before input::placeholder { color: rgba(26,26,10,0.25); }
+
+  /* Requisições — DEPOIS (formato 100% de Requisições; só a cor de fundo light muda p/ a do Inventory) */
+  .req-after {
+    height: 34px; display: flex; align-items: center; gap: 0;
+    background: #FFF6C9; border: 1px solid rgba(26,26,10,0.06);
+    border-radius: 12px; padding: 0 8px 0 30px; position: relative; width: 224px;
+  }
+  .req-after input { width: 100%; background: transparent; border: none; outline: none; font-size: 12px; font-weight: 600; color: #1A1A0E; }
+  .req-after input::placeholder { color: rgba(26,26,10,0.25); }
+  .req-after .clear-x { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: rgba(26,26,10,0.30); cursor: pointer; font-size: 11px; }
+
+  .icon { color: rgba(26,26,10,0.30); flex-shrink: 0; }
+  .icon-before { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(26,26,10,0.28); }
+
+  .badge { font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 999px; background: rgba(216,30,30,0.10); color: #D81E1E; }
+  .note {
+    font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.5); margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="section">
+    <h2>Inventory — busca (referência, sem alteração)</h2>
+    <div class="row">
+      <div class="inv-search">
+        <span class="icon">🔍</span>
+        <input placeholder="Buscar por nome, EAN, SKU..." />
+      </div>
+    </div>
+    <p class="note">bg: #FFF6C9 (surface-container-low) · h-12 · rounded-2xl · shadow-sm · border quase invisível</p>
+  </div>
+
+  <div class="section">
+    <h2>Requisições — ANTES</h2>
+    <div class="row">
+      <div class="req-before">
+        <span class="icon icon-before">🔍</span>
+        <input placeholder="Pesquisar nos itens..." />
+      </div>
+      <span class="badge">12</span>
+    </div>
+    <p class="note">bg: #ffffff (surface-container-lowest) · h-8.5 · rounded-xl · sem shadow — visual bem diferente do Inventory</p>
+  </div>
+
+  <div class="section">
+    <h2>Requisições — DEPOIS (igual ao Inventory)</h2>
+    <div class="row">
+      <div class="req-after">
+        <span class="icon icon-before">🔍</span>
+        <input placeholder="Pesquisar nos itens..." />
+        <span class="clear-x">✕</span>
+      </div>
+      <span class="badge">12</span>
+    </div>
+    <p class="note">Formato igual ao "ANTES" (h-8.5, rounded-xl, sem shadow) — só a cor de fundo light muda para #FFF6C9 (a mesma do Inventory). No dark, o fundo continua o mesmo de Requisições (#1a1a12).</p>
+  </div>
+</body>
+</html>
