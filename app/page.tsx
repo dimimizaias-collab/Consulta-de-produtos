@@ -437,6 +437,17 @@ export default function Page() {
     }
     return { disc, sur };
   };
+  // valor de UMA coluna de ajuste específica para uma linha — usado pelo PDF "Personalizado"
+  // pra deixar o usuário escolher, coluna por coluna, quais Descontos/Acréscimos entram no export.
+  const calcAdjColAmount = (col: AdjColumn, cost: number, qty: number, idx: number): number => {
+    if (col.mode === 'geral') {
+      return col.geralType === 'pct' ? cost * col.geralValue / 100 : col.geralValue;
+    }
+    const v = parseFloat(col.items[idx] ?? '');
+    if (isNaN(v) || v <= 0) return 0;
+    return col.individualType === 'pct' ? cost * v / 100
+      : col.individualType === 'fixed_total' ? v / (qty || 1) : v;
+  };
   // legacy compat: derive single-column adj object from adjColumns (for export functions)
   const adjLegacy = () => {
     const dCol = adjColumns.find(c => c.kind === 'desconto');
@@ -1996,37 +2007,13 @@ export default function Page() {
     }
   };
 
-  const exportTranslatedToExcel = (items: any[], adj?: {
-    discountMode: string; discountApplied: { value: number; type: string } | null;
-    discountIndividualType: string; itemDiscounts: string[];
-    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
-    surchargeIndividualType: string; itemSurcharges: string[];
-  }) => {
-    type AdjCfg = {
-      discountMode: string; discountApplied: { value: number; type: string } | null;
-      discountIndividualType: string; itemDiscounts: string[];
-      surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
-      surchargeIndividualType: string; itemSurcharges: string[];
-    };
-    const calcAdjCost = (cost: number, idx: number, adj?: AdjCfg) => {
-      if (!adj) return cost;
-      let disc = 0;
-      if (adj.discountMode === 'geral' && adj.discountApplied) {
-        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
-      } else if (adj.discountMode === 'individual') {
-        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
-        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
-      }
-      let sur = 0;
-      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
-        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
-      } else if (adj.surchargeMode === 'individual') {
-        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) {
-          const qty = items[idx]?.qty || 1;
-          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
-        }
-      }
+  const exportTranslatedToExcel = (items: any[], noteAdjColumns?: AdjColumn[]) => {
+    // Soma TODAS as colunas de Desconto/Acréscimo criadas na nota (mesma lógica da tabela de
+    // revisão, calcAdjAmounts) — antes só a primeira coluna de cada tipo entrava na planilha.
+    const calcAdjCost = (cost: number, idx: number) => {
+      if (!noteAdjColumns || noteAdjColumns.length === 0) return cost;
+      const qty = items[idx]?.qty || 1;
+      const { disc, sur } = calcAdjAmounts(cost, qty, idx, noteAdjColumns);
       return cost - disc + sur;
     };
 
@@ -2035,7 +2022,7 @@ export default function Page() {
       // final (pós-conversão de unidade), independente do item estar verificado.
       const displayQty = item.qty || 0;
       const rawCost = (item.price || 0) / (item.multiplier || 1);
-      const adjCost = calcAdjCost(rawCost, idx, adj);
+      const adjCost = calcAdjCost(rawCost, idx);
       const displayPriceTotal = adjCost * displayQty;
 
       const sell = item.product_price ?? 0;
@@ -2064,35 +2051,17 @@ export default function Page() {
     return canvas.toDataURL('image/png');
   };
 
-  const exportTranslatedToPDF = (items: any[], adj?: {
-    discountMode: string; discountApplied: { value: number; type: string } | null;
-    discountIndividualType: string; itemDiscounts: string[];
-    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
-    surchargeIndividualType: string; itemSurcharges: string[];
-  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string }) => {
+  const exportTranslatedToPDF = (items: any[], noteAdjColumns?: AdjColumn[], meta?: { supplierName?: string; noteNumber?: string; accessKey?: string }) => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const formatCurrency = (val: number) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+    // Soma TODAS as colunas de Desconto/Acréscimo criadas na nota (mesma lógica da tabela de
+    // revisão, calcAdjAmounts) — antes só a primeira coluna de cada tipo entrava no PDF.
     const calcCost = (cost: number, idx: number) => {
-      if (!adj) return cost;
-      let disc = 0;
-      if (adj.discountMode === 'geral' && adj.discountApplied) {
-        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
-      } else if (adj.discountMode === 'individual') {
-        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
-        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
-      }
-      let sur = 0;
-      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
-        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
-      } else if (adj.surchargeMode === 'individual') {
-        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) {
-          const qty = items[idx]?.qty || 1;
-          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
-        }
-      }
+      if (!noteAdjColumns || noteAdjColumns.length === 0) return cost;
+      const qty = items[idx]?.qty || 1;
+      const { disc, sur } = calcAdjAmounts(cost, qty, idx, noteAdjColumns);
       return cost - disc + sur;
     };
 
@@ -2169,37 +2138,20 @@ export default function Page() {
     doc.save("nota_traduzida.pdf");
   };
 
-  const exportEstoqueToA4PDF = (items: any[], adj?: {
-    discountMode: string; discountApplied: { value: number; type: string } | null;
-    discountIndividualType: string; itemDiscounts: string[];
-    surchargeMode: string; surchargeApplied: { value: number; type: string } | null;
-    surchargeIndividualType: string; itemSurcharges: string[];
-  }, meta?: { supplierName?: string; noteNumber?: string; accessKey?: string },
+  const exportEstoqueToA4PDF = (items: any[], noteAdjColumns?: AdjColumn[],
+  meta?: { supplierName?: string; noteNumber?: string; accessKey?: string },
   layout?: { preset: 'financeiro' | 'estoque' | 'personalizado'; customCols?: string[] }
   ) => {
     const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
     const fmtCur = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
     const fmtNum = (v: number) => new Intl.NumberFormat('pt-BR').format(Math.round(v));
 
+    // Soma TODAS as colunas de Desconto/Acréscimo criadas na nota (mesma lógica da tabela de
+    // revisão, calcAdjAmounts) — antes só a primeira coluna de cada tipo entrava no PDF.
     const calcAdj = (cost: number, idx: number) => {
-      let disc = 0, sur = 0;
-      if (!adj) return { disc, sur };
-      if (adj.discountMode === 'geral' && adj.discountApplied) {
-        disc = adj.discountApplied.type === 'pct' ? cost * adj.discountApplied.value / 100 : adj.discountApplied.value;
-      } else if (adj.discountMode === 'individual') {
-        const v = parseFloat(adj.itemDiscounts[idx] ?? '');
-        if (!isNaN(v) && v > 0) disc = adj.discountIndividualType === 'pct' ? cost * v / 100 : v;
-      }
-      if (adj.surchargeMode === 'geral' && adj.surchargeApplied) {
-        sur = adj.surchargeApplied.type === 'pct' ? cost * adj.surchargeApplied.value / 100 : adj.surchargeApplied.value;
-      } else if (adj.surchargeMode === 'individual') {
-        const v = parseFloat(adj.itemSurcharges[idx] ?? '');
-        if (!isNaN(v) && v > 0) {
-          const qty = items[idx]?.qty || 1;
-          sur = adj.surchargeIndividualType === 'pct' ? cost * v / 100 : adj.surchargeIndividualType === 'fixed_total' ? v / qty : v;
-        }
-      }
-      return { disc, sur };
+      if (!noteAdjColumns || noteAdjColumns.length === 0) return { disc: 0, sur: 0 };
+      const qty = items[idx]?.qty || 1;
+      return calcAdjAmounts(cost, qty, idx, noteAdjColumns);
     };
 
     const preset   = layout?.preset ?? 'financeiro';
@@ -2252,6 +2204,7 @@ export default function Page() {
       codigo: string; produto: string; interno: string; ean: string; sku: string;
       qtd: number; adjCost: number; disc: number; sur: number; vlrtotal: number;
       pvenda: number; markup: number | null; distribuicao: number | null;
+      colAmounts: Record<string, number>;
     }
     const rows: RowData[] = items.map((item, idx) => {
       // Mesma fonte de verdade da tabela de revisão: item.qty já é a quantidade
@@ -2262,6 +2215,10 @@ export default function Page() {
       const adj2   = raw - disc + sur;
       const pvenda = item.product_price ?? 0;
       const distrib = item.distribuicao !== null && item.distribuicao !== undefined ? Number(item.distribuicao) : null;
+      // Valor de cada coluna de Desconto/Acréscimo individualmente — usado quando o preset
+      // "Personalizado" tem colunas específicas selecionadas (não só o agregado disc/sur).
+      const colAmounts: Record<string, number> = {};
+      (noteAdjColumns || []).forEach(col => { colAmounts[col.id] = calcAdjColAmount(col, raw, qty, idx); });
       return {
         codigo:      item.supplier_code || item.ean || '-',
         produto:     item.original_description || item.name || 'NÃO MAPEADO',
@@ -2276,6 +2233,7 @@ export default function Page() {
         pvenda,
         markup:      pvenda > 0 && adj2 > 0 ? ((pvenda - adj2) / adj2 * 100) : null,
         distribuicao: distrib,
+        colAmounts,
       };
     });
 
@@ -2333,13 +2291,28 @@ export default function Page() {
         check:        { header: 'Check',                 width: 20, halign: 'center' },
       };
       const keys = (layout?.customCols ?? ['codigo','produto','qtd','pvenda','distribuicao']);
-      const rawCols: ColSpec[] = keys.map(k => ({ key: k, ...(COL_META[k] ?? { header: k, width: 20 }) }));
+      // Colunas de Desconto/Acréscimo criadas na nota entram com a chave "adjcol:<id>",
+      // uma por coluna que o usuário de fato criou (não um "Desconto"/"Acréscimo" genérico).
+      const rawCols: ColSpec[] = keys.map(k => {
+        if (k.startsWith('adjcol:')) {
+          const adjCol = (noteAdjColumns || []).find(c => c.id === k.slice('adjcol:'.length));
+          return { key: k, header: adjCol?.name || 'Ajuste', width: 20, halign: 'right' as const };
+        }
+        return { key: k, ...(COL_META[k] ?? { header: k, width: 20 }) };
+      });
       const totalW = rawCols.reduce((s, c) => s + c.width, 0);
       cols = totalW > 0 ? rawCols.map(c => ({ ...c, width: Math.round(c.width / totalW * usableW) })) : rawCols;
     }
 
     // ── Cell value accessor ───────────────────────────────────────────────
     const getVal = (row: RowData, key: string): string => {
+      if (key.startsWith('adjcol:')) {
+        const colId = key.slice('adjcol:'.length);
+        const adjCol = (noteAdjColumns || []).find(c => c.id === colId);
+        const amt = row.colAmounts[colId] || 0;
+        if (amt <= 0) return '—';
+        return `${adjCol?.kind === 'desconto' ? '−' : '+'}${fmtCur(amt)}`;
+      }
       switch (key) {
         case 'codigo':       return row.codigo;
         case 'produto':      return row.produto;
@@ -2364,6 +2337,12 @@ export default function Page() {
     // ── Foot row ──────────────────────────────────────────────────────────
     const footRow = cols.map((c, i) => {
       if (i === 0)              return `${items.length} itens`;
+      if (c.key.startsWith('adjcol:')) {
+        const colId = c.key.slice('adjcol:'.length);
+        const adjCol = (noteAdjColumns || []).find(x => x.id === colId);
+        const sum = rows.reduce((s, r) => s + (r.colAmounts[colId] || 0), 0);
+        return sum > 0 ? `${adjCol?.kind === 'desconto' ? '−' : '+'}${fmtCur(sum)}` : '';
+      }
       if (c.key === 'qtd')      return fmtNum(rows.reduce((s, r) => s + r.qtd, 0));
       if (c.key === 'vlrtotal') return fmtCur(rows.reduce((s, r) => s + r.vlrtotal, 0));
       if (c.key === 'disc')     return `−${fmtCur(rows.reduce((s, r) => s + r.disc, 0))}`;
@@ -6548,21 +6527,21 @@ export default function Page() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => exportTranslatedToExcel(getPendingNfExportItems(), adjLegacy())}
+                    onClick={() => exportTranslatedToExcel(getPendingNfExportItems(), adjColumns)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     <Download size={16} />
                     Excel
                   </button>
                   <button
-                    onClick={() => exportTranslatedToPDF(getPendingNfExportItems(), adjLegacy(), { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
+                    onClick={() => exportTranslatedToPDF(getPendingNfExportItems(), adjColumns, { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey })}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
                   >
                     <Download size={16} />
                     PDF
                   </button>
                   <button
-                    onClick={() => { setEstoquePickerArgs({ items: getPendingNfExportItems(), adj: adjLegacy(), meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
+                    onClick={() => { setEstoquePickerArgs({ items: getPendingNfExportItems(), adj: adjColumns, meta: { supplierName: supplierNames.find((s: any) => s.id === selectedImportSupplierId)?.name || '', noteNumber: nfNoteNumber, accessKey: nfAccessKey } }); setShowEstoqueLayoutPicker(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
                   >
                     <Download size={16} />
@@ -7117,7 +7096,7 @@ export default function Page() {
                   </div>
                   <div className="w-px h-5 bg-on-surface/10" />
                   <button
-                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjLegacy())}
+                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjColumns)}
                     title="Baixar Excel"
                     className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
                   >
@@ -7136,7 +7115,7 @@ export default function Page() {
                           multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                           distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null),
                         })),
-                        adj: adjLegacy(),
+                        adj: adjColumns,
                         meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
                       });
                       setShowEstoqueLayoutPicker(true);
@@ -7471,7 +7450,7 @@ export default function Page() {
                           </th>
                           )}
                           {/* Dynamic adj column headers */}
-                          {adjColumns.map(col => (
+                          {adjColumns.filter(col => !reviewHiddenCols.has(col.id)).map(col => (
                             <th key={col.id} style={{ ...thBar, position: 'relative' }}>
                               <div style={lbl()}>
                                 <span className="text-[9px] font-black uppercase tracking-[0.12em]" style={{ color: col.kind === 'desconto' ? 'rgba(248,113,113,0.8)' : 'rgba(52,211,153,0.8)' }}>{col.name}</span>
@@ -8002,6 +7981,7 @@ export default function Page() {
                           )}
                           {/* Dynamic adj column cells */}
                           {adjColumns.map((col, colIdx) => {
+                            if (reviewHiddenCols.has(col.id)) return null;
                             const isDisc = col.kind === 'desconto';
                             const colorClass = isDisc ? 'text-red-400' : 'text-emerald-400';
                             const prefix = isDisc ? '- R$' : '+ R$';
@@ -8337,7 +8317,7 @@ export default function Page() {
                               </div>
                             </td>
                             {/* adj column placeholders */}
-                            {adjColumns.map(col => (
+                            {adjColumns.filter(col => !reviewHiddenCols.has(col.id)).map(col => (
                               <td key={col.id} style={tdP}><div style={cell({ padding: '0 10px' })}><span style={{ color: 'var(--rn-text-subtle)' }}>—</span></div></td>
                             ))}
                             {/* Preço Venda, Markup, Status, Ok, Revisão, Distribuição, Delete */}
@@ -9498,33 +9478,68 @@ export default function Page() {
                         <X size={14} />
                       </button>
                     </div>
-                    <div className="p-5 grid grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto">
-                      {REVIEW_HIDEABLE_COLS.map(col => {
-                        const isHidden = reviewHiddenCols.has(col);
-                        return (
-                          <button
-                            key={col}
-                            onClick={() => setReviewHiddenCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
-                            className={cn(
-                              'relative text-left px-3 py-2.5 rounded-xl border-[1.5px] transition-colors',
-                              isHidden
-                                ? 'bg-[#FFE500]/10 border-[#FFE500]/50'
-                                : 'bg-on-surface/[0.03] border-on-surface/[0.07] hover:bg-on-surface/[0.06]'
-                            )}
-                          >
-                            {isHidden && (
-                              <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-[5px] bg-[#FFE500] text-[#1A1A0E] flex items-center justify-center">
-                                <Check size={10} strokeWidth={3} />
-                              </span>
-                            )}
-                            <span className={cn('block text-xs font-extrabold', isHidden ? 'text-[#B8A600] dark:text-[#FFE500] line-through decoration-[#FFE500]/50' : 'text-on-surface')}>{col}</span>
-                            <span className={cn('block text-[9px] font-bold uppercase tracking-wide mt-0.5', isHidden ? 'text-[#B8A600]/70 dark:text-[#FFE500]/70' : 'text-on-surface/35')}>{isHidden ? 'Oculta' : 'Visível'}</span>
-                          </button>
-                        );
-                      })}
+                    <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {REVIEW_HIDEABLE_COLS.map(col => {
+                          const isHidden = reviewHiddenCols.has(col);
+                          return (
+                            <button
+                              key={col}
+                              onClick={() => setReviewHiddenCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                              className={cn(
+                                'relative text-left px-3 py-2.5 rounded-xl border-[1.5px] transition-colors',
+                                isHidden
+                                  ? 'bg-[#FFE500]/10 border-[#FFE500]/50'
+                                  : 'bg-on-surface/[0.03] border-on-surface/[0.07] hover:bg-on-surface/[0.06]'
+                              )}
+                            >
+                              {isHidden && (
+                                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-[5px] bg-[#FFE500] text-[#1A1A0E] flex items-center justify-center">
+                                  <Check size={10} strokeWidth={3} />
+                                </span>
+                              )}
+                              <span className={cn('block text-xs font-extrabold', isHidden ? 'text-[#B8A600] dark:text-[#FFE500] line-through decoration-[#FFE500]/50' : 'text-on-surface')}>{col}</span>
+                              <span className={cn('block text-[9px] font-bold uppercase tracking-wide mt-0.5', isHidden ? 'text-[#B8A600]/70 dark:text-[#FFE500]/70' : 'text-on-surface/35')}>{isHidden ? 'Oculta' : 'Visível'}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {adjColumns.length > 0 && (
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-wide text-on-surface/35 mb-2">Colunas de Desconto/Acréscimo desta nota</p>
+                          <div className="grid grid-cols-3 gap-2.5">
+                            {adjColumns.map(col => {
+                              const isHidden = reviewHiddenCols.has(col.id);
+                              return (
+                                <button
+                                  key={col.id}
+                                  onClick={() => setReviewHiddenCols(prev => { const s = new Set(prev); s.has(col.id) ? s.delete(col.id) : s.add(col.id); return s; })}
+                                  className={cn(
+                                    'relative text-left px-3 py-2.5 rounded-xl border-[1.5px] transition-colors',
+                                    isHidden
+                                      ? 'bg-[#FFE500]/10 border-[#FFE500]/50'
+                                      : 'bg-on-surface/[0.03] border-on-surface/[0.07] hover:bg-on-surface/[0.06]'
+                                  )}
+                                >
+                                  {isHidden && (
+                                    <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-[5px] bg-[#FFE500] text-[#1A1A0E] flex items-center justify-center">
+                                      <Check size={10} strokeWidth={3} />
+                                    </span>
+                                  )}
+                                  <span className={cn('block text-xs font-extrabold truncate', isHidden ? 'text-[#B8A600] dark:text-[#FFE500] line-through decoration-[#FFE500]/50' : 'text-on-surface')}>{col.name}</span>
+                                  <span className={cn('block text-[9px] font-bold uppercase tracking-wide mt-0.5', isHidden ? 'text-[#B8A600]/70 dark:text-[#FFE500]/70' : 'text-on-surface/35')}>
+                                    {isHidden ? 'Oculta' : (col.kind === 'desconto' ? 'Desconto' : 'Acréscimo')}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="px-5 py-3.5 border-t border-on-surface/[0.07] flex items-center justify-between">
-                      <span className="text-xs text-on-surface/40">{reviewHiddenCols.size} de {REVIEW_HIDEABLE_COLS.length} colunas ocultas</span>
+                      <span className="text-xs text-on-surface/40">{reviewHiddenCols.size} de {REVIEW_HIDEABLE_COLS.length + adjColumns.length} colunas ocultas</span>
                       <button
                         onClick={() => setReviewHiddenCols(new Set())}
                         disabled={reviewHiddenCols.size === 0}
@@ -9916,7 +9931,7 @@ export default function Page() {
                     ? parseInt(viewingNoteDistribuicao[idx]) || null
                     : (item.distribuicao ?? null),
                 })),
-                adj: adjLegacy(),
+                adj: adjColumns,
                 meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
               });
               setShowEstoqueLayoutPicker(true);
@@ -10093,6 +10108,10 @@ export default function Page() {
 
                 {/* Personalizado builder */}
                 {estoquePreset === 'personalizado' && (() => {
+                  // Uma coluna por Desconto/Acréscimo que o usuário realmente criou nesta nota —
+                  // antes existiam dois chips genéricos "Desconto"/"Acréscimo" com chave que não
+                  // batia com nenhum cálculo (sempre exportavam "—", sem refletir a coluna real).
+                  const noteAdjCols: AdjColumn[] = Array.isArray(estoquePickerArgs?.adj) ? estoquePickerArgs!.adj : [];
                   const allCols = [
                     { key: 'codigo',      label: 'Código' },
                     { key: 'produto',     label: 'Produto' },
@@ -10101,8 +10120,7 @@ export default function Page() {
                     { key: 'qtd',         label: 'Quantidade' },
                     { key: 'pcusto',      label: 'P.Custo' },
                     { key: 'vlrtotal',    label: 'Vlr Total' },
-                    { key: 'desconto',    label: 'Desconto' },
-                    { key: 'acrescimo',   label: 'Acréscimo' },
+                    ...noteAdjCols.map(c => ({ key: `adjcol:${c.id}`, label: c.name || (c.kind === 'desconto' ? 'Desconto' : 'Acréscimo') })),
                     { key: 'pvenda',      label: 'P.Venda' },
                     { key: 'markup',      label: 'Markup' },
                     { key: 'distribuicao',label: 'Distribuição' },
