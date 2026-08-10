@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Nova Movimentação (Desktop, Dark)</title>
+<style>
+  :root{
+    --bg:#1E1E18; --header-bg:#252520; --header-border:rgba(242,240,227,0.07);
+    --icon-chip-bg:rgba(216,30,30,0.13); --icon-chip-color:#D81E1E;
+    --title:#F2F0E3; --muted:rgba(242,240,227,0.28);
+    --section-bg:#252520; --section-border:rgba(242,240,227,0.08);
+    --label:rgba(242,240,227,0.55);
+    --input-bg:rgba(242,240,227,0.05); --input-border:rgba(242,240,227,0.10); --input-text:#F2F0E3;
+    --close-bg:rgba(242,240,227,0.06); --close-border:rgba(242,240,227,0.08); --close-color:rgba(242,240,227,0.35);
+    --cancel-bg:rgba(242,240,227,0.07); --cancel-text:rgba(242,240,227,0.50); --cancel-border:rgba(242,240,227,0.10);
+    --red:#D81E1E; --green:#34D399;
+  }
+  *{box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:#111108;margin:0;padding:40px;display:flex;justify-content:center}
+  .modal{background:var(--bg);border-radius:24px;box-shadow:0 25px 60px rgba(0,0,0,.5);width:100%;max-width:880px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+  .header{padding:20px 28px;display:flex;align-items:center;gap:14px;background:var(--header-bg);border-bottom:1px solid var(--header-border)}
+  .icon-chip{width:44px;height:44px;border-radius:14px;background:var(--icon-chip-bg);color:var(--icon-chip-color);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .htitle{font-weight:800;font-size:18px;color:var(--title);margin:0}
+  .hsub{font-size:12px;color:var(--muted);font-weight:700;margin:2px 0 0}
+  .closebtn{margin-left:auto;width:36px;height:36px;border-radius:12px;background:var(--close-bg);border:1px solid var(--close-border);color:var(--close-color);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .tabs{padding:16px 28px 0;display:flex;gap:10px}
+  .tab{flex:1;padding:10px;border-radius:12px;text-align:center;font-weight:800;font-size:14px;cursor:pointer;background:rgba(242,240,227,.06);color:rgba(242,240,227,.5)}
+  .tab.active-despesa{background:var(--red);color:#fff;box-shadow:0 8px 18px rgba(216,30,30,.35)}
+  .body{padding:24px 28px 28px;display:grid;grid-template-columns:1fr 1fr;gap:16px;max-height:70vh;overflow-y:auto}
+  .section{grid-column:span 2;background:var(--section-bg);border:1px solid var(--section-border);border-radius:16px;padding:18px 20px}
+  .section-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+  .section-head .dot{width:15px;height:15px;color:var(--red)}
+  .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--title)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.full{grid-column:span 2}
+  label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--label)}
+  input,select,textarea{padding:10px 12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:10px;font-size:13px;color:var(--input-text)}
+  .footer{grid-column:span 2;display:flex;gap:12px;margin-top:4px}
+  .btn{flex:1;padding:12px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;border:none}
+  .btn.cancel{background:var(--cancel-bg);color:var(--cancel-text);border:1px solid var(--cancel-border)}
+  .btn.save{background:var(--red);color:#fff;box-shadow:0 8px 18px rgba(216,30,30,.35)}
+</style>
+</head>
+<body>
+<div class="modal">
+  <div class="header">
+    <div class="icon-chip">💰</div>
+    <div>
+      <p class="htitle">Nova Movimentação</p>
+      <p class="hsub">Preencha os dados abaixo</p>
+    </div>
+    <div class="closebtn">✕</div>
+  </div>
+  <div class="tabs">
+    <div class="tab">Receita</div>
+    <div class="tab active-despesa">Despesa</div>
+  </div>
+  <div class="body">
+    <div class="section">
+      <div class="section-head"><span class="dot">👤</span><span class="section-title">Identificação</span></div>
+      <div class="fields">
+        <div class="field"><label>Data</label><input type="date" value="2026-08-10"></div>
+        <div class="field"><label>Favorecido</label><input placeholder="Digite para buscar..."></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head"><span class="dot">🏦</span><span class="section-title">Pagamento</span></div>
+      <div class="fields">
+        <div class="field"><label>Conta</label><select><option>Selecione a conta...</option></select></div>
+        <div class="field"><label>Tipo de Pagamento</label><select><option>PIX</option></select></div>
+        <div class="field full"><label>Vencimento / Parcelas</label><input placeholder="Sem vencimento"></div>
+        <div class="field"><label>Identificação</label><input placeholder="Ex: número, código ou referência"></div>
+        <div class="field"><label>Valor (R$)</label><input placeholder="0,00"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head"><span class="dot">🏷️</span><span class="section-title">Classificação</span></div>
+      <div class="fields">
+        <div class="field full"><label>Tags</label><input placeholder="Nenhuma tag"></div>
+        <div class="field full"><label>Estabelecimento</label><select><option>Selecione...</option></select></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head"><span class="dot">📎</span><span class="section-title">Notas Fiscais Vinculadas</span></div>
+      <div class="fields">
+        <div class="field full"><input placeholder="Nenhuma nota vinculada"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-head"><span class="dot">📝</span><span class="section-title">Observações</span></div>
+      <div class="fields">
+        <div class="field full"><textarea rows="3" placeholder="Comentários sobre esta movimentação... (opcional)"></textarea></div>
+      </div>
+    </div>
+    <div class="footer">
+      <button class="btn cancel">Cancelar</button>
+      <button class="btn save">Adicionar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

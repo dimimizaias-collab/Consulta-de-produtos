@@ -1323,98 +1323,111 @@ export function FinanceManager() {
   // Editor de Vencimento / Parcelas — caminho único para dar vencimento a uma movimentação.
   // 1 linha = pagamento único com vencimento; 2+ linhas = parcelamento.
   const renderParcelasSection = () => (
-    <div className="flex flex-col gap-1.5">
-      <button
-        onClick={() => {
-          const next = !parcelasEnabled;
-          setParcelasEnabled(next);
-          if (next && parcelas.length === 0)
-            setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: txForm.codigo_barras ?? '' }]);
-          else if (!next) {
-            setParcelas([]);
-            setEditingGroupIds(null);
-            setEditingParcelamentoId(null);
-          }
-        }}
-        className={cn(
-          'self-start px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-          parcelasEnabled
-            ? 'bg-primary text-on-primary'
-            : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
-        )}
-      >
-        Vencimento / Parcelas
-      </button>
+    <div className="flex flex-col gap-2 md:col-span-2">
+      <div className="flex items-center justify-between">
+        <span className={labelCls}>Vencimento / Parcelas</span>
+        <button
+          onClick={() => {
+            const next = !parcelasEnabled;
+            setParcelasEnabled(next);
+            if (next && parcelas.length === 0)
+              setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: txForm.codigo_barras ?? '' }]);
+            else if (!next) {
+              setParcelas([]);
+              setEditingGroupIds(null);
+              setEditingParcelamentoId(null);
+            }
+          }}
+          className={cn(
+            'px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition-all',
+            parcelasEnabled
+              ? 'bg-primary text-on-primary'
+              : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
+          )}
+        >
+          {parcelasEnabled ? 'Ativado' : 'Ativar'}
+        </button>
+      </div>
 
       {parcelasEnabled && (
-        <div className="mt-1 flex flex-col gap-2 bg-on-surface/3 rounded-xl p-3">
+        <div className="flex flex-col gap-3">
           {editingTx && getParcelaGroupTotal(editingTx) !== null && !editingGroupIds && (
-            <div className="flex items-center justify-between gap-2 bg-primary/[0.06] border border-primary/15 rounded-lg px-3 py-2">
+            <div className="flex items-center justify-between gap-2 bg-primary/[0.06] border border-primary/15 rounded-xl px-3.5 py-2.5">
               <span className="text-[11px] font-bold text-on-surface/60">
                 Parcela {editingTx.numero_parcela ?? 1} de {editingTx.total_parcelas ?? 1} · Total {fmt(getParcelaGroupTotal(editingTx)!)}
               </span>
               <button
                 onClick={() => loadGroupIntoEditor(editingTx)}
-                className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-primary text-on-primary hover:opacity-90 active:scale-[0.97] transition-all"
+                className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold bg-primary text-on-primary hover:opacity-90 active:scale-[0.97] transition-all"
               >
                 Editar todas as parcelas
               </button>
             </div>
           )}
           {editingGroupIds && (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3.5 py-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
               Editando o parcelamento inteiro — parcelas removidas aqui são excluídas ao salvar; as demais mantêm o status de pagamento
             </div>
           )}
-          <div className="grid grid-cols-[44px_1fr_1fr_28px] gap-2">
-            <span className={cn(labelCls, 'text-center')}>Nº</span>
-            <span className={cn(labelCls, 'text-center')}>Vencimento</span>
-            <span className={cn(labelCls, 'text-center')}>Valor</span>
-            <span />
-          </div>
-          {parcelas.map((p, idx) => (
-            <div key={idx} className="flex flex-col gap-1.5">
-              <div className="grid grid-cols-[44px_1fr_1fr_28px] gap-2 items-center">
-                <div className={cn(inputCls, 'text-center text-on-surface/40 pointer-events-none select-none px-0')}>
-                  {p.seq}
-                </div>
-                <input
-                  type="date"
-                  value={p.data}
-                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
-                  className={inputCls}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={p.valor}
-                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                  onWheel={blockWheelChange}
-                  placeholder="0,00"
-                  className={cn(inputCls, noSpinnerCls)}
-                />
-                {parcelas.length > 1 ? (
-                  <button
-                    onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
-                    title="Remover parcela"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                  >
-                    <X size={13} />
-                  </button>
-                ) : <span />}
-              </div>
-              {txForm.tipo_pagamento === 'Boleto' && (
-                <input
-                  type="text"
-                  value={p.codigo_barras}
-                  onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, codigo_barras: e.target.value } : x))}
-                  placeholder="Código de barras do boleto"
-                  className={inputCls}
-                />
-              )}
+
+          <div className="rounded-xl border border-black/[0.10] dark:border-white/[0.10] overflow-hidden">
+            <div className="grid grid-cols-[52px_1fr_1fr_36px] bg-[#FFF7B0] dark:bg-[#FFE500] border-b border-[#DDD000] dark:border-[#C8B800]">
+              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Nº</span>
+              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Vencimento</span>
+              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Valor</span>
+              <span />
             </div>
-          ))}
+            {parcelas.map((p, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  'border-t border-black/[0.06] dark:border-white/[0.06] first:border-t-0',
+                  idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'
+                )}
+              >
+                <div className="grid grid-cols-[52px_1fr_1fr_36px] gap-2 items-center p-2">
+                  <span className="text-center text-[13px] font-extrabold text-on-surface/35">{p.seq}</span>
+                  <input
+                    type="date"
+                    value={p.data}
+                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+                    className={inputCls}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={p.valor}
+                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                    onWheel={blockWheelChange}
+                    placeholder="0,00"
+                    className={cn(inputCls, noSpinnerCls)}
+                  />
+                  {parcelas.length > 1 ? (
+                    <button
+                      onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
+                      title="Remover parcela"
+                      className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  ) : <span />}
+                </div>
+                {txForm.tipo_pagamento === 'Boleto' && (
+                  <div className="px-2 pb-2">
+                    <input
+                      type="text"
+                      value={p.codigo_barras}
+                      onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, codigo_barras: e.target.value } : x))}
+                      placeholder="Código de barras do boleto"
+                      className={inputCls}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
           <div className="flex items-center justify-between pt-1">
             {/* Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
                 depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
@@ -1422,13 +1435,13 @@ export function FinanceManager() {
             {(!editingTx || editingGroupIds || (editingTx.total_parcelas ?? 1) <= 1) && (
               <button
                 onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '', codigo_barras: '' }])}
-                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
+                className="flex items-center gap-1.5 text-xs font-extrabold text-primary hover:opacity-70 transition-opacity"
               >
                 <Plus size={13} />Adicionar parcela
               </button>
             )}
             {parcelas.length > 1 && totalParcelas > 0 && (
-              <span className="text-[11px] font-bold text-on-surface/50">
+              <span className="text-[11px] font-extrabold text-on-surface/50">
                 {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
               </span>
             )}
@@ -2645,6 +2658,10 @@ export function FinanceManager() {
             : parcelas.length === 1
               ? `Vencimento: ${fmtDate(parcelas[0].data)}`
               : `${parcelas.length} parcelas · Total ${fmt(totalParcelas)}`;
+          const sectionCls = 'md:col-span-2 bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.08] shadow-sm rounded-2xl p-5 space-y-4';
+          const sectionHeadCls = 'flex items-center gap-2';
+          const sectionTitleCls = 'text-[11px] font-extrabold uppercase tracking-wide text-[#1A1A0E] dark:text-[#F2F0E3]';
+          const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
           return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -2653,18 +2670,26 @@ export function FinanceManager() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-black/10 dark:border-white/[0.08] flex flex-col"
             >
               {/* Header */}
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-manrope font-extrabold text-on-surface">
-                  {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
-                </h2>
-                <div className="flex items-center gap-2">
+              <div className="px-7 py-5 flex items-center gap-3.5 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] shrink-0">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Wallet size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">
+                    {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
+                  </h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 dark:text-white/35 mt-0.5">
+                    {editingId ? 'Ajuste os dados abaixo' : 'Preencha os dados abaixo'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
                   {isHrSalario && (
                     <span
                       title="Gerada pelo RH — apenas Conta, Tipo de Pagamento, Identificação e Observações podem ser editados."
-                      className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl bg-on-surface/[0.05] text-on-surface/40 text-[10px] font-bold uppercase tracking-wide"
+                      className="flex items-center gap-1.5 px-2.5 h-9 rounded-xl bg-black/[0.08] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/40 text-[10px] font-bold uppercase tracking-wide"
                     >
                       <Lock size={12} /> RH
                     </span>
@@ -2675,21 +2700,24 @@ export function FinanceManager() {
                       onClick={handleToggleTxLock}
                       title={txLocked ? 'Habilitar edição' : 'Sair do modo de edição'}
                       className={cn(
-                        'w-8 h-8 rounded-xl flex items-center justify-center transition-colors',
-                        !txLocked ? 'bg-primary/10 text-primary' : 'hover:bg-on-surface/5 text-on-surface/40'
+                        'w-9 h-9 rounded-xl flex items-center justify-center transition-colors',
+                        !txLocked ? 'bg-[#D81E1E]/10 text-[#D81E1E]' : 'bg-black/[0.08] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/35 hover:bg-black/[0.14] dark:hover:bg-white/[0.10]'
                       )}
                     >
                       <Edit2 size={15} />
                     </button>
                   )}
-                  <button onClick={() => setShowTxModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
-                    <X size={16} />
+                  <button
+                    onClick={() => setShowTxModal(false)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-black/50 dark:text-white/35 hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-colors"
+                  >
+                    <X size={18} />
                   </button>
                 </div>
               </div>
 
               {/* Tabs: Receita / Despesa */}
-              <div className="flex gap-2 mb-5">
+              <div className="px-7 pt-5 flex gap-3 shrink-0">
                 {(['Receita', 'Despesa'] as TransactionType[]).map(tab => (
                   <button
                     key={tab}
@@ -2702,7 +2730,7 @@ export function FinanceManager() {
                       setEditingParcelamentoId(null);
                     }}
                     className={cn(
-                      'flex-1 py-2 rounded-xl text-sm font-bold transition-all',
+                      'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all',
                       (isLockedView || isHrSalario) && 'opacity-60 cursor-not-allowed',
                       txForm.tipo === tab
                         ? tab === 'Receita'
@@ -2716,7 +2744,14 @@ export function FinanceManager() {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="px-7 py-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto">
+
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <Users size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Identificação</span>
+                </div>
+                <div className={fieldGridCls}>
 
                 {/* Data */}
                 <div className="flex flex-col gap-1.5">
@@ -2807,6 +2842,15 @@ export function FinanceManager() {
                     </div>
                   )}
                 </div>
+                </div>
+              </div>
+
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <CreditCard size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Pagamento</span>
+                </div>
+                <div className={fieldGridCls}>
 
                 {/* Conta */}
                 <div className="flex flex-col gap-1.5">
@@ -2924,10 +2968,19 @@ export function FinanceManager() {
                     <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
                   )}
                 </div>
+                </div>
+              </div>
+
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <CheckSquare size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Classificação</span>
+                </div>
+                <div className={fieldGridCls}>
 
                 {/* Tags */}
                 {isLockedView || isHrSalario ? (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className={labelCls}>Tags</label>
                     {selectedTagObjs.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
@@ -2945,17 +2998,19 @@ export function FinanceManager() {
                     )}
                   </div>
                 ) : (
-                  <TagSelector
-                    tags={tags.filter(tg => !tg.exclusivo)}
-                    value={txForm.tag_ids ?? []}
-                    onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
-                    onCreateTag={(nome, cor) => createTag(nome, cor, '')}
-                    parcelCount={parcelasEnabled ? parcelas.length : undefined}
-                  />
+                  <div className="md:col-span-2">
+                    <TagSelector
+                      tags={tags.filter(tg => !tg.exclusivo)}
+                      value={txForm.tag_ids ?? []}
+                      onChange={ids => setTxForm(f => ({ ...f, tag_ids: ids }))}
+                      onCreateTag={(nome, cor) => createTag(nome, cor, '')}
+                      parcelCount={parcelasEnabled ? parcelas.length : undefined}
+                    />
+                  </div>
                 )}
 
                 {/* Estabelecimento */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 md:col-span-2">
                   <label className={labelCls}>Estabelecimento</label>
                   {isLockedView || isHrSalario ? (
                     <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
@@ -2965,8 +3020,14 @@ export function FinanceManager() {
                     </select>
                   )}
                 </div>
+                </div>
+              </div>
 
-                {/* Notas fiscais vinculadas */}
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <FileUp size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Notas Fiscais Vinculadas</span>
+                </div>
                 <LinkedNotesSection
                   variant="desktop"
                   editable={!isLockedView && !isHrSalario}
@@ -2976,10 +3037,15 @@ export function FinanceManager() {
                   onPendingChange={setPendingNotes}
                   siblingTxs={editingTxSiblings}
                 />
+              </div>
 
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <Info size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Observações</span>
+                </div>
                 {/* Observações */}
                 <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Observações</label>
                   {isLockedView ? (
                     <div className={cn(viewBlockCls, 'whitespace-pre-wrap items-start')}>{txForm.observacoes || '—'}</div>
                   ) : (
@@ -2994,7 +3060,9 @@ export function FinanceManager() {
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-5">
+              </div>
+
+              <div className="px-7 py-5 border-t border-black/10 dark:border-white/[0.08] flex gap-3 shrink-0">
                 {isLockedView ? (
                   <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                     Fechar

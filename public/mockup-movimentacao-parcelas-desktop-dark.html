@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Vencimento/Parcelas (Desktop, Dark)</title>
+<style>
+  :root{
+    --bg:#1E1E18; --header-bg:#252520; --header-border:rgba(242,240,227,0.07);
+    --icon-chip-bg:rgba(216,30,30,0.13); --icon-chip-color:#D81E1E;
+    --title:#F2F0E3; --muted:rgba(242,240,227,0.28);
+    --section-bg:#252520; --section-border:rgba(242,240,227,0.08);
+    --label:rgba(242,240,227,0.55);
+    --input-bg:rgba(242,240,227,0.05); --input-border:rgba(242,240,227,0.10); --input-text:#F2F0E3;
+    --row-alt:#1E1E18; --row-border:rgba(242,240,227,0.08); --row-num:rgba(242,240,227,0.30);
+    --close-bg:rgba(242,240,227,0.06); --close-border:rgba(242,240,227,0.08); --close-color:rgba(242,240,227,0.35);
+    --red:#D81E1E; --primary-bg:rgba(216,30,30,0.10); --primary-border:rgba(216,30,30,0.25);
+  }
+  *{box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:#111108;margin:0;padding:40px;display:flex;justify-content:center}
+  .modal{background:var(--bg);border-radius:24px;box-shadow:0 25px 60px rgba(0,0,0,.5);width:100%;max-width:880px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+  .header{padding:20px 28px;display:flex;align-items:center;gap:14px;background:var(--header-bg);border-bottom:1px solid var(--header-border)}
+  .icon-chip{width:44px;height:44px;border-radius:14px;background:var(--icon-chip-bg);color:var(--icon-chip-color);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .htitle{font-weight:800;font-size:18px;color:var(--title);margin:0}
+  .hsub{font-size:12px;color:var(--muted);font-weight:700;margin:2px 0 0}
+  .closebtn{margin-left:auto;width:36px;height:36px;border-radius:12px;background:var(--close-bg);border:1px solid var(--close-border);color:var(--close-color);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .body{padding:24px 28px 28px;max-height:80vh;overflow-y:auto}
+  .section{background:var(--section-bg);border:1px solid var(--section-border);border-radius:16px;padding:18px 20px}
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .section-head-left{display:flex;align-items:center;gap:8px}
+  .section-head .dot{width:15px;height:15px;color:var(--red)}
+  .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--title)}
+  .toggle{padding:6px 12px;border-radius:10px;font-size:11px;font-weight:800;background:var(--red);color:#fff}
+  .banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--primary-bg);border:1px solid var(--primary-border);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:var(--title)}
+  .banner .lnk{padding:6px 12px;border-radius:10px;font-size:11px;font-weight:800;background:var(--red);color:#fff;white-space:nowrap}
+  .table{border:1px solid var(--row-border);border-radius:14px;overflow:hidden}
+  .trow{display:grid;grid-template-columns:56px 1fr 1fr 40px;gap:0;align-items:center}
+  .thead{background:#FFE500;border-bottom:1px solid #C8B800}
+  .thead > div{padding:10px 12px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:rgba(26,26,10,.58);text-align:center}
+  .trow:not(.thead){border-top:1px solid var(--row-border)}
+  .trow:not(.thead):nth-child(odd){background:var(--section-bg)}
+  .trow:not(.thead):nth-child(even){background:var(--row-alt)}
+  .cellnum{text-align:center;color:var(--row-num);font-weight:800;font-size:13px;padding:10px 0}
+  .cell{padding:8px}
+  .cell input{width:100%;padding:9px 11px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:9px;font-size:12.5px;color:var(--input-text)}
+  .rmbtn{width:28px;height:28px;margin:0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(242,240,227,.30);font-size:13px}
+  .footerline{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+  .addbtn{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--red)}
+  .total{font-size:12px;font-weight:800;color:rgba(242,240,227,.60)}
+  .total b{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="modal">
+  <div class="header">
+    <div class="icon-chip">💰</div>
+    <div>
+      <p class="htitle">Editar Movimentação</p>
+      <p class="hsub">Ajuste os dados abaixo</p>
+    </div>
+    <div class="closebtn">✕</div>
+  </div>
+  <div class="body">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-head-left"><span class="dot">📅</span><span class="section-title">Vencimento / Parcelas</span></div>
+        <span class="toggle">Ativado</span>
+      </div>
+
+      <div class="banner">
+        <span>Parcela 2 de 5 · Total R$ 2.500,00</span>
+        <span class="lnk">Editar todas as parcelas</span>
+      </div>
+
+      <div class="table">
+        <div class="trow thead">
+          <div>Nº</div><div>Vencimento</div><div>Valor</div><div></div>
+        </div>
+        <div class="trow"><div class="cellnum">1</div><div class="cell"><input value="10/09/2026"></div><div class="cell"><input value="500,00"></div><div class="rmbtn">✕</div></div>
+        <div class="trow"><div class="cellnum">2</div><div class="cell"><input value="10/10/2026"></div><div class="cell"><input value="500,00"></div><div class="rmbtn">✕</div></div>
+        <div class="trow"><div class="cellnum">3</div><div class="cell"><input value="10/11/2026"></div><div class="cell"><input value="500,00"></div><div class="rmbtn">✕</div></div>
+        <div class="trow"><div class="cellnum">4</div><div class="cell"><input value="10/12/2026"></div><div class="cell"><input value="500,00"></div><div class="rmbtn">✕</div></div>
+        <div class="trow"><div class="cellnum">5</div><div class="cell"><input value="10/01/2027"></div><div class="cell"><input value="500,00"></div><div class="rmbtn">✕</div></div>
+      </div>
+
+      <div class="footerline">
+        <span class="addbtn">➕ Adicionar parcela</span>
+        <span class="total">5 parcelas · Total <b>R$ 2.500,00</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
