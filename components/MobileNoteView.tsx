@@ -1154,6 +1154,11 @@ export function MobileNoteView({
         {statusConfirm && (() => {
           const meta = STATUS_META[statusConfirm];
           const blockedByMissingDate = statusConfirm === 'revisao' && !note.receivedDate;
+          const blockedByMissingPrice = statusConfirm === 'aprovada' && note.items.some((item: any, idx: number) => {
+            if (!item.product_id) return false;
+            const price = sellPrices[idx] ?? item.product_price;
+            return !(price > 0);
+          });
           return (
             <>
               <motion.div
@@ -1177,6 +1182,19 @@ export function MobileNoteView({
                     <p className="text-sm font-black text-[#f2f0e3] mb-1.5">Falta a data de recebimento</p>
                     <p className="text-[11px] text-white/40 font-medium leading-relaxed mb-4">
                       Para colocar essa nota em Revisão é preciso preencher a "Data de recebimento" acima.
+                    </p>
+                    <button
+                      onClick={() => setStatusConfirm(null)}
+                      className="w-full py-3 bg-white/[0.07] rounded-xl text-white/60 text-sm font-bold"
+                    >
+                      Entendi
+                    </button>
+                  </>
+                ) : blockedByMissingPrice ? (
+                  <>
+                    <p className="text-sm font-black text-[#f2f0e3] mb-1.5">Faltam preços de venda</p>
+                    <p className="text-[11px] text-white/40 font-medium leading-relaxed mb-4">
+                      Existem produtos vinculados nesta nota sem "Preço Venda" preenchido. Preencha o preço de todos os itens vinculados antes de aprovar.
                     </p>
                     <button
                       onClick={() => setStatusConfirm(null)}

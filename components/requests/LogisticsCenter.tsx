@@ -165,6 +165,11 @@ const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
 export const getNoteStatus = (note: ReviewNote): NoteStatus =>
   note.status ?? (note.approved ? 'aprovada' : 'revisao');
 
+// Itens vinculados a um produto do cadastro (product_id preenchido) mas sem preço de venda —
+// usado para travar a aprovação da nota (ver CLAUDE.md / regra de negócio de preço só ao aprovar).
+export const noteHasUnpricedLinkedItems = (note: ReviewNote): boolean =>
+  (note.items || []).some((item: any) => item?.product_id && !(parseFloat(item?.product_price) > 0));
+
 export const STATUS_META: Record<NoteStatus, { label: string; fg: string; bg: string; border: string; desc: string }> = {
   registro:               { label: 'Registro',               fg: 'text-[#57534E] dark:text-[#D8D3C0]', bg: 'bg-[#1A1A0E]/[0.07] dark:bg-white/[0.08]',      border: 'border-[#1A1A0E]/15 dark:border-white/20',      desc: 'Itens ainda podem ser adicionados livremente.' },
   aguardando_recebimento: { label: 'Aguardando Recebimento', fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]',      border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30', desc: 'Trava adição/remoção de itens até a mercadoria chegar.' },
@@ -1593,7 +1598,9 @@ export function LogisticsCenter({
 
       {/* ── Confirm Approve Dialog ─────────────────────────────────────────── */}
       <AnimatePresence>
-        {confirmNote && (
+        {confirmNote && (() => {
+          const blockedByMissingPrice = noteHasUnpricedLinkedItems(confirmNote);
+          return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1609,11 +1616,30 @@ export function LogisticsCenter({
             >
               {/* Ícone */}
               <div className="flex justify-center mb-5">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                  <AlertTriangle size={28} className="text-emerald-500" />
+                <div className={cn('w-14 h-14 rounded-2xl flex items-center justify-center', blockedByMissingPrice ? 'bg-red-50' : 'bg-emerald-50')}>
+                  <AlertTriangle size={28} className={blockedByMissingPrice ? 'text-red-500' : 'text-emerald-500'} />
                 </div>
               </div>
 
+              {blockedByMissingPrice ? (
+                <>
+                  {/* Texto — bloqueado */}
+                  <div className="text-center mb-7 px-2">
+                    <h3 className="text-lg font-black text-slate-900 mb-2">Faltam preços de venda</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                      <span className="font-bold text-slate-800">{confirmNote.fileName}</span>{' '}
+                      tem produtos vinculados sem preço de venda preenchido. Preencha o preço de todos os itens vinculados antes de aprovar.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setConfirmApproveId(null)}
+                    className="w-full py-4 rounded-2xl bg-slate-100 text-slate-600 font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  >
+                    Entendi
+                  </button>
+                </>
+              ) : (
+              <>
               {/* Texto */}
               <div className="text-center mb-7 px-2">
                 <h3 className="text-lg font-black text-slate-900 mb-2">Aprovar esta nota?</h3>
@@ -1644,9 +1670,12 @@ export function LogisticsCenter({
               >
                 Cancelar
               </button>
+              </>
+              )}
             </motion.div>
           </div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       <AddSupplierModal

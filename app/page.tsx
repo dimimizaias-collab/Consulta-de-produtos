@@ -11,7 +11,7 @@ import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
-import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, type NoteStatus } from '@/components/requests/LogisticsCenter';
+import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, noteHasUnpricedLinkedItems, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
@@ -1085,6 +1085,33 @@ export default function Page() {
 
     // Gera notificação de aprovação
     const note = reviewNotes.find(n => n.id === noteId);
+
+    // Mesma regra do persistNote: preço de venda só entra no cadastro do produto quando aprova.
+    // Esse fluxo aprova direto pelo card da lista (sem passar pelo editor), então replica aqui.
+    const priceCandidates = (note?.items || []).filter((item: any) => item.product_id && item.product_price > 0);
+    if (priceCandidates.length > 0) {
+      const noteReceivedDate = note?.receivedDate || null;
+      let currentDatesById: Record<string, string | null> = {};
+      if (noteReceivedDate) {
+        const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
+        const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
+        (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
+      }
+      const priceUpdates = priceCandidates
+        .filter((item: any) => {
+          const existingDate = currentDatesById[item.product_id];
+          return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+        })
+        .map((item: any) => {
+          const payload: any = { price: item.product_price };
+          if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
+          return supabase.from('products').update(payload).eq('id', item.product_id);
+        });
+      if (priceUpdates.length > 0) {
+        await Promise.all(priceUpdates);
+        fetchProducts();
+      }
+    }
     const insertPayload = {
       type: 'note_approved',
       title: 'Nota aprovada',
@@ -2990,7 +3017,11 @@ export default function Page() {
       updated_at: new Date().toISOString(),
     });
     if (saveError) throw saveError;
-    const priceCandidates = updatedItems.filter((item: any) => item.product_id && item.product_price > 0);
+    // Só propaga o Preço Venda para o cadastro do produto quando a nota está Aprovada —
+    // evita descompasso caso a nota ainda seja editada/corrigida em Registro/Revisão.
+    const priceCandidates = status === 'aprovada'
+      ? updatedItems.filter((item: any) => item.product_id && item.product_price > 0)
+      : [];
     if (priceCandidates.length > 0) {
       const noteReceivedDate = viewingReviewNote.receivedDate || null;
       let currentDatesById: Record<string, string | null> = {};
@@ -8049,7 +8080,9 @@ export default function Page() {
                                 const i = linkingItemIdx!;
                                 const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
                                 setNoteItemSelectedProduct(mappedProduct);
-                                setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (mappedProduct.price ? String(mappedProduct.price) : ''));
+                                // Preço já preenchido na linha: usa direto, sem perguntar. Vazio: fica vazio,
+                                // o preço do dicionário só aparece como sugestão (placeholder) no campo.
+                                setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : '');
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 rounded-xl transition-all text-left group"
                             >
@@ -8114,7 +8147,30 @@ export default function Page() {
                                   </div>
                                 )}
 
-                                {/* Preço de venda */}
+                                {/* Preço de venda — se a linha já tem preço, usa direto sem perguntar;
+                                    se está vazia, o preço do dicionário some só como sugestão (placeholder). */}
+                                {(() => {
+                                  const i = linkingItemIdx!;
+                                  const rowHasPrice = ((viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price) ?? 0) > 0;
+                                  if (rowHasPrice) return (
+                                    <div>
+                                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                                        Preço de Venda (R$)
+                                      </label>
+                                      <div className="flex items-center gap-2 px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50">
+                                        <span className="text-sm font-black text-slate-800">
+                                          R$ {parseFloat(noteItemSellPriceInput || '0').toFixed(2).replace('.', ',')}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-medium">já preenchido nesta linha — será usado</span>
+                                      </div>
+                                      {noteItemSelectedProduct.price > 0 && (
+                                        <p className="text-[10px] text-slate-400 mt-1">
+                                          Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span>
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                  return (
                                 <div>
                                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
                                     Preço de Venda (R$)
@@ -8133,7 +8189,7 @@ export default function Page() {
                                           captureSnapshot();
                                           const i = linkingItemIdx!;
                                           const p = noteItemSelectedProduct;
-                                          const sellPrice = parseFloat(noteItemSellPriceInput) || p.price || 0;
+                                          const sellPrice = parseFloat(noteItemSellPriceInput) || 0;
                                           const updatedItems = [...viewingReviewNote!.items];
                                           updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
                                           setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
@@ -8158,17 +8214,19 @@ export default function Page() {
                                           setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                         }
                                       }}
-                                      placeholder="0,00"
+                                      placeholder={noteItemSelectedProduct.price > 0 ? noteItemSelectedProduct.price.toFixed(2).replace('.', ',') : '0,00'}
                                       onWheel={blockWheelChange}
-                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold placeholder:font-normal placeholder:text-slate-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     />
                                   </div>
                                   {noteItemSelectedProduct.price > 0 && (
                                     <p className="text-[10px] text-slate-400 mt-1">
-                                      Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span>
+                                      Sugestão (preço cadastrado no dicionário) — não preenchido automaticamente
                                     </p>
                                   )}
                                 </div>
+                                  );
+                                })()}
 
                                 <button
                                   onClick={async () => {
@@ -8238,11 +8296,12 @@ export default function Page() {
                                       <button
                                         key={p.id}
                                         onClick={() => {
-                                          // Pré-preenche com o preço existente do item ou o preço do dicionário
+                                          // Preço já preenchido na linha: usa direto, sem perguntar. Vazio: fica vazio,
+                                          // o preço do dicionário só aparece como sugestão (placeholder) no campo.
                                           const i = linkingItemIdx!;
                                           const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
                                           setNoteItemSelectedProduct(p);
-                                          setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (p.price ? String(p.price) : ''));
+                                          setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : '');
                                         }}
                                         className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
                                       >
@@ -9338,6 +9397,12 @@ export default function Page() {
         {statusConfirmTarget && viewingReviewNote && (() => {
           const meta = STATUS_META[statusConfirmTarget];
           const blockedByMissingDate = statusConfirmTarget === 'revisao' && !viewingReviewNote.receivedDate;
+          // Considera preços ainda não salvos (digitados na tela mas não persistidos) além do que já está no banco.
+          const blockedByMissingPrice = statusConfirmTarget === 'aprovada' && viewingReviewNote.items.some((item: any, idx: number) => {
+            if (!item.product_id) return false;
+            const price = viewingNoteSellPrices[idx] ?? item.product_price;
+            return !(price > 0);
+          });
           return (
             <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
               <motion.div
@@ -9358,6 +9423,19 @@ export default function Page() {
                     <h3 className="text-base font-black text-on-surface mb-2">Falta a data de recebimento</h3>
                     <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
                       Para colocar essa nota em <b>Revisão</b> é preciso preencher a "Data de recebimento" acima nesta mesma aba.
+                    </p>
+                    <button
+                      onClick={() => setStatusConfirmTarget(null)}
+                      className="w-full py-3 rounded-2xl bg-on-surface/10 text-on-surface font-black text-xs uppercase tracking-widest hover:bg-on-surface/15 transition-all"
+                    >
+                      Entendi
+                    </button>
+                  </>
+                ) : blockedByMissingPrice ? (
+                  <>
+                    <h3 className="text-base font-black text-on-surface mb-2">Faltam preços de venda</h3>
+                    <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
+                      Existem produtos vinculados nesta nota sem "Preço Venda" preenchido. Preencha o preço de todos os itens vinculados antes de aprovar.
                     </p>
                     <button
                       onClick={() => setStatusConfirmTarget(null)}
