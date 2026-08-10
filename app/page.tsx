@@ -10118,7 +10118,7 @@ export default function Page() {
                     { key: 'ean',         label: 'EAN' },
                     { key: 'sku',         label: 'SKU' },
                     { key: 'qtd',         label: 'Quantidade' },
-                    { key: 'pcusto',      label: 'P.Custo' },
+                    { key: 'adjcost',     label: 'P.Custo' },
                     { key: 'vlrtotal',    label: 'Vlr Total' },
                     ...noteAdjCols.map(c => ({ key: `adjcol:${c.id}`, label: c.name || (c.kind === 'desconto' ? 'Desconto' : 'Acréscimo') })),
                     { key: 'pvenda',      label: 'P.Venda' },
