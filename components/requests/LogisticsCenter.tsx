@@ -54,6 +54,7 @@ export interface ReviewNote {
   receivedDate?: string;
   createdAt?: string;
   transporte?: 'fornecedor' | 'proprio' | 'transportadora';
+  companyId?: string | null;
   supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;

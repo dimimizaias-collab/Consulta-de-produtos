@@ -325,7 +325,10 @@ export default function Page() {
   // Supplier Dictionary states
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
   const [supplierNames, setSupplierNames] = useState<any[]>([]);
-  
+
+  // Empresas cadastradas em Configurações > Dados — usadas no campo Empresa da aba Recebimento
+  const [companies, setCompanies] = useState<any[]>([]);
+
   const [showImportSupplierModal, setShowImportSupplierModal] = useState(false);
   const [selectedImportSupplierId, setSelectedImportSupplierId] = useState('');
   const [translatedNoteItems, setTranslatedNoteItems] = useState<any[]>([]);
@@ -946,6 +949,7 @@ export default function Page() {
         accessKey: n.access_key ?? undefined,
         supplierName: n.supplier_name ?? undefined,
         supplierId: n.supplier_id ?? null,
+        companyId: n.company_id ?? null,
         receivedDate: n.received_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
@@ -2519,6 +2523,7 @@ export default function Page() {
   const openReviewNoteForEditing = useCallback((note: ReviewNote) => {
     fetchProducts(); // Garante dados de produtos atualizados ao abrir nota (sync multi-usuário)
     if (supplierNames.length === 0) fetchSuppliers();
+    if (companies.length === 0) fetchCompanies();
     setViewingReviewNote(note);
     setNoteEditorTab('produtos');
     setStatusConfirmTarget(null);
@@ -3009,6 +3014,7 @@ export default function Page() {
       file_name: viewingReviewNote.fileName,
       note_number: viewingReviewNote.noteNumber || null,
       received_date: viewingReviewNote.receivedDate || null,
+      company_id: viewingReviewNote.companyId || null,
       supplier_id: viewingReviewNote.supplierId || null,
       supplier_name: viewingReviewNote.supplierName || null,
       status,
@@ -3476,6 +3482,11 @@ export default function Page() {
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const fetchCompanies = async () => {
+    const { data } = await supabase.from('companies').select('id, nome_fantasia').order('nome_fantasia');
+    setCompanies(data || []);
   };
 
   // Supplier Management Functions
@@ -6875,6 +6886,19 @@ export default function Page() {
                   <div className="max-w-2xl">
                     <div className="flex items-start gap-8">
                       <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Empresa</label>
+                        <select
+                          value={viewingReviewNote.companyId || ''}
+                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, companyId: e.target.value || null })}
+                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors w-fit cursor-pointer"
+                        >
+                          <option value="">Selecionar...</option>
+                          {companies.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
                         <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>
                         <ReceivedDateField
                           receivedDate={viewingReviewNote.receivedDate || ''}
@@ -9578,6 +9602,7 @@ export default function Page() {
               setShowEstoqueLayoutPicker(true);
             }}
             setNote={(n) => setViewingReviewNote(n as any)}
+            companies={companies}
             onClose={() => { setShowMobileNoteView(false); setViewingReviewNote(null); }}
             onSave={handleSaveNote}
             savingNote={savingNote}

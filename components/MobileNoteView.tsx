@@ -95,6 +95,8 @@ interface MobileNoteViewProps {
   onDownload: () => void;
 
   setNote: (note: ReviewNote) => void;
+  /** Empresas cadastradas em Configurações > Dados — usadas no campo Empresa da aba Recebimento */
+  companies?: { id: string; nome_fantasia: string }[];
   onClose: () => void;
   onSave: () => Promise<void>;
   savingNote: boolean;
@@ -397,7 +399,7 @@ export function MobileNoteView({
   verified, setVerified, units, multipliers, distribuicao, setDistribuicao,
   distribMode, setDistribMode,
   mode, onModeChange, adjColumns, onAddAdjColumn, onRemoveAdjColumn, onDownload,
-  setNote, onClose, onSave, savingNote, onDelete, onVarios,
+  setNote, companies = [], onClose, onSave, savingNote, onDelete, onVarios,
   onChangeStatus, savingStatus = false, onAddRow,
   eanProblems = [],
   onReportEanProblem,
@@ -1112,6 +1114,19 @@ export function MobileNoteView({
       {/* ── ABA RECEBIMENTO ─────────────────────────────────────────── */}
       {isAdmin && noteEditorTab === 'recebimento' && (
         <div className="flex-1 overflow-auto px-4 py-4">
+          <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">Empresa</label>
+          <select
+            value={note.companyId || ''}
+            onChange={e => setNote({ ...note, companyId: e.target.value || null })}
+            className="w-full bg-white/[0.05] border border-white/[0.10] rounded-xl px-3.5 py-3 text-[13px] font-bold text-[#f2f0e3] outline-none focus:border-[#D81E1E]/50 mb-5"
+            style={{ colorScheme: 'dark' }}
+          >
+            <option value="">Selecionar...</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+            ))}
+          </select>
+
           <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">Data de recebimento</label>
           <input
             type="date"
