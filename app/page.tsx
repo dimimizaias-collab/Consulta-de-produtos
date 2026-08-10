@@ -7701,8 +7701,13 @@ export default function Page() {
                               </td>
                             );
                           })}
-                          {/* Preço Venda */}
-                          {!reviewHiddenCols.has('Preço Venda') && (
+                          {/* Preço Venda — se o item está vinculado a um produto do dicionário e a célula
+                              está vazia, o preço já cadastrado aparece só como sugestão (placeholder cinza
+                              claro), sem preencher o campo de verdade. Se já tem valor, usa esse direto. */}
+                          {!reviewHiddenCols.has('Preço Venda') && (() => {
+                            const linkedProduct = item.product_id ? products.find((p: any) => p.id === item.product_id) : null;
+                            const suggestedPrice = linkedProduct && linkedProduct.price > 0 ? linkedProduct.price : null;
+                            return (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
@@ -7720,13 +7725,16 @@ export default function Page() {
                                   setViewingNoteSellPrices(updated);
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 7)}
-                                placeholder="0,00"
+                                placeholder={suggestedPrice ? suggestedPrice.toFixed(2).replace('.', ',') : '0,00'}
+                                title={suggestedPrice ? `Sugestão — preço cadastrado no dicionário: R$ ${suggestedPrice.toFixed(2).replace('.', ',')}` : undefined}
                                 onWheel={blockWheelChange}
-                                className="w-full text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
+                                className="w-full text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden placeholder:[color:var(--rn-text-subtle)]"
+                                style={{ color: 'var(--rn-text)' }}
                               />
                             </div>
                           </td>
-                          )}
+                            );
+                          })()}
                           {/* Markup */}
                           {!reviewHiddenCols.has('Markup') && (
                           <td style={tdP}>
@@ -8214,14 +8222,14 @@ export default function Page() {
                                           setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
                                         }
                                       }}
-                                      placeholder={noteItemSelectedProduct.price > 0 ? noteItemSelectedProduct.price.toFixed(2).replace('.', ',') : '0,00'}
+                                      placeholder="0,00"
                                       onWheel={blockWheelChange}
-                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold placeholder:font-normal placeholder:text-slate-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                      className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     />
                                   </div>
                                   {noteItemSelectedProduct.price > 0 && (
                                     <p className="text-[10px] text-slate-400 mt-1">
-                                      Sugestão (preço cadastrado no dicionário) — não preenchido automaticamente
+                                      Preço cadastrado no dicionário: <span className="font-bold">R$ {noteItemSelectedProduct.price.toFixed(2).replace('.', ',')}</span> — a sugestão aparece na célula "Preço Venda" da tabela
                                     </p>
                                   )}
                                 </div>

@@ -671,6 +671,10 @@ export function MobileNoteView({
   }
 
   function handleLinkProduct(product: any) {
+    // Preço já preenchido na linha: mantém, sem perguntar. Vazio: continua vazio — o preço
+    // cadastrado no dicionário só aparece como sugestão (placeholder) no campo de Preço Venda.
+    const existing = sellPrices[activeIdx] ?? items[activeIdx]?.product_price ?? 0;
+    const sellPrice = existing > 0 ? existing : 0;
     const updatedItems = [...items];
     updatedItems[activeIdx] = {
       ...updatedItems[activeIdx],
@@ -678,13 +682,13 @@ export function MobileNoteView({
       name: product.name,
       sku: product.sku || updatedItems[activeIdx].sku,
       ean: product.ean || updatedItems[activeIdx].ean,
-      product_price: product.price || 0,
+      product_price: sellPrice,
       verified: true,
     };
     setNote({ ...note, items: updatedItems });
     setSkus(prev => { const u = [...prev]; u[activeIdx] = product.sku || items[activeIdx]?.sku || ''; return u; });
     setEans(prev => { const u = [...prev]; u[activeIdx] = product.ean || items[activeIdx]?.ean || ''; return u; });
-    setSellPrices(prev => { const u = [...prev]; u[activeIdx] = product.price || 0; return u; });
+    setSellPrices(prev => { const u = [...prev]; u[activeIdx] = sellPrice; return u; });
     setVerified(prev => { const u = [...prev]; u[activeIdx] = true; return u; });
     setLinkingPanel(false);
   }
@@ -1973,7 +1977,13 @@ export function MobileNoteView({
                       <span className="text-[10px] font-bold text-white/30">R$</span>
                       <span className="text-base font-black text-[#f2f0e3] font-mono">{cost(activeIdx).toFixed(4)}</span>
                     </div>
-                    {/* venda */}
+                    {/* venda — se o item está vinculado a um produto do dicionário e o campo está vazio,
+                        o preço já cadastrado aparece só como sugestão (placeholder), sem preencher de verdade. */}
+                    {(() => {
+                      const linkedProduct = activeItem.product_id ? products.find((p: any) => p.id === activeItem.product_id) : null;
+                      const suggestedPrice = linkedProduct && linkedProduct.price > 0 ? linkedProduct.price : null;
+                      const suggestedPlaceholder = suggestedPrice ? suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00';
+                      return (
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] bg-white/[0.02]">
                       <span className={fieldLabelCls}>Venda</span>
                       <span className="text-[10px] font-bold text-white/30">R$</span>
@@ -1987,8 +1997,8 @@ export function MobileNoteView({
                             setSellPrices(prev => { const u = [...prev]; u[activeIdx] = cents / 100; return u; });
                           }}
                           onKeyDown={blurOnEnter}
-                          placeholder="0,00"
-                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                          placeholder={suggestedPlaceholder}
+                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] placeholder:font-normal placeholder:text-white/25 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                       ) : (
                         <input
@@ -1996,8 +2006,8 @@ export function MobileNoteView({
                           value={numpadTarget === 'venda' ? numpadValue : (sell(activeIdx) > 0 ? sell(activeIdx).toFixed(2) : '')}
                           onFocus={() => openNumpad('venda')}
                           onChange={() => {}}
-                          placeholder="0,00"
-                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                          placeholder={suggestedPlaceholder}
+                          className="w-[104px] shrink-0 bg-transparent text-base font-black text-[#f2f0e3] placeholder:font-normal placeholder:text-white/25 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
                         />
                       )}
                       {markup(activeIdx) !== null && (
@@ -2009,6 +2019,8 @@ export function MobileNoteView({
                         </span>
                       )}
                     </div>
+                      );
+                    })()}
                     {/* colunas de Desconto/Acréscimo criadas na aba Resumo */}
                     {adjColumns.map(col => {
                       const amt = calcAdjColAmount(col, cost(activeIdx), qty(activeIdx), activeIdx);
