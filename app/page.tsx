@@ -9417,7 +9417,6 @@ export default function Page() {
                           onChange={e => setReviewMeasureUnit(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !reviewSavingMeasure) { e.preventDefault(); handleReviewSaveMeasure(); } }}
                           placeholder="Ex: CX, PCT, FD..."
-                          autoFocus
                           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary"
                         />
                       </div>
@@ -9432,6 +9431,7 @@ export default function Page() {
                           onKeyDown={e => { if (e.key === 'Enter' && !reviewSavingMeasure) { e.preventDefault(); handleReviewSaveMeasure(); } }}
                           placeholder="Ex: 12"
                           onWheel={blockWheelChange}
+                          autoFocus
                           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
                         />
                       </div>
