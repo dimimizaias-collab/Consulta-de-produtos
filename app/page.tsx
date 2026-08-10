@@ -7742,7 +7742,7 @@ export default function Page() {
                               {markup !== null ? (
                                 <span className={cn(
                                   "inline-block px-2 py-0.5 rounded-lg text-[11px] font-black",
-                                  markup >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                                  markup >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-red-500/10 text-red-700 dark:text-red-400"
                                 )}>
                                   {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
                                 </span>
