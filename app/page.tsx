@@ -479,7 +479,7 @@ export default function Page() {
     setTimeout(() => setCopiedEanIdx(prev => (prev === idx ? null : prev)), 1200);
   };
   const [viewingNoteSkus, setViewingNoteSkus] = useState<string[]>([]);
-  const [viewingNoteQtys, setViewingNoteQtys] = useState<number[]>([]);
+  const [viewingNoteQtys, setViewingNoteQtys] = useState<(number | null)[]>([]);
   const [viewingNoteEanVariants, setViewingNoteEanVariants] = useState<EanVariant[][]>([]);
   const [viewingNoteExtraEans, setViewingNoteExtraEans] = useState<EanCodeEntry[][]>([]);
   const [viewingNoteItemPrices, setViewingNoteItemPrices] = useState<(number | null)[]>([]);
@@ -2507,7 +2507,7 @@ export default function Page() {
     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
     setViewingDistribMode([]);
-    setViewingNoteUnits(note.items.map((item: any) => item.unit || 'UN'));
+    setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
@@ -2892,17 +2892,17 @@ export default function Page() {
     const blankItem = {
       seq: viewingReviewNote.items.length + 1,
       original_description: '', name: '', supplier_code: '',
-      ean: '', sku: '', unit: 'UN', multiplier: 1,
-      qty: 0, price: 0, product_price: 0, verified: false, product_id: null,
+      ean: '', sku: '', unit: '', multiplier: 1,
+      qty: null, price: 0, product_price: 0, verified: false, product_id: null,
     };
     setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, blankItem] } : prev);
     setViewingNoteVerified(prev => [...prev, false]);
-    setViewingNoteQtys(prev => [...prev, 0]);
+    setViewingNoteQtys(prev => [...prev, null]);
     setViewingNoteItemPrices(prev => [...prev, 0]);
     setViewingNoteSellPrices(prev => [...prev, 0]);
     setViewingNoteEans(prev => [...prev, '']);
     setViewingNoteSkus(prev => [...prev, '']);
-    setViewingNoteUnits(prev => [...prev, 'UN']);
+    setViewingNoteUnits(prev => [...prev, '']);
     setViewingNoteMultipliers(prev => [...prev, 1]);
     setViewingNoteReviewTimestamps(prev => [...prev, null]);
     setViewingNoteDistribuicao(prev => [...prev, '']);
@@ -2933,7 +2933,13 @@ export default function Page() {
   // gravar uma nota que o usuário só abriu e fechou sem preencher nada (ver handleCreateManifestNote).
   const persistNote = useCallback(async (statusOverride?: NoteStatus) => {
     if (!viewingReviewNote) return;
-    const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => ({
+    const nextStatus = statusOverride ?? getNoteStatus(viewingReviewNote);
+    const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => {
+      // Medida em branco vira "UN" automaticamente só quando a nota entra em Revisão —
+      // até lá a célula fica vazia para o usuário preencher.
+      const rawUnit = viewingNoteUnits[idx] ?? item.unit;
+      const unit = (!rawUnit && nextStatus === 'revisao') ? 'UN' : rawUnit;
+      return {
       ...item,
       ean: viewingNoteEans[idx] ?? item.ean,
       eanVariants: (viewingNoteEanVariants[idx]?.length ?? 0) > 0 ? viewingNoteEanVariants[idx] : undefined,
@@ -2941,7 +2947,7 @@ export default function Page() {
       sku: viewingNoteSkus[idx] ?? item.sku,
       qty: viewingNoteQtys[idx] ?? item.qty,
       price: viewingNoteItemPrices[idx] ?? item.price,
-      unit: viewingNoteUnits[idx] ?? item.unit,
+      unit,
       multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
       product_price: viewingNoteSellPrices[idx] ?? item.product_price,
       verified: viewingNoteVerified[idx] ?? item.verified,
@@ -2962,9 +2968,10 @@ export default function Page() {
       // full adj columns serialized on first item for full restore on reload
       ...(idx === 0 ? { adj_columns_full: adjColumns } : {}),
       discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
-    }));
+      };
+    });
     const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
-    const status = statusOverride ?? getNoteStatus(viewingReviewNote);
+    const status = nextStatus;
     const approved = status === 'aprovada';
     const { error: saveError } = await supabase.from('review_notes').upsert({
       id: viewingReviewNote.id,
@@ -3057,7 +3064,7 @@ export default function Page() {
   // só ativa com a nota em "Registro", igual funcionava na antiga janela "Criar Manifesto".
   const handleNoteColumnPaste = (
     e: React.ClipboardEvent, rowIndex: number,
-    field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'qty' | 'price',
+    field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'unit' | 'qty' | 'price',
   ) => {
     if (!viewingReviewNote || getNoteStatus(viewingReviewNote) !== 'registro') return;
     const text = e.clipboardData.getData('text');
@@ -3077,16 +3084,16 @@ export default function Page() {
     if (rowsToAdd > 0) {
       const blanks = Array.from({ length: rowsToAdd }, (_, i) => ({
         seq: currentLen + i + 1, original_description: '', name: '', supplier_code: '',
-        ean: '', sku: '', unit: 'UN', multiplier: 1, qty: 0, price: 0, product_price: 0, verified: false, product_id: null,
+        ean: '', sku: '', unit: '', multiplier: 1, qty: null, price: 0, product_price: 0, verified: false, product_id: null,
       }));
       setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, ...blanks] } : prev);
       setViewingNoteVerified(prev => [...prev, ...blanks.map(() => false)]);
-      setViewingNoteQtys(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteQtys(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteItemPrices(prev => [...prev, ...blanks.map(() => 0)]);
       setViewingNoteSellPrices(prev => [...prev, ...blanks.map(() => 0)]);
       setViewingNoteEans(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteSkus(prev => [...prev, ...blanks.map(() => '')]);
-      setViewingNoteUnits(prev => [...prev, ...blanks.map(() => 'UN')]);
+      setViewingNoteUnits(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
       setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
@@ -3108,6 +3115,8 @@ export default function Page() {
       setViewingNoteEans(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
     } else if (field === 'sku') {
       setViewingNoteSkus(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
+    } else if (field === 'unit') {
+      setViewingNoteUnits(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
     } else if (field === 'qty') {
       setViewingNoteQtys(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
     } else if (field === 'price') {
@@ -7420,10 +7429,11 @@ export default function Page() {
                               <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                                 <input
                                   type="text"
-                                  value={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}
+                                  value={viewingNoteUnits[idx] ?? item.unit ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
                                   onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'unit')}
                                   onBlur={captureSnapshot}
                                   className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-center transition-colors"
                                   style={{ color: 'var(--rn-text-muted)' }}
@@ -7484,9 +7494,9 @@ export default function Page() {
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
                             <div className="flex items-center gap-1.5">
                             {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
-                              <input type="number" min="0" value={viewingNoteQtys[idx] ?? item.qty}
+                              <input type="number" min="0" value={(viewingNoteQtys[idx] ?? item.qty) ?? ''}
                                 data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
-                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = parseInt(e.target.value) || 0; setViewingNoteQtys(u); }}
+                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = e.target.value === '' ? null : (parseInt(e.target.value) || 0); setViewingNoteQtys(u); }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 3)}
                                 onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
                                 onBlur={captureSnapshot}

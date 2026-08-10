@@ -76,7 +76,7 @@ interface MobileNoteViewProps {
 
   eans: string[];              setEans: React.Dispatch<React.SetStateAction<string[]>>;
   skus: string[];              setSkus: React.Dispatch<React.SetStateAction<string[]>>;
-  qtys: number[];              setQtys: React.Dispatch<React.SetStateAction<number[]>>;
+  qtys: (number | null)[];     setQtys: React.Dispatch<React.SetStateAction<(number | null)[]>>;
   itemPrices: (number | null)[]; setItemPrices: React.Dispatch<React.SetStateAction<(number | null)[]>>;
   sellPrices: number[];        setSellPrices: React.Dispatch<React.SetStateAction<number[]>>;
   verified: boolean[];         setVerified: React.Dispatch<React.SetStateAction<boolean[]>>;
