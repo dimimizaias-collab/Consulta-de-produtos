@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Produto por Empresa — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#E2DDD3; display:flex; flex-wrap:wrap; gap:32px; justify-content:center; align-items:flex-start; min-height:100vh; padding:40px 16px 100px;}
+  .col{display:flex; flex-direction:column; align-items:center; gap:14px;}
+  .col-label{font-size:12px; font-weight:800; color:rgba(26,26,10,0.50); text-transform:uppercase; letter-spacing:0.10em; text-align:center; max-width:480px;}
+
+  .modal{width:520px; background:#F0E7CC; border-radius:24px; box-shadow:0 40px 90px rgba(0,0,0,0.20); overflow:hidden; display:flex; flex-direction:column; max-height:90vh;}
+  .modal-header{display:flex; align-items:center; gap:14px; padding:20px 24px; background:#FFE500; border-bottom:1px solid #D4C000;}
+  .icon-chip{width:44px; height:44px; border-radius:16px; background:rgba(26,26,10,0.09); display:flex; align-items:center; justify-content:center; color:#1A1A0E; flex-shrink:0;}
+  .header-text{flex:1;}
+  .modal-title{font-size:18px; font-weight:800; color:#1A1A0E;}
+  .modal-sub{font-size:12px; color:rgba(26,26,10,0.55); font-weight:700; margin-top:2px;}
+  .close-btn{width:36px; height:36px; border-radius:12px; background:rgba(26,26,10,0.08); border:1px solid rgba(26,26,10,0.10); display:flex; align-items:center; justify-content:center; color:rgba(26,26,10,0.50); flex-shrink:0;}
+
+  .tabs{display:flex; align-items:center; gap:4px; padding:12px 24px 0; background:#F0E7CC; border-bottom:1px solid rgba(26,26,10,0.10);}
+  .tab{padding:10px 16px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:rgba(26,26,10,0.45); border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;}
+  .tab.active{color:#D81E1E; border-color:#D81E1E;}
+  .tab .badge{padding:2px 6px; border-radius:9999px; font-size:10px; font-weight:900; background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.45);}
+  .tab.active .badge{background:rgba(216,30,30,0.10); color:#D81E1E;}
+
+  .modal-body{flex:1; overflow-y:auto; padding:16px 24px 24px; display:flex; flex-direction:column; gap:16px;}
+
+  .section{background:#FDFAF0; border:1px solid rgba(26,26,10,0.07); box-shadow:0 1px 2px rgba(26,26,10,0.03); border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:14px;}
+  .section-head{display:flex; align-items:center; gap:8px;}
+  .section-title{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#1A1A0E;}
+  .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .field-grid .full{grid-column:1/-1;}
+  .field-label{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:rgba(26,26,10,0.50); margin-bottom:6px; display:block;}
+  .field{width:100%; background:rgba(26,26,10,0.035); border:1px solid rgba(26,26,10,0.10); border-radius:12px; padding:10px 14px; font-size:13px; font-weight:600; color:#1A1A0E;}
+
+  /* highlight: novo campo Empresa */
+  .field-highlight{position:relative;}
+  .field-highlight .field{background:rgba(216,30,30,0.055); border:1.5px solid rgba(216,30,30,0.35); font-weight:700; color:#1A1A0E; cursor:pointer;}
+  .new-pill{position:absolute; top:-9px; right:8px; background:#D81E1E; color:#fff; font-size:8.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em; padding:2px 7px; border-radius:9999px; box-shadow:0 2px 6px rgba(216,30,30,0.35);}
+
+  .mae-filho{background:rgba(216,30,30,0.045); border:1px solid rgba(216,30,30,0.20); border-radius:16px; padding:20px; display:flex; align-items:center; justify-content:space-between;}
+  .mae-filho-left{display:flex; align-items:center; gap:8px; color:#9F1616; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;}
+  .toggle{width:38px; height:22px; border-radius:9999px; background:rgba(26,26,10,0.15); position:relative;}
+  .toggle::after{content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:9999px; background:#fff;}
+
+  .status-pills{display:flex; gap:8px; flex-wrap:wrap;}
+  .status-pill{padding:8px 14px; border-radius:9999px; font-size:10.5px; font-weight:800; border:1.5px solid rgba(26,26,10,0.10); color:rgba(26,26,10,0.55); background:rgba(26,26,10,0.035);}
+  .status-pill.active{background:rgba(216,30,30,0.10); border-color:#D81E1E; color:#D81E1E;}
+
+  .img-drop{width:100%; height:100px; border:2px dashed rgba(26,26,10,0.16); border-radius:14px; display:flex; align-items:center; justify-content:center; color:rgba(26,26,10,0.28); gap:8px; font-size:11.5px; font-weight:700;}
+
+  .modal-footer{display:flex; gap:10px; padding:16px 24px 22px; background:#F0E7CC;}
+  .btn-cancel{flex:1; background:rgba(26,26,10,0.06); border:1px solid rgba(26,26,10,0.12); color:rgba(26,26,10,0.55); font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; padding:13px; border-radius:14px;}
+  .btn-save{flex:1.6; background:#D81E1E; color:#fff; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; padding:13px; border-radius:14px; box-shadow:0 10px 20px rgba(216,30,30,0.25); display:flex; align-items:center; justify-content:center; gap:8px;}
+
+  /* Histórico cards */
+  .hist-card{position:relative; background:#FDFAF0; border:1px solid rgba(26,26,10,0.09); border-radius:16px; padding:16px;}
+  .company-badge{position:absolute; top:12px; right:12px; display:flex; align-items:center; gap:6px; background:#fff; border:1px solid rgba(26,26,10,0.10); border-radius:9999px; padding:4px 10px 4px 4px; box-shadow:0 2px 6px rgba(26,26,10,0.06);}
+  .company-badge-avatar{width:20px; height:20px; border-radius:9999px; background:#F0E7CC; display:flex; align-items:center; justify-content:center; color:rgba(26,26,10,0.35); overflow:hidden; flex-shrink:0;}
+  .company-badge-name{font-size:9.5px; font-weight:800; color:rgba(26,26,10,0.60); white-space:nowrap;}
+  .hist-top{margin-bottom:10px; padding-right:110px;}
+  .hist-supplier{font-size:13px; font-weight:800; color:#1A1A0E;}
+  .hist-date{font-size:10px; color:rgba(26,26,10,0.45); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:1px;}
+  .hist-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; background:#FAF7EE; border:1px solid rgba(26,26,10,0.07); border-radius:10px; padding:10px;}
+  .hist-stat-label{font-size:8.5px; font-weight:800; color:rgba(26,26,10,0.40); text-transform:uppercase;}
+  .hist-stat-value{font-size:12.5px; font-weight:800; color:#1A1A0E; margin-top:2px;}
+
+  /* Toast / erro */
+  .toast{display:flex; align-items:flex-start; gap:12px; background:#FEE2E2; border:1.5px solid #FCA5A5; border-radius:16px; padding:14px 16px; width:400px; box-shadow:0 20px 40px rgba(0,0,0,0.15);}
+  .toast-icon{width:30px; height:30px; border-radius:10px; background:#D81E1E; color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .toast-title{font-size:13px; font-weight:800; color:#7F1D1D;}
+  .toast-sub{font-size:11.5px; font-weight:600; color:#991B1B; margin-top:2px; line-height:1.4;}
+
+  .recebimento-preview{width:400px; background:#FDFAF0; border:1px solid rgba(26,26,10,0.09); border-radius:20px; padding:24px;}
+  .recebimento-field{margin-bottom:0;}
+  .recebimento-field .field-label{display:flex; align-items:center; gap:5px;}
+  .req{color:#D81E1E;}
+  .field-error{border-color:#D81E1E !important; background:rgba(216,30,30,0.06) !important; box-shadow:0 0 0 3px rgba(216,30,30,0.12);}
+  .error-msg{font-size:10.5px; font-weight:700; color:#D81E1E; margin-top:6px; display:flex; align-items:center; gap:5px;}
+</style>
+</head>
+<body>
+
+<div class="col">
+  <div class="col-label">Novo Produto — agora com o mesmo layout do Editar Produto</div>
+  <div class="modal">
+    <div class="modal-header">
+      <div class="icon-chip">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4 7.55 4.24M21 8v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2 0l-7-4A2 2 0 013 16V8a2 2 0 011-1.73l7-4a2 2 0 012 0l7 4A2 2 0 0121 8z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+      </div>
+      <div class="header-text">
+        <div class="modal-title">Adicionar Novo Produto</div>
+        <div class="modal-sub">Preencha os dados para cadastrar no inventário</div>
+      </div>
+      <div class="close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Dados</div>
+    </div>
+
+    <div class="modal-body">
+      <div class="section">
+        <div class="section-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2"><path d="M16.5 9.4 7.55 4.24M21 8v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2 0l-7-4A2 2 0 013 16V8a2 2 0 011-1.73l7-4a2 2 0 012 0l7 4A2 2 0 0121 8z"/></svg>
+          <span class="section-title">Identificação</span>
+        </div>
+        <div class="field-grid">
+          <div><span class="field-label">SKU (Código Interno)</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">ex: BM-500-A4</div></div>
+          <div><span class="field-label">Nome do Produto</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">ex: Batedeira Prática Master</div></div>
+          <div class="full"><span class="field-label">Código EAN</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">789...</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span class="section-title">Estoque &amp; Preço</span>
+        </div>
+
+        <div class="field-highlight">
+          <span class="new-pill">Novo</span>
+          <span class="field-label" style="display:flex; align-items:center; gap:5px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+            Empresa
+          </span>
+          <div class="field" style="display:flex; align-items:center; justify-content:space-between;">
+            Universo do Produto
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div><span class="field-label">Quantidade em Estoque</span><div class="field">0</div></div>
+          <div><span class="field-label">Preço (R$)</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">0,00</div></div>
+          <div class="full">
+            <span class="field-label">Status</span>
+            <div class="status-pills">
+              <span class="status-pill">Estoque Baixo</span>
+              <span class="status-pill active">Em Estoque</span>
+              <span class="status-pill">Estoque em Alta</span>
+              <span class="status-pill">Fora de Estoque</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mae-filho">
+        <div class="mae-filho-left">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          Relacionamento Mãe/Filho
+        </div>
+        <div class="toggle"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>
+          <span class="section-title">Organização</span>
+        </div>
+        <div class="field-grid">
+          <div><span class="field-label">Localização</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">Pesquisar localização...</div></div>
+          <div><span class="field-label">Categoria</span><div class="field" style="color:rgba(26,26,10,0.30); font-weight:500;">Pesquisar categoria...</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5M3 16h5"/></svg>
+          <span class="section-title">Imagem</span>
+        </div>
+        <div class="img-drop">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h10M21 15l-5-5L5 21M17 8h.01"/></svg>
+          Arraste uma imagem ou clique para enviar
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        Adicionar Produto
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="col-label">Editar Produto — Estoque &amp; Preço com seletor de Empresa</div>
+  <div class="modal">
+    <div class="modal-header">
+      <div class="icon-chip">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4 7.55 4.24M21 8v8a2 2 0 01-1 1.73l-7 4a2 2 0 01-2 0l-7-4A2 2 0 013 16V8a2 2 0 011-1.73l7-4a2 2 0 012 0l7 4A2 2 0 0121 8z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+      </div>
+      <div class="header-text">
+        <div class="modal-title">Editar Produto</div>
+        <div class="modal-sub">Batedeira Prática Master</div>
+      </div>
+      <div class="close-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Dados</div>
+      <div class="tab">Histórico em Notas <span class="badge">6</span></div>
+    </div>
+
+    <div class="modal-body">
+      <div class="section">
+        <div class="section-head">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D81E1E" stroke-width="2"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span class="section-title">Estoque &amp; Preço</span>
+        </div>
+
+        <div class="field-highlight">
+          <span class="new-pill">Novo</span>
+          <span class="field-label" style="display:flex; align-items:center; gap:5px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+            Empresa
+          </span>
+          <div class="field" style="display:flex; align-items:center; justify-content:space-between;">
+            Castelo Real
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <p style="font-size:10px; font-weight:600; color:rgba(26,26,10,0.40); margin-top:6px;">Trocar a empresa carrega o estoque e preço daquela loja — o resto do produto é compartilhado.</p>
+        </div>
+
+        <div class="field-grid">
+          <div><span class="field-label">Quantidade em Estoque</span><div class="field">14</div></div>
+          <div><span class="field-label">Preço (R$)</span><div class="field">89,90</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        Salvar Alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="col-label">Histórico em Notas — badge de Empresa em cada card</div>
+  <div style="width:400px; display:flex; flex-direction:column; gap:12px;">
+    <div class="hist-card">
+      <div class="company-badge">
+        <div class="company-badge-avatar">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+        </div>
+        <span class="company-badge-name">Universo do Produto</span>
+      </div>
+      <div class="hist-top">
+        <div class="hist-supplier">Vena Vidros Comércio Ltda</div>
+        <div class="hist-date">15/03/2026</div>
+      </div>
+      <div class="hist-stats">
+        <div><div class="hist-stat-label">Qtd.</div><div class="hist-stat-value">24</div></div>
+        <div><div class="hist-stat-label">Valor Unit.</div><div class="hist-stat-value">R$ 42,00</div></div>
+        <div><div class="hist-stat-label">Valor Total</div><div class="hist-stat-value">R$ 1.008,00</div></div>
+        <div><div class="hist-stat-label">Preço Venda</div><div class="hist-stat-value">R$ 89,90</div></div>
+      </div>
+    </div>
+
+    <div class="hist-card">
+      <div class="company-badge">
+        <div class="company-badge-avatar">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+        </div>
+        <span class="company-badge-name">Castelo Real</span>
+      </div>
+      <div class="hist-top">
+        <div class="hist-supplier">Distribuidora Metropolitana</div>
+        <div class="hist-date">02/02/2026</div>
+      </div>
+      <div class="hist-stats">
+        <div><div class="hist-stat-label">Qtd.</div><div class="hist-stat-value">12</div></div>
+        <div><div class="hist-stat-label">Valor Unit.</div><div class="hist-stat-value">R$ 45,50</div></div>
+        <div><div class="hist-stat-label">Valor Total</div><div class="hist-stat-value">R$ 546,00</div></div>
+        <div><div class="hist-stat-label">Preço Venda</div><div class="hist-stat-value">R$ 92,00</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="col-label">Entrada de Mercadoria — Empresa obrigatória na fase Registro</div>
+  <div style="display:flex; flex-direction:column; gap:20px; align-items:center;">
+    <div class="toast">
+      <div class="toast-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      </div>
+      <div>
+        <div class="toast-title">Não foi possível salvar a nota</div>
+        <div class="toast-sub">Selecione a Empresa antes de salvar — esse campo é obrigatório mesmo na fase de Registro.</div>
+      </div>
+    </div>
+
+    <div class="recebimento-preview">
+      <span class="field-label" style="display:flex; align-items:center; gap:5px;">Empresa <span class="req">*</span></span>
+      <div class="field field-error" style="display:flex; align-items:center; justify-content:space-between; color:rgba(26,26,10,0.30); font-weight:500;">
+        Selecionar...
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="error-msg">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        Campo obrigatório
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

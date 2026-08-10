@@ -55,6 +55,9 @@ export interface ReviewNote {
   createdAt?: string;
   transporte?: 'fornecedor' | 'proprio' | 'transportadora';
   companyId?: string | null;
+  // Marca se a quantidade recebida já foi somada ao estoque da empresa — evita duplicar o
+  // incremento se a nota for resalva/reaprovada depois de já estar "Aprovada".
+  stockAppliedAt?: string | null;
   supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;

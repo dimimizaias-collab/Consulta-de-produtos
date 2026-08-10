@@ -27,7 +27,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -44,6 +44,10 @@ import autoTable from 'jspdf-autotable';
 import JsBarcode from 'jsbarcode';
 
 const staticProducts: any[] = [];
+
+// Mensagem usada tanto pela validação em persistNote quanto pelos catch blocks de
+// handleSaveNote/changeNoteStatus, que trocam a aba pra Recebimento quando ela aparece.
+const EMPRESA_REQUIRED_MSG = 'Selecione a Empresa antes de salvar a nota.';
 
 // Evita que o scroll do mouse altere valores de campos numéricos por acidente
 // (comportamento nativo do input[type=number] ao rolar com o cursor sobre o campo).
@@ -589,11 +593,25 @@ export default function Page() {
   const [editProductTab, setEditProductTab] = useState<'dados' | 'historico'>('dados');
   const [editProductHistoryEans, setEditProductHistoryEans] = useState<string[]>([]);
 
+  // Estoque & Preço por Empresa — a empresa selecionada define quais valores de
+  // count/price aparecem nos campos; o resto do produto é compartilhado entre lojas.
+  const [editProductCompanyId, setEditProductCompanyId] = useState<string>('');
+  const [editProductStockCache, setEditProductStockCache] = useState<Record<string, { count: number; price: number }>>({});
+  const [newProductCompanyId, setNewProductCompanyId] = useState<string>('');
+  const [newProductStockByCompany, setNewProductStockByCompany] = useState<Record<string, { count: number; price: number }>>({});
+
   // Memoized derived values
   const unreadNotificationCount = useMemo(
     () => appNotifications.filter(n => !n.read).length,
     [appNotifications]
   );
+
+  // Empresa "padrão" (mais antiga cadastrada) — é a que products.price/count espelha,
+  // para não quebrar grade, etiquetas e exportações que ainda leem esses campos direto.
+  const primaryCompanyId = useMemo(() => {
+    if (companies.length === 0) return '';
+    return companies.slice().sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''))[0]?.id || '';
+  }, [companies]);
 
   // Unique values for dropdowns
   const uniqueLocations = useMemo(() => Array.from(new Set(products.map(p => p.location).filter(Boolean))).sort(), [products]);
@@ -950,6 +968,7 @@ export default function Page() {
         supplierName: n.supplier_name ?? undefined,
         supplierId: n.supplier_id ?? null,
         companyId: n.company_id ?? null,
+        stockAppliedAt: n.stock_applied_at ?? null,
         receivedDate: n.received_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
@@ -1083,21 +1102,79 @@ export default function Page() {
     await fetchEanProblems();
   };
 
-  const handleApproveNote = async (noteId: string) => {
-    await supabase.from('review_notes').update({ approved: true, status: 'aprovada' }).eq('id', noteId);
-    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true, status: 'aprovada' } : n));
+  // Propaga preço de venda + quantidade recebida de uma nota aprovada para o Estoque & Preço
+  // da Empresa vinculada à nota (product_company_stock). Se a empresa for a "padrão", também
+  // espelha em products.price/count (grade, etiquetas e exportações continuam lendo só isso).
+  // A quantidade só é somada UMA VEZ por nota (guarda: stock_applied_at) — resalvar/reaprovar
+  // uma nota que já teve o estoque lançado não soma de novo; o preço pode ser resincronizado
+  // sempre, pois é uma regra de "só avança se a data for mais recente", não um incremento.
+  const applyNoteToCompanyStock = useCallback(async (note: ReviewNote) => {
+    const priceCandidates = (note.items || []).filter((item: any) => item.product_id && item.product_price > 0);
+    if (priceCandidates.length === 0) return;
 
-    // Gera notificação de aprovação
-    const note = reviewNotes.find(n => n.id === noteId);
+    const noteReceivedDate = note.receivedDate || null;
+    const companyId = note.companyId || null;
+    const alreadyAppliedStock = !!note.stockAppliedAt;
+    const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
 
-    // Mesma regra do persistNote: preço de venda só entra no cadastro do produto quando aprova.
-    // Esse fluxo aprova direto pelo card da lista (sem passar pelo editor), então replica aqui.
-    const priceCandidates = (note?.items || []).filter((item: any) => item.product_id && item.product_price > 0);
-    if (priceCandidates.length > 0) {
-      const noteReceivedDate = note?.receivedDate || null;
+    if (companyId) {
+      const { data: currentStockRows } = await supabase
+        .from('product_company_stock')
+        .select('product_id, count, price_received_date')
+        .eq('company_id', companyId)
+        .in('product_id', productIds);
+      const stockByProduct: Record<string, { count: number; price_received_date: string | null }> = {};
+      (currentStockRows || []).forEach((r: any) => { stockByProduct[r.product_id] = r; });
+
+      const stockUpserts = priceCandidates
+        .filter((item: any) => {
+          const existingDate = stockByProduct[item.product_id]?.price_received_date || null;
+          return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+        })
+        .map((item: any) => {
+          const qty = alreadyAppliedStock ? 0 : (parseFloat(item.qty) || 0);
+          const nextCount = (stockByProduct[item.product_id]?.count || 0) + qty;
+          return supabase.from('product_company_stock').upsert({
+            product_id: item.product_id,
+            company_id: companyId,
+            count: nextCount,
+            price: item.product_price,
+            price_received_date: noteReceivedDate,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'product_id,company_id' });
+        });
+      if (stockUpserts.length > 0) await Promise.all(stockUpserts);
+
+      if (companyId === primaryCompanyId) {
+        const { data: currentProducts } = await supabase.from('products').select('id, price_received_date, count').in('id', productIds);
+        const productMeta: Record<string, { price_received_date: string | null; count: number }> = {};
+        (currentProducts || []).forEach((p: any) => { productMeta[p.id] = p; });
+        const productUpdates = priceCandidates
+          .filter((item: any) => {
+            const existingDate = productMeta[item.product_id]?.price_received_date || null;
+            return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+          })
+          .map((item: any) => {
+            const qty = alreadyAppliedStock ? 0 : (parseFloat(item.qty) || 0);
+            const nextCount = (productMeta[item.product_id]?.count || 0) + qty;
+            const payload: any = { price: item.product_price, count: nextCount, is_low: nextCount < 5 };
+            if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
+            return supabase.from('products').update(payload).eq('id', item.product_id);
+          });
+        if (productUpdates.length > 0) await Promise.all(productUpdates);
+      }
+
+      if (!alreadyAppliedStock) {
+        const appliedAt = new Date().toISOString();
+        await supabase.from('review_notes').update({ stock_applied_at: appliedAt }).eq('id', note.id);
+        setReviewNotes(prev => prev.map(n => n.id === note.id ? { ...n, stockAppliedAt: appliedAt } : n));
+        setViewingReviewNote(prev => (prev && prev.id === note.id) ? { ...prev, stockAppliedAt: appliedAt } : prev);
+      }
+    } else {
+      // Legado: nota aprovada antes desta feature existir, sem Empresa vinculada — mantém o
+      // comportamento antigo (só preço, sem somar estoque, pois não sabemos de qual loja é).
       let currentDatesById: Record<string, string | null> = {};
       if (noteReceivedDate) {
-        const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
         const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
         (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
       }
@@ -1111,11 +1188,20 @@ export default function Page() {
           if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
           return supabase.from('products').update(payload).eq('id', item.product_id);
         });
-      if (priceUpdates.length > 0) {
-        await Promise.all(priceUpdates);
-        fetchProducts();
-      }
+      if (priceUpdates.length > 0) await Promise.all(priceUpdates);
     }
+
+    fetchProducts();
+  }, [primaryCompanyId]);
+
+  const handleApproveNote = async (noteId: string) => {
+    await supabase.from('review_notes').update({ approved: true, status: 'aprovada' }).eq('id', noteId);
+    setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true, status: 'aprovada' } : n));
+
+    // Gera notificação de aprovação
+    const note = reviewNotes.find(n => n.id === noteId);
+    if (note) await applyNoteToCompanyStock(note);
+
     const insertPayload = {
       type: 'note_approved',
       title: 'Nota aprovada',
@@ -1161,6 +1247,7 @@ export default function Page() {
       await persistNote(status);
       setNotification({ type: 'success', message: `Situação alterada para "${STATUS_META[status].label}".` });
     } catch (err: any) {
+      if (err.message === EMPRESA_REQUIRED_MSG) setNoteEditorTab('recebimento');
       setNotification({ type: 'error', message: err.message || 'Erro ao alterar situação da nota.' });
     } finally {
       setSavingNoteStatus(false);
@@ -1457,14 +1544,28 @@ export default function Page() {
 
     try {
       setAdding(true);
-      
+
+      // Mescla a empresa em edição no momento com o que já foi preenchido para outras — o
+      // que sobra em products.count/price é sempre o snapshot da empresa padrão (ver decisão
+      // de escopo: grade/etiquetas/exportações continuam lendo só esses dois campos).
+      const mergedStockByCompany: Record<string, { count: number; price: number }> = {
+        ...newProductStockByCompany,
+        ...(newProductCompanyId ? {
+          [newProductCompanyId]: {
+            count: isNaN(newProduct.count) ? 0 : newProduct.count,
+            price: isNaN(newProduct.price) ? 0 : newProduct.price,
+          },
+        } : {}),
+      };
+      const primaryStock = (primaryCompanyId && mergedStockByCompany[primaryCompanyId]) || { count: 0, price: 0 };
+
       const productToInsert = {
         sku: newProduct.sku?.trim() || null,
         name: newProduct.name,
         image: newProduct.image || '',
         status: newProduct.status,
-        count: isNaN(newProduct.count) ? 0 : newProduct.count,
-        price: isNaN(newProduct.price) ? 0 : newProduct.price,
+        count: primaryStock.count,
+        price: primaryStock.price,
         location: newProduct.location || 'Não atribuído',
         ean: newProduct.ean || '',
         category: newProduct.category || 'Geral',
@@ -1476,7 +1577,7 @@ export default function Page() {
         internal_code: newProduct.sku,
         is_featured: false,
         is_side: false,
-        is_low: (isNaN(newProduct.count) ? 0 : newProduct.count) < 5,
+        is_low: primaryStock.count < 5,
         is_mother: newProduct.is_mother,
         units_per_mother: newProduct.units_per_mother,
         linked_product_id: newProduct.linked_product_id
@@ -1504,9 +1605,23 @@ export default function Page() {
         await supabase.from('product_ean_codes').insert(extraEanRows);
       }
 
-      // Logic for Mother/Child stock update on creation
-      if (newProduct.is_mother && newProduct.linked_product_id && newProduct.count > 0) {
-        const unitsToAdd = newProduct.count * (newProduct.units_per_mother || 1);
+      // Grava Estoque & Preço de cada empresa preenchida durante o cadastro.
+      if (createdProductId) {
+        const stockRows = Object.entries(mergedStockByCompany).map(([companyId, stock]) => ({
+          product_id: createdProductId,
+          company_id: companyId,
+          count: stock.count,
+          price: stock.price,
+        }));
+        if (stockRows.length > 0) {
+          await supabase.from('product_company_stock').insert(stockRows);
+        }
+      }
+
+      // Logic for Mother/Child stock update on creation — usa sempre o estoque da empresa
+      // padrão, já que é o único valor espelhado em products.count (o filho não é por empresa).
+      if (newProduct.is_mother && newProduct.linked_product_id && primaryStock.count > 0) {
+        const unitsToAdd = primaryStock.count * (newProduct.units_per_mother || 1);
         
         // Get child product to get its current count
         const { data: childData } = await supabase
@@ -1553,6 +1668,8 @@ export default function Page() {
         linked_product_id: null
       });
       setNewProductExtraEans([]);
+      setNewProductCompanyId('');
+      setNewProductStockByCompany({});
 
       // Fecha o modal após um pequeno delay
       setTimeout(() => {
@@ -1587,13 +1704,18 @@ export default function Page() {
     setEditError('');
     
     try {
+      const editCount = isNaN(editingProduct.count) ? 0 : editingProduct.count;
+      const editPrice = isNaN(editingProduct.price) ? 0 : editingProduct.price;
+      const isPrimaryCompanySelected = !editProductCompanyId || editProductCompanyId === primaryCompanyId;
+
       const productToUpdate = {
         sku: editingProduct.sku,
         name: editingProduct.name,
         image: editingProduct.image,
         status: editingProduct.status,
-        count: isNaN(editingProduct.count) ? 0 : editingProduct.count,
-        price: isNaN(editingProduct.price) ? 0 : editingProduct.price,
+        // count/price em `products` só espelham a empresa padrão — grade, etiquetas e
+        // exportações continuam lendo esses campos direto sem saber de Empresa.
+        ...(isPrimaryCompanySelected ? { count: editCount, price: editPrice } : {}),
         location: editingProduct.location,
         ean: editingProduct.ean || '',
         category: editingProduct.category || '',
@@ -1603,7 +1725,7 @@ export default function Page() {
         cnpj: editingProduct.cnpj?.trim() || null,
         composicao: editingProduct.composicao?.trim() || null,
         internal_code: editingProduct.sku,
-        is_low: (isNaN(editingProduct.count) ? 0 : editingProduct.count) < 5,
+        ...(isPrimaryCompanySelected ? { is_low: editCount < 5 } : {}),
         updated_at: new Date().toISOString(),
         is_mother: editingProduct.is_mother,
         units_per_mother: editingProduct.units_per_mother,
@@ -1616,6 +1738,17 @@ export default function Page() {
         .eq('id', editingProduct.id);
 
       if (error) throw error;
+
+      // Grava Estoque & Preço da empresa atualmente selecionada — sempre, mesmo quando não é a padrão.
+      if (editProductCompanyId) {
+        await supabase.from('product_company_stock').upsert({
+          product_id: editingProduct.id,
+          company_id: editProductCompanyId,
+          count: editCount,
+          price: editPrice,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'product_id,company_id' });
+      }
 
       // Sincroniza EANs adicionais: remove os antigos e grava os atuais
       await supabase.from('product_ean_codes').delete().eq('product_id', editingProduct.id);
@@ -1630,7 +1763,12 @@ export default function Page() {
 
       // Detectar campos alterados e criar requisição de auditoria
       if (originalProductSnapshot) {
-        const TRACKED_FIELDS = ['name', 'sku', 'price', 'count', 'location', 'ean', 'category', 'subcategory', 'brand', 'status'];
+        // price/count só entram na auditoria quando a empresa padrão está selecionada —
+        // são os únicos casos em que esses campos realmente mudam em `products`.
+        const TRACKED_FIELDS = [
+          'name', 'sku', 'location', 'ean', 'category', 'subcategory', 'brand', 'status',
+          ...(isPrimaryCompanySelected ? ['price', 'count'] : []),
+        ];
         const changedFields: string[] = [];
         const before: Record<string, any> = {};
         const after: Record<string, any> = {};
@@ -1661,9 +1799,10 @@ export default function Page() {
         }
       }
 
-      // Logic for Mother/Child stock update
-      if (editingProduct.is_mother && editingProduct.linked_product_id) {
-        const newCount = isNaN(editingProduct.count) ? 0 : editingProduct.count;
+      // Logic for Mother/Child stock update — só se aplica à empresa padrão, já que
+      // originalCount foi capturado a partir de products.count (que só espelha essa empresa).
+      if (isPrimaryCompanySelected && editingProduct.is_mother && editingProduct.linked_product_id) {
+        const newCount = editCount;
         const diff = newCount - (editingProduct.originalCount || 0);
         
         if (diff > 0) {
@@ -2965,6 +3104,9 @@ export default function Page() {
   // gravar uma nota que o usuário só abriu e fechou sem preencher nada (ver handleCreateManifestNote).
   const persistNote = useCallback(async (statusOverride?: NoteStatus) => {
     if (!viewingReviewNote) return;
+    // Empresa é obrigatória desde a fase de Registro — sem ela não dá pra saber a qual loja
+    // o preço/estoque desta nota pertence quando ela for aprovada.
+    if (!viewingReviewNote.companyId) throw new Error(EMPRESA_REQUIRED_MSG);
     const nextStatus = statusOverride ?? getNoteStatus(viewingReviewNote);
     const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => {
       // Medida em branco vira "UN" automaticamente só quando a nota entra em Revisão —
@@ -3023,39 +3165,16 @@ export default function Page() {
       updated_at: new Date().toISOString(),
     });
     if (saveError) throw saveError;
-    // Só propaga o Preço Venda para o cadastro do produto quando a nota está Aprovada —
-    // evita descompasso caso a nota ainda seja editada/corrigida em Registro/Revisão.
-    const priceCandidates = status === 'aprovada'
-      ? updatedItems.filter((item: any) => item.product_id && item.product_price > 0)
-      : [];
-    if (priceCandidates.length > 0) {
-      const noteReceivedDate = viewingReviewNote.receivedDate || null;
-      let currentDatesById: Record<string, string | null> = {};
-      if (noteReceivedDate) {
-        const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
-        const { data: currentProducts } = await supabase.from('products').select('id, price_received_date').in('id', productIds);
-        (currentProducts || []).forEach((p: any) => { currentDatesById[p.id] = p.price_received_date; });
-      }
-      const priceUpdates = priceCandidates
-        .filter((item: any) => {
-          // So nao atualiza se ja existe um preco vindo de uma nota com data de recebimento mais recente
-          const existingDate = currentDatesById[item.product_id];
-          return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
-        })
-        .map((item: any) => {
-          const payload: any = { price: item.product_price };
-          if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
-          return supabase.from('products').update(payload).eq('id', item.product_id);
-        });
-      if (priceUpdates.length > 0) await Promise.all(priceUpdates);
-    }
     const nextNote: ReviewNote = {
       ...viewingReviewNote, items: updatedItems, verifiedCount: updatedVerifiedCount, itemCount: updatedItems.length, status, approved,
     };
+    // Só propaga Preço + Estoque para a Empresa da nota quando ela está Aprovada — evita
+    // descompasso caso a nota ainda seja editada/corrigida em Registro/Revisão.
+    if (status === 'aprovada') await applyNoteToCompanyStock(nextNote);
     setReviewNotes(prev => prev.some(n => n.id === nextNote.id) ? prev.map(n => n.id === nextNote.id ? nextNote : n) : [nextNote, ...prev]);
     setViewingReviewNote(nextNote);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans, applyNoteToCompanyStock]);
 
   const handleSaveNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -3065,6 +3184,7 @@ export default function Page() {
       setNotification({ type: 'success', message: 'Nota salva com sucesso!' });
       fetchProducts(); // Reflete preços de venda e dados atualizados no state global
     } catch (err: any) {
+      if (err.message === EMPRESA_REQUIRED_MSG) setNoteEditorTab('recebimento');
       setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota.' });
     } finally {
       setSavingNote(false);
@@ -3485,7 +3605,7 @@ export default function Page() {
   };
 
   const fetchCompanies = async () => {
-    const { data } = await supabase.from('companies').select('id, nome_fantasia').order('nome_fantasia');
+    const { data } = await supabase.from('companies').select('id, nome_fantasia, logo, created_at').order('nome_fantasia');
     setCompanies(data || []);
   };
 
@@ -3736,8 +3856,87 @@ export default function Page() {
       subcategory: false,
       brand: false
     });
+    if (companies.length === 0) fetchCompanies();
+    setEditProductCompanyId('');
+    setEditProductStockCache({});
     setShowEditModal(true);
     setShowDeleteConfirm(false);
+  };
+
+  // Ao abrir o modal (ou assim que a lista de empresas carrega), seleciona a empresa padrão
+  // e pré-popula o cache com os valores de products.count/price — que já espelham essa empresa.
+  useEffect(() => {
+    if (showEditModal && editingProduct && primaryCompanyId && !editProductCompanyId) {
+      setEditProductCompanyId(primaryCompanyId);
+      setEditProductStockCache(prev => ({
+        ...prev,
+        [primaryCompanyId]: {
+          count: isNaN(editingProduct.count) ? 0 : (editingProduct.count || 0),
+          price: isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0),
+        },
+      }));
+    }
+  }, [showEditModal, editingProduct, primaryCompanyId, editProductCompanyId]);
+
+  // Troca de Empresa na seção Estoque & Preço: salva a empresa anterior (se o produto já existe
+  // e havia edição pendente) e carrega/cacheia os valores da empresa recém-selecionada.
+  const handleEditProductCompanyChange = async (nextCompanyId: string) => {
+    if (!editingProduct || !nextCompanyId || nextCompanyId === editProductCompanyId) return;
+    const prevCompanyId = editProductCompanyId;
+    const prevCount = isNaN(editingProduct.count) ? 0 : (editingProduct.count || 0);
+    const prevPrice = isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0);
+
+    // Persiste a empresa anterior antes de trocar, para não perder edição feita nela nesta sessão.
+    if (prevCompanyId && editingProduct.id) {
+      try {
+        await supabase.from('product_company_stock').upsert({
+          product_id: editingProduct.id,
+          company_id: prevCompanyId,
+          count: prevCount,
+          price: prevPrice,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'product_id,company_id' });
+        if (prevCompanyId === primaryCompanyId) {
+          await supabase.from('products').update({ count: prevCount, price: prevPrice }).eq('id', editingProduct.id);
+        }
+        setEditProductStockCache(prev => ({ ...prev, [prevCompanyId]: { count: prevCount, price: prevPrice } }));
+      } catch (err: any) {
+        setNotification({ type: 'error', message: 'Erro ao salvar Estoque & Preço da empresa anterior.' });
+      }
+    }
+
+    let next = editProductStockCache[nextCompanyId];
+    if (!next && editingProduct.id) {
+      const { data } = await supabase.from('product_company_stock')
+        .select('count, price')
+        .eq('product_id', editingProduct.id)
+        .eq('company_id', nextCompanyId)
+        .maybeSingle();
+      next = data ? { count: data.count || 0, price: data.price || 0 } : { count: 0, price: 0 };
+      setEditProductStockCache(prev => ({ ...prev, [nextCompanyId]: next! }));
+    }
+    next = next || { count: 0, price: 0 };
+    setEditingProduct((prev: any) => ({ ...prev, count: next!.count, price: next!.price }));
+    setEditProductPriceDisplay(next.price > 0 ? next.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+    setEditProductCompanyId(nextCompanyId);
+  };
+
+  // Empresa padrão do formulário de Novo Produto — produto ainda não existe, então a troca
+  // de empresa só mexe em estado local (nada é persistido até o "Adicionar Produto").
+  useEffect(() => {
+    if (showAddModal && primaryCompanyId && !newProductCompanyId) setNewProductCompanyId(primaryCompanyId);
+  }, [showAddModal, primaryCompanyId, newProductCompanyId]);
+
+  const handleNewProductCompanyChange = (nextCompanyId: string) => {
+    if (!nextCompanyId || nextCompanyId === newProductCompanyId) return;
+    const currentCount = isNaN(newProduct.count) ? 0 : newProduct.count;
+    const currentPrice = isNaN(newProduct.price) ? 0 : newProduct.price;
+    const updatedMap = { ...newProductStockByCompany, [newProductCompanyId]: { count: currentCount, price: currentPrice } };
+    setNewProductStockByCompany(updatedMap);
+    const next = updatedMap[nextCompanyId] || { count: 0, price: 0 };
+    setNewProduct(prev => ({ ...prev, count: next.count, price: next.price }));
+    setNewProductPriceDisplay(next.price > 0 ? next.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+    setNewProductCompanyId(nextCompanyId);
   };
 
   // Histórico em Notas: percorre as notas já aprovadas (mesmo state usado pela lista de Entrada
@@ -3905,7 +4104,12 @@ export default function Page() {
                   importing={importing}
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
-                  onAdd={() => setShowAddModal(true)}
+                  onAdd={() => {
+                    if (companies.length === 0) fetchCompanies();
+                    setNewProductCompanyId('');
+                    setNewProductStockByCompany({});
+                    setShowAddModal(true);
+                  }}
                   onOpenProductList={() => setShowProductBulkTable(true)}
                   onEdit={openEditModal}
                   onViewLink={handleViewLink}
@@ -4191,6 +4395,19 @@ export default function Page() {
                       <span className={sectionTitleCls}>Estoque &amp; Preço</span>
                     </div>
                     <div className={fieldGridCls}>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Empresa</label>
+                        <select
+                          value={editProductCompanyId}
+                          onChange={(e) => handleEditProductCompanyChange(e.target.value)}
+                          className={cn(inputCls, 'cursor-pointer')}
+                        >
+                          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+                          {companies.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="space-y-1.5">
                         <label className={labelCls}>Quantidade em Estoque</label>
                         <input
@@ -4511,9 +4728,22 @@ export default function Page() {
                       const dateLabel = note.receivedDate ? note.receivedDate.split('-').reverse().join('/') : note.timestamp;
                       const description = item.original_description || item.description || '—';
                       const code = item.supplier_code || '—';
+                      const noteCompany = companies.find((c: any) => c.id === note.companyId);
                       return (
-                        <div key={`${note.id}-${idx}`} className="bg-surface border border-black/[0.09] dark:border-white/[0.08] shadow-sm rounded-2xl p-4">
-                          <div className="mb-3">
+                        <div key={`${note.id}-${idx}`} className="relative bg-surface border border-black/[0.09] dark:border-white/[0.08] shadow-sm rounded-2xl p-4">
+                          {noteCompany && (
+                            <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-surface-container-lowest border border-black/[0.08] dark:border-white/[0.08] rounded-full pl-1 pr-2.5 py-1 shadow-sm max-w-[45%]">
+                              <div className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center overflow-hidden shrink-0 text-secondary/40">
+                                {noteCompany.logo ? (
+                                  <img src={noteCompany.logo} alt={noteCompany.nome_fantasia} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Building2 size={10} />
+                                )}
+                              </div>
+                              <span className="text-[9.5px] font-extrabold text-secondary/70 truncate">{noteCompany.nome_fantasia}</span>
+                            </div>
+                          )}
+                          <div className="mb-3 pr-[45%]">
                             <p className="text-sm font-bold text-on-surface truncate">{note.supplierName || note.fileName}</p>
                             <p className="text-[10px] text-secondary/70 font-semibold uppercase tracking-wide">{dateLabel}</p>
                           </div>
@@ -5049,7 +5279,20 @@ export default function Page() {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {showAddModal && (
+        {showAddModal && (() => {
+          const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+          const sectionHeadCls = 'flex items-center gap-2';
+          const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+          const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+          const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
+          const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+          const statusOptions: { value: string; label: string }[] = [
+            { value: 'Estoque Baixo', label: 'Estoque Baixo' },
+            { value: 'Em Estoque', label: 'Em Estoque' },
+            { value: 'Estoque em Alta', label: 'Estoque em Alta' },
+            { value: 'Fora de Estoque', label: 'Fora de Estoque' },
+          ];
+          return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -5065,32 +5308,30 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-transparent dark:border-white/[0.05]"
+              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-[#FFE500] dark:bg-[#252520] border-[#D4C000] dark:border-white/[0.07]">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#D81E1E]">
-                    <Package size={17} />
-                  </div>
-                  <div>
-                    <h2 className="text-[15px] font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">Adicionar Novo Produto</h2>
-                    <p className="text-[11px] font-medium text-[#1A1A0E]/40 dark:text-[#F2F0E3]/28 mt-0.5">Preencha os dados para cadastrar no inventário</p>
-                  </div>
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Adicionar Novo Produto</h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">Preencha os dados para cadastrar no inventário</p>
                 </div>
                 <button
                   onClick={() => {
                     setShowAddModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="w-8 h-8 flex items-center justify-center rounded-[8px] bg-[rgba(26,26,10,0.08)] dark:bg-[rgba(242,240,227,0.06)] border border-[rgba(26,26,10,0.10)] dark:border-[rgba(242,240,227,0.08)] text-[rgba(26,26,10,0.45)] dark:text-[rgba(242,240,227,0.35)] hover:bg-[rgba(216,30,30,0.10)] hover:text-[#D81E1E] hover:border-[rgba(216,30,30,0.20)] transition-all duration-150 shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                 >
-                  <X size={15} />
+                  <X size={18} />
                 </button>
               </div>
-              
-              <form onSubmit={handleAddProduct} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto bg-[#FDFAF0] dark:bg-[#1E1E18]">
+
+              <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 {addStatus === 'success' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
@@ -5101,7 +5342,7 @@ export default function Page() {
                 )}
 
                 {addStatus === 'error' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
@@ -5110,116 +5351,139 @@ export default function Page() {
                   </motion.div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">SKU (Opcional)</label>
-                    <input
-                      type="text"
-                      value={newProduct.sku}
-                      onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                      placeholder="ex: BM-500-A4"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Nome do Produto (Obrigatório)</label>
-                    <input
-                      required
-                      type="text"
-                      value={newProduct.name}
-                      onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                      placeholder="ex: Batedeira Prática Master"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Código EAN</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newProduct.ean || ''}
-                        onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
-                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                        className="flex-1 min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                        placeholder="789..."
-                      />
-                      <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
+                <div className="space-y-4">
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <Package size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Identificação</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>SKU (Opcional)</label>
+                        <input
+                          type="text"
+                          value={newProduct.sku}
+                          onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                          className={inputCls}
+                          placeholder="ex: BM-500-A4"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Nome do Produto</label>
+                        <input
+                          required
+                          type="text"
+                          value={newProduct.name}
+                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                          className={inputCls}
+                          placeholder="ex: Batedeira Prática Master"
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Código EAN</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newProduct.ean || ''}
+                            onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                            className={cn(inputCls, 'flex-1 min-w-0')}
+                            placeholder="789..."
+                          />
+                          <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Quantidade Inicial</label>
-                    <input
-                      type="number"
-                      value={isNaN(newProduct.count) ? 0 : newProduct.count}
-                      onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
-                      onWheel={blockWheelChange}
-                      className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Preço (R$)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={newProductPriceDisplay}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, '');
-                        if (!digits) {
-                          setNewProductPriceDisplay('');
-                          setNewProduct({...newProduct, price: 0});
-                          return;
-                        }
-                        const cents = parseInt(digits, 10);
-                        const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        setNewProductPriceDisplay(display);
-                        setNewProduct({...newProduct, price: cents / 100});
-                      }}
-                      placeholder="0,00"
-                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Localização</label>
-                    <SearchableSelect 
-                      value={newProduct.location}
-                      onChange={(val) => setNewProduct({...newProduct, location: val})}
-                      options={uniqueLocations}
-                      placeholder="Pesquisar localização..."
-                      isAddingNew={isAddingNew.location}
-                      onToggleAddingNew={() => toggleAddingNew('location')}
-                      addNewPlaceholder="Nova localização..."
-                      defaultValue="Não atribuído"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Status</label>
-                    <select
-                      value={newProduct.status}
-                      onChange={(e) => setNewProduct({...newProduct, status: e.target.value})}
-                      className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                    >
-                      <option value="Em Estoque">Em Estoque</option>
-                      <option value="Estoque em Alta">Estoque em Alta</option>
-                      <option value="Estoque Baixo">Estoque Baixo</option>
-                      <option value="Fora de Estoque">Fora de Estoque</option>
-                    </select>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BarChart3 size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Empresa</label>
+                        <select
+                          value={newProductCompanyId}
+                          onChange={(e) => handleNewProductCompanyChange(e.target.value)}
+                          className={cn(inputCls, 'cursor-pointer')}
+                        >
+                          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+                          {companies.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Quantidade Inicial</label>
+                        <input
+                          type="number"
+                          value={isNaN(newProduct.count) ? 0 : newProduct.count}
+                          onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
+                          onWheel={blockWheelChange}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Preço (R$)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={newProductPriceDisplay}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setNewProductPriceDisplay('');
+                              setNewProduct({...newProduct, price: 0});
+                              return;
+                            }
+                            const cents = parseInt(digits, 10);
+                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            setNewProductPriceDisplay(display);
+                            setNewProduct({...newProduct, price: cents / 100});
+                          }}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Status</label>
+                        <div className="flex flex-wrap gap-2">
+                          {statusOptions.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setNewProduct({...newProduct, status: opt.value})}
+                              className={cn(
+                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
+                                newProduct.status === opt.value
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="md:col-span-2 p-4 bg-purple-50/60 dark:bg-purple-900/[0.09] rounded-2xl border border-purple-100 dark:border-purple-500/[0.18] space-y-4">
+                  <div className="bg-primary/[0.045] dark:bg-primary/[0.07] border border-primary/20 dark:border-primary/25 shadow-sm rounded-2xl p-5 space-y-3.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
-                        <LinkIcon size={18} />
-                        <span className="text-sm font-bold">Relacionamento Mãe/Filho</span>
+                      <div className="flex items-center gap-2 text-primary-deep dark:text-red-300">
+                        <LinkIcon size={16} />
+                        <span className="text-xs font-extrabold uppercase tracking-wide">Relacionamento Mãe/Filho</span>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           className="sr-only peer"
                           checked={newProduct.is_mother}
                           onChange={(e) => setNewProduct({...newProduct, is_mother: e.target.checked})}
                         />
-                        <div className="w-11 h-6 bg-slate-200 dark:bg-[rgba(242,240,227,0.16)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-700/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 dark:peer-checked:bg-purple-500"></div>
-                        <span className="ml-3 text-xs font-bold text-purple-700 dark:text-purple-300/70 uppercase">Produto Mãe</span>
+                        <div className="w-10 h-[22px] bg-black/15 dark:bg-white/15 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary shadow-inner" />
                       </label>
                     </div>
 
@@ -5227,153 +5491,191 @@ export default function Page() {
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-4 pt-2 border-t border-purple-100 dark:border-purple-500/[0.15]"
+                        className="space-y-3.5 pt-3.5 border-t border-primary/15"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-purple-700 dark:text-purple-300/70 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
+                          <label className={labelCls}>Unidades por Mãe (Ex: 50un na caixa)</label>
                           <input
                             type="number"
                             value={newProduct.units_per_mother}
                             onChange={(e) => setNewProduct({...newProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
                             onWheel={blockWheelChange}
-                            className="w-full no-spinner bg-white dark:bg-[#252520] border-[1.5px] border-purple-200 dark:border-purple-500/[0.25] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
+                            className={inputCls}
                             placeholder="Ex: 50"
                           />
                         </div>
-
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLinkTarget('new');
-                              setShowLinkModal(true);
-                            }}
-                            className="flex items-center gap-2 text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-200 font-bold text-sm transition-colors"
-                          >
-                            <LinkIcon size={18} />
-                            {newProduct.linked_product_id ? 'Alterar produto vinculado' : 'Vincular produto (Filho)'}
-                          </button>
-                          {newProduct.linked_product_id && (
-                            <p className="text-[10px] text-purple-600 mt-1">
-                              ID Vinculado: {newProduct.linked_product_id}
-                            </p>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLinkTarget('new');
+                            setShowLinkModal(true);
+                          }}
+                          className="flex items-center gap-2 text-primary-deep dark:text-red-300 hover:opacity-80 font-bold text-sm transition-colors"
+                        >
+                          <LinkIcon size={16} />
+                          {newProduct.linked_product_id ? 'Alterar produto vinculado' : 'Vincular produto (Filho)'}
+                        </button>
+                        <p className="text-[10.5px] font-medium text-secondary/75 leading-relaxed">
+                          Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
+                        </p>
                       </motion.div>
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Categoria</label>
-                    <SearchableSelect 
-                      value={newProduct.category}
-                      onChange={(val) => setNewProduct({...newProduct, category: val})}
-                      options={uniqueCategories}
-                      placeholder="Pesquisar categoria..."
-                      isAddingNew={isAddingNew.category}
-                      onToggleAddingNew={() => toggleAddingNew('category')}
-                      addNewPlaceholder="Nova categoria..."
-                      defaultValue="Geral"
-                    />
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BookText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Organização</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Localização</label>
+                        <SearchableSelect
+                          value={newProduct.location}
+                          onChange={(val) => setNewProduct({...newProduct, location: val})}
+                          options={uniqueLocations}
+                          placeholder="Pesquisar localização..."
+                          isAddingNew={isAddingNew.location}
+                          onToggleAddingNew={() => toggleAddingNew('location')}
+                          addNewPlaceholder="Nova localização..."
+                          defaultValue="Não atribuído"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Categoria</label>
+                        <SearchableSelect
+                          value={newProduct.category}
+                          onChange={(val) => setNewProduct({...newProduct, category: val})}
+                          options={uniqueCategories}
+                          placeholder="Pesquisar categoria..."
+                          isAddingNew={isAddingNew.category}
+                          onToggleAddingNew={() => toggleAddingNew('category')}
+                          addNewPlaceholder="Nova categoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Subcategoria</label>
+                        <SearchableSelect
+                          value={newProduct.subcategory}
+                          onChange={(val) => setNewProduct({...newProduct, subcategory: val})}
+                          options={uniqueSubcategories}
+                          placeholder="Pesquisar subcategoria..."
+                          isAddingNew={isAddingNew.subcategory}
+                          onToggleAddingNew={() => toggleAddingNew('subcategory')}
+                          addNewPlaceholder="Nova subcategoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Marca</label>
+                        <SearchableSelect
+                          value={newProduct.brand}
+                          onChange={(val) => setNewProduct({...newProduct, brand: val})}
+                          options={uniqueBrands}
+                          placeholder="Pesquisar marca..."
+                          isAddingNew={isAddingNew.brand}
+                          onToggleAddingNew={() => toggleAddingNew('brand')}
+                          addNewPlaceholder="Nova marca..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Subcategoria</label>
-                    <SearchableSelect 
-                      value={newProduct.subcategory}
-                      onChange={(val) => setNewProduct({...newProduct, subcategory: val})}
-                      options={uniqueSubcategories}
-                      placeholder="Pesquisar subcategoria..."
-                      isAddingNew={isAddingNew.subcategory}
-                      onToggleAddingNew={() => toggleAddingNew('subcategory')}
-                      addNewPlaceholder="Nova subcategoria..."
-                      defaultValue="Geral"
-                    />
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <FileText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Detalhes</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Fabricante</label>
+                        <input
+                          type="text"
+                          value={newProduct.fabricante || ''}
+                          onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
+                          placeholder="Nome do fabricante..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>CNPJ</label>
+                        <input
+                          type="text"
+                          value={newProduct.cnpj || ''}
+                          onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
+                          placeholder="00.000.000/0000-00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Composição</label>
+                        <textarea
+                          value={newProduct.composicao || ''}
+                          onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
+                          placeholder="Ingredientes / composição do produto..."
+                          rows={2}
+                          className={cn(inputCls, 'resize-none')}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Marca</label>
-                    <SearchableSelect
-                      value={newProduct.brand}
-                      onChange={(val) => setNewProduct({...newProduct, brand: val})}
-                      options={uniqueBrands}
-                      placeholder="Pesquisar marca..."
-                      isAddingNew={isAddingNew.brand}
-                      onToggleAddingNew={() => toggleAddingNew('brand')}
-                      addNewPlaceholder="Nova marca..."
-                      defaultValue="Geral"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Fabricante</label>
-                    <input
-                      type="text"
-                      value={newProduct.fabricante || ''}
-                      onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
-                      placeholder="Nome do fabricante..."
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">CNPJ</label>
-                    <input
-                      type="text"
-                      value={newProduct.cnpj || ''}
-                      onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
-                      placeholder="00.000.000/0000-00"
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Composição</label>
-                    <textarea
-                      value={newProduct.composicao || ''}
-                      onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
-                      placeholder="Ingredientes / composição do produto..."
-                      rows={2}
-                      className="w-full bg-slate-50 dark:!bg-[#3A3A3A] border border-slate-200 dark:border-transparent rounded-lg px-4 py-2.5 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">URL da Imagem</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={newProduct.image}
-                        onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
-                        className="flex-1 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[#1A1A0E]/28 dark:placeholder:text-white/22 focus:outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.13)] transition-[border-color,box-shadow] duration-[130ms]"
-                        placeholder="https://..."
-                      />
-                      <input 
-                        type="file" 
-                        ref={imageInputRef}
-                        onChange={(e) => handleImageUpload(e, false)}
-                        className="hidden"
-                        accept="image/*"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => imageInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-4 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[10px] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/35 hover:bg-[#FFF8D0] dark:hover:bg-white/[0.06] transition-colors flex items-center justify-center shrink-0"
-                        title="Upload do computador"
-                      >
-                        {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
-                      </button>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <ImageIcon size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Imagem</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                        {newProduct.image ? (
+                          <ProductImage src={newProduct.image} alt={newProduct.name} />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1 flex gap-2 min-w-0">
+                        <input
+                          type="text"
+                          value={newProduct.image}
+                          onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
+                          className={cn(inputCls, 'flex-1 min-w-0')}
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="file"
+                          ref={imageInputRef}
+                          onChange={(e) => handleImageUpload(e, false)}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                          title="Upload do computador"
+                        >
+                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                <div className="pt-4 flex gap-3">
+
+                <div className="pt-2 flex gap-3">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 bg-[rgba(26,26,10,0.07)] dark:bg-[rgba(242,240,227,0.07)] border border-[rgba(26,26,10,0.14)] dark:border-[rgba(242,240,227,0.10)] text-[#1A1A0E]/55 dark:text-[#F2F0E3]/50 font-bold py-3 rounded-xl hover:bg-[rgba(26,26,10,0.12)] dark:hover:bg-[rgba(242,240,227,0.11)] transition-colors"
+                    className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={adding || addStatus === 'success'}
-                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150 shadow-lg shadow-primary/20 disabled:opacity-50"
+                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150 shadow-lg shadow-primary/30 disabled:opacity-50"
                   >
                     {adding ? 'Adicionando...' : addStatus === 'success' ? 'Sucesso!' : 'Adicionar Produto'}
                   </button>
@@ -5381,7 +5683,8 @@ export default function Page() {
               </form>
             </motion.div>
           </div>
-        )}
+          );
+        })()}
       </AnimatePresence>
       
       {/* Link View Modal */}
@@ -6886,17 +7189,29 @@ export default function Page() {
                   <div className="max-w-2xl">
                     <div className="flex items-start gap-8">
                       <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Empresa</label>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">
+                          Empresa <span className="text-primary">*</span>
+                        </label>
                         <select
                           value={viewingReviewNote.companyId || ''}
                           onChange={e => setViewingReviewNote({ ...viewingReviewNote, companyId: e.target.value || null })}
-                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors w-fit cursor-pointer"
+                          className={cn(
+                            'px-3 py-2 border rounded-xl text-sm font-semibold text-on-surface transition-colors w-fit cursor-pointer',
+                            viewingReviewNote.companyId
+                              ? 'border-on-surface/15 bg-on-surface/[0.03] hover:bg-on-surface/[0.06]'
+                              : 'border-primary/55 bg-primary/[0.06] focus:ring-2 focus:ring-primary/20'
+                          )}
                         >
                           <option value="">Selecionar...</option>
                           {companies.map((c: any) => (
                             <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
                           ))}
                         </select>
+                        {!viewingReviewNote.companyId && (
+                          <p className="text-[10.5px] font-bold text-primary mt-1.5 flex items-center gap-1.5">
+                            <AlertTriangle size={11} /> Campo obrigatório
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>

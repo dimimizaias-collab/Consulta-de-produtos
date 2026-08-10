@@ -1114,11 +1114,16 @@ export function MobileNoteView({
       {/* ── ABA RECEBIMENTO ─────────────────────────────────────────── */}
       {isAdmin && noteEditorTab === 'recebimento' && (
         <div className="flex-1 overflow-auto px-4 py-4">
-          <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">Empresa</label>
+          <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">
+            Empresa <span className="text-[#D81E1E]">*</span>
+          </label>
           <select
             value={note.companyId || ''}
             onChange={e => setNote({ ...note, companyId: e.target.value || null })}
-            className="w-full bg-white/[0.05] border border-white/[0.10] rounded-xl px-3.5 py-3 text-[13px] font-bold text-[#f2f0e3] outline-none focus:border-[#D81E1E]/50 mb-5"
+            className={cn(
+              'w-full border rounded-xl px-3.5 py-3 text-[13px] font-bold text-[#f2f0e3] outline-none transition-colors',
+              note.companyId ? 'bg-white/[0.05] border-white/[0.10] focus:border-[#D81E1E]/50' : 'bg-[#D81E1E]/[0.10] border-[#D81E1E]/50'
+            )}
             style={{ colorScheme: 'dark' }}
           >
             <option value="">Selecionar...</option>
@@ -1126,6 +1131,12 @@ export function MobileNoteView({
               <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
             ))}
           </select>
+          {!note.companyId && (
+            <p className="text-[10px] font-bold text-[#D81E1E] mt-1.5 flex items-center gap-1.5">
+              <AlertTriangle size={10} /> Campo obrigatório
+            </p>
+          )}
+          <div className="mb-5" />
 
           <label className="block text-[9px] font-black uppercase tracking-wider text-white/35 mb-1.5">Data de recebimento</label>
           <input
