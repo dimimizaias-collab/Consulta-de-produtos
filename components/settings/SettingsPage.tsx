@@ -95,34 +95,44 @@ export function SettingsPage() {
   const handleDeleted = () => { closeModal(); loadCompanies(); };
 
   return (
-    <div className="space-y-8">
+    <div className="w-full space-y-8">
       {/* Header */}
-      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex items-center gap-3.5">
-        <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-          <Settings size={24} strokeWidth={2} />
+      <div className="relative mb-14">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
+          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+            <Settings size={24} strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Configurações</h1>
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Store Identity &amp; Display Preferences</div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Configurações</h1>
-          <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Store Identity &amp; Display Preferences</div>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-0.5 bg-on-surface/10 rounded-full p-[3px] w-fit">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'px-[22px] py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.07em] transition-all duration-150',
-              activeTab === tab.id
-                ? 'bg-primary text-white shadow-sm'
-                : 'text-on-surface/45 hover:text-on-surface/70',
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div className="absolute left-0 top-full flex">
+          {TABS.map((tab, i, arr) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                title={tab.label}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                  i === arr.length - 1 && 'rounded-br-[12px]',
+                  'text-[12px] font-extrabold uppercase tracking-wide truncate',
+                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  active
+                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeTab === 'dados' && (
