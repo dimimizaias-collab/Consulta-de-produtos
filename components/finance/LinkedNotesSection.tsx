@@ -334,6 +334,7 @@ export function LinkedNotesSection({ txId, editable, variant, txMeta, pendingNot
                       {noteDateOnly(n.timestamp_label) ? ` · ${noteDateOnly(n.timestamp_label)}` : ''}
                     </p>
                   </div>
+                  <span className={valueChipCls}>{formatBRL(noteTotalValue(n.items))}</span>
                 </button>
               ))
             )}
