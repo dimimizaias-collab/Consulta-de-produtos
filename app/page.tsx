@@ -2852,8 +2852,11 @@ export default function Page() {
     setNoteItemCreating(true);
     try {
       const sku = noteItemNewSku.trim() || null;
+      // price fica 0 na criação — quem grava o preço (e em qual Empresa) é sempre a aprovação
+      // da nota via applyNoteToCompanyStock, nunca a criação do produto (evita gravar prematuramente
+      // na empresa padrão antes do usuário escolher a Empresa da nota na aba Recebimento).
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0 })
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: 0 })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -3012,8 +3015,10 @@ export default function Page() {
     }
     setQuickCreateSubmitting(true);
     try {
+      // price fica 0 na criação — a aprovação da nota (applyNoteToCompanyStock) é quem grava
+      // o preço na Empresa certa; escrever aqui gravaria prematuramente na empresa padrão.
       const { data: created, error } = await supabase.from('products')
-        .insert({ name, sku: null, ean: ean || null, count: 0, is_low: true, status: 'Fora de Estoque', price })
+        .insert({ name, sku: null, ean: ean || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0 })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       const updatedItems = [...viewingReviewNote.items];
