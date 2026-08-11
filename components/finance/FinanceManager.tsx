@@ -228,7 +228,14 @@ function mapLancamentoToTipoPagamento(lancamento: string): PaymentType {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function FinanceManager() {
+interface FinanceManagerProps {
+  // Id de uma movimentação pra abrir automaticamente ao montar (usado pela aba
+  // "Financeiro" da janela de Notas, ao levar o usuário até um lançamento vinculado).
+  initialFocusTxId?: string | null;
+  onInitialFocusHandled?: () => void;
+}
+
+export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: FinanceManagerProps = {}) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -525,6 +532,16 @@ export function FinanceManager() {
     fetchFavorecidos();
     setShowTxModal(true);
   };
+
+  // Chegando aqui vindo da aba "Financeiro" de uma nota (clique num card + confirmação):
+  // assim que as movimentações carregam, abre direto o modal da movimentação indicada.
+  useEffect(() => {
+    if (!initialFocusTxId || loadingData) return;
+    const t = transactions.find(x => x.id === initialFocusTxId);
+    if (t) openEditTx(t);
+    onInitialFocusHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFocusTxId, loadingData]);
 
   // Alterna a trava de edição do modal. Ao tentar travar de novo (sair do modo edição) com
   // alterações não salvas, pede confirmação antes de descartar e voltar ao modo leitura.

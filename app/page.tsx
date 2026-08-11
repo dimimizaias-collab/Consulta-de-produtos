@@ -27,7 +27,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2 } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -264,6 +264,7 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState('Inventory');
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
   const [pendingOpenNoteId, setPendingOpenNoteId] = useState<string | null>(null);
+  const [pendingFinanceTxId, setPendingFinanceTxId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
@@ -534,7 +535,37 @@ export default function Page() {
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
   const [editingNoteHeader, setEditingNoteHeader] = useState(false);
   // ── Aba Produtos/Recebimento + Situação de Entrada ──
-  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento'>('produtos');
+  // Movimentações financeiras vinculadas à nota em revisão (aba Financeiro)
+  type NoteFinanceTx = {
+    id: string; data: string; tipo: 'Receita' | 'Despesa'; tipo_pagamento: string;
+    favorecido: string; vencimento: string | null; valor_final: number; pago: boolean;
+    numero_parcela: number | null; total_parcelas: number | null;
+  };
+  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento' | 'financeiro'>('produtos');
+  const [noteFinanceTxs, setNoteFinanceTxs] = useState<NoteFinanceTx[]>([]);
+  const [noteFinanceLoading, setNoteFinanceLoading] = useState(false);
+  const [noteFinanceGoToTx, setNoteFinanceGoToTx] = useState<NoteFinanceTx | null>(null);
+  // Busca as movimentações financeiras vinculadas à nota (junção finance_transaction_notes,
+  // mesma fonte de verdade usada em Controle Financeiro) sempre que a nota em revisão muda.
+  useEffect(() => {
+    const noteId = viewingReviewNote?.id;
+    if (!noteId) { setNoteFinanceTxs([]); return; }
+    let cancelled = false;
+    setNoteFinanceLoading(true);
+    supabase.from('finance_transaction_notes')
+      .select('transaction_id, finance_transactions(id, data, tipo, tipo_pagamento, favorecido, vencimento, valor_final, pago, numero_parcela, total_parcelas)')
+      .eq('note_id', noteId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setNoteFinanceTxs(
+          (data ?? [])
+            .map((r: any) => r.finance_transactions as NoteFinanceTx | null)
+            .filter((t): t is NoteFinanceTx => !!t)
+        );
+        setNoteFinanceLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [viewingReviewNote?.id]);
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
   const [savingNoteStatus, setSavingNoteStatus] = useState(false);
   // Combobox de Fornecedor no cabeçalho da nota (mesmo padrão do campo Favorecido em Nova Movimentação)
@@ -1282,6 +1313,11 @@ export default function Page() {
     // Marca notificações daquela nota como lidas
     supabase.from('notifications').update({ read: true }).eq('note_id', noteId).eq('read', false);
     setAppNotifications(prev => prev.map(n => n.note_id === noteId ? { ...n, read: true } : n));
+  };
+
+  const handleGoToTransaction = (txId: string) => {
+    setActiveTab('Controle Financeiro');
+    setPendingFinanceTxId(txId);
   };
 
   const handleLinkNote = (noteId: string, transactionId: string | null) => {
@@ -4187,7 +4223,17 @@ export default function Page() {
                 // Inalcançável: item removido da navegação (ver components/Sidebar.tsx). Bloco mantido para reativação futura.
                 <PurchaseOrderManager />
             ) : activeTab === 'Controle Financeiro' ? (
-                isMobileView ? <MobileFinancePage /> : <FinanceManager />
+                isMobileView ? (
+                  <MobileFinancePage
+                    initialFocusTxId={pendingFinanceTxId}
+                    onInitialFocusHandled={() => setPendingFinanceTxId(null)}
+                  />
+                ) : (
+                  <FinanceManager
+                    initialFocusTxId={pendingFinanceTxId}
+                    onInitialFocusHandled={() => setPendingFinanceTxId(null)}
+                  />
+                )
             ) : activeTab === 'Recursos Humanos' ? (
                 isMobileView ? (
                   <MobileHRPage
@@ -7179,7 +7225,152 @@ export default function Page() {
                 >
                   <Calendar size={13} /> Recebimento
                 </button>
+                <button
+                  onClick={() => setNoteEditorTab('financeiro')}
+                  className={cn(
+                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
+                    noteEditorTab === 'financeiro' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
+                  )}
+                >
+                  <Wallet size={13} /> Financeiro
+                  {noteFinanceTxs.length > 0 && (
+                    <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
+                  )}
+                </button>
               </div>
+
+              {noteEditorTab === 'financeiro' && (
+                <div className="flex-1 overflow-auto p-8">
+                  <div className="max-w-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
+                      Movimentações vinculadas
+                      <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
+                    </p>
+                    {noteFinanceLoading ? (
+                      <div className="flex items-center gap-2 py-3 text-on-surface/40 text-xs font-semibold">
+                        <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
+                        Carregando movimentações...
+                      </div>
+                    ) : noteFinanceTxs.length === 0 ? (
+                      <p className="text-xs text-on-surface/35 italic bg-on-surface/[0.03] border border-on-surface/10 rounded-2xl px-4 py-3">
+                        Nenhuma movimentação financeira vinculada a esta nota ainda. Vincule pela aba "Controle Financeiro" ao criar ou editar um lançamento.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        {noteFinanceTxs.map(tx => {
+                          const isReceita = tx.tipo === 'Receita';
+                          return (
+                            <button
+                              key={tx.id}
+                              onClick={() => setNoteFinanceGoToTx(tx)}
+                              className="w-full flex items-center gap-3 bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-3.5 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-on-surface/20 dark:hover:border-white/20 hover:shadow-lg"
+                              style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                            >
+                              <span className={cn(
+                                'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                                isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                              )}>
+                                {isReceita ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-[13.5px] font-black text-on-surface truncate">{tx.favorecido || 'Favorecido não informado'}</span>
+                                  <span className={cn(
+                                    'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
+                                    isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                  )}>
+                                    {tx.tipo}
+                                  </span>
+                                  <span className={cn(
+                                    'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
+                                    tx.pago ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                  )}>
+                                    {tx.pago ? 'Pago' : 'Pendente'}
+                                  </span>
+                                </div>
+                                <p className="text-[11.5px] font-semibold text-on-surface/40 truncate">
+                                  {tx.tipo_pagamento}
+                                  {tx.vencimento && tx.total_parcelas ? ` · Parcela ${tx.numero_parcela ?? 1}/${tx.total_parcelas} · Venc. ${new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+                                </p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className={cn('text-[15px] font-black', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                                  R$ {tx.valor_final.toFixed(2).replace('.', ',')}
+                                </p>
+                                <p className="text-[10px] font-bold text-on-surface/30">{new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                              </div>
+                              <ChevronRight size={15} className="shrink-0 text-on-surface/20" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Confirmação: ir até a movimentação no Controle Financeiro */}
+              <AnimatePresence>
+                {noteFinanceGoToTx && (
+                  <motion.div
+                    key="go-to-tx-overlay"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute inset-0 z-[200] flex items-center justify-center"
+                    style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(10,10,8,0.72)' }}
+                    onClick={() => setNoteFinanceGoToTx(null)}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                      className="bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.10] dark:border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <div className="bg-[#FFE500] dark:bg-[#252520] px-5 py-4 flex items-center gap-2.5 border-b border-[#D4C000] dark:border-white/[0.07]">
+                        <span className="w-9 h-9 rounded-[11px] bg-black/[0.09] dark:bg-white/[0.06] text-[#1A1A0E] dark:text-[#F2F0E3] flex items-center justify-center shrink-0">
+                          <ArrowRight size={17} />
+                        </span>
+                        <p className="text-[13.5px] font-black text-[#1A1A0E] dark:text-[#f2f0e3]">Ir até a movimentação?</p>
+                      </div>
+                      <div className="px-5 py-4">
+                        <p className="text-[12.5px] font-semibold leading-[1.55] text-black/65 dark:text-white/55 mb-3.5">
+                          Você será levado até o Controle Financeiro, com esta movimentação já aberta para visualização.
+                        </p>
+                        <div className="bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] rounded-xl px-3 py-2.5">
+                          <p className="text-[12.5px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{noteFinanceGoToTx.favorecido || 'Favorecido não informado'}</p>
+                          <p className="text-[11px] font-semibold text-black/45 dark:text-white/40 mt-0.5">
+                            {noteFinanceGoToTx.tipo} · R$ {noteFinanceGoToTx.valor_final.toFixed(2).replace('.', ',')} · {noteFinanceGoToTx.tipo_pagamento}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="px-5 pb-5 flex gap-2">
+                        <button
+                          onClick={() => setNoteFinanceGoToTx(null)}
+                          className="flex-1 py-2.5 rounded-xl bg-black/[0.08] dark:bg-white/[0.06] border border-black/[0.14] dark:border-white/[0.09] text-sm font-bold text-black/55 dark:text-white/50 hover:bg-black/[0.13] dark:hover:bg-white/[0.10] transition-all active:scale-[0.97]"
+                          style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => {
+                            const txId = noteFinanceGoToTx.id;
+                            setNoteFinanceGoToTx(null);
+                            handleGoToTransaction(txId);
+                          }}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-black text-white dark:text-[#1A1A0E] bg-[#1A1A0E] dark:bg-[#F2F0E3] shadow-lg transition-all active:scale-[0.97]"
+                          style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
+                        >
+                          Ir até lá
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
@@ -7361,7 +7552,7 @@ export default function Page() {
               <div
                 className={cn(
                   "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]",
-                  noteEditorTab === 'recebimento' && 'hidden'
+                  noteEditorTab !== 'produtos' && 'hidden'
                 )}
                 style={{ padding: 0 }}
               >

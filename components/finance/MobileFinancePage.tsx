@@ -1672,7 +1672,14 @@ function ParcelasModal({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export function MobileFinancePage() {
+interface MobileFinancePageProps {
+  // Id de uma movimentação pra abrir automaticamente ao montar (usado pela aba
+  // "Financeiro" da janela de Notas, ao levar o usuário até um lançamento vinculado).
+  initialFocusTxId?: string | null;
+  onInitialFocusHandled?: () => void;
+}
+
+export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: MobileFinancePageProps = {}) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('mov');
@@ -2227,6 +2234,16 @@ export function MobileFinancePage() {
     setDetailMode('view');
     setDetailSnapshot(JSON.stringify({ form: nextForm, parcelas: nextParcelas }));
   }
+
+  // Chegando aqui vindo da aba "Financeiro" de uma nota (clique num card + confirmação):
+  // assim que as movimentações carregam, abre direto o detalhe da movimentação indicada.
+  useEffect(() => {
+    if (!initialFocusTxId || loading) return;
+    const t = transactions.find(x => x.id === initialFocusTxId);
+    if (t) { setActiveTab('mov'); openDetail(t); }
+    onInitialFocusHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFocusTxId, loading]);
 
   // Alterna a trava de edição do detalhe. Ao tentar travar de novo (sair do modo edição)
   // com alterações não salvas, pede confirmação antes de descartar e voltar ao modo leitura.
