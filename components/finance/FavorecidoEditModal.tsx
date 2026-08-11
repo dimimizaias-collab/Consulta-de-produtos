@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Building2, Plus, Trash2, Check, Loader2 } from 'lucide-react';
+import { X, Building2, Plus, Trash2, Check, Loader2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { maskDocumento, type DocumentoTipo } from '@/lib/masks';
@@ -70,9 +70,18 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [supplierComboQuery, setSupplierComboQuery] = useState('');
+  const [supplierComboOpen, setSupplierComboOpen] = useState(false);
+  const supplierComboRef = useRef<HTMLDivElement>(null);
+
   const isLinked = !!selectedSupplierId;
   const hasIdentData = !!(documento.trim() || razaoSocial.trim() || nomeFantasia.trim());
   const contasEnabled = isLinked || hasIdentData;
+
+  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) ?? null;
+  const filteredSuppliers = supplierComboQuery.trim()
+    ? suppliers.filter(s => s.name.toLowerCase().includes(supplierComboQuery.trim().toLowerCase()))
+    : suppliers;
 
   useEffect(() => {
     if (!open) return;
@@ -86,8 +95,21 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
     setNomeFantasia('');
     setContas([]);
     setInitialContaIds(new Set());
+    setSupplierComboQuery('');
+    setSupplierComboOpen(false);
     if (favorecido?.supplier_id) loadSupplierData(favorecido.supplier_id);
   }, [open, favorecido, initialNomeFiscal]);
+
+  useEffect(() => {
+    if (!supplierComboOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (supplierComboRef.current && !supplierComboRef.current.contains(e.target as Node)) {
+        setSupplierComboOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [supplierComboOpen]);
 
   async function loadSupplierData(supplierId: string) {
     setLoadingSupplier(true);
@@ -113,6 +135,8 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
   }
 
   function handlePickSupplier(id: string) {
+    setSupplierComboQuery('');
+    setSupplierComboOpen(false);
     if (!id) {
       setSelectedSupplierId(null);
       setDocumentoTipo('CNPJ');
@@ -254,15 +278,52 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
           <span className="flex-1 h-px bg-on-surface/[0.08]" />
         </div>
 
-        <div>
-          <select
-            value={selectedSupplierId ?? ''}
-            onChange={e => handlePickSupplier(e.target.value)}
-            className={fieldCls}
-          >
-            <option value="">Sem fornecedor vinculado — selecionar...</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+        <div className="relative" ref={supplierComboRef}>
+          {selectedSupplier ? (
+            <div className="flex items-center gap-2.5 w-full bg-primary/10 border border-primary/25 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-primary">
+              <Building2 size={14} className="shrink-0" />
+              <span className="flex-1 truncate">{selectedSupplier.name}</span>
+              <button
+                type="button"
+                onClick={() => handlePickSupplier('')}
+                className="shrink-0 text-primary/50 hover:text-primary transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                type="text"
+                value={supplierComboQuery}
+                onChange={e => { setSupplierComboQuery(e.target.value); setSupplierComboOpen(true); }}
+                onFocus={() => setSupplierComboOpen(true)}
+                placeholder="Sem fornecedor vinculado — buscar..."
+                className={cn(fieldCls, 'pr-9')}
+              />
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface/25 pointer-events-none" />
+            </div>
+          )}
+
+          {supplierComboOpen && !selectedSupplier && (
+            <div className="absolute z-50 w-full mt-1 bg-surface-container-lowest border border-on-surface/[0.10] rounded-xl shadow-xl overflow-hidden">
+              <div className="max-h-52 overflow-y-auto py-1">
+                {filteredSuppliers.length === 0 ? (
+                  <p className="px-3.5 py-2.5 text-[12px] text-on-surface/35 font-medium">Nenhum fornecedor encontrado</p>
+                ) : filteredSuppliers.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => handlePickSupplier(s.id)}
+                    className="w-full text-left px-3.5 py-2.5 text-[13px] font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors truncate"
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {isLinked && (
