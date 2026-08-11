@@ -361,13 +361,14 @@ export default function Page() {
   const [estoqueCustomCols, setEstoqueCustomCols] = useState<string[]>([]);
 
   // discrepancy modal
-  type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string } | null;
+  type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string; disregarded?: boolean } | null;
   const [viewingNoteDiscrepancies, setViewingNoteDiscrepancies] = useState<DiscrepancyData[]>([]);
   const [discrepancyModalIdx, setDiscrepancyModalIdx] = useState<number | null>(null);
   const [discrepancyTab, setDiscrepancyTab] = useState<'falta' | 'sobra'>('falta');
   const [discrepancyQty, setDiscrepancyQty] = useState('');
   const [discrepancyMissingAll, setDiscrepancyMissingAll] = useState(false);
   const [discrepancyObs, setDiscrepancyObs] = useState('');
+  const [discrepancyDisregarded, setDiscrepancyDisregarded] = useState(false);
 
   const [isApprovingNf, setIsApprovingNf] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
@@ -439,9 +440,12 @@ export default function Page() {
   };
   // Quantidade efetiva de um item pra fins de total/markup da nota: itens com "Falta"
   // (Produto não veio) não entram no total; "QTD. FALTANDO" parcial abate da quantidade
-  // antes de somar. "Sobra" não altera a quantidade recebida/custo.
+  // antes de somar. "Sobra" não altera a quantidade recebida/custo. Um item marcado como
+  // "Desconsiderar produto" é sempre zerado, independente do tipo de divergência.
   const getEffectiveQty = (qty: number, discrepancy: DiscrepancyData | null | undefined): number => {
-    if (!discrepancy || discrepancy.type !== 'falta') return qty;
+    if (!discrepancy) return qty;
+    if (discrepancy.disregarded) return 0;
+    if (discrepancy.type !== 'falta') return qty;
     if (discrepancy.missingAll) return 0;
     return Math.max(0, qty - (discrepancy.qty || 0));
   };
@@ -7549,6 +7553,8 @@ export default function Page() {
                       return _filtered.flatMap(({ item, origIdx: idx }) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                      const rowDiscrepancy = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                      const isDisregarded = !!rowDiscrepancy?.disregarded;
 
                       /* ── Rounded-cell style tokens (per-row) ── */
                       const cellBg = idx % 2 === 0 ? 'var(--rn-cell-bg)' : 'var(--rn-cell-bg-alt)';
@@ -7584,16 +7590,28 @@ export default function Page() {
                       const _hasVariants = _itemVariantsCheck.length > 0;
                       const isRowFocused = reviewFocusedRowIdx === idx;
                       const parentRow = (
-                        <tr key={idx} className={`transition-colors ${_hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]' : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`}`}
+                        <tr key={idx} className={cn(
+                          "transition-colors",
+                          isDisregarded
+                            ? "opacity-50 saturate-[0.7] [background-image:repeating-linear-gradient(135deg,rgba(255,229,0,0.16),rgba(255,229,0,0.16)_8px,transparent_8px,transparent_16px)] bg-[#FFF9D6] dark:bg-[#22200f] dark:[background-image:repeating-linear-gradient(135deg,rgba(252,211,77,0.10),rgba(252,211,77,0.10)_8px,transparent_8px,transparent_16px)] hover:opacity-70"
+                            : _hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]'
+                            : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`
+                        )}
                           onFocus={() => setReviewFocusedRowIdx(idx)}
                           onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setReviewFocusedRowIdx(null); }}
                         >
                           {/* # */}
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center', ...(isRowFocused ? { borderColor: '#DC2626', boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' } : {}) })}>
-                              <span className="text-[10px] font-black" style={{ color: isRowFocused ? '#DC2626' : 'var(--rn-text-subtle)' }}>
-                                {item.seq ?? idx + 1}
-                              </span>
+                              {isDisregarded ? (
+                                <span title="Produto desconsiderado da nota" className="text-amber-600 dark:text-amber-400">
+                                  <Ban size={13} strokeWidth={2.4} />
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-black" style={{ color: isRowFocused ? '#DC2626' : 'var(--rn-text-subtle)' }}>
+                                  {item.seq ?? idx + 1}
+                                </span>
+                              )}
                             </div>
                           </td>
                           {/* Código fornecedor */}
@@ -7889,12 +7907,14 @@ export default function Page() {
                                     setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
                                     setDiscrepancyMissingAll(existing?.missingAll ?? false);
                                     setDiscrepancyObs(existing?.obs ?? '');
+                                    setDiscrepancyDisregarded(existing?.disregarded ?? false);
                                     setDiscrepancyModalIdx(idx);
                                   }}
-                                  title="Registrar divergência"
+                                  title={d?.disregarded ? "Produto desconsiderado da nota" : "Registrar divergência"}
                                   className={cn(
                                     "relative flex items-center justify-center w-5 h-5 rounded-full transition-all shrink-0",
-                                    d?.type === 'falta' ? "text-red-400/90 hover:text-red-300"
+                                    d?.disregarded ? "text-amber-400/90 hover:text-amber-300"
+                                    : d?.type === 'falta' ? "text-red-400/90 hover:text-red-300"
                                     : d?.type === 'sobra' ? "text-emerald-400/90 hover:text-emerald-300"
                                     : "text-white/20 hover:text-white/50"
                                   )}
@@ -7904,7 +7924,7 @@ export default function Page() {
                                   {d && (
                                     <span className={cn(
                                       "absolute -top-px -right-px w-[5px] h-[5px] rounded-full",
-                                      d.type === 'falta' ? 'bg-red-400 animate-pulse' : 'bg-emerald-400'
+                                      d.disregarded ? 'bg-amber-400 animate-pulse' : d.type === 'falta' ? 'bg-red-400 animate-pulse' : 'bg-emerald-400'
                                     )} />
                                   )}
                                 </button>
@@ -9049,10 +9069,8 @@ export default function Page() {
                 {discrepancyModalIdx !== null && (() => {
                   const item = viewingReviewNote.items[discrepancyModalIdx];
                   const isFalta = discrepancyTab === 'falta';
-                  const accentCls = isFalta ? 'text-red-400' : 'text-emerald-400';
-                  const accentBg  = isFalta ? 'bg-red-500'   : 'bg-emerald-500';
-                  const accentBorder = isFalta ? 'border-red-500/40' : 'border-emerald-500/40';
-                  const accentRing   = isFalta ? 'focus:ring-red-400/40' : 'focus:ring-emerald-400/40';
+                  const accentCls = isFalta ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
+                  const accentRing = isFalta ? 'focus:ring-red-400/40' : 'focus:ring-emerald-400/40';
 
                   const handleSaveDiscrepancy = () => {
                     const qty = discrepancyMissingAll ? 0 : (parseFloat(discrepancyQty) || 0);
@@ -9064,6 +9082,7 @@ export default function Page() {
                       qty,
                       missingAll: isFalta && discrepancyMissingAll,
                       obs: discrepancyObs.trim(),
+                      disregarded: discrepancyDisregarded,
                     };
                     setViewingNoteDiscrepancies(updated);
                     setDiscrepancyModalIdx(null);
@@ -9093,23 +9112,29 @@ export default function Page() {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                        className="bg-[#1e1e18] border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+                        className="bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.10] dark:border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
                         onClick={e => e.stopPropagation()}
                       >
                         {/* Header */}
-                        <div className="bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
+                        <div className="bg-[#FFE500] dark:bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-[#D4C000] dark:border-white/[0.07]">
                           <div className="flex items-center gap-2.5">
-                            <AlertTriangle size={15} className={accentCls} />
+                            <span className={cn(
+                              "w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-transparent",
+                              isFalta ? "dark:bg-red-500/[0.13]" : "dark:bg-emerald-500/[0.13]",
+                              accentCls
+                            )}>
+                              <AlertTriangle size={17} />
+                            </span>
                             <div>
-                              <p className="text-[11px] font-black uppercase tracking-wider text-white/40">Divergência</p>
-                              <p className="text-sm font-black text-[#f2f0e3] leading-tight max-w-[180px] truncate">{item?.name || item?.original_description || `Item ${discrepancyModalIdx + 1}`}</p>
+                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-black/45 dark:text-white/40">Divergência</p>
+                              <p className="text-[13.5px] font-black text-[#1A1A0E] dark:text-[#f2f0e3] leading-tight max-w-[180px] truncate">{item?.name || item?.original_description || `Item ${discrepancyModalIdx + 1}`}</p>
                             </div>
                           </div>
                           <button
                             onClick={() => setDiscrepancyModalIdx(null)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/[0.07] transition-all"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-black/45 dark:text-white/35 bg-black/[0.08] dark:bg-white/[0.06] hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-all active:scale-90"
                           >
-                            <X size={14} />
+                            <X size={13} />
                           </button>
                         </div>
 
@@ -9120,8 +9145,8 @@ export default function Page() {
                             className={cn(
                               "flex-1 py-2 rounded-xl text-sm font-black transition-all",
                               discrepancyTab === 'falta'
-                                ? "bg-red-500/15 text-red-400 border border-red-500/30"
-                                : "bg-white/[0.04] text-white/35 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white/55"
+                                ? "bg-red-500/10 dark:bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/30"
+                                : "bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55"
                             )}
                             style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
                           >
@@ -9132,8 +9157,8 @@ export default function Page() {
                             className={cn(
                               "flex-1 py-2 rounded-xl text-sm font-black transition-all",
                               discrepancyTab === 'sobra'
-                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                : "bg-white/[0.04] text-white/35 border border-white/[0.06] hover:bg-white/[0.08] hover:text-white/55"
+                                ? "bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : "bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55"
                             )}
                             style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
                           >
@@ -9157,18 +9182,18 @@ export default function Page() {
                                 <button
                                   type="button"
                                   onClick={() => setDiscrepancyMissingAll(v => !v)}
-                                  className="w-full flex items-center gap-3 py-2.5 px-3 bg-white/[0.03] border border-white/[0.07] rounded-xl hover:bg-white/[0.06] transition-all text-left"
+                                  className="w-full flex items-center gap-3 py-2.5 px-3 bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.07] rounded-xl hover:bg-black/[0.055] dark:hover:bg-white/[0.06] transition-all text-left"
                                 >
                                   <div className={cn(
                                     "w-9 h-5 rounded-full relative shrink-0 transition-colors",
-                                    discrepancyMissingAll ? "bg-red-500" : "bg-white/[0.12]"
+                                    discrepancyMissingAll ? "bg-red-500" : "bg-black/[0.14] dark:bg-white/[0.12]"
                                   )} style={{ transition: 'background 180ms cubic-bezier(0.23,1,0.32,1)' }}>
                                     <span className={cn(
                                       "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all",
                                       discrepancyMissingAll ? "left-4" : "left-0.5"
                                     )} style={{ transition: 'left 180ms cubic-bezier(0.23,1,0.32,1)' }} />
                                   </div>
-                                  <span className="text-sm font-semibold text-white/70">Produto não veio</span>
+                                  <span className="text-sm font-semibold text-black/70 dark:text-white/70">Produto não veio</span>
                                 </button>
 
                                 {/* Qty input */}
@@ -9181,7 +9206,7 @@ export default function Page() {
                                       transition={{ duration: 0.15 }}
                                       className="overflow-hidden"
                                     >
-                                      <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                                      <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
                                         Qtd. faltando
                                       </label>
                                       <input
@@ -9194,8 +9219,8 @@ export default function Page() {
                                         placeholder="0"
                                         onWheel={blockWheelChange}
                                         className={cn(
-                                          "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
-                                          "border-white/[0.08]", accentRing
+                                          "w-full bg-white dark:bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                          "border-[#E0D8BF] dark:border-white/[0.08]", accentRing
                                         )}
                                         style={{ transition: 'box-shadow 150ms ease' }}
                                       />
@@ -9211,7 +9236,7 @@ export default function Page() {
                                 exit={{ opacity: 0, x: -6 }}
                                 transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
                               >
-                                <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                                <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
                                   Qtd. sobrando
                                 </label>
                                 <input
@@ -9224,8 +9249,8 @@ export default function Page() {
                                   placeholder="0"
                                   onWheel={blockWheelChange}
                                   className={cn(
-                                    "w-full bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
-                                    "border-white/[0.08]", accentRing
+                                    "w-full bg-white dark:bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                    "border-[#E0D8BF] dark:border-white/[0.08]", accentRing
                                   )}
                                   style={{ transition: 'box-shadow 150ms ease' }}
                                 />
@@ -9233,17 +9258,51 @@ export default function Page() {
                             )}
                           </AnimatePresence>
 
+                          <div className="h-px bg-black/[0.08] dark:bg-white/[0.07]" />
+
+                          {/* Desconsiderar produto */}
+                          <div className={cn(
+                            "rounded-[13px] border-[1.5px] border-dashed px-3.5 py-3 transition-colors",
+                            discrepancyDisregarded
+                              ? "border-[#DDD000] dark:border-amber-400/30 bg-[#FFE500]/[0.14] dark:bg-amber-400/[0.07]"
+                              : "border-black/15 dark:border-white/[0.10] bg-black/[0.02] dark:bg-white/[0.02]"
+                          )}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-7 h-7 rounded-[9px] bg-[#92400E]/[0.12] dark:bg-amber-400/[0.14] text-[#92400E] dark:text-amber-300 flex items-center justify-center shrink-0">
+                                <Ban size={14} strokeWidth={2.3} />
+                              </span>
+                              <span className="text-[12.5px] font-black text-[#92400E] dark:text-amber-300 flex-1">Desconsiderar produto</span>
+                              <button
+                                type="button"
+                                onClick={() => setDiscrepancyDisregarded(v => !v)}
+                                className={cn(
+                                  "w-9 h-5 rounded-full relative shrink-0 transition-colors",
+                                  discrepancyDisregarded ? "bg-amber-500" : "bg-[#92400E]/20 dark:bg-amber-400/20"
+                                )}
+                                style={{ transition: 'background 180ms cubic-bezier(0.23,1,0.32,1)' }}
+                              >
+                                <span className={cn(
+                                  "absolute top-0.5 w-4 h-4 rounded-full shadow transition-all bg-white dark:bg-[#1A1A0E]",
+                                  discrepancyDisregarded ? "left-4" : "left-0.5"
+                                )} style={{ transition: 'left 180ms cubic-bezier(0.23,1,0.32,1)' }} />
+                              </button>
+                            </div>
+                            <p className="text-[11px] font-semibold leading-[1.45] text-[#92400E]/85 dark:text-amber-300/75 mt-1.5">
+                              Este item não entra no valor total nem no markup da nota — quantidade e preço deixam de ser somados.
+                            </p>
+                          </div>
+
                           {/* Observations */}
                           <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-white/35 mb-1.5">
+                            <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
                               Observações
                             </label>
                             <textarea
                               value={discrepancyObs}
                               onChange={e => setDiscrepancyObs(e.target.value)}
                               placeholder="Detalhes adicionais sobre a divergência..."
-                              rows={3}
-                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none transition-all"
+                              rows={2}
+                              className="w-full bg-white dark:bg-white/[0.05] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#f2f0e3] placeholder:text-black/25 dark:placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20 resize-none transition-all"
                             />
                           </div>
                         </div>
@@ -9252,7 +9311,7 @@ export default function Page() {
                         <div className="px-5 pb-5 flex gap-2">
                           <button
                             onClick={handleClearDiscrepancy}
-                            className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07] text-sm font-bold text-white/45 hover:bg-white/[0.08] hover:text-white/65 transition-all active:scale-[0.97]"
+                            className="flex-1 py-2.5 rounded-xl bg-black/[0.08] dark:bg-white/[0.04] border border-black/[0.14] dark:border-white/[0.07] text-sm font-bold text-black/55 dark:text-white/45 hover:bg-black/[0.13] dark:hover:bg-white/[0.08] hover:text-black/70 dark:hover:text-white/65 transition-all active:scale-[0.97]"
                             style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                           >
                             Limpar

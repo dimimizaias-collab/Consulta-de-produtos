@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Modal Divergência (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --header-bg: #252520;
+    --header-border: rgba(242,240,227,0.07);
+    --chip-bg: rgba(242,240,227,0.06);
+    --chip-icon: #F2F0E3;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.28);
+    --accent: #D81E1E;
+    --emerald: #34D399;
+    --amber: #FCD34D;
+    --input-bg: #252520;
+    --input-border: rgba(242,240,227,0.08);
+    --text: #F2F0E3;
+    --label: rgba(242,240,227,0.35);
+    --cancel-bg: rgba(242,240,227,0.07);
+    --cancel-text: rgba(242,240,227,0.50);
+    --cancel-border: rgba(242,240,227,0.10);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: #14140F; color: var(--text); }
+  .page { max-width: 1000px; margin: 0 auto; padding: 56px 24px 100px; display: flex; flex-direction: column; align-items: center; gap: 64px; }
+  h2.section-title { align-self: flex-start; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(242,240,227,0.30); margin: -40px 0 -24px; }
+
+  /* ── Modal ───────────────────────────────────────────── */
+  .modal {
+    background: var(--bg);
+    border: 1px solid rgba(242,240,227,0.09);
+    border-radius: 20px;
+    width: 340px;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--header-border);
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header .left { display: flex; align-items: center; gap: 11px; }
+  .icon-chip {
+    width: 38px; height: 38px; border-radius: 11px;
+    background: var(--chip-bg); color: var(--chip-icon);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-chip.falta { background: rgba(216,30,30,0.13); color: var(--accent); }
+  .icon-chip.sobra { background: rgba(52,211,153,0.13); color: var(--emerald); }
+  .icon-chip svg { width: 18px; height: 18px; }
+  .modal-header .eyebrow { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(242,240,227,0.40); margin: 0 0 2px; }
+  .modal-header .prod-name { font-size: 13.5px; font-weight: 900; color: var(--title); line-height: 1.2; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .close-btn {
+    width: 26px; height: 26px; border-radius: 8px; border: none; background: rgba(242,240,227,0.06);
+    color: rgba(242,240,227,0.35); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .close-btn svg { width: 13px; height: 13px; }
+
+  .tabs { padding: 14px 18px 0; display: flex; gap: 8px; }
+  .tab {
+    flex: 1; padding: 9px 0; border-radius: 11px; font-size: 13px; font-weight: 900; text-align: center;
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .tab.falta.active { background: rgba(216,30,30,0.15); color: #f87171; border-color: rgba(216,30,30,0.30); }
+  .tab.sobra.inactive { background: rgba(242,240,227,0.04); color: rgba(242,240,227,0.35); border-color: rgba(242,240,227,0.06); }
+
+  .body { padding: 16px 18px 6px; display: flex; flex-direction: column; gap: 12px; }
+
+  .toggle-row {
+    width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+    background: rgba(242,240,227,0.03); border: 1px solid rgba(242,240,227,0.07); border-radius: 12px;
+  }
+  .switch { width: 34px; height: 19px; border-radius: 9999px; background: rgba(242,240,227,0.12); position: relative; flex-shrink: 0; }
+  .switch.on { background: var(--accent); }
+  .switch .knob { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .switch.on .knob { left: 17px; }
+  .toggle-row span.label { font-size: 13px; font-weight: 700; color: rgba(242,240,227,0.70); }
+
+  label.field-label { display: block; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.10em; color: var(--label); margin-bottom: 6px; }
+  input.field, textarea.field {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px;
+    padding: 10px 14px; font-size: 13.5px; font-weight: 700; color: var(--text); font-family: inherit;
+  }
+  textarea.field { font-weight: 500; resize: none; }
+
+  /* ── Desconsiderar produto ─────────────────────────────── */
+  .divider { height: 1px; background: rgba(242,240,227,0.07); margin: 2px 0; }
+  .discard-block {
+    border: 1.5px dashed rgba(252,211,77,0.30);
+    background: rgba(252,211,77,0.07);
+    border-radius: 13px;
+    padding: 11px 13px;
+  }
+  .discard-head { display: flex; align-items: center; gap: 9px; }
+  .discard-icon { width: 28px; height: 28px; border-radius: 9px; background: rgba(252,211,77,0.14); color: var(--amber); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .discard-icon svg { width: 15px; height: 15px; }
+  .discard-title { font-size: 12.5px; font-weight: 900; color: var(--amber); flex: 1; }
+  .discard-switch { width: 34px; height: 19px; border-radius: 9999px; background: rgba(252,211,77,0.18); position: relative; flex-shrink: 0; cursor: pointer; }
+  .discard-switch.on { background: var(--amber); }
+  .discard-switch .knob { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 9999px; background: #1A1A0E; box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .discard-switch.on .knob { left: 17px; }
+  .discard-desc { font-size: 11px; font-weight: 600; line-height: 1.45; color: rgba(252,211,77,0.75); margin: 7px 0 0; }
+
+  .footer { padding: 16px 18px 18px; display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 11px 0; border-radius: 12px; font-size: 13px; font-weight: 900; border: none; cursor: pointer; text-align: center; }
+  .btn.cancel { background: var(--cancel-bg); color: var(--cancel-text); border: 1px solid var(--cancel-border); }
+  .btn.save { background: var(--accent); color: #fff; box-shadow: 0 8px 20px -8px rgba(216,30,30,0.5); }
+
+  /* ── Demo table row ─────────────────────────────────────── */
+  .demo-wrap { width: 620px; }
+  .demo-label { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.30); margin: 0 0 10px; }
+  table.demo { width: 100%; border-collapse: collapse; border-radius: 14px; overflow: hidden; border: 1px solid rgba(242,240,227,0.08); }
+  table.demo th {
+    background: #FFEC4D; border-bottom: 1px solid #DCC63D; color: rgba(26,26,10,0.58);
+    font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; padding: 9px 12px;
+  }
+  table.demo td { padding: 10px 12px; font-size: 12.5px; font-weight: 700; color: rgba(242,240,227,0.85); border-bottom: 1px solid rgba(242,240,227,0.06); }
+  table.demo tr.odd { background: #1E1E18; }
+  table.demo tr.even { background: #252520; }
+  .seq-cell { width: 34px; text-align: center; }
+  .seq-num { color: rgba(242,240,227,0.28); }
+  .row-discarded { opacity: 0.5; background: repeating-linear-gradient(135deg, rgba(252,211,77,0.10), rgba(252,211,77,0.10) 8px, rgba(252,211,77,0.03) 8px, rgba(252,211,77,0.03) 16px) !important; filter: saturate(0.75); }
+  .danger-icon { color: var(--amber); display: inline-flex; }
+  .danger-icon svg { width: 15px; height: 15px; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 9999px; }
+  .pill.discarded { background: rgba(252,211,77,0.15); color: var(--amber); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h2 class="section-title">1 · Modal de Divergência — redesign dark</h2>
+  <div class="modal">
+    <div class="modal-header">
+      <div class="left">
+        <span class="icon-chip falta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <div>
+          <p class="eyebrow">Divergência</p>
+          <p class="prod-name">Salgadinho cebola 150g</p>
+        </div>
+      </div>
+      <button class="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab falta active">Falta</div>
+      <div class="tab sobra inactive">Sobra</div>
+    </div>
+
+    <div class="body">
+      <button class="toggle-row" style="border:none; text-align:left; cursor:pointer; font-family:inherit;">
+        <span class="switch on"><span class="knob"></span></span>
+        <span class="label">Produto não veio</span>
+      </button>
+
+      <div>
+        <label class="field-label">Qtd. faltando</label>
+        <input class="field" value="0" disabled style="opacity:.4" />
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="discard-block">
+        <div class="discard-head">
+          <span class="discard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+          </span>
+          <span class="discard-title">Desconsiderar produto</span>
+          <span class="discard-switch on"><span class="knob"></span></span>
+        </div>
+        <p class="discard-desc">Este item não entra no valor total nem no markup da nota — quantidade e preço deixam de ser somados.</p>
+      </div>
+
+      <div>
+        <label class="field-label">Observações</label>
+        <textarea class="field" rows="2" placeholder="Detalhes adicionais sobre a divergência...">Produto amassado na entrega, fornecedor não repôs.</textarea>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn cancel">Limpar</button>
+      <button class="btn save">Salvar</button>
+    </div>
+  </div>
+
+  <div class="demo-wrap">
+    <p class="demo-label">2 · Reflexo na tabela de revisão da nota</p>
+    <table class="demo">
+      <thead>
+        <tr><th style="text-align:center">#</th><th>Produto na Nota</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Preço Custo</th><th style="text-align:right">Vlr. Total</th></tr>
+      </thead>
+      <tbody>
+        <tr class="even">
+          <td class="seq-cell"><span class="seq-num">1</span></td>
+          <td>Refrigerante Cola 2L</td><td style="text-align:right">12</td><td style="text-align:right">R$ 6,40</td><td style="text-align:right">R$ 76,80</td>
+        </tr>
+        <tr class="odd row-discarded">
+          <td class="seq-cell"><span class="danger-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg></span></td>
+          <td>Salgadinho Cebola 150g</td><td style="text-align:right">30</td><td style="text-align:right">R$ 3,10</td><td style="text-align:right">—</td>
+        </tr>
+        <tr class="even">
+          <td class="seq-cell"><span class="seq-num">3</span></td>
+          <td>Batata Frita 100g</td><td style="text-align:right">18</td><td style="text-align:right">R$ 4,20</td><td style="text-align:right">R$ 75,60</td>
+        </tr>
+        <tr class="odd">
+          <td class="seq-cell"><span class="seq-num">4</span></td>
+          <td>Água Mineral 500ml</td><td style="text-align:right">48</td><td style="text-align:right">R$ 1,05</td><td style="text-align:right">R$ 50,40</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px; color:rgba(242,240,227,0.40); margin-top:10px; line-height:1.5;">
+      Uma linha por produto, sempre. A 2ª linha (Salgadinho Cebola) é o único produto marcado como "Desconsiderar produto":
+      opacidade reduzida, fundo com textura amarelada, o número <b>#</b> vira o ícone de bloqueado, e o "Vlr. Total" some da soma da nota.
+      As demais linhas seguem normais.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
