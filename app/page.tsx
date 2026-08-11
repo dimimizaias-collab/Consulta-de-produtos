@@ -438,15 +438,13 @@ export default function Page() {
     }
     return { disc, sur };
   };
-  // Quantidade efetiva de um item pra fins de total/markup da nota: itens com "Falta"
-  // (Produto não veio) não entram no total; "QTD. FALTANDO" parcial abate da quantidade
-  // antes de somar. "Sobra" não altera a quantidade recebida/custo. Um item marcado como
-  // "Desconsiderar produto" é sempre zerado, independente do tipo de divergência.
+  // Quantidade efetiva de um item pra fins de total/markup da nota. Marcar "Falta"/"Sobra"
+  // sozinho é só registro/aviso — não altera o cálculo. Só quando o usuário ativa
+  // "Desconsiderar produto" a quantidade indicada passa a ser abatida: zera tudo se
+  // "Produto não veio" (falta total), ou abate só a qtd. informada (falta/sobra parcial).
   const getEffectiveQty = (qty: number, discrepancy: DiscrepancyData | null | undefined): number => {
-    if (!discrepancy) return qty;
-    if (discrepancy.disregarded) return 0;
-    if (discrepancy.type !== 'falta') return qty;
-    if (discrepancy.missingAll) return 0;
+    if (!discrepancy || !discrepancy.disregarded) return qty;
+    if (discrepancy.type === 'falta' && discrepancy.missingAll) return 0;
     return Math.max(0, qty - (discrepancy.qty || 0));
   };
   // valor de UMA coluna de ajuste específica para uma linha — usado pelo PDF "Personalizado"
@@ -9288,7 +9286,7 @@ export default function Page() {
                               </button>
                             </div>
                             <p className="text-[11px] font-semibold leading-[1.45] text-[#92400E]/85 dark:text-amber-300/75 mt-1.5">
-                              Este item não entra no valor total nem no markup da nota — quantidade e preço deixam de ser somados.
+                              A quantidade informada acima deixa de ser somada no valor total e no markup da nota (quantidade inteira, se "Produto não veio" estiver marcado).
                             </p>
                           </div>
 
