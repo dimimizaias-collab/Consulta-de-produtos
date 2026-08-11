@@ -437,6 +437,14 @@ export default function Page() {
     }
     return { disc, sur };
   };
+  // Quantidade efetiva de um item pra fins de total/markup da nota: itens com "Falta"
+  // (Produto não veio) não entram no total; "QTD. FALTANDO" parcial abate da quantidade
+  // antes de somar. "Sobra" não altera a quantidade recebida/custo.
+  const getEffectiveQty = (qty: number, discrepancy: DiscrepancyData | null | undefined): number => {
+    if (!discrepancy || discrepancy.type !== 'falta') return qty;
+    if (discrepancy.missingAll) return 0;
+    return Math.max(0, qty - (discrepancy.qty || 0));
+  };
   // valor de UMA coluna de ajuste específica para uma linha — usado pelo PDF "Personalizado"
   // pra deixar o usuário escolher, coluna por coluna, quais Descontos/Acréscimos entram no export.
   const calcAdjColAmount = (col: AdjColumn, cost: number, qty: number, idx: number): number => {
@@ -2209,7 +2217,9 @@ export default function Page() {
     const rows: RowData[] = items.map((item, idx) => {
       // Mesma fonte de verdade da tabela de revisão: item.qty já é a quantidade
       // final (pós-conversão de unidade), independente do item estar verificado.
-      const qty    = item.qty || 0;
+      // Itens com divergência de "Falta" têm a quantidade abatida (ou zerada, se
+      // "Produto não veio") antes de entrar nos totais/markup do relatório.
+      const qty    = getEffectiveQty(item.qty || 0, (item as any).discrepancy ?? null);
       const raw    = (item.price || 0) / (item.multiplier || 1);
       const { disc, sur } = calcAdj(raw, idx);
       const adj2   = raw - disc + sur;
@@ -7114,6 +7124,7 @@ export default function Page() {
                           unit: viewingNoteUnits[idx] ?? item.unit,
                           multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                           distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null),
+                          discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
                         })),
                         adj: adjColumns,
                         meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
@@ -8957,7 +8968,9 @@ export default function Page() {
                       viewingReviewNote.items.reduce(
                         (acc: { noteTotalCost: number; markupCost: number; markupRevenue: number }, item: any, idx: number) => {
                           const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
-                          const qty  = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                          const rawQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                          const discrepancy = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                          const qty = getEffectiveQty(rawQty, discrepancy);
                           const { disc: discAmt, sur: surAmt } = calcAdjAmounts(cost, qty, idx, adjColumns);
                           const adjCost   = cost - discAmt + surAmt;
                           const sellPrice = viewingNoteSellPrices[idx] ?? (item as any).product_price ?? 0;
