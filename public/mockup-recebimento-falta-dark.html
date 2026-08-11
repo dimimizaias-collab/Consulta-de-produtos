@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Tabela "Produtos com Falta" na aba Recebimento (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.30);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --th-bg: #FFEC4D;
+    --th-border: #DCC63D;
+    --th-chip-bg: rgba(26,26,10,0.05);
+    --th-chip-border: rgba(26,26,10,0.12);
+    --th-color: rgba(26,26,10,0.58);
+    --cell-bg: #252520;
+    --cell-bg-alt: #1e1e18;
+    --cell-border: rgba(242,240,227,0.06);
+    --text: rgba(242,240,227,0.85);
+    --text-muted: rgba(242,240,227,0.50);
+    --text-subtle: rgba(242,240,227,0.28);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: var(--bg); color: var(--title); }
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+  h2.tag { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.30); margin: 0 0 18px; }
+
+  .status-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 44px; opacity: 0.55; }
+  .status-card { background: var(--card-bg); border: 2px solid var(--card-border); border-radius: 16px; padding: 14px; }
+  .status-card .ico { width: 30px; height: 30px; border-radius: 9px; background: rgba(242,240,227,0.06); margin-bottom: 8px; }
+  .status-card .lbl { font-size: 11px; font-weight: 900; }
+  .status-card .desc { font-size: 9.5px; color: var(--muted); margin-top: 2px; }
+
+  .falta-title { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.35); margin: 0 0 12px; }
+  .falta-title svg { width: 12px; height: 12px; color: #f87171; }
+  .falta-count { background: rgba(216,30,30,0.15); color: #f87171; font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 9999px; }
+
+  table.falta { width: 100%; border-collapse: collapse; border-radius: 16px; overflow: hidden; border: 1px solid var(--cell-border); }
+  table.falta th {
+    background: var(--th-bg); border-bottom: 1.5px solid var(--th-border);
+    padding: 9px 8px; text-align: left;
+  }
+  table.falta th .chip {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--th-color); white-space: nowrap;
+    background: var(--th-chip-bg); border: 1.5px solid var(--th-chip-border); border-radius: 9999px; padding: 5px 13px;
+  }
+  table.falta th.center .chip, table.falta td.center { text-align: center; }
+  table.falta th.right .chip, table.falta td.right { text-align: right; justify-content: flex-end; }
+  table.falta td { padding: 10px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--cell-border); color: var(--text); }
+  table.falta tr.even { background: var(--cell-bg); }
+  table.falta tr.odd { background: var(--cell-bg-alt); }
+  table.falta td.seq { text-align: center; color: var(--text-subtle); font-weight: 900; font-size: 11px; }
+  table.falta td.mono { font-family: 'DM Mono', monospace; color: var(--text-muted); }
+  table.falta td.muted { color: var(--text-muted); }
+  table.falta td.right { text-align: right; }
+  table.falta td.total { font-weight: 900; }
+  .tag-abatido { margin-left: 4px; font-size: 8px; font-weight: 900; color: #f87171; vertical-align: top; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h2 class="tag">Aba Recebimento — contexto acima (Empresa / Data / Transporte / Situação de Entrada)</h2>
+  <div class="status-row">
+    <div class="status-card"><div class="ico"></div><div class="lbl">Registro</div><div class="desc">Nota recém criada</div></div>
+    <div class="status-card"><div class="ico"></div><div class="lbl">Aguardando</div><div class="desc">Aguardando recebimento</div></div>
+    <div class="status-card"><div class="ico"></div><div class="lbl">Revisão</div><div class="desc">Em revisão</div></div>
+    <div class="status-card"><div class="ico"></div><div class="lbl">Aprovada</div><div class="desc">Pronta pra uso</div></div>
+  </div>
+
+  <p class="falta-title">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Produtos com Falta <span class="falta-count">3</span>
+  </p>
+
+  <table class="falta">
+    <thead>
+      <tr>
+        <th class="center"><span class="chip">#</span></th>
+        <th><span class="chip">Código</span></th>
+        <th><span class="chip">Produto na Nota</span></th>
+        <th><span class="chip">Identificação Interna</span></th>
+        <th><span class="chip">EAN</span></th>
+        <th class="center"><span class="chip">Medida</span></th>
+        <th class="center"><span class="chip">Qtd.</span></th>
+        <th class="right"><span class="chip">Preço Custo</span></th>
+        <th class="right"><span class="chip">Valor Total</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="even">
+        <td class="seq">2</td>
+        <td class="mono">FRN-0231</td>
+        <td>Salgadinho Cebola 150g</td>
+        <td class="muted">Salgadinho Batata Cebola 150g</td>
+        <td class="mono">7891234567890</td>
+        <td class="center muted">UN</td>
+        <td class="center">30<span class="tag-abatido">-5</span></td>
+        <td class="right">R$ 3,10</td>
+        <td class="right total">R$ 93,00</td>
+      </tr>
+      <tr class="odd">
+        <td class="seq">5</td>
+        <td class="mono">FRN-0118</td>
+        <td>Refrigerante Guaraná 2L</td>
+        <td class="muted">Refrigerante Guaraná 2L</td>
+        <td class="mono">7891234500021</td>
+        <td class="center muted">UN</td>
+        <td class="center">12<span class="tag-abatido">TUDO</span></td>
+        <td class="right">R$ 6,80</td>
+        <td class="right total">R$ 81,60</td>
+      </tr>
+      <tr class="even">
+        <td class="seq">9</td>
+        <td class="mono">FRN-0304</td>
+        <td>Água Mineral 500ml</td>
+        <td class="muted">Água Mineral 500ml</td>
+        <td class="mono">7891234511111</td>
+        <td class="center muted">UN</td>
+        <td class="center">48</td>
+        <td class="right">R$ 1,05</td>
+        <td class="right total">R$ 50,40</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:11px; color:rgba(242,240,227,0.35); margin-top:12px; line-height:1.5; max-width:640px;">
+    Mesmas colunas da tabela principal (aba Produtos), até "Valor Total" — sem Preço Venda, Markup, Status etc.
+    Mostra só os itens marcados como "Falta". A etiqueta vermelha ao lado da quantidade indica "-5" (falta parcial) ou "TUDO" (Produto não veio). É somente leitura — os valores refletem o cálculo atual da nota, o aviso não afeta o total a menos que "Desconsiderar produto" esteja ativo.
+  </p>
+
+</div>
+</body>
+</html>

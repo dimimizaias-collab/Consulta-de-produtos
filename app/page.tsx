@@ -7263,6 +7263,98 @@ export default function Page() {
                       })}
                     </div>
                   </div>
+
+                  {/* ── Produtos com Falta ──────────────────────────────────── */}
+                  {(() => {
+                    const faltaRows = (viewingReviewNote.items || [])
+                      .map((item: any, idx: number) => ({
+                        item, idx,
+                        d: viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null,
+                      }))
+                      .filter(({ d }) => d?.type === 'falta');
+                    if (faltaRows.length === 0) return null;
+                    return (
+                      <div
+                        className="max-w-5xl mt-10 [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
+                          <AlertTriangle size={12} className="text-red-500 dark:text-red-400" />
+                          Produtos com Falta
+                          <span className="bg-red-500/10 text-red-500 dark:text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{faltaRows.length}</span>
+                        </p>
+                        <div className="rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--rn-cell-border)' }}>
+                          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
+                                {(() => {
+                                  const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
+                                  const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
+                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                    fontSize: '9px', fontWeight: 900,
+                                    letterSpacing: '0.10em', textTransform: 'uppercase' as const,
+                                    color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
+                                    background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
+                                    borderRadius: '9999px', padding: '5px 13px', ...extra,
+                                  });
+                                  const cols: { label: string; align?: 'left' | 'right' | 'center' }[] = [
+                                    { label: '#', align: 'center' },
+                                    { label: 'Código' },
+                                    { label: 'Produto na Nota' },
+                                    { label: 'Identificação Interna' },
+                                    { label: 'EAN' },
+                                    { label: 'Medida', align: 'center' },
+                                    { label: 'Qtd.', align: 'center' },
+                                    { label: 'Preço Custo', align: 'right' },
+                                    { label: 'Valor Total', align: 'right' },
+                                  ];
+                                  return cols.map(c => (
+                                    <th key={c.label} style={{ ...thBar, paddingLeft: c.label === '#' ? '10px' : thBar.padding }}>
+                                      <div style={lbl({ justifyContent: c.align === 'right' ? 'flex-end' : c.align === 'center' ? 'center' : 'flex-start' })}>
+                                        {c.label}
+                                      </div>
+                                    </th>
+                                  ));
+                                })()}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {faltaRows.map(({ item, idx, d }, i) => {
+                                const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
+                                const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                                const { disc, sur } = calcAdjAmounts(cost, qty, idx, adjColumns);
+                                const adjCost = cost - disc + sur;
+                                const total = adjCost * qty;
+                                const tdCls = "px-3 py-2.5 text-[12px] font-semibold";
+                                return (
+                                  <tr key={idx}
+                                    className={i % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'}
+                                    style={{ borderBottom: '1px solid var(--rn-cell-border)' }}
+                                  >
+                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</td>
+                                    <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</td>
+                                    <td className={tdCls} style={{ color: 'var(--rn-text)' }}>{item.original_description || item.name || '-'}</td>
+                                    <td className={tdCls} style={{ color: 'var(--rn-text-muted)' }}>{item.name || '-'}</td>
+                                    <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteEans[idx] ?? item.ean ?? '-'}</td>
+                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? '-'}</td>
+                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text)' }}>
+                                      {qty}
+                                      {d?.missingAll ? (
+                                        <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">TUDO</span>
+                                      ) : d?.qty ? (
+                                        <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">-{d.qty}</span>
+                                      ) : null}
+                                    </td>
+                                    <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>{adjCost > 0 ? `R$ ${adjCost.toFixed(2)}` : '-'}</td>
+                                    <td className={cn(tdCls, "text-right font-black")} style={{ color: 'var(--rn-text)' }}>{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
