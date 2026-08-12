@@ -49,6 +49,8 @@ interface Transaction {
   observacoes: string | null;
   origem?: 'manual' | 'hr_salario';
   data_pagamento?: string | null;
+  codigo?: string | null;
+  codigo_numero?: number | null;
 }
 
 type TxForm = {
@@ -2820,6 +2822,11 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
                         <div className="flex items-center">
+                          {tx.codigo && (
+                            <span className="mr-1.5 bg-[rgba(216,30,30,0.08)] dark:bg-[rgba(216,30,30,0.14)] rounded-[8px] px-2 py-[3px] text-[9px] font-black tracking-wide text-[#D81E1E] dark:text-[#F43F5E]">
+                              {tx.codigo}
+                            </span>
+                          )}
                           <span className="bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] rounded-[8px] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.45)] dark:text-white/35">
                             {tx.tipo_pagamento}
                           </span>

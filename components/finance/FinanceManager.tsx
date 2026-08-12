@@ -47,6 +47,8 @@ interface Transaction {
   observacoes: string | null;
   origem?: 'manual' | 'hr_salario';
   data_pagamento?: string | null;
+  codigo?: string | null;
+  codigo_numero?: number | null;
 }
 
 interface BankAccount {
@@ -90,6 +92,7 @@ const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
 
 const TABLE_COLUMNS: { label: string; key: string }[] = [
+  { label: 'Código', key: 'codigo' },
   { label: 'Data', key: 'data' },
   { label: 'Tipo', key: 'tipo' },
   { label: 'Pagamento', key: 'pagamento' },
@@ -2450,7 +2453,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={selectionMode ? 13 : 12} className="px-4 py-16 text-center">
+                    <td colSpan={selectionMode ? 14 : 13} className="px-4 py-16 text-center">
                       <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
                       <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
                     </td>
@@ -2487,6 +2490,13 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             </div>
                           </td>
                         )}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {t.codigo && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border border-primary/20 bg-primary/10 text-primary">
+                              {t.codigo}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
                         <td className="px-4 py-3">
                           <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
@@ -2642,7 +2652,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {filtered.length > 0 && filtered.length < MIN_TABLE_ROWS_FOR_FILTER_MENU &&
                   Array.from({ length: MIN_TABLE_ROWS_FOR_FILTER_MENU - filtered.length }).map((_, i) => (
                     <tr key={`filler-${i}`} aria-hidden="true">
-                      <td colSpan={selectionMode ? 13 : 12} className="px-4 h-[52px]" />
+                      <td colSpan={selectionMode ? 14 : 13} className="px-4 h-[52px]" />
                     </tr>
                   ))}
               </tbody>
