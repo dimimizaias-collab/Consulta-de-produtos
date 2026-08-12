@@ -449,6 +449,15 @@ export default function Page() {
     if (discrepancy.type === 'falta' && discrepancy.missingAll) return 0;
     return Math.max(0, qty - (discrepancy.qty || 0));
   };
+  // Divergência "vigente" de um item: usa o estado de edição em tela (viewingNoteDiscrepancies)
+  // sempre que ele já cobre esse índice — mesmo quando o valor lá é `null` (== usuário limpou
+  // a divergência agora, ainda não salvou). Só cai para item.discrepancy (o que veio do banco)
+  // quando o array de edição ainda nem chegou nesse índice. Usar `??` aqui é o bug clássico:
+  // `null ?? item.discrepancy` resolve pro item.discrepancy porque null é nullish — fazendo o
+  // "Limpar" do modal de Divergência parecer não fazer nada (a linha volta a mostrar a
+  // divergência antiga porque a leitura ignora o `null` explícito).
+  const getItemDiscrepancy = (idx: number, item: any): DiscrepancyData =>
+    idx < viewingNoteDiscrepancies.length ? viewingNoteDiscrepancies[idx] : ((item?.discrepancy as DiscrepancyData) ?? null);
   // valor de UMA coluna de ajuste específica para uma linha — usado pelo PDF "Personalizado"
   // pra deixar o usuário escolher, coluna por coluna, quais Descontos/Acréscimos entram no export.
   const calcAdjColAmount = (col: AdjColumn, cost: number, qty: number, idx: number): number => {
@@ -3186,7 +3195,7 @@ export default function Page() {
       }; })()),
       // full adj columns serialized on first item for full restore on reload
       ...(idx === 0 ? { adj_columns_full: adjColumns } : {}),
-      discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
+      discrepancy: getItemDiscrepancy(idx, item),
       };
     });
     const updatedVerifiedCount = viewingNoteVerified.filter(Boolean).length;
@@ -7186,7 +7195,7 @@ export default function Page() {
                           unit: viewingNoteUnits[idx] ?? item.unit,
                           multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
                           distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null),
-                          discrepancy: viewingNoteDiscrepancies[idx] ?? item.discrepancy ?? null,
+                          discrepancy: getItemDiscrepancy(idx, item),
                         })),
                         adj: adjColumns,
                         meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
@@ -7496,7 +7505,7 @@ export default function Page() {
                     const faltaRows = (viewingReviewNote.items || [])
                       .map((item: any, idx: number) => ({
                         item, idx,
-                        d: viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null,
+                        d: getItemDiscrepancy(idx, item),
                       }))
                       .filter(({ d }) => d?.type === 'falta');
                     if (faltaRows.length === 0) return null;
@@ -7885,7 +7894,7 @@ export default function Page() {
                       return _filtered.flatMap(({ item, origIdx: idx }) => {
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                      const rowDiscrepancy = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                      const rowDiscrepancy = getItemDiscrepancy(idx, item);
                       const isDisregarded = !!rowDiscrepancy?.disregarded;
 
                       /* ── Rounded-cell style tokens (per-row) ── */
@@ -8221,7 +8230,7 @@ export default function Page() {
                               <span className="text-sm font-black inline-flex items-baseline gap-0.5 px-3 py-1.5 rounded-[9px]" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text)' }}>
                                 {viewingNoteQtys[idx] ?? item.qty}
                                 {(() => {
-                                  const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                                  const d = getItemDiscrepancy(idx, item);
                                   if (!d) return null;
                                   return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
                                 })()}
@@ -8229,12 +8238,12 @@ export default function Page() {
                             )}
                             {/* Discrepancy trigger button */}
                             {(() => {
-                              const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                              const d = getItemDiscrepancy(idx, item);
                               return (
                                 <button
                                   onClick={e => {
                                     e.stopPropagation();
-                                    const existing = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                                    const existing = getItemDiscrepancy(idx, item);
                                     setDiscrepancyTab(existing?.type ?? 'falta');
                                     setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
                                     setDiscrepancyMissingAll(existing?.missingAll ?? false);
@@ -9342,7 +9351,7 @@ export default function Page() {
                         (acc: { noteTotalCost: number; markupCost: number; markupRevenue: number }, item: any, idx: number) => {
                           const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
                           const rawQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                          const discrepancy = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+                          const discrepancy = getItemDiscrepancy(idx, item);
                           const qty = getEffectiveQty(rawQty, discrepancy);
                           const { disc: discAmt, sur: surAmt } = calcAdjAmounts(cost, qty, idx, adjColumns);
                           const adjCost   = cost - discAmt + surAmt;
@@ -10194,7 +10203,7 @@ export default function Page() {
           // parcial (produto chegou, só que em quantidade menor) continua exigindo o preço.
           const blockedByMissingPrice = statusConfirmTarget === 'aprovada' && viewingReviewNote.items.some((item: any, idx: number) => {
             if (!item.product_id) return false;
-            const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+            const d = getItemDiscrepancy(idx, item);
             if (d?.type === 'falta' && d.missingAll) return false;
             const price = viewingNoteSellPrices[idx] ?? item.product_price;
             return !(price > 0);
