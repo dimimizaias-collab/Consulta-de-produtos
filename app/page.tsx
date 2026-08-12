@@ -588,10 +588,11 @@ export default function Page() {
   const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
   const [reviewFilterOpen, setReviewFilterOpen] = useState<string | null>(null);
   const [reviewFilterSearch, setReviewFilterSearch] = useState('');
-  // ── Ocultar colunas ──
-  const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set());
+  // ── Ocultar colunas ── "Marca" vem oculta por padrão — usuário precisa abrir o menu de
+  // colunas ocultas e reexibi-la manualmente.
+  const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set(['Marca']));
   const [showHideColsModal, setShowHideColsModal] = useState(false);
-  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
+  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -2895,7 +2896,7 @@ export default function Page() {
       // da nota via applyNoteToCompanyStock, nunca a criação do produto (evita gravar prematuramente
       // na empresa padrão antes do usuário escolher a Empresa da nota na aba Recebimento).
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: 0 })
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: 0, brand: viewingReviewNote.items[linkingItemIdx]?.brand || null })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -3057,7 +3058,7 @@ export default function Page() {
       // price fica 0 na criação — a aprovação da nota (applyNoteToCompanyStock) é quem grava
       // o preço na Empresa certa; escrever aqui gravaria prematuramente na empresa padrão.
       const { data: created, error } = await supabase.from('products')
-        .insert({ name, sku: null, ean: ean || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0 })
+        .insert({ name, sku: null, ean: ean || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0, brand: item.brand || null })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       const updatedItems = [...viewingReviewNote.items];
@@ -3265,7 +3266,7 @@ export default function Page() {
   // só ativa com a nota em "Registro", igual funcionava na antiga janela "Criar Manifesto".
   const handleNoteColumnPaste = (
     e: React.ClipboardEvent, rowIndex: number,
-    field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'unit' | 'qty' | 'price',
+    field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'unit' | 'qty' | 'price' | 'brand',
   ) => {
     if (!viewingReviewNote || getNoteStatus(viewingReviewNote) !== 'registro') return;
     const text = e.clipboardData.getData('text');
@@ -3285,7 +3286,7 @@ export default function Page() {
     if (rowsToAdd > 0) {
       const blanks = Array.from({ length: rowsToAdd }, (_, i) => ({
         seq: currentLen + i + 1, original_description: '', name: '', supplier_code: '',
-        ean: '', sku: '', unit: '', multiplier: 1, qty: null, price: 0, product_price: 0, verified: false, product_id: null,
+        ean: '', sku: '', unit: '', multiplier: 1, qty: null, price: 0, product_price: 0, verified: false, product_id: null, brand: '',
       }));
       setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, ...blanks] } : prev);
       setViewingNoteVerified(prev => [...prev, ...blanks.map(() => false)]);
@@ -3305,7 +3306,7 @@ export default function Page() {
       setViewingNoteExtraEans(prev => [...prev, ...blanks.map(() => [])]);
     }
 
-    if (field === 'supplier_code' || field === 'original_description') {
+    if (field === 'supplier_code' || field === 'original_description' || field === 'brand') {
       setViewingReviewNote(prev => {
         if (!prev) return prev;
         const u = [...prev.items];
@@ -3361,8 +3362,9 @@ export default function Page() {
     setMultiLinkItemCreating(true);
     try {
       const sku = multiLinkItemNewSku.trim() || null;
+      const srcItem = viewingReviewNote?.items[multiLinkItemIdx!];
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: multiLinkItemNewName.trim(), sku, ean: multiLinkItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque' })
+        .insert({ name: multiLinkItemNewName.trim(), sku, ean: multiLinkItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', brand: srcItem?.brand || null })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -7761,6 +7763,21 @@ export default function Page() {
                               </th>
                             );
                           })}
+                          {!reviewHiddenCols.has('Marca') && (
+                          <th style={{ ...thBar, position: 'relative' }}>
+                            <div style={lbl()}>
+                              <span style={{ color: reviewEditableCols.has('Marca') ? 'rgb(52 211 153)' : 'inherit' }}>Marca</span>
+                              <button
+                                onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has('Marca') ? s.delete('Marca') : s.add('Marca'); return s; })}
+                                title={reviewEditableCols.has('Marca') ? 'Bloquear coluna' : 'Editar coluna'}
+                                style={{ color: reviewEditableCols.has('Marca') ? 'rgb(52 211 153)' : 'inherit', opacity: reviewEditableCols.has('Marca') ? 1 : 0.5 }}
+                                className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
+                              >
+                                <Pencil size={9} />
+                              </button>
+                            </div>
+                          </th>
+                          )}
                           {!reviewHiddenCols.has('Preço Custo') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
@@ -8246,6 +8263,27 @@ export default function Page() {
                               );
                             })()}
                             </div>
+                            </div>
+                          </td>
+                          )}
+                          {/* Marca — alimenta o campo "Marca" do cadastro do produto ao vincular/aprovar */}
+                          {!reviewHiddenCols.has('Marca') && (
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px' })}>
+                              {(canEditItems || reviewEditableCols.has('Marca')) ? (
+                                <input type="text" value={item.brand || ''}
+                                  onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], brand: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'brand')}
+                                  onBlur={captureSnapshot}
+                                  className="w-full text-xs font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                              ) : item.brand ? (
+                                <span className="text-xs font-semibold" style={{ color: 'var(--rn-text-muted)' }}>{item.brand}</span>
+                              ) : (
+                                <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
+                              )}
                             </div>
                           </td>
                           )}
