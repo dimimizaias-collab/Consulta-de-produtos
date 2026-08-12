@@ -18,6 +18,7 @@ import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { FinanceManager } from '@/components/finance/FinanceManager';
 import { MobileFinancePage } from '@/components/finance/MobileFinancePage';
+import { LinkTransactionModal } from '@/components/requests/LinkTransactionModal';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { HRManager } from '@/components/hr/HRManager';
 import { MobileHRPage } from '@/components/hr/MobileHRPage';
@@ -545,8 +546,11 @@ export default function Page() {
   const [noteFinanceTxs, setNoteFinanceTxs] = useState<NoteFinanceTx[]>([]);
   const [noteFinanceLoading, setNoteFinanceLoading] = useState(false);
   const [noteFinanceGoToTx, setNoteFinanceGoToTx] = useState<NoteFinanceTx | null>(null);
+  const [showNoteLinkTxModal, setShowNoteLinkTxModal] = useState(false);
+  const [noteFinanceRefreshKey, setNoteFinanceRefreshKey] = useState(0);
   // Busca as movimentações financeiras vinculadas à nota (junção finance_transaction_notes,
-  // mesma fonte de verdade usada em Controle Financeiro) sempre que a nota em revisão muda.
+  // mesma fonte de verdade usada em Controle Financeiro) sempre que a nota em revisão muda,
+  // ou quando noteFinanceRefreshKey é incrementado (após vincular/criar uma movimentação).
   useEffect(() => {
     const noteId = viewingReviewNote?.id;
     if (!noteId) { setNoteFinanceTxs([]); return; }
@@ -565,7 +569,7 @@ export default function Page() {
         setNoteFinanceLoading(false);
       });
     return () => { cancelled = true; };
-  }, [viewingReviewNote?.id]);
+  }, [viewingReviewNote?.id, noteFinanceRefreshKey]);
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
   const [savingNoteStatus, setSavingNoteStatus] = useState(false);
   // Combobox de Fornecedor no cabeçalho da nota (mesmo padrão do campo Favorecido em Nova Movimentação)
@@ -7250,10 +7254,18 @@ export default function Page() {
               {noteEditorTab === 'financeiro' && (
                 <div className="flex-1 overflow-auto p-8">
                   <div className="max-w-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
-                      Movimentações vinculadas
-                      <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
-                    </p>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
+                        Movimentações vinculadas
+                        <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
+                      </p>
+                      <button
+                        onClick={() => setShowNoteLinkTxModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
+                      >
+                        <LinkIcon size={13} /> Vincular / criar movimentação
+                      </button>
+                    </div>
                     {noteFinanceLoading ? (
                       <div className="flex items-center gap-2 py-3 text-on-surface/40 text-xs font-semibold">
                         <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
@@ -7379,6 +7391,20 @@ export default function Page() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Vincular a nota a uma movimentação financeira (existente ou nova) */}
+              {showNoteLinkTxModal && viewingReviewNote && (
+                <LinkTransactionModal
+                  note={viewingReviewNote}
+                  isOpen={showNoteLinkTxModal}
+                  onClose={() => setShowNoteLinkTxModal(false)}
+                  onLink={(transactionId) => {
+                    handleLinkNote(viewingReviewNote.id, transactionId);
+                    setNoteFinanceRefreshKey(k => k + 1);
+                    setShowNoteLinkTxModal(false);
+                  }}
+                />
+              )}
 
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
