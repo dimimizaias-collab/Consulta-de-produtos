@@ -549,7 +549,7 @@ export default function Page() {
   type NoteFinanceTx = {
     id: string; data: string; tipo: 'Receita' | 'Despesa'; tipo_pagamento: string;
     favorecido: string; vencimento: string | null; valor_final: number; pago: boolean;
-    numero_parcela: number | null; total_parcelas: number | null;
+    numero_parcela: number | null; total_parcelas: number | null; parcelamento_id: string | null;
   };
   const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento' | 'financeiro'>('produtos');
   const [noteFinanceTxs, setNoteFinanceTxs] = useState<NoteFinanceTx[]>([]);
@@ -557,6 +557,7 @@ export default function Page() {
   const [noteFinanceGoToTx, setNoteFinanceGoToTx] = useState<NoteFinanceTx | null>(null);
   const [showNoteLinkTxModal, setShowNoteLinkTxModal] = useState(false);
   const [noteFinanceRefreshKey, setNoteFinanceRefreshKey] = useState(0);
+  const [noteFinanceExpandedGroups, setNoteFinanceExpandedGroups] = useState<Set<string>>(new Set());
   // Busca as movimentações financeiras vinculadas à nota (junção finance_transaction_notes,
   // mesma fonte de verdade usada em Controle Financeiro) sempre que a nota em revisão muda,
   // ou quando noteFinanceRefreshKey é incrementado (após vincular/criar uma movimentação).
@@ -566,7 +567,7 @@ export default function Page() {
     let cancelled = false;
     setNoteFinanceLoading(true);
     supabase.from('finance_transaction_notes')
-      .select('transaction_id, finance_transactions(id, data, tipo, tipo_pagamento, favorecido, vencimento, valor_final, pago, numero_parcela, total_parcelas)')
+      .select('transaction_id, finance_transactions(id, data, tipo, tipo_pagamento, favorecido, vencimento, valor_final, pago, numero_parcela, total_parcelas, parcelamento_id)')
       .eq('note_id', noteId)
       .then(({ data }) => {
         if (cancelled) return;
@@ -575,6 +576,7 @@ export default function Page() {
             .map((r: any) => r.finance_transactions as NoteFinanceTx | null)
             .filter((t): t is NoteFinanceTx => !!t)
         );
+        setNoteFinanceExpandedGroups(new Set());
         setNoteFinanceLoading(false);
       });
     return () => { cancelled = true; };
@@ -7262,83 +7264,169 @@ export default function Page() {
                 </button>
               </div>
 
-              {noteEditorTab === 'financeiro' && (
-                <div className="flex-1 overflow-auto p-8">
-                  <div className="max-w-2xl">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
-                        Movimentações vinculadas
-                        <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
-                      </p>
-                      <button
-                        onClick={() => setShowNoteLinkTxModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
-                      >
-                        <LinkIcon size={13} /> Vincular / criar movimentação
-                      </button>
-                    </div>
-                    {noteFinanceLoading ? (
-                      <div className="flex items-center gap-2 py-3 text-on-surface/40 text-xs font-semibold">
-                        <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
-                        Carregando movimentações...
-                      </div>
-                    ) : noteFinanceTxs.length === 0 ? (
-                      <p className="text-xs text-on-surface/35 italic bg-on-surface/[0.03] border border-on-surface/10 rounded-2xl px-4 py-3">
-                        Nenhuma movimentação financeira vinculada a esta nota ainda. Vincule pela aba "Controle Financeiro" ao criar ou editar um lançamento.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-2.5">
-                        {noteFinanceTxs.map(tx => {
-                          const isReceita = tx.tipo === 'Receita';
-                          return (
-                            <button
-                              key={tx.id}
-                              onClick={() => setNoteFinanceGoToTx(tx)}
-                              className="w-full flex items-center gap-3 bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-3.5 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-on-surface/20 dark:hover:border-white/20 hover:shadow-lg"
-                              style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
-                            >
-                              <span className={cn(
-                                'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                                isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                              )}>
-                                {isReceita ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-[13.5px] font-black text-on-surface truncate">{tx.favorecido || 'Favorecido não informado'}</span>
-                                  <span className={cn(
-                                    'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
-                                    isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                  )}>
-                                    {tx.tipo}
-                                  </span>
-                                  <span className={cn(
-                                    'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
-                                    tx.pago ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                  )}>
-                                    {tx.pago ? 'Pago' : 'Pendente'}
-                                  </span>
+              {noteEditorTab === 'financeiro' && (() => {
+                const fmtBRL = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
+                const fmtDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
+                // Agrupa por parcelamento (parcelamento_id) — movimentações sem parcelamento
+                // viram um grupo de 1 item só, usando o próprio id como chave.
+                type FinGroup = {
+                  key: string; favorecido: string; tipo: 'Receita' | 'Despesa'; tipoPagamento: string;
+                  total: number; pendentes: number; lastVencimento: string | null; items: NoteFinanceTx[];
+                };
+                const groups: FinGroup[] = (() => {
+                  const map = new Map<string, NoteFinanceTx[]>();
+                  noteFinanceTxs.forEach(tx => {
+                    const key = tx.parcelamento_id || tx.id;
+                    map.set(key, [...(map.get(key) ?? []), tx]);
+                  });
+                  return Array.from(map.entries()).map(([key, items]) => {
+                    const sorted = [...items].sort((a, b) => (a.numero_parcela ?? 0) - (b.numero_parcela ?? 0));
+                    const withDates = items.map(t => t.vencimento || t.data).filter(Boolean) as string[];
+                    return {
+                      key,
+                      favorecido: sorted[0].favorecido,
+                      tipo: sorted[0].tipo,
+                      tipoPagamento: sorted[0].tipo_pagamento,
+                      total: items.reduce((s, t) => s + (t.valor_final || 0), 0),
+                      pendentes: items.filter(t => !t.pago).length,
+                      lastVencimento: withDates.length > 0 ? withDates.sort().slice(-1)[0] : null,
+                      items: sorted,
+                    };
+                  });
+                })();
+                const totalValor = noteFinanceTxs.reduce((s, t) => s + (t.valor_final || 0), 0);
+
+                return (
+                  <div className="flex-1 overflow-auto p-8">
+                    <div className="max-w-3xl grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4 items-start">
+                      <div>
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
+                            Movimentações vinculadas
+                            <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{groups.length}</span>
+                          </p>
+                          <button
+                            onClick={() => setShowNoteLinkTxModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
+                          >
+                            <LinkIcon size={13} /> Vincular / criar movimentação
+                          </button>
+                        </div>
+                        {noteFinanceLoading ? (
+                          <div className="flex items-center gap-2 py-3 text-on-surface/40 text-xs font-semibold">
+                            <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
+                            Carregando movimentações...
+                          </div>
+                        ) : groups.length === 0 ? (
+                          <p className="text-xs text-on-surface/35 italic bg-on-surface/[0.03] border border-on-surface/10 rounded-2xl px-4 py-3">
+                            Nenhuma movimentação financeira vinculada a esta nota ainda. Vincule pela aba "Controle Financeiro" ao criar ou editar um lançamento.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col gap-2.5">
+                            {groups.map(g => {
+                              const isReceita = g.tipo === 'Receita';
+                              const isOpen = noteFinanceExpandedGroups.has(g.key);
+                              return (
+                                <div
+                                  key={g.key}
+                                  className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl overflow-hidden"
+                                >
+                                  <button
+                                    onClick={() => setNoteFinanceExpandedGroups(prev => {
+                                      const s = new Set(prev);
+                                      s.has(g.key) ? s.delete(g.key) : s.add(g.key);
+                                      return s;
+                                    })}
+                                    className="w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-on-surface/[0.02]"
+                                  >
+                                    <span className={cn(
+                                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                                      isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                    )}>
+                                      {isReceita ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-[13.5px] font-black text-on-surface truncate">{g.favorecido || 'Favorecido não informado'}</span>
+                                        <span className={cn(
+                                          'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
+                                          isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                        )}>
+                                          {g.tipo}
+                                        </span>
+                                        {g.pendentes > 0 && (
+                                          <span className="shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                            {g.items.length > 1 ? `${g.pendentes} pendentes` : 'Pendente'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[11.5px] font-semibold text-on-surface/40 truncate">
+                                        {g.tipoPagamento} · {g.items.length} parcela{g.items.length !== 1 ? 's' : ''}
+                                        {g.lastVencimento ? ` · Últ. venc. ${fmtDate(g.lastVencimento)}` : ''}
+                                      </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <p className={cn('text-[15px] font-black', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                                        {fmtBRL(g.total)}
+                                      </p>
+                                      <p className="text-[10px] font-bold text-on-surface/30">total</p>
+                                    </div>
+                                    <ChevronRight size={15} className={cn('shrink-0 text-on-surface/20 transition-transform', isOpen && 'rotate-90')} style={{ transition: 'transform 160ms cubic-bezier(0.23,1,0.32,1)' }} />
+                                  </button>
+                                  {isOpen && (
+                                    <div className="border-t border-on-surface/[0.08] dark:border-white/[0.08] bg-on-surface/[0.015] flex flex-col">
+                                      {g.items.map(tx => (
+                                        <button
+                                          key={tx.id}
+                                          onClick={() => setNoteFinanceGoToTx(tx)}
+                                          className="flex items-center gap-2.5 px-3.5 pl-8 py-2.5 text-left border-b border-on-surface/[0.06] dark:border-white/[0.06] last:border-0 transition-colors hover:bg-red-500/[0.03]"
+                                        >
+                                          <span className="w-[5px] h-[5px] rounded-full bg-on-surface/20 shrink-0" />
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-[11.5px] font-extrabold text-on-surface">
+                                              {tx.total_parcelas && tx.total_parcelas > 1 ? `Parcela ${tx.numero_parcela ?? 1}/${tx.total_parcelas}` : 'Pagamento único'}
+                                            </p>
+                                            <p className="text-[10.5px] font-semibold text-on-surface/40">
+                                              {tx.vencimento ? `Venc. ${fmtDate(tx.vencimento)}` : fmtDate(tx.data)} · {tx.pago ? 'Pago' : 'Pendente'}
+                                            </p>
+                                          </div>
+                                          <span className={cn('text-xs font-black shrink-0', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                                            {fmtBRL(tx.valor_final)}
+                                          </span>
+                                          <ChevronRight size={13} className="shrink-0 text-on-surface/20" />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-[11.5px] font-semibold text-on-surface/40 truncate">
-                                  {tx.tipo_pagamento}
-                                  {tx.vencimento && tx.total_parcelas ? ` · Parcela ${tx.numero_parcela ?? 1}/${tx.total_parcelas} · Venc. ${new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
-                                </p>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className={cn('text-[15px] font-black', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
-                                  R$ {tx.valor_final.toFixed(2).replace('.', ',')}
-                                </p>
-                                <p className="text-[10px] font-bold text-on-surface/30">{new Date(tx.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                              </div>
-                              <ChevronRight size={15} className="shrink-0 text-on-surface/20" />
-                            </button>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {/* Resumo */}
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Resumo</p>
+                        <div className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-4 py-3.5 flex flex-col gap-2.5">
+                          <p className="text-xl font-black text-red-600 dark:text-red-400 leading-none">{fmtBRL(totalValor)}</p>
+                          <div className="h-px bg-on-surface/[0.08] dark:bg-white/[0.08]" />
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <p className="text-[15px] font-black text-on-surface leading-none">{groups.length}</p>
+                              <p className="text-[9px] font-bold text-on-surface/40 mt-0.5">MOVIMENTAÇÕES</p>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[15px] font-black text-on-surface leading-none">{noteFinanceTxs.length}</p>
+                              <p className="text-[9px] font-bold text-on-surface/40 mt-0.5">PARCELAS</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Confirmação: ir até a movimentação no Controle Financeiro */}
               <AnimatePresence>

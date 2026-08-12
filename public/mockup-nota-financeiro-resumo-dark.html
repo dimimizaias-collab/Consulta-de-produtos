@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Resumo + cards agrupados (Dark)</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.30);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --line: rgba(242,240,227,0.09);
+    --rose: #D81E1E;
+    --amber: #FCD34D;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'DM Sans', -apple-system, sans-serif; background: #14140F; color: var(--title); }
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 24px 100px; }
+  h2.tag { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.30); margin: 0 0 16px; }
+
+  .window { background: var(--bg); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; box-shadow: 0 30px 70px -30px rgba(0,0,0,0.6); margin-bottom: 56px; }
+
+  .modal-header { background: #252520; border-bottom: 1px solid rgba(242,240,227,0.07); padding: 14px 22px; display: flex; align-items: center; gap: 12px; }
+  .icon-chip { width: 34px; height: 34px; border-radius: 10px; background: rgba(242,240,227,0.06); display: flex; align-items: center; justify-content: center; color: #F2F0E3; }
+  .icon-chip svg { width: 17px; height: 17px; }
+  .modal-header .title { font-size: 15px; font-weight: 900; }
+  .modal-header .sub { font-size: 10.5px; font-weight: 800; color: rgba(242,240,227,0.45); background: rgba(242,240,227,0.08); padding: 1px 7px; border-radius: 6px; margin-left: 8px; }
+
+  .tabs { display: flex; gap: 22px; padding: 0 22px; border-bottom: 1px solid var(--line); background: #1e1e18; }
+  .tab { display: flex; align-items: center; gap: 7px; padding: 11px 0; font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(242,240,227,0.40); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--title); border-color: var(--title); }
+  .tab .count { background: rgba(242,240,227,0.10); color: rgba(242,240,227,0.60); font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 9999px; }
+
+  .tab-body { padding: 22px; display: grid; grid-template-columns: 1fr 240px; gap: 16px; align-items: start; }
+
+  .section-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(242,240,227,0.35); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .section-label .count { background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.55); font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 9999px; }
+
+  /* ── Resumo — compacto, ~altura de 2 cards de movimentação ─────────── */
+  .summary-card {
+    background: var(--card-bg); border: 1.5px solid var(--card-border); border-radius: 16px;
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .summary-total-value { font-size: 22px; font-weight: 900; color: #f87171; letter-spacing: -0.01em; line-height: 1; }
+  .summary-split { display: flex; gap: 8px; }
+  .summary-split .item { flex: 1; }
+  .summary-split .n { font-size: 15px; font-weight: 900; line-height: 1; }
+  .summary-split .l { font-size: 9px; font-weight: 700; color: rgba(242,240,227,0.40); margin-top: 3px; }
+  .summary-divider { height: 1px; background: var(--card-border); margin: 1px 0; }
+
+  /* ── Card consolidado (movimentação principal) ──────────────────────── */
+  .group-wrap { border: 1.5px solid var(--card-border); border-radius: 16px; overflow: hidden; background: var(--card-bg); }
+  .group-header {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px; cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .group-header:hover { background: rgba(242,240,227,0.02); }
+  .group-icon { width: 38px; height: 38px; border-radius: 11px; background: rgba(216,30,30,0.15); color: #f87171; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .group-icon svg { width: 17px; height: 17px; }
+  .group-main { min-width: 0; flex: 1; }
+  .group-top { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+  .group-fav { font-size: 13px; font-weight: 900; }
+  .pill { flex-shrink: 0; font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 9999px; }
+  .pill.despesa { background: rgba(216,30,30,0.16); color: #f87171; }
+  .pill.pendente { background: rgba(252,211,77,0.14); color: var(--amber); }
+  .group-sub { font-size: 11px; font-weight: 600; color: rgba(242,240,227,0.38); }
+  .group-value { flex-shrink: 0; text-align: right; }
+  .group-value .amount { font-size: 14px; font-weight: 900; color: #f87171; }
+  .group-value .date { font-size: 9.5px; font-weight: 700; color: rgba(242,240,227,0.30); margin-top: 1px; }
+  .chevron { flex-shrink: 0; color: rgba(242,240,227,0.22); transition: transform 160ms cubic-bezier(0.23,1,0.32,1); }
+  .chevron svg { width: 15px; height: 15px; }
+  .group-wrap.open .chevron { transform: rotate(90deg); }
+
+  .parcelas-list { border-top: 1px solid var(--card-border); background: rgba(242,240,227,0.015); display: none; flex-direction: column; }
+  .group-wrap.open .parcelas-list { display: flex; }
+  .parcela-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 30px; cursor: pointer;
+    border-bottom: 1px solid var(--card-border); transition: background 120ms ease;
+  }
+  .parcela-row:last-child { border-bottom: none; }
+  .parcela-row:hover { background: rgba(216,30,30,0.05); }
+  .parcela-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(242,240,227,0.22); flex-shrink: 0; }
+  .parcela-main { min-width: 0; flex: 1; }
+  .parcela-label { font-size: 11.5px; font-weight: 800; }
+  .parcela-sub { font-size: 10.5px; font-weight: 600; color: rgba(242,240,227,0.35); }
+  .parcela-value { flex-shrink: 0; text-align: right; }
+  .parcela-value .amount { font-size: 12px; font-weight: 900; color: #f87171; }
+  .parcela-arrow { flex-shrink: 0; color: rgba(242,240,227,0.20); }
+  .parcela-arrow svg { width: 13px; height: 13px; }
+
+  .hint { font-size: 10.5px; color: rgba(242,240,227,0.28); font-style: italic; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h2 class="tag">Aba "Financeiro" — cards consolidados + Resumo compacto (dark)</h2>
+  <div class="window">
+    <div class="modal-header">
+      <span class="icon-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      </span>
+      <span class="title">CHOCOMAR</span>
+      <span class="sub">000.039.260</span>
+    </div>
+    <div class="tabs">
+      <div class="tab">Produtos <span class="count">19</span></div>
+      <div class="tab">Recebimento</div>
+      <div class="tab active">Financeiro <span class="count">3</span></div>
+    </div>
+    <div class="tab-body">
+      <div>
+        <p class="section-label">Movimentações vinculadas <span class="count">2</span></p>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Grupo 1 — aberto, exemplo -->
+          <div class="group-wrap open" onclick="this.classList.toggle('open')">
+            <div class="group-header">
+              <span class="group-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span>
+              <div class="group-main">
+                <div class="group-top">
+                  <span class="group-fav">CHOCOMAR</span>
+                  <span class="pill despesa">Despesa</span>
+                  <span class="pill pendente">2 pendentes</span>
+                </div>
+                <div class="group-sub">Boleto · 2 parcelas · Últ. venc. 15/09/2026</div>
+              </div>
+              <div class="group-value">
+                <div class="amount">R$ 1.277,17</div>
+                <div class="date">total</div>
+              </div>
+              <span class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </div>
+            <div class="parcelas-list" onclick="event.stopPropagation()">
+              <div class="parcela-row" onclick="alert('Ir até a movimentação? (confirmação existente)')">
+                <span class="parcela-dot"></span>
+                <div class="parcela-main">
+                  <div class="parcela-label">Parcela 1/2</div>
+                  <div class="parcela-sub">Venc. 08/09/2026 · Pendente</div>
+                </div>
+                <div class="parcela-value"><span class="amount">R$ 638,59</span></div>
+                <span class="parcela-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </div>
+              <div class="parcela-row" onclick="alert('Ir até a movimentação? (confirmação existente)')">
+                <span class="parcela-dot"></span>
+                <div class="parcela-main">
+                  <div class="parcela-label">Parcela 2/2</div>
+                  <div class="parcela-sub">Venc. 15/09/2026 · Pendente</div>
+                </div>
+                <div class="parcela-value"><span class="amount">R$ 638,58</span></div>
+                <span class="parcela-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grupo 2 — fechado, exemplo (pagamento único, sem parcelamento) -->
+          <div class="group-wrap" onclick="this.classList.toggle('open')">
+            <div class="group-header">
+              <span class="group-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span>
+              <div class="group-main">
+                <div class="group-top">
+                  <span class="group-fav">Distribuidora Norte</span>
+                  <span class="pill despesa">Despesa</span>
+                  <span class="pill pendente">Pendente</span>
+                </div>
+                <div class="group-sub">PIX · 1 parcela · Venc. 02/10/2026</div>
+              </div>
+              <div class="group-value">
+                <div class="amount">R$ 840,00</div>
+                <div class="date">total</div>
+              </div>
+              <span class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </div>
+            <div class="parcelas-list" onclick="event.stopPropagation()">
+              <div class="parcela-row" onclick="alert('Ir até a movimentação? (confirmação existente)')">
+                <span class="parcela-dot"></span>
+                <div class="parcela-main">
+                  <div class="parcela-label">Pagamento único</div>
+                  <div class="parcela-sub">Venc. 02/10/2026 · Pendente</div>
+                </div>
+                <div class="parcela-value"><span class="amount">R$ 840,00</span></div>
+                <span class="parcela-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="hint">Clicar no card principal expande/recolhe as parcelas. Clicar numa parcela (dentro do expandido) é que dispara a confirmação "Ir até a movimentação?" e leva pro Controle Financeiro.</p>
+      </div>
+
+      <!-- Resumo compacto -->
+      <div>
+        <p class="section-label">Resumo</p>
+        <div class="summary-card">
+          <div class="summary-total-value">R$ 2.117,17</div>
+          <div class="summary-divider"></div>
+          <div class="summary-split">
+            <div class="item"><div class="n">2</div><div class="l">MOVIMENTAÇÕES</div></div>
+            <div class="item"><div class="n">3</div><div class="l">PARCELAS</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
