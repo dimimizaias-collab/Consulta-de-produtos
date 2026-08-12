@@ -1161,7 +1161,15 @@ export default function Page() {
   // uma nota que já teve o estoque lançado não soma de novo; o preço pode ser resincronizado
   // sempre, pois é uma regra de "só avança se a data for mais recente", não um incremento.
   const applyNoteToCompanyStock = useCallback(async (note: ReviewNote) => {
-    const priceCandidates = (note.items || []).filter((item: any) => item.product_id && item.product_price > 0);
+    // Produtos marcados como Falta com "Produto não veio" (falta total) não devem ter preço/
+    // estoque gravados na aprovação — eles nunca chegaram. O vínculo com o dicionário (botão
+    // "Vincular") continua disponível normalmente, só não dispara essa gravação automática.
+    const priceCandidates = (note.items || []).filter((item: any) => {
+      if (!(item.product_id && item.product_price > 0)) return false;
+      const d = item.discrepancy;
+      if (d?.type === 'falta' && d.missingAll) return false;
+      return true;
+    });
     if (priceCandidates.length === 0) return;
 
     const noteReceivedDate = note.receivedDate || null;
@@ -10118,8 +10126,12 @@ export default function Page() {
           const meta = STATUS_META[statusConfirmTarget];
           const blockedByMissingDate = statusConfirmTarget === 'revisao' && !viewingReviewNote.receivedDate;
           // Considera preços ainda não salvos (digitados na tela mas não persistidos) além do que já está no banco.
+          // Itens com "Falta" total (Produto não veio) não exigem Preço de Venda — só a falta
+          // parcial (produto chegou, só que em quantidade menor) continua exigindo o preço.
           const blockedByMissingPrice = statusConfirmTarget === 'aprovada' && viewingReviewNote.items.some((item: any, idx: number) => {
             if (!item.product_id) return false;
+            const d = viewingNoteDiscrepancies[idx] ?? (item.discrepancy as DiscrepancyData) ?? null;
+            if (d?.type === 'falta' && d.missingAll) return false;
             const price = viewingNoteSellPrices[idx] ?? item.product_price;
             return !(price > 0);
           });
