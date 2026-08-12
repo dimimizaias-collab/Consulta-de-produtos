@@ -32,6 +32,7 @@ interface Transaction {
   total_pago: number;
   pago: boolean;
   account_id?: string | null;
+  parcelamento_id?: string | null;
 }
 
 interface BankAccount {
@@ -129,6 +130,10 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
   const [loading,       setLoading]       = useState(false);
   const [linking,       setLinking]       = useState(false);
   const [linkError,     setLinkError]     = useState<string | null>(null);
+  // Todas as movimentações já vinculadas a esta nota (junção N:N) — uma nota pode estar
+  // vinculada a mais de uma movimentação diferente, então não dá pra confiar só no campo
+  // legado finance_transaction_id (que guarda um único id, de cache).
+  const [linkedTxIds,   setLinkedTxIds]   = useState<Set<string>>(new Set());
 
   // ── Search ────────────────────────────────────────────────────────────────
   const [search,              setSearch]              = useState('');
@@ -180,7 +185,13 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
     setColumnFiltersEnabled(false);
     setFilterOpenKey(null);
     fetchAll();
+    fetchLinkedTxIds();
   }, [isOpen]);
+
+  const fetchLinkedTxIds = async () => {
+    const { data } = await supabase.from('finance_transaction_notes').select('transaction_id').eq('note_id', note.id);
+    setLinkedTxIds(new Set((data ?? []).map((r: any) => r.transaction_id as string)));
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -247,19 +258,31 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
     setLinkError(null);
     // Use provided txData (auto-link path) or look up from loaded list
     const tx = txData ?? transactions.find(t => t.id === txId);
+    // Se a movimentação faz parte de um parcelamento e o chamador não resolveu as parcelas
+    // irmãs (caso da criação em lote, que já passa allTxIds), busca todas elas aqui — vincular
+    // uma parcela pelo botão "Vincular" da tabela de notas deve vincular a nota a todas.
+    let txIds = allTxIds && allTxIds.length > 0 ? allTxIds : [txId];
+    if (!allTxIds || allTxIds.length === 0) {
+      const fullTx = transactions.find(t => t.id === txId);
+      if (fullTx?.parcelamento_id) {
+        const siblingIds = transactions.filter(t => t.parcelamento_id === fullTx.parcelamento_id).map(t => t.id);
+        if (siblingIds.length > 0) txIds = siblingIds;
+      }
+    }
     const { error } = await supabase.from('review_notes').update({
       finance_transaction_id: txId,
       finance_tx_favorecido:  tx?.favorecido  ?? null,
       finance_tx_valor:       tx?.valor_final ?? null,
     }).eq('id', note.id);
     if (!error) {
-      // Junção N:N usada pelo Controle Financeiro (todas as parcelas, quando houver).
-      // Vincular por aqui substitui os vínculos anteriores da nota.
-      const txIds = allTxIds && allTxIds.length > 0 ? allTxIds : [txId];
-      await supabase.from('finance_transaction_notes').delete().eq('note_id', note.id);
-      await supabase.from('finance_transaction_notes').insert(
+      // Junção N:N usada pelo Controle Financeiro (todas as parcelas, quando houver). Aditivo:
+      // preserva vínculos com OUTRAS movimentações que a nota já tinha — uma nota pode estar
+      // vinculada a mais de uma movimentação diferente ao mesmo tempo.
+      await supabase.from('finance_transaction_notes').upsert(
         txIds.map(id => ({ transaction_id: id, note_id: note.id })),
+        { onConflict: 'transaction_id,note_id' },
       );
+      setLinkedTxIds(prev => new Set([...prev, ...txIds]));
     }
     setLinking(false);
     if (error) {
@@ -280,6 +303,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
     }).eq('id', note.id);
     if (!error) {
       await supabase.from('finance_transaction_notes').delete().eq('note_id', note.id);
+      setLinkedTxIds(new Set());
     }
     setLinking(false);
     if (error) {
@@ -428,16 +452,20 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
             </div>
 
             {/* ── Already linked banner ───────────────────────────────────── */}
-            {note.finance_transaction_id && mode === 'search' && (
+            {linkedTxIds.size > 0 && mode === 'search' && (
               <div className="mx-6 mt-4 flex items-center gap-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl shrink-0">
                 <Link2 size={16} className="text-emerald-600 shrink-0" />
-                <span className="text-xs font-bold text-emerald-700 flex-1">Nota já vinculada a uma movimentação financeira.</span>
+                <span className="text-xs font-bold text-emerald-700 flex-1">
+                  {linkedTxIds.size === 1
+                    ? 'Nota já vinculada a uma movimentação financeira.'
+                    : `Nota já vinculada a ${linkedTxIds.size} movimentações financeiras.`}
+                </span>
                 <button
                   onClick={handleUnlink}
                   disabled={linking}
                   className="text-xs font-bold text-emerald-700 underline underline-offset-2 hover:text-emerald-900 transition-colors disabled:opacity-50 shrink-0"
                 >
-                  {linking ? <Loader2 size={12} className="animate-spin" /> : 'Desvincular'}
+                  {linking ? <Loader2 size={12} className="animate-spin" /> : (linkedTxIds.size === 1 ? 'Desvincular' : 'Desvincular todas')}
                 </button>
               </div>
             )}
@@ -761,7 +789,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
                           </thead>
                           <tbody>
                             {filtered.map(t => {
-                              const isLinked = t.id === note.finance_transaction_id;
+                              const isLinked = linkedTxIds.has(t.id);
                               return (
                                 <tr
                                   key={t.id}
