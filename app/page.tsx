@@ -7298,7 +7298,7 @@ export default function Page() {
 
                 return (
                   <div className="flex-1 overflow-auto p-8">
-                    <div className="max-w-3xl grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4 items-start">
+                    <div className="max-w-4xl grid grid-cols-1 md:grid-cols-[1fr_240px] gap-12 items-start">
                       <div>
                         <div className="flex items-center justify-between gap-3 mb-3">
                           <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
