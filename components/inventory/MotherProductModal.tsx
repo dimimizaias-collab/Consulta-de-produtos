@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, Package, Link as LinkIcon, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { X, Package, Link as LinkIcon, Info, Image as ImageIcon } from 'lucide-react';
+import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 
@@ -55,8 +55,11 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
+  const [image, setImage] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -69,6 +72,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
       setLocation(editingPackage.location || '');
       setCategory(editingPackage.category || '');
       setSubcategory(editingPackage.subcategory || '');
+      setImage(editingPackage.image || '');
       supabase
         .from('product_mother_package_ean_codes')
         .select('ean, description')
@@ -76,10 +80,37 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         .then(({ data }) => setExtraEans((data || []) as EanCodeEntry[]));
     } else {
       setSku(''); setName(''); setEan(''); setExtraEans([]);
-      setUnitsPerChild(1); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory('');
+      setUnitsPerChild(1); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
   }, [open, editingPackage]);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Selecione apenas arquivos de imagem (JPG, PNG, etc).');
+      if (e.target) e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details ? `${errorData.error}: ${errorData.details}` : (errorData.error || 'Falha no upload'));
+      }
+      const data = await response.json();
+      setImage(data.url);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar imagem.');
+    } finally {
+      setUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  }
 
   async function handleSave() {
     if (!name.trim()) { setError('Informe o nome da embalagem.'); return; }
@@ -95,6 +126,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         location: location.trim() || null,
         category: category.trim() || null,
         subcategory: subcategory.trim() || null,
+        image: image.trim() || null,
         units_per_child: unitsPerChild || 1,
         updated_at: new Date().toISOString(),
       };
@@ -248,6 +280,47 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                   <div className="space-y-1.5">
                     <label className={labelCls}>Subcategoria (opcional)</label>
                     <input type="text" value={subcategory} onChange={e => setSubcategory(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              </div>
+
+              <div className={sectionCls}>
+                <div className={sectionHeadCls}>
+                  <ImageIcon size={15} className="text-primary shrink-0" />
+                  <span className={sectionTitleCls}>Imagem</span>
+                </div>
+                <div className="flex gap-3 items-center">
+                  <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                    {image ? (
+                      <img src={getDirectImageUrl(image) || image} alt={name || 'Produto Mãe'} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 flex gap-2 min-w-0">
+                    <input
+                      type="text"
+                      value={image}
+                      onChange={e => setImage(e.target.value)}
+                      className={cn(inputCls, 'flex-1 min-w-0')}
+                      placeholder="https://..."
+                    />
+                    <input
+                      type="file"
+                      ref={imageInputRef}
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      accept="image/*"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploading}
+                      className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                      title="Upload do computador"
+                    >
+                      {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                    </button>
                   </div>
                 </div>
               </div>

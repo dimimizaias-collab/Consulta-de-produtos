@@ -92,8 +92,12 @@ export function MotherProductsTab({ childProductId, childProductName }: MotherPr
                 {pkg.suppliers.nome_fantasia || pkg.suppliers.name}
               </span>
             )}
-            <div className="w-full h-[88px] rounded-xl bg-surface-container border border-black/[0.07] dark:border-white/[0.06] flex items-center justify-center text-secondary/20">
-              <Package size={26} strokeWidth={1.6} />
+            <div className="w-full h-[88px] rounded-xl bg-surface-container border border-black/[0.07] dark:border-white/[0.06] flex items-center justify-center text-secondary/20 overflow-hidden">
+              {pkg.image ? (
+                <img src={pkg.image} alt={pkg.name} className="w-full h-full object-cover" />
+              ) : (
+                <Package size={26} strokeWidth={1.6} />
+              )}
             </div>
             <p className="text-[13px] font-extrabold text-on-surface leading-tight">{pkg.name}</p>
             <div className="flex items-center gap-1.5 flex-wrap">
