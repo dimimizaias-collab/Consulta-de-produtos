@@ -117,6 +117,7 @@ export function MotherProductsTab({ childProductId, childProductName }: MotherPr
                 1 emb. = {pkg.units_per_child} un
               </span>
               <button
+                type="button"
                 onClick={() => openEdit(pkg)}
                 className="w-[26px] h-[26px] rounded-[9px] bg-black/[0.06] dark:bg-white/[0.07] flex items-center justify-center text-secondary/60 hover:bg-primary hover:text-white transition-colors"
                 title="Editar Produto Mãe"
