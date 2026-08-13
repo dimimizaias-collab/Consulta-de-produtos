@@ -7780,10 +7780,10 @@ export default function Page() {
                                   title={d?.disregarded ? "Produto desconsiderado da nota" : "Registrar divergência"}
                                   className={cn(
                                     "relative flex items-center justify-center w-5 h-5 rounded-full transition-all shrink-0",
-                                    d?.disregarded ? "text-amber-400/90 hover:text-amber-300"
-                                    : d?.type === 'falta' ? "text-red-400/90 hover:text-red-300"
-                                    : d?.type === 'sobra' ? "text-emerald-400/90 hover:text-emerald-300"
-                                    : "text-white/20 hover:text-white/50"
+                                    d?.disregarded ? "text-amber-500 dark:text-amber-400/90 hover:text-amber-600 dark:hover:text-amber-300"
+                                    : d?.type === 'falta' ? "text-red-500 dark:text-red-400/90 hover:text-red-600 dark:hover:text-red-300"
+                                    : d?.type === 'sobra' ? "text-emerald-600 dark:text-emerald-400/90 hover:text-emerald-700 dark:hover:text-emerald-300"
+                                    : "text-black/25 hover:text-black/50 dark:text-white/20 dark:hover:text-white/50"
                                   )}
                                   style={{ transition: 'color 140ms cubic-bezier(0.23,1,0.32,1)' }}
                                 >
