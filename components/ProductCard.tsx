@@ -4,7 +4,7 @@ import { useState, useMemo, memo } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
-import { Edit2, Tag, Package, MapPin, Hash, Barcode, ImageOff, Link as LinkIcon, LayoutGrid } from 'lucide-react';
+import { Edit2, Tag, Package, MapPin, Hash, Barcode, ImageOff, LayoutGrid } from 'lucide-react';
 
 interface ProductCardProps {
   id?: string;
@@ -20,12 +20,7 @@ interface ProductCardProps {
   subcategory?: string;
   brand?: string;
   isLow?: boolean;
-  is_mother?: boolean;
-  units_per_mother?: number;
-  linkedProductId?: string | null;
-  linked_product_id?: string | null;
   onEdit?: (product: any) => void;
-  onViewLink?: (product: any) => void;
 }
 
 function ProductImage({ src, alt }: { src: string; alt: string }) {
@@ -57,31 +52,15 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
 
 export const ProductCard = memo(function ProductCard({
   id, sku, name, image, status, count, location, price, ean,
-  category, subcategory, brand, isLow, is_mother, units_per_mother,
-  linkedProductId, linked_product_id, onEdit, onViewLink,
+  category, subcategory, brand, isLow, onEdit,
 }: ProductCardProps) {
-  const isLinked = !!(linkedProductId || linked_product_id);
-  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow, is_mother, units_per_mother, linkedProductId, linked_product_id };
+  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
 
   return (
     <motion.div
       whileHover={{ y: -2 }}
       className="bg-surface rounded-[22px] border border-on-surface/[0.10] md:border-on-surface/[0.07] relative group transition-shadow hover:shadow-[0_8px_32px_rgba(0,0,0,0.18)] dark:hover:shadow-[0_10px_36px_rgba(0,0,0,0.45)]"
     >
-      {/* Link badge */}
-      {isLinked && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onViewLink?.(product); }}
-          className={cn(
-            "absolute -top-2.5 -left-2.5 w-[26px] h-[26px] rounded-full flex items-center justify-center text-white border-[3px] border-background z-20 hover:scale-110 transition-transform shadow-lg",
-            is_mother ? "bg-purple-600" : "bg-primary"
-          )}
-          title="Ver vínculo"
-        >
-          <LinkIcon size={11} />
-        </button>
-      )}
-
       {/* Edit button */}
       {onEdit && (
         <button
@@ -109,11 +88,6 @@ export const ProductCard = memo(function ProductCard({
             {/* Name */}
             <p className="text-[14px] md:text-[17px] font-extrabold text-on-surface leading-[1.3] md:leading-[1.35] tracking-[-0.2px] md:mb-2">
               {name}
-              {is_mother && (
-                <span className="ml-2 text-[10px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full align-middle">
-                  Mãe · {units_per_mother} un
-                </span>
-              )}
             </p>
 
             {/* EAN + SKU pills */}

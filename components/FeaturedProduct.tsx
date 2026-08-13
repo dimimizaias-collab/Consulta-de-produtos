@@ -20,8 +20,6 @@ interface FeaturedProductProps {
     internalCode?: string;
     category?: string;
     subcategory?: string;
-    is_mother?: boolean;
-    units_per_mother?: number;
   };
   onEdit?: (product: any) => void;
 }
@@ -82,11 +80,6 @@ export function FeaturedProduct({ product, onEdit }: FeaturedProductProps) {
         <div className="flex justify-between items-start mb-6">
           <div className="flex flex-col gap-3">
             <span className="bg-surface-container-low text-primary text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest w-fit border border-on-surface/[0.02]">{product.category || 'Curated Item'}</span>
-            {product.is_mother && (
-              <span className="bg-purple-50 text-purple-700 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest w-fit border border-purple-100">
-                Mother Product ({product.units_per_mother} Units)
-              </span>
-            )}
           </div>
           <div className="text-right">
              <p className="text-[10px] font-black uppercase text-on-surface/20 tracking-tighter mb-1">Valuation</p>

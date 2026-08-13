@@ -271,13 +271,6 @@ export default function Page() {
   const [products, setProducts] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [showAddRequestModal, setShowAddRequestModal] = useState(false);
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [showLinkViewModal, setShowLinkViewModal] = useState(false);
-  const [linkViewData, setLinkViewData] = useState<{ mother: any, child: any } | null>(null);
-  const [linkTarget, setLinkTarget] = useState<'editing' | 'new'>('editing');
-  const [linkSearchQuery, setLinkSearchQuery] = useState({ ean: '', sku: '', name: '' });
-  const [linkSearchResults, setLinkSearchResults] = useState<any[]>([]);
-  const [isLinking, setIsLinking] = useState(false);
   const [isRequestingNewProduct, setIsRequestingNewProduct] = useState(false);
   const [isReviewingExistingRequest, setIsReviewingExistingRequest] = useState(false);
   const [requestSearchQuery, setRequestSearchQuery] = useState({ sku: '', ean: '' });
@@ -295,8 +288,6 @@ export default function Page() {
     location: '',
     image: '',
     observation: '',
-    is_mother: false,
-    units_per_mother: 1
   });
   const [newProductRequestExtraEans, setNewProductRequestExtraEans] = useState<EanCodeEntry[]>([]);
   const [showStockUpdateChoiceModal, setShowStockUpdateChoiceModal] = useState(false);
@@ -647,9 +638,6 @@ export default function Page() {
     fabricante: '',
     cnpj: '',
     composicao: '',
-    is_mother: false,
-    units_per_mother: 1,
-    linked_product_id: null as string | null
   });
   const [newProductExtraEans, setNewProductExtraEans] = useState<EanCodeEntry[]>([]);
   const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
@@ -857,23 +845,6 @@ export default function Page() {
             
             if (!updateError) {
               updatedCount++;
-              
-              // Handle Mother/Child relationship for file import
-              if (product.is_mother && product.linked_product_id) {
-                const childUnitsToSubtract = qtyToSubtract * (product.units_per_mother || 1);
-                const childProduct = currentProducts.find(p => p.id === product.linked_product_id);
-                if (childProduct) {
-                  const newChildCount = Math.max(0, (childProduct.count || 0) - childUnitsToSubtract);
-                  await supabase
-                    .from('products')
-                    .update({ 
-                      count: newChildCount,
-                      is_low: newChildCount < 5,
-                      status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-                    })
-                    .eq('id', childProduct.id);
-                }
-              }
             } else {
               errors++;
             }
@@ -1417,8 +1388,6 @@ export default function Page() {
           ean: newProductRequest.ean || '',
           extraEans: newProductRequestExtraEans.filter(e => e.ean.trim()),
           is_new_product: true,
-          is_mother: newProductRequest.is_mother,
-          units_per_mother: newProductRequest.units_per_mother
         }),
         status: 'pending'
       } : {
@@ -1439,7 +1408,6 @@ export default function Page() {
       setNewProductRequest({
         sku: '', name: '', ean: '', category: '', subcategory: '', brand: '',
         count: 0, price: 0, location: '', image: '', observation: '',
-        is_mother: false, units_per_mother: 1
       });
       setNewProductRequestExtraEans([]);
       fetchRequests();
@@ -1661,9 +1629,6 @@ export default function Page() {
         is_featured: false,
         is_side: false,
         is_low: primaryStock.count < 5,
-        is_mother: newProduct.is_mother,
-        units_per_mother: newProduct.units_per_mother,
-        linked_product_id: newProduct.linked_product_id
       };
 
       console.log('Enviando para o Supabase...');
@@ -1701,31 +1666,6 @@ export default function Page() {
         }
       }
 
-      // Logic for Mother/Child stock update on creation — usa sempre o estoque da empresa
-      // padrão, já que é o único valor espelhado em products.count (o filho não é por empresa).
-      if (newProduct.is_mother && newProduct.linked_product_id && primaryStock.count > 0) {
-        const unitsToAdd = primaryStock.count * (newProduct.units_per_mother || 1);
-        
-        // Get child product to get its current count
-        const { data: childData } = await supabase
-          .from('products')
-          .select('count')
-          .eq('id', newProduct.linked_product_id)
-          .single();
-          
-        if (childData) {
-          const newChildCount = (childData.count || 0) + unitsToAdd;
-          await supabase
-            .from('products')
-            .update({ 
-              count: newChildCount,
-              is_low: newChildCount < 5,
-              status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-            })
-            .eq('id', newProduct.linked_product_id);
-        }
-      }
-
       console.log('Sucesso:', data);
       setNotification({ type: 'success', message: 'Produto adicionado com sucesso!' });
       
@@ -1746,9 +1686,6 @@ export default function Page() {
         fabricante: '',
         cnpj: '',
         composicao: '',
-        is_mother: false,
-        units_per_mother: 1,
-        linked_product_id: null
       });
       setNewProductExtraEans([]);
       setNewProductCompanyId('');
@@ -1810,9 +1747,6 @@ export default function Page() {
         internal_code: editingProduct.sku,
         ...(isPrimaryCompanySelected ? { is_low: editCount < 5 } : {}),
         updated_at: new Date().toISOString(),
-        is_mother: editingProduct.is_mother,
-        units_per_mother: editingProduct.units_per_mother,
-        linked_product_id: editingProduct.linked_product_id
       };
 
       const { error } = await supabase
@@ -1879,36 +1813,6 @@ export default function Page() {
             }),
             status: 'pending',
           });
-        }
-      }
-
-      // Logic for Mother/Child stock update — só se aplica à empresa padrão, já que
-      // originalCount foi capturado a partir de products.count (que só espelha essa empresa).
-      if (isPrimaryCompanySelected && editingProduct.is_mother && editingProduct.linked_product_id) {
-        const newCount = editCount;
-        const diff = newCount - (editingProduct.originalCount || 0);
-        
-        if (diff > 0) {
-          const unitsToAdd = diff * (editingProduct.units_per_mother || 1);
-          
-          // Get child product to get its current count
-          const { data: childData } = await supabase
-            .from('products')
-            .select('count')
-            .eq('id', editingProduct.linked_product_id)
-            .single();
-            
-          if (childData) {
-            const newChildCount = (childData.count || 0) + unitsToAdd;
-            await supabase
-              .from('products')
-              .update({ 
-                count: newChildCount,
-                is_low: newChildCount < 5,
-                status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-              })
-              .eq('id', editingProduct.linked_product_id);
-          }
         }
       }
 
@@ -2044,30 +1948,8 @@ export default function Page() {
           .eq('id', item.id);
           
         if (updateError) throw updateError;
-        
-        // Mother/Child Logic
-        if (item.is_mother && item.linked_product_id) {
-          const unitsToAdd = item.noteQuantity * (item.units_per_mother || 1);
-          const { data: childData } = await supabase
-            .from('products')
-            .select('count')
-            .eq('id', item.linked_product_id)
-            .single();
-            
-          if (childData) {
-            const newChildCount = (childData.count || 0) + unitsToAdd;
-            await supabase
-              .from('products')
-              .update({ 
-                count: newChildCount,
-                is_low: newChildCount < 5,
-                status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-              })
-              .eq('id', item.linked_product_id);
-          }
-        }
       }
-      
+
       setNotification({ type: 'success', message: 'Entrada de mercadoria processada com sucesso!' });
       setNoteItems([]);
       fetchProducts();
@@ -2541,18 +2423,6 @@ export default function Page() {
           status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
         }).eq('id', product.id);
 
-        if (product.is_mother && product.linked_product_id) {
-          const childUnits = item.original_qty * (product.units_per_mother || 1);
-          const childProduct = currentProducts?.find((p: any) => p.id === product.linked_product_id);
-          if (childProduct) {
-            const newChildCount = (childProduct.count || 0) + childUnits;
-            await supabase.from('products').update({
-              count: newChildCount,
-              is_low: newChildCount < 5,
-              status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-            }).eq('id', childProduct.id);
-          }
-        }
         updatedCount++;
       }
 
@@ -3745,31 +3615,7 @@ export default function Page() {
         .eq('id', selectedManualProduct.id);
         
       if (updateError) throw updateError;
-      
-      // If it's a mother product, update the child product
-      if (selectedManualProduct.is_mother && selectedManualProduct.linked_product_id) {
-        const unitsToAdd = manualStockChange * (selectedManualProduct.units_per_mother || 1);
-        
-        // Fetch child product current count
-        const { data: childData } = await supabase
-          .from('products')
-          .select('count')
-          .eq('id', selectedManualProduct.linked_product_id)
-          .single();
-          
-        if (childData) {
-          const newChildCount = Math.max(0, (childData.count || 0) + unitsToAdd);
-          await supabase
-            .from('products')
-            .update({ 
-              count: newChildCount,
-              is_low: newChildCount < 5,
-              status: newChildCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-            })
-            .eq('id', selectedManualProduct.linked_product_id);
-        }
-      }
-      
+
       setNotification({ type: 'success', message: 'Estoque atualizado com sucesso!' });
       setShowManualStockModal(false);
       setSelectedManualProduct(null);
@@ -3785,147 +3631,10 @@ export default function Page() {
     }
   };
 
-  const handleLinkSearch = async () => {
-    if (!linkSearchQuery.ean && !linkSearchQuery.sku && !linkSearchQuery.name) {
-      setLinkSearchResults([]);
-      return;
-    }
-
-    let query = supabase.from('products').select('*');
-
-    if (linkSearchQuery.ean) query = query.ilike('ean', `%${linkSearchQuery.ean}%`);
-    if (linkSearchQuery.sku) query = query.ilike('sku', `%${linkSearchQuery.sku}%`);
-    if (linkSearchQuery.name) query = query.ilike('name', `%${linkSearchQuery.name}%`);
-
-    // Exclude the current product
-    if (editingProduct) {
-      query = query.neq('id', editingProduct.id);
-    }
-
-    const { data, error } = await query.limit(10);
-    if (error) {
-      console.error('Erro na busca de vínculo:', error);
-      return;
-    }
-    let results = data || [];
-
-    // Quando busca por EAN, também considera EANs adicionais (product_ean_codes)
-    if (linkSearchQuery.ean) {
-      const { data: extraMatches } = await supabase
-        .from('product_ean_codes')
-        .select('product_id')
-        .ilike('ean', `%${linkSearchQuery.ean}%`);
-      const extraProductIds = [...new Set((extraMatches || []).map(r => r.product_id))]
-        .filter(id => id !== editingProduct?.id && !results.some(p => p.id === id));
-      if (extraProductIds.length > 0) {
-        const { data: extraProducts } = await supabase.from('products').select('*').in('id', extraProductIds);
-        results = [...results, ...(extraProducts || [])];
-      }
-    }
-
-    setLinkSearchResults(results);
-  };
-
-  const handleViewLink = async (product: any) => {
-    let mother = null;
-    let child = null;
-
-    if (product.is_mother) {
-      mother = product;
-      if (product.linked_product_id) {
-        const { data } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', product.linked_product_id)
-          .single();
-        child = data;
-      }
-    } else {
-      child = product;
-      // Find mother product that links to this child
-      const { data } = await supabase
-        .from('products')
-        .select('*')
-        .eq('linked_product_id', product.id)
-        .single();
-      mother = data;
-    }
-
-    setLinkViewData({ mother, child });
-    setShowLinkViewModal(true);
-  };
-
-  const handleLinkProduct = async (targetProductId: string) => {
-    if (linkTarget === 'editing') {
-      if (!editingProduct) return;
-      
-      setIsLinking(true);
-      try {
-        console.log(`Tentando vincular produto ${editingProduct.id} com ${targetProductId}`);
-        
-        // Tenta com o cliente normal primeiro
-        let { error } = await supabase
-          .from('products')
-          .update({ linked_product_id: targetProductId })
-          .eq('id', editingProduct.id);
-
-        // Se falhar e tivermos o admin client, tenta com ele (pode ignorar RLS)
-        if (error && supabaseAdmin && supabaseAdmin !== supabase) {
-          console.warn('Erro com cliente normal, tentando com supabaseAdmin:', error);
-          const adminResult = await supabaseAdmin
-            .from('products')
-            .update({ linked_product_id: targetProductId })
-            .eq('id', editingProduct.id);
-          error = adminResult.error;
-        }
-
-        if (error) {
-          console.error('Erro retornado pelo Supabase:', error);
-          throw error;
-        }
-
-        setNotification({ type: 'success', message: 'Produtos vinculados com sucesso!' });
-        setShowLinkModal(false);
-        
-        // Atualiza o estado local
-        if (editingProduct) {
-          setEditingProduct({ ...editingProduct, linked_product_id: targetProductId });
-        }
-        
-        fetchProducts();
-      } catch (err: any) {
-        console.error('Erro capturado ao vincular:', err);
-        
-        // Extração de mensagem de erro mais robusta
-        let errorMessage = 'Erro desconhecido ao vincular.';
-        if (err && typeof err === 'object') {
-          errorMessage = err.message || err.details || err.hint || JSON.stringify(err);
-          if (errorMessage === '{}') {
-            // Se ainda for {}, tenta pegar propriedades específicas que podem não ser enumeráveis
-            errorMessage = `Erro: ${err.code || 'sem código'} - ${err.message || 'sem mensagem'}`;
-          }
-        } else {
-          errorMessage = String(err);
-        }
-        
-        setNotification({ type: 'error', message: `Erro ao vincular: ${errorMessage}` });
-      } finally {
-        setIsLinking(false);
-      }
-    } else {
-      // For new product, just update the state
-      setNewProduct({ ...newProduct, linked_product_id: targetProductId });
-      setShowLinkModal(false);
-      setNotification({ type: 'success', message: 'Produto selecionado para vínculo!' });
-    }
-  };
-
   const openEditModal = (product: any) => {
     setEditingProduct({
       ...product,
       originalCount: product.count || 0,
-      is_mother: product.is_mother || false,
-      units_per_mother: product.units_per_mother || 1
     });
     setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
     setEditProductTab('dados');
@@ -4210,7 +3919,6 @@ export default function Page() {
                   }}
                   onOpenProductList={() => setShowProductBulkTable(true)}
                   onEdit={openEditModal}
-                  onViewLink={handleViewLink}
                   onStockUpdate={handleStockUpdate}
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
@@ -4583,47 +4291,6 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="bg-primary/[0.045] dark:bg-primary/[0.07] border border-primary/20 dark:border-primary/25 shadow-sm rounded-2xl p-5 space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-primary-deep dark:text-red-300">
-                        <LinkIcon size={16} />
-                        <span className="text-xs font-extrabold uppercase tracking-wide">Relacionamento Mãe/Filho</span>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={editingProduct.is_mother}
-                          onChange={(e) => setEditingProduct({...editingProduct, is_mother: e.target.checked})}
-                        />
-                        <div className="w-10 h-[22px] bg-black/15 dark:bg-white/15 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary shadow-inner" />
-                      </label>
-                    </div>
-
-                    {editingProduct.is_mother && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-3.5 pt-3.5 border-t border-primary/15"
-                      >
-                        <div className="space-y-1.5">
-                          <label className={labelCls}>Unidades por Mãe (Ex: 50un na caixa)</label>
-                          <input
-                            type="number"
-                            value={editingProduct.units_per_mother}
-                            onChange={(e) => setEditingProduct({...editingProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                            onWheel={blockWheelChange}
-                            className={inputCls}
-                            placeholder="Ex: 50"
-                          />
-                        </div>
-                        <p className="text-[10.5px] font-medium text-secondary/75 leading-relaxed">
-                          Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
-                        </p>
-                      </motion.div>
-                    )}
-                  </div>
-
                   <div className={sectionCls}>
                     <div className={sectionHeadCls}>
                       <BookText size={15} className="text-primary shrink-0" />
@@ -4774,17 +4441,6 @@ export default function Page() {
                       className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
                     >
                       Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLinkTarget('editing');
-                        setShowLinkModal(true);
-                      }}
-                      className="flex-1 bg-primary/[0.07] text-primary font-bold py-3 rounded-xl hover:bg-primary/[0.12] transition-colors border border-primary/20 flex items-center justify-center gap-2"
-                    >
-                      <LinkIcon size={18} />
-                      {editingProduct.linked_product_id ? 'Alterar vínculo' : 'Vincular produto'}
                     </button>
                     <button
                       type="submit"
@@ -5143,45 +4799,6 @@ export default function Page() {
                         onWheel={blockWheelChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
-                    </div>
-
-                    <div className="md:col-span-2 p-4 bg-purple-50 rounded-2xl border border-purple-100 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-purple-700">
-                          <LinkIcon size={18} />
-                          <span className="text-sm font-bold">Relacionamento Mãe/Filho</span>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only peer"
-                            checked={newProductRequest.is_mother}
-                            onChange={(e) => setNewProductRequest({...newProductRequest, is_mother: e.target.checked})}
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                          <span className="ml-3 text-xs font-bold text-purple-700 uppercase">Produto Mãe</span>
-                        </label>
-                      </div>
-
-                      {newProductRequest.is_mother && (
-                        <motion.div 
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          className="space-y-4 pt-2 border-t border-purple-100"
-                        >
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-purple-700 uppercase">Unidades por Mãe (Ex: 50un na caixa)</label>
-                            <input 
-                              type="number"
-                              value={newProductRequest.units_per_mother}
-                              onChange={(e) => setNewProductRequest({...newProductRequest, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                              onWheel={blockWheelChange}
-                              className="w-full bg-white border border-purple-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
-                              placeholder="Ex: 50"
-                            />
-                          </div>
-                        </motion.div>
-                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -5625,58 +5242,6 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="bg-primary/[0.045] dark:bg-primary/[0.07] border border-primary/20 dark:border-primary/25 shadow-sm rounded-2xl p-5 space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-primary-deep dark:text-red-300">
-                        <LinkIcon size={16} />
-                        <span className="text-xs font-extrabold uppercase tracking-wide">Relacionamento Mãe/Filho</span>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={newProduct.is_mother}
-                          onChange={(e) => setNewProduct({...newProduct, is_mother: e.target.checked})}
-                        />
-                        <div className="w-10 h-[22px] bg-black/15 dark:bg-white/15 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-primary shadow-inner" />
-                      </label>
-                    </div>
-
-                    {newProduct.is_mother && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="space-y-3.5 pt-3.5 border-t border-primary/15"
-                      >
-                        <div className="space-y-1.5">
-                          <label className={labelCls}>Unidades por Mãe (Ex: 50un na caixa)</label>
-                          <input
-                            type="number"
-                            value={newProduct.units_per_mother}
-                            onChange={(e) => setNewProduct({...newProduct, units_per_mother: parseInt(e.target.value || '1') || 1})}
-                            onWheel={blockWheelChange}
-                            className={inputCls}
-                            placeholder="Ex: 50"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLinkTarget('new');
-                            setShowLinkModal(true);
-                          }}
-                          className="flex items-center gap-2 text-primary-deep dark:text-red-300 hover:opacity-80 font-bold text-sm transition-colors"
-                        >
-                          <LinkIcon size={16} />
-                          {newProduct.linked_product_id ? 'Alterar produto vinculado' : 'Vincular produto (Filho)'}
-                        </button>
-                        <p className="text-[10.5px] font-medium text-secondary/75 leading-relaxed">
-                          Ao aumentar o estoque deste produto, o estoque do produto vinculado aumentará proporcionalmente.
-                        </p>
-                      </motion.div>
-                    )}
-                  </div>
-
                   <div className={sectionCls}>
                     <div className={sectionHeadCls}>
                       <BookText size={15} className="text-primary shrink-0" />
@@ -5842,131 +5407,6 @@ export default function Page() {
         })()}
       </AnimatePresence>
       
-      {/* Link View Modal */}
-      <AnimatePresence>
-        {showLinkViewModal && linkViewData && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowLinkViewModal(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/20">
-                    <LinkIcon size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900">Vínculo de Produtos</h3>
-                    <p className="text-xs text-slate-500 font-medium">Relacionamento entre Produto Mãe e Produto Filho</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowLinkViewModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-secondary" />
-                </button>
-              </div>
-
-              <div className="p-8">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                  {/* Mother Product */}
-                  <div className="flex-1 w-full">
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-purple-600 uppercase tracking-widest px-2 py-1 bg-purple-50 rounded-md">Produto Mãe</span>
-                      {linkViewData.mother && (
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Fator: {linkViewData.mother.units_per_mother}un</span>
-                      )}
-                    </div>
-                    {linkViewData.mother ? (
-                      <div className="p-4 rounded-2xl border-2 border-purple-100 bg-purple-50/30 space-y-3">
-                        <div className="w-20 h-20 bg-white rounded-xl overflow-hidden border border-purple-100 mx-auto">
-                          <ProductImage src={linkViewData.mother.image} alt={linkViewData.mother.name} />
-                        </div>
-                        <div className="text-center">
-                          <h4 className="font-bold text-slate-900 text-sm line-clamp-2 mb-1">{linkViewData.mother.name}</h4>
-                          <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">SKU: {linkViewData.mother.sku}</p>
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-purple-100">
-                            <Package size={12} className="text-purple-500" />
-                            <span className="text-xs font-black text-purple-700">{linkViewData.mother.count} un.</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-8 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                        <Package size={32} className="mb-2 opacity-20" />
-                        <p className="text-xs font-bold uppercase">Não vinculado</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Arrow */}
-                  <div className="shrink-0 flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 border border-slate-100">
-                      <ArrowRight size={24} className="md:rotate-0 rotate-90" />
-                    </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Converte em</span>
-                  </div>
-
-                  {/* Child Product */}
-                  <div className="flex-1 w-full">
-                    <div className="mb-3">
-                      <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest px-2 py-1 bg-red-50 rounded-md">Produto Filho</span>
-                    </div>
-                    {linkViewData.child ? (
-                      <div className="p-4 rounded-2xl border-2 border-red-100 bg-red-50/30 space-y-3">
-                        <div className="w-20 h-20 bg-white rounded-xl overflow-hidden border border-red-100 mx-auto">
-                          <ProductImage src={linkViewData.child.image} alt={linkViewData.child.name} />
-                        </div>
-                        <div className="text-center">
-                          <h4 className="font-bold text-slate-900 text-sm line-clamp-2 mb-1">{linkViewData.child.name}</h4>
-                          <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">SKU: {linkViewData.child.sku}</p>
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-red-100">
-                            <Package size={12} className="text-red-500" />
-                            <span className="text-xs font-black text-red-700">{linkViewData.child.count} un.</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-8 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                        <Package size={32} className="mb-2 opacity-20" />
-                        <p className="text-xs font-bold uppercase">Não vinculado</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-xs text-slate-500 leading-relaxed text-center">
-                    Toda vez que você adicionar estoque ao <span className="font-bold text-purple-600">Produto Mãe</span>, 
-                    o sistema adicionará automaticamente <span className="font-bold text-slate-900">{linkViewData.mother?.units_per_mother || 1} unidades</span> ao 
-                    estoque do <span className="font-bold text-red-500">Produto Filho</span>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end">
-                <button 
-                  onClick={() => setShowLinkViewModal(false)}
-                  className="px-8 py-3 bg-white border border-slate-200 text-secondary font-bold rounded-xl hover:bg-slate-100 transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Mobile Type Selection Modal */}
       <MobileTypeModal
         isOpen={showMobileTypeModal}
@@ -6288,18 +5728,6 @@ export default function Page() {
                         </p>
                       </div>
 
-                      {selectedManualProduct.is_mother && (
-                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <LinkIcon size={14} className="text-purple-500" />
-                            <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Produto Mãe Detectado</span>
-                          </div>
-                          <p className="text-xs text-purple-600 leading-relaxed">
-                            Esta alteração afetará o produto filho vinculado. 
-                            Cada unidade alterada aqui resultará em <span className="font-bold">{selectedManualProduct.units_per_mother} unidades</span> no produto filho.
-                          </p>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex gap-3 pt-4">
@@ -6325,120 +5753,6 @@ export default function Page() {
         )}
       </AnimatePresence>
       
-      {/* Link Product Modal */}
-      <AnimatePresence>
-        {showLinkModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowLinkModal(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center text-white shadow-lg shadow-red-500/20">
-                    <LinkIcon size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900">Vincular Produto</h3>
-                    <p className="text-xs text-slate-500 font-medium">Pesquise o produto que deseja vincular</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowLinkModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-secondary" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Código EAN</label>
-                    <input 
-                      type="text" 
-                      value={linkSearchQuery.ean}
-                      onChange={(e) => setLinkSearchQuery({...linkSearchQuery, ean: e.target.value})}
-                      onKeyUp={(e) => e.key === 'Enter' && handleLinkSearch()}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="789..."
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Código SKU</label>
-                    <input 
-                      type="text" 
-                      value={linkSearchQuery.sku}
-                      onChange={(e) => setLinkSearchQuery({...linkSearchQuery, sku: e.target.value})}
-                      onKeyUp={(e) => e.key === 'Enter' && handleLinkSearch()}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="ex: BM-500-A4"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase">Nome do Produto</label>
-                    <input 
-                      type="text" 
-                      value={linkSearchQuery.name}
-                      onChange={(e) => setLinkSearchQuery({...linkSearchQuery, name: e.target.value})}
-                      onKeyUp={(e) => e.key === 'Enter' && handleLinkSearch()}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="Nome do produto..."
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleLinkSearch}
-                  className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                >
-                  <Search size={18} />
-                  Pesquisar
-                </button>
-
-                <div className="space-y-2 mt-4 max-h-60 overflow-y-auto pr-2">
-                  {linkSearchResults.length > 0 ? (
-                    linkSearchResults.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleLinkProduct(p.id)}
-                        disabled={isLinking}
-                        className="w-full flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
-                      >
-                        <div className="w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                          <ProductImage src={p.image} alt={p.name} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-900 truncate group-hover:text-primary">{p.name}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">SKU: {p.sku} | EAN: {p.ean}</p>
-                        </div>
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-all">
-                          <Check size={16} />
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center text-slate-400">
-                      <Search size={32} className="mx-auto mb-2 opacity-20" />
-                      <p className="text-xs font-bold">Nenhum produto encontrado</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Import Supplier Selection Modal */}
       <AnimatePresence>
         {showImportSupplierModal && (

@@ -36,7 +36,6 @@ interface InventoryManagerProps {
   onAdd: () => void;
   onOpenProductList: () => void;
   onEdit: (product: any) => void;
-  onViewLink: (mother: any, child: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -53,7 +52,6 @@ export function InventoryManager({
   onAdd,
   onOpenProductList,
   onEdit,
-  onViewLink,
   onStockUpdate,
   onOpenMobileBulkTable,
   stockFileInputRef,
@@ -585,7 +583,6 @@ export function InventoryManager({
                     <ProductCard
                       {...product}
                       onEdit={onEdit}
-                      onViewLink={onViewLink}
                     />
                   </div>
                 );
