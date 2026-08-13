@@ -20,7 +20,9 @@ interface ProductCardProps {
   subcategory?: string;
   brand?: string;
   isLow?: boolean;
+  hasMotherPackages?: boolean;
   onEdit?: (product: any) => void;
+  onViewMotherPackages?: (product: any) => void;
 }
 
 function ProductImage({ src, alt }: { src: string; alt: string }) {
@@ -52,7 +54,7 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
 
 export const ProductCard = memo(function ProductCard({
   id, sku, name, image, status, count, location, price, ean,
-  category, subcategory, brand, isLow, onEdit,
+  category, subcategory, brand, isLow, hasMotherPackages, onEdit, onViewMotherPackages,
 }: ProductCardProps) {
   const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
 
@@ -61,6 +63,17 @@ export const ProductCard = memo(function ProductCard({
       whileHover={{ y: -2 }}
       className="bg-surface rounded-[22px] border border-on-surface/[0.10] md:border-on-surface/[0.07] relative group transition-shadow hover:shadow-[0_8px_32px_rgba(0,0,0,0.18)] dark:hover:shadow-[0_10px_36px_rgba(0,0,0,0.45)]"
     >
+      {/* Produto Filho badge — este produto tem Produto(s) Mãe (embalagem) cadastrados */}
+      {hasMotherPackages && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onViewMotherPackages?.(product); }}
+          className="absolute -top-2.5 -left-2.5 w-[26px] h-[26px] rounded-full flex items-center justify-center text-white bg-amber-500 border-[3px] border-background z-20 hover:scale-110 transition-transform shadow-lg"
+          title="Produto Filho — tem embalagem(ns) Produto Mãe cadastrada(s). Ao escanear a caixa, o estoque deste produto é atualizado."
+        >
+          <Package size={11} />
+        </button>
+      )}
+
       {/* Edit button */}
       {onEdit && (
         <button

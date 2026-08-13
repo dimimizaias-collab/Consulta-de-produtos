@@ -36,6 +36,8 @@ interface InventoryManagerProps {
   onAdd: () => void;
   onOpenProductList: () => void;
   onEdit: (product: any) => void;
+  motherChildProductIds?: Set<string>;
+  onViewMotherPackages?: (product: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -52,6 +54,8 @@ export function InventoryManager({
   onAdd,
   onOpenProductList,
   onEdit,
+  motherChildProductIds,
+  onViewMotherPackages,
   onStockUpdate,
   onOpenMobileBulkTable,
   stockFileInputRef,
@@ -583,6 +587,8 @@ export function InventoryManager({
                     <ProductCard
                       {...product}
                       onEdit={onEdit}
+                      hasMotherPackages={!!(product.id && motherChildProductIds?.has(product.id))}
+                      onViewMotherPackages={onViewMotherPackages}
                     />
                   </div>
                 );

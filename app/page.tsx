@@ -269,6 +269,7 @@ export default function Page() {
   const [pendingFinanceTxId, setPendingFinanceTxId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [motherChildProductIds, setMotherChildProductIds] = useState<Set<string>>(new Set());
   const [requests, setRequests] = useState<any[]>([]);
   const [showAddRequestModal, setShowAddRequestModal] = useState(false);
   const [isRequestingNewProduct, setIsRequestingNewProduct] = useState(false);
@@ -607,6 +608,11 @@ export default function Page() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  useEffect(() => {
+    // Ao fechar a modal de Editar Produto, atualiza quais produtos têm Produto Mãe
+    // cadastrado (badge do card), já que a aba "Produto Mãe" pode ter sido usada.
+    if (!showEditModal) fetchMotherChildProductIds();
+  }, [showEditModal]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [editStatus, setEditStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -882,6 +888,11 @@ export default function Page() {
     }
   };
 
+  const fetchMotherChildProductIds = async () => {
+    const { data } = await supabase.from('product_mother_packages').select('child_product_id');
+    setMotherChildProductIds(new Set((data || []).map((r: any) => r.child_product_id).filter(Boolean)));
+  };
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -955,6 +966,7 @@ export default function Page() {
       setLoading(false);
     } else {
       fetchProducts();
+      fetchMotherChildProductIds();
       fetchRequests();
       fetchReviewNotes();
       fetchNotifications();
@@ -3631,13 +3643,13 @@ export default function Page() {
     }
   };
 
-  const openEditModal = (product: any) => {
+  const openEditModal = (product: any, tab: 'dados' | 'mae' | 'historico' = 'dados') => {
     setEditingProduct({
       ...product,
       originalCount: product.count || 0,
     });
     setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
-    setEditProductTab('dados');
+    setEditProductTab(tab);
     setEditProductHistoryEans(
       [product.ean, ...(product.extraEans || []).map((e: any) => e.ean)]
         .map((e: string) => (e || '').trim())
@@ -3919,6 +3931,8 @@ export default function Page() {
                   }}
                   onOpenProductList={() => setShowProductBulkTable(true)}
                   onEdit={openEditModal}
+                  motherChildProductIds={motherChildProductIds}
+                  onViewMotherPackages={(product) => openEditModal(product, 'mae')}
                   onStockUpdate={handleStockUpdate}
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
