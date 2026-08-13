@@ -7298,7 +7298,29 @@ export default function Page() {
 
                 return (
                   <div className="flex-1 overflow-auto p-8">
-                    <div className="max-w-4xl grid grid-cols-1 md:grid-cols-[1fr_240px] gap-12 items-start">
+                    <div className="max-w-4xl flex flex-col gap-8">
+                      {/* Resumo */}
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Resumo</p>
+                        <div className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-5 py-4 flex items-center gap-5">
+                          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                            <p className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35">Total vinculado</p>
+                            <p className="text-2xl font-black text-red-600 dark:text-red-400 leading-tight">{fmtBRL(totalValor)}</p>
+                          </div>
+                          <div className="w-px self-stretch bg-on-surface/[0.08] dark:bg-white/[0.08]" />
+                          <div className="flex gap-6 shrink-0">
+                            <div className="text-center">
+                              <p className="text-[17px] font-black text-on-surface leading-none">{groups.length}</p>
+                              <p className="text-[9px] font-bold text-on-surface/40 mt-1 whitespace-nowrap">MOVIMENTAÇÕES</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[17px] font-black text-on-surface leading-none">{noteFinanceTxs.length}</p>
+                              <p className="text-[9px] font-bold text-on-surface/40 mt-1 whitespace-nowrap">PARCELAS</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       <div>
                         <div className="flex items-center justify-between gap-3 mb-3">
                           <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
@@ -7403,25 +7425,6 @@ export default function Page() {
                             })}
                           </div>
                         )}
-                      </div>
-
-                      {/* Resumo */}
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Resumo</p>
-                        <div className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-4 py-3.5 flex flex-col gap-2.5">
-                          <p className="text-xl font-black text-red-600 dark:text-red-400 leading-none">{fmtBRL(totalValor)}</p>
-                          <div className="h-px bg-on-surface/[0.08] dark:bg-white/[0.08]" />
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <p className="text-[15px] font-black text-on-surface leading-none">{groups.length}</p>
-                              <p className="text-[9px] font-bold text-on-surface/40 mt-0.5">MOVIMENTAÇÕES</p>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-[15px] font-black text-on-surface leading-none">{noteFinanceTxs.length}</p>
-                              <p className="text-[9px] font-bold text-on-surface/40 mt-0.5">PARCELAS</p>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
