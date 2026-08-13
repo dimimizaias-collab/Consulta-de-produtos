@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, Package, Link as LinkIcon, Info, Image as ImageIcon } from 'lucide-react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -180,7 +181,14 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
     }
   }
 
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  // Renderizado via portal, fora da árvore do <form> da modal Editar/Adicionar Produto —
+  // sem isso, Enter num campo de texto aqui dentro submete o formulário do produto (pai)
+  // em vez de não fazer nada, fechando a modal de Editar Produto por engano.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
@@ -349,6 +357,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
