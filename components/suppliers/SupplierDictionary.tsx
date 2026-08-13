@@ -112,53 +112,126 @@ interface MotherPackageRow {
   suppliers?: { name: string } | null;
 }
 
+interface UnitConversionCandidate {
+  id: string;
+  product_id: string;
+  supplier_id: string | null;
+  unit_name: string;
+  multiplier: number;
+  products?: { name: string } | null;
+  suppliers?: { name: string } | null;
+}
+
 function MotherPackagesList() {
   const [rows, setRows] = useState<MotherPackageRow[]>([]);
+  const [candidates, setCandidates] = useState<UnitConversionCandidate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase
-      .from('product_mother_packages')
-      .select('id, name, sku, ean, units_per_child, products:child_product_id(name), suppliers(name)')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setRows((data || []) as unknown as MotherPackageRow[]);
-        setLoading(false);
-      });
-  }, []);
+  const fetchAll = () => {
+    setLoading(true);
+    Promise.all([
+      supabase
+        .from('product_mother_packages')
+        .select('id, name, sku, ean, units_per_child, child_product_id, supplier_id, products:child_product_id(name), suppliers(name)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('supplier_units')
+        .select('id, product_id, supplier_id, unit_name, multiplier, products(name), suppliers(name)')
+        .gt('multiplier', 1),
+    ]).then(([pmpRes, unitsRes]) => {
+      const mothers = (pmpRes.data || []) as unknown as (MotherPackageRow & { child_product_id: string; supplier_id: string | null })[];
+      setRows(mothers);
+      const units = (unitsRes.data || []) as unknown as UnitConversionCandidate[];
+      // Só sugere conversão de supplier_units que ainda não têm um Produto Mãe correspondente
+      // (mesmo produto filho + mesmo fornecedor + mesmo nome de unidade).
+      const pending = units.filter(u => !mothers.some(m =>
+        m.child_product_id === u.product_id &&
+        m.supplier_id === u.supplier_id &&
+        m.name.trim().toLowerCase() === u.unit_name.trim().toLowerCase()
+      ));
+      setCandidates(pending);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => { fetchAll(); }, []);
+
+  async function convertCandidate(c: UnitConversionCandidate) {
+    setConverting(c.id);
+    await supabase.from('product_mother_packages').insert({
+      child_product_id: c.product_id,
+      supplier_id: c.supplier_id,
+      name: c.unit_name,
+      units_per_child: c.multiplier,
+    });
+    fetchAll();
+    setConverting(null);
+  }
 
   if (loading) {
     return <div className="py-16 text-center text-on-surface/30 text-sm font-bold">Carregando...</div>;
   }
 
-  if (rows.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center text-on-surface/40">
-        <BookText size={30} className="mb-3 opacity-40" />
-        <p className="text-sm font-bold">Nenhum Produto Mãe cadastrado</p>
-        <p className="text-xs mt-1 max-w-xs">Cadastre embalagens (caixas, fardos) na aba &quot;Produto Mãe&quot; da tela de Editar Produto, no Inventário.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2.5 p-6 md:p-8 overflow-y-auto">
-      {rows.map(row => (
-        <div key={row.id} className="flex items-center gap-3 bg-surface-container-lowest border border-on-surface/[0.07] shadow-sm rounded-2xl px-4 py-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-low border border-on-surface/[0.06] flex items-center justify-center text-on-surface/25 shrink-0">
-            <BookText size={16} />
+    <div className="flex flex-col gap-6 p-6 md:p-8 overflow-y-auto">
+      {candidates.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.15em]">Sugestões de Reconciliação</span>
+            <span className="bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-full px-2 py-0.5 text-[10px] font-black">{candidates.length}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-on-surface truncate">
-              {row.name} <ArrowRight size={12} className="inline mx-1 text-on-surface/25" /> {row.products?.name ?? '—'}
-            </p>
-            <p className="text-[10.5px] font-semibold text-on-surface/40 mt-0.5 truncate">
-              {row.ean ? `EAN ${row.ean}` : 'Sem EAN'} {row.suppliers?.name ? `· ${row.suppliers.name}` : ''}
-            </p>
-          </div>
-          <span className="shrink-0 bg-primary/10 text-primary rounded-full px-3 py-1 text-[11px] font-black">×{row.units_per_child}</span>
+          <p className="text-[10.5px] font-semibold text-on-surface/45 -mt-1">
+            Conversões de unidade já cadastradas no Dicionário (aba Unidades) que parecem representar uma embalagem e ainda não têm um Produto Mãe. Nada é alterado automaticamente — confirme item a item.
+          </p>
+          {candidates.map(c => (
+            <div key={c.id} className="flex items-center gap-3 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-on-surface truncate">
+                  {c.unit_name} <ArrowRight size={12} className="inline mx-1 text-on-surface/25" /> {c.products?.name ?? '—'}
+                </p>
+                <p className="text-[10.5px] font-semibold text-on-surface/40 mt-0.5 truncate">
+                  ×{c.multiplier} {c.suppliers?.name ? `· ${c.suppliers.name}` : '· Sem fornecedor específico'}
+                </p>
+              </div>
+              <button
+                onClick={() => convertCandidate(c)}
+                disabled={converting === c.id}
+                className="shrink-0 bg-amber-500 text-white rounded-full px-4 py-2 text-[11px] font-black hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {converting === c.id ? 'Convertendo...' : 'Converter em Produto Mãe'}
+              </button>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center text-on-surface/40">
+          <BookText size={30} className="mb-3 opacity-40" />
+          <p className="text-sm font-bold">Nenhum Produto Mãe cadastrado</p>
+          <p className="text-xs mt-1 max-w-xs">Cadastre embalagens (caixas, fardos) na aba &quot;Produto Mãe&quot; da tela de Editar Produto, no Inventário.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {rows.map(row => (
+            <div key={row.id} className="flex items-center gap-3 bg-surface-container-lowest border border-on-surface/[0.07] shadow-sm rounded-2xl px-4 py-3">
+              <div className="w-10 h-10 rounded-xl bg-surface-container-low border border-on-surface/[0.06] flex items-center justify-center text-on-surface/25 shrink-0">
+                <BookText size={16} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-on-surface truncate">
+                  {row.name} <ArrowRight size={12} className="inline mx-1 text-on-surface/25" /> {row.products?.name ?? '—'}
+                </p>
+                <p className="text-[10.5px] font-semibold text-on-surface/40 mt-0.5 truncate">
+                  {row.ean ? `EAN ${row.ean}` : 'Sem EAN'} {row.suppliers?.name ? `· ${row.suppliers.name}` : ''}
+                </p>
+              </div>
+              <span className="shrink-0 bg-primary/10 text-primary rounded-full px-3 py-1 text-[11px] font-black">×{row.units_per_child}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

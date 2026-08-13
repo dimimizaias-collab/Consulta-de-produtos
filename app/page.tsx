@@ -8216,6 +8216,14 @@ export default function Page() {
                                   >
                                     {item.name}
                                   </span>
+                                  {item.mother_package_id && (
+                                    <span
+                                      className="w-[18px] h-[18px] shrink-0 rounded-[6px] bg-amber-500/15 text-amber-400 flex items-center justify-center"
+                                      title={`Convertido de caixa — EAN ${item.mother_package_ean || '—'}, ×${item.multiplier}`}
+                                    >
+                                      <Package size={10} />
+                                    </span>
+                                  )}
                                   <div className="relative group shrink-0">
                                     <button
                                       onClick={() => { setLinkingItemIdx(idx); setNoteItemLinkQuery(viewingNoteEans[idx] ?? item.ean ?? ''); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(viewingNoteEans[idx] ?? item.ean ?? ''); }}
