@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Produto Mãe/Filho — Dark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #151510;
+    --modal: #1E1E18;
+    --header: #FFE500;
+    --header-border: #C8B800;
+    --chip-bg: rgba(216,30,30,0.16);
+    --chip-color: #D81E1E;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.42);
+    --muted-2: rgba(242,240,227,0.28);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --card-shadow: 0 10px 24px -14px rgba(0,0,0,0.6);
+    --card-alt: #1E1E18;
+    --card-alt-border: rgba(242,240,227,0.08);
+    --input-bg: rgba(242,240,227,0.05);
+    --input-border: rgba(242,240,227,0.12);
+    --label: rgba(242,240,227,0.42);
+    --red: #D81E1E;
+    --emerald: #34D399;
+    --amber: #FCD34D;
+    --tab-inactive: rgba(242,240,227,0.38);
+    --thead-bg: #FFEC4D;
+    --thead-border: #DCC63D;
+    --row-border: rgba(242,240,227,0.05);
+    --row-hover: rgba(242,240,227,0.025);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px 120px;
+    color: var(--title);
+  }
+  .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 64px; }
+  .eyebrow { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(242,240,227,0.40); text-align: center; margin-bottom: 16px; }
+  .eyebrow b { color: var(--red); }
+
+  .modal {
+    background: var(--modal);
+    border-radius: 24px;
+    border: 1px solid rgba(242,240,227,0.08);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55);
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--header);
+    border-bottom: 1px solid var(--header-border);
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .chip-icon {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: var(--chip-bg); color: var(--chip-color);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title { font-size: 18px; font-weight: 800; color: #1A1A0E; line-height: 1.2; }
+  .header-sub { font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.60); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .close-btn {
+    width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+    background: rgba(26,26,10,0.10); border: 1px solid rgba(26,26,10,0.12);
+    color: rgba(26,26,10,0.55); display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; padding: 12px 24px 0; background: var(--modal); border-bottom: 1px solid rgba(242,240,227,0.08); }
+  .tab {
+    padding: 10px 16px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 2px solid transparent; color: var(--tab-inactive);
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .tab.active { color: var(--red); border-color: var(--red); }
+  .tab .badge {
+    background: rgba(216,30,30,0.16); color: var(--red);
+    font-size: 10px; font-weight: 900; padding: 1px 7px; border-radius: 99px; line-height: 1.5;
+  }
+  .tab:not(.active) .badge { background: rgba(242,240,227,0.08); color: rgba(242,240,227,0.45); }
+
+  /* Produto Mãe tab body */
+  .mae-body { padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 16px; }
+  .mae-intro { font-size: 11.5px; font-weight: 600; color: var(--muted); line-height: 1.6; background: var(--card-alt); border: 1px solid var(--card-alt-border); border-radius: 12px; padding: 12px 14px; }
+  .mae-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .mae-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow);
+    border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative;
+  }
+  .mae-card .thumb { width: 100%; height: 88px; border-radius: 12px; background: var(--card-alt); border: 1px solid var(--card-alt-border); display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.20); }
+  .mae-card .name { font-size: 13px; font-weight: 800; color: var(--title); line-height: 1.3; }
+  .mae-card .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mae-card .pill-mono { display: inline-flex; align-items: center; gap: 4px; background: rgba(242,240,227,0.06); border: 1px solid rgba(242,240,227,0.08); border-radius: 8px; padding: 3px 8px; font-size: 9.5px; font-weight: 700; color: rgba(242,240,227,0.45); font-family: 'DM Mono', monospace; }
+  .mae-card .conv-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; padding-top: 10px; border-top: 1px dashed rgba(242,240,227,0.10); }
+  .conv-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(216,30,30,0.14); color: var(--red); border-radius: 999px; padding: 4px 10px; font-size: 10.5px; font-weight: 900; }
+  .mae-card .edit-mini { width: 26px; height: 26px; border-radius: 9px; background: rgba(242,240,227,0.07); display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.45); }
+  .mae-card .supplier-tag { position: absolute; top: 10px; right: 10px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(242,240,227,0.40); background: rgba(242,240,227,0.06); border-radius: 6px; padding: 3px 7px; }
+
+  .mae-add-card {
+    border: 2px dashed rgba(242,240,227,0.16); border-radius: 18px; min-height: 190px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    color: rgba(242,240,227,0.35); cursor: pointer;
+  }
+  .mae-add-card .plus-circle { width: 40px; height: 40px; border-radius: 50%; background: rgba(216,30,30,0.14); color: var(--red); display: flex; align-items: center; justify-content: center; }
+  .mae-add-card span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Cadastro modal (Produto Mãe) */
+  .section { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 18px; padding: 18px 20px; }
+  .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .section-head svg { color: var(--red); flex-shrink: 0; }
+  .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--title); }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--label); }
+  .field input, .field select { background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; padding: 10px 13px; font-size: 13px; font-family: inherit; color: var(--title); outline: none; }
+  .field select option { background: var(--modal); color: var(--title); }
+  .field .hint { font-size: 9.5px; font-weight: 600; color: var(--muted-2); }
+  .ean-row { display: flex; gap: 8px; }
+  .ean-row input { flex: 1; min-width: 0; }
+  .ean-extra-btn { flex-shrink: 0; padding: 0 14px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--input-border); color: rgba(242,240,227,0.55); font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px; position: relative; }
+  .ean-extra-btn .count { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; background: var(--red); color: #fff; border-radius: 50%; font-size: 9px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+  .excluded-note { display: flex; align-items: center; gap: 8px; background: rgba(242,240,227,0.04); border: 1px dashed rgba(242,240,227,0.14); border-radius: 12px; padding: 10px 14px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .excluded-note b { color: rgba(242,240,227,0.65); }
+
+  .modal-body-sm { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; max-height: 640px; overflow-y: auto; }
+  .modal-footer { padding: 18px 24px 22px; display: flex; gap: 10px; border-top: 1px solid rgba(242,240,227,0.07); }
+  .btn { flex: 1; padding: 13px; border-radius: 14px; font-size: 13px; font-weight: 800; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .btn-cancel { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.55); }
+  .btn-save { background: var(--red); color: #fff; box-shadow: 0 10px 24px -8px rgba(216,30,30,0.55); }
+
+  /* Nota — tabela de itens */
+  .table-wrap { background: rgba(37,37,32,0.6); border: 1px solid rgba(242,240,227,0.06); border-radius: 16px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--thead-bg); border-bottom: 1px solid var(--thead-border); }
+  thead th { padding: 10px 14px; text-align: left; white-space: nowrap; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em; color: rgba(26,26,10,0.58); }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--row-border); color: var(--title); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.converted { background: rgba(216,30,30,0.05); }
+  .mono-chip { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700; background: rgba(242,240,227,0.06); padding: 3px 8px; border-radius: 8px; }
+  .qty-input { width: 58px; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700; text-align: center; background: rgba(216,30,30,0.10); border: 1.5px solid rgba(216,30,30,0.35); border-radius: 8px; padding: 5px 4px; color: #FF8A8A; }
+  .conv-cell { display: flex; align-items: center; gap: 8px; }
+  .conv-icon-badge { position: relative; width: 26px; height: 26px; border-radius: 8px; background: rgba(216,30,30,0.16); color: var(--red); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: help; }
+  .tooltip { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); background: #F2F0E3; color: #1A1A0E; font-size: 10.5px; font-weight: 700; padding: 8px 11px; border-radius: 10px; white-space: nowrap; box-shadow: 0 10px 24px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #F2F0E3; }
+  .conv-icon-badge:hover .tooltip { opacity: 1; }
+  .badge-amber { background: rgba(252,211,77,0.16); color: var(--amber); padding: 3px 9px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+  .badge-emerald { background: rgba(52,211,153,0.14); color: var(--emerald); padding: 3px 9px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+  .item-name { font-size: 12.5px; font-weight: 800; color: var(--title); }
+  .item-sub { font-size: 10px; font-weight: 600; color: var(--muted); margin-top: 1px; }
+
+  /* Dicionário do Fornecedor */
+  .dict-tabs { display: flex; gap: 2px; background: rgba(242,240,227,0.08); border-radius: 9999px; padding: 3px; width: fit-content; margin-bottom: 16px; }
+  .dict-tabs .dt { padding: 8px 16px; border-radius: 9999px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.40); cursor: pointer; }
+  .dict-tabs .dt.active { background: var(--red); color: #fff; box-shadow: 0 6px 14px -4px rgba(216,30,30,0.55); }
+  .dict-list { display: flex; flex-direction: column; gap: 10px; }
+  .dict-row { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 14px; padding: 12px 16px; }
+  .dict-thumb { width: 40px; height: 40px; border-radius: 10px; background: var(--card-alt); border: 1px solid var(--card-alt-border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.25); }
+  .dict-info { flex: 1; min-width: 0; }
+  .dict-info .n { font-size: 13px; font-weight: 800; color: var(--title); }
+  .dict-info .s { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+  .dict-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .dict-arrow { color: rgba(242,240,227,0.25); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div>
+    <div class="eyebrow">1 · Modal <b>Editar Produto</b> — nova aba <b>"Produto Mãe"</b> (grid de embalagens vinculadas)</div>
+    <div class="modal">
+      <div class="modal-header">
+        <div class="chip-icon" style="background: rgba(26,26,10,0.09); color: #1A1A0E;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="header-text">
+          <div class="header-title">Editar Produto</div>
+          <div class="header-sub">Bala de Goma Sortida 700g</div>
+        </div>
+        <button class="close-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab">Dados</div>
+        <div class="tab active">Produto Mãe <span class="badge">2</span></div>
+        <div class="tab">Histórico em Notas <span class="badge">7</span></div>
+      </div>
+
+      <div class="mae-body">
+        <div class="mae-intro">
+          Cadastre aqui as embalagens (caixas, fardos, pacotes) em que este produto costuma chegar do fornecedor. Ao identificar o código de barras da embalagem numa nota, o sistema converte automaticamente para as unidades deste produto.
+        </div>
+
+        <div class="mae-grid">
+          <div class="mae-card">
+            <span class="supplier-tag">Distrib. Central</span>
+            <div class="thumb">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="name">Caixa Fechada 24un</div>
+            <div class="pills">
+              <span class="pill-mono">7891234567890</span>
+              <span class="pill-mono">+1 EAN</span>
+            </div>
+            <div class="conv-row">
+              <span class="conv-badge">1 cx = 24 un</span>
+              <div class="edit-mini">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="mae-card">
+            <span class="supplier-tag">Sem fornecedor</span>
+            <div class="thumb">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div class="name">Fardo Plástico 12un</div>
+            <div class="pills">
+              <span class="pill-mono">7899988877766</span>
+            </div>
+            <div class="conv-row">
+              <span class="conv-badge">1 fd = 12 un</span>
+              <div class="edit-mini">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="mae-add-card">
+            <div class="plus-circle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <span>Novo Produto Mãe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="eyebrow">2 · Modal de cadastro do <b>Produto Mãe</b> — sem Empresa / Preço / Marca / Detalhes</div>
+    <div class="modal">
+      <div class="modal-header">
+        <div class="chip-icon" style="background: rgba(26,26,10,0.09); color: #1A1A0E;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="header-text">
+          <div class="header-title">Novo Produto Mãe</div>
+          <div class="header-sub">Embalagem vinculada a "Bala de Goma Sortida 700g"</div>
+        </div>
+        <button class="close-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body-sm">
+        <div class="section">
+          <div class="section-head">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+            <span class="section-title">Identificação</span>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>SKU (opcional)</label><input value="CX-BALA-24"></div>
+            <div class="field"><label>Nome da Embalagem</label><input value="Caixa Fechada 24un"></div>
+            <div class="field full">
+              <label>Código EAN Principal</label>
+              <div class="ean-row">
+                <input value="7891234567890" placeholder="Código de barras da caixa...">
+                <button class="ean-extra-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  EANs
+                  <span class="count">1</span>
+                </button>
+              </div>
+              <span class="hint">Use "EANs" se o fabricante já trocou o código de barras da caixa alguma vez.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span class="section-title">Estoque &amp; Conversão</span>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Unidades por Embalagem</label><input value="24" type="number"></div>
+            <div class="field">
+              <label>Fornecedor (opcional)</label>
+              <select><option>Distribuidora Central</option><option>Atacadista Rio Sul</option><option selected disabled hidden></option></select>
+            </div>
+            <div class="field"><label>Localização (opcional)</label><input value="Depósito 2 - Doces" placeholder="Onde as caixas fechadas ficam..."></div>
+            <div class="field"><label>Categoria (opcional)</label><input value="Doces" placeholder="Herdada do produto, se vazio"></div>
+          </div>
+        </div>
+
+        <div class="excluded-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Sem <b>Empresa</b>, <b>Preço</b>, <b>Marca</b> ou <b>Detalhes</b> — o Produto Mãe é global (compartilhado entre empresas) e não é vendido diretamente.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="btn btn-cancel">Cancelar</div>
+        <div class="btn btn-save">Salvar Produto Mãe</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="eyebrow">3 · Janela de Notas — <b>Opção A aprovada:</b> 1 item da nota = 1 linha (qtd. e custo unit. já convertidos)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto na Nota</th>
+            <th>Identificação Interna</th>
+            <th>EAN Lido</th>
+            <th style="text-align:center;">Convertido</th>
+            <th style="text-align:right;">Custo Unit.</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="converted">
+            <td>
+              <div class="item-name">CX BALA GOMA SORT 24UN</div>
+              <div class="item-sub">Distribuidora Central · Valor da linha: R$ 150,00</div>
+            </td>
+            <td>
+              <div class="item-name" style="color: var(--red);">Bala de Goma Sortida 700g</div>
+            </td>
+            <td><span class="mono-chip">7891234567890</span></td>
+            <td style="text-align:center;">
+              <div class="conv-cell" style="justify-content:center;">
+                <div class="conv-icon-badge">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                  <div class="tooltip">Convertido de caixa — EAN 7891234567890, ×24 un</div>
+                </div>
+                <input class="qty-input" value="72" />
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <div class="item-name">R$ 6,25</div>
+              <div class="item-sub">= R$150,00 ÷ 24</div>
+            </td>
+            <td><span class="badge-amber">Traduzido (Caixa)</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="item-name">CHICLETE TUTTI FRUTTI UN</div>
+              <div class="item-sub">Distribuidora Central · Valor da linha: R$ 42,00</div>
+            </td>
+            <td>
+              <div class="item-name" style="color: var(--red);">Chiclete Tutti Frutti</div>
+            </td>
+            <td><span class="mono-chip">7899988812345</span></td>
+            <td style="text-align:center; color: var(--muted-2); font-size: 11px; font-weight: 700;">—</td>
+            <td style="text-align:right;">
+              <div class="item-name">R$ 3,50</div>
+            </td>
+            <td><span class="badge-emerald">Identificado (EAN)</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="eyebrow">4 · Dicionário do Fornecedor — nova seção <b>"Produtos Mãe"</b> ao lado de Mapeamentos/Unidades</div>
+    <div class="modal" style="padding: 20px 22px 24px;">
+      <div class="dict-tabs">
+        <div class="dt">Mapeamentos</div>
+        <div class="dt">Unidades</div>
+        <div class="dt active">Produtos Mãe</div>
+      </div>
+      <div class="dict-list">
+        <div class="dict-row">
+          <div class="dict-thumb">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div class="dict-info">
+            <div class="n">Caixa Fechada 24un <span class="dict-arrow">→</span> Bala de Goma Sortida 700g</div>
+            <div class="s">EAN 7891234567890 · Código interno fornecedor: CX-BG-24</div>
+          </div>
+          <div class="dict-right">
+            <span class="conv-badge">×24</span>
+          </div>
+        </div>
+        <div class="dict-row">
+          <div class="dict-thumb">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div class="dict-info">
+            <div class="n">Pacote Fardo 12un <span class="dict-arrow">→</span> Chiclete Tutti Frutti</div>
+            <div class="s">EAN 7899988877766 · Sem código interno cadastrado</div>
+          </div>
+          <div class="dict-right">
+            <span class="conv-badge">×12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

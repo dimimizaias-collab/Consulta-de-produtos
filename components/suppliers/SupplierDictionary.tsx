@@ -102,6 +102,67 @@ function ProductImage({ src, alt, className }: { src: string, alt: string, class
   );
 }
 
+interface MotherPackageRow {
+  id: string;
+  name: string;
+  sku: string | null;
+  ean: string | null;
+  units_per_child: number;
+  products?: { name: string } | null;
+  suppliers?: { name: string } | null;
+}
+
+function MotherPackagesList() {
+  const [rows, setRows] = useState<MotherPackageRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('product_mother_packages')
+      .select('id, name, sku, ean, units_per_child, products:child_product_id(name), suppliers(name)')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setRows((data || []) as unknown as MotherPackageRow[]);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return <div className="py-16 text-center text-on-surface/30 text-sm font-bold">Carregando...</div>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-on-surface/40">
+        <BookText size={30} className="mb-3 opacity-40" />
+        <p className="text-sm font-bold">Nenhum Produto Mãe cadastrado</p>
+        <p className="text-xs mt-1 max-w-xs">Cadastre embalagens (caixas, fardos) na aba &quot;Produto Mãe&quot; da tela de Editar Produto, no Inventário.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5 p-6 md:p-8 overflow-y-auto">
+      {rows.map(row => (
+        <div key={row.id} className="flex items-center gap-3 bg-surface-container-lowest border border-on-surface/[0.07] shadow-sm rounded-2xl px-4 py-3">
+          <div className="w-10 h-10 rounded-xl bg-surface-container-low border border-on-surface/[0.06] flex items-center justify-center text-on-surface/25 shrink-0">
+            <BookText size={16} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-on-surface truncate">
+              {row.name} <ArrowRight size={12} className="inline mx-1 text-on-surface/25" /> {row.products?.name ?? '—'}
+            </p>
+            <p className="text-[10.5px] font-semibold text-on-surface/40 mt-0.5 truncate">
+              {row.ean ? `EAN ${row.ean}` : 'Sem EAN'} {row.suppliers?.name ? `· ${row.suppliers.name}` : ''}
+            </p>
+          </div>
+          <span className="shrink-0 bg-primary/10 text-primary rounded-full px-3 py-1 text-[11px] font-black">×{row.units_per_child}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SupplierDictionary({ isOpen, onClose, setNotification, embedded = false }: SupplierDictionaryProps) {
   const [supplierNames, setSupplierNames] = useState<Supplier[]>([]);
   const [supplierMappings, setSupplierMappings] = useState<Mapping[]>([]);
@@ -116,7 +177,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
 
   // Unit Conversion State
-  const [activeTab, setActiveTab] = useState<'mappings' | 'units'>('mappings');
+  const [activeTab, setActiveTab] = useState<'mappings' | 'units' | 'mae'>('mappings');
   const [unitConversions, setUnitConversions] = useState<UnitConversion[]>([]);
   const [selectedUnitProduct, setSelectedUnitProduct] = useState<Product | null>(null);
   const [selectedUnitSupplierId, setSelectedUnitSupplierId] = useState<string>('');
@@ -594,6 +655,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
                 <div className="flex gap-1 mt-3">
                   <button onClick={() => setActiveTab('mappings')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'mappings' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Mapeamentos</button>
                   <button onClick={() => setActiveTab('units')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'units' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Unidades</button>
+                  <button onClick={() => setActiveTab('mae')} className={cn("flex-1 py-[9px] rounded-full text-[10px] font-black uppercase tracking-[0.12em] transition-all border-none cursor-pointer", activeTab === 'mae' ? "bg-[#D81E1E] text-white shadow-lg shadow-[#D81E1E]/25" : "text-[#1A1A0E]/35 dark:text-white/25 bg-transparent")}>Produtos Mãe</button>
                 </div>
               </div>
 
@@ -608,6 +670,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
                     <div className="flex items-center gap-4 mt-2">
                       <button onClick={() => setActiveTab('mappings')} className={cn("text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all", activeTab === 'mappings' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5")}>Mapeamentos</button>
                       <button onClick={() => setActiveTab('units')} className={cn("text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all", activeTab === 'units' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5")}>Unidades de Medida</button>
+                      <button onClick={() => setActiveTab('mae')} className={cn("text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all", activeTab === 'mae' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-on-surface/40 hover:bg-on-surface/5")}>Produtos Mãe</button>
                     </div>
                   </div>
                 </div>
@@ -623,7 +686,9 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
                   MOBILE BODY (single column bottom sheet)
                   ══════════════════════════════════════ */}
               <div className="md:hidden flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
-                {activeTab === 'mappings' ? (
+                {activeTab === 'mae' ? (
+                  <MotherPackagesList />
+                ) : activeTab === 'mappings' ? (
                   <>
                     {/* Supplier selector */}
                     <div className="px-5 pt-4 shrink-0">
@@ -962,6 +1027,11 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
               {/* ══════════════════════════════════════
                   DESKTOP BODY (two panels)
                   ══════════════════════════════════════ */}
+              {activeTab === 'mae' ? (
+                <div className="hidden md:block flex-1 overflow-hidden">
+                  <MotherPackagesList />
+                </div>
+              ) : (
               <div className="hidden md:flex flex-1 overflow-hidden flex-row divide-x divide-on-surface/[0.03]">
                 {/* Form Panel */}
                 <div className="w-1/2 p-10 flex flex-col space-y-6 overflow-y-auto">
@@ -1596,6 +1666,7 @@ export function SupplierDictionary({ isOpen, onClose, setNotification, embedded 
                   </div>
                 </div>
               </div>
+              )}
             </motion.div>
           </div>
         )}

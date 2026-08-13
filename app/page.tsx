@@ -28,6 +28,7 @@ import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
+import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -658,7 +659,8 @@ export default function Page() {
   // Aba "Editar Produto": Dados x Histórico em Notas. EANs-alvo do histórico são "congelados" ao
   // abrir o modal (não acompanham edições ao vivo do campo EAN) para não confundir o que já foi
   // gravado nas notas com o que o usuário está digitando agora.
-  const [editProductTab, setEditProductTab] = useState<'dados' | 'historico'>('dados');
+  const [editProductTab, setEditProductTab] = useState<'dados' | 'mae' | 'historico'>('dados');
+  const [newProductTab, setNewProductTab] = useState<'dados' | 'mae'>('dados');
   const [editProductHistoryEans, setEditProductHistoryEans] = useState<string[]>([]);
 
   // Estoque & Preço por Empresa — a empresa selecionada define quais valores de
@@ -3556,7 +3558,19 @@ export default function Page() {
           mappingQuery = mappingQuery.eq('supplier_id', selectedImportSupplierId);
         }
         const { data: filterMappings } = await mappingQuery;
-        
+
+        // Produtos Mãe: EAN da embalagem (caixa/fardo) -> produto filho + fator de conversão.
+        // Prioridade de match mais alta que o dicionário textual — o EAN da caixa é único e universal.
+        const { data: motherPackages } = await supabase.from('product_mother_packages').select('*');
+        const { data: motherExtraEans } = await supabase.from('product_mother_package_ean_codes').select('ean, mother_package_id');
+        const motherEanToPackage = new Map<string, any>();
+        (motherPackages || []).forEach((mp: any) => { if (mp.ean) motherEanToPackage.set(mp.ean, mp); });
+        (motherExtraEans || []).forEach((row: any) => {
+          const mp = (motherPackages || []).find((m: any) => m.id === row.mother_package_id);
+          if (mp) motherEanToPackage.set(row.ean, mp);
+        });
+        const motherPackageById = new Map<string, any>((motherPackages || []).map((mp: any) => [mp.id, mp]));
+
         const processedItems: any[] = [];
 
         for (const row of (rawData as any[])) {
@@ -3573,12 +3587,18 @@ export default function Page() {
 
           if (isNaN(qty) || qty <= 0) continue;
 
+          // 0. Produto Mãe: EAN da embalagem (caixa/fardo) bate primeiro que qualquer outro critério
+          const motherPackage = finalEan ? motherEanToPackage.get(finalEan) : undefined;
+
           // Try to find product by SKU, EAN (principal ou adicional) ou mapping
           const finalEanProductId = finalEan ? eanToProductId.get(finalEan) : undefined;
-          let product = currentProducts?.find(p => (sku && p.sku === sku) || (finalEanProductId && p.id === finalEanProductId));
-          let statusTranslation = 'Identificado (SKU/EAN)';
+          let product = motherPackage
+            ? currentProducts?.find(p => p.id === motherPackage.child_product_id)
+            : currentProducts?.find(p => (sku && p.sku === sku) || (finalEanProductId && p.id === finalEanProductId));
+          let statusTranslation = motherPackage ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)';
           let verified = !!product;
-          
+          let motherMatch = motherPackage || null;
+
           if (!product) {
             // 1. Try to find a mapping by supplier SKU first
             let mapping = filterMappings?.find(m => sku && m.supplier_sku === sku);
@@ -3587,7 +3607,7 @@ export default function Page() {
             if (!mapping && description) {
               const normDesc = normalize(description);
               mapping = filterMappings?.find(m => normalize(m.supplier_description || "") === normDesc);
-              
+
               if (!mapping) {
                 mapping = filterMappings?.find(m => {
                   const normMap = normalize(m.supplier_description || "");
@@ -3596,7 +3616,18 @@ export default function Page() {
               }
             }
 
-            if (mapping) {
+            if (mapping?.mother_package_id) {
+              // Código/descrição do fornecedor mapeado direto para um Produto Mãe (embalagem)
+              const mp = motherPackageById.get(mapping.mother_package_id);
+              if (mp) {
+                product = currentProducts?.find(p => p.id === mp.child_product_id);
+                if (product) {
+                  statusTranslation = 'Traduzido (Caixa)';
+                  verified = true;
+                  motherMatch = mp;
+                }
+              }
+            } else if (mapping) {
               product = currentProducts?.find(p => p.id === mapping.internal_product_id);
               if (product) {
                 statusTranslation = 'Traduzido';
@@ -3609,10 +3640,12 @@ export default function Page() {
              statusTranslation = 'Não Encontrado';
           }
 
-          // Apply Unit Conversion
+          // Apply Unit Conversion — via Produto Mãe (prioridade) ou tabela de unidades do fornecedor
           let multiplier = 1;
-          if (product && unit) {
-            const conversion = unitConversions?.find(c => 
+          if (motherMatch) {
+            multiplier = Number(motherMatch.units_per_child) || 1;
+          } else if (product && unit) {
+            const conversion = unitConversions?.find(c =>
               c.product_id === product?.id && normalize(c.unit_name) === normalize(unit)
             );
             if (conversion) {
@@ -3621,6 +3654,10 @@ export default function Page() {
           }
 
           const finalQty = qty * multiplier;
+          const rawPrice = isNaN(price) ? 0 : price;
+          // Custo unitário: quando vem de caixa, o valor lido na nota é da embalagem (ex: R$150,00 a caixa),
+          // não da unidade — converte dividindo pelo fator, para o markup em "Histórico em Notas" ficar correto.
+          const finalPrice = motherMatch && multiplier > 0 ? rawPrice / multiplier : rawPrice;
 
           processedItems.push({
             sku: product?.sku || sku || '',
@@ -3631,11 +3668,15 @@ export default function Page() {
             multiplier,
             qty: finalQty,
             original_qty: qty,
-            price: isNaN(price) ? 0 : price,
+            price: finalPrice,
+            original_price: rawPrice,
             product_price: product?.price || 0,
             status_translation: statusTranslation,
             product_id: product?.id,
-            verified: verified
+            verified: verified,
+            mother_package_id: motherMatch?.id || null,
+            mother_package_name: motherMatch?.name || null,
+            mother_package_ean: motherMatch?.ean || null,
           });
 
         }
@@ -4359,6 +4400,18 @@ export default function Page() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setEditProductTab('mae')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
+                    editProductTab === 'mae'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Produto Mãe
+                </button>
+                <button
+                  type="button"
                   onClick={() => setEditProductTab('historico')}
                   className={cn(
                     'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
@@ -4775,6 +4828,10 @@ export default function Page() {
                 </>
                   );
                 })()}
+
+                {editProductTab === 'mae' && (
+                  <MotherProductsTab childProductId={editingProduct.id || null} childProductName={editingProduct.name || 'Produto sem nome'} />
+                )}
 
                 {editProductTab === 'historico' && (
                   <div className="space-y-3">
@@ -5396,8 +5453,39 @@ export default function Page() {
                 </button>
               </div>
 
+              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setNewProductTab('dados')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    newProductTab === 'dados'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewProductTab('mae')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    newProductTab === 'mae'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Produto Mãe
+                </button>
+              </div>
+
               <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                {addStatus === 'success' && (
+                {newProductTab === 'mae' && (
+                  <MotherProductsTab childProductId={null} childProductName={newProduct.name || 'Produto sem nome'} />
+                )}
+
+                {newProductTab === 'dados' && addStatus === 'success' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -5408,7 +5496,7 @@ export default function Page() {
                   </motion.div>
                 )}
 
-                {addStatus === 'error' && (
+                {newProductTab === 'dados' && addStatus === 'error' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -5418,7 +5506,7 @@ export default function Page() {
                   </motion.div>
                 )}
 
-                <div className="space-y-4">
+                <div className={cn('space-y-4', newProductTab !== 'dados' && 'hidden')}>
                   <div className={sectionCls}>
                     <div className={sectionHeadCls}>
                       <Package size={15} className="text-primary shrink-0" />
@@ -6688,6 +6776,16 @@ export default function Page() {
                               <div className="flex items-center gap-2">
                                 <ArrowRight size={13} className="text-primary shrink-0" />
                                 <p className="text-sm font-black text-primary">{item.name}</p>
+                                {item.mother_package_id && (
+                                  <div className="relative group/mae shrink-0">
+                                    <div className="w-5 h-5 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center cursor-help">
+                                      <Package size={11} />
+                                    </div>
+                                    <div className="hidden group-hover/mae:block absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-slate-900 text-white text-[10.5px] font-bold px-2.5 py-1.5 rounded-lg shadow-lg">
+                                      Convertido de caixa — EAN {item.mother_package_ean || '—'}, ×{item.multiplier}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <p className="text-xs font-medium text-red-400 italic">Cadastro pendente</p>
@@ -6772,6 +6870,7 @@ export default function Page() {
                           <td className="py-3 px-4">
                             <span className={cn(
                               "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
+                              item.verified && item.status_translation === 'Traduzido (Caixa)' ? "bg-amber-100 text-amber-700" :
                               item.verified && item.status_translation === 'Traduzido' ? "bg-amber-100 text-amber-700" :
                               item.verified ? "bg-blue-100 text-blue-700" :
                               "bg-red-100 text-red-700"
