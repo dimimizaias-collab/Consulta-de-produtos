@@ -17,6 +17,7 @@ import {
   Smartphone,
   StickyNote,
   MoreVertical,
+  Monitor,
 } from 'lucide-react';
 import { LabelPrintModal } from './LabelPrintModal';
 import { PlacaPrintModal } from './PlacaPrintModal';
@@ -24,6 +25,7 @@ import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
+import { useViewMode } from '@/lib/view-mode';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
 
@@ -62,6 +64,7 @@ export function InventoryManager({
   stockFileInputRef,
   setShowStockUpdateChoiceModal
 }: InventoryManagerProps) {
+  const { isMobileView, toggleMode } = useViewMode();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'produtos' | 'estoque'>('produtos');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewDropdown, setShowNewDropdown] = useState(false);
@@ -243,13 +246,23 @@ export function InventoryManager({
             </AnimatePresence>
           </div>
 
-          <button
-            onClick={onAdd}
-            title="Novo Produto"
-            className="w-[38px] h-[38px] rounded-full bg-primary text-white flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-primary/25"
-          >
-            <Plus size={19} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleMode}
+              title={isMobileView ? 'Mudar para modo Desktop' : 'Mudar para modo Mobile'}
+              className="w-[38px] h-[38px] rounded-full bg-on-surface/[0.07] border border-on-surface/[0.08] flex items-center justify-center text-on-surface active:scale-95 transition-transform"
+            >
+              {isMobileView ? <Monitor size={17} /> : <Smartphone size={17} />}
+            </button>
+
+            <button
+              onClick={onAdd}
+              title="Novo Produto"
+              className="w-[38px] h-[38px] rounded-full bg-primary text-white flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-primary/25"
+            >
+              <Plus size={19} />
+            </button>
+          </div>
         </div>
 
         <h1 className="text-[32px] font-black text-on-surface tracking-tight leading-tight mt-4">Inventory</h1>

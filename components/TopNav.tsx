@@ -13,10 +13,13 @@ interface TopNavProps {
   onMarkAllRead?: () => void;
   onGoToNote?: (noteId: string) => void;
   onGoToNotificationsPage?: () => void;
+  hideViewToggle?: boolean;
 }
 
-export function TopNav({}: TopNavProps) {
+export function TopNav({ hideViewToggle }: TopNavProps) {
   const { isMobileView, toggleMode } = useViewMode();
+
+  if (hideViewToggle) return null;
 
   return (
     <>
