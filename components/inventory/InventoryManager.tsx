@@ -16,6 +16,7 @@ import {
   Rows3,
   Smartphone,
   StickyNote,
+  MoreVertical,
 } from 'lucide-react';
 import { LabelPrintModal } from './LabelPrintModal';
 import { PlacaPrintModal } from './PlacaPrintModal';
@@ -67,9 +68,10 @@ export function InventoryManager({
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showPlacaModal, setShowPlacaModal] = useState(false);
   const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
-  const printMenuRefMobile = useRef<HTMLDivElement>(null);
   const printMenuRefDesktop = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -83,16 +85,23 @@ export function InventoryManager({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      const insideMobile = printMenuRefMobile.current?.contains(target);
-      const insideDesktop = printMenuRefDesktop.current?.contains(target);
-      if (!insideMobile && !insideDesktop) {
+      if (printMenuRefDesktop.current && !printMenuRefDesktop.current.contains(e.target as Node)) {
         setShowPrintMenu(false);
       }
     }
     if (showPrintMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPrintMenu]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setShowMobileMenu(false);
+      }
+    }
+    if (showMobileMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMobileMenu]);
 
   const [filters, setFilters] = useState({
     ean: '',
@@ -140,8 +149,8 @@ export function InventoryManager({
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="relative mb-14">
+      {/* Header — Desktop: card amarela âncora de marca */}
+      <div className="relative mb-14 hidden lg:block">
         <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
           <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
             <Package size={24} strokeWidth={2} />
@@ -169,6 +178,94 @@ export function InventoryManager({
                   active
                     ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
                     : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                {tab === 'produtos' ? 'Produtos' : 'Estoque'}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Header — Mobile: inspirado no WhatsApp, título solto sem moldura */}
+      <div className="lg:hidden mb-6">
+        <div className="flex items-center justify-between">
+          <div className="relative" ref={mobileMenuRef}>
+            <button
+              onClick={() => setShowMobileMenu(v => !v)}
+              title="Mais opções"
+              className="w-[38px] h-[38px] rounded-full bg-on-surface/[0.07] border border-on-surface/[0.08] flex items-center justify-center text-on-surface active:scale-95 transition-transform"
+            >
+              <MoreVertical size={18} />
+            </button>
+            <AnimatePresence>
+              {showMobileMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute left-0 top-[calc(100%+8px)] z-50 min-w-[200px] rounded-2xl border border-on-surface/[0.08] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowMobileMenu(false); setShowLabelModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Tag size={14} className="text-primary" />
+                    Etiquetas
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.06]" />
+                  <button
+                    onClick={() => { setShowMobileMenu(false); setShowPlacaModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <StickyNote size={14} className="text-primary" />
+                    Placas
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.06]" />
+                  <button
+                    onClick={() => { setShowMobileMenu(false); onOpenMobileBulkTable(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Smartphone size={14} className="text-primary" />
+                    Cadastro Mobile
+                  </button>
+                  <div className="mx-3 h-px bg-on-surface/[0.06]" />
+                  <button
+                    onClick={() => { setShowMobileMenu(false); onOpenProductList(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
+                  >
+                    <Rows3 size={14} className="text-primary" />
+                    Lista de Produtos
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            onClick={onAdd}
+            title="Novo Produto"
+            className="w-[38px] h-[38px] rounded-full bg-primary text-white flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-primary/25"
+          >
+            <Plus size={19} />
+          </button>
+        </div>
+
+        <h1 className="text-[32px] font-black text-on-surface tracking-tight leading-tight mt-4">Inventory</h1>
+
+        <div className="flex items-center gap-2 mt-3">
+          {(['produtos', 'estoque'] as const).map((tab) => {
+            const active = activeInventoryTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveInventoryTab(tab)}
+                className={cn(
+                  'px-[18px] py-[9px] rounded-full text-[11px] font-extrabold uppercase tracking-wide border transition-colors active:scale-[0.97]',
+                  active
+                    ? 'bg-[#1A1A0E] text-[#FFE500] border-transparent dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                    : 'bg-on-surface/[0.055] text-on-surface/55 border-on-surface/[0.08] hover:text-on-surface'
                 )}
               >
                 {tab === 'produtos' ? 'Produtos' : 'Estoque'}
@@ -207,9 +304,9 @@ export function InventoryManager({
 
         <input type="file" ref={stockFileInputRef} onChange={onStockUpdate} accept=".xml,.csv,.xlsx,.xls" className="hidden" />
 
-        {/* Mobile layout: search on its own row, icon buttons + count below */}
+        {/* Mobile layout: busca + contador de produtos, estilo WhatsApp */}
         <div className="flex flex-col gap-2.5 lg:hidden">
-          <div className="h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl px-4">
+          <div className="h-11 flex items-center gap-2.5 bg-surface-container-low border border-on-surface/[0.06] rounded-2xl pl-4 pr-2">
             <Search size={16} className="text-on-surface/30 shrink-0" />
             <input
               type="text"
@@ -218,116 +315,26 @@ export function InventoryManager({
               placeholder="Buscar..."
               className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
             />
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Produtos count pill — uma linha */}
-            <div
-              title="Produtos"
-              className="h-11 shrink-0 flex items-center gap-1.5 px-4 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low whitespace-nowrap"
-            >
-              <span className="text-sm font-black text-on-surface">{products.length}</span>
-              <span className="text-[11px] font-bold text-on-surface/45">produtos</span>
-            </div>
-
-            {/* Mobile — ícone */}
-            <button
-              onClick={onOpenMobileBulkTable}
-              title="Mobile"
-              className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
-            >
-              <Smartphone size={17} />
-            </button>
-
-            {/* Filtros — ícone */}
             <button
               onClick={() => setShowFilters(v => !v)}
               title="Filtros"
               className={cn(
-                'w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center active:scale-95 transition-all',
-                showFilters
-                  ? 'bg-primary/10 border-primary/20 text-primary'
-                  : 'bg-surface-container-low border-on-surface/[0.06] text-on-surface/55 hover:text-on-surface'
+                'w-8 h-8 shrink-0 rounded-xl flex items-center justify-center transition-colors',
+                showFilters ? 'bg-primary/10 text-primary' : 'text-on-surface/40 hover:text-on-surface'
               )}
             >
-              <Filter size={17} />
+              <Filter size={15} />
             </button>
+          </div>
 
-            {/* Etiquetas / Placas — ícone com menu */}
-            <div ref={printMenuRefMobile} className="relative">
-              <button
-                onClick={() => setShowPrintMenu(v => !v)}
-                title="Imprimir"
-                className="w-11 h-11 shrink-0 rounded-2xl border border-on-surface/[0.06] bg-surface-container-low text-on-surface/55 flex items-center justify-center active:scale-95 transition-all hover:text-on-surface"
-              >
-                <Tag size={17} />
-              </button>
-              <AnimatePresence>
-                {showPrintMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => { setShowPrintMenu(false); setShowLabelModal(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Tag size={14} className="text-primary" />
-                      Etiquetas
-                    </button>
-                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                    <button
-                      onClick={() => { setShowPrintMenu(false); setShowPlacaModal(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <StickyNote size={14} className="text-primary" />
-                      Placas
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+          <div className="flex items-center justify-between pb-2.5 border-b border-on-surface/[0.08]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-[30px] h-[30px] rounded-[9px] bg-primary/10 flex items-center justify-center text-primary">
+                <Package size={15} />
+              </div>
+              <span className="text-[13px] font-extrabold text-on-surface">Produtos cadastrados</span>
             </div>
-
-            {/* Novo — ícone vermelho, na ponta */}
-            <div ref={newDropdownRef} className="relative">
-              <button
-                onClick={() => setShowNewDropdown(v => !v)}
-                title="Novo"
-                className="w-11 h-11 shrink-0 rounded-2xl bg-primary text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-primary/20"
-              >
-                <Plus size={19} />
-              </button>
-              <AnimatePresence>
-                {showNewDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-xl border border-on-surface/[0.06] bg-surface-container shadow-xl shadow-black/20 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onOpenProductList(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Rows3 size={14} className="text-primary" />
-                      Lista de produtos
-                    </button>
-                    <div className="mx-3 h-px bg-on-surface/[0.05]" />
-                    <button
-                      onClick={() => { setShowNewDropdown(false); onAdd(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-on-surface/70 hover:text-on-surface hover:bg-on-surface/[0.04] transition-colors"
-                    >
-                      <Plus size={14} />
-                      Novo Produto
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <span className="text-[13px] font-black text-on-surface/45">{products.length}</span>
           </div>
         </div>
 
@@ -575,13 +582,15 @@ export function InventoryManager({
                 return (
                   <div
                     key={product.id || product.sku || `product-${virtualRow.index}`}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="pb-0 md:pb-6"
                     style={{
                       position: 'absolute',
                       top: 0,
                       left: 0,
                       width: '100%',
                       transform: `translateY(${virtualRow.start}px)`,
-                      paddingBottom: '24px', // gap-6 equivalent
                     }}
                   >
                     <ProductCard
