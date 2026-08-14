@@ -51,7 +51,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
   const [name, setName] = useState('');
   const [ean, setEan] = useState('');
   const [extraEans, setExtraEans] = useState<EanCodeEntry[]>([]);
-  const [unitsPerChild, setUnitsPerChild] = useState(1);
+  const [unitsPerChild, setUnitsPerChild] = useState<number | ''>('');
   const [supplierId, setSupplierId] = useState('');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
@@ -68,7 +68,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
       setSku(editingPackage.sku || '');
       setName(editingPackage.name || '');
       setEan(editingPackage.ean || '');
-      setUnitsPerChild(editingPackage.units_per_child || 1);
+      setUnitsPerChild(editingPackage.units_per_child || '');
       setSupplierId(editingPackage.supplier_id || '');
       setLocation(editingPackage.location || '');
       setCategory(editingPackage.category || '');
@@ -81,7 +81,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         .then(({ data }) => setExtraEans((data || []) as EanCodeEntry[]));
     } else {
       setSku(''); setName(''); setEan(''); setExtraEans([]);
-      setUnitsPerChild(1); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
+      setUnitsPerChild(''); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
   }, [open, editingPackage]);
@@ -115,6 +115,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
 
   async function handleSave() {
     if (!name.trim()) { setError('Informe o nome da embalagem.'); return; }
+    if (!unitsPerChild || unitsPerChild <= 0) { setError('Informe as unidades por embalagem.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -282,9 +283,13 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                     <label className={labelCls}>Unidades por Embalagem</label>
                     <input
                       type="number"
+                      required
+                      min={1}
                       value={unitsPerChild}
-                      onChange={e => setUnitsPerChild(parseInt(e.target.value || '1') || 1)}
-                      className={inputCls}
+                      onChange={e => setUnitsPerChild(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                      onWheel={e => e.currentTarget.blur()}
+                      placeholder="Ex.: 12"
+                      className={cn(inputCls, '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
                     />
                   </div>
                   <div className="space-y-1.5">
