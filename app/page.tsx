@@ -7191,7 +7191,7 @@ export default function Page() {
 
               <div
                 className={cn(
-                  "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]",
+                  "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] [--rn-dup-bg:rgba(216,30,30,0.10)] [--rn-dup-border:rgba(216,30,30,0.55)] [--rn-dup-text:#B91C1C] [--rn-dup-th-border:#D81E1E] [--rn-dup-th-text:#D81E1E] [--rn-dup-th-bg:rgba(216,30,30,0.08)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)] dark:[--rn-dup-bg:rgba(216,30,30,0.16)] dark:[--rn-dup-border:rgba(216,30,30,0.60)] dark:[--rn-dup-text:#FCA5A5]",
                   noteEditorTab !== 'produtos' && 'hidden'
                 )}
                 style={{ padding: 0 }}
@@ -7221,6 +7221,17 @@ export default function Page() {
                           'Medida': 'medida',
                           'Qtd.': 'qtd',
                         };
+                        // ── Duplicatas de Código/EAN — moldura vermelha no título da coluna quando há repetição ──
+                        const _codigoDupCounts: Record<string, number> = {};
+                        const _eanDupCounts: Record<string, number> = {};
+                        viewingReviewNote!.items.forEach((it: any, i: number) => {
+                          const cv = (it.supplier_code || '').trim();
+                          if (cv) _codigoDupCounts[cv] = (_codigoDupCounts[cv] || 0) + 1;
+                          const ev = (viewingNoteEans[i] ?? it.ean ?? '').trim();
+                          if (ev) _eanDupCounts[ev] = (_eanDupCounts[ev] || 0) + 1;
+                        });
+                        const hasCodigoDup = Object.values(_codigoDupCounts).some(c => c > 1);
+                        const hasEanDup = Object.values(_eanDupCounts).some(c => c > 1);
                         const _computeNumerics = (it: any, i: number) => {
                           const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
                           const q = viewingNoteQtys[i] ?? it.qty ?? 0;
@@ -7327,8 +7338,9 @@ export default function Page() {
                           </th>
                           {!reviewHiddenCols.has('Código') && (
                           <th style={{ ...thBar, position: 'relative' }}>
-                            <div style={lbl()}>
-                              <span style={{ color: reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit' }}>Código</span>
+                            <div style={lbl(hasCodigoDup ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={hasCodigoDup ? 'Existem códigos duplicados nesta coluna' : undefined}>
+                              {hasCodigoDup && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
+                              <span style={{ color: hasCodigoDup ? 'var(--rn-dup-th-text)' : reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit' }}>Código</span>
                               <button
                                 onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has('Código') ? s.delete('Código') : s.add('Código'); return s; })}
                                 title={reviewEditableCols.has('Código') ? 'Bloquear coluna' : 'Editar coluna'}
@@ -7347,10 +7359,12 @@ export default function Page() {
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
                             const filterKey = colFilterKey[col];
+                            const isDupCol = col === 'EAN' && hasEanDup;
                             return (
                               <th key={col} style={{ ...thBar, position: 'relative' }}>
-                                <div style={lbl()}>
-                                  <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
+                                <div style={lbl(isDupCol ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={isDupCol ? 'Existem EANs duplicados nesta coluna' : undefined}>
+                                  {isDupCol && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
+                                  <span style={{ color: isDupCol ? 'var(--rn-dup-th-text)' : editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
                                   {canEdit && (
                                     <button
                                       onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
@@ -7457,6 +7471,15 @@ export default function Page() {
                       // Em "Registro", todas as colunas ficam destravadas por padrão — igual à antiga janela "Criar Manifesto".
                       const canEditItems = getNoteStatus(viewingReviewNote!) === 'registro';
                       const _allItems: any[] = viewingReviewNote!.items;
+                      // ── Duplicatas de Código/EAN — preenchimento vermelho nas células repetidas ──
+                      const _tbCodigoDupCounts: Record<string, number> = {};
+                      const _tbEanDupCounts: Record<string, number> = {};
+                      _allItems.forEach((it: any, i: number) => {
+                        const cv = (it.supplier_code || '').trim();
+                        if (cv) _tbCodigoDupCounts[cv] = (_tbCodigoDupCounts[cv] || 0) + 1;
+                        const ev = (viewingNoteEans[i] ?? it.ean ?? '').trim();
+                        if (ev) _tbEanDupCounts[ev] = (_tbEanDupCounts[ev] || 0) + 1;
+                      });
                       const _getVal = (key: string, it: any, i: number): string => {
                         if (key === 'produto') return it.original_description || '-';
                         if (key === 'interno') return it.name || '-';
@@ -7509,6 +7532,11 @@ export default function Page() {
                       const focusCell = (el: HTMLElement | null) => { if (el) { el.style.borderColor = 'rgba(216,30,30,0.55)'; el.style.boxShadow = '0 0 0 3px rgba(216,30,30,0.12)'; } };
                       const blurCell  = (el: HTMLElement | null) => { if (el) { el.style.borderColor = ''; el.style.boxShadow = ''; } };
 
+                      const _rowCodigo = (item.supplier_code || '').trim();
+                      const isCodigoDup = !!_rowCodigo && (_tbCodigoDupCounts[_rowCodigo] || 0) > 1;
+                      const _rowEan = (viewingNoteEans[idx] ?? item.ean ?? '').trim();
+                      const isEanDup = !!_rowEan && (_tbEanDupCounts[_rowEan] || 0) > 1;
+
                       const { disc: discountAmt, sur: surchargeAmt } = calcAdjAmounts(cost, displayQty, idx, adjColumns);
                       const hasDiscount = discountAmt > 0;
                       const hasSurcharge = surchargeAmt > 0;
@@ -7556,15 +7584,15 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ padding: '0 10px' })}>
+                            <div data-cell style={cell({ padding: '0 10px', ...(isCodigoDup ? { background: 'var(--rn-dup-bg)', borderColor: 'var(--rn-dup-border)' } : {}) })} title={isCodigoDup ? 'Código duplicado nesta nota' : undefined}>
                               {(canEditItems || reviewEditableCols.has('Código')) ? (
                                 <input type="text" value={item.supplier_code || ''}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], supplier_code: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'supplier_code')}
                                   onBlur={captureSnapshot}
-                                  className="w-full font-mono text-xs font-bold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                                  className="w-full font-mono text-xs font-bold bg-transparent outline-none" style={{ color: isCodigoDup ? 'var(--rn-dup-text)' : 'var(--rn-text)' }} />
                               ) : item.supplier_code ? (
-                                <span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code}</span>
+                                <span className="font-mono text-xs font-bold" style={{ color: isCodigoDup ? 'var(--rn-dup-text)' : 'var(--rn-text-muted)' }}>{item.supplier_code}</span>
                               ) : (
                                 <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               )}
@@ -7720,7 +7748,7 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ padding: '0 10px' })}>
+                            <div data-cell style={cell({ padding: '0 10px', ...(isEanDup ? { background: 'var(--rn-dup-bg)', borderColor: 'var(--rn-dup-border)' } : {}) })} title={isEanDup ? 'EAN duplicado nesta nota' : undefined}>
                               {(canEditItems || reviewEditableCols.has('EAN')) ? (
                                 <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
@@ -7728,10 +7756,10 @@ export default function Page() {
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'ean')}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 1)}
                                   onBlur={captureSnapshot}
-                                  className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: 'var(--rn-text)' }} />
+                                  className="w-full text-[11px] font-bold bg-transparent outline-none font-mono" style={{ color: isEanDup ? 'var(--rn-dup-text)' : 'var(--rn-text)' }} />
                               ) : (
                                 <div className="flex items-center justify-between gap-1 w-full">
-                                  <p className="text-[11px] font-bold font-mono truncate" style={{ color: 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
+                                  <p className="text-[11px] font-bold font-mono truncate" style={{ color: isEanDup ? 'var(--rn-dup-text)' : 'var(--rn-text-muted)' }}>{(viewingNoteEans[idx] ?? item.ean) || '—'}</p>
                                   {(viewingNoteEans[idx] ?? item.ean) && (
                                     <button
                                       type="button"

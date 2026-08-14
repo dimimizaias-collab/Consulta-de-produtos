@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Alerta de Duplicatas (Código/EAN) · Light</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#EDE8D5;
+  min-height:100vh;
+  padding:32px 24px;
+  color:#1A1A0E;
+}
+h1{font-size:12px;font-weight:700;color:rgba(26,26,14,.40);margin-bottom:24px;letter-spacing:.07em;text-transform:uppercase}
+
+.modal{
+  background:#FDFAF0;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 24px 80px rgba(26,26,10,.18);
+  max-width:1200px;
+  margin:0 auto;
+}
+
+.modal-header{
+  background:#F5F0DE;
+  padding:16px 22px;
+  display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid rgba(26,26,10,.07);
+}
+.modal-icon{
+  width:38px;height:38px;
+  background:rgba(216,30,30,.10);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.modal-title-block{flex:1}
+.modal-title{font-size:15px;font-weight:800;color:#1A1A0E;letter-spacing:.01em}
+.modal-sub{font-size:11px;color:rgba(26,26,10,.38);margin-top:2px}
+
+.alert-banner{
+  margin:16px 22px 0;
+  background:rgba(216,30,30,.07);
+  border:1px solid rgba(216,30,30,.22);
+  border-radius:12px;
+  padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+  font-size:12px;font-weight:700;color:#B91C1C;
+}
+.alert-banner .dot{width:7px;height:7px;border-radius:99px;background:#D81E1E;flex-shrink:0}
+
+.table-wrap{overflow-x:auto;background:#FDFAF0;padding:16px 22px 22px}
+table{border-collapse:collapse;width:100%}
+
+thead tr{background:#FFE500;border-bottom:1.5px solid #D4C000}
+thead th{
+  padding:9px 10px 9px 0;
+  text-align:left;
+  vertical-align:middle;
+}
+thead th:first-child{padding-left:10px}
+thead th.center{text-align:center}
+
+.th-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:9px;font-weight:900;
+  text-transform:uppercase;letter-spacing:.10em;
+  color:rgba(26,26,10,.55);
+  background:rgba(26,26,10,.05);
+  border:1.5px solid rgba(26,26,10,.10);
+  border-radius:99px;padding:5px 13px;
+  white-space:nowrap;
+}
+/* ── Coluna com duplicatas: moldura do chip do título fica vermelha ── */
+.th-pill.dup{
+  border-color:#D81E1E;
+  color:#D81E1E;
+  background:rgba(216,30,30,.08);
+}
+.th-pill .warn-icon{font-size:9px}
+
+tbody tr{transition:background .08s}
+tbody tr:nth-child(odd) {background:#FFFFFF}
+tbody tr:nth-child(even){background:#FAF7EE}
+tbody tr:hover{background:#FFF8D0}
+
+tbody td{
+  padding:4px 3px;
+  border-bottom:1px solid #E0D8BF;
+  vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none}
+
+.row-num{font-size:10px;font-weight:900;color:rgba(26,26,10,.28);text-align:center;padding:4px 6px}
+
+.cell-box{
+  border-radius:8px;border:1.5px solid #E0D8BF;
+  background:#FFFFFF;height:36px;
+  display:flex;align-items:center;overflow:hidden;padding:0 10px;
+}
+.cell-box .val{background:transparent;border:none;outline:none;font-family:'DM Mono','Courier New',monospace;font-size:11px;font-weight:600;color:#1A1A0E;width:100%}
+.cell-box .val-muted{color:rgba(26,26,10,.22);font-size:11px}
+
+/* ── Célula com valor duplicado: preenchimento vermelho ── */
+.cell-box.dup{
+  background:rgba(216,30,30,.10);
+  border-color:rgba(216,30,30,.55);
+}
+.cell-box.dup .val{color:#B91C1C;font-weight:800}
+
+.desc-cell{padding:4px 10px;font-size:12px;font-weight:600;color:#1A1A0E}
+
+/* Legend */
+.legend{
+  display:flex;align-items:center;gap:18px;
+  margin:14px 22px 0;padding-bottom:18px;
+  font-size:11px;color:rgba(26,26,10,.45);font-weight:600;
+}
+.legend .swatch{
+  display:inline-flex;align-items:center;gap:6px;
+}
+.legend .box{width:14px;height:14px;border-radius:4px;display:inline-block}
+.box.dup-box{background:rgba(216,30,30,.10);border:1.5px solid rgba(216,30,30,.55)}
+.box.ok-box{background:#FFFFFF;border:1.5px solid #E0D8BF}
+</style>
+</head>
+<body>
+<h1>Mockup — Alerta de Duplicatas nas colunas Código e EAN · Light Mode</h1>
+
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title-block">
+      <div class="modal-title">NOVA RENOVO VARÕES – 30/06/2026</div>
+      <div class="modal-sub">7309 &nbsp;·&nbsp; 30/06/2026, 12:51:06</div>
+    </div>
+  </div>
+
+  <div class="alert-banner">
+    <span class="dot"></span>
+    Foram encontrados códigos e EANs duplicados nesta nota — confira as células destacadas em vermelho.
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="center" style="width:40px"><span class="th-pill">#</span></th>
+          <th style="width:110px"><span class="th-pill dup"><span class="warn-icon">⚠</span> Código</span></th>
+          <th style="min-width:220px"><span class="th-pill">Produto na Nota</span></th>
+          <th style="width:170px"><span class="th-pill dup"><span class="warn-icon">⚠</span> EAN</span></th>
+          <th class="center" style="width:80px"><span class="th-pill">Qtd.</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-num">1</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">11</span></div></td>
+          <td class="desc-cell">VARAO FINO 1M</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td class="row-num">4</td>
+        </tr>
+        <tr>
+          <td class="row-num">2</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">12</span></div></td>
+          <td class="desc-cell">VARAO FINO 1,5M</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td class="row-num">29</td>
+        </tr>
+        <tr>
+          <td class="row-num">3</td>
+          <td style="padding:4px 4px"><div class="cell-box dup"><span class="val">13</span></div></td>
+          <td class="desc-cell">VARAO FINO 2M</td>
+          <td style="padding:4px 4px"><div class="cell-box dup"><span class="val">7898762340012</span></div></td>
+          <td class="row-num">18</td>
+        </tr>
+        <tr>
+          <td class="row-num">4</td>
+          <td style="padding:4px 4px"><div class="cell-box dup"><span class="val">13</span></div></td>
+          <td class="desc-cell">VARAO FINO 2,5M</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td class="row-num">18</td>
+        </tr>
+        <tr>
+          <td class="row-num">5</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">15</span></div></td>
+          <td class="desc-cell">VARAO FINO 3M</td>
+          <td style="padding:4px 4px"><div class="cell-box dup"><span class="val">7898762340012</span></div></td>
+          <td class="row-num">4</td>
+        </tr>
+        <tr>
+          <td class="row-num">6</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val">16</span></div></td>
+          <td class="desc-cell">VARAO FINO 4M</td>
+          <td style="padding:4px 4px"><div class="cell-box"><span class="val-muted">–</span></div></td>
+          <td class="row-num">2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <span class="swatch"><span class="box dup-box"></span> Valor duplicado na coluna</span>
+    <span class="swatch"><span class="box ok-box"></span> Valor único</span>
+  </div>
+</div>
+</body>
+</html>
