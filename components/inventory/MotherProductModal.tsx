@@ -172,6 +172,25 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         }
       }
 
+      // Auto-redireciona a tradução do Dicionário para este Produto Mãe — só quando for
+      // inequívoco (exatamente 1 mapeamento desse fornecedor para este produto). Havendo mais
+      // de um (ex: caixa e unidade avulsa cadastradas separadamente), não mexe sozinho — fica
+      // como sugestão manual na aba "Produtos Mãe" do Dicionário, pra evitar redirecionar a
+      // tradução errada.
+      if (supplierId) {
+        const { data: candidateMappings } = await supabase
+          .from('supplier_mappings')
+          .select('id')
+          .eq('supplier_id', supplierId)
+          .eq('internal_product_id', childProductId);
+        if (candidateMappings && candidateMappings.length === 1) {
+          await supabase
+            .from('supplier_mappings')
+            .update({ mother_package_id: motherPackageId, internal_product_id: null })
+            .eq('id', candidateMappings[0].id);
+        }
+      }
+
       onSaved();
       onClose();
     } catch (err: any) {

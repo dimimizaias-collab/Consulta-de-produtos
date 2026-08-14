@@ -122,9 +122,22 @@ interface UnitConversionCandidate {
   suppliers?: { name: string } | null;
 }
 
+interface MappingCandidate {
+  id: string;
+  supplier_id: string;
+  supplier_description: string;
+  supplier_sku?: string | null;
+  internal_product_id: string;
+  products?: { name: string } | null;
+  suppliers?: { name: string } | null;
+  motherPackageId: string;
+  motherPackageName: string;
+}
+
 function MotherPackagesList() {
   const [rows, setRows] = useState<MotherPackageRow[]>([]);
   const [candidates, setCandidates] = useState<UnitConversionCandidate[]>([]);
+  const [mappingCandidates, setMappingCandidates] = useState<MappingCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState<string | null>(null);
 
@@ -139,7 +152,11 @@ function MotherPackagesList() {
         .from('supplier_units')
         .select('id, product_id, supplier_id, unit_name, multiplier, products(name), suppliers(name)')
         .gt('multiplier', 1),
-    ]).then(([pmpRes, unitsRes]) => {
+      supabase
+        .from('supplier_mappings')
+        .select('id, supplier_id, supplier_description, supplier_sku, internal_product_id, products:internal_product_id(name), suppliers(name)')
+        .not('internal_product_id', 'is', null),
+    ]).then(([pmpRes, unitsRes, mappingsRes]) => {
       const mothers = (pmpRes.data || []) as unknown as (MotherPackageRow & { child_product_id: string; supplier_id: string | null })[];
       setRows(mothers);
       const units = (unitsRes.data || []) as unknown as UnitConversionCandidate[];
@@ -151,6 +168,19 @@ function MotherPackagesList() {
         m.name.trim().toLowerCase() === u.unit_name.trim().toLowerCase()
       ));
       setCandidates(pending);
+
+      // Mapeamentos de texto do mesmo fornecedor+produto de um Produto Mãe já existente —
+      // caso ambíguo (mais de 1 mapeamento para o par), então não foi redirecionado sozinho.
+      // Aqui o usuário escolhe manualmente, um por um.
+      const mappings = (mappingsRes.data || []) as unknown as MappingCandidate[];
+      const withMother = mappings
+        .map(m => {
+          const mother = mothers.find(mo => mo.child_product_id === m.internal_product_id && mo.supplier_id === m.supplier_id);
+          return mother ? { ...m, motherPackageId: mother.id, motherPackageName: mother.name } : null;
+        })
+        .filter((m): m is MappingCandidate => !!m);
+      setMappingCandidates(withMother);
+
       setLoading(false);
     });
   };
@@ -165,6 +195,16 @@ function MotherPackagesList() {
       name: c.unit_name,
       units_per_child: c.multiplier,
     });
+    fetchAll();
+    setConverting(null);
+  }
+
+  async function redirectMapping(m: MappingCandidate) {
+    setConverting(m.id);
+    await supabase
+      .from('supplier_mappings')
+      .update({ mother_package_id: m.motherPackageId, internal_product_id: null })
+      .eq('id', m.id);
     fetchAll();
     setConverting(null);
   }
@@ -200,6 +240,37 @@ function MotherPackagesList() {
                 className="shrink-0 bg-amber-500 text-white rounded-full px-4 py-2 text-[11px] font-black hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {converting === c.id ? 'Convertendo...' : 'Converter em Produto Mãe'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mappingCandidates.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.15em]">Traduções do Dicionário pra revisar</span>
+            <span className="bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-full px-2 py-0.5 text-[10px] font-black">{mappingCandidates.length}</span>
+          </div>
+          <p className="text-[10.5px] font-semibold text-on-surface/45 -mt-1">
+            Esse fornecedor já tem mais de uma tradução (aba Mapeamentos) pra esse produto — não deu pra saber sozinho qual é a caixa. Confirme manualmente qual descrição deve apontar pro Produto Mãe.
+          </p>
+          {mappingCandidates.map(m => (
+            <div key={m.id} className="flex items-center gap-3 bg-amber-500/[0.06] border border-amber-500/20 rounded-2xl px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-on-surface truncate">
+                  &quot;{m.supplier_description}&quot; <ArrowRight size={12} className="inline mx-1 text-on-surface/25" /> {m.motherPackageName}
+                </p>
+                <p className="text-[10.5px] font-semibold text-on-surface/40 mt-0.5 truncate">
+                  Hoje aponta pra {m.products?.name ?? '—'} {m.suppliers?.name ? `· ${m.suppliers.name}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => redirectMapping(m)}
+                disabled={converting === m.id}
+                className="shrink-0 bg-amber-500 text-white rounded-full px-4 py-2 text-[11px] font-black hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {converting === m.id ? 'Redirecionando...' : 'Apontar pro Produto Mãe'}
               </button>
             </div>
           ))}
