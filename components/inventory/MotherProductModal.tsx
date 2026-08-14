@@ -49,6 +49,7 @@ const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-bla
 export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved }: MotherProductModalProps) {
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
+  const [suffix, setSuffix] = useState('');
   const [ean, setEan] = useState('');
   const [extraEans, setExtraEans] = useState<EanCodeEntry[]>([]);
   const [unitsPerChild, setUnitsPerChild] = useState<number | ''>('');
@@ -67,6 +68,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
     if (editingPackage) {
       setSku(editingPackage.sku || '');
       setName(editingPackage.name || '');
+      setSuffix('');
       setEan(editingPackage.ean || '');
       setUnitsPerChild(editingPackage.units_per_child || '');
       setSupplierId(editingPackage.supplier_id || '');
@@ -80,11 +82,11 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         .eq('mother_package_id', editingPackage.id)
         .then(({ data }) => setExtraEans((data || []) as EanCodeEntry[]));
     } else {
-      setSku(''); setName(''); setEan(''); setExtraEans([]);
+      setSku(''); setName(childProductName || ''); setSuffix(''); setEan(''); setExtraEans([]);
       setUnitsPerChild(''); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
-  }, [open, editingPackage]);
+  }, [open, editingPackage, childProductName]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -116,6 +118,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
   async function handleSave() {
     if (!name.trim()) { setError('Informe o nome da embalagem.'); return; }
     if (!unitsPerChild || unitsPerChild <= 0) { setError('Informe as unidades por embalagem.'); return; }
+    const finalName = suffix.trim() ? `${name.trim()} ${suffix.trim()}` : name.trim();
     setSaving(true);
     setError('');
     try {
@@ -123,7 +126,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         child_product_id: childProductId,
         supplier_id: supplierId || null,
         sku: sku.trim() || null,
-        name: name.trim(),
+        name: finalName,
         ean: ean.trim() || null,
         location: location.trim() || null,
         category: category.trim() || null,
@@ -159,7 +162,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
           .select('id')
           .eq('product_id', childProductId)
           .eq('supplier_id', supplierId)
-          .eq('unit_name', name.trim())
+          .eq('unit_name', finalName)
           .maybeSingle();
         if (existingUnit) {
           await supabase.from('supplier_units').update({ multiplier: unitsPerChild || 1 }).eq('id', existingUnit.id);
@@ -167,7 +170,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
           await supabase.from('supplier_units').insert({
             product_id: childProductId,
             supplier_id: supplierId,
-            unit_name: name.trim(),
+            unit_name: finalName,
             multiplier: unitsPerChild || 1,
           });
         }
@@ -255,20 +258,24 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                 </div>
                 <div className={fieldGridCls}>
                   <div className="space-y-1.5">
-                    <label className={labelCls}>SKU (opcional)</label>
-                    <input type="text" value={sku} onChange={e => setSku(e.target.value)} className={inputCls} />
+                    <label className={labelCls}>Nome da Embalagem</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputCls} placeholder="Ex: Papel Higiênico Fofinho" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className={labelCls}>Nome da Embalagem</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputCls} placeholder="Ex: Caixa Fechada 24un" />
+                    <label className={labelCls}>Sufixo (opcional)</label>
+                    <input type="text" value={suffix} onChange={e => setSuffix(e.target.value)} className={inputCls} placeholder="Ex: Caixa, Pacote, Fardo..." />
                   </div>
-                  <div className="md:col-span-2 space-y-1.5">
+                  <div className="space-y-1.5">
                     <label className={labelCls}>Código EAN Principal</label>
                     <div className="flex gap-2">
                       <input type="text" value={ean} onChange={e => setEan(e.target.value)} className={cn(inputCls, 'flex-1 min-w-0')} placeholder="Código de barras da caixa..." />
                       <EanCodesEditor entries={extraEans} onChange={setExtraEans} />
                     </div>
                     <p className="text-[10px] font-medium text-secondary/60">Use os EANs extras se o fabricante já trocou o código de barras da caixa alguma vez.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>SKU (opcional)</label>
+                    <input type="text" value={sku} onChange={e => setSku(e.target.value)} className={inputCls} />
                   </div>
                 </div>
               </div>
