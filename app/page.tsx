@@ -4162,7 +4162,12 @@ export default function Page() {
               </button>
             </div>
 
-            <form id="editProductForm" onSubmit={handleEditProduct} className="flex-1 min-h-0 overflow-y-auto">
+            <form
+              id="editProductForm"
+              onSubmit={handleEditProduct}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
+              className="flex-1 min-h-0 overflow-y-auto"
+            >
                 {editProductTab === 'dados' && editStatus === 'success' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -4787,7 +4792,11 @@ export default function Page() {
                 </button>
               </div>
 
-              <form onSubmit={handleEditProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <form
+                onSubmit={handleEditProduct}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
+                className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
+              >
                 {editProductTab === 'dados' && editStatus === 'success' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -5740,7 +5749,12 @@ export default function Page() {
               </button>
             </div>
 
-            <form id="addProductForm" onSubmit={handleAddProduct} className="flex-1 min-h-0 overflow-y-auto">
+            <form
+              id="addProductForm"
+              onSubmit={handleAddProduct}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
+              className="flex-1 min-h-0 overflow-y-auto"
+            >
                 {newProductTab === 'mae' && (
                   <div className="px-4 pt-4 pb-8">
                     <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mx-1 mb-3">
@@ -6093,7 +6107,11 @@ export default function Page() {
                 </button>
               </div>
 
-              <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <form
+                onSubmit={handleAddProduct}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
+                className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
+              >
                 {newProductTab === 'mae' && (
                   <MotherProductsTab childProductId={null} childProductName={newProduct.name || 'Produto sem nome'} />
                 )}
