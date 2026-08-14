@@ -4081,13 +4081,14 @@ export default function Page() {
       {/* Edit Product Modal */}
       <AnimatePresence>
         {showEditModal && editingProduct && (
+          isMobileView ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[210] flex flex-col bg-[#EFE8D4] dark:bg-[#1E1E18]"
           >
-            {/* Header */}
+            {/* Header — mobile: tela cheia estilo iOS */}
             <div className="shrink-0 flex items-center justify-between px-4 py-3.5 border-b border-black/[0.09] dark:border-white/[0.07]">
               <button
                 type="button"
@@ -4704,6 +4705,533 @@ export default function Page() {
               </div>
             )}
           </motion.div>
+          ) : (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowEditModal(false);
+                setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
+              }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
+            >
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Editar Produto</h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{editingProduct.name || 'Produto sem nome'}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
+                  }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setEditProductTab('dados')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    editProductTab === 'dados'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditProductTab('mae')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
+                    editProductTab === 'mae'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Produto Mãe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditProductTab('historico')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
+                    editProductTab === 'historico'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Histórico em Notas
+                  <span className={cn(
+                    'px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none',
+                    editProductTab === 'historico' ? 'bg-primary/10 text-primary' : 'bg-black/[0.06] dark:bg-white/[0.08] text-secondary/70'
+                  )}>
+                    {editProductEanHistory.length}
+                  </span>
+                </button>
+              </div>
+
+              <form onSubmit={handleEditProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {editProductTab === 'dados' && editStatus === 'success' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                  >
+                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                    Produto atualizado com sucesso!
+                  </motion.div>
+                )}
+
+                {editProductTab === 'dados' && editStatus === 'error' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
+                  >
+                    {editError}
+                  </motion.div>
+                )}
+
+                {editProductTab === 'dados' && (() => {
+                  const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+                  const sectionHeadCls = 'flex items-center gap-2';
+                  const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+                  const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+                  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
+                  const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+                  const statusOptions: { value: string; label: string }[] = [
+                    { value: 'Estoque Baixo', label: 'Estoque Baixo' },
+                    { value: 'Em Estoque', label: 'Em Estoque' },
+                    { value: 'Estoque em Alta', label: 'Estoque em Alta' },
+                    { value: 'Fora de Estoque', label: 'Fora de Estoque' },
+                  ];
+                  return (
+                <>
+                <div className="space-y-4">
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <Package size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Identificação</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Nome do Produto</label>
+                        <input
+                          required
+                          type="text"
+                          value={editingProduct.name}
+                          onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>SKU (Código Interno)</label>
+                        <input
+                          type="text"
+                          value={editingProduct.sku}
+                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Código EAN</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingProduct.ean || ''}
+                            onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
+                            className={cn(inputCls, 'flex-1 min-w-0')}
+                            placeholder="Código de barras..."
+                          />
+                          <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BarChart3 size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Empresa</label>
+                        <select
+                          value={editProductCompanyId}
+                          onChange={(e) => handleEditProductCompanyChange(e.target.value)}
+                          className={cn(inputCls, 'cursor-pointer')}
+                        >
+                          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+                          {companies.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Quantidade em Estoque</label>
+                        <input
+                          type="number"
+                          value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
+                          onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
+                          onWheel={blockWheelChange}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Preço (R$)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editProductPriceDisplay}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setEditProductPriceDisplay('');
+                              setEditingProduct({...editingProduct, price: 0});
+                              return;
+                            }
+                            const cents = parseInt(digits, 10);
+                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            setEditProductPriceDisplay(display);
+                            setEditingProduct({...editingProduct, price: cents / 100});
+                          }}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Status</label>
+                        <div className="flex flex-wrap gap-2">
+                          {statusOptions.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setEditingProduct({...editingProduct, status: opt.value})}
+                              className={cn(
+                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
+                                editingProduct.status === opt.value
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BookText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Organização</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Localização</label>
+                        <SearchableSelect
+                          value={editingProduct.location}
+                          onChange={(val) => setEditingProduct({...editingProduct, location: val})}
+                          options={uniqueLocations}
+                          placeholder="Pesquisar localização..."
+                          isAddingNew={isAddingNew.location}
+                          onToggleAddingNew={() => toggleAddingNew('location')}
+                          addNewPlaceholder="Nova localização..."
+                          defaultValue="Não atribuído"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Categoria</label>
+                        <SearchableSelect
+                          value={editingProduct.category}
+                          onChange={(val) => setEditingProduct({...editingProduct, category: val})}
+                          options={uniqueCategories}
+                          placeholder="Pesquisar categoria..."
+                          isAddingNew={isAddingNew.category}
+                          onToggleAddingNew={() => toggleAddingNew('category')}
+                          addNewPlaceholder="Nova categoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Subcategoria</label>
+                        <SearchableSelect
+                          value={editingProduct.subcategory}
+                          onChange={(val) => setEditingProduct({...editingProduct, subcategory: val})}
+                          options={uniqueSubcategories}
+                          placeholder="Pesquisar subcategoria..."
+                          isAddingNew={isAddingNew.subcategory}
+                          onToggleAddingNew={() => toggleAddingNew('subcategory')}
+                          addNewPlaceholder="Nova subcategoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Marca</label>
+                        <SearchableSelect
+                          value={editingProduct.brand}
+                          onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
+                          options={uniqueBrands}
+                          placeholder="Pesquisar marca..."
+                          isAddingNew={isAddingNew.brand}
+                          onToggleAddingNew={() => toggleAddingNew('brand')}
+                          addNewPlaceholder="Nova marca..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <FileText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Detalhes</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Fabricante</label>
+                        <input
+                          type="text"
+                          value={editingProduct.fabricante || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
+                          placeholder="Nome do fabricante..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>CNPJ</label>
+                        <input
+                          type="text"
+                          value={editingProduct.cnpj || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
+                          placeholder="00.000.000/0000-00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Composição</label>
+                        <textarea
+                          value={editingProduct.composicao || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
+                          placeholder="Ingredientes / composição do produto..."
+                          rows={2}
+                          className={cn(inputCls, 'resize-none')}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <ImageIcon size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Imagem</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                        {editingProduct.image ? (
+                          <ProductImage src={editingProduct.image} alt={editingProduct.name} />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1 flex gap-2 min-w-0">
+                        <input
+                          type="text"
+                          value={editingProduct.image}
+                          onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
+                          className={cn(inputCls, 'flex-1 min-w-0')}
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="file"
+                          ref={editImageInputRef}
+                          onChange={(e) => handleImageUpload(e, true)}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => editImageInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                          title="Upload do computador"
+                        >
+                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editStatus === 'loading' || editStatus === 'success'}
+                      className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50"
+                    >
+                      {editStatus === 'loading' ? 'Salvando...' : editStatus === 'success' ? 'Sucesso!' : 'Salvar Alterações'}
+                    </button>
+                  </div>
+
+                  {!showDeleteConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full text-primary text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
+                    >
+                      Excluir Produto
+                    </button>
+                  ) : (
+                    <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border border-red-100 dark:border-red-900 flex flex-col gap-3">
+                      <p className="text-xs text-red-700 dark:text-red-400 font-bold text-center uppercase">Confirmar Exclusão?</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="flex-1 bg-white dark:bg-white/10 border border-slate-200 dark:border-transparent text-secondary text-[10px] font-bold py-2 rounded uppercase"
+                        >
+                          Não, Manter
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteProduct}
+                          className="flex-1 bg-red-500 text-white text-[10px] font-bold py-2 rounded uppercase"
+                        >
+                          Sim, Excluir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                </>
+                  );
+                })()}
+
+                {editProductTab === 'mae' && (
+                  <MotherProductsTab childProductId={editingProduct.id || null} childProductName={editingProduct.name || 'Produto sem nome'} />
+                )}
+
+                {editProductTab === 'historico' && (
+                  <div className="space-y-3">
+                    {editProductEanHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center text-secondary/60">
+                        <FileText size={32} className="mb-3 opacity-40" />
+                        <p className="text-sm font-bold">Nenhum registro encontrado</p>
+                        <p className="text-xs mt-1 max-w-xs">
+                          Nenhuma nota aprovada (entre as 300 mais recentes) contém um item com este EAN.
+                        </p>
+                      </div>
+                    ) : editProductEanHistory.map(({ note, item, idx }) => {
+                      const qty = item.qty ?? 0;
+                      const unitCost = (item.price ?? 0) / (item.multiplier || 1);
+                      const total = unitCost * qty;
+                      const sellPrice = item.product_price ?? 0;
+                      const markup = unitCost > 0 && sellPrice > 0 ? ((sellPrice - unitCost) / unitCost) * 100 : null;
+                      const dateLabel = note.receivedDate ? note.receivedDate.split('-').reverse().join('/') : note.timestamp;
+                      const description = item.original_description || item.description || '—';
+                      const code = item.supplier_code || '—';
+                      const noteCompany = companies.find((c: any) => c.id === note.companyId);
+                      return (
+                        <div key={`${note.id}-${idx}`} className="relative bg-surface border border-black/[0.09] dark:border-white/[0.08] shadow-sm rounded-2xl p-4">
+                          {noteCompany && (
+                            <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-surface-container-lowest border border-black/[0.08] dark:border-white/[0.08] rounded-full pl-1 pr-2.5 py-1 shadow-sm max-w-[45%]">
+                              <div className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center overflow-hidden shrink-0 text-secondary/40">
+                                {noteCompany.logo ? (
+                                  <img src={noteCompany.logo} alt={noteCompany.nome_fantasia} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Building2 size={10} />
+                                )}
+                              </div>
+                              <span className="text-[9.5px] font-extrabold text-secondary/70 truncate">{noteCompany.nome_fantasia}</span>
+                            </div>
+                          )}
+                          <div className="mb-3 pr-[45%]">
+                            <p className="text-sm font-bold text-on-surface truncate">{note.supplierName || note.fileName}</p>
+                            <p className="text-[10px] text-secondary/70 font-semibold uppercase tracking-wide">{dateLabel}</p>
+                          </div>
+                          <div className="flex gap-2 mb-3">
+                            <div className="flex-1 min-w-0 bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-[10px] px-2.5 py-1.5">
+                              <p className="text-[8.5px] font-extrabold uppercase tracking-wide text-secondary/50 mb-0.5">Produto na Nota</p>
+                              <p className="text-xs font-bold text-on-surface whitespace-nowrap overflow-hidden text-ellipsis" title={description}>{description}</p>
+                            </div>
+                            <div className="shrink-0 w-32 max-w-[8rem] bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-[10px] px-2.5 py-1.5">
+                              <p className="text-[8.5px] font-extrabold uppercase tracking-wide text-secondary/50 mb-0.5">Código</p>
+                              <p className="text-xs font-bold text-on-surface font-mono whitespace-nowrap overflow-hidden text-ellipsis" title={code}>{code}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 bg-surface-container border border-black/[0.07] dark:border-white/[0.07] rounded-xl p-3">
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Qtd.</p>
+                              <p className="text-sm font-bold text-on-surface">{qty}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Valor Unit.</p>
+                              <p className="text-sm font-bold text-on-surface">R$ {unitCost.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Valor Total</p>
+                              <p className="text-sm font-bold text-on-surface">R$ {total.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-secondary/60 uppercase">Preço Venda</p>
+                              <p className="text-sm font-bold text-on-surface">{sellPrice > 0 ? `R$ ${sellPrice.toFixed(2).replace('.', ',')}` : '—'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={cn(
+                              'text-xs font-black',
+                              markup === null ? 'text-secondary/40' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                            )}>
+                              {markup === null ? 'Markup —' : `Markup ${markup.toFixed(1).replace('.', ',')}%`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowEditModal(false);
+                                openReviewNoteForEditing(note);
+                                setTimeout(() => captureSnapshot(), 0);
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline underline-offset-2"
+                            >
+                              Ver nota <ArrowRight size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </form>
+            </motion.div>
+          </div>
+          )
         )}
       </AnimatePresence>
 
@@ -5148,6 +5676,12 @@ export default function Page() {
           const fieldRowCls = 'px-3.5 py-3 border-b border-black/[0.06] dark:border-white/[0.06] last:border-b-0';
           const fieldLabelCls = 'block text-[9.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-1.5';
           const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+          // Consts usadas apenas no branch desktop (modal centralizado, layout original)
+          const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+          const sectionHeadCls = 'flex items-center gap-2';
+          const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+          const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+          const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
           const statusOptions: { value: string; label: string }[] = [
             { value: 'Estoque Baixo', label: 'Estoque Baixo' },
             { value: 'Em Estoque', label: 'Em Estoque' },
@@ -5155,13 +5689,14 @@ export default function Page() {
             { value: 'Fora de Estoque', label: 'Fora de Estoque' },
           ];
           return (
+          isMobileView ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col bg-[#EFE8D4] dark:bg-[#1E1E18]"
           >
-            {/* Header */}
+            {/* Header — mobile: tela cheia estilo iOS */}
             <div className="shrink-0 flex items-center justify-between px-4 py-3.5 border-b border-black/[0.09] dark:border-white/[0.07]">
               <div className="w-[38px] h-[38px] shrink-0" />
               <h2 className="text-[15px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight truncate px-3">Novo Produto</h2>
@@ -5494,6 +6029,377 @@ export default function Page() {
               </div>
             )}
           </motion.div>
+          ) : (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowAddModal(false);
+                setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
+              }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
+            >
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Adicionar Novo Produto</h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">Preencha os dados para cadastrar no inventário</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
+                  }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setNewProductTab('dados')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    newProductTab === 'dados'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewProductTab('mae')}
+                  className={cn(
+                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
+                    newProductTab === 'mae'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-secondary hover:text-on-surface'
+                  )}
+                >
+                  Produto Mãe
+                </button>
+              </div>
+
+              <form onSubmit={handleAddProduct} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {newProductTab === 'mae' && (
+                  <MotherProductsTab childProductId={null} childProductName={newProduct.name || 'Produto sem nome'} />
+                )}
+
+                {newProductTab === 'dados' && addStatus === 'success' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                  >
+                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                    Produto adicionado com sucesso! Fechando...
+                  </motion.div>
+                )}
+
+                {newProductTab === 'dados' && addStatus === 'error' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
+                  >
+                    {addError}
+                  </motion.div>
+                )}
+
+                <div className={cn('space-y-4', newProductTab !== 'dados' && 'hidden')}>
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <Package size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Identificação</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>SKU (Opcional)</label>
+                        <input
+                          type="text"
+                          value={newProduct.sku}
+                          onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                          className={inputCls}
+                          placeholder="ex: BM-500-A4"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Nome do Produto</label>
+                        <input
+                          required
+                          type="text"
+                          value={newProduct.name}
+                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                          className={inputCls}
+                          placeholder="ex: Batedeira Prática Master"
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Código EAN</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newProduct.ean || ''}
+                            onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                            className={cn(inputCls, 'flex-1 min-w-0')}
+                            placeholder="789..."
+                          />
+                          <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BarChart3 size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Empresa</label>
+                        <select
+                          value={newProductCompanyId}
+                          onChange={(e) => handleNewProductCompanyChange(e.target.value)}
+                          className={cn(inputCls, 'cursor-pointer')}
+                        >
+                          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+                          {companies.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Quantidade Inicial</label>
+                        <input
+                          type="number"
+                          value={isNaN(newProduct.count) ? 0 : newProduct.count}
+                          onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
+                          onWheel={blockWheelChange}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Preço (R$)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={newProductPriceDisplay}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setNewProductPriceDisplay('');
+                              setNewProduct({...newProduct, price: 0});
+                              return;
+                            }
+                            const cents = parseInt(digits, 10);
+                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            setNewProductPriceDisplay(display);
+                            setNewProduct({...newProduct, price: cents / 100});
+                          }}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Status</label>
+                        <div className="flex flex-wrap gap-2">
+                          {statusOptions.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setNewProduct({...newProduct, status: opt.value})}
+                              className={cn(
+                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
+                                newProduct.status === opt.value
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <BookText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Organização</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Localização</label>
+                        <SearchableSelect
+                          value={newProduct.location}
+                          onChange={(val) => setNewProduct({...newProduct, location: val})}
+                          options={uniqueLocations}
+                          placeholder="Pesquisar localização..."
+                          isAddingNew={isAddingNew.location}
+                          onToggleAddingNew={() => toggleAddingNew('location')}
+                          addNewPlaceholder="Nova localização..."
+                          defaultValue="Não atribuído"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Categoria</label>
+                        <SearchableSelect
+                          value={newProduct.category}
+                          onChange={(val) => setNewProduct({...newProduct, category: val})}
+                          options={uniqueCategories}
+                          placeholder="Pesquisar categoria..."
+                          isAddingNew={isAddingNew.category}
+                          onToggleAddingNew={() => toggleAddingNew('category')}
+                          addNewPlaceholder="Nova categoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Subcategoria</label>
+                        <SearchableSelect
+                          value={newProduct.subcategory}
+                          onChange={(val) => setNewProduct({...newProduct, subcategory: val})}
+                          options={uniqueSubcategories}
+                          placeholder="Pesquisar subcategoria..."
+                          isAddingNew={isAddingNew.subcategory}
+                          onToggleAddingNew={() => toggleAddingNew('subcategory')}
+                          addNewPlaceholder="Nova subcategoria..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Marca</label>
+                        <SearchableSelect
+                          value={newProduct.brand}
+                          onChange={(val) => setNewProduct({...newProduct, brand: val})}
+                          options={uniqueBrands}
+                          placeholder="Pesquisar marca..."
+                          isAddingNew={isAddingNew.brand}
+                          onToggleAddingNew={() => toggleAddingNew('brand')}
+                          addNewPlaceholder="Nova marca..."
+                          defaultValue="Geral"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <FileText size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Detalhes</span>
+                    </div>
+                    <div className={fieldGridCls}>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Fabricante</label>
+                        <input
+                          type="text"
+                          value={newProduct.fabricante || ''}
+                          onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
+                          placeholder="Nome do fabricante..."
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>CNPJ</label>
+                        <input
+                          type="text"
+                          value={newProduct.cnpj || ''}
+                          onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
+                          placeholder="00.000.000/0000-00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Composição</label>
+                        <textarea
+                          value={newProduct.composicao || ''}
+                          onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
+                          placeholder="Ingredientes / composição do produto..."
+                          rows={2}
+                          className={cn(inputCls, 'resize-none')}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <ImageIcon size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Imagem</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                        {newProduct.image ? (
+                          <ProductImage src={newProduct.image} alt={newProduct.name} />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1 flex gap-2 min-w-0">
+                        <input
+                          type="text"
+                          value={newProduct.image}
+                          onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
+                          className={cn(inputCls, 'flex-1 min-w-0')}
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="file"
+                          ref={imageInputRef}
+                          onChange={(e) => handleImageUpload(e, false)}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                          title="Upload do computador"
+                        >
+                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adding || addStatus === 'success'}
+                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150 shadow-lg shadow-primary/30 disabled:opacity-50"
+                  >
+                    {adding ? 'Adicionando...' : addStatus === 'success' ? 'Sucesso!' : 'Adicionar Produto'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+          )
           );
         })()}
       </AnimatePresence>
