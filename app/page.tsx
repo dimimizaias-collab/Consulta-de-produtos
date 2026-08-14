@@ -8278,7 +8278,7 @@ export default function Page() {
                             {renderFilterDropdown('codigo')}
                           </th>
                           )}
-                          {(['Produto na Nota', 'Identificação Interna', 'EAN', 'Medida', 'Qtd.'] as const).map(col => {
+                          {(['Produto na Nota', 'Identificação Interna', 'EAN'] as const).map(col => {
                             if (reviewHiddenCols.has(col)) return null;
                             const editable = reviewEditableCols.has(col);
                             const canEdit = col !== 'Identificação Interna';
@@ -8320,6 +8320,31 @@ export default function Page() {
                             </div>
                           </th>
                           )}
+                          {(['Medida', 'Qtd.'] as const).map(col => {
+                            if (reviewHiddenCols.has(col)) return null;
+                            const editable = reviewEditableCols.has(col);
+                            const canEdit = true;
+                            const filterKey = colFilterKey[col];
+                            return (
+                              <th key={col} style={{ ...thBar, position: 'relative' }}>
+                                <div style={lbl()}>
+                                  <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
+                                  {canEdit && (
+                                    <button
+                                      onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has(col) ? s.delete(col) : s.add(col); return s; })}
+                                      title={editable ? 'Bloquear coluna' : 'Editar coluna'}
+                                      style={{ color: editable ? 'rgb(52 211 153)' : 'inherit', opacity: editable ? 1 : 0.5 }}
+                                      className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
+                                    >
+                                      <Pencil size={9} />
+                                    </button>
+                                  )}
+                                  {filterKey && filterBtn(filterKey)}
+                                </div>
+                                {filterKey && renderFilterDropdown(filterKey)}
+                              </th>
+                            );
+                          })}
                           {!reviewHiddenCols.has('Preço Custo') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
@@ -8700,6 +8725,27 @@ export default function Page() {
                             </div>
                           </td>
                           )}
+                          {/* Marca — alimenta o campo "Marca" do cadastro do produto ao vincular/aprovar */}
+                          {!reviewHiddenCols.has('Marca') && (
+                          <td style={tdP}
+                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
+                          >
+                            <div data-cell style={cell({ padding: '0 10px' })}>
+                              {(canEditItems || reviewEditableCols.has('Marca')) ? (
+                                <input type="text" value={item.brand || ''}
+                                  onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], brand: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
+                                  onPaste={e => handleNoteColumnPaste(e, idx, 'brand')}
+                                  onBlur={captureSnapshot}
+                                  className="w-full text-xs font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                              ) : item.brand ? (
+                                <span className="text-xs font-semibold" style={{ color: 'var(--rn-text-muted)' }}>{item.brand}</span>
+                              ) : (
+                                <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
+                              )}
+                            </div>
+                          </td>
+                          )}
                           {/* Medida — unidade/multiplicador, junto com Usar tradução / Adicionar medida */}
                           {!reviewHiddenCols.has('Medida') && (
                           <td style={{ ...tdP, position: 'relative' }}>
@@ -8827,27 +8873,6 @@ export default function Page() {
                               );
                             })()}
                             </div>
-                            </div>
-                          </td>
-                          )}
-                          {/* Marca — alimenta o campo "Marca" do cadastro do produto ao vincular/aprovar */}
-                          {!reviewHiddenCols.has('Marca') && (
-                          <td style={tdP}
-                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                          >
-                            <div data-cell style={cell({ padding: '0 10px' })}>
-                              {(canEditItems || reviewEditableCols.has('Marca')) ? (
-                                <input type="text" value={item.brand || ''}
-                                  onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], brand: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
-                                  onPaste={e => handleNoteColumnPaste(e, idx, 'brand')}
-                                  onBlur={captureSnapshot}
-                                  className="w-full text-xs font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
-                              ) : item.brand ? (
-                                <span className="text-xs font-semibold" style={{ color: 'var(--rn-text-muted)' }}>{item.brand}</span>
-                              ) : (
-                                <span className="text-xs font-medium" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
-                              )}
                             </div>
                           </td>
                           )}
