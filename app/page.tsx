@@ -4197,21 +4197,21 @@ export default function Page() {
                     </div>
                     <div className={fieldGridCls}>
                       <div className="space-y-1.5">
-                        <label className={labelCls}>SKU (Código Interno)</label>
-                        <input
-                          type="text"
-                          value={editingProduct.sku}
-                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
                         <label className={labelCls}>Nome do Produto</label>
                         <input
                           required
                           type="text"
                           value={editingProduct.name}
                           onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>SKU (Código Interno)</label>
+                        <input
+                          type="text"
+                          value={editingProduct.sku}
+                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
                           className={inputCls}
                         />
                       </div>
