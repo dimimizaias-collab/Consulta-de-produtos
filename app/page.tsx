@@ -3167,12 +3167,13 @@ export default function Page() {
   };
 
   // Colagem em coluna (distribui multi-linhas para baixo, criando linhas novas quando falta espaço) —
-  // só ativa com a nota em "Registro", igual funcionava na antiga janela "Criar Manifesto".
+  // ativa com a nota em "Registro" (todas as colunas destravadas) ou, fora disso, apenas quando o
+  // usuário destravou a coluna manualmente pelo lápis — só é chamada por inputs já em modo edição.
   const handleNoteColumnPaste = (
     e: React.ClipboardEvent, rowIndex: number,
     field: 'supplier_code' | 'original_description' | 'ean' | 'sku' | 'unit' | 'qty' | 'price' | 'brand',
   ) => {
-    if (!viewingReviewNote || getNoteStatus(viewingReviewNote) !== 'registro') return;
+    if (!viewingReviewNote) return;
     const text = e.clipboardData.getData('text');
     const lines = text
       .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
