@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Indicação de Conversão (Medida) — Dark</title>
+<style>
+  :root {
+    --rn-th-bg: #FFEC4D;
+    --rn-th-border: #DCC63D;
+    --rn-th-color: rgba(26,26,10,0.58);
+    --rn-cell-bg: #252520;
+    --rn-cell-bg-alt: #1e1e18;
+    --rn-cell-border: rgba(242,240,227,0.06);
+    --rn-cell-inner: #3a3a34;
+    --rn-text: rgba(242,240,227,0.85);
+    --rn-text-muted: rgba(242,240,227,0.50);
+    --rn-text-subtle: rgba(242,240,227,0.28);
+    --page-bg: #1E1E18;
+    --primary: #D81E1E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px;
+    background: var(--page-bg);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--rn-text);
+  }
+  h1 { font-size: 15px; font-weight: 900; margin: 0 0 4px; color: #F2F0E3; }
+  p.sub { font-size: 12px; color: rgba(242,240,227,0.40); margin: 0 0 28px; font-weight: 500; }
+  .card {
+    max-width: 900px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--rn-cell-border);
+    background: var(--rn-cell-bg);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--rn-th-bg); border-bottom: 1.5px solid var(--rn-th-border); }
+  th {
+    padding: 9px 8px; text-align: center; font-size: 9.5px; font-weight: 900;
+    letter-spacing: 0.04em; text-transform: uppercase; color: var(--rn-th-color);
+    white-space: nowrap;
+  }
+  td {
+    padding: 3px 3px;
+    border-bottom: 1px solid var(--rn-cell-border);
+    border-right: 1px solid var(--rn-cell-border);
+    vertical-align: middle;
+  }
+  tr:nth-child(odd) td { background: var(--rn-cell-bg-alt); }
+  tr:nth-child(even) td { background: var(--rn-cell-bg); }
+  .cell-produto { padding: 0 10px !important; font-size: 12px; font-weight: 600; height: 40px; text-align: left; }
+  .cell-medida-wrap { position: relative; padding: 4px 6px !important; }
+  .medida-pill {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 9px;
+    background: var(--rn-cell-inner);
+    cursor: pointer;
+    user-select: none;
+  }
+  .medida-pill .unit { font-size: 13px; font-weight: 900; color: var(--rn-text-muted); }
+  .medida-pill .mult { font-size: 9px; font-weight: 900; color: rgba(216,30,30,0.65); }
+
+  /* ── Badge de conversão — círculo no canto superior esquerdo da célula ── */
+  .conv-badge {
+    position: absolute;
+    top: -5px; left: -3px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: rgba(252,211,77,0.18);
+    border: 1.5px solid #1E1E18;
+    display: flex; align-items: center; justify-content: center;
+    color: #FCD34D;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    z-index: 2;
+  }
+  .conv-badge svg { width: 8px; height: 8px; }
+
+  .legend {
+    max-width: 900px;
+    margin-top: 28px;
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 16px 18px;
+    background: #252520;
+    border: 1px solid rgba(242,240,227,0.06);
+    border-radius: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: #F2F0E3; }
+  .legend-swatch {
+    width: 15px; height: 15px; border-radius: 50%;
+    background: rgba(252,211,77,0.18); border: 1.5px solid #1E1E18;
+    display: flex; align-items: center; justify-content: center; color: #FCD34D;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  }
+  .legend-swatch svg { width: 8px; height: 8px; }
+
+  .section-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(242,240,227,0.30); margin: 32px 0 10px; }
+</style>
+</head>
+<body>
+
+  <h1>Coluna Medida — Indicação Visual de Conversão</h1>
+  <p class="sub">Círculo com ícone de conversão no canto superior esquerdo da célula, exibido quando a medida foi definida via "Usar tradução" ou "Adicionar medida".</p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left; padding-left:10px;">Produto na Nota</th>
+          <th>Medida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cell-produto">Refrigerante Cola 2L PET</td>
+          <td class="cell-medida-wrap">
+            <div class="medida-pill">
+              <span class="unit">UN</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-produto">Caixa de Sabão em Pó 1kg (fardo c/12)</td>
+          <td class="cell-medida-wrap">
+            <div class="medida-pill">
+              <span class="conv-badge" title="Convertido via Usar tradução">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+              </span>
+              <span class="unit">CX</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-produto">Água Mineral 500ml (pack c/6)</td>
+          <td class="cell-medida-wrap">
+            <div class="medida-pill">
+              <span class="conv-badge" title="Convertido via Adicionar medida">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+              </span>
+              <span class="unit">PCT</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-produto">Detergente Neutro 500ml</td>
+          <td class="cell-medida-wrap">
+            <div class="medida-pill">
+              <span class="unit">UN</span>
+              <span class="mult">×3</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <span class="legend-swatch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+      </span>
+      Medida convertida (tradução ou medida cadastrada)
+    </div>
+    <div class="legend-item">
+      <span style="font-size:9px; font-weight:900; color:rgba(216,30,30,0.65);">×3</span>
+      Multiplicador manual ativo (não convertido)
+    </div>
+  </div>
+
+  <p class="section-label">Estado hover / interação (referência)</p>
+  <div class="card" style="max-width: 260px;">
+    <table>
+      <tbody>
+        <tr>
+          <td class="cell-medida-wrap" style="border-right:none;">
+            <div class="medida-pill" style="background: rgba(242,240,227,0.03);">
+              <span class="conv-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+              </span>
+              <span class="unit">CX</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

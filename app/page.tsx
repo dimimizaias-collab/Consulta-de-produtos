@@ -520,6 +520,8 @@ export default function Page() {
   const [viewingDistribMode, setViewingDistribMode] = useState<string[]>([]);
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
+  // Marca itens cuja Medida foi definida via "Usar tradução" ou "Adicionar medida" (badge de conversão na célula)
+  const [viewingNoteMeasureConverted, setViewingNoteMeasureConverted] = useState<boolean[]>([]);
   // Undo/Redo history
   const noteHistoryRef = useRef<any[]>([]);
   const noteHistoryIdxRef = useRef<number>(-1);
@@ -2525,6 +2527,7 @@ export default function Page() {
       const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
       const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
       const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
+      const c = [...viewingNoteMeasureConverted]; c[idx] = true; setViewingNoteMeasureConverted(c);
       setNotification({ type: 'success', message: `Tradução aplicada: ×${mult}` });
     } catch {
       setNotification({ type: 'error', message: 'Erro ao buscar traduções.' });
@@ -2544,6 +2547,7 @@ export default function Page() {
       viewingNoteItemPrices: [...viewingNoteItemPrices],
       viewingNoteUnits: [...viewingNoteUnits],
       viewingNoteMultipliers: [...viewingNoteMultipliers],
+      viewingNoteMeasureConverted: [...viewingNoteMeasureConverted],
       viewingNoteDistribuicao: [...viewingNoteDistribuicao],
       viewingNoteSellPrices: [...viewingNoteSellPrices],
       viewingNoteVerified: [...viewingNoteVerified],
@@ -2558,7 +2562,7 @@ export default function Page() {
     noteHistoryIdxRef.current = newStack.length - 1;
     setCanUndo(noteHistoryIdxRef.current > 0);
     setCanRedo(false);
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteMeasureConverted, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
 
   const applySnapshot = useCallback((snap: any) => {
     setViewingReviewNote(snap.viewingReviewNote);
@@ -2568,6 +2572,7 @@ export default function Page() {
     setViewingNoteItemPrices(snap.viewingNoteItemPrices);
     setViewingNoteUnits(snap.viewingNoteUnits);
     setViewingNoteMultipliers(snap.viewingNoteMultipliers);
+    setViewingNoteMeasureConverted(snap.viewingNoteMeasureConverted ?? []);
     setViewingNoteDistribuicao(snap.viewingNoteDistribuicao);
     setViewingDistribMode([]); // Presets não participam do undo/redo
     setViewingNoteSellPrices(snap.viewingNoteSellPrices);
@@ -2624,6 +2629,7 @@ export default function Page() {
     setViewingDistribMode([]);
     setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
+    setViewingNoteMeasureConverted(note.items.map(() => false));
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
     setReviewEditableCols(new Set());
@@ -2775,6 +2781,7 @@ export default function Page() {
       const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
       const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
       const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
+      const c = [...viewingNoteMeasureConverted]; c[idx] = true; setViewingNoteMeasureConverted(c);
       setNotification({ type: 'success', message: `Medida cadastrada! 1 ${unitName || item.unit} = ${mult} UN.` });
       return true;
     } catch (err: any) {
@@ -3024,6 +3031,7 @@ export default function Page() {
     setViewingNoteSkus(prev => [...prev, '']);
     setViewingNoteUnits(prev => [...prev, '']);
     setViewingNoteMultipliers(prev => [...prev, 1]);
+    setViewingNoteMeasureConverted(prev => [...prev, false]);
     setViewingNoteReviewTimestamps(prev => [...prev, null]);
     setViewingNoteDistribuicao(prev => [...prev, '']);
     setViewingDistribMode(prev => [...prev, '']);
@@ -3202,6 +3210,7 @@ export default function Page() {
       setViewingNoteSkus(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteUnits(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
+      setViewingNoteMeasureConverted(prev => [...prev, ...blanks.map(() => false)]);
       setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
       setViewingDistribMode(prev => [...prev, ...blanks.map(() => '')]);
@@ -3306,6 +3315,7 @@ export default function Page() {
     const pD = pad(viewingNoteDistribuicao, (i) => { const d = viewingReviewNote.items[i]?.distribuicao; return d != null ? String(d) : ''; });
     const pU = pad(viewingNoteUnits, (i) => viewingReviewNote.items[i]?.unit || 'UN');
     const pM = pad(viewingNoteMultipliers, (i) => viewingReviewNote.items[i]?.multiplier || 1);
+    const pC = pad(viewingNoteMeasureConverted, () => false);
     const pT = pad(viewingNoteReviewTimestamps, () => null as string | null);
     const pDisc = pad(adjColumns[0]?.items ?? [], () => '');
     const pSur = pad(adjColumns[1]?.items ?? [], () => '');
@@ -3341,6 +3351,7 @@ export default function Page() {
     setViewingNoteDistribuicao(sp(pD, newItems.map(() => pD[srcIdx])));
     setViewingNoteUnits(sp(pU, newItems.map(() => pU[srcIdx])));
     setViewingNoteMultipliers(sp(pM, newItems.map(() => pM[srcIdx])));
+    setViewingNoteMeasureConverted(sp(pC, newItems.map(() => pC[srcIdx])));
     setViewingNoteReviewTimestamps(sp(pT, newItems.map(() => null)));
     setAdjColumns(prev => prev.map((col, ci) => {
       const pItems = ci === 0 ? pDisc : ci === 1 ? pSur : col.items;
@@ -3918,7 +3929,7 @@ export default function Page() {
             onMarkAllRead={handleMarkAllNotificationsRead}
             onGoToNote={handleGoToNote}
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
-            hideViewToggle={isMobileView && activeTab === 'Inventory'}
+            hideViewToggle={isMobileView && (activeTab === 'Inventory' || activeTab === 'Controle Financeiro')}
           />
           <div className={cn(
             'pb-8',
@@ -8753,11 +8764,19 @@ export default function Page() {
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', padding: '4px 6px' })}>
                             {(canEditItems || reviewEditableCols.has('Medida')) ? (
                               <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                {viewingNoteMeasureConverted[idx] && (
+                                  <span
+                                    className="absolute -top-[5px] -left-[3px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-amber-200/90 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]"
+                                    title="Medida definida por conversão (tradução ou medida cadastrada)"
+                                  >
+                                    <ArrowLeftRight size={8} strokeWidth={3} />
+                                  </span>
+                                )}
                                 <input
                                   type="text"
                                   value={viewingNoteUnits[idx] ?? item.unit ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={2}
-                                  onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); }}
+                                  onChange={e => { const u = [...viewingNoteUnits]; u[idx] = e.target.value; setViewingNoteUnits(u); const c = [...viewingNoteMeasureConverted]; c[idx] = false; setViewingNoteMeasureConverted(c); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'unit')}
                                   onBlur={captureSnapshot}
@@ -8805,6 +8824,14 @@ export default function Page() {
                                 }}
                                 className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
                               >
+                                {viewingNoteMeasureConverted[idx] && (
+                                  <span
+                                    className="absolute -top-[5px] -left-[3px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-amber-200/90 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]"
+                                    title="Medida definida por conversão (tradução ou medida cadastrada)"
+                                  >
+                                    <ArrowLeftRight size={8} strokeWidth={3} />
+                                  </span>
+                                )}
                                 <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
                                 {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
                                   <span className="text-[9px] font-black text-primary/60 leading-none shrink-0">×{viewingNoteMultipliers[idx] ?? item.multiplier}</span>
@@ -9187,6 +9214,7 @@ export default function Page() {
                                     setViewingNoteSkus(remove(viewingNoteSkus));
                                     setViewingNoteUnits(remove(viewingNoteUnits));
                                     setViewingNoteMultipliers(remove(viewingNoteMultipliers));
+                                    setViewingNoteMeasureConverted(remove(viewingNoteMeasureConverted));
                                     setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
                                     setViewingDistribMode(remove(viewingDistribMode));
@@ -10973,7 +11001,7 @@ export default function Page() {
             setExtraEans={setViewingNoteExtraEans}
             onUseTranslation={handleReviewUseTranslation}
             onSaveMeasure={applyReviewMeasure}
-            onResetMultiplier={(idx) => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); }}
+            onResetMultiplier={(idx) => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); const c = [...viewingNoteMeasureConverted]; c[idx] = false; setViewingNoteMeasureConverted(c); }}
             loadingUnitIdx={reviewLoadingUnitIdx}
             savingMeasure={reviewSavingMeasure}
           />
@@ -11263,7 +11291,7 @@ export default function Page() {
                   Usar tradução
                 </button>
                 <button
-                  onClick={() => { const m = [...viewingNoteMultipliers]; m[activeIdx] = 1; setViewingNoteMultipliers(m); setReviewUnitMenuIdx(null); setReviewUnitMenuPos(null); }}
+                  onClick={() => { const m = [...viewingNoteMultipliers]; m[activeIdx] = 1; setViewingNoteMultipliers(m); const c = [...viewingNoteMeasureConverted]; c[activeIdx] = false; setViewingNoteMeasureConverted(c); setReviewUnitMenuIdx(null); setReviewUnitMenuPos(null); }}
                   className="w-full text-left px-3 py-2.5 text-xs font-bold text-white/40 hover:bg-white/[0.06] transition-colors flex items-center gap-2 border-t border-white/[0.05]"
                 >
                   <Pencil size={12} className="shrink-0" />
