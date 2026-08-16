@@ -2602,7 +2602,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
             <Plus size={18} color="white" strokeWidth={2.8} />
           </button>
         </div>
-        <h1 className="text-[28px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-[1.1] mt-3">Controle Financeiro</h1>
+        <h1 className="text-[32px] font-black text-[#1A1208] dark:text-[#F2F0E3] tracking-tight leading-tight mt-4">Controle Financeiro</h1>
       </div>
 
       {/* Tab pills — sem ícone, formato pílula */}
