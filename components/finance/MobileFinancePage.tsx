@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, X, TrendingUp, TrendingDown, Wallet,
+  Plus, X, TrendingDown, Wallet, Monitor,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
-  ClipboardList, Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
-  Database, Building2, Users, ImageIcon, Edit2,
+  Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
+  Building2, Users, ImageIcon, Edit2,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useViewMode } from '@/lib/view-mode';
 import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
@@ -1682,6 +1683,7 @@ interface MobileFinancePageProps {
 }
 
 export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: MobileFinancePageProps = {}) {
+  const { toggleMode } = useViewMode();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('mov');
@@ -2081,18 +2083,17 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     });
   }, [transactions, search, searchField, tags, calSelectedDate, calRangeStart, calRangeEnd]);
 
-  const totals = useMemo(() => {
-    const rec  = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
-    const desp = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-    return { rec, desp, saldo: rec - desp };
-  }, [filtered]);
-
   const vencimentoStats = useMemo(() => {
     const despesasVencendo = transactions.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
+    const despesasVencendoPagas = despesasVencendo.filter(t => t.pago);
+    // Saídas: despesas do período que não têm vencimento (pagamento à vista, sem controle de prazo)
+    const saidasSemVencimento = transactions.filter(t => t.tipo === 'Despesa' && !t.vencimento && inSelectedPeriod(t.data));
     return {
       count: despesasVencendo.length,
       valor: despesasVencendo.reduce((s, t) => s + t.valor_final, 0),
       totalPago: despesasVencendo.reduce((s, t) => s + t.total_pago, 0),
+      pagoCount: despesasVencendoPagas.length,
+      saidasValor: saidasSemVencimento.reduce((s, t) => s + t.valor_final, 0),
     };
   }, [transactions, calSelectedDate, calRangeStart, calRangeEnd]);
 
@@ -2584,42 +2585,45 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     <>
     <div className="fixed inset-0 z-40 flex flex-col bg-[#FDFAF0] dark:bg-[#1E1E18] pb-[72px]">
 
-      {/* Header */}
-      <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] pt-14 px-4 pb-4 flex items-end justify-between">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] mb-0.5">Finanças</p>
-          <h1 className="text-[19px] font-black text-[#1A1A0E] tracking-tight leading-none">Controle Financeiro</h1>
-        </div>
-        <div className="flex gap-2 items-center">
+      {/* Header — solto sem barra amarela, inspirado no Inventory */}
+      <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] pt-14 px-4 pb-1">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={toggleMode}
+            title="Mudar para modo Desktop"
+            className="w-[38px] h-[38px] rounded-full bg-[rgba(26,26,10,0.07)] dark:bg-white/[0.06] border border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] flex items-center justify-center text-[#1A1A0E] dark:text-[#F2F0E3] active:scale-95 transition-transform"
+          >
+            <Monitor size={17} />
+          </button>
           <button
             onClick={() => setShowAddSheet(true)}
-            className="w-[38px] h-[38px] bg-[#D81E1E] rounded-[14px] flex items-center justify-center shadow-[0_4px_14px_rgba(216,30,30,0.32)] active:scale-95 transition-transform"
+            className="w-[38px] h-[38px] bg-[#D81E1E] rounded-full flex items-center justify-center shadow-[0_4px_14px_rgba(216,30,30,0.32)] active:scale-95 transition-transform"
           >
             <Plus size={18} color="white" strokeWidth={2.8} />
           </button>
         </div>
+        <h1 className="text-[28px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-[1.1] mt-3">Controle Financeiro</h1>
       </div>
 
-      {/* Tab pills */}
-      <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] px-3 pt-2.5 pb-2 flex gap-2 border-b border-[rgba(26,26,10,0.06)] dark:border-white/[0.06]">
+      {/* Tab pills — sem ícone, formato pílula */}
+      <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] px-4 pt-3 pb-2.5 flex gap-2">
         {([
-          { key: 'mov',   label: 'Movimentações', icon: <ClipboardList size={11} /> },
-          { key: 'dash',  label: 'Dashboard',      icon: <TrendingUp size={11} /> },
-          { key: 'dados', label: 'Dados',          icon: <Database size={11} /> },
-        ] as { key: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
+          { key: 'mov',   label: 'Movimentações' },
+          { key: 'dash',  label: 'Dashboard' },
+          { key: 'dados', label: 'Dados' },
+        ] as { key: Tab; label: string }[]).map(tab => (
           <button
             key={tab.key}
             onClick={() => switchTab(tab.key)}
             className={cn(
-              'flex-1 flex items-center justify-center gap-[5px] py-[7px] px-1.5 rounded-xl',
-              'text-[9px] font-black uppercase tracking-[0.08em]',
-              'border-[1.5px] transition-all duration-150',
+              'px-[14px] py-[9px] rounded-full',
+              'text-[10.5px] font-black uppercase tracking-[0.04em]',
+              'border-[1.5px] transition-all duration-150 active:scale-[0.97]',
               activeTab === tab.key
-                ? 'bg-[rgba(216,30,30,0.08)] border-[rgba(216,30,30,0.18)] text-[#D81E1E] dark:bg-[rgba(216,30,30,0.12)] dark:border-[rgba(216,30,30,0.22)]'
-                : 'bg-transparent border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'
+                ? 'bg-[#1A1A0E] text-[#FFE500] border-transparent dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                : 'bg-[rgba(26,26,10,0.055)] dark:bg-white/[0.045] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] text-[rgba(26,26,10,0.55)] dark:text-white/45'
             )}
           >
-            {tab.icon}
             {tab.label}
           </button>
         ))}
@@ -2639,80 +2643,90 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
               transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
               className="pb-6"
             >
-              {/* Summary chips — swipe para o lado (estilo Stories) para ver Vencimento/Total Pago */}
-              <div className="flex gap-2 px-3 pt-3 pb-2 overflow-x-auto snap-x snap-mandatory scroll-pl-3 [scrollbar-width:none]">
-                {([
-                  { label: 'Receitas', value: totals.rec,   cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '↑' },
-                  { label: 'Despesas', value: totals.desp,  cls: 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: 'bg-[rgba(225,29,72,0.12)] text-[#E11D48] dark:bg-[rgba(244,63,94,0.14)] dark:text-[#F43F5E]', glyph: '↓' },
-                  { label: 'Saldo',    value: totals.saldo, cls: totals.saldo >= 0 ? 'text-[#059669] dark:text-[#34D399]' : 'text-[#E11D48] dark:text-[#F43F5E]', dotCls: totals.saldo >= 0 ? 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]' : 'bg-[rgba(225,29,72,0.12)] text-[#E11D48]', glyph: '=' },
-                  { label: 'Vencimento', value: vencimentoStats.valor,    cls: 'text-[#B45309] dark:text-[#FCD34D]', dotCls: 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]', glyph: <Clock size={11} strokeWidth={2.5} />, sub: `${vencimentoStats.count} mov.` },
-                  { label: 'Total Pago', value: vencimentoStats.totalPago, cls: 'text-[#059669] dark:text-[#34D399]', dotCls: 'bg-[rgba(5,150,105,0.12)] text-[#059669] dark:bg-[rgba(52,211,153,0.14)] dark:text-[#34D399]', glyph: '✓' },
-                ] as { label: string; value: number; cls: string; dotCls: string; glyph: React.ReactNode; sub?: string }[]).map(chip => (
-                  <div key={chip.label} className="shrink-0 snap-start bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-[20px] px-3.5 py-2.5 flex flex-col gap-1 min-w-[108px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className={cn('w-5 h-5 rounded-[7px] flex items-center justify-center text-[11px] font-black shrink-0', chip.dotCls)}>{chip.glyph}</span>
-                      <span className="text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.40)] dark:text-white/30">{chip.label}</span>
-                    </div>
-                    <span className={cn("font-['DM_Mono',monospace] text-[13px] font-bold tracking-tight", chip.cls)}>
-                      {fmtShort(chip.value)}
-                    </span>
-                    {chip.sub && (
-                      <span className="text-[8px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/25">{chip.sub}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Action row */}
+              {/* Action row: busca com filtro embutido + grupo calendário/selecionar */}
               <div className="flex gap-2 px-3 pb-2.5 items-center">
-                <div className="flex-1 relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(26,26,10,0.30)] dark:text-white/25 pointer-events-none" />
+                <div className="flex-1 h-11 flex items-center gap-2 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl pl-3.5 pr-1.5 min-w-0">
+                  <Search size={15} className="text-[rgba(26,26,10,0.30)] dark:text-white/25 shrink-0" />
                   <input
-                    className="w-full bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl pl-8 pr-3 py-2 text-[13px] text-[rgba(26,26,10,0.55)] dark:text-white/40 font-medium focus:outline-none placeholder:text-[rgba(26,26,10,0.28)] dark:placeholder:text-white/20"
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-[13px] text-[rgba(26,26,10,0.55)] dark:text-white/40 font-medium placeholder:text-[rgba(26,26,10,0.28)] dark:placeholder:text-white/20"
                     placeholder="Buscar transações..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                   />
+                  <button
+                    onClick={() => setShowFilterSheet(true)}
+                    className={cn(
+                      'w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0',
+                      searchField !== null
+                        ? 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
+                        : 'text-[rgba(26,26,10,0.40)] dark:text-white/35'
+                    )}
+                    title="Filtrar"
+                  >
+                    <Filter size={14} />
+                  </button>
                 </div>
-                {/* Calendar icon */}
-                <button
-                  onClick={() => setShowCalSheet(true)}
-                  className={cn(
-                    'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0',
-                    hasDatePeriod
-                      ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]'
-                      : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40'
-                  )}
-                  title="Calendário"
-                >
-                  <Calendar size={14} />
-                </button>
-                {/* Filter icon */}
-                <button
-                  onClick={() => setShowFilterSheet(true)}
-                  className={cn(
-                    'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all shrink-0',
-                    searchField !== null
-                      ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]'
-                      : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40'
-                  )}
-                  title="Filtrar"
-                >
-                  <Filter size={14} />
-                </button>
-                {/* Select icon */}
-                <button
-                  onClick={() => setSelectionMode(v => !v)}
-                  className={cn(
-                    'w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center active:scale-90 transition-all',
-                    selectionMode
-                      ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.20)] text-[#D81E1E]'
-                      : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/40'
-                  )}
-                  title="Selecionar"
-                >
-                  <CheckSquare size={14} />
-                </button>
+
+                <div className="flex items-center h-11 bg-[rgba(26,26,10,0.055)] dark:bg-white/[0.045] border-[1.5px] border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] rounded-2xl overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setShowCalSheet(true)}
+                    className={cn(
+                      'w-9 h-full flex items-center justify-center active:scale-90 transition-all',
+                      hasDatePeriod
+                        ? 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
+                        : 'text-[rgba(26,26,10,0.45)] dark:text-white/40'
+                    )}
+                    title="Calendário"
+                  >
+                    <Calendar size={14} />
+                  </button>
+                  <div className="w-px self-stretch bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08]" />
+                  <button
+                    onClick={() => setSelectionMode(v => !v)}
+                    className={cn(
+                      'w-9 h-full flex items-center justify-center active:scale-90 transition-all',
+                      selectionMode
+                        ? 'bg-[rgba(216,30,30,0.10)] text-[#D81E1E]'
+                        : 'text-[rgba(26,26,10,0.45)] dark:text-white/40'
+                    )}
+                    title="Selecionar"
+                  >
+                    <CheckSquare size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Painel ADM — Vencimento / Total Pago / Saídas, lado a lado */}
+              <div className="grid grid-cols-3 gap-2 px-3 pb-2">
+                <div className="min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-[22px] h-[22px] rounded-[8px] flex items-center justify-center shrink-0 bg-[rgba(216,30,30,0.10)] text-[#D81E1E] dark:bg-[rgba(216,30,30,0.14)] dark:text-[#F43F5E]">
+                      <Clock size={12} strokeWidth={2.5} />
+                    </span>
+                    <span className="text-[8.5px] font-black text-[rgba(26,26,10,0.55)] dark:text-white/45 truncate">Vencimento</span>
+                  </div>
+                  <span className="font-['DM_Mono',monospace] text-[14px] font-black tracking-tight text-[#D81E1E] dark:text-[#F43F5E] truncate">{fmtShort(vencimentoStats.valor)}</span>
+                  <span className="text-[8.5px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/30">{vencimentoStats.count} mov.</span>
+                </div>
+                <div className="min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-[22px] h-[22px] rounded-[8px] flex items-center justify-center shrink-0 bg-[rgba(5,150,105,0.10)] text-[#059669] dark:bg-[rgba(52,211,153,0.12)] dark:text-[#34D399]">
+                      <Check size={12} strokeWidth={3} />
+                    </span>
+                    <span className="text-[8.5px] font-black text-[rgba(26,26,10,0.55)] dark:text-white/45 truncate">Total Pago</span>
+                  </div>
+                  <span className="font-['DM_Mono',monospace] text-[14px] font-black tracking-tight text-[#059669] dark:text-[#34D399] truncate">{fmtShort(vencimentoStats.totalPago)}</span>
+                  <span className="text-[8.5px] font-bold text-[rgba(26,26,10,0.35)] dark:text-white/30">{vencimentoStats.pagoCount} pagas</span>
+                </div>
+                <div className="min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] rounded-2xl p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-[22px] h-[22px] rounded-[8px] flex items-center justify-center shrink-0 bg-[rgba(216,30,30,0.10)] text-[#D81E1E] dark:bg-[rgba(216,30,30,0.14)] dark:text-[#F43F5E]">
+                      <TrendingDown size={12} strokeWidth={2.5} />
+                    </span>
+                    <span className="text-[8.5px] font-black text-[rgba(26,26,10,0.55)] dark:text-white/45 truncate">Saídas</span>
+                  </div>
+                  <span className="font-['DM_Mono',monospace] text-[14px] font-black tracking-tight text-[#D81E1E] dark:text-[#F43F5E] truncate">{fmtShort(vencimentoStats.saidasValor)}</span>
+                </div>
               </div>
 
               {/* Selection delete bar */}

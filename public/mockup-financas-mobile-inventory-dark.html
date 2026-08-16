@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Controle Financeiro Mobile (Dark) v2</title>
+<style>
+  :root {
+    --bg: #1E1E18;
+    --on-surface: #F2F0E3;
+    --card-bg: #252520;
+    --card-bg-low: #23231D;
+    --card-border: rgba(242,240,227,0.08);
+    --rose: #D81E1E;
+    --rose-soft: #F43F5E;
+    --emerald: #34D399;
+    --yellow: #FFE500;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #0F0F0C;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .frame {
+    width: 390px;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 8px solid #000;
+  }
+  .statusbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--on-surface);
+  }
+
+  .content { padding: 0 16px 12px; display: flex; flex-direction: column; }
+
+  .icon-row { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; }
+  .circle-btn {
+    width: 38px; height: 38px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(242,240,227,0.06);
+    border: 1px solid rgba(242,240,227,0.08);
+    color: var(--on-surface);
+  }
+  .circle-btn-plus {
+    width: 38px; height: 38px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--rose);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(216,30,30,0.30);
+  }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+
+  .page-title {
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--on-surface);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 14px 0 0;
+  }
+
+  .tabs { display: flex; align-items: center; gap: 6px; margin: 12px 0 10px; }
+  .tab {
+    padding: 9px 13px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid rgba(242,240,227,0.08);
+    background: rgba(242,240,227,0.045);
+    color: rgba(242,240,227,0.45);
+  }
+  .tab.active {
+    background: var(--yellow);
+    color: #1A1A0E;
+    border-color: transparent;
+  }
+
+  .action-row { display: flex; gap: 8px; align-items: center; }
+  .search-wrap {
+    flex: 1;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card-bg-low);
+    border: 1px solid rgba(242,240,227,0.07);
+    border-radius: 16px;
+    padding: 0 8px 0 14px;
+  }
+  .search-icon { color: rgba(242,240,227,0.28); flex-shrink: 0; }
+  .search-input {
+    flex: 1; min-width: 0;
+    background: transparent; border: none; outline: none;
+    font-size: 13px; font-weight: 500; color: rgba(242,240,227,0.45);
+  }
+  .search-filter-btn {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(242,240,227,0.40);
+    background: transparent;
+    border: none;
+  }
+  .search-filter-btn.active { background: rgba(216,30,30,0.14); color: var(--rose-soft); }
+
+  .btn-group {
+    display: flex;
+    align-items: center;
+    background: rgba(242,240,227,0.045);
+    border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .btn-group .icon-btn-sq {
+    width: 38px; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(242,240,227,0.40);
+    background: transparent;
+    border: none;
+  }
+  .btn-group .icon-btn-sq.active { background: rgba(216,30,30,0.16); color: var(--rose-soft); }
+  .btn-group .divider { width: 1px; align-self: stretch; background: rgba(242,240,227,0.08); }
+
+  .adm-row { display: flex; gap: 8px; margin: 12px 0 2px; }
+  .adm-card {
+    flex: 1;
+    min-width: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .adm-top { display: flex; align-items: center; gap: 6px; }
+  .adm-icon {
+    width: 22px; height: 22px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .adm-icon.rose { background: rgba(216,30,30,0.14); color: var(--rose-soft); }
+  .adm-icon.emerald { background: rgba(52,211,153,0.12); color: var(--emerald); }
+  .adm-label {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: rgba(242,240,227,0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .adm-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .adm-value.rose { color: var(--rose-soft); }
+  .adm-value.emerald { color: var(--emerald); }
+  .adm-sub {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.32);
+  }
+
+  .section-label {
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.20em;
+    color: rgba(242,240,227,0.22);
+    padding: 10px 2px 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: rgba(242,240,227,0.06); }
+
+  .tx-row {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 11px 13px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .tx-main p { margin: 0; }
+  .tx-name { font-size: 13px; font-weight: 800; color: var(--on-surface); }
+  .tx-sub { font-size: 10.5px; font-weight: 600; color: rgba(242,240,227,0.30); margin-top: 2px !important; }
+  .tx-value { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 800; }
+
+  .bottom-nav {
+    display: flex;
+    border-top: 1px solid rgba(242,240,227,0.06);
+    background: var(--bg);
+    padding: 8px 6px 18px;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    color: rgba(242,240,227,0.30);
+  }
+  .nav-item.active { color: var(--rose-soft); }
+
+  .caption {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(242,240,227,0.45);
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="frame">
+    <div class="statusbar">
+      <span>11:26</span>
+      <span>🔋 5G</span>
+    </div>
+
+    <div class="content">
+
+      <div class="icon-row">
+        <button class="circle-btn" title="Mais opções">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </button>
+        <div class="header-actions">
+          <button class="circle-btn" title="Mudar para modo Desktop">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </button>
+          <button class="circle-btn-plus" title="Nova Movimentação">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <h1 class="page-title">Controle Financeiro</h1>
+
+      <div class="tabs">
+        <div class="tab active">Movimentações</div>
+        <div class="tab">Dashboard</div>
+        <div class="tab">Dados</div>
+      </div>
+
+      <div class="action-row">
+        <div class="search-wrap">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" placeholder="Buscar transações..." />
+          <button class="search-filter-btn" title="Filtrar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          </button>
+        </div>
+        <div class="btn-group">
+          <button class="icon-btn-sq active" title="Calendário">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </button>
+          <div class="divider"></div>
+          <button class="icon-btn-sq" title="Selecionar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="adm-row">
+        <div class="adm-card">
+          <div class="adm-top">
+            <div class="adm-icon rose">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <span class="adm-label">Vencimento</span>
+          </div>
+          <span class="adm-value rose">R$4.280</span>
+          <span class="adm-sub">7 mov.</span>
+        </div>
+        <div class="adm-card">
+          <div class="adm-top">
+            <div class="adm-icon emerald">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="adm-label">Total Pago</span>
+          </div>
+          <span class="adm-value emerald">R$2.150</span>
+          <span class="adm-sub">4 pagas</span>
+        </div>
+        <div class="adm-card">
+          <div class="adm-top">
+            <div class="adm-icon rose">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+            </div>
+            <span class="adm-label">Saídas</span>
+          </div>
+          <span class="adm-value rose">R$890</span>
+        </div>
+      </div>
+
+      <div class="section-label">Hoje · 16 ago</div>
+
+      <div class="tx-row">
+        <div class="tx-main">
+          <p class="tx-name">Distribuidora Alfa</p>
+          <p class="tx-sub">PIX · Castelo Real</p>
+        </div>
+        <span class="tx-value" style="color:#F43F5E">-R$1.240,00</span>
+      </div>
+      <div class="tx-row">
+        <div class="tx-main">
+          <p class="tx-name">Venda balcão</p>
+          <p class="tx-sub">Dinheiro · Universo do R$1,99</p>
+        </div>
+        <span class="tx-value" style="color:#34D399">+R$320,00</span>
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item">📊<span>Dashboard</span></div>
+      <div class="nav-item">📦<span>Estoque</span></div>
+      <div class="nav-item">📋<span>Requisições</span></div>
+      <div class="nav-item">↗<span>Entrada</span></div>
+      <div class="nav-item active">💰<span>Finanças</span></div>
+      <div class="nav-item">👥<span>RH</span></div>
+    </div>
+  </div>
+  <p class="caption">Modo escuro — mobile v2</p>
+</div>
+
+</body>
+</html>
