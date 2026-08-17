@@ -9512,7 +9512,7 @@ export default function Page() {
                                 placeholder={suggestedPrice ? suggestedPrice.toFixed(2).replace('.', ',') : '0,00'}
                                 title={suggestedPrice ? `Sugestão — preço cadastrado no dicionário: R$ ${suggestedPrice.toFixed(2).replace('.', ',')}` : undefined}
                                 onWheel={blockWheelChange}
-                                className="w-full text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden placeholder:[color:var(--rn-text-subtle)]"
+                                className="w-20 text-right text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden placeholder:[color:var(--rn-text-subtle)]"
                                 style={{ color: 'var(--rn-text)' }}
                               />
                             </div>
