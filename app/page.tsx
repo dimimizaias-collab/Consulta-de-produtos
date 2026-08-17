@@ -55,7 +55,6 @@ const EMPRESA_REQUIRED_MSG = 'Selecione a Empresa antes de salvar a nota.';
 // tempo. TTL alto o bastante pra tolerar uma renovação de heartbeat perdida por rede.
 const NOTE_LOCK_TTL_MS = 2 * 60 * 1000;
 const NOTE_LOCK_HEARTBEAT_MS = 45 * 1000;
-const COLABORADOR_STORAGE_KEY = 'app-colaborador-atual';
 
 // Evita que o scroll do mouse altere valores de campos numéricos por acidente
 // (comportamento nativo do input[type=number] ao rolar com o cursor sobre o campo).
@@ -366,14 +365,11 @@ export default function Page() {
   }>>({});
   const [switchingPriceCompany, setSwitchingPriceCompany] = useState(false);
 
-  // Lock de edição por colaborador — como o app não tem login, "quem sou eu" é escolhido
-  // uma vez na lista de Colaboradores (RH) e guardado no localStorage deste navegador.
+  // Lock de edição por colaborador — "quem sou eu" agora vem do usuário logado
+  // (tabela usuarios → hr_employees), carregado uma vez no mount.
   const [colaboradorId, setColaboradorId] = useState<string | null>(null);
   const [colaboradorNome, setColaboradorNome] = useState<string | null>(null);
-  const [showColaboradorModal, setShowColaboradorModal] = useState(false);
-  const [colaboradorModalSearch, setColaboradorModalSearch] = useState('');
-  const [hrEmployeesForLock, setHrEmployeesForLock] = useState<any[]>([]);
-  const pendingColaboradorActionRef = useRef<(() => void) | null>(null);
+  const colaboradorReadyRef = useRef<Promise<void> | null>(null);
   // Preenchido quando a nota aberta está travada por outra pessoa — dispara o overlay
   // de bloqueio por cima do conteúdo (em vez de desabilitar cada campo individualmente).
   const [noteLockBlockedBy, setNoteLockBlockedBy] = useState<{ name: string; at: string | null } | null>(null);
@@ -1018,13 +1014,19 @@ export default function Page() {
       fetchBulkDrafts();
       fetchEanProblems();
     }
-    try {
-      const raw = localStorage.getItem(COLABORADOR_STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (saved?.id && saved?.nome) { setColaboradorId(saved.id); setColaboradorNome(saved.nome); }
-      }
-    } catch {}
+    colaboradorReadyRef.current = (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('usuarios')
+          .select('employee_id, hr_employees(nome)')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+        const nome = (data?.hr_employees as any)?.nome;
+        if (data?.employee_id && nome) { setColaboradorId(data.employee_id); setColaboradorNome(nome); }
+      } catch {}
+    })();
   }, []);
 
   // ── Scroll lock: prevent background scroll whenever any modal is open ──────
@@ -2713,32 +2715,6 @@ export default function Page() {
     setCanRedo(false);
   }, []);
 
-  const fetchHrEmployeesForLock = async () => {
-    const { data } = await supabase.from('hr_employees').select('id, nome, cargo, foto_url').order('nome');
-    setHrEmployeesForLock(data || []);
-  };
-
-  // Solicita a identidade do colaborador (modal "Quem é você?") antes de rodar `action` —
-  // usado antes de qualquer coisa que precise saber quem está editando (abrir uma nota).
-  // Se a identidade já foi escolhida antes nesse navegador, roda `action` na hora.
-  const requireColaboradorThen = useCallback((action: () => void) => {
-    if (colaboradorId) { action(); return; }
-    if (hrEmployeesForLock.length === 0) fetchHrEmployeesForLock();
-    pendingColaboradorActionRef.current = action;
-    setColaboradorModalSearch('');
-    setShowColaboradorModal(true);
-  }, [colaboradorId, hrEmployeesForLock.length]);
-
-  const chooseColaborador = (emp: { id: string; nome: string }) => {
-    setColaboradorId(emp.id);
-    setColaboradorNome(emp.nome);
-    try { localStorage.setItem(COLABORADOR_STORAGE_KEY, JSON.stringify({ id: emp.id, nome: emp.nome })); } catch {}
-    setShowColaboradorModal(false);
-    const action = pendingColaboradorActionRef.current;
-    pendingColaboradorActionRef.current = null;
-    if (action) action();
-  };
-
   // Carrega os states de edição de uma nota de revisão a partir do objeto ReviewNote — extraído
   // para ser reutilizado tanto ao abrir uma nota pela lista de Entrada de Mercadoria (desktop e
   // mobile) quanto pelo atalho "Ver nota" no histórico de EAN da aba Editar Produto.
@@ -2835,37 +2811,36 @@ export default function Page() {
   // (criadas em memória, ainda sem linha no banco) não precisam de lock — ninguém mais tem
   // esse id ainda. Pra notas existentes, um único UPDATE condicional é atômico no Postgres:
   // só "ganha" o lock quem chegar primeiro, mesmo que dois cliques aconteçam ao mesmo tempo.
-  const openReviewNoteWithLock = useCallback((note: ReviewNote, onOpened?: () => void) => {
-    requireColaboradorThen(async () => {
-      const isExisting = reviewNotes.some(n => n.id === note.id);
-      if (!isExisting || !colaboradorId) {
+  const openReviewNoteWithLock = useCallback(async (note: ReviewNote, onOpened?: () => void) => {
+    if (colaboradorReadyRef.current) await colaboradorReadyRef.current;
+    const isExisting = reviewNotes.some(n => n.id === note.id);
+    if (!isExisting || !colaboradorId) {
+      openReviewNoteForEditing(note);
+      onOpened?.();
+      return;
+    }
+    setCheckingNoteLock(true);
+    try {
+      const ttlCutoff = new Date(Date.now() - NOTE_LOCK_TTL_MS).toISOString();
+      const { data: claimed } = await supabase
+        .from('review_notes')
+        .update({ locked_by_id: colaboradorId, locked_by_name: colaboradorNome, locked_at: new Date().toISOString() })
+        .eq('id', note.id)
+        .or(`locked_at.is.null,locked_at.lt.${ttlCutoff},locked_by_id.eq.${colaboradorId}`)
+        .select('id')
+        .maybeSingle();
+      if (claimed) {
         openReviewNoteForEditing(note);
-        onOpened?.();
-        return;
+      } else {
+        const { data: fresh } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+        setNoteLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
+        openReviewNoteForEditing(note);
       }
-      setCheckingNoteLock(true);
-      try {
-        const ttlCutoff = new Date(Date.now() - NOTE_LOCK_TTL_MS).toISOString();
-        const { data: claimed } = await supabase
-          .from('review_notes')
-          .update({ locked_by_id: colaboradorId, locked_by_name: colaboradorNome, locked_at: new Date().toISOString() })
-          .eq('id', note.id)
-          .or(`locked_at.is.null,locked_at.lt.${ttlCutoff},locked_by_id.eq.${colaboradorId}`)
-          .select('id')
-          .maybeSingle();
-        if (claimed) {
-          openReviewNoteForEditing(note);
-        } else {
-          const { data: fresh } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
-          setNoteLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
-          openReviewNoteForEditing(note);
-        }
-        onOpened?.();
-      } finally {
-        setCheckingNoteLock(false);
-      }
-    });
-  }, [reviewNotes, colaboradorId, colaboradorNome, requireColaboradorThen, openReviewNoteForEditing]);
+      onOpened?.();
+    } finally {
+      setCheckingNoteLock(false);
+    }
+  }, [reviewNotes, colaboradorId, colaboradorNome, openReviewNoteForEditing]);
 
   // Reconsulta o lock da nota aberta (botão "Verificar novamente" no overlay de bloqueio).
   const recheckNoteLock = useCallback(async () => {
@@ -4278,75 +4253,6 @@ export default function Page() {
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
             hideViewToggle={isMobileView && (activeTab === 'Inventory' || activeTab === 'Controle Financeiro')}
           />
-          {!isMobileView && (
-            <button
-              onClick={() => { setColaboradorModalSearch(''); if (hrEmployeesForLock.length === 0) fetchHrEmployeesForLock(); setShowColaboradorModal(true); }}
-              title="Trocar quem está usando este navegador"
-              className="fixed top-4 right-[62px] z-50 flex items-center gap-2 h-[42px] pl-2 pr-3.5 rounded-full bg-surface/85 backdrop-blur-xl border border-on-surface/[0.08] shadow-[0_2px_16px_rgba(0,0,0,0.18)] hover:bg-surface transition-colors"
-            >
-              <div className="w-[26px] h-[26px] rounded-full bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E] flex items-center justify-center text-[10px] font-black flex-shrink-0">
-                {(colaboradorNome || '?').slice(0, 2).toUpperCase()}
-              </div>
-              <span className="text-[11.5px] font-bold text-on-surface/70 max-w-[110px] truncate">{colaboradorNome || 'Quem é você?'}</span>
-            </button>
-          )}
-          {showColaboradorModal && (() => {
-            const filtered = hrEmployeesForLock.filter((e: any) =>
-              !colaboradorModalSearch.trim() || (e.nome || '').toLowerCase().includes(colaboradorModalSearch.trim().toLowerCase())
-            );
-            const avatarPalette = ['from-[#FFB020] to-[#D4C000]', 'from-[#34A853] to-[#0A7A55]', 'from-[#D81E1E] to-[#92140E]', 'from-[#4285F4] to-[#1A56C4]', 'from-[#9B59B6] to-[#6C3483]', 'from-[#00A9A5] to-[#00706D]'];
-            return (
-              <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
-                <div
-                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                  onClick={() => { if (colaboradorId) setShowColaboradorModal(false); }}
-                />
-                <div className="relative w-full max-w-[560px] bg-[#FDFAF0] dark:bg-[#1E1E18] dark:border dark:border-white/[0.06] rounded-[24px] shadow-2xl p-8 pb-7">
-                  <div className="w-[52px] h-[52px] rounded-2xl bg-[#D81E1E]/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mb-4">
-                    <Users size={22} />
-                  </div>
-                  <h2 className="text-[20px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight mb-1.5">Antes de continuar, quem é você?</h2>
-                  <p className="text-[13px] text-on-surface/45 leading-relaxed mb-6 max-w-[420px]">Escolha seu nome pra gente saber quem está editando cada nota — assim ninguém sobrescreve o trabalho de outra pessoa sem querer.</p>
-                  <div className="relative mb-4">
-                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/30" />
-                    <input
-                      autoFocus
-                      value={colaboradorModalSearch}
-                      onChange={e => setColaboradorModalSearch(e.target.value)}
-                      placeholder="Buscar pelo nome..."
-                      className="w-full h-[42px] rounded-xl border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] pl-[38px] pr-3.5 text-[13px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.12)]"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto p-0.5 -m-0.5">
-                    {filtered.length === 0 && (
-                      <div className="col-span-2 text-center text-[12px] text-on-surface/35 py-6">
-                        {hrEmployeesForLock.length === 0 ? 'Carregando colaboradores...' : 'Nenhum colaborador encontrado.'}
-                      </div>
-                    )}
-                    {filtered.map((emp: any, i: number) => (
-                      <button
-                        key={emp.id}
-                        onClick={() => chooseColaborador(emp)}
-                        className="flex items-center gap-2.5 p-3 rounded-2xl border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] hover:border-[#D81E1E] hover:shadow-[0_4px_14px_rgba(216,30,30,0.10)] hover:-translate-y-px active:scale-[0.98] transition-all text-left"
-                      >
-                        <div className={cn('w-[38px] h-[38px] rounded-[11px] flex-shrink-0 flex items-center justify-center text-[13px] font-black text-white bg-gradient-to-br', avatarPalette[i % avatarPalette.length])}>
-                          {(emp.nome || '?').slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight truncate">{emp.nome}</div>
-                          {emp.cargo && <div className="text-[10.5px] text-on-surface/40 mt-0.5 truncate">{emp.cargo}</div>}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-5 text-[10.5px] text-on-surface/30">
-                    <ShieldCheck size={12} />
-                    Salvo só neste navegador — você pode trocar quando quiser.
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
           <div className={cn(
             'pb-8',
             (!isMobileView && isSidebarCollapsed) ? 'max-w-none' : 'max-w-[1400px]',
