@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   LogIn,
+  LogOut,
   Wallet,
   Bell,
   Users
@@ -14,6 +15,7 @@ import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
+import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
 
 interface SidebarProps {
   activeTab: string;
@@ -109,6 +111,30 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, onToggle
           );
         })}
       </nav>
+
+      {/* ── Logout ── */}
+      <button
+        onClick={async () => {
+          const supabase = createBrowserSupabaseClient();
+          await supabase.auth.signOut();
+          window.location.href = '/login';
+        }}
+        title="Sair"
+        className="group relative w-12 h-12 rounded-full flex items-center justify-center outline-none mt-2 shrink-0 bg-on-surface/[0.10] text-on-surface/50 hover:bg-red-500/15 hover:text-red-500 transition-[background,color,transform] duration-150 active:scale-[0.93]"
+      >
+        <LogOut size={18} strokeWidth={2} />
+        <span className={cn(
+          'pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2',
+          'px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap',
+          'text-on-surface bg-surface-container border border-on-surface/[0.08]',
+          'shadow-[0_4px_14px_rgba(0,0,0,0.25)]',
+          'opacity-0 translate-x-[-4px]',
+          'group-hover:opacity-100 group-hover:translate-x-0',
+          'transition-[opacity,transform] duration-[120ms] ease-out'
+        )}>
+          Sair
+        </span>
+      </button>
     </aside>
   );
 }

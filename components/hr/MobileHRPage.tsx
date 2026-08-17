@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText, Lock } from 'lucide-react';
+import { Plus, X, Trash2, CalendarDays, ClipboardCheck, Wallet, CalendarRange, Users, BookText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
@@ -62,13 +62,6 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   const [showVincularModal, setShowVincularModal] = useState(false);
   const [vincularAno, setVincularAno] = useState<number | null>(null);
 
-  const [isHRUnlocked, setIsHRUnlocked] = useState(false);
-  const [showPasswordSheet, setShowPasswordSheet] = useState(false);
-  const [pendingView, setPendingView] = useState<HRView | null>(null);
-  const [hrPassword, setHrPassword] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-
   const fetchHrEvents = async () => {
     const { data } = await supabase.from('hr_events').select('*').order('data', { ascending: true });
     setHrEvents(data || []);
@@ -83,45 +76,14 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
   };
   const fetchContratos = async () => setContratos(await fetchAllContratos());
 
-  const fetchHrPassword = async () => {
-    const { data } = await supabase.from('store_settings').select('hr_password').eq('id', 'default').maybeSingle();
-    setHrPassword(data?.hr_password || '');
-  };
-
   useEffect(() => {
     fetchHrEvents();
     fetchFinanceTransactions();
     fetchEmployees();
     fetchContratos();
-    fetchHrPassword();
   }, []);
 
-  const handleProtectedTabClick = (view: HRView) => {
-    if (isHRUnlocked) {
-      setActiveView(view);
-    } else {
-      setPendingView(view);
-      setPasswordInput('');
-      setPasswordError('');
-      setShowPasswordSheet(true);
-    }
-  };
-
-  const handlePasswordSubmit = () => {
-    if (!hrPassword) {
-      setPasswordError('Configure uma senha em Configurações para acessar esta área.');
-      return;
-    }
-    if (passwordInput === hrPassword) {
-      setIsHRUnlocked(true);
-      if (pendingView) setActiveView(pendingView);
-      setShowPasswordSheet(false);
-      setPasswordInput('');
-      setPasswordError('');
-    } else {
-      setPasswordError('Senha incorreta.');
-    }
-  };
+  const handleProtectedTabClick = (view: HRView) => setActiveView(view);
 
   const openEditEmployeeSheet = (emp: Employee) => {
     setEditingEmployee(emp);
@@ -253,7 +215,6 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
         >
           <Users size={12} strokeWidth={2.5} />
           Colaboradores
-          {!isHRUnlocked && <Lock size={9} strokeWidth={2.5} className="opacity-40" />}
         </button>
         <button
           onClick={() => handleProtectedTabClick('caderninho')}
@@ -266,7 +227,6 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
         >
           <BookText size={12} strokeWidth={2.5} />
           Caderninho
-          {!isHRUnlocked && <Lock size={9} strokeWidth={2.5} className="opacity-40" />}
         </button>
       </div>
 
@@ -394,74 +354,6 @@ export function MobileHRPage({ requests, onOpenTask, onGoToFinance }: MobileHRPa
       onSelect={handleVincularSelect}
       variant="sheet"
     />
-
-    {/* Bottom sheet de senha */}
-    <AnimatePresence>
-      {showPasswordSheet && (
-        <>
-          <motion.div
-            key="pwd-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/45 z-[100]" onClick={() => setShowPasswordSheet(false)}
-          />
-          <motion.div
-            key="pwd-sheet"
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            className="fixed inset-x-0 bottom-0 z-[110] bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-t-[28px] shadow-2xl overflow-hidden flex flex-col"
-            style={{ maxHeight: '60svh' }}
-          >
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-[rgba(26,26,10,0.15)] dark:bg-white/20" />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 pb-6 pt-3 flex flex-col items-center gap-4">
-              <div className="w-14 h-14 rounded-[1.2rem] bg-[rgba(216,30,30,0.10)] text-[#D81E1E] flex items-center justify-center">
-                <Lock size={24} strokeWidth={2.2} />
-              </div>
-              <div className="text-center">
-                <p className="text-[16px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Área Restrita</p>
-                <p className="text-[12px] text-[rgba(26,26,10,0.45)] dark:text-white/40 font-medium mt-0.5">
-                  {hrPassword ? 'Digite a senha para continuar' : 'Configure uma senha em Configurações'}
-                </p>
-              </div>
-
-              {hrPassword && (
-                <input
-                  type="password"
-                  value={passwordInput}
-                  onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && handlePasswordSubmit()}
-                  placeholder="Senha"
-                  autoFocus
-                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-3 text-[14px] font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
-                />
-              )}
-
-              {passwordError && (
-                <p className="text-[11.5px] text-red-500 font-semibold self-start">{passwordError}</p>
-              )}
-
-              <div className="flex gap-2 w-full mt-1">
-                <button
-                  onClick={() => setShowPasswordSheet(false)}
-                  className="flex-1 py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.06] text-[rgba(26,26,10,0.50)] dark:text-white/40"
-                >
-                  Cancelar
-                </button>
-                {hrPassword && (
-                  <button
-                    onClick={handlePasswordSubmit}
-                    className="flex-[2] py-3 rounded-[13px] text-[11.5px] font-extrabold uppercase tracking-wide bg-[#D81E1E] text-white shadow-[0_8px_18px_rgba(216,30,30,0.30)]"
-                  >
-                    Entrar
-                  </button>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
 
     {/* Bottom sheet criar/editar evento */}
     <AnimatePresence>

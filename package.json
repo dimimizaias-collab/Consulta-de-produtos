@@ -17,6 +17,7 @@
     "@ducanh2912/next-pwa": "^10.2.9",
     "@google/genai": "^1.17.0",
     "@hookform/resolvers": "^5.2.1",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.101.1",
     "@tanstack/react-virtual": "^3.13.24",
     "@types/jsbarcode": "^3.11.4",
