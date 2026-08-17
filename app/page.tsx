@@ -8592,7 +8592,7 @@ export default function Page() {
                 )}
                 style={{ padding: 0 }}
               >
-                <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%' }}>
+                <table style={{ borderCollapse: 'collapse', width: 'max-content' }}>
                   <thead className="sticky top-0 z-10">
                     <tr className="text-left" style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
                       {/* Cabeçalho igual ao da tabela de Controle Financeiro: barra amarela contínua
