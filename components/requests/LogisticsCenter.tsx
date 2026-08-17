@@ -62,6 +62,9 @@ export interface ReviewNote {
   // product_company_stock delas na aprovação — evita duplicar a quantidade de Distribuição
   // se a nota for resalva/reaprovada depois de já aprovada.
   stockAppliedCompanies?: string[];
+  lockedById?: string | null;
+  lockedByName?: string | null;
+  lockedAt?: string | null;
   supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;

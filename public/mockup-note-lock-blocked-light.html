@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Nota Bloqueada (Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-page:#F3EFDD;
+    --bg-modal:#FDFAF0;
+    --header-bg:#FFE500;
+    --header-border:#D4C000;
+    --chip-bg:rgba(26,26,10,0.09);
+    --chip-color:#1A1A0E;
+    --title:#1A1A0E;
+    --muted:rgba(26,26,10,0.40);
+    --col-header-bg:#FFE500;
+    --col-header-border:#D4C000;
+    --col-header-text:rgba(26,26,10,0.55);
+    --row-even:#FFFFFF;
+    --row-odd:#FAF7EE;
+    --cell-border:#E0D8BF;
+    --cell-text:#1A1A0E;
+    --red:#D81E1E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:40px 20px;
+    background:var(--bg-page);
+    font-family:'DM Sans',sans-serif;
+    color:var(--title);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .frame{
+    width:100%; max-width:1040px; height:680px;
+    background:var(--bg-modal);
+    border-radius:20px;
+    box-shadow: 0 24px 60px rgba(26,26,10,0.10), 0 2px 10px rgba(26,26,10,0.06);
+    position:relative;
+    overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; background:var(--header-bg); border-bottom:1px solid var(--header-border);
+    position:relative; z-index:5;
+  }
+  .modal-header-left{ display:flex; align-items:center; gap:12px; }
+  .icon-chip{
+    width:38px; height:38px; border-radius:12px; background:var(--chip-bg); color:var(--chip-color);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .modal-title{ font-size:15px; font-weight:800; color:var(--title); line-height:1.2; }
+  .modal-subtitle{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .close-btn{
+    width:34px; height:34px; border-radius:999px; border:1.5px solid rgba(26,26,10,0.15);
+    background:transparent; display:flex; align-items:center; justify-content:center; color:rgba(26,26,10,0.4); cursor:pointer;
+  }
+
+  /* Blurred content behind overlay */
+  .content-blurred{
+    flex:1; overflow:hidden; filter: blur(4px) saturate(0.7) brightness(0.96);
+    pointer-events:none; user-select:none;
+  }
+  table{ width:100%; border-collapse:separate; border-spacing:0; }
+  thead th{
+    background:var(--col-header-bg); border-bottom:1px solid var(--col-header-border);
+    color:var(--col-header-text); font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+    text-align:left; padding:10px 12px; white-space:nowrap;
+  }
+  thead th.num{ text-align:right; }
+  tbody td{
+    padding:8px 12px; font-size:12px; color:var(--cell-text); white-space:nowrap;
+    border-bottom:1px solid var(--cell-border);
+  }
+  tbody tr:nth-child(odd){ background:var(--row-even); }
+  tbody tr:nth-child(even){ background:var(--row-odd); }
+  .product-name{ font-weight:600; color:var(--title); }
+  .product-code{ font-size:10px; color:var(--muted); font-family:'DM Mono',monospace; }
+  .toolbar-fake{ display:flex; gap:8px; padding:14px 24px; }
+  .fake-btn{ width:32px; height:32px; border-radius:999px; background:rgba(26,26,10,0.06); }
+
+  /* Lock overlay */
+  .lock-overlay{
+    position:absolute; inset:0; top:75px; z-index:20;
+    background: rgba(253,250,240,0.72);
+    backdrop-filter: blur(6px);
+    display:flex; align-items:center; justify-content:center;
+    animation: overlayIn 220ms cubic-bezier(0.23,1,0.32,1);
+  }
+  @keyframes overlayIn{
+    from{ opacity:0; }
+    to{ opacity:1; }
+  }
+  .lock-card{
+    width:100%; max-width:380px;
+    background:#FFFFFF;
+    border:1px solid var(--cell-border);
+    border-radius:22px;
+    box-shadow: 0 30px 60px rgba(26,26,10,0.16), 0 4px 14px rgba(26,26,10,0.08);
+    padding:32px 28px 26px;
+    text-align:center;
+    animation: cardIn 220ms cubic-bezier(0.23,1,0.32,1);
+  }
+  @keyframes cardIn{
+    from{ opacity:0; transform: translateY(6px) scale(0.97); }
+    to{ opacity:1; transform: translateY(0) scale(1); }
+  }
+  .lock-icon{
+    width:56px; height:56px; border-radius:18px; margin:0 auto 16px;
+    background: rgba(216,30,30,0.10); color:var(--red);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lock-title{ font-size:15px; font-weight:800; color:var(--title); margin-bottom:6px; }
+  .lock-who{
+    display:inline-flex; align-items:center; gap:7px;
+    background:rgba(216,30,30,0.06); border:1px solid rgba(216,30,30,0.18);
+    border-radius:999px; padding:6px 12px; margin:6px 0 4px;
+  }
+  .lock-avatar{
+    width:20px; height:20px; border-radius:6px; background:linear-gradient(135deg,#34A853,#0A7A55);
+    color:#fff; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
+  .lock-who-name{ font-size:12px; font-weight:700; color:var(--title); }
+  .lock-sub{ font-size:11.5px; color:var(--muted); margin-top:10px; margin-bottom:22px; }
+  .lock-actions{ display:flex; gap:8px; }
+  .btn-primary{
+    flex:1; height:40px; border-radius:12px; border:none; background:var(--red); color:#fff;
+    font-size:12.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+    transition: background 130ms ease, transform 130ms ease;
+  }
+  .btn-primary:active{ transform: scale(0.97); }
+  .btn-primary:hover{ background:#B91818; }
+  .btn-secondary{
+    flex:1; height:40px; border-radius:12px; border:1.5px solid rgba(26,26,10,0.14); background:transparent; color:rgba(26,26,10,0.55);
+    font-size:12.5px; font-weight:700; cursor:pointer;
+    transition: background 130ms ease;
+  }
+  .btn-secondary:hover{ background:rgba(26,26,10,0.04); }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="icon-chip">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <div>
+          <div class="modal-title">NF 000.482.911 — Distribuidora Central</div>
+          <div class="modal-subtitle">Revisão · 42 itens · Empresa: Mercado Presente Ltda</div>
+        </div>
+      </div>
+      <button class="close-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="content-blurred">
+      <div class="toolbar-fake">
+        <div class="fake-btn"></div><div class="fake-btn"></div><div class="fake-btn"></div><div class="fake-btn"></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th><th class="num">Qtd</th><th class="num">Preço Custo</th><th class="num">Preço Venda</th><th class="num">Markup</th><th>Status</th><th>Ok</th><th>Revisão</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><div class="product-name">Arroz Tipo 1 5kg</div><div class="product-code">COD 00234-A</div></td><td class="num">120</td><td class="num">R$ 18,40</td><td class="num">R$ 24,90</td><td class="num">+35,3%</td><td>Traduzido</td><td>✓</td><td>Hoje 09:41</td></tr>
+          <tr><td><div class="product-name">Feijão Carioca 1kg</div><div class="product-code">COD 00512-B</div></td><td class="num">80</td><td class="num">R$ 7,90</td><td class="num">R$ 10,50</td><td class="num">+32,9%</td><td>Traduzido</td><td>✓</td><td>Hoje 09:42</td></tr>
+          <tr><td><div class="product-name">Óleo de Soja 900ml</div><div class="product-code">COD 00877-C</div></td><td class="num">96</td><td class="num">R$ 6,10</td><td class="num">R$ 8,20</td><td class="num">+34,4%</td><td>Traduzido</td><td>—</td><td>—</td></tr>
+          <tr><td><div class="product-name">Açúcar Cristal 1kg</div><div class="product-code">COD 01120-D</div></td><td class="num">60</td><td class="num">R$ 4,30</td><td class="num">R$ 5,90</td><td class="num">+37,2%</td><td>Traduzido</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="lock-overlay">
+      <div class="lock-card">
+        <div class="lock-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="lock-title">Sendo editada agora</div>
+        <div class="lock-who">
+          <div class="lock-avatar">JS</div>
+          <span class="lock-who-name">Juliana Souza</span>
+        </div>
+        <div class="lock-sub">Última atividade há 2 minutos</div>
+        <div class="lock-actions">
+          <button class="btn-secondary">Fechar</button>
+          <button class="btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Verificar novamente
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

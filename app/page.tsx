@@ -51,6 +51,12 @@ const staticProducts: any[] = [];
 // handleSaveNote/changeNoteStatus, que trocam a aba pra Recebimento quando ela aparece.
 const EMPRESA_REQUIRED_MSG = 'Selecione a Empresa antes de salvar a nota.';
 
+// Lock de edição por colaborador — evita dois usuários editando a mesma nota ao mesmo
+// tempo. TTL alto o bastante pra tolerar uma renovação de heartbeat perdida por rede.
+const NOTE_LOCK_TTL_MS = 2 * 60 * 1000;
+const NOTE_LOCK_HEARTBEAT_MS = 45 * 1000;
+const COLABORADOR_STORAGE_KEY = 'app-colaborador-atual';
+
 // Evita que o scroll do mouse altere valores de campos numéricos por acidente
 // (comportamento nativo do input[type=number] ao rolar com o cursor sobre o campo).
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
@@ -359,6 +365,19 @@ export default function Page() {
     reviewTimestamps: (string | null)[];
   }>>({});
   const [switchingPriceCompany, setSwitchingPriceCompany] = useState(false);
+
+  // Lock de edição por colaborador — como o app não tem login, "quem sou eu" é escolhido
+  // uma vez na lista de Colaboradores (RH) e guardado no localStorage deste navegador.
+  const [colaboradorId, setColaboradorId] = useState<string | null>(null);
+  const [colaboradorNome, setColaboradorNome] = useState<string | null>(null);
+  const [showColaboradorModal, setShowColaboradorModal] = useState(false);
+  const [colaboradorModalSearch, setColaboradorModalSearch] = useState('');
+  const [hrEmployeesForLock, setHrEmployeesForLock] = useState<any[]>([]);
+  const pendingColaboradorActionRef = useRef<(() => void) | null>(null);
+  // Preenchido quando a nota aberta está travada por outra pessoa — dispara o overlay
+  // de bloqueio por cima do conteúdo (em vez de desabilitar cada campo individualmente).
+  const [noteLockBlockedBy, setNoteLockBlockedBy] = useState<{ name: string; at: string | null } | null>(null);
+  const [checkingNoteLock, setCheckingNoteLock] = useState(false);
 
   // estoque print layout picker
   type EstoquePreset = 'financeiro' | 'estoque' | 'personalizado';
@@ -999,6 +1018,13 @@ export default function Page() {
       fetchBulkDrafts();
       fetchEanProblems();
     }
+    try {
+      const raw = localStorage.getItem(COLABORADOR_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.id && saved?.nome) { setColaboradorId(saved.id); setColaboradorNome(saved.nome); }
+      }
+    } catch {}
   }, []);
 
   // ── Scroll lock: prevent background scroll whenever any modal is open ──────
@@ -1049,6 +1075,9 @@ export default function Page() {
         companyId: n.company_id ?? null,
         stockAppliedAt: n.stock_applied_at ?? null,
         stockAppliedCompanies: n.stock_applied_companies ?? [],
+        lockedById: n.locked_by_id ?? null,
+        lockedByName: n.locked_by_name ?? null,
+        lockedAt: n.locked_at ?? null,
         receivedDate: n.received_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
@@ -2684,6 +2713,32 @@ export default function Page() {
     setCanRedo(false);
   }, []);
 
+  const fetchHrEmployeesForLock = async () => {
+    const { data } = await supabase.from('hr_employees').select('id, nome, cargo, foto_url').order('nome');
+    setHrEmployeesForLock(data || []);
+  };
+
+  // Solicita a identidade do colaborador (modal "Quem é você?") antes de rodar `action` —
+  // usado antes de qualquer coisa que precise saber quem está editando (abrir uma nota).
+  // Se a identidade já foi escolhida antes nesse navegador, roda `action` na hora.
+  const requireColaboradorThen = useCallback((action: () => void) => {
+    if (colaboradorId) { action(); return; }
+    if (hrEmployeesForLock.length === 0) fetchHrEmployeesForLock();
+    pendingColaboradorActionRef.current = action;
+    setColaboradorModalSearch('');
+    setShowColaboradorModal(true);
+  }, [colaboradorId, hrEmployeesForLock.length]);
+
+  const chooseColaborador = (emp: { id: string; nome: string }) => {
+    setColaboradorId(emp.id);
+    setColaboradorNome(emp.nome);
+    try { localStorage.setItem(COLABORADOR_STORAGE_KEY, JSON.stringify({ id: emp.id, nome: emp.nome })); } catch {}
+    setShowColaboradorModal(false);
+    const action = pendingColaboradorActionRef.current;
+    pendingColaboradorActionRef.current = null;
+    if (action) action();
+  };
+
   // Carrega os states de edição de uma nota de revisão a partir do objeto ReviewNote — extraído
   // para ser reutilizado tanto ao abrir uma nota pela lista de Entrada de Mercadoria (desktop e
   // mobile) quanto pelo atalho "Ver nota" no histórico de EAN da aba Editar Produto.
@@ -2697,6 +2752,7 @@ export default function Page() {
     setViewingPriceCompanyId(null);
     setPriceCompanyDropdownOpen(false);
     setViewingNoteExtraPricing({});
+    setNoteLockBlockedBy(null);
     setNoteSupplierQuery(note.supplierName || '');
     setNoteSupplierOpen(false);
     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
@@ -2763,6 +2819,68 @@ export default function Page() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierNames]);
+
+  const formatRelativeTime = (iso: string | null): string => {
+    if (!iso) return 'agora';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.round(diffMs / 60000);
+    if (mins <= 0) return 'agora mesmo';
+    if (mins === 1) return 'há 1 minuto';
+    if (mins < 60) return `há ${mins} minutos`;
+    const hours = Math.round(mins / 60);
+    return hours === 1 ? 'há 1 hora' : `há ${hours} horas`;
+  };
+
+  // Tenta travar a nota pra mim (colaborador atual) antes de abrir pra edição. Notas novas
+  // (criadas em memória, ainda sem linha no banco) não precisam de lock — ninguém mais tem
+  // esse id ainda. Pra notas existentes, um único UPDATE condicional é atômico no Postgres:
+  // só "ganha" o lock quem chegar primeiro, mesmo que dois cliques aconteçam ao mesmo tempo.
+  const openReviewNoteWithLock = useCallback((note: ReviewNote, onOpened?: () => void) => {
+    requireColaboradorThen(async () => {
+      const isExisting = reviewNotes.some(n => n.id === note.id);
+      if (!isExisting || !colaboradorId) {
+        openReviewNoteForEditing(note);
+        onOpened?.();
+        return;
+      }
+      setCheckingNoteLock(true);
+      try {
+        const ttlCutoff = new Date(Date.now() - NOTE_LOCK_TTL_MS).toISOString();
+        const { data: claimed } = await supabase
+          .from('review_notes')
+          .update({ locked_by_id: colaboradorId, locked_by_name: colaboradorNome, locked_at: new Date().toISOString() })
+          .eq('id', note.id)
+          .or(`locked_at.is.null,locked_at.lt.${ttlCutoff},locked_by_id.eq.${colaboradorId}`)
+          .select('id')
+          .maybeSingle();
+        if (claimed) {
+          openReviewNoteForEditing(note);
+        } else {
+          const { data: fresh } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+          setNoteLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
+          openReviewNoteForEditing(note);
+        }
+        onOpened?.();
+      } finally {
+        setCheckingNoteLock(false);
+      }
+    });
+  }, [reviewNotes, colaboradorId, colaboradorNome, requireColaboradorThen, openReviewNoteForEditing]);
+
+  // Reconsulta o lock da nota aberta (botão "Verificar novamente" no overlay de bloqueio).
+  const recheckNoteLock = useCallback(async () => {
+    if (!viewingReviewNote) return;
+    const note = viewingReviewNote;
+    setNoteLockBlockedBy(null);
+    openReviewNoteWithLock(note);
+  }, [viewingReviewNote, openReviewNoteWithLock]);
+
+  // Libera meu lock nessa nota (fire-and-forget — não trava o fechamento da UI por causa disso).
+  const releaseNoteLock = useCallback((noteId?: string) => {
+    const id = noteId ?? viewingReviewNote?.id;
+    if (!id || !colaboradorId) return;
+    supabase.from('review_notes').update({ locked_by_id: null, locked_by_name: null, locked_at: null }).eq('id', id).eq('locked_by_id', colaboradorId).then(() => {});
+  }, [viewingReviewNote, colaboradorId]);
 
   // Auto-sync distribuição na seção Revisões quando QTD muda e há preset ativo
   useEffect(() => {
@@ -3169,8 +3287,7 @@ export default function Page() {
       id, timestamp, createdAt: new Date().toISOString(), fileName: '', items: [], itemCount: 0, verifiedCount: 0,
       status: 'registro', approved: false, supplierId: null,
     };
-    openReviewNoteForEditing(note);
-    if (isMobileView) { changeNoteViewMode('admin'); setShowMobileNoteView(true); }
+    openReviewNoteWithLock(note, () => { if (isMobileView) { changeNoteViewMode('admin'); setShowMobileNoteView(true); } });
   };
 
   // Grava a nota no banco via upsert (cria na primeira vez, atualiza depois) — usada tanto
@@ -3307,6 +3424,51 @@ export default function Page() {
       setSwitchingPriceCompany(false);
     }
   }, [viewingReviewNote, viewingPriceCompanyId, viewingNoteExtraPricing, persistNote]);
+
+  // Heartbeat (renova meu lock) + autosave silencioso, no mesmo timer, enquanto a nota
+  // estiver aberta. Usa um ref pra sempre chamar o persistNote mais recente sem precisar
+  // recriar o interval a cada tecla digitada (o que faria o autosave nunca "descansar" 45s).
+  const persistNoteRef = useRef(persistNote);
+  useEffect(() => { persistNoteRef.current = persistNote; }, [persistNote]);
+  useEffect(() => {
+    if (!viewingReviewNote || !colaboradorId || noteLockBlockedBy) return;
+    const noteId = viewingReviewNote.id;
+    const tick = async () => {
+      supabase.from('review_notes').update({ locked_at: new Date().toISOString() }).eq('id', noteId).eq('locked_by_id', colaboradorId).then(() => {});
+      try {
+        await persistNoteRef.current();
+      } catch (err: any) {
+        if (err?.message !== EMPRESA_REQUIRED_MSG) console.warn('[autosave] Falha ao salvar nota automaticamente:', err?.message);
+      }
+    };
+    const intervalId = setInterval(tick, NOTE_LOCK_HEARTBEAT_MS);
+    return () => clearInterval(intervalId);
+  }, [viewingReviewNote?.id, colaboradorId, noteLockBlockedBy]);
+
+  // Libera o lock com navigator.sendBeacon se a aba fechar/atualizar — um fetch normal
+  // pode ser cancelado nesse momento, o beacon é a única forma confiável de garantir o
+  // envio. Se nem isso disparar (crash, queda de energia), o heartbeat expira o lock sozinho.
+  const noteLockBeaconInfoRef = useRef<{ noteId: string | null; colaboradorId: string | null }>({ noteId: null, colaboradorId: null });
+  useEffect(() => {
+    noteLockBeaconInfoRef.current = {
+      noteId: (viewingReviewNote && !noteLockBlockedBy) ? viewingReviewNote.id : null,
+      colaboradorId,
+    };
+  }, [viewingReviewNote, colaboradorId, noteLockBlockedBy]);
+  useEffect(() => {
+    const releaseViaBeacon = () => {
+      const { noteId, colaboradorId: cid } = noteLockBeaconInfoRef.current;
+      if (!noteId || !cid || typeof navigator.sendBeacon !== 'function') return;
+      const blob = new Blob([JSON.stringify({ noteId, colaboradorId: cid })], { type: 'application/json' });
+      navigator.sendBeacon('/api/release-note-lock', blob);
+    };
+    window.addEventListener('beforeunload', releaseViaBeacon);
+    window.addEventListener('pagehide', releaseViaBeacon);
+    return () => {
+      window.removeEventListener('beforeunload', releaseViaBeacon);
+      window.removeEventListener('pagehide', releaseViaBeacon);
+    };
+  }, []);
 
   // Leitura/escrita de Preço Venda / Ok / Revisão para uma empresa extra (não-dona) — usadas
   // pelas células da tabela de revisão quando viewingPriceCompanyId aponta pra outra empresa.
@@ -4116,6 +4278,75 @@ export default function Page() {
             onGoToNotificationsPage={() => setActiveTab('Notificações')}
             hideViewToggle={isMobileView && (activeTab === 'Inventory' || activeTab === 'Controle Financeiro')}
           />
+          {!isMobileView && (
+            <button
+              onClick={() => { setColaboradorModalSearch(''); if (hrEmployeesForLock.length === 0) fetchHrEmployeesForLock(); setShowColaboradorModal(true); }}
+              title="Trocar quem está usando este navegador"
+              className="fixed top-4 right-[62px] z-50 flex items-center gap-2 h-[42px] pl-2 pr-3.5 rounded-full bg-surface/85 backdrop-blur-xl border border-on-surface/[0.08] shadow-[0_2px_16px_rgba(0,0,0,0.18)] hover:bg-surface transition-colors"
+            >
+              <div className="w-[26px] h-[26px] rounded-full bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E] flex items-center justify-center text-[10px] font-black flex-shrink-0">
+                {(colaboradorNome || '?').slice(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[11.5px] font-bold text-on-surface/70 max-w-[110px] truncate">{colaboradorNome || 'Quem é você?'}</span>
+            </button>
+          )}
+          {showColaboradorModal && (() => {
+            const filtered = hrEmployeesForLock.filter((e: any) =>
+              !colaboradorModalSearch.trim() || (e.nome || '').toLowerCase().includes(colaboradorModalSearch.trim().toLowerCase())
+            );
+            const avatarPalette = ['from-[#FFB020] to-[#D4C000]', 'from-[#34A853] to-[#0A7A55]', 'from-[#D81E1E] to-[#92140E]', 'from-[#4285F4] to-[#1A56C4]', 'from-[#9B59B6] to-[#6C3483]', 'from-[#00A9A5] to-[#00706D]'];
+            return (
+              <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+                <div
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                  onClick={() => { if (colaboradorId) setShowColaboradorModal(false); }}
+                />
+                <div className="relative w-full max-w-[560px] bg-[#FDFAF0] dark:bg-[#1E1E18] dark:border dark:border-white/[0.06] rounded-[24px] shadow-2xl p-8 pb-7">
+                  <div className="w-[52px] h-[52px] rounded-2xl bg-[#D81E1E]/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mb-4">
+                    <Users size={22} />
+                  </div>
+                  <h2 className="text-[20px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight mb-1.5">Antes de continuar, quem é você?</h2>
+                  <p className="text-[13px] text-on-surface/45 leading-relaxed mb-6 max-w-[420px]">Escolha seu nome pra gente saber quem está editando cada nota — assim ninguém sobrescreve o trabalho de outra pessoa sem querer.</p>
+                  <div className="relative mb-4">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface/30" />
+                    <input
+                      autoFocus
+                      value={colaboradorModalSearch}
+                      onChange={e => setColaboradorModalSearch(e.target.value)}
+                      placeholder="Buscar pelo nome..."
+                      className="w-full h-[42px] rounded-xl border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] pl-[38px] pr-3.5 text-[13px] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-[#D81E1E] focus:shadow-[0_0_0_3px_rgba(216,30,30,0.12)]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto p-0.5 -m-0.5">
+                    {filtered.length === 0 && (
+                      <div className="col-span-2 text-center text-[12px] text-on-surface/35 py-6">
+                        {hrEmployeesForLock.length === 0 ? 'Carregando colaboradores...' : 'Nenhum colaborador encontrado.'}
+                      </div>
+                    )}
+                    {filtered.map((emp: any, i: number) => (
+                      <button
+                        key={emp.id}
+                        onClick={() => chooseColaborador(emp)}
+                        className="flex items-center gap-2.5 p-3 rounded-2xl border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] bg-white dark:bg-[#252520] hover:border-[#D81E1E] hover:shadow-[0_4px_14px_rgba(216,30,30,0.10)] hover:-translate-y-px active:scale-[0.98] transition-all text-left"
+                      >
+                        <div className={cn('w-[38px] h-[38px] rounded-[11px] flex-shrink-0 flex items-center justify-center text-[13px] font-black text-white bg-gradient-to-br', avatarPalette[i % avatarPalette.length])}>
+                          {(emp.nome || '?').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight truncate">{emp.nome}</div>
+                          {emp.cargo && <div className="text-[10.5px] text-on-surface/40 mt-0.5 truncate">{emp.cargo}</div>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-5 text-[10.5px] text-on-surface/30">
+                    <ShieldCheck size={12} />
+                    Salvo só neste navegador — você pode trocar quando quiser.
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <div className={cn(
             'pb-8',
             (!isMobileView && isSidebarCollapsed) ? 'max-w-none' : 'max-w-[1400px]',
@@ -4199,12 +4430,10 @@ export default function Page() {
                   setNotification={setNotification}
                   reviewNotes={reviewNotes}
                   onViewReviewNote={(note) => {
-                    openReviewNoteForEditing(note);
-                    setTimeout(() => captureSnapshot(), 0);
+                    openReviewNoteWithLock(note, () => setTimeout(() => captureSnapshot(), 0));
                   }}
                   onViewMobile={(note) => {
-                    openReviewNoteForEditing(note);
-                    setNoteModeChoiceOpen(true);
+                    openReviewNoteWithLock(note, () => setNoteModeChoiceOpen(true));
                   }}
                   onApproveNote={handleApproveNote}
                   onLinkNote={handleLinkNote}
@@ -4847,8 +5076,7 @@ export default function Page() {
                               type="button"
                               onClick={() => {
                                 setShowEditModal(false);
-                                openReviewNoteForEditing(note);
-                                setTimeout(() => captureSnapshot(), 0);
+                                openReviewNoteWithLock(note, () => setTimeout(() => captureSnapshot(), 0));
                               }}
                               className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline underline-offset-2"
                             >
@@ -5421,8 +5649,7 @@ export default function Page() {
                               type="button"
                               onClick={() => {
                                 setShowEditModal(false);
-                                openReviewNoteForEditing(note);
-                                setTimeout(() => captureSnapshot(), 0);
+                                openReviewNoteWithLock(note, () => setTimeout(() => captureSnapshot(), 0));
                               }}
                               className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline underline-offset-2"
                             >
@@ -7619,7 +7846,7 @@ export default function Page() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
+              onClick={() => { releaseNoteLock(); setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
               className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
             <motion.div
@@ -7629,6 +7856,39 @@ export default function Page() {
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
               className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
             >
+              {noteLockBlockedBy && (
+                <div className="absolute inset-0 z-[250] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
+                  <div className="w-full max-w-[380px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] rounded-[22px] shadow-2xl p-8 pb-7 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-[#D81E1E]/10 dark:bg-[#D81E1E]/20 text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mx-auto mb-4">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div className="text-[15px] font-black text-on-surface mb-1.5">Sendo editada agora</div>
+                    <div className="inline-flex items-center gap-1.5 bg-[#D81E1E]/[0.06] dark:bg-[#D81E1E]/[0.12] border border-[#D81E1E]/20 rounded-full px-3 py-1.5 mb-1">
+                      <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#34A853] to-[#0A7A55] text-white text-[9px] font-black flex items-center justify-center">
+                        {(noteLockBlockedBy.name || '?').slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="text-[12px] font-bold text-on-surface">{noteLockBlockedBy.name}</span>
+                    </div>
+                    <div className="text-[11.5px] text-on-surface/45 mt-2.5 mb-5">Última atividade {formatRelativeTime(noteLockBlockedBy.at)}</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); setNoteLockBlockedBy(null); }}
+                        className="flex-1 h-10 rounded-xl border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors"
+                      >
+                        Fechar
+                      </button>
+                      <button
+                        onClick={recheckNoteLock}
+                        disabled={checkingNoteLock}
+                        className="flex-1 h-10 rounded-xl bg-[#D81E1E] text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all disabled:opacity-60"
+                      >
+                        <RefreshCw size={13} className={checkingNoteLock ? 'animate-spin' : ''} />
+                        Verificar novamente
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between bg-surface-container dark:bg-[#252520] shrink-0">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
@@ -7909,7 +8169,7 @@ export default function Page() {
                     );
                   })()}
                   <button
-                    onClick={() => { setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); setNoteEditorTab('produtos'); }}
+                    onClick={() => { releaseNoteLock(); setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); setNoteEditorTab('produtos'); }}
                     className="w-10 h-10 flex items-center justify-center rounded-full border-[1.5px] border-on-surface/15 hover:bg-on-surface/[0.07] transition-colors"
                   >
                     <X size={22} className="text-on-surface/40" />
@@ -11269,7 +11529,7 @@ export default function Page() {
             }}
             setNote={(n) => setViewingReviewNote(n as any)}
             companies={companies}
-            onClose={() => { setShowMobileNoteView(false); setViewingReviewNote(null); }}
+            onClose={() => { releaseNoteLock(); setShowMobileNoteView(false); setViewingReviewNote(null); }}
             onSave={handleSaveNote}
             savingNote={savingNote}
             onDelete={handleDeleteNote}
