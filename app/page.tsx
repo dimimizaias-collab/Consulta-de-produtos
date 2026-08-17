@@ -522,6 +522,9 @@ export default function Page() {
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
   // Marca itens cuja Medida foi definida via "Usar tradução" ou "Adicionar medida" (badge de conversão na célula)
   const [viewingNoteMeasureConverted, setViewingNoteMeasureConverted] = useState<boolean[]>([]);
+  // product_ids com tradução de medida (supplier_units) já cadastrada — evita abrir o menu Medida
+  // com a opção "Usar tradução" quando não há nada pra usar (pula direto pra "Adicionar Medida")
+  const [productsWithMeasureTranslation, setProductsWithMeasureTranslation] = useState<Set<string>>(new Set());
   // Undo/Redo history
   const noteHistoryRef = useRef<any[]>([]);
   const noteHistoryIdxRef = useRef<number>(-1);
@@ -2661,6 +2664,15 @@ export default function Page() {
     setAdjColumns(loadedCols);
     setAdjColDialog(null);
     resetNoteHistory();
+    const measureProductIds = Array.from(new Set(note.items.map((it: any) => it.product_id).filter(Boolean)));
+    if (measureProductIds.length > 0) {
+      supabase.from('supplier_units')
+        .select('product_id')
+        .in('product_id', measureProductIds)
+        .then(({ data }) => setProductsWithMeasureTranslation(new Set((data || []).map((r: any) => String(r.product_id)))));
+    } else {
+      setProductsWithMeasureTranslation(new Set());
+    }
     const sidForNote = note.supplierId || supplierNames.find((s: any) => s.name === note.supplierName || s.nome_fantasia?.trim() === note.supplierName)?.id;
     if (sidForNote) {
       supabase.from('supplier_mappings')
@@ -2771,6 +2783,7 @@ export default function Page() {
           unit_name: unitName.trim() || item.unit,
           multiplier: mult,
         });
+        setProductsWithMeasureTranslation(prev => new Set(prev).add(String(item.product_id)));
       }
       const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
       const newQty = originalQty * mult;
@@ -2796,6 +2809,31 @@ export default function Page() {
     if (reviewMeasureIdx === null) return;
     const ok = await applyReviewMeasure(reviewMeasureIdx, reviewMeasureUnit, reviewMeasureMultiplier);
     if (ok) setReviewMeasureIdx(null);
+  };
+
+  // Clique no gatilho da célula Medida: só abre o menu (Usar tradução/Adicionar medida/Manual) quando
+  // já existe tradução cadastrada pro produto — senão vai direto pro diálogo "Adicionar Medida",
+  // já que "Usar tradução" nesse caso só retornaria o erro de "nenhuma tradução cadastrada".
+  const handleMeasureTriggerClick = (idx: number, item: any, triggerEl: HTMLElement, dropdownH: number) => {
+    if (reviewUnitMenuIdx === idx) {
+      setReviewUnitMenuIdx(null);
+      setReviewUnitMenuPos(null);
+      return;
+    }
+    const hasTranslation = !!item.product_id && productsWithMeasureTranslation.has(String(item.product_id));
+    if (!hasTranslation) {
+      setReviewMeasureIdx(idx);
+      setReviewMeasureUnit(viewingNoteUnits[idx] ?? item.unit ?? '');
+      setReviewMeasureMultiplier('');
+      setReviewUnitMenuIdx(null);
+      setReviewUnitMenuPos(null);
+      return;
+    }
+    const rect = triggerEl.getBoundingClientRect();
+    const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
+    setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+    reviewUnitTriggerRef.current = triggerEl;
+    setReviewUnitMenuIdx(idx);
   };
 
   const handleNoteItemCreateAndLink = async () => {
@@ -8790,17 +8828,7 @@ export default function Page() {
                                   </span>
                                 )}
                                 <button
-                                  onClick={(e) => {
-                                    const next = reviewUnitMenuIdx === idx ? null : idx;
-                                    if (next !== null) {
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      const dropdownH = 120;
-                                      const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
-                                      setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
-                                      reviewUnitTriggerRef.current = e.currentTarget;
-                                    } else { setReviewUnitMenuPos(null); }
-                                    setReviewUnitMenuIdx(next);
-                                  }}
+                                  onClick={(e) => handleMeasureTriggerClick(idx, item, e.currentTarget, 120)}
                                   className={cn(
                                     'w-4 h-4 rounded flex items-center justify-center transition-all shrink-0',
                                     reviewUnitMenuIdx === idx ? 'bg-primary text-white' : 'text-white/30 hover:text-primary hover:bg-primary/10'
@@ -8811,17 +8839,7 @@ export default function Page() {
                               </div>
                             ) : (
                               <button
-                                onClick={(e) => {
-                                  const next = reviewUnitMenuIdx === idx ? null : idx;
-                                  if (next !== null) {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const dropdownH = 100;
-                                    const openUp = rect.bottom + 4 + dropdownH > window.innerHeight;
-                                    setReviewUnitMenuPos({ top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4, left: Math.max(8, rect.right - 176) });
-                                    reviewUnitTriggerRef.current = e.currentTarget;
-                                  } else { setReviewUnitMenuPos(null); }
-                                  setReviewUnitMenuIdx(next);
-                                }}
+                                onClick={(e) => handleMeasureTriggerClick(idx, item, e.currentTarget, 100)}
                                 className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
                               >
                                 {viewingNoteMeasureConverted[idx] && (
