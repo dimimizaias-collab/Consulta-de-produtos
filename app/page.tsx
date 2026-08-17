@@ -478,6 +478,16 @@ export default function Page() {
   // divergência antiga porque a leitura ignora o `null` explícito).
   const getItemDiscrepancy = (idx: number, item: any): DiscrepancyData =>
     idx < viewingNoteDiscrepancies.length ? viewingNoteDiscrepancies[idx] : ((item?.discrepancy as DiscrepancyData) ?? null);
+  // Progresso das 3 etapas do controle logístico "OK"/"Revisão" de um item: 1) cadastrado
+  // (vinculado a produto interno), 2) precificado (preço de venda definido), 3) atualizado
+  // (confirmação manual do usuário, é o que os campos verified/review_timestamp guardam hoje).
+  // Etapas 1 e 2 são deriváveis de campos já existentes — não precisam de estado próprio.
+  const getItemStageProgress = (opts: { productId: string | null | undefined; sellPrice: number | null | undefined; verified: boolean }) => {
+    const stage1 = !!opts.productId;
+    const stage2 = Number(opts.sellPrice) > 0;
+    const stage3 = !!opts.verified;
+    return { stage1, stage2, stage3, completed: (stage1 ? 1 : 0) + (stage2 ? 1 : 0) + (stage3 ? 1 : 0) };
+  };
   // valor de UMA coluna de ajuste específica para uma linha — usado pelo PDF "Personalizado"
   // pra deixar o usuário escolher, coluna por coluna, quais Descontos/Acréscimos entram no export.
   const calcAdjColAmount = (col: AdjColumn, cost: number, qty: number, idx: number): number => {
@@ -3046,11 +3056,9 @@ export default function Page() {
           ean: created.ean || updatedItems[linkingItemIdx].ean,
           product_id: created.id,
           product_price: 0,
-          verified: true,
           status_translation: 'Identificado (SKU/EAN)',
         };
         setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
-        const uV = [...viewingNoteVerified]; uV[linkingItemIdx] = true; setViewingNoteVerified(uV);
         const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
@@ -3160,9 +3168,8 @@ export default function Page() {
     captureSnapshot();
     const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
     const updatedItems = [...viewingReviewNote.items];
-    updatedItems[idx] = { ...updatedItems[idx], name: p.name, sku: p.sku || updatedItems[idx].sku, ean: p.ean || updatedItems[idx].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+    updatedItems[idx] = { ...updatedItems[idx], name: p.name, sku: p.sku || updatedItems[idx].sku, ean: p.ean || updatedItems[idx].ean, product_id: p.id, product_price: sellPrice, status_translation: 'Identificado (SKU/EAN)' };
     setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
-    const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
     const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
     const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
     setNotification({ type: 'success', message: `Vinculado via tradução permanente: ${p.name}` });
@@ -3207,11 +3214,9 @@ export default function Page() {
         ean: created.ean || updatedItems[idx].ean,
         product_id: created.id,
         product_price: price,
-        verified: true,
         status_translation: 'Identificado (SKU/EAN)',
       };
       setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
-      const uV = [...viewingNoteVerified]; uV[idx] = true; setViewingNoteVerified(uV);
       const uS = [...viewingNoteSkus]; uS[idx] = created.sku || ''; setViewingNoteSkus(uS);
       const uE = [...viewingNoteEans]; uE[idx] = created.ean || ''; setViewingNoteEans(uE);
       const uP = [...viewingNoteSellPrices]; uP[idx] = price; setViewingNoteSellPrices(uP);
@@ -3675,14 +3680,13 @@ export default function Page() {
         product_id: e.product.id,
         product_price: e.product.price || 0,
         qty: parseFloat(e.qty) || 0,
-        verified: true,
         status_translation: 'Identificado (SKU/EAN)',
         multiLinked: true,
       };
     });
 
     setViewingReviewNote({ ...viewingReviewNote, items: sp(viewingReviewNote.items, newItems) });
-    setViewingNoteVerified(sp(pV, newItems.map(() => true)));
+    setViewingNoteVerified(sp(pV, newItems.map(() => false)));
     setViewingNoteSellPrices(sp(pP, multiLinkItemEntries.map(e => e.product.price || 0)));
     setViewingNoteEans(sp(pE, multiLinkItemEntries.map(e => e.product.ean || '')));
     setViewingNoteSkus(sp(pS, multiLinkItemEntries.map(e => e.product.sku || '')));
@@ -8975,6 +8979,7 @@ export default function Page() {
                         : null;
                       const rowVerified = isOwnerPriceContext ? !!viewingNoteVerified[idx] : getExtraVerified(viewingPriceCompanyId!, idx, item);
                       const rowReviewTs = isOwnerPriceContext ? viewingNoteReviewTimestamps[idx] : getExtraReviewTimestamp(viewingPriceCompanyId!, idx, item);
+                      const rowStageProgress = getItemStageProgress({ productId: item.product_id, sellPrice: sellPrice, verified: rowVerified });
                       const _itemVariantsCheck: EanVariant[] = (viewingNoteEanVariants[idx]?.length ?? 0) > 0
                         ? viewingNoteEanVariants[idx]
                         : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
@@ -9546,11 +9551,12 @@ export default function Page() {
                             </div>
                           </td>
                           )}
-                          {/* Ok */}
+                          {/* Ok — etapa 3 (manual) do progresso logístico; só liberada quando as
+                              etapas 1 (cadastrado) e 2 (precificado) já estiverem concluídas. */}
                           {!reviewHiddenCols.has('Ok') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
-                              {rowVerified ? (
+                              {rowStageProgress.completed === 3 ? (
                                 <button
                                   onClick={() => {
                                     if (isOwnerPriceContext) {
@@ -9561,10 +9567,19 @@ export default function Page() {
                                       setExtraVerified(viewingPriceCompanyId!, idx, false);
                                     }
                                   }}
+                                  title="Todas as etapas concluídas — clique para desmarcar 'Produto atualizado'"
                                   className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
                                 >
                                   <CheckCircle2 size={12} />
                                 </button>
+                              ) : !(rowStageProgress.stage1 && rowStageProgress.stage2) ? (
+                                <span
+                                  title="Vincule o produto e defina o preço de venda antes de confirmar a atualização"
+                                  className="w-6 h-6 rounded-full flex items-center justify-center cursor-not-allowed opacity-50"
+                                  style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text-subtle)' }}
+                                >
+                                  <X size={12} />
+                                </span>
                               ) : (
                                 <button
                                   onClick={() => {
@@ -9580,6 +9595,7 @@ export default function Page() {
                                       setExtraVerified(viewingPriceCompanyId!, idx, true, ts);
                                     }
                                   }}
+                                  title="Confirmar 'Produto atualizado' (2/2 etapas automáticas já concluídas)"
                                   className={cn(
                                     "w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer",
                                     !isOwnerPriceContext ? "hover:bg-[#D81E1E]/10 hover:text-[#D81E1E] border border-dashed border-[#D81E1E]/45" : "hover:bg-primary/10 hover:text-primary",
@@ -9592,17 +9608,23 @@ export default function Page() {
                             </div>
                           </td>
                           )}
-                          {/* Revisão (timestamp) */}
+                          {/* Revisão — fração das 3 etapas concluídas (cadastrado / precificado /
+                              atualizado); tooltip detalha cada etapa e o timestamp da confirmação manual. */}
                           {!reviewHiddenCols.has('Revisão') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center', padding: '0 8px' })}>
-                              {rowReviewTs ? (
-                                <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
-                                  {rowReviewTs}
-                                </span>
-                              ) : (
-                                <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
-                              )}
+                              <span
+                                title={`Produto cadastrado: ${rowStageProgress.stage1 ? '✓' : '✗'} · Produto precificado: ${rowStageProgress.stage2 ? '✓' : '✗'} · Produto atualizado: ${rowStageProgress.stage3 ? `✓ em ${rowReviewTs}` : 'pendente'}`}
+                                className={cn(
+                                  "inline-block px-1.5 py-0.5 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap",
+                                  rowStageProgress.completed === 3 ? "bg-emerald-500/10 text-emerald-400"
+                                    : rowStageProgress.completed === 2 ? "bg-amber-500/10 text-amber-400"
+                                    : "bg-[var(--rn-cell-inner)]"
+                                )}
+                                style={rowStageProgress.completed < 2 ? { color: 'var(--rn-text-subtle)' } : undefined}
+                              >
+                                {rowStageProgress.completed}/3
+                              </span>
                             </div>
                           </td>
                           )}
@@ -9992,9 +10014,8 @@ export default function Page() {
                                           const p = noteItemSelectedProduct;
                                           const sellPrice = parseFloat(noteItemSellPriceInput) || 0;
                                           const updatedItems = [...viewingReviewNote!.items];
-                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, status_translation: 'Identificado (SKU/EAN)' };
                                           setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                          const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
                                           const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
                                           const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
                                           const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
@@ -10036,9 +10057,8 @@ export default function Page() {
                                     const p = noteItemSelectedProduct;
                                     const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
                                     const updatedItems = [...viewingReviewNote!.items];
-                                    updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, verified: true, status_translation: 'Identificado (SKU/EAN)' };
+                                    updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, status_translation: 'Identificado (SKU/EAN)' };
                                     setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                    const uV = [...viewingNoteVerified]; uV[i] = true; setViewingNoteVerified(uV);
                                     const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
                                     const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
                                     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
@@ -11424,6 +11444,7 @@ export default function Page() {
             itemPrices={viewingNoteItemPrices}  setItemPrices={setViewingNoteItemPrices}
             sellPrices={viewingNoteSellPrices}  setSellPrices={setViewingNoteSellPrices}
             verified={viewingNoteVerified}       setVerified={setViewingNoteVerified}
+            reviewTimestamps={viewingNoteReviewTimestamps} setReviewTimestamps={setViewingNoteReviewTimestamps}
             units={viewingNoteUnits}
             multipliers={viewingNoteMultipliers}
             distribuicao={viewingNoteDistribuicao} setDistribuicao={setViewingNoteDistribuicao}

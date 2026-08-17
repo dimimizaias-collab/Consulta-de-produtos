@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — OK / Revisão (3 etapas) · Dark</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1E1E18;
+    color: #F2F0E3;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+  .lede { font-size: 13px; color: rgba(242,240,227,0.35); margin-bottom: 28px; max-width: 640px; line-height: 1.5; }
+
+  section { margin-bottom: 40px; }
+  h2 {
+    font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em;
+    color: rgba(242,240,227,0.30); margin-bottom: 12px;
+  }
+
+  /* ── Desktop table ─────────────────────────────────────────── */
+  .tablecard {
+    background: #252520;
+    border: 1.5px solid rgba(242,240,227,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  table { width: 100%; border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 12px; }
+  thead th {
+    background: #FFE500;
+    border-bottom: 1.5px solid #C8B800;
+    color: rgba(26,26,10,0.58);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 10px 8px;
+    white-space: nowrap;
+  }
+  thead th.left { text-align: left; padding-left: 16px; }
+  tbody td {
+    padding: 12px 8px;
+    text-align: center;
+    border-bottom: 1px solid rgba(242,240,227,0.06);
+    vertical-align: middle;
+  }
+  tbody td.left { text-align: left; padding-left: 16px; font-family: 'DM Sans', sans-serif; }
+  tbody tr:nth-child(odd) { background: #252520; }
+  tbody tr:nth-child(even) { background: #1E1E18; }
+  tbody tr:hover { background: rgba(242,240,227,0.03); }
+  .desc { font-weight: 700; font-size: 13px; color: #F2F0E3; }
+  .sub { font-size: 10px; color: rgba(242,240,227,0.28); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+  .dot { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; }
+  .dot .bullet { width: 6px; height: 6px; border-radius: 50%; }
+  .dot.on { color: #34D399; } .dot.on .bullet { background: #34D399; }
+  .dot.off { color: rgba(242,240,227,0.28); } .dot.off .bullet { background: rgba(242,240,227,0.18); }
+
+  .price { font-weight: 700; color: #F2F0E3; }
+  .price.empty { color: rgba(242,240,227,0.25); font-weight: 500; }
+
+  /* OK button */
+  .ok-btn {
+    width: 26px; height: 26px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+  }
+  .ok-btn.done { background: #22c55e; color: #fff; box-shadow: 0 2px 8px rgba(34,197,94,0.35); }
+  .ok-btn.ready {
+    background: #2E2E28; color: rgba(242,240,227,0.35);
+    border: 1px solid rgba(242,240,227,0.10);
+    cursor: pointer;
+  }
+  .ok-btn.locked {
+    background: #2E2E28; color: rgba(242,240,227,0.15);
+    border: 1px dashed rgba(242,240,227,0.15);
+    cursor: not-allowed; opacity: 0.6;
+  }
+
+  /* Revisão fraction badge */
+  .frac {
+    display: inline-block; padding: 3px 8px; border-radius: 8px;
+    font-size: 10px; font-weight: 900; font-family: 'DM Mono', monospace;
+    white-space: nowrap; cursor: default;
+  }
+  .frac.f0 { background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.32); }
+  .frac.f1 { background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.32); }
+  .frac.f2 { background: rgba(217,119,6,0.15); color: #FCD34D; }
+  .frac.f3 { background: rgba(52,211,153,0.13); color: #34D399; }
+
+  .tooltip-note {
+    font-size: 10px; color: rgba(242,240,227,0.30); margin-top: 6px; font-style: italic;
+  }
+
+  /* ── Legend ─────────────────────────────────────────────────── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+  }
+  .legend .chip {
+    display: flex; align-items: center; gap: 7px;
+    background: #252520; border: 1px solid rgba(242,240,227,0.08); border-radius: 10px;
+    padding: 7px 12px; font-size: 11px; font-weight: 700; color: #F2F0E3;
+  }
+  .legend .num {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #FFE500; color: #1A1A0E; font-size: 10px; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Mobile card demo ──────────────────────────────────────── */
+  .phones { display: flex; gap: 20px; flex-wrap: wrap; }
+  .phone {
+    width: 280px; background: #17170f; border-radius: 24px; padding: 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    border: 1px solid rgba(242,240,227,0.06);
+  }
+  .phone-header {
+    display: flex; align-items: center; gap: 10px;
+    background: #1c1c16; border-radius: 14px; padding: 12px; margin-bottom: 8px;
+    border: 1px solid rgba(242,240,227,0.07);
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 999px; border: 1px solid;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; flex-shrink: 0;
+  }
+  .avatar.done { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.30); color: #34d399; }
+  .avatar.pend { background: rgba(216,30,30,0.10); border-color: rgba(216,30,30,0.25); color: #f87171; }
+  .phone-info { flex: 1; min-width: 0; }
+  .phone-title { font-size: 13px; font-weight: 900; color: #f2f0e3; line-height: 1.2; }
+  .phone-sub { font-size: 9px; color: rgba(242,240,227,0.30); margin-top: 2px; }
+  .phone-stage { font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .phone-toggle {
+    width: 34px; height: 34px; border-radius: 999px; border: 1px solid;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .phone-toggle.done { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.25); color: #34d399; }
+  .phone-toggle.locked { background: rgba(242,240,227,0.04); border-color: rgba(242,240,227,0.08); color: rgba(242,240,227,0.08); opacity: 0.5; }
+  .phone-toggle.ready { background: rgba(242,240,227,0.04); border-color: rgba(242,240,227,0.08); color: rgba(242,240,227,0.2); }
+  .phone-caption { font-size: 10px; color: rgba(255,255,255,0.40); padding: 0 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Progresso de 3 etapas — colunas "OK" / "Revisão"</h1>
+  <p class="lede">
+    Mockup estático do controle logístico novo na tabela de nota: Produto cadastrado (vínculo) →
+    Produto precificado (preço de venda) → Produto atualizado (confirmação manual). Modo escuro.
+  </p>
+
+  <div class="legend">
+    <div class="chip"><span class="num">1</span> Produto cadastrado — automático (vínculo)</div>
+    <div class="chip"><span class="num">2</span> Produto precificado — automático (preço &gt; 0)</div>
+    <div class="chip"><span class="num">3</span> Produto atualizado — manual (clique do usuário)</div>
+  </div>
+
+  <section>
+    <h2>Tabela desktop — 4 estados</h2>
+    <div class="tablecard">
+      <table>
+        <thead>
+          <tr>
+            <th class="left">Produto na Nota</th>
+            <th>Vinculado</th>
+            <th>Preço Venda</th>
+            <th>Ok</th>
+            <th>Revisão</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="left">
+              <div class="desc">Refrigerante Cola 2L</div>
+              <div class="sub">Cód. forn. 88213 · EAN 7891000100103</div>
+            </td>
+            <td><span class="dot off"><span class="bullet"></span>não vinculado</span></td>
+            <td><span class="price empty">—</span></td>
+            <td><button class="ok-btn locked" title="Vincule o produto e defina o preço de venda antes de confirmar a atualização">✕</button></td>
+            <td><span class="frac f0" title="Produto cadastrado: ✗ · Produto precificado: ✗ · Produto atualizado: pendente">0/3</span></td>
+          </tr>
+          <tr>
+            <td class="left">
+              <div class="desc">Água Mineral 500ml (pack 12)</div>
+              <div class="sub">Cód. forn. 44120 · EAN 7891000100202</div>
+            </td>
+            <td><span class="dot on"><span class="bullet"></span>vinculado</span></td>
+            <td><span class="price empty">—</span></td>
+            <td><button class="ok-btn locked" title="Vincule o produto e defina o preço de venda antes de confirmar a atualização">✕</button></td>
+            <td><span class="frac f1" title="Produto cadastrado: ✓ · Produto precificado: ✗ · Produto atualizado: pendente">1/3</span></td>
+          </tr>
+          <tr>
+            <td class="left">
+              <div class="desc">Biscoito Recheado 130g</div>
+              <div class="sub">Cód. forn. 91820 · EAN 7891000100301</div>
+            </td>
+            <td><span class="dot on"><span class="bullet"></span>vinculado</span></td>
+            <td><span class="price">R$ 4,90</span></td>
+            <td><button class="ok-btn ready" title="Confirmar 'Produto atualizado' (2/2 etapas automáticas já concluídas)">✕</button></td>
+            <td><span class="frac f2" title="Produto cadastrado: ✓ · Produto precificado: ✓ · Produto atualizado: pendente">2/3</span></td>
+          </tr>
+          <tr>
+            <td class="left">
+              <div class="desc">Detergente Neutro 500ml</div>
+              <div class="sub">Cód. forn. 30044 · EAN 7891000100418</div>
+            </td>
+            <td><span class="dot on"><span class="bullet"></span>vinculado</span></td>
+            <td><span class="price">R$ 2,35</span></td>
+            <td><button class="ok-btn done" title="Todas as etapas concluídas — clique para desmarcar 'Produto atualizado'">✓</button></td>
+            <td><span class="frac f3" title="Produto cadastrado: ✓ · Produto precificado: ✓ · Produto atualizado: ✓ em 17/08/2026, 14:32">3/3</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tooltip-note">* Passe o mouse sobre a célula "Revisão" ou sobre o botão "Ok" pra ver o tooltip com o detalhamento das etapas.</p>
+  </section>
+
+  <section>
+    <h2>Visão mobile — cabeçalho do item (mesmos 4 estados)</h2>
+    <div class="phones">
+      <div class="phone">
+        <div class="phone-header">
+          <div class="avatar pend">1</div>
+          <div class="phone-info">
+            <div class="phone-title">Refrigerante Cola 2L</div>
+            <div class="phone-sub">Cód. fornecedor: 88213</div>
+            <div class="phone-stage" style="color:rgba(255,255,255,0.3)">0/3 etapas</div>
+          </div>
+          <div class="phone-toggle locked">✓</div>
+        </div>
+        <div class="phone-caption">Sem vínculo — check bloqueado</div>
+      </div>
+      <div class="phone">
+        <div class="phone-header">
+          <div class="avatar pend">2</div>
+          <div class="phone-info">
+            <div class="phone-title">Água Mineral 500ml</div>
+            <div class="phone-sub">Cód. fornecedor: 44120</div>
+            <div class="phone-stage" style="color:rgba(255,255,255,0.3)">1/3 etapas</div>
+          </div>
+          <div class="phone-toggle locked">✓</div>
+        </div>
+        <div class="phone-caption">Vinculado, sem preço — ainda bloqueado</div>
+      </div>
+      <div class="phone">
+        <div class="phone-header">
+          <div class="avatar pend">3</div>
+          <div class="phone-info">
+            <div class="phone-title">Biscoito Recheado 130g</div>
+            <div class="phone-sub">Cód. fornecedor: 91820</div>
+            <div class="phone-stage" style="color:#fbbf24">2/3 etapas</div>
+          </div>
+          <div class="phone-toggle ready">✓</div>
+        </div>
+        <div class="phone-caption">Vinculado + precificado — libera o check manual</div>
+      </div>
+      <div class="phone">
+        <div class="phone-header">
+          <div class="avatar done">4</div>
+          <div class="phone-info">
+            <div class="phone-title">Detergente Neutro 500ml</div>
+            <div class="phone-sub">Cód. fornecedor: 30044</div>
+            <div class="phone-stage" style="color:#34d399">3/3 etapas</div>
+          </div>
+          <div class="phone-toggle done">✓</div>
+        </div>
+        <div class="phone-caption">Confirmado manualmente — 3/3 completo</div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

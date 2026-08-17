@@ -80,6 +80,7 @@ interface MobileNoteViewProps {
   itemPrices: (number | null)[]; setItemPrices: React.Dispatch<React.SetStateAction<(number | null)[]>>;
   sellPrices: number[];        setSellPrices: React.Dispatch<React.SetStateAction<number[]>>;
   verified: boolean[];         setVerified: React.Dispatch<React.SetStateAction<boolean[]>>;
+  reviewTimestamps: (string | null)[]; setReviewTimestamps: React.Dispatch<React.SetStateAction<(string | null)[]>>;
   units: string[];
   multipliers: number[];
   distribuicao: string[];
@@ -396,7 +397,7 @@ export function MobileNoteView({
   note, products,
   eans, setEans, skus, setSkus, qtys, setQtys,
   itemPrices, setItemPrices, sellPrices, setSellPrices,
-  verified, setVerified, units, multipliers, distribuicao, setDistribuicao,
+  verified, setVerified, reviewTimestamps, setReviewTimestamps, units, multipliers, distribuicao, setDistribuicao,
   distribMode, setDistribMode,
   mode, onModeChange, adjColumns, onAddAdjColumn, onRemoveAdjColumn, onDownload,
   setNote, companies = [], onClose, onSave, savingNote, onDelete, onVarios,
@@ -447,7 +448,6 @@ export function MobileNoteView({
 
   const items = note.items as any[];
   const totalItems = items.length;
-  const verifiedCount = verified.filter(Boolean).length;
 
   // value helpers
   const ean      = (i: number) => eans[i]       ?? items[i]?.ean           ?? '';
@@ -456,9 +456,22 @@ export function MobileNoteView({
   const cost     = (i: number) => { const raw = itemPrices[i] ?? items[i]?.price ?? 0; const mult = multipliers[i] ?? items[i]?.multiplier ?? 1; return raw / (mult || 1); };
   const sell     = (i: number) => sellPrices[i] ?? items[i]?.product_price ?? 0;
   const isVerif  = (i: number) => verified[i]   ?? items[i]?.verified      ?? false;
+  const reviewTs = (i: number) => reviewTimestamps[i] ?? items[i]?.review_timestamp ?? null;
   const unit     = (i: number) => units[i]      ?? items[i]?.unit          ?? 'UN';
   const mult     = (i: number) => multipliers[i] ?? items[i]?.multiplier   ?? 1;
   const markup   = (i: number) => { const c = cost(i); const s = sell(i); return c > 0 && s > 0 ? ((s - c) / c * 100).toFixed(1) : null; };
+
+  // Progresso das 3 etapas do controle logístico "OK" (paridade com a tabela desktop):
+  // 1) cadastrado (vinculado a produto interno), 2) precificado (preço de venda definido),
+  // 3) atualizado (confirmação manual do usuário, é o que `verified`/`review_timestamp` guardam).
+  const stageProgress = (i: number) => {
+    const stage1 = !!items[i]?.product_id;
+    const stage2 = sell(i) > 0;
+    const stage3 = isVerif(i);
+    return { stage1, stage2, stage3, completed: (stage1 ? 1 : 0) + (stage2 ? 1 : 0) + (stage3 ? 1 : 0) };
+  };
+  // "Verificado" (progresso agregado) agora exige as 3 etapas completas, não só o check manual.
+  const verifiedCount = items.reduce((s, _, i) => s + (stageProgress(i).completed === 3 ? 1 : 0), 0);
 
   // totals for Resumo tab
   const totalCost  = items.reduce((s, _, i) => s + cost(i) * qty(i), 0);
@@ -490,14 +503,14 @@ export function MobileNoteView({
   const itemHasNoUnit = (i: number) => mult(i) === 1;
 
   const semEanCount = items.reduce((s, _, i) => s + (itemHasNoEan(i) ? 1 : 0), 0);
-  const pendentesCount = items.reduce((s, _, i) => s + (!isVerif(i) ? 1 : 0), 0);
+  const pendentesCount = items.reduce((s, _, i) => s + (stageProgress(i).completed < 3 ? 1 : 0), 0);
   const duplicadosCount = items.reduce((s, _, i) => s + (itemHasDupEan(i) ? 1 : 0), 0);
   const semPrecoVendaCount = items.reduce((s, _, i) => s + (itemHasNoSellPrice(i) ? 1 : 0), 0);
   const semUnidadeCount = items.reduce((s, _, i) => s + (itemHasNoUnit(i) ? 1 : 0), 0);
 
   const filteredItems = items.map((item, i) => ({ item, i })).filter(({ item, i }) => {
     if (itemFilter === 'sem_ean' && !itemHasNoEan(i)) return false;
-    if (itemFilter === 'pendentes' && isVerif(i)) return false;
+    if (itemFilter === 'pendentes' && stageProgress(i).completed === 3) return false;
     if (itemFilter === 'duplicados' && !itemHasDupEan(i)) return false;
     if (itemFilter === 'sem_preco_venda' && !itemHasNoSellPrice(i)) return false;
     if (itemFilter === 'sem_unidade' && !itemHasNoUnit(i)) return false;
@@ -685,13 +698,11 @@ export function MobileNoteView({
       sku: product.sku || updatedItems[activeIdx].sku,
       ean: product.ean || updatedItems[activeIdx].ean,
       product_price: sellPrice,
-      verified: true,
     };
     setNote({ ...note, items: updatedItems });
     setSkus(prev => { const u = [...prev]; u[activeIdx] = product.sku || items[activeIdx]?.sku || ''; return u; });
     setEans(prev => { const u = [...prev]; u[activeIdx] = product.ean || items[activeIdx]?.ean || ''; return u; });
     setSellPrices(prev => { const u = [...prev]; u[activeIdx] = sellPrice; return u; });
-    setVerified(prev => { const u = [...prev]; u[activeIdx] = true; return u; });
     setLinkingPanel(false);
   }
 
@@ -699,7 +710,7 @@ export function MobileNoteView({
 
   // ─── avatar / badge helpers ───────────────────────────────────────────────
   function avatarClass(i: number) {
-    return isVerif(i)
+    return stageProgress(i).completed === 3
       ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
       : 'bg-white/[0.06] border-white/[0.08] text-white/40';
   }
@@ -1582,9 +1593,11 @@ export function MobileNoteView({
                           )}
                           <span className={cn(
                             'text-[9px] font-black px-1.5 py-0.5 rounded-md',
-                            isVerif(i) ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D81E1E]/10 text-[#f87171]'
+                            stageProgress(i).completed === 3 ? 'bg-emerald-500/10 text-emerald-400'
+                              : stageProgress(i).completed === 2 ? 'bg-amber-500/10 text-amber-400'
+                              : 'bg-[#D81E1E]/10 text-[#f87171]'
                           )}>
-                            {isVerif(i) ? 'OK' : 'Pendente'}
+                            {stageProgress(i).completed}/3
                           </span>
                         </span>
                       </div>
@@ -1917,7 +1930,7 @@ export function MobileNoteView({
                 <>
                   <SectionLabel>Identificação Interna</SectionLabel>
                   <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4">
-                    {isVerif(activeIdx) && activeItem.name ? (
+                    {!!activeItem.product_id && activeItem.name ? (
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
@@ -2139,7 +2152,7 @@ export function MobileNoteView({
               <div className="m-4 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4 flex items-center gap-3">
                 <div className={cn(
                   'w-12 h-12 rounded-full border flex items-center justify-center font-black text-base shrink-0',
-                  isVerif(activeIdx)
+                  stageProgress(activeIdx).completed === 3
                     ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
                     : 'bg-[#D81E1E]/10 border-[#D81E1E]/25 text-[#f87171]'
                 )}>
@@ -2152,15 +2165,30 @@ export function MobileNoteView({
                   <p className="text-[10px] text-white/30 font-medium mt-0.5">
                     Cód. fornecedor: {activeItem.supplier_code || '—'}
                   </p>
+                  <p className="text-[10px] font-bold mt-0.5" style={{ color: stageProgress(activeIdx).completed === 3 ? '#34d399' : stageProgress(activeIdx).completed === 2 ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>
+                    {stageProgress(activeIdx).completed}/3 etapas
+                  </p>
                 </div>
-                {/* verify toggle */}
+                {/* verify toggle — etapa 3 (manual), só liberada com produto vinculado e precificado */}
                 <button
-                  onClick={() => setVerified(prev => { const u = [...prev]; u[activeIdx] = !isVerif(activeIdx); return u; })}
+                  onClick={() => {
+                    const p = stageProgress(activeIdx);
+                    if (!p.stage3 && !(p.stage1 && p.stage2)) return;
+                    const nextVal = !p.stage3;
+                    setVerified(prev => { const u = [...prev]; u[activeIdx] = nextVal; return u; });
+                    if (nextVal) {
+                      const ts = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                      setReviewTimestamps(prev => { const u = [...prev]; u[activeIdx] = ts; return u; });
+                    }
+                  }}
+                  title={!(stageProgress(activeIdx).stage1 && stageProgress(activeIdx).stage2) ? "Vincule o produto e defina o preço de venda antes de confirmar a atualização" : undefined}
                   className={cn(
                     'w-10 h-10 rounded-full border flex items-center justify-center transition-all active:scale-90 shrink-0',
-                    isVerif(activeIdx)
+                    stageProgress(activeIdx).completed === 3
                       ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
-                      : 'bg-white/[0.04] border-white/[0.08] text-white/20'
+                      : !(stageProgress(activeIdx).stage1 && stageProgress(activeIdx).stage2)
+                        ? 'bg-white/[0.04] border-white/[0.08] text-white/10 cursor-not-allowed opacity-50'
+                        : 'bg-white/[0.04] border-white/[0.08] text-white/20'
                   )}
                 >
                   <CheckCircle2 size={18} />
@@ -2361,7 +2389,7 @@ export function MobileNoteView({
           const active = tab === t.id;
           // badge for Itens tab: pending count
           const pendingCount = t.id === 'itens'
-            ? items.filter((_, i) => !isVerif(i)).length
+            ? items.filter((_, i) => stageProgress(i).completed < 3).length
             : 0;
           return (
             <button
