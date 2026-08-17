@@ -1016,16 +1016,30 @@ export default function Page() {
     }
     colaboradorReadyRef.current = (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data } = await supabase
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !user) { console.error('[colaborador] sem usuário autenticado', userErr); return; }
+        const { data: usuarioRow, error: usuarioErr } = await supabase
           .from('usuarios')
-          .select('employee_id, hr_employees(nome)')
+          .select('employee_id')
           .eq('auth_user_id', user.id)
           .maybeSingle();
-        const nome = (data?.hr_employees as any)?.nome;
-        if (data?.employee_id && nome) { setColaboradorId(data.employee_id); setColaboradorNome(nome); }
-      } catch {}
+        if (usuarioErr) { console.error('[colaborador] erro ao buscar usuarios', usuarioErr); return; }
+        if (!usuarioRow?.employee_id) { console.error('[colaborador] usuário logado sem employee_id vinculado', user.id); return; }
+        const { data: employee, error: employeeErr } = await supabase
+          .from('hr_employees')
+          .select('nome')
+          .eq('id', usuarioRow.employee_id)
+          .maybeSingle();
+        if (employeeErr) { console.error('[colaborador] erro ao buscar hr_employees', employeeErr); return; }
+        if (employee?.nome) {
+          setColaboradorId(usuarioRow.employee_id);
+          setColaboradorNome(employee.nome);
+        } else {
+          console.error('[colaborador] funcionário vinculado não encontrado', usuarioRow.employee_id);
+        }
+      } catch (err) {
+        console.error('[colaborador] exceção ao resolver identidade', err);
+      }
     })();
   }, []);
 
