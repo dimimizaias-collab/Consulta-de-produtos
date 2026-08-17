@@ -9068,7 +9068,7 @@ export default function Page() {
                           {!reviewHiddenCols.has('Identificação Interna') && (
                           <td style={{ ...tdP, maxWidth: '200px', position: 'relative' }}>
                             <div style={cell({ padding: '0 8px', overflow: 'visible', gap: '6px' })}>
-                              {item.verified ? (
+                              {item.product_id ? (
                                 /* Produto vinculado: nome truncado + botão icon para trocar */
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <span
@@ -9542,8 +9542,8 @@ export default function Page() {
                             <div style={cell({ padding: '0 10px' })}>
                               <span className={cn(
                                 "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase",
-                                item.verified && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
-                                item.verified ? "bg-blue-500/10 text-blue-400" :
+                                item.product_id && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
+                                item.product_id ? "bg-blue-500/10 text-blue-400" :
                                 "bg-red-500/10 text-red-400"
                               )}>
                                 {item.status_translation}
