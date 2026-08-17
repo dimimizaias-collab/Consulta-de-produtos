@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
+import { supabase } from '@/lib/supabase';
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,7 +20,6 @@ export function LoginForm() {
     setLoading(true);
     setError('');
     try {
-      const supabase = createBrowserSupabaseClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (signInError) {
         setError('E-mail ou senha incorretos.');

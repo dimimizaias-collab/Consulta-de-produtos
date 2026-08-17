@@ -15,7 +15,7 @@ import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
-import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
+import { supabase } from '@/lib/supabase';
 
 interface SidebarProps {
   activeTab: string;
@@ -115,7 +115,6 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, onToggle
       {/* ── Logout ── */}
       <button
         onClick={async () => {
-          const supabase = createBrowserSupabaseClient();
           await supabase.auth.signOut();
           window.location.href = '/login';
         }}
