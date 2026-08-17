@@ -58,6 +58,10 @@ export interface ReviewNote {
   // Marca se a quantidade recebida já foi somada ao estoque da empresa — evita duplicar o
   // incremento se a nota for resalva/reaprovada depois de já estar "Aprovada".
   stockAppliedAt?: string | null;
+  // Empresas extras (não-donas) que já tiveram preço/distribuição aplicados ao
+  // product_company_stock delas na aprovação — evita duplicar a quantidade de Distribuição
+  // se a nota for resalva/reaprovada depois de já aprovada.
+  stockAppliedCompanies?: string[];
   supplierId?: string | null;
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;

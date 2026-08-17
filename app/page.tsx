@@ -29,7 +29,7 @@ import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPag
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -347,6 +347,18 @@ export default function Page() {
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
   const [viewingNoteReviewTimestamps, setViewingNoteReviewTimestamps] = useState<(string | null)[]>([]);
   const [reviewFocusedRowIdx, setReviewFocusedRowIdx] = useState<number | null>(null);
+
+  // Preço de venda por empresa — permite lançar Preço Venda/Markup/Revisão/Ok de uma nota
+  // para uma empresa diferente da dona, sem misturar com os dados da empresa dona.
+  // null = contexto padrão (empresa dona da nota).
+  const [viewingPriceCompanyId, setViewingPriceCompanyId] = useState<string | null>(null);
+  const [priceCompanyDropdownOpen, setPriceCompanyDropdownOpen] = useState(false);
+  const [viewingNoteExtraPricing, setViewingNoteExtraPricing] = useState<Record<string, {
+    sellPrices: (number | undefined)[];
+    verified: boolean[];
+    reviewTimestamps: (string | null)[];
+  }>>({});
+  const [switchingPriceCompany, setSwitchingPriceCompany] = useState(false);
 
   // estoque print layout picker
   type EstoquePreset = 'financeiro' | 'estoque' | 'personalizado';
@@ -1036,6 +1048,7 @@ export default function Page() {
         supplierId: n.supplier_id ?? null,
         companyId: n.company_id ?? null,
         stockAppliedAt: n.stock_applied_at ?? null,
+        stockAppliedCompanies: n.stock_applied_companies ?? [],
         receivedDate: n.received_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
@@ -1185,14 +1198,28 @@ export default function Page() {
       if (d?.type === 'falta' && d.missingAll) return false;
       return true;
     });
-    if (priceCandidates.length === 0) return;
+    // Itens elegíveis para as empresas extras (preço lançado via botão de preço na revisão) —
+    // independente do preço da empresa dona, pois uma pode ter preço lançado sem a outra ter.
+    const distributionCandidates = (note.items || []).filter((item: any) => {
+      if (!item.product_id) return false;
+      const d = item.discrepancy;
+      if (d?.type === 'falta' && d.missingAll) return false;
+      return true;
+    });
+    const extraCompanyIds = Array.from(new Set(
+      distributionCandidates.flatMap((item: any) => Object.keys(item.pricingByCompany || {}))
+    )).filter((cid) => cid && cid !== note.companyId);
+    const hasExtraWork = extraCompanyIds.some((cid) =>
+      distributionCandidates.some((item: any) => (item.pricingByCompany?.[cid]?.precoVenda ?? 0) > 0)
+    );
+    if (priceCandidates.length === 0 && !hasExtraWork) return;
 
     const noteReceivedDate = note.receivedDate || null;
     const companyId = note.companyId || null;
     const alreadyAppliedStock = !!note.stockAppliedAt;
     const productIds = Array.from(new Set(priceCandidates.map((item: any) => item.product_id)));
 
-    if (companyId) {
+    if (companyId && priceCandidates.length > 0) {
       const { data: currentStockRows } = await supabase
         .from('product_company_stock')
         .select('product_id, count, price_received_date')
@@ -1264,6 +1291,55 @@ export default function Page() {
           return supabase.from('products').update(payload).eq('id', item.product_id);
         });
       if (priceUpdates.length > 0) await Promise.all(priceUpdates);
+    }
+
+    // Empresas extras (não-donas) precificadas via botão de preço na revisão. A quantidade
+    // que entra no product_company_stock delas vem da coluna Distribuição (item.distribuicao),
+    // não da quantidade total recebida — essa é exclusiva da empresa dona, que recebeu a
+    // mercadoria fisicamente. Preço é ressincronizado sempre (regra "só avança se mais recente"),
+    // mas a quantidade de Distribuição só é somada UMA VEZ por empresa (guarda: stockAppliedCompanies).
+    if (hasExtraWork) {
+      const alreadyAppliedCompanies = new Set(note.stockAppliedCompanies || []);
+      const newlyAppliedCompanies: string[] = [];
+      for (const extraCompanyId of extraCompanyIds) {
+        const extraCandidates = distributionCandidates.filter((item: any) => (item.pricingByCompany?.[extraCompanyId]?.precoVenda ?? 0) > 0);
+        if (extraCandidates.length === 0) continue;
+        const extraProductIds = Array.from(new Set(extraCandidates.map((item: any) => item.product_id)));
+        const { data: currentExtraStockRows } = await supabase
+          .from('product_company_stock')
+          .select('product_id, count, price_received_date')
+          .eq('company_id', extraCompanyId)
+          .in('product_id', extraProductIds);
+        const extraStockByProduct: Record<string, { count: number; price_received_date: string | null }> = {};
+        (currentExtraStockRows || []).forEach((r: any) => { extraStockByProduct[r.product_id] = r; });
+
+        const alreadyAppliedThisCompany = alreadyAppliedCompanies.has(extraCompanyId);
+        const extraUpserts = extraCandidates
+          .filter((item: any) => {
+            const existingDate = extraStockByProduct[item.product_id]?.price_received_date || null;
+            return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
+          })
+          .map((item: any) => {
+            const qty = alreadyAppliedThisCompany ? 0 : (parseFloat(item.distribuicao) || 0);
+            const nextCount = (extraStockByProduct[item.product_id]?.count || 0) + qty;
+            return supabase.from('product_company_stock').upsert({
+              product_id: item.product_id,
+              company_id: extraCompanyId,
+              count: nextCount,
+              price: item.pricingByCompany[extraCompanyId].precoVenda,
+              price_received_date: noteReceivedDate,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'product_id,company_id' });
+          });
+        if (extraUpserts.length > 0) await Promise.all(extraUpserts);
+        if (!alreadyAppliedThisCompany) newlyAppliedCompanies.push(extraCompanyId);
+      }
+      if (newlyAppliedCompanies.length > 0) {
+        const nextStockAppliedCompanies = Array.from(new Set([...(note.stockAppliedCompanies || []), ...newlyAppliedCompanies]));
+        await supabase.from('review_notes').update({ stock_applied_companies: nextStockAppliedCompanies }).eq('id', note.id);
+        setReviewNotes(prev => prev.map(n => n.id === note.id ? { ...n, stockAppliedCompanies: nextStockAppliedCompanies } : n));
+        setViewingReviewNote(prev => (prev && prev.id === note.id) ? { ...prev, stockAppliedCompanies: nextStockAppliedCompanies } : prev);
+      }
     }
 
     fetchProducts();
@@ -2618,6 +2694,9 @@ export default function Page() {
     setViewingReviewNote(note);
     setNoteEditorTab('produtos');
     setStatusConfirmTarget(null);
+    setViewingPriceCompanyId(null);
+    setPriceCompanyDropdownOpen(false);
+    setViewingNoteExtraPricing({});
     setNoteSupplierQuery(note.supplierName || '');
     setNoteSupplierOpen(false);
     setViewingNoteSellPrices(note.items.map((item: any) => item.product_price || 0));
@@ -3121,6 +3200,21 @@ export default function Page() {
       product_price: viewingNoteSellPrices[idx] ?? item.product_price,
       verified: viewingNoteVerified[idx] ?? item.verified,
       review_timestamp: viewingNoteReviewTimestamps[idx] ?? item.review_timestamp ?? null,
+      // Preço/Ok/Revisão lançados para empresas extras (não-donas) via botão de preço na
+      // toolbar — só mexe nas chaves de empresas que o usuário efetivamente visitou nesta
+      // sessão de edição; as demais chaves de pricingByCompany já salvas ficam intactas.
+      pricingByCompany: Object.keys(viewingNoteExtraPricing).length > 0 ? {
+        ...item.pricingByCompany,
+        ...Object.fromEntries(Object.entries(viewingNoteExtraPricing).map(([companyId, extra]) => [
+          companyId,
+          {
+            ...item.pricingByCompany?.[companyId],
+            precoVenda: extra.sellPrices[idx] ?? item.pricingByCompany?.[companyId]?.precoVenda ?? null,
+            ok: extra.verified[idx] ?? item.pricingByCompany?.[companyId]?.ok ?? false,
+            revisao: extra.reviewTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.revisao ?? null,
+          },
+        ])),
+      } : item.pricingByCompany,
       distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
         ? parseInt(viewingNoteDistribuicao[idx]) || null
         : (item.distribuicao ?? null),
@@ -3169,7 +3263,7 @@ export default function Page() {
     setReviewNotes(prev => prev.some(n => n.id === nextNote.id) ? prev.map(n => n.id === nextNote.id ? nextNote : n) : [nextNote, ...prev]);
     setViewingReviewNote(nextNote);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans, applyNoteToCompanyStock]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDistribuicao, adjColumns, viewingNoteDiscrepancies, viewingNoteEanVariants, viewingNoteExtraEans, viewingNoteExtraPricing, applyNoteToCompanyStock]);
 
   const handleSaveNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -3185,6 +3279,59 @@ export default function Page() {
       setSavingNote(false);
     }
   }, [viewingReviewNote, persistNote]);
+
+  // Troca o contexto de precificação (empresa dona <-> empresa extra) no botão de preço da
+  // toolbar da revisão. Salva a nota automaticamente antes de trocar — evita que o usuário
+  // perca preços/Ok lançados para a empresa atual só por ter esquecido de clicar em Salvar.
+  const switchPriceCompany = useCallback(async (companyId: string | null) => {
+    if (!viewingReviewNote || companyId === viewingPriceCompanyId) { setPriceCompanyDropdownOpen(false); return; }
+    setSwitchingPriceCompany(true);
+    try {
+      await persistNote();
+      if (companyId && !viewingNoteExtraPricing[companyId]) {
+        setViewingNoteExtraPricing(prev => ({
+          ...prev,
+          [companyId]: {
+            sellPrices: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.precoVenda ?? undefined),
+            verified: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.ok ?? false),
+            reviewTimestamps: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.revisao ?? null),
+          },
+        }));
+      }
+      setViewingPriceCompanyId(companyId);
+      setPriceCompanyDropdownOpen(false);
+    } catch (err: any) {
+      if (err.message === EMPRESA_REQUIRED_MSG) setNoteEditorTab('recebimento');
+      setNotification({ type: 'error', message: err.message || 'Erro ao salvar nota antes de trocar de empresa.' });
+    } finally {
+      setSwitchingPriceCompany(false);
+    }
+  }, [viewingReviewNote, viewingPriceCompanyId, viewingNoteExtraPricing, persistNote]);
+
+  // Leitura/escrita de Preço Venda / Ok / Revisão para uma empresa extra (não-dona) — usadas
+  // pelas células da tabela de revisão quando viewingPriceCompanyId aponta pra outra empresa.
+  const getExtraSellPrice = (companyId: string, idx: number, item: any): number | undefined =>
+    viewingNoteExtraPricing[companyId]?.sellPrices[idx] ?? item.pricingByCompany?.[companyId]?.precoVenda ?? undefined;
+  const getExtraVerified = (companyId: string, idx: number, item: any): boolean =>
+    viewingNoteExtraPricing[companyId]?.verified[idx] ?? item.pricingByCompany?.[companyId]?.ok ?? false;
+  const getExtraReviewTimestamp = (companyId: string, idx: number, item: any): string | null =>
+    viewingNoteExtraPricing[companyId]?.reviewTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.revisao ?? null;
+  const setExtraSellPrice = (companyId: string, idx: number, val: number) => {
+    setViewingNoteExtraPricing(prev => {
+      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [] };
+      const sellPrices = [...cur.sellPrices]; sellPrices[idx] = val;
+      return { ...prev, [companyId]: { ...cur, sellPrices } };
+    });
+  };
+  const setExtraVerified = (companyId: string, idx: number, val: boolean, timestamp?: string | null) => {
+    setViewingNoteExtraPricing(prev => {
+      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [] };
+      const verified = [...cur.verified]; verified[idx] = val;
+      const reviewTimestamps = [...cur.reviewTimestamps];
+      if (timestamp !== undefined) reviewTimestamps[idx] = timestamp;
+      return { ...prev, [companyId]: { ...cur, verified, reviewTimestamps } };
+    });
+  };
 
   const handleDeleteNote = useCallback(async () => {
     if (!viewingReviewNote) return;
@@ -7620,6 +7767,69 @@ export default function Page() {
                   >
                     <Filter size={13} />
                   </button>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => {
+                        if (companies.length === 0) fetchCompanies();
+                        setPriceCompanyDropdownOpen(o => !o);
+                      }}
+                      disabled={switchingPriceCompany}
+                      title="Precificar para outra empresa"
+                      className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-50',
+                        viewingPriceCompanyId
+                          ? 'bg-[#D81E1E] text-white shadow-md'
+                          : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                      )}
+                    >
+                      <DollarSign size={14} />
+                    </button>
+                    {priceCompanyDropdownOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
+                        <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
+                          {(() => {
+                            const ownerId = viewingReviewNote?.companyId || null;
+                            const owner = companies.find((c: any) => c.id === ownerId);
+                            const others = companies.filter((c: any) => c.id !== ownerId);
+                            const row = (c: any, isOwner: boolean) => (
+                              <button
+                                key={c.id}
+                                onClick={() => switchPriceCompany(isOwner ? null : c.id)}
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                                  (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
+                                    ? 'bg-[#D81E1E]/10'
+                                    : 'hover:bg-on-surface/[0.05]',
+                                )}
+                              >
+                                <div className={cn(
+                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
+                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
+                                )}>
+                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                                </div>
+                                <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
+                                {isOwner && (
+                                  <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
+                                )}
+                              </button>
+                            );
+                            return (
+                              <>
+                                {owner ? row(owner, true) : (
+                                  <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
+                                )}
+                                {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
+                                {others.map((c: any) => row(c, false))}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <button
                     onClick={() => setShowHideColsModal(true)}
                     title={reviewHiddenCols.size > 0 ? `${reviewHiddenCols.size} coluna(s) oculta(s)` : 'Ocultar colunas'}
@@ -8163,6 +8373,31 @@ export default function Page() {
                 </div>
               )}
 
+              {noteEditorTab === 'produtos' && viewingPriceCompanyId && (() => {
+                const extraCompany = companies.find((c: any) => c.id === viewingPriceCompanyId);
+                const ownerCompany = companies.find((c: any) => c.id === viewingReviewNote.companyId);
+                return (
+                  <div className="mx-6 mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#D81E1E]/25 bg-[#D81E1E]/[0.06] dark:bg-[#D81E1E]/10 px-3.5 py-2.5 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-[#D81E1E]/15 text-[#D81E1E] flex items-center justify-center shrink-0">
+                        <DollarSign size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-on-surface truncate">Editando preços para: {extraCompany?.nome_fantasia || 'Empresa'}</div>
+                        <div className="text-[11px] text-on-surface/45 truncate">Preço Venda, Markup, Revisão e Ok abaixo pertencem a esta empresa — a nota continua de {ownerCompany?.nome_fantasia || 'sua empresa dona'}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => switchPriceCompany(null)}
+                      disabled={switchingPriceCompany}
+                      className="text-[11.5px] font-bold text-[#D81E1E] bg-[#D81E1E]/10 hover:bg-[#D81E1E]/20 transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap disabled:opacity-50 shrink-0"
+                    >
+                      Voltar para {ownerCompany?.nome_fantasia || 'empresa dona'}
+                    </button>
+                  </div>
+                );
+              })()}
+
               <div
                 className={cn(
                   "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] [--rn-dup-bg:rgba(216,30,30,0.10)] [--rn-dup-border:rgba(216,30,30,0.55)] [--rn-dup-text:#B91C1C] [--rn-dup-th-border:#D81E1E] [--rn-dup-th-text:#D81E1E] [--rn-dup-th-bg:rgba(216,30,30,0.08)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)] dark:[--rn-dup-bg:rgba(216,30,30,0.16)] dark:[--rn-dup-border:rgba(216,30,30,0.60)] dark:[--rn-dup-text:#FCA5A5]",
@@ -8495,7 +8730,9 @@ export default function Page() {
                           const adj = c - dsc + sur;
                           if (key === 'preco_custo') return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-';
                           if (key === 'valor_total') { const t = adj * q; return t > 0 ? `R$ ${t.toFixed(2)}` : '-'; }
-                          const sp = viewingNoteSellPrices[i] ?? it.product_price ?? 0;
+                          const sp = viewingPriceCompanyId
+                            ? (getExtraSellPrice(viewingPriceCompanyId, i, it) ?? 0)
+                            : (viewingNoteSellPrices[i] ?? it.product_price ?? 0);
                           return adj > 0 && sp > 0 ? `${((sp - adj) / adj * 100).toFixed(1)}%` : '-';
                         }
                         return '-';
@@ -8543,10 +8780,18 @@ export default function Page() {
                       const totalValue = adjCost * displayQty;
                       const adjColor = hasDiscount && hasSurcharge ? 'text-amber-400' : hasDiscount ? 'text-emerald-400' : hasSurcharge ? 'text-red-400' : 'text-white/50';
 
-                      const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
+                      // Fora do contexto da empresa dona (viewingPriceCompanyId setado), Preço Venda/
+                      // Markup/Ok/Revisão vêm de item.pricingByCompany — a nota continua da dona, só
+                      // esses 4 campos ficam "em branco" até o usuário preencher pra essa outra empresa.
+                      const isOwnerPriceContext = !viewingPriceCompanyId;
+                      const sellPrice = isOwnerPriceContext
+                        ? (viewingNoteSellPrices[idx] ?? item.product_price ?? 0)
+                        : (getExtraSellPrice(viewingPriceCompanyId, idx, item) ?? 0);
                       const markup = adjCost > 0 && sellPrice > 0
                         ? ((sellPrice - adjCost) / adjCost * 100)
                         : null;
+                      const rowVerified = isOwnerPriceContext ? !!viewingNoteVerified[idx] : getExtraVerified(viewingPriceCompanyId!, idx, item);
+                      const rowReviewTs = isOwnerPriceContext ? viewingNoteReviewTimestamps[idx] : getExtraReviewTimestamp(viewingPriceCompanyId!, idx, item);
                       const _itemVariantsCheck: EanVariant[] = (viewingNoteEanVariants[idx]?.length ?? 0) > 0
                         ? viewingNoteEanVariants[idx]
                         : ((item as any).eanVariants as EanVariant[] | undefined) ?? [];
@@ -9049,23 +9294,31 @@ export default function Page() {
                               claro), sem preencher o campo de verdade. Se já tem valor, usa esse direto. */}
                           {!reviewHiddenCols.has('Preço Venda') && (() => {
                             const linkedProduct = item.product_id ? products.find((p: any) => p.id === item.product_id) : null;
-                            const suggestedPrice = linkedProduct && linkedProduct.price > 0 ? linkedProduct.price : null;
+                            const suggestedPrice = isOwnerPriceContext && linkedProduct && linkedProduct.price > 0 ? linkedProduct.price : null;
                             return (
                           <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
+                            <div data-cell style={cell({
+                              justifyContent: 'flex-end', padding: '0 10px',
+                              ...(!isOwnerPriceContext && !sellPrice ? { borderStyle: 'dashed', borderColor: 'rgba(216,30,30,0.45)', background: 'rgba(216,30,30,0.04)' } : {}),
+                            })}>
                               <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 data-nav-table="review-note" data-nav-row={idx} data-nav-col={7}
-                                value={viewingNoteSellPrices[idx] || ''}
+                                value={(isOwnerPriceContext ? viewingNoteSellPrices[idx] : sellPrice) || ''}
                                 onChange={(e) => {
-                                  const updated = [...viewingNoteSellPrices];
-                                  updated[idx] = parseFloat(e.target.value) || 0;
-                                  setViewingNoteSellPrices(updated);
+                                  const val = parseFloat(e.target.value) || 0;
+                                  if (isOwnerPriceContext) {
+                                    const updated = [...viewingNoteSellPrices];
+                                    updated[idx] = val;
+                                    setViewingNoteSellPrices(updated);
+                                  } else {
+                                    setExtraSellPrice(viewingPriceCompanyId!, idx, val);
+                                  }
                                 }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 7)}
                                 placeholder={suggestedPrice ? suggestedPrice.toFixed(2).replace('.', ',') : '0,00'}
@@ -9114,12 +9367,16 @@ export default function Page() {
                           {!reviewHiddenCols.has('Ok') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center' })}>
-                              {viewingNoteVerified[idx] ? (
+                              {rowVerified ? (
                                 <button
                                   onClick={() => {
-                                    const updated = [...viewingNoteVerified];
-                                    updated[idx] = false;
-                                    setViewingNoteVerified(updated);
+                                    if (isOwnerPriceContext) {
+                                      const updated = [...viewingNoteVerified];
+                                      updated[idx] = false;
+                                      setViewingNoteVerified(updated);
+                                    } else {
+                                      setExtraVerified(viewingPriceCompanyId!, idx, false);
+                                    }
                                   }}
                                   className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white shadow shadow-green-500/30 hover:bg-green-600 active:scale-90 transition-all"
                                 >
@@ -9128,14 +9385,23 @@ export default function Page() {
                               ) : (
                                 <button
                                   onClick={() => {
-                                    const updatedVerified = [...viewingNoteVerified];
-                                    updatedVerified[idx] = true;
-                                    setViewingNoteVerified(updatedVerified);
-                                    const updatedTs = [...viewingNoteReviewTimestamps];
-                                    updatedTs[idx] = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                    setViewingNoteReviewTimestamps(updatedTs);
+                                    const ts = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    if (isOwnerPriceContext) {
+                                      const updatedVerified = [...viewingNoteVerified];
+                                      updatedVerified[idx] = true;
+                                      setViewingNoteVerified(updatedVerified);
+                                      const updatedTs = [...viewingNoteReviewTimestamps];
+                                      updatedTs[idx] = ts;
+                                      setViewingNoteReviewTimestamps(updatedTs);
+                                    } else {
+                                      setExtraVerified(viewingPriceCompanyId!, idx, true, ts);
+                                    }
                                   }}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-primary/10 hover:text-primary active:scale-90 transition-all cursor-pointer" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text-subtle)' }}
+                                  className={cn(
+                                    "w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer",
+                                    !isOwnerPriceContext ? "hover:bg-[#D81E1E]/10 hover:text-[#D81E1E] border border-dashed border-[#D81E1E]/45" : "hover:bg-primary/10 hover:text-primary",
+                                  )}
+                                  style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text-subtle)' }}
                                 >
                                   <X size={12} />
                                 </button>
@@ -9147,9 +9413,9 @@ export default function Page() {
                           {!reviewHiddenCols.has('Revisão') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center', padding: '0 8px' })}>
-                              {viewingNoteReviewTimestamps[idx] ? (
+                              {rowReviewTs ? (
                                 <span className="inline-block px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold leading-tight whitespace-nowrap">
-                                  {viewingNoteReviewTimestamps[idx]}
+                                  {rowReviewTs}
                                 </span>
                               ) : (
                                 <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>—</span>

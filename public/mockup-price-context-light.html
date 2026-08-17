@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Preço por Empresa (Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-page:#F3EFDD;
+    --bg-modal:#FDFAF0;
+    --header-bg:#FFE500;
+    --header-border:#D4C000;
+    --chip-bg:rgba(26,26,10,0.09);
+    --chip-color:#1A1A0E;
+    --title:#1A1A0E;
+    --muted:rgba(26,26,10,0.40);
+    --col-header-bg:#FFE500;
+    --col-header-border:#D4C000;
+    --col-header-text:rgba(26,26,10,0.55);
+    --row-even:#FFFFFF;
+    --row-odd:#FAF7EE;
+    --row-hover:#FFF8D0;
+    --row-num:rgba(26,26,10,0.28);
+    --cell-bg:#FFFFFF;
+    --cell-border:#E0D8BF;
+    --cell-text:#1A1A0E;
+    --cell-muted:rgba(26,26,10,0.22);
+    --footer-bg:#FFF7B0;
+    --footer-border:#DDD000;
+    --footer-text:#1A1A0E;
+    --footer-muted:rgba(26,26,10,0.38);
+    --btn-idle-bg:rgba(26,26,10,0.06);
+    --btn-idle-text:rgba(26,26,10,0.40);
+    --btn-idle-hover-bg:rgba(26,26,10,0.10);
+    --btn-idle-hover-text:rgba(26,26,10,0.60);
+    --red:#D81E1E;
+    --emerald:#0A7A55;
+    --amber:#92400E;
+    --dropdown-bg:#FFFFFF;
+    --dropdown-border:#E0D8BF;
+    --dropdown-shadow: 0 12px 32px rgba(26,26,10,0.14), 0 2px 8px rgba(26,26,10,0.08);
+    --owner-badge-bg: rgba(216,30,30,0.10);
+    --owner-badge-text:#D81E1E;
+    --banner-bg: rgba(216,30,30,0.07);
+    --banner-border: rgba(216,30,30,0.22);
+    --banner-icon-bg: rgba(216,30,30,0.13);
+    --banner-icon-color:#D81E1E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:40px 24px 80px;
+    background:var(--bg-page);
+    font-family:'DM Sans',sans-serif;
+    color:var(--title);
+    display:flex; flex-direction:column; align-items:center; gap:56px;
+  }
+  .mono{font-family:'DM Mono',monospace;}
+  .section-label{
+    width:100%; max-width:1040px; margin-bottom:-32px;
+    font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+    color:rgba(26,26,10,0.35);
+  }
+  .frame{
+    width:100%; max-width:1040px;
+    background:var(--bg-modal);
+    border-radius:20px;
+    box-shadow: 0 24px 60px rgba(26,26,10,0.10), 0 2px 10px rgba(26,26,10,0.06);
+    overflow:visible;
+    position:relative;
+  }
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; background:var(--header-bg); border-bottom:1px solid var(--header-border);
+    border-radius:20px 20px 0 0;
+  }
+  .modal-header-left{ display:flex; align-items:center; gap:12px; }
+  .icon-chip{
+    width:38px; height:38px; border-radius:12px; background:var(--chip-bg); color:var(--chip-color);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .modal-title{ font-size:15px; font-weight:800; color:var(--title); line-height:1.2; }
+  .modal-subtitle{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+
+  .toolbar-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px; background:var(--bg-modal); border-bottom:1px solid var(--cell-border);
+  }
+  .toolbar-left{ font-size:12px; color:var(--muted); font-weight:600; }
+  .toolbar-actions{ display:flex; align-items:center; gap:8px; position:relative; }
+  .divider{ width:1px; height:20px; background:rgba(26,26,10,0.10); margin:0 4px; }
+
+  .icon-btn{
+    width:32px; height:32px; border-radius:999px; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--btn-idle-bg); color:var(--btn-idle-text);
+    transition: background 130ms ease, color 130ms ease, transform 130ms ease;
+  }
+  .icon-btn:hover{ background:var(--btn-idle-hover-bg); color:var(--btn-idle-hover-text); }
+  .icon-btn:active{ transform:scale(0.94); }
+  .icon-btn.active{ background:#FFE500; color:#1A1A0E; box-shadow:0 2px 8px rgba(212,192,0,0.35); }
+  .icon-btn.price-active{ background:var(--red); color:#fff; box-shadow:0 2px 8px rgba(216,30,30,0.35); }
+
+  /* Dropdown */
+  .price-dropdown-wrap{ position:relative; }
+  .price-dropdown{
+    position:absolute; top:calc(100% + 8px); right:0; z-index:40;
+    width:280px;
+    background:var(--dropdown-bg);
+    border:1px solid var(--dropdown-border);
+    border-radius:14px;
+    box-shadow: var(--dropdown-shadow);
+    padding:8px;
+    animation: dropdownIn 130ms cubic-bezier(0.23,1,0.32,1);
+  }
+  @keyframes dropdownIn{
+    from{ opacity:0; transform: translateY(-4px) scale(0.97); }
+    to{ opacity:1; transform: translateY(0) scale(1); }
+  }
+  .dropdown-heading{
+    font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+    color:rgba(26,26,10,0.35); padding:6px 10px 8px;
+  }
+  .company-row{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:9px; cursor:pointer;
+    transition: background 120ms ease;
+  }
+  .company-row:hover{ background:rgba(26,26,10,0.05); }
+  .company-row.selected{ background:rgba(216,30,30,0.07); }
+  .company-avatar{
+    width:26px; height:26px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:#fff;
+    background: linear-gradient(135deg,#8a8a78,#5c5c4e);
+  }
+  .company-avatar.owner{ background:linear-gradient(135deg,#FFE500,#D4C000); color:#1A1A0E; }
+  .company-name{ font-size:12.5px; font-weight:600; color:var(--title); flex:1; }
+  .company-sub{ font-size:10px; color:var(--muted); margin-top:1px; }
+  .owner-badge{
+    font-size:9px; font-weight:800; letter-spacing:0.03em;
+    color:var(--owner-badge-text); background:var(--owner-badge-bg);
+    padding:2.5px 7px; border-radius:999px; flex-shrink:0;
+  }
+  .check-dot{ width:7px; height:7px; border-radius:999px; background:var(--red); flex-shrink:0; }
+  .dropdown-sep{ height:1px; background:rgba(26,26,10,0.08); margin:6px 2px; }
+
+  /* Context banner */
+  .context-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin:0 24px; margin-top:14px;
+    padding:10px 14px; border-radius:12px;
+    background:var(--banner-bg); border:1px solid var(--banner-border);
+  }
+  .context-banner-left{ display:flex; align-items:center; gap:10px; }
+  .banner-icon{
+    width:28px; height:28px; border-radius:9px; flex-shrink:0;
+    background:var(--banner-icon-bg); color:var(--banner-icon-color);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .banner-text-main{ font-size:12.5px; font-weight:700; color:var(--title); }
+  .banner-text-sub{ font-size:11px; color:var(--muted); margin-top:1px; }
+  .banner-back-btn{
+    font-size:11.5px; font-weight:700; color:var(--red);
+    background:rgba(216,30,30,0.10); border:none; padding:7px 12px; border-radius:9px;
+    cursor:pointer; transition:background 120ms ease; white-space:nowrap;
+  }
+  .banner-back-btn:hover{ background:rgba(216,30,30,0.18); }
+
+  /* Table */
+  .table-wrap{ padding:16px 24px 22px; overflow-x:auto; }
+  table{ width:100%; border-collapse:separate; border-spacing:0; }
+  thead th{
+    background:var(--col-header-bg); border-bottom:1px solid var(--col-header-border);
+    color:var(--col-header-text); font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+    text-align:left; padding:10px 12px; white-space:nowrap;
+  }
+  thead th:first-child{ border-radius:9px 0 0 0; }
+  thead th:last-child{ border-radius:0 9px 0 0; }
+  thead th.num{ text-align:right; }
+  tbody td{
+    padding:7px 10px; font-size:12px; color:var(--cell-text); white-space:nowrap;
+    border-bottom:1px solid var(--cell-border);
+  }
+  tbody tr:nth-child(odd){ background:var(--row-even); }
+  tbody tr:nth-child(even){ background:var(--row-odd); }
+  tbody tr:hover{ background:var(--row-hover); }
+  .cell-input{
+    height:30px; border-radius:9px; border:1.5px solid var(--cell-border); background:var(--cell-bg);
+    display:flex; align-items:center; padding:0 9px; font-family:'DM Mono',monospace; font-size:11.5px;
+    color:var(--cell-muted); min-width:76px;
+  }
+  .cell-input.filled{ color:var(--cell-text); }
+  .cell-input.right{ justify-content:flex-end; }
+  .cell-input.empty-flag{
+    border-style:dashed; border-color:rgba(216,30,30,0.35); background:rgba(216,30,30,0.03);
+  }
+  .placeholder-dash{ color:rgba(216,30,30,0.55); font-weight:700; }
+  .status-pill{
+    font-size:10px; font-weight:700; padding:4px 9px; border-radius:999px;
+    background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.35);
+    border:1px dashed rgba(216,30,30,0.35);
+  }
+  .ok-check{
+    width:22px; height:22px; border-radius:7px; border:1.5px dashed rgba(216,30,30,0.35);
+    background:rgba(216,30,30,0.03);
+  }
+  .dist-input{ color:var(--cell-text); font-weight:700; }
+  .product-name{ font-weight:600; color:var(--title); }
+  .product-code{ font-size:10px; color:var(--muted); font-family:'DM Mono',monospace; }
+</style>
+</head>
+<body>
+
+  <div class="section-label">Estado 1 — Toolbar com o novo botão de preço (fechado)</div>
+  <div class="frame">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="icon-chip">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <div>
+          <div class="modal-title">NF 000.482.911 — Distribuidora Central</div>
+          <div class="modal-subtitle">Revisão · 42 itens · Empresa: Mercado Presente Ltda</div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar-row">
+      <div class="toolbar-left">42 itens · 38 revisados</div>
+      <div class="toolbar-actions">
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button>
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg></button>
+        <div class="divider"></div>
+        <button class="icon-btn" title="Filtrar por coluna"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+        <button class="icon-btn" title="Preço por empresa">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </button>
+        <button class="icon-btn" title="Ocultar colunas"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Estado 2 — Dropdown de empresas aberto (dona destacada no topo)</div>
+  <div class="frame">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="icon-chip">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <div>
+          <div class="modal-title">NF 000.482.911 — Distribuidora Central</div>
+          <div class="modal-subtitle">Revisão · 42 itens · Empresa: Mercado Presente Ltda</div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar-row">
+      <div class="toolbar-left">42 itens · 38 revisados</div>
+      <div class="toolbar-actions">
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button>
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg></button>
+        <div class="divider"></div>
+        <button class="icon-btn" title="Filtrar por coluna"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+        <div class="price-dropdown-wrap">
+          <button class="icon-btn price-active" title="Preço por empresa">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </button>
+          <div class="price-dropdown">
+            <div class="dropdown-heading">Precificar para</div>
+            <div class="company-row selected">
+              <div class="company-avatar owner">MP</div>
+              <div>
+                <div class="company-name">Mercado Presente Ltda</div>
+                <div class="company-sub">Dona desta nota</div>
+              </div>
+              <span class="owner-badge">PROPRIETÁRIA</span>
+            </div>
+            <div class="dropdown-sep"></div>
+            <div class="company-row">
+              <div class="company-avatar">CR</div>
+              <div class="company-name">Castelo Real Comércio</div>
+            </div>
+            <div class="company-row">
+              <div class="company-avatar">UM</div>
+              <div class="company-name">Universo do Ú Ltda</div>
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn" title="Ocultar colunas"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Estado 3 — Empresa extra selecionada: banner de contexto + colunas em branco para preencher</div>
+  <div class="frame">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="icon-chip">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </div>
+        <div>
+          <div class="modal-title">NF 000.482.911 — Distribuidora Central</div>
+          <div class="modal-subtitle">Revisão · 42 itens · Empresa: Mercado Presente Ltda</div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar-row">
+      <div class="toolbar-left">42 itens · 38 revisados</div>
+      <div class="toolbar-actions">
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button>
+        <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg></button>
+        <div class="divider"></div>
+        <button class="icon-btn" title="Filtrar por coluna"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+        <button class="icon-btn price-active" title="Preço por empresa">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </button>
+        <button class="icon-btn" title="Ocultar colunas"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg></button>
+      </div>
+    </div>
+
+    <div class="context-banner">
+      <div class="context-banner-left">
+        <div class="banner-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+          <div class="banner-text-main">Editando preços para: Castelo Real Comércio</div>
+          <div class="banner-text-sub">Preço Venda, Markup, Revisão, Status e Ok abaixo pertencem a esta empresa — a nota continua de Mercado Presente Ltda</div>
+        </div>
+      </div>
+      <button class="banner-back-btn">Voltar para Mercado Presente</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th class="num">Qtd</th>
+            <th class="num">Preço Custo</th>
+            <th class="num">Preço Venda</th>
+            <th class="num">Markup</th>
+            <th>Status</th>
+            <th>Ok</th>
+            <th>Revisão</th>
+            <th class="num">Distribuição</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="product-name">Arroz Tipo 1 5kg</div>
+              <div class="product-code">COD 00234-A</div>
+            </td>
+            <td class="num">120</td>
+            <td class="num"><div class="cell-input filled right">R$ 18,40</div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td><span class="status-pill">Pendente</span></td>
+            <td><div class="ok-check"></div></td>
+            <td><div class="cell-input empty-flag"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input filled right dist-input">40</div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="product-name">Feijão Carioca 1kg</div>
+              <div class="product-code">COD 00512-B</div>
+            </td>
+            <td class="num">80</td>
+            <td class="num"><div class="cell-input filled right">R$ 7,90</div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td><span class="status-pill">Pendente</span></td>
+            <td><div class="ok-check"></div></td>
+            <td><div class="cell-input empty-flag"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input filled right dist-input">20</div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="product-name">Óleo de Soja 900ml</div>
+              <div class="product-code">COD 00877-C</div>
+            </td>
+            <td class="num">96</td>
+            <td class="num"><div class="cell-input filled right">R$ 6,10</div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input empty-flag right"><span class="placeholder-dash">—</span></div></td>
+            <td><span class="status-pill">Pendente</span></td>
+            <td><div class="ok-check"></div></td>
+            <td><div class="cell-input empty-flag"><span class="placeholder-dash">—</span></div></td>
+            <td class="num"><div class="cell-input filled right dist-input">0</div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:0 24px 20px; font-size:11px; color:var(--muted);">A coluna <strong>Distribuição</strong> define quantas unidades vão para o estoque de Castelo Real Comércio na aprovação — aqui, 40 e 20 unidades já foram reservadas para o segundo e o primeiro item.</div>
+  </div>
+
+</body>
+</html>
