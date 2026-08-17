@@ -5,25 +5,24 @@ import {
   Sun,
   Moon,
   Hash,
-  Save,
   CheckCircle2,
   Monitor,
   Building2,
-  Lock,
-  Eye,
-  EyeOff,
   Settings,
   Plus,
   ChevronRight,
   LayoutGrid,
   ShieldCheck,
+  UserCog,
+  Power,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CompanyModal, type Company } from './CompanyModal';
+import { UsuarioModal, type LinkableEmployee } from './UsuarioModal';
 
 const THEME_KEY = 'theme';
-const SETTINGS_ID = 'default';
 
 type Tab = 'dados' | 'usabilidade' | 'seguranca';
 
@@ -41,17 +40,19 @@ export function SettingsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
 
-  const [hrPassword, setHrPassword] = useState('');
-  const [showHrPassword, setShowHrPassword] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [usuariosLoading, setUsuariosLoading] = useState(true);
+  const [allEmployees, setAllEmployees] = useState<LinkableEmployee[]>([]);
+  const [usuarioModalOpen, setUsuarioModalOpen] = useState(false);
 
   useEffect(() => {
     const t = localStorage.getItem(THEME_KEY) as 'light' | 'dark' | null;
     setTheme(t === 'dark' ? 'dark' : 'light');
     loadCompanies();
-    loadHrPassword();
+    loadUsuarios();
+    loadEmployees();
   }, []);
 
   async function loadCompanies() {
@@ -64,11 +65,20 @@ export function SettingsPage() {
     }
   }
 
-  async function loadHrPassword() {
+  async function loadUsuarios() {
+    setUsuariosLoading(true);
     try {
-      const { data } = await supabase.from('store_settings').select('hr_password').eq('id', SETTINGS_ID).maybeSingle();
-      setHrPassword(data?.hr_password || '');
-    } catch {}
+      const res = await fetch('/api/usuarios');
+      const data = await res.json();
+      setUsuarios(res.ok ? data.usuarios || [] : []);
+    } finally {
+      setUsuariosLoading(false);
+    }
+  }
+
+  async function loadEmployees() {
+    const { data } = await supabase.from('hr_employees').select('id, nome, cargo').order('nome');
+    setAllEmployees(data || []);
   }
 
   const applyTheme = (next: 'light' | 'dark') => {
@@ -77,16 +87,24 @@ export function SettingsPage() {
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
-  const handleSaveHrPassword = async () => {
-    setSaving(true);
-    try {
-      await supabase.from('store_settings').upsert({ id: SETTINGS_ID, hr_password: hrPassword, updated_at: new Date().toISOString() });
-    } finally {
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    }
+  const handleToggleAtivo = async (usuario: Usuario) => {
+    setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, ativo: !u.ativo } : u));
+    await fetch('/api/usuarios', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: usuario.id, ativo: !usuario.ativo }),
+    });
   };
+
+  const handleDeleteUsuario = async (usuario: Usuario) => {
+    if (!confirm(`Remover o login de ${usuario.hr_employees?.nome || usuario.email}? Essa ação não pode ser desfeita.`)) return;
+    setUsuarios(prev => prev.filter(u => u.id !== usuario.id));
+    await fetch(`/api/usuarios?id=${usuario.id}`, { method: 'DELETE' });
+    loadEmployees();
+  };
+
+  const linkedEmployeeIds = new Set(usuarios.map(u => u.employee_id));
+  const linkableEmployees = allEmployees.filter(emp => !linkedEmployeeIds.has(emp.id));
 
   const openCreateModal = () => { setEditingCompany(null); setModalOpen(true); };
   const openEditModal = (c: Company) => { setEditingCompany(c); setModalOpen(true); };
@@ -150,13 +168,11 @@ export function SettingsPage() {
 
       {activeTab === 'seguranca' && (
         <SegurancaSection
-          hrPassword={hrPassword}
-          setHrPassword={setHrPassword}
-          showHrPassword={showHrPassword}
-          setShowHrPassword={setShowHrPassword}
-          onSave={handleSaveHrPassword}
-          saving={saving}
-          saved={saved}
+          usuarios={usuarios}
+          loading={usuariosLoading}
+          onAdd={() => setUsuarioModalOpen(true)}
+          onToggleAtivo={handleToggleAtivo}
+          onDelete={handleDeleteUsuario}
         />
       )}
 
@@ -167,9 +183,32 @@ export function SettingsPage() {
         onSaved={handleSaved}
         onDeleted={handleDeleted}
       />
+
+      <UsuarioModal
+        open={usuarioModalOpen}
+        employees={linkableEmployees}
+        onClose={() => setUsuarioModalOpen(false)}
+        onCreated={() => { setUsuarioModalOpen(false); loadUsuarios(); }}
+      />
     </div>
   );
 }
+
+interface Usuario {
+  id: string;
+  email: string;
+  role: string;
+  ativo: boolean;
+  employee_id: string;
+  hr_employees?: { nome: string; cargo: string; loja: string; foto_url: string | null } | null;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  gerente: 'Gerente',
+  estoque: 'Estoque',
+  caixa: 'Caixa',
+};
 
 // ── Aba Dados — Empresas ────────────────────────────────────────────────────
 
@@ -340,72 +379,99 @@ function AparenciaSection({ theme, onSelect }: { theme: 'light' | 'dark'; onSele
   );
 }
 
-// ── Aba Segurança — Senhas ──────────────────────────────────────────────────
+// ── Aba Segurança — Usuários ─────────────────────────────────────────────────
 
 function SegurancaSection({
-  hrPassword, setHrPassword, showHrPassword, setShowHrPassword, onSave, saving, saved,
+  usuarios, loading, onAdd, onToggleAtivo, onDelete,
 }: {
-  hrPassword: string;
-  setHrPassword: (v: string) => void;
-  showHrPassword: boolean;
-  setShowHrPassword: (v: boolean | ((prev: boolean) => boolean)) => void;
-  onSave: () => void;
-  saving: boolean;
-  saved: boolean;
+  usuarios: Usuario[];
+  loading: boolean;
+  onAdd: () => void;
+  onToggleAtivo: (u: Usuario) => void;
+  onDelete: (u: Usuario) => void;
 }) {
-  const field = 'w-full bg-surface-container border border-on-surface/10 rounded-2xl px-4 py-3 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-colors placeholder:text-on-surface/30';
-
   return (
     <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 max-w-2xl">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
-          <ShieldCheck size={22} />
-        </div>
-        <div>
-          <h3 className="text-xl font-black text-on-surface tracking-tight">Segurança</h3>
-          <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Acesso a áreas restritas</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-on-surface tracking-tight">Segurança</h3>
+            <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Usuários com acesso ao sistema</p>
+          </div>
         </div>
       </div>
 
       <p className="text-sm text-on-surface/50 leading-relaxed">
-        Define a senha para acessar as abas <strong className="text-on-surface/70">Colaboradores</strong> e <strong className="text-on-surface/70">Caderninho</strong> no módulo de Recursos Humanos. Deixe em branco para desativar a proteção.
+        Cada login é vinculado a um funcionário já cadastrado em <strong className="text-on-surface/70">Recursos Humanos</strong>. Crie um usuário por pessoa que precisa acessar o sistema.
       </p>
 
-      <div className="space-y-2">
-        <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest flex items-center gap-1.5">
-          <Lock size={11} /> Senha — Recursos Humanos
-        </label>
-        <div className="relative">
-          <input
-            type={showHrPassword ? 'text' : 'password'}
-            value={hrPassword}
-            onChange={e => setHrPassword(e.target.value)}
-            placeholder="Digite uma senha..."
-            className={cn(field, 'pr-12')}
-          />
-          <button
-            type="button"
-            onClick={() => setShowHrPassword(v => !v)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface/60 transition-colors"
-          >
-            {showHrPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
-        </div>
+      <div className="flex items-center justify-between pt-2">
+        <span className="text-xs font-extrabold text-on-surface/35 uppercase tracking-widest">
+          {loading ? 'Carregando…' : `${usuarios.length} usuário${usuarios.length !== 1 ? 's' : ''} cadastrado${usuarios.length !== 1 ? 's' : ''}`}
+        </span>
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-2xl font-black text-xs hover:bg-on-surface transition-[colors,transform] shadow-lg shadow-primary/25 uppercase tracking-wide active:scale-95"
+        >
+          <Plus size={15} strokeWidth={2.6} />
+          Novo Usuário
+        </button>
       </div>
 
-      <button
-        onClick={onSave}
-        disabled={saving}
-        className="flex items-center justify-center gap-2 bg-primary text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-on-surface transition-[colors,transform] shadow-xl shadow-primary/20 uppercase tracking-widest active:scale-95 disabled:opacity-60"
-      >
-        {saved ? (
-          <><CheckCircle2 size={18} /> Salvo!</>
-        ) : saving ? (
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
-        ) : (
-          <><Save size={18} /> Salvar Senha</>
+      <div className="space-y-3">
+        {usuarios.map(usuario => (
+          <div
+            key={usuario.id}
+            className="flex items-center gap-3.5 bg-surface-container border border-on-surface/[0.08] rounded-[20px] p-3.5"
+          >
+            <div className="w-[46px] h-[46px] rounded-2xl bg-surface border border-on-surface/[0.08] flex items-center justify-center overflow-hidden shrink-0 text-on-surface/25">
+              {usuario.hr_employees?.foto_url ? (
+                <img src={usuario.hr_employees.foto_url} alt={usuario.hr_employees.nome} className="w-full h-full object-cover" />
+              ) : (
+                <UserCog size={20} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-extrabold text-on-surface truncate">
+                {usuario.hr_employees?.nome || 'Funcionário removido'}
+              </div>
+              <div className="text-[11px] font-bold text-on-surface/45 truncate">{usuario.email}</div>
+            </div>
+            <span className={cn(
+              'text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-lg shrink-0',
+              'bg-primary/10 text-primary'
+            )}>
+              {ROLE_LABELS[usuario.role] || usuario.role}
+            </span>
+            <button
+              onClick={() => onToggleAtivo(usuario)}
+              title={usuario.ativo ? 'Desativar acesso' : 'Ativar acesso'}
+              className={cn(
+                'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                usuario.ativo ? 'bg-green-500/10 text-green-600' : 'bg-on-surface/[0.06] text-on-surface/30'
+              )}
+            >
+              <Power size={15} />
+            </button>
+            <button
+              onClick={() => onDelete(usuario)}
+              title="Remover usuário"
+              className="w-8 h-8 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+
+        {!loading && usuarios.length === 0 && (
+          <div className="text-center py-8 text-on-surface/30 text-sm font-semibold">
+            Nenhum usuário cadastrado ainda.
+          </div>
         )}
-      </button>
+      </div>
     </div>
   );
 }

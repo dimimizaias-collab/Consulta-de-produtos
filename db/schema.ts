@@ -85,6 +85,17 @@ export const hrEmployees = pgTable('hr_employees', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const usuarios = pgTable('usuarios', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  authUserId: uuid('auth_user_id').notNull().unique(), // referencia auth.users.id (fora do schema Drizzle)
+  employeeId: uuid('employee_id').references(() => hrEmployees.id).notNull().unique(),
+  email: text('email').notNull().unique(), // espelha auth.users.email
+  role: text('role').notNull().default('admin'), // 'admin' | 'gerente' | 'estoque' | 'caixa'
+  ativo: boolean('ativo').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 // ─── Estoque físico ───────────────────────────────────────────────────────────
 
 export const shelves = pgTable('shelves', {
