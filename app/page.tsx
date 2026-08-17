@@ -2828,7 +2828,9 @@ export default function Page() {
   const openReviewNoteWithLock = useCallback(async (note: ReviewNote, onOpened?: () => void) => {
     if (colaboradorReadyRef.current) await colaboradorReadyRef.current;
     const isExisting = reviewNotes.some(n => n.id === note.id);
+    console.log('[lock] abrindo nota', { noteId: note.id, isExisting, colaboradorId, colaboradorNome });
     if (!isExisting || !colaboradorId) {
+      console.log('[lock] pulando trava (nota nova ou colaborador não resolvido)');
       openReviewNoteForEditing(note);
       onOpened?.();
       return;
@@ -2836,17 +2838,21 @@ export default function Page() {
     setCheckingNoteLock(true);
     try {
       const ttlCutoff = new Date(Date.now() - NOTE_LOCK_TTL_MS).toISOString();
-      const { data: claimed } = await supabase
+      const { data: before } = await supabase.from('review_notes').select('locked_by_id, locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+      console.log('[lock] estado antes do claim', { before, ttlCutoff });
+      const { data: claimed, error: claimErr } = await supabase
         .from('review_notes')
         .update({ locked_by_id: colaboradorId, locked_by_name: colaboradorNome, locked_at: new Date().toISOString() })
         .eq('id', note.id)
         .or(`locked_at.is.null,locked_at.lt.${ttlCutoff},locked_by_id.eq.${colaboradorId}`)
         .select('id')
         .maybeSingle();
+      console.log('[lock] resultado do claim', { claimed, claimErr });
       if (claimed) {
         openReviewNoteForEditing(note);
       } else {
-        const { data: fresh } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+        const { data: fresh, error: freshErr } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+        console.log('[lock] bloqueado, estado atual', { fresh, freshErr });
         setNoteLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
         openReviewNoteForEditing(note);
       }
