@@ -3300,10 +3300,10 @@ export default function Page() {
     if (!viewingReviewNote.companyId) throw new Error(EMPRESA_REQUIRED_MSG);
     const nextStatus = statusOverride ?? getNoteStatus(viewingReviewNote);
     const updatedItems = viewingReviewNote.items.map((item: any, idx: number) => {
-      // Medida em branco vira "UN" automaticamente só quando a nota entra em Revisão —
-      // até lá a célula fica vazia para o usuário preencher.
+      // Medida em branco vira "UN" automaticamente ao sair de Registro (entrando em
+      // Aguardando recebimento ou Revisão) — até lá a célula fica vazia para o usuário preencher.
       const rawUnit = viewingNoteUnits[idx] ?? item.unit;
-      const unit = (!rawUnit && nextStatus === 'revisao') ? 'UN' : rawUnit;
+      const unit = (!rawUnit && (nextStatus === 'aguardando_recebimento' || nextStatus === 'revisao')) ? 'UN' : rawUnit;
       return {
       ...item,
       ean: viewingNoteEans[idx] ?? item.ean,
