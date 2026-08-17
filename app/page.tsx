@@ -29,7 +29,7 @@ import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPag
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, DollarSign } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -8027,69 +8027,6 @@ export default function Page() {
                   >
                     <Filter size={13} />
                   </button>
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => {
-                        if (companies.length === 0) fetchCompanies();
-                        setPriceCompanyDropdownOpen(o => !o);
-                      }}
-                      disabled={switchingPriceCompany}
-                      title="Precificar para outra empresa"
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-50',
-                        viewingPriceCompanyId
-                          ? 'bg-[#D81E1E] text-white shadow-md'
-                          : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
-                      )}
-                    >
-                      <DollarSign size={14} />
-                    </button>
-                    {priceCompanyDropdownOpen && (
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
-                          {(() => {
-                            const ownerId = viewingReviewNote?.companyId || null;
-                            const owner = companies.find((c: any) => c.id === ownerId);
-                            const others = companies.filter((c: any) => c.id !== ownerId);
-                            const row = (c: any, isOwner: boolean) => (
-                              <button
-                                key={c.id}
-                                onClick={() => switchPriceCompany(isOwner ? null : c.id)}
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
-                                  (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
-                                    ? 'bg-[#D81E1E]/10'
-                                    : 'hover:bg-on-surface/[0.05]',
-                                )}
-                              >
-                                <div className={cn(
-                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
-                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
-                                )}>
-                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
-                                </div>
-                                <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
-                                {isOwner && (
-                                  <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
-                                )}
-                              </button>
-                            );
-                            return (
-                              <>
-                                {owner ? row(owner, true) : (
-                                  <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
-                                )}
-                                {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
-                                {others.map((c: any) => row(c, false))}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </>
-                    )}
-                  </div>
                   <button
                     onClick={() => setShowHideColsModal(true)}
                     title={reviewHiddenCols.size > 0 ? `${reviewHiddenCols.size} coluna(s) oculta(s)` : 'Ocultar colunas'}
@@ -8178,7 +8115,8 @@ export default function Page() {
               </div>
 
               {/* Abas Produtos / Recebimento */}
-              <div className="flex gap-6 px-6 border-b border-line dark:border-white/[0.07] bg-white dark:bg-[#1e1e18] shrink-0">
+              <div className="flex items-center justify-between gap-3 px-6 border-b border-line dark:border-white/[0.07] bg-white dark:bg-[#1e1e18] shrink-0">
+                <div className="flex gap-6">
                 <button
                   onClick={() => setNoteEditorTab('produtos')}
                   className={cn(
@@ -8210,6 +8148,92 @@ export default function Page() {
                     <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
                   )}
                 </button>
+                </div>
+                <div style={{ position: 'relative' }} className="shrink-0">
+                  {(() => {
+                    const ownerId = viewingReviewNote.companyId || null;
+                    const selectedId = viewingPriceCompanyId || ownerId;
+                    const selected = companies.find((c: any) => c.id === selectedId);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (companies.length === 0) fetchCompanies();
+                          setPriceCompanyDropdownOpen(o => !o);
+                        }}
+                        disabled={switchingPriceCompany}
+                        title="Precificar para outra empresa"
+                        className={cn(
+                          'flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border transition-all disabled:opacity-50',
+                          viewingPriceCompanyId
+                            ? 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#D81E1E]'
+                            : 'border-line dark:border-white/[0.1] bg-on-surface/[0.04] text-on-surface/70 hover:bg-on-surface/[0.08]',
+                        )}
+                      >
+                        {selected?.logo ? (
+                          <img src={selected.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className={cn(
+                            'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0',
+                            viewingPriceCompanyId ? 'bg-[#D81E1E]/15 text-[#D81E1E]' : 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]',
+                          )}>
+                            {(selected?.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-[11px] font-bold max-w-[72px] truncate">{selected?.nome_fantasia || 'Empresa'}</span>
+                        <ChevronDown size={12} className="flex-shrink-0" />
+                      </button>
+                    );
+                  })()}
+                  {priceCompanyDropdownOpen && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
+                      <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
+                        {(() => {
+                          const ownerId = viewingReviewNote?.companyId || null;
+                          const owner = companies.find((c: any) => c.id === ownerId);
+                          const others = companies.filter((c: any) => c.id !== ownerId);
+                          const row = (c: any, isOwner: boolean) => (
+                            <button
+                              key={c.id}
+                              onClick={() => switchPriceCompany(isOwner ? null : c.id)}
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                                (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
+                                  ? 'bg-[#D81E1E]/10'
+                                  : 'hover:bg-on-surface/[0.05]',
+                              )}
+                            >
+                              {c.logo ? (
+                                <img src={c.logo} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className={cn(
+                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
+                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
+                                )}>
+                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
+                              {isOwner && (
+                                <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
+                              )}
+                            </button>
+                          );
+                          return (
+                            <>
+                              {owner ? row(owner, true) : (
+                                <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
+                              )}
+                              {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
+                              {others.map((c: any) => row(c, false))}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {noteEditorTab === 'financeiro' && (() => {
@@ -8633,30 +8657,6 @@ export default function Page() {
                 </div>
               )}
 
-              {noteEditorTab === 'produtos' && viewingPriceCompanyId && (() => {
-                const extraCompany = companies.find((c: any) => c.id === viewingPriceCompanyId);
-                const ownerCompany = companies.find((c: any) => c.id === viewingReviewNote.companyId);
-                return (
-                  <div className="mx-6 mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#D81E1E]/25 bg-[#D81E1E]/[0.06] dark:bg-[#D81E1E]/10 px-3.5 py-2.5 shrink-0">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-[#D81E1E]/15 text-[#D81E1E] flex items-center justify-center shrink-0">
-                        <DollarSign size={14} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[12.5px] font-bold text-on-surface truncate">Editando preços para: {extraCompany?.nome_fantasia || 'Empresa'}</div>
-                        <div className="text-[11px] text-on-surface/45 truncate">Preço Venda, Markup, Revisão e Ok abaixo pertencem a esta empresa — a nota continua de {ownerCompany?.nome_fantasia || 'sua empresa dona'}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => switchPriceCompany(null)}
-                      disabled={switchingPriceCompany}
-                      className="text-[11.5px] font-bold text-[#D81E1E] bg-[#D81E1E]/10 hover:bg-[#D81E1E]/20 transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap disabled:opacity-50 shrink-0"
-                    >
-                      Voltar para {ownerCompany?.nome_fantasia || 'empresa dona'}
-                    </button>
-                  </div>
-                );
-              })()}
 
               <div
                 className={cn(
