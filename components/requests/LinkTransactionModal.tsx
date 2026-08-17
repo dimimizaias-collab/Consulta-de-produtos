@@ -352,7 +352,7 @@ export function LinkTransactionModal({ note, isOpen, onClose, onLink }: Props) {
               ...base, data: txForm.data, vencimento: valid[0].data,
               valor_final: parseFloat(valid[0].valor) || 0,
               total_pago: 0, pago: false, import_id: null,
-              numero_parcela: null, total_parcelas: null, parcelamento_id: null,
+              numero_parcela: null as number | null, total_parcelas: null as number | null, parcelamento_id: null as string | null,
               codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (valid[0].codigo_barras || null) : null,
             }]
           : (() => {
