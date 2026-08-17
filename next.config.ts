@@ -223,4 +223,9 @@ export default withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
+  // A regra "dynamicStartUrl" (workaround de opaqueredirect pro cache da start-url) sai
+  // do build referenciando um helper de transpilação (_async_to_generator) que nunca é
+  // injetado no bundle do service worker — todo fetch de "/" lança "ReferenceError" no
+  // SW. Desliga essa regra específica; não afeta o restante do PWA (offline, install...).
+  dynamicStartUrl: false,
 })(nextConfig);
