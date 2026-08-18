@@ -16,7 +16,6 @@ import {
   UserCog,
   Power,
   Trash2,
-  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -472,19 +471,6 @@ function SegurancaSection({
             Nenhum usuário cadastrado ainda.
           </div>
         )}
-      </div>
-
-      <div className="pt-2 border-t border-on-surface/[0.06]">
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = '/login';
-          }}
-          className="flex items-center gap-2 text-red-600 dark:text-red-400 font-extrabold text-xs uppercase tracking-wide hover:opacity-70 transition-opacity mt-4"
-        >
-          <LogOut size={15} />
-          Sair da conta
-        </button>
       </div>
     </div>
   );
