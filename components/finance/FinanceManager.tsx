@@ -64,6 +64,24 @@ const TABLE_COLUMNS: { label: string; key: string }[] = [
   { label: '', key: '' },
 ];
 
+// Colunas da tabela "Cartões de Crédito" (aba principal) — mesma base da tabela comum,
+// mas sem Tipo/Total pago (não fazem sentido por linha de compra de cartão) e com
+// "Cartão" no lugar de Tipo, já que toda linha aqui é sempre uma Despesa em Crédito.
+const CARD_TABLE_COLUMNS: { label: string; key: string }[] = [
+  { label: 'Código', key: 'codigo' },
+  { label: 'Data', key: 'data' },
+  { label: 'Cartão', key: 'cartao' },
+  { label: 'Pagamento', key: 'pagamento' },
+  { label: 'Favorecido', key: 'favorecido' },
+  { label: 'Estabelec.', key: 'estabelecimento' },
+  { label: 'TAGS', key: 'tags' },
+  { label: 'Vencimento', key: 'vencimento' },
+  { label: 'Valor final', key: 'valor_final' },
+  { label: 'Restante', key: 'restante' },
+  { label: 'Pago', key: 'pago' },
+  { label: '', key: '' },
+];
+
 // Altura mínima (em linhas) da tabela — evita que o dropdown de filtro de coluna seja
 // cortado pelo wrapper com overflow-x-auto quando poucas movimentações estão visíveis.
 const MIN_TABLE_ROWS_FOR_FILTER_MENU = 6;
@@ -208,6 +226,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // Abas "Favorecidos" e "Contas" (antes agrupadas numa única aba "Dados")
   const [financeView, setFinanceView] = useState<'main' | 'favorecidos' | 'contas' | 'cartoes'>('main');
+  // Tabela exibida na aba principal — "comum" (movimentações) ou "cartoes" (compras de
+  // cartão de crédito individuais), alternadas pelo botão de cartão ao lado de "Guia de tags".
+  const [mainTableView, setMainTableView] = useState<'comum' | 'cartoes'>('comum');
   const [dadosFavSearch, setDadosFavSearch] = useState('');
   const [dadosAccSearch, setDadosAccSearch] = useState('');
 
@@ -475,7 +496,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       window.removeEventListener('resize', layout);
       resizeObserver.disconnect();
     };
-  }, [financeView, loadingData, selectionMode]);
+  }, [financeView, loadingData, selectionMode, mainTableView]);
 
   // ── Transactions CRUD ────────────────────────────────────────────────────
 
@@ -1457,6 +1478,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     switch (key) {
       case 'data': return [fmtDate(t.data)];
       case 'tipo': return [t.tipo];
+      case 'cartao': return [cards.find(c => c.id === t.card_id)?.nome ?? '—'];
       case 'pagamento': return [t.tipo_pagamento];
       case 'favorecido': return [t.favorecido];
       case 'estabelecimento': return [t.estabelecimento];
@@ -1481,9 +1503,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // sem esconder as próprias opções já selecionadas nessa coluna.
   const passesBaseFilters = (t: Transaction, excludeKey?: string): boolean => {
     // Movimentações de crédito individuais (vinculadas a um cartão, mas não a linha-resumo
-    // da fatura) não aparecem na tabela comum — só na aba "Cartões", via o drill-down.
+    // da fatura) não aparecem na tabela comum — só na tabela "Cartões de Crédito".
     if (t.card_id && !t.is_fatura_consolidada) return false;
     for (const [key, selected] of Object.entries(columnFilters)) {
+      // Um filtro deixado ativo numa coluna que só existe na outra tabela (ex: "Tipo",
+      // que a tabela de Cartões não tem) não deve zerar os resultados aqui silenciosamente.
+      if (!TABLE_COLUMNS.some(c => c.key === key)) continue;
       if (key === excludeKey) continue;
       if (selected.size === 0) continue;
       if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
@@ -1503,8 +1528,30 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     return true;
   };
 
+  // Mesma ideia de passesBaseFilters, mas para a tabela "Cartões de Crédito" — mostra
+  // exatamente o oposto: só as compras individuais vinculadas a um cartão (não a
+  // linha-resumo da fatura), respeitando o mesmo período/busca/filtros de coluna.
+  const passesCardBaseFilters = (t: Transaction, excludeKey?: string): boolean => {
+    if (!t.card_id || t.is_fatura_consolidada) return false;
+    for (const [key, selected] of Object.entries(columnFilters)) {
+      // Mesmo raciocínio de passesBaseFilters: ignora filtro de coluna que só existe na
+      // tabela comum (ex: "Total pago") — não deve afetar a tabela de Cartões.
+      if (!CARD_TABLE_COLUMNS.some(c => c.key === key)) continue;
+      if (key === excludeKey) continue;
+      if (selected.size === 0) continue;
+      if (!getColumnValues(t, key).some(v => selected.has(v))) return false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!t.favorecido.toLowerCase().includes(q) && !t.estabelecimento.toLowerCase().includes(q)) return false;
+    }
+    if (!inSelectedPeriod(t.data) && !inSelectedPeriod(t.vencimento)) return false;
+    return true;
+  };
+
   const getColumnUniqueValues = (key: string): string[] => {
-    const all = transactions.filter(t => passesBaseFilters(t, key)).flatMap(t => getColumnValues(t, key));
+    const baseFilter = mainTableView === 'cartoes' ? passesCardBaseFilters : passesBaseFilters;
+    const all = transactions.filter(t => baseFilter(t, key)).flatMap(t => getColumnValues(t, key));
     return Array.from(new Set(all)).sort();
   };
 
@@ -1546,6 +1593,32 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     }
     return result;
   }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, tags, hasDatePeriod, columnSort]);
+
+  // Mesma lógica de `filtered`, mas para a tabela "Cartões de Crédito" — compras
+  // individuais de cartão, respeitando o mesmo calendário/busca/filtros de coluna.
+  const filteredCartoes = useMemo(() => {
+    const result = transactions.filter(t => passesCardBaseFilters(t));
+    if (columnSort) {
+      const { key, direction } = columnSort;
+      result.sort((a, b) => {
+        const av = getColumnSortValue(a, key);
+        const bv = getColumnSortValue(b, key);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+        return direction === 'asc' ? cmp : -cmp;
+      });
+    } else if (hasDatePeriod) {
+      result.sort((a, b) => {
+        if (!a.vencimento && !b.vencimento) return 0;
+        if (!a.vencimento) return 1;
+        if (!b.vencimento) return -1;
+        return a.vencimento.localeCompare(b.vencimento);
+      });
+    }
+    return result;
+  }, [transactions, columnFilters, search, calSelectedDate, calRangeStart, calRangeEnd, calDefaultDate, hasDatePeriod, columnSort]);
 
   // Soma o valor de todas as parcelas irmãs para dar ao usuário a visão do valor total do
   // parcelamento. Usa parcelamento_id quando disponível; linhas antigas sem esse campo caem
@@ -2695,28 +2768,63 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           <Plus size={16} />
         </button>
 
-        <button
-          onClick={toggleSelectionMode}
-          title={selectionMode ? 'Cancelar seleção' : 'Selecionar'}
-          className={cn(
-            'w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
-            selectionMode
-              ? 'bg-on-surface/10 text-on-surface border-on-surface/20 hover:bg-on-surface/15'
-              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
-          )}
-        >
-          <CheckSquare size={16} />
-        </button>
+        {mainTableView === 'comum' && (
+          <button
+            onClick={toggleSelectionMode}
+            title={selectionMode ? 'Cancelar seleção' : 'Selecionar'}
+            className={cn(
+              'w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
+              selectionMode
+                ? 'bg-on-surface/10 text-on-surface border-on-surface/20 hover:bg-on-surface/15'
+                : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
+            )}
+          >
+            <CheckSquare size={16} />
+          </button>
+        )}
 
         {tags.length > 0 && (
           <button
             onClick={() => setShowTagGuide(true)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold border border-on-surface/10 bg-surface-container-low text-on-surface/50 hover:bg-on-surface/5 transition-colors"
+            title="Guia de tags"
+            className="w-9 h-9 rounded-xl flex items-center justify-center border border-on-surface/5 bg-surface-container-low text-on-surface/60 hover:bg-on-surface/5 transition-colors"
           >
-            <BookOpen size={13} />
-            Guia de tags
+            <BookOpen size={16} />
           </button>
         )}
+
+        <button
+          onClick={() => {
+            setSelectionMode(false);
+            setSelectedIds(new Set());
+            setMainTableView(v => {
+              const next = v === 'comum' ? 'cartoes' : 'comum';
+              const nextColumns = next === 'cartoes' ? CARD_TABLE_COLUMNS : TABLE_COLUMNS;
+              const nextKeys = new Set(nextColumns.map(c => c.key));
+              // Reseta filtro/ordenação de colunas que só existem na tabela de origem — evita
+              // que um filtro "esquecido" numa coluna que a outra tabela nem mostra continue
+              // escondendo linhas ali sem nenhum indicativo visual do porquê.
+              setColumnFilters(prev => {
+                const entries = Object.entries(prev).filter(([key]) => nextKeys.has(key));
+                return entries.length === Object.keys(prev).length ? prev : Object.fromEntries(entries);
+              });
+              setColumnSort(s => (s && !nextKeys.has(s.key)) ? null : s);
+              setFilterOpenKey(null);
+              setFilterPendingSelection(null);
+              setFilterSearchQuery('');
+              return next;
+            });
+          }}
+          title={mainTableView === 'comum' ? 'Ver tabela de Cartões de Crédito' : 'Ver tabela de Movimentações'}
+          className={cn(
+            'ml-auto w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
+            mainTableView === 'cartoes'
+              ? 'bg-primary text-on-primary border-primary shadow-md shadow-primary/20 hover:opacity-90'
+              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
+          )}
+        >
+          <CreditCard size={16} />
+        </button>
       </div>
 
       {/* Selection action bar */}
@@ -2767,6 +2875,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       </AnimatePresence>
 
       {/* Table */}
+      {(() => {
+      const activeColumns = mainTableView === 'cartoes' ? CARD_TABLE_COLUMNS : TABLE_COLUMNS;
+      const showSelectCol = selectionMode && mainTableView === 'comum';
+      return (
       <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
         {loadingData ? (
           <div className="flex items-center justify-center py-20 gap-3 text-on-surface/30">
@@ -2778,10 +2890,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
-                  {selectionMode && (
+                  {showSelectCol && (
                     <th className="px-3 py-3 w-10" />
                   )}
-                  {TABLE_COLUMNS.map(({ label, key }) => {
+                  {activeColumns.map(({ label, key }) => {
                     const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
                     const isOpen = columnFiltersEnabled && filterOpenKey === key;
                     const uniqueVals = isOpen ? getColumnUniqueValues(key) : [];
@@ -2926,9 +3038,157 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </tr>
               </thead>
               <tbody>
+                {mainTableView === 'cartoes' ? (<>
+                {filteredCartoes.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeColumns.length} className="px-4 py-16 text-center">
+                      <CreditCard size={40} className="mx-auto mb-3 text-on-surface/20" />
+                      <p className="font-bold text-on-surface/30">Nenhuma compra de cartão encontrada</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCartoes.map(t => {
+                    const groupTotal = getParcelaGroupTotal(t);
+                    const groupPago = getParcelaGroupPago(t);
+                    const restante = groupTotal !== null && groupPago !== null ? groupTotal - groupPago : t.valor_final - t.total_pago;
+                    return (
+                      <tr
+                        key={t.id}
+                        className={cn(
+                          'border-b border-on-surface/15 dark:border-on-surface/5 transition-colors hover:bg-on-surface/[0.05] dark:hover:bg-on-surface/[0.02] bg-on-surface/[0.035] dark:bg-transparent',
+                          t.pago && 'opacity-60'
+                        )}
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {t.codigo && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border border-primary/20 bg-primary/10 text-primary">
+                              {t.codigo}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
+                        <td className="px-4 py-3 text-on-surface/70 max-w-[140px] truncate" title={cards.find(c => c.id === t.card_id)?.nome ?? '—'}>
+                          {cards.find(c => c.id === t.card_id)?.nome ?? '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
+                            <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 max-w-[180px]">
+                          {(() => {
+                            const favMatch = favorecidos.find(f => f.nome_fiscal.trim().toLowerCase() === t.favorecido.trim().toLowerCase());
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-on-surface truncate min-w-0" title={t.favorecido}>{t.favorecido}</span>
+                                <button
+                                  onClick={() => favMatch && setDetailsFavorecido(favMatch)}
+                                  disabled={!favMatch}
+                                  title={favMatch ? 'Ver detalhes do favorecido' : 'Favorecido sem cadastro'}
+                                  className={cn(
+                                    'w-[22px] h-[22px] rounded-[7px] flex items-center justify-center shrink-0 transition-[background-color,color,transform]',
+                                    favMatch
+                                      ? 'text-on-surface/35 hover:bg-primary/10 hover:text-primary active:scale-[0.9]'
+                                      : 'text-on-surface/15 cursor-not-allowed'
+                                  )}
+                                >
+                                  <Eye size={12} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
+                        <td className="px-4 py-3 overflow-visible">
+                          {(() => {
+                            const ids = t.tag_ids ?? [];
+                            const mainTag = ids.length > 0 ? tags.find(tg => tg.id === ids[0]) : undefined;
+                            if (!mainTag) return <span className="text-[10px] italic text-on-surface/25">sem tag</span>;
+                            const c = TAG_COLOR_MAP[mainTag.cor] ?? TAG_COLOR_MAP.gray;
+                            const extra = ids.length - 1;
+                            return (
+                              <div className="relative inline-flex items-center w-fit -my-1.5 -mx-2 py-1.5 px-2">
+                                {extra > 0 && (<>
+                                  <span
+                                    className={cn('absolute rounded-full border opacity-35', c.bg, c.border, c.bgDark, c.borderDark)}
+                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(4px, 3px) rotate(5deg)' }}
+                                  />
+                                  <span
+                                    className={cn('absolute rounded-full border opacity-60', c.bg, c.border, c.bgDark, c.borderDark)}
+                                    style={{ left: 2, top: 6, right: 8, bottom: 6, transform: 'translate(2px, 1.5px) rotate(2.5deg)' }}
+                                  />
+                                </>)}
+                                <span className={cn(
+                                  'relative z-[2] inline-flex items-center px-2.5 py-[3px] rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm',
+                                  c.bg, c.text, c.border, c.bgDark, c.textDark, c.borderDark
+                                )}>
+                                  {mainTag.nome}
+                                </span>
+                                {extra > 0 && (
+                                  <span className="absolute -top-0.5 right-0 z-[3] min-w-[15px] h-[15px] px-[3px] rounded-full flex items-center justify-center text-[8.5px] font-black bg-primary text-white border-2 border-surface-container-low leading-none">
+                                    +{extra}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">
+                          {fmtDate(t.vencimento)}
+                          {isDueSoon(t.vencimento) && !t.pago && (
+                            <span className="text-red-600 dark:text-red-400 font-black ml-0.5" title="Vence em até 7 dias">*</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">
+                          {fmt(t.valor_final)}
+                          {groupTotal !== null && (
+                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
+                              de {fmt(groupTotal)}
+                            </span>
+                          )}
+                        </td>
+                        <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
+                          {fmt(restante)}
+                          {groupTotal !== null && (
+                            <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
+                              de {fmt(groupTotal)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div
+                            title={t.pago ? 'Pago (definido pela fatura)' : 'Em aberto'}
+                            className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center',
+                              t.pago ? 'bg-primary/70 border-primary/70' : 'border-on-surface/20'
+                            )}
+                          >
+                            {t.pago && <Check size={12} className="text-on-primary" />}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+                {filteredCartoes.length > 0 && filteredCartoes.length < MIN_TABLE_ROWS_FOR_FILTER_MENU &&
+                  Array.from({ length: MIN_TABLE_ROWS_FOR_FILTER_MENU - filteredCartoes.length }).map((_, i) => (
+                    <tr key={`filler-cartoes-${i}`} aria-hidden="true">
+                      <td colSpan={activeColumns.length} className="px-4 h-[52px]" />
+                    </tr>
+                  ))}
+                </>) : (<>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={selectionMode ? 14 : 13} className="px-4 py-16 text-center">
+                    <td colSpan={showSelectCol ? activeColumns.length + 1 : activeColumns.length} className="px-4 py-16 text-center">
                       <Wallet size={40} className="mx-auto mb-3 text-on-surface/20" />
                       <p className="font-bold text-on-surface/30">Nenhuma movimentação encontrada</p>
                     </td>
@@ -3143,14 +3403,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {filtered.length > 0 && filtered.length < MIN_TABLE_ROWS_FOR_FILTER_MENU &&
                   Array.from({ length: MIN_TABLE_ROWS_FOR_FILTER_MENU - filtered.length }).map((_, i) => (
                     <tr key={`filler-${i}`} aria-hidden="true">
-                      <td colSpan={selectionMode ? 14 : 13} className="px-4 h-[52px]" />
+                      <td colSpan={showSelectCol ? activeColumns.length + 1 : activeColumns.length} className="px-4 h-[52px]" />
                     </tr>
                   ))}
+                </>)}
               </tbody>
             </table>
           </div>
         )}
       </div>
+      );
+      })()}
 
       {/* Barra de rolagem horizontal flutuante — fixa na base da viewport enquanto a
           tabela ainda continua abaixo da tela; sincronizada com o scroll real da tabela. */}
