@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from('usuarios')
-      .select('id, email, role, ativo, created_at, employee_id, hr_employees(nome, cargo, loja, foto_url)')
+      .select('id, email, role, ativo, created_at, employee_id, username, avatar_url, hr_employees(nome, cargo, loja, foto_url)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, ativo, role } = body as { id?: string; ativo?: boolean; role?: string };
+    const { id, ativo, role, username, avatarUrl, employeeId } = body as {
+      id?: string; ativo?: boolean; role?: string; username?: string | null; avatarUrl?: string | null; employeeId?: string;
+    };
 
     if (!id) {
       return NextResponse.json({ error: 'ID do usuário é obrigatório.' }, { status: 400 });
@@ -116,15 +118,24 @@ export async function PATCH(request: NextRequest) {
       }
       updates.role = role;
     }
+    if (employeeId) updates.employee_id = employeeId;
+    if (typeof avatarUrl !== 'undefined') updates.avatar_url = avatarUrl;
+    if (typeof username !== 'undefined') {
+      const cleaned = username ? username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '') : null;
+      updates.username = cleaned || null;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('usuarios')
       .update(updates)
       .eq('id', id)
-      .select('id, email, role, ativo')
+      .select('id, email, role, ativo, username, avatar_url, employee_id')
       .single();
 
     if (error) {
+      if (error.message.includes('usuarios_username_key')) {
+        return NextResponse.json({ error: 'Esse nome de usuário já está em uso.' }, { status: 409 });
+      }
       return NextResponse.json({ error: 'Erro ao atualizar usuário', details: error.message }, { status: 500 });
     }
 

@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,13 +16,25 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    const trimmed = login.trim();
+    if (!trimmed || !password) return;
     setLoading(true);
     setError('');
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      let email = trimmed;
+      if (!trimmed.includes('@')) {
+        const res = await fetch(`/api/usuarios/resolve-login?username=${encodeURIComponent(trimmed)}`);
+        if (!res.ok) {
+          setError('Nome de usuário ou senha incorretos.');
+          return;
+        }
+        const data = await res.json();
+        email = data.email;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        setError('E-mail ou senha incorretos.');
+        setError('E-mail/usuário ou senha incorretos.');
         return;
       }
       router.push('/');
@@ -39,13 +51,15 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[380px] flex flex-col gap-4">
       <div>
-        <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">E-mail</label>
+        <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">E-mail ou usuário</label>
         <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="nome@empresa.com"
+          type="text"
+          value={login}
+          onChange={e => setLogin(e.target.value)}
+          placeholder="nome@empresa.com ou usuário"
           autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
           className={field}
         />
       </div>
@@ -76,7 +90,7 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={loading || !email.trim() || !password}
+        disabled={loading || !login.trim() || !password}
         className="flex items-center justify-center gap-2 bg-primary text-white px-6 py-4 rounded-[13px] font-black text-sm hover:bg-on-surface transition-[colors,transform] shadow-xl shadow-primary/20 uppercase tracking-widest active:scale-95 disabled:opacity-60 mt-2"
       >
         {loading ? (

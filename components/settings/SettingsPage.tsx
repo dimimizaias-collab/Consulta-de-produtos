@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Sun,
   Moon,
@@ -16,9 +16,14 @@ import {
   UserCog,
   Power,
   Trash2,
+  Camera,
+  User,
+  Check,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { EMPLOYEE_PHOTO_BUCKET } from '@/lib/hrEmployees';
 import { CompanyModal, type Company } from './CompanyModal';
 import { UsuarioModal, type LinkableEmployee } from './UsuarioModal';
 
@@ -47,13 +52,47 @@ export function SettingsPage() {
   const [allEmployees, setAllEmployees] = useState<LinkableEmployee[]>([]);
   const [usuarioModalOpen, setUsuarioModalOpen] = useState(false);
 
+  const [currentUsuario, setCurrentUsuario] = useState<CurrentUsuario | null>(null);
+  const [currentUsuarioLoading, setCurrentUsuarioLoading] = useState(true);
+
   useEffect(() => {
     const t = localStorage.getItem(THEME_KEY) as 'light' | 'dark' | null;
     setTheme(t === 'dark' ? 'dark' : 'light');
     loadCompanies();
     loadUsuarios();
     loadEmployees();
+    loadCurrentUsuario();
   }, []);
+
+  async function loadCurrentUsuario() {
+    setCurrentUsuarioLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id, email, role, username, avatar_url, employee_id, hr_employees(nome, cargo, foto_url)')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (data) setCurrentUsuario(data as unknown as CurrentUsuario);
+    } finally {
+      setCurrentUsuarioLoading(false);
+    }
+  }
+
+  const handleUpdateCurrentUsuario = async (updates: { username?: string | null; avatarUrl?: string | null; employeeId?: string; role?: string }) => {
+    if (!currentUsuario) return { ok: false, error: 'Usuário não carregado.' };
+    const res = await fetch('/api/usuarios', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: currentUsuario.id, ...updates }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || 'Erro ao salvar.' };
+    await loadCurrentUsuario();
+    loadUsuarios();
+    return { ok: true };
+  };
 
   async function loadCompanies() {
     setCompaniesLoading(true);
@@ -167,13 +206,21 @@ export function SettingsPage() {
       )}
 
       {activeTab === 'seguranca' && (
-        <SegurancaSection
-          usuarios={usuarios}
-          loading={usuariosLoading}
-          onAdd={() => setUsuarioModalOpen(true)}
-          onToggleAtivo={handleToggleAtivo}
-          onDelete={handleDeleteUsuario}
-        />
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
+          <PerfilSection
+            usuario={currentUsuario}
+            loading={currentUsuarioLoading}
+            allEmployees={allEmployees}
+            onSave={handleUpdateCurrentUsuario}
+          />
+          <SegurancaSection
+            usuarios={usuarios}
+            loading={usuariosLoading}
+            onAdd={() => setUsuarioModalOpen(true)}
+            onToggleAtivo={handleToggleAtivo}
+            onDelete={handleDeleteUsuario}
+          />
+        </div>
       )}
 
       <CompanyModal
@@ -201,6 +248,16 @@ interface Usuario {
   ativo: boolean;
   employee_id: string;
   hr_employees?: { nome: string; cargo: string; loja: string; foto_url: string | null } | null;
+}
+
+interface CurrentUsuario {
+  id: string;
+  email: string;
+  role: string;
+  username: string | null;
+  avatar_url: string | null;
+  employee_id: string;
+  hr_employees?: { nome: string; cargo: string; foto_url: string | null } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -379,6 +436,224 @@ function AparenciaSection({ theme, onSelect }: { theme: 'light' | 'dark'; onSele
   );
 }
 
+// ── Aba Segurança — Perfil do usuário logado ─────────────────────────────────
+
+function PerfilSection({
+  usuario, loading, allEmployees, onSave,
+}: {
+  usuario: CurrentUsuario | null;
+  loading: boolean;
+  allEmployees: LinkableEmployee[];
+  onSave: (updates: { username?: string | null; avatarUrl?: string | null; employeeId?: string; role?: string }) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const isAdmin = usuario?.role === 'admin';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [username, setUsername] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [role, setRole] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!usuario) return;
+    setUsername(usuario.username || '');
+    setEmployeeId(usuario.employee_id);
+    setRole(usuario.role);
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 3500);
+    return () => clearTimeout(t);
+  }, [message]);
+
+  const fieldCls = 'w-full min-w-0 bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-on-surface outline-none focus:border-primary/50';
+  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !usuario) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `avatars/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(EMPLOYEE_PHOTO_BUCKET).upload(path, file);
+      if (uploadError) throw uploadError;
+      const avatarUrl = supabase.storage.from(EMPLOYEE_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+      const res = await onSave({ avatarUrl });
+      setMessage(res.ok ? { type: 'ok', text: 'Foto atualizada.' } : { type: 'error', text: res.error || 'Erro ao salvar a foto.' });
+    } catch {
+      setMessage({ type: 'error', text: 'Erro ao enviar a foto.' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    setSavingUsername(true);
+    setMessage(null);
+    const res = await onSave({ username: username.trim() || null });
+    setMessage(res.ok ? { type: 'ok', text: 'Nome de usuário salvo.' } : { type: 'error', text: res.error || 'Erro ao salvar.' });
+    setSavingUsername(false);
+  };
+
+  const handleSaveAdmin = async () => {
+    setSavingAdmin(true);
+    setMessage(null);
+    const res = await onSave({ employeeId, role });
+    setMessage(res.ok ? { type: 'ok', text: 'Alterações salvas.' } : { type: 'error', text: res.error || 'Erro ao salvar.' });
+    setSavingAdmin(false);
+  };
+
+  const avatarUrl = usuario?.avatar_url || usuario?.hr_employees?.foto_url || null;
+  // allEmployees já lista todos os funcionários (não só os sem login vinculado),
+  // então o funcionário atual do usuário sempre aparece nas opções.
+  const employeesForSelect = allEmployees;
+
+  const adminDirty = usuario && (employeeId !== usuario.employee_id || role !== usuario.role);
+  const usernameDirty = usuario && username.trim() !== (usuario.username || '');
+
+  return (
+    <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 w-full xl:w-[340px] shrink-0">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-[1.2rem] bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+          <UserCog size={22} />
+        </div>
+        <div>
+          <h3 className="text-xl font-black text-on-surface tracking-tight">Perfil</h3>
+          <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Sua conta</p>
+        </div>
+      </div>
+
+      {loading || !usuario ? (
+        <div className="text-center py-8 text-on-surface/30 text-sm font-semibold">
+          {loading ? 'Carregando…' : 'Não foi possível carregar seu perfil.'}
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col items-center gap-2.5">
+            <div className="relative w-24 h-24 rounded-[24px] bg-surface overflow-hidden flex items-center justify-center text-on-surface/30 text-3xl font-black">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User size={30} />
+              )}
+              {uploading && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                </div>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 text-[11px] font-extrabold text-primary uppercase tracking-wide disabled:opacity-50"
+            >
+              <Camera size={12} /> Trocar Foto
+            </button>
+          </div>
+
+          <div className="text-center -mt-1">
+            <div className="text-[15px] font-extrabold text-on-surface truncate">
+              {usuario.hr_employees?.nome || 'Funcionário removido'}
+            </div>
+            <div className="text-[11px] font-bold text-on-surface/40 truncate">{usuario.email}</div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Nome de usuário</label>
+            <div className="flex items-center gap-2">
+              <input
+                className={fieldCls}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="ex: joao.silva"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+              {usernameDirty && (
+                <button
+                  onClick={handleSaveUsername}
+                  disabled={savingUsername}
+                  title="Salvar"
+                  className="w-9 h-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center disabled:opacity-60"
+                >
+                  {savingUsername ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <Check size={15} />}
+                </button>
+              )}
+            </div>
+            <p className="text-[10.5px] font-medium text-on-surface/35 mt-1.5 leading-relaxed">
+              Use no lugar do e-mail para entrar no sistema.
+            </p>
+          </div>
+
+          <div className="pt-2 border-t border-on-surface/[0.06] space-y-4">
+            <div className="flex items-center gap-1.5 text-on-surface/35">
+              {!isAdmin && <Lock size={11} />}
+              <span className="text-[10px] font-extrabold uppercase tracking-wide">
+                {isAdmin ? 'Editável por administradores' : 'Somente administradores podem editar'}
+              </span>
+            </div>
+
+            <div>
+              <label className={labelCls}>Funcionário</label>
+              {isAdmin ? (
+                <select className={fieldCls} value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
+                  {employeesForSelect.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed')}>{usuario.hr_employees?.nome || '—'}</div>
+              )}
+            </div>
+
+            <div>
+              <label className={labelCls}>Papel</label>
+              {isAdmin ? (
+                <select className={fieldCls} value={role} onChange={e => setRole(e.target.value)}>
+                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed')}>{ROLE_LABELS[usuario.role] || usuario.role}</div>
+              )}
+            </div>
+
+            {isAdmin && adminDirty && (
+              <button
+                onClick={handleSaveAdmin}
+                disabled={savingAdmin}
+                className="w-full flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-2xl font-black text-xs hover:bg-on-surface transition-[colors,transform] shadow-lg shadow-primary/25 uppercase tracking-wide active:scale-95 disabled:opacity-60"
+              >
+                {savingAdmin ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <Check size={14} />}
+                Salvar alterações
+              </button>
+            )}
+          </div>
+
+          {message && (
+            <p className={cn(
+              'text-[11.5px] font-bold rounded-xl px-3.5 py-2.5 text-center',
+              message.type === 'ok' ? 'text-green-700 dark:text-green-400 bg-green-500/10' : 'text-red-600 dark:text-red-400 bg-red-500/10'
+            )}>
+              {message.text}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Aba Segurança — Usuários ─────────────────────────────────────────────────
 
 function SegurancaSection({
@@ -391,7 +666,7 @@ function SegurancaSection({
   onDelete: (u: Usuario) => void;
 }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 max-w-2xl">
+    <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 flex-1 min-w-0 max-w-2xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
