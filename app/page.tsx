@@ -60,6 +60,24 @@ const NOTE_LOCK_HEARTBEAT_MS = 45 * 1000;
 // (comportamento nativo do input[type=number] ao rolar com o cursor sobre o campo).
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
+// Motivos de ajuste de estoque — todo ajuste manual precisa de um, para manter a
+// trilha de auditoria (stock_adjustments) legível no futuro módulo de Análise de Produtos.
+const STOCK_ADJUSTMENT_REASONS: { value: string; label: string }[] = [
+  { value: 'contagem_fisica', label: 'Contagem física' },
+  { value: 'avaria', label: 'Avaria' },
+  { value: 'perda', label: 'Perda / furto' },
+  { value: 'correcao_importacao', label: 'Correção de importação' },
+  { value: 'outro', label: 'Outro' },
+];
+
+// Queda considerada "grande" o suficiente para exigir confirmação extra antes de aplicar
+// — evita zerar estoque por engano em lote (dedo no número errado, sinal trocado, etc).
+const isLargeStockDrop = (previousCount: number, delta: number) => {
+  if (delta >= 0) return false;
+  const drop = Math.abs(delta);
+  return drop >= 20 || (previousCount > 0 && drop / previousCount >= 0.5);
+};
+
 function ProductImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const [error, setError] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -318,7 +336,12 @@ export default function Page() {
   const [selectedManualProduct, setSelectedManualProduct] = useState<any>(null);
   const [manualStockChange, setManualStockChange] = useState(0);
   const [isUpdatingManualStock, setIsUpdatingManualStock] = useState(false);
-  
+  const [manualStockReason, setManualStockReason] = useState('');
+  const [manualStockNote, setManualStockNote] = useState('');
+  const [manualStockConfirmDrop, setManualStockConfirmDrop] = useState(false);
+  const [manualStockHistory, setManualStockHistory] = useState<any[]>([]);
+  const [showManualStockHistory, setShowManualStockHistory] = useState(false);
+
   // Entrada de Mercadoria states
   const [noteItems, setNoteItems] = useState<any[]>([]);
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
@@ -646,6 +669,19 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  // Importação de Vendas do Dia — o arquivo é só analisado (staged) aqui; nada é
+  // gravado até o usuário revisar e confirmar no modal de revisão (ver Fase 3 do plano:
+  // nunca aplicar silenciosamente linhas não identificadas).
+  const [pendingSalesImport, setPendingSalesImport] = useState<{
+    fileName: string;
+    matched: { sku: string; ean: string; description: string; qty: number; productId: string; productName: string; productCount: number }[];
+    unmatched: { sku: string; ean: string; description: string; qty: number }[];
+    duplicateOf: { saleDate: string; createdAt: string } | null;
+  } | null>(null);
+  const [showSalesImportReview, setShowSalesImportReview] = useState(false);
+  const [salesImportSaleDate, setSalesImportSaleDate] = useState('');
+  const [salesImportConfirmDuplicate, setSalesImportConfirmDuplicate] = useState(false);
+  const [isApplyingSalesImport, setIsApplyingSalesImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -695,6 +731,7 @@ export default function Page() {
     fabricante: '',
     cnpj: '',
     composicao: '',
+    minStock: null as number | null,
   });
   const [newProductExtraEans, setNewProductExtraEans] = useState<EanCodeEntry[]>([]);
   const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
@@ -821,7 +858,7 @@ export default function Page() {
 
     const fileName = file.name.toLowerCase();
     setImporting(true);
-    setNotification({ type: 'success', message: 'Processando atualização de estoque...' });
+    setNotification({ type: 'success', message: 'Lendo arquivo de vendas...' });
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -872,54 +909,60 @@ export default function Page() {
         const { data: extraEanRows } = await supabase.from('product_ean_codes').select('ean, product_id');
         const eanToProductId = buildEanToProductId(currentProducts || [], extraEanRows || []);
 
-        let updatedCount = 0;
-        let errors = 0;
+        const matched: NonNullable<typeof pendingSalesImport>['matched'] = [];
+        const unmatched: NonNullable<typeof pendingSalesImport>['unmatched'] = [];
 
         for (const row of rawData) {
           const sku = getVal(row, ['código interno', 'codigo interno', 'sku', 'code', 'internal_code', 'referencia', 'cod interno']);
           const ean = getVal(row, ['código ean', 'codigo ean', 'ean', 'barcode', 'gtin', 'ean13', 'cod ean', 'cod barras']);
-          const qtyStr = getVal(row, ['estoque', 'quantidade', 'count', 'quantity', 'stock', 'qtd'], '0');
-          const qtyToSubtract = parseInt(qtyStr);
+          const description = getVal(row, ['produto', 'descricao', 'descrição', 'nome', 'description', 'item']);
+          const qtyStr = getVal(row, ['quantidade vendida', 'quantidade', 'estoque', 'count', 'quantity', 'stock', 'qtd'], '0');
+          const qty = parseInt(qtyStr);
 
-          if (isNaN(qtyToSubtract) || qtyToSubtract === 0) continue;
+          if (isNaN(qty) || qty === 0) continue;
 
-          // Find product by SKU or EAN (principal ou adicional)
+          // Find product by SKU or EAN (principal ou adicional) — nunca por nome (evita baixar
+          // estoque do produto errado por semelhança de descrição, ver risco do plano da Fase 3).
           const eanProductId = ean ? eanToProductId.get(ean) : undefined;
-          const product = currentProducts.find(p =>
+          const product = currentProducts?.find(p =>
             (sku && p.sku === sku) || (eanProductId && p.id === eanProductId)
           );
 
           if (product) {
-            const newCount = Math.max(0, product.count - qtyToSubtract);
-            const { error: updateError } = await supabase
-              .from('products')
-              .update({ 
-                count: newCount,
-                is_low: newCount < 5,
-                status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
-              })
-              .eq('id', product.id);
-            
-            if (!updateError) {
-              updatedCount++;
-            } else {
-              errors++;
-            }
+            matched.push({ sku, ean, description, qty, productId: product.id, productName: product.name, productCount: product.count || 0 });
+          } else {
+            unmatched.push({ sku, ean, description, qty });
           }
         }
 
-        setNotification({ 
-          type: 'success', 
-          message: `Estoque atualizado: ${updatedCount} produtos processados. ${errors > 0 ? `(${errors} erros)` : ''}` 
-        });
-        fetchProducts();
+        if (matched.length === 0 && unmatched.length === 0) {
+          throw new Error('Nenhuma linha com quantidade válida foi encontrada no arquivo.');
+        }
+
+        // Aviso de possível reimportação — não bloqueia, só exige confirmação explícita
+        // antes de aplicar (evita descontar o mesmo dia de vendas duas vezes por engano).
+        const { data: previousImports } = await supabase
+          .from('sales_imports')
+          .select('sale_date, created_at')
+          .ilike('file_name', file.name)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const duplicateOf = previousImports && previousImports.length > 0
+          ? { saleDate: previousImports[0].sale_date, createdAt: previousImports[0].created_at }
+          : null;
+
+        setPendingSalesImport({ fileName: file.name, matched, unmatched, duplicateOf });
+        setSalesImportSaleDate(new Date().toISOString().slice(0, 10));
+        setSalesImportConfirmDuplicate(false);
+        setShowSalesImportReview(true);
+        setNotification(null);
       } catch (err: any) {
-        console.error('Erro ao atualizar estoque:', err);
-        setNotification({ type: 'error', message: `Erro na atualização: ${err.message}` });
+        console.error('Erro ao ler arquivo de vendas:', err);
+        setNotification({ type: 'error', message: `Erro na leitura: ${err.message}` });
+        setTimeout(() => setNotification(null), 5000);
       } finally {
         setImporting(false);
         if (stockFileInputRef.current) stockFileInputRef.current.value = '';
-        setTimeout(() => setNotification(null), 5000);
       }
     };
 
@@ -936,6 +979,94 @@ export default function Page() {
       setImporting(false);
       setNotification({ type: 'error', message: `Erro ao ler o arquivo: ${err.message}` });
       if (stockFileInputRef.current) stockFileInputRef.current.value = '';
+    }
+  };
+
+  // Aplica de fato a importação de vendas já revisada: baixa estoque produto a produto,
+  // grava a trilha de auditoria (stock_adjustments) e o registro da importação em si
+  // (sales_imports/sales_import_items), incluindo as linhas não identificadas — para que
+  // elas fiquem visíveis depois como "vendas não conciliadas" na Análise de Produtos.
+  const applySalesImport = async () => {
+    if (!pendingSalesImport || !salesImportSaleDate) return;
+    if (pendingSalesImport.duplicateOf && !salesImportConfirmDuplicate) return;
+
+    setIsApplyingSalesImport(true);
+    try {
+      // Agrega por produto — a mesma SKU pode aparecer em mais de uma linha da planilha.
+      const byProduct = new Map<string, { productName: string; productCount: number; qty: number }>();
+      for (const row of pendingSalesImport.matched) {
+        const acc = byProduct.get(row.productId);
+        if (acc) acc.qty += row.qty;
+        else byProduct.set(row.productId, { productName: row.productName, productCount: row.productCount, qty: row.qty });
+      }
+
+      const { data: importRow, error: importError } = await supabase
+        .from('sales_imports')
+        .insert({
+          file_name: pendingSalesImport.fileName,
+          sale_date: salesImportSaleDate,
+          row_count: pendingSalesImport.matched.length + pendingSalesImport.unmatched.length,
+          matched_count: pendingSalesImport.matched.length,
+          unmatched_count: pendingSalesImport.unmatched.length,
+          status: 'applied',
+          employee_id: colaboradorId || null,
+          employee_name: colaboradorNome || null,
+        })
+        .select('id')
+        .single();
+      if (importError) throw importError;
+      const importId = importRow.id;
+
+      let errors = 0;
+      for (const [productId, acc] of byProduct.entries()) {
+        const previousCount = acc.productCount;
+        const newCount = Math.max(0, previousCount - acc.qty);
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ count: newCount, is_low: newCount < 5, status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque' })
+          .eq('id', productId);
+        if (updateError) { errors++; continue; }
+
+        await supabase.from('stock_adjustments').insert({
+          product_id: productId,
+          previous_count: previousCount,
+          new_count: newCount,
+          delta: newCount - previousCount,
+          reason: 'venda_diaria',
+          note: `Importação de vendas: ${pendingSalesImport.fileName}`,
+          source: 'sales_import',
+          sales_import_id: importId,
+          employee_id: colaboradorId || null,
+          employee_name: colaboradorNome || null,
+        });
+      }
+
+      const itemRows = [
+        ...pendingSalesImport.matched.map(r => ({
+          import_id: importId, product_id: r.productId, raw_sku: r.sku || null, raw_ean: r.ean || null,
+          raw_description: r.description || null, quantity_sold: r.qty, matched: true,
+        })),
+        ...pendingSalesImport.unmatched.map(r => ({
+          import_id: importId, product_id: null, raw_sku: r.sku || null, raw_ean: r.ean || null,
+          raw_description: r.description || null, quantity_sold: r.qty, matched: false,
+        })),
+      ];
+      if (itemRows.length > 0) await supabase.from('sales_import_items').insert(itemRows);
+
+      setNotification({
+        type: 'success',
+        message: `Vendas importadas: ${byProduct.size} produtos com estoque atualizado.${pendingSalesImport.unmatched.length > 0 ? ` ${pendingSalesImport.unmatched.length} linha(s) não identificada(s) — não descontadas.` : ''}${errors > 0 ? ` (${errors} erros)` : ''}`,
+      });
+      setShowSalesImportReview(false);
+      setPendingSalesImport(null);
+      setSalesImportConfirmDuplicate(false);
+      fetchProducts();
+    } catch (err: any) {
+      console.error('Erro ao aplicar importação de vendas:', err);
+      setNotification({ type: 'error', message: err.message || 'Erro ao aplicar importação de vendas.' });
+    } finally {
+      setIsApplyingSalesImport(false);
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -1783,6 +1914,7 @@ export default function Page() {
         fabricante: newProduct.fabricante?.trim() || null,
         cnpj: newProduct.cnpj?.trim() || null,
         composicao: newProduct.composicao?.trim() || null,
+        min_stock: newProduct.minStock,
         internal_code: newProduct.sku,
         is_featured: false,
         is_side: false,
@@ -1844,6 +1976,7 @@ export default function Page() {
         fabricante: '',
         cnpj: '',
         composicao: '',
+        minStock: null,
       });
       setNewProductExtraEans([]);
       setNewProductCompanyId('');
@@ -1902,6 +2035,7 @@ export default function Page() {
         fabricante: editingProduct.fabricante?.trim() || null,
         cnpj: editingProduct.cnpj?.trim() || null,
         composicao: editingProduct.composicao?.trim() || null,
+        min_stock: editingProduct.minStock === '' || editingProduct.minStock === undefined ? null : editingProduct.minStock,
         internal_code: editingProduct.sku,
         ...(isPrimaryCompanySelected ? { is_low: editCount < 5 } : {}),
         updated_at: new Date().toISOString(),
@@ -1941,7 +2075,7 @@ export default function Page() {
         // price/count só entram na auditoria quando a empresa padrão está selecionada —
         // são os únicos casos em que esses campos realmente mudam em `products`.
         const TRACKED_FIELDS = [
-          'name', 'sku', 'location', 'ean', 'category', 'subcategory', 'brand', 'status',
+          'name', 'sku', 'location', 'ean', 'category', 'subcategory', 'brand', 'status', 'min_stock',
           ...(isPrimaryCompanySelected ? ['price', 'count'] : []),
         ];
         const changedFields: string[] = [];
@@ -2560,6 +2694,17 @@ export default function Page() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Modelo de Entrada");
     XLSX.writeFile(wb, "modelo_entrada_mercadoria.xlsx");
+  };
+
+  const downloadSalesImportTemplate = () => {
+    const templateData = [
+      { 'SKU': 'SKU-999', 'EAN': '7891234567890', 'Descrição': 'EXEMPLO PRODUTO A', 'Quantidade Vendida': 10 },
+      { 'SKU': '', 'EAN': '7899999999999', 'Descrição': 'EXEMPLO PRODUTO B', 'Quantidade Vendida': 3 },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo de Vendas");
+    XLSX.writeFile(wb, "modelo_vendas_do_dia.xlsx");
   };
 
   const handleApproveNf = async () => {
@@ -3976,28 +4121,51 @@ export default function Page() {
 
 
   const handleManualStockUpdate = async () => {
-    if (!selectedManualProduct || manualStockChange === 0) return;
-    
+    if (!selectedManualProduct || manualStockChange === 0 || !manualStockReason) return;
+
+    const previousCount = selectedManualProduct.count || 0;
+    // Queda grande exige o toggle de confirmação explícita antes de aplicar (ver isLargeStockDrop).
+    if (isLargeStockDrop(previousCount, manualStockChange) && !manualStockConfirmDrop) return;
+
     setIsUpdatingManualStock(true);
     try {
-      const newCount = Math.max(0, (selectedManualProduct.count || 0) + manualStockChange);
-      
+      const newCount = Math.max(0, previousCount + manualStockChange);
+
       // Update the selected product
       const { error: updateError } = await supabase
         .from('products')
-        .update({ 
+        .update({
           count: newCount,
           is_low: newCount < 5,
           status: newCount > 0 ? 'Em Estoque' : 'Fora de Estoque'
         })
         .eq('id', selectedManualProduct.id);
-        
+
       if (updateError) throw updateError;
 
-      setNotification({ type: 'success', message: 'Estoque atualizado com sucesso!' });
+      // Grava a trilha de auditoria — sem isso, ninguém consegue responder depois
+      // por que o estoque de um produto mudou (ver risco levantado no plano da Fase 0).
+      const { error: adjustmentError } = await supabase.from('stock_adjustments').insert({
+        product_id: selectedManualProduct.id,
+        previous_count: previousCount,
+        new_count: newCount,
+        delta: newCount - previousCount,
+        reason: manualStockReason,
+        note: manualStockNote.trim() || null,
+        source: 'manual',
+        employee_id: colaboradorId || null,
+        employee_name: colaboradorNome || null,
+      });
+      if (adjustmentError) console.error('Erro ao gravar histórico de ajuste de estoque:', adjustmentError);
+
+      setNotification({ type: 'success', message: 'Estoque ajustado com sucesso!' });
       setShowManualStockModal(false);
       setSelectedManualProduct(null);
       setManualStockChange(0);
+      setManualStockReason('');
+      setManualStockNote('');
+      setManualStockConfirmDrop(false);
+      setShowManualStockHistory(false);
       setManualStockSearchQuery({ ean: '', sku: '', name: '' });
       setManualStockSearchResults([]);
       fetchProducts();
@@ -4009,10 +4177,26 @@ export default function Page() {
     }
   };
 
+  // Busca o histórico de ajustes do produto selecionado no módulo de Ajustar Estoque.
+  const fetchManualStockHistory = async (productId: string) => {
+    const { data, error } = await supabase
+      .from('stock_adjustments')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) {
+      console.error('Erro ao buscar histórico de ajustes:', error);
+      return;
+    }
+    setManualStockHistory(data || []);
+  };
+
   const openEditModal = (product: any, tab: 'dados' | 'mae' | 'historico' = 'dados') => {
     setEditingProduct({
       ...product,
       originalCount: product.count || 0,
+      minStock: product.min_stock ?? null,
     });
     setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
     setEditProductTab(tab);
@@ -4034,6 +4218,7 @@ export default function Page() {
       subcategory: product.subcategory || '',
       brand: product.brand || '',
       status: product.status || '',
+      min_stock: product.min_stock ?? null,
     });
     setIsAddingNew({
       location: false,
@@ -4681,6 +4866,11 @@ export default function Page() {
                             <span className={rowValueCls}>{isNaN(editingProduct.count) ? 0 : editingProduct.count} un</span>
                           </div>
                           <div className={rowCls}>
+                            <div className={rowIconCls}><Layers size={12} /></div>
+                            <span className={rowLabelCls}>Estoque Mínimo</span>
+                            <span className={rowValueCls}>{editingProduct.minStock === null || editingProduct.minStock === undefined ? 'Não definido' : `${editingProduct.minStock} un`}</span>
+                          </div>
+                          <div className={rowCls}>
                             <div className={rowIconCls}><Wallet size={12} /></div>
                             <span className={rowLabelCls}>Preço</span>
                             <span className={rowValueCls}>R$ {(editingProduct.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
@@ -4722,6 +4912,17 @@ export default function Page() {
                               value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
                               onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
                               onWheel={blockWheelChange}
+                              className={inputCls}
+                            />
+                          </div>
+                          <div className={fieldRowCls}>
+                            <label className={fieldLabelCls}>Estoque Mínimo</label>
+                            <input
+                              type="number"
+                              value={editingProduct.minStock ?? ''}
+                              onChange={(e) => setEditingProduct({...editingProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
+                              onWheel={blockWheelChange}
+                              placeholder="Não definido"
                               className={inputCls}
                             />
                           </div>
@@ -5255,6 +5456,17 @@ export default function Page() {
                           value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
                           onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
                           onWheel={blockWheelChange}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Estoque Mínimo</label>
+                        <input
+                          type="number"
+                          value={editingProduct.minStock ?? ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
+                          onWheel={blockWheelChange}
+                          placeholder="Não definido"
                           className={inputCls}
                         />
                       </div>
@@ -6241,6 +6453,17 @@ export default function Page() {
                         />
                       </div>
                       <div className={fieldRowCls}>
+                        <label className={fieldLabelCls}>Estoque Mínimo</label>
+                        <input
+                          type="number"
+                          value={newProduct.minStock ?? ''}
+                          onChange={(e) => setNewProduct({...newProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
+                          onWheel={blockWheelChange}
+                          placeholder="Não definido"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className={fieldRowCls}>
                         <label className={fieldLabelCls}>Preço (R$)</label>
                         <input
                           type="text"
@@ -6561,6 +6784,17 @@ export default function Page() {
                           value={isNaN(newProduct.count) ? 0 : newProduct.count}
                           onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
                           onWheel={blockWheelChange}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Estoque Mínimo</label>
+                        <input
+                          type="number"
+                          value={newProduct.minStock ?? ''}
+                          onChange={(e) => setNewProduct({...newProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
+                          onWheel={blockWheelChange}
+                          placeholder="Não definido"
                           className={inputCls}
                         />
                       </div>
@@ -6927,10 +7161,17 @@ export default function Page() {
                   <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
                     <FileUp size={24} />
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900 group-hover:text-primary">Importar Arquivo</p>
-                    <p className="text-xs text-slate-500">XML, CSV ou Excel</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 group-hover:text-primary">Importar Vendas do Dia</p>
+                    <p className="text-xs text-slate-500">Planilha XML, CSV ou Excel — a baixa é revisada antes de aplicar</p>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); downloadSalesImportTemplate(); }}
+                  className="text-[11px] font-bold text-primary hover:underline -mt-2 text-left"
+                >
+                  Baixar modelo de planilha de vendas
                 </button>
 
                 <button
@@ -6944,8 +7185,8 @@ export default function Page() {
                     <Edit2 size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900 group-hover:text-primary">Atualizar Manualmente</p>
-                    <p className="text-xs text-slate-500">Pesquise e altere o estoque</p>
+                    <p className="font-bold text-slate-900 group-hover:text-primary">Ajustar Estoque</p>
+                    <p className="text-xs text-slate-500">Pesquise e corrija a quantidade, com motivo registrado</p>
                   </div>
                 </button>
               </div>
@@ -6977,12 +7218,20 @@ export default function Page() {
                     <Edit2 size={20} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-slate-900">Atualização Manual</h3>
+                    <h3 className="text-lg font-black text-slate-900">Ajustar Estoque</h3>
                     <p className="text-xs text-slate-500 font-medium">Pesquise o produto e informe a alteração</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowManualStockModal(false)}
+                <button
+                  onClick={() => {
+                    setShowManualStockModal(false);
+                    setSelectedManualProduct(null);
+                    setManualStockChange(0);
+                    setManualStockReason('');
+                    setManualStockNote('');
+                    setManualStockConfirmDrop(false);
+                    setShowManualStockHistory(false);
+                  }}
                   className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                 >
                   <X size={20} className="text-secondary" />
@@ -7022,7 +7271,7 @@ export default function Page() {
                         manualStockSearchResults.map((p) => (
                           <button
                             key={p.id}
-                            onClick={() => setSelectedManualProduct(p)}
+                            onClick={() => { setSelectedManualProduct(p); fetchManualStockHistory(p.id); }}
                             className="w-full flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
                           >
                             <div className="w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100">
@@ -7059,8 +7308,15 @@ export default function Page() {
                           <span className="text-xs font-black text-slate-900">{selectedManualProduct.count} un.</span>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => setSelectedManualProduct(null)}
+                      <button
+                        onClick={() => {
+                          setSelectedManualProduct(null);
+                          setManualStockChange(0);
+                          setManualStockReason('');
+                          setManualStockNote('');
+                          setManualStockConfirmDrop(false);
+                          setShowManualStockHistory(false);
+                        }}
                         className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
                       >
                         <RefreshCw size={16} />
@@ -7096,21 +7352,104 @@ export default function Page() {
                         </p>
                       </div>
 
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-secondary uppercase">Motivo do Ajuste</label>
+                        <select
+                          value={manualStockReason}
+                          onChange={(e) => { setManualStockReason(e.target.value); setManualStockConfirmDrop(false); }}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                          <option value="">Selecione um motivo...</option>
+                          {STOCK_ADJUSTMENT_REASONS.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-secondary uppercase">Observação (opcional)</label>
+                        <textarea
+                          value={manualStockNote}
+                          onChange={(e) => setManualStockNote(e.target.value)}
+                          rows={2}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                          placeholder="Detalhe o ajuste, se necessário..."
+                        />
+                      </div>
+
+                      {isLargeStockDrop(selectedManualProduct.count || 0, manualStockChange) && (
+                        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 space-y-2.5">
+                          <p className="text-xs font-bold text-red-700">
+                            Essa é uma queda grande de estoque ({manualStockChange} un. sobre {selectedManualProduct.count || 0}). Confirme que está correto.
+                          </p>
+                          <label className="flex items-center gap-2 text-xs font-bold text-red-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={manualStockConfirmDrop}
+                              onChange={(e) => setManualStockConfirmDrop(e.target.checked)}
+                              className="rounded border-red-300"
+                            />
+                            Sim, o valor está correto
+                          </label>
+                        </div>
+                      )}
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualStockHistory(v => !v)}
+                          className="text-[11px] font-bold text-primary hover:underline"
+                        >
+                          {showManualStockHistory ? 'Ocultar' : 'Ver'} histórico de ajustes ({manualStockHistory.length})
+                        </button>
+                        {showManualStockHistory && (
+                          <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                            {manualStockHistory.length === 0 ? (
+                              <p className="text-[11px] text-slate-400">Nenhum ajuste registrado para este produto ainda.</p>
+                            ) : manualStockHistory.map((h) => (
+                              <div key={h.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px]">
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-700 truncate">
+                                    {STOCK_ADJUSTMENT_REASONS.find(r => r.value === h.reason)?.label || h.reason}
+                                    {h.employee_name ? ` · ${h.employee_name}` : ''}
+                                  </p>
+                                  <p className="text-slate-400">{h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : ''}</p>
+                                </div>
+                                <span className={cn('font-black shrink-0', h.delta < 0 ? 'text-red-500' : 'text-green-600')}>
+                                  {h.delta > 0 ? '+' : ''}{h.delta}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                      <button 
-                        onClick={() => setSelectedManualProduct(null)}
+                      <button
+                        onClick={() => {
+                          setSelectedManualProduct(null);
+                          setManualStockChange(0);
+                          setManualStockReason('');
+                          setManualStockNote('');
+                          setManualStockConfirmDrop(false);
+                          setShowManualStockHistory(false);
+                        }}
                         className="flex-1 py-3 bg-white border border-slate-200 text-secondary font-bold rounded-xl hover:bg-slate-50 transition-colors"
                       >
                         Voltar
                       </button>
-                      <button 
+                      <button
                         onClick={handleManualStockUpdate}
-                        disabled={isUpdatingManualStock || manualStockChange === 0}
+                        disabled={
+                          isUpdatingManualStock ||
+                          manualStockChange === 0 ||
+                          !manualStockReason ||
+                          (isLargeStockDrop(selectedManualProduct.count || 0, manualStockChange) && !manualStockConfirmDrop)
+                        }
                         className="flex-[2] bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
                       >
-                        {isUpdatingManualStock ? 'Atualizando...' : 'Confirmar Alteração'}
+                        {isUpdatingManualStock ? 'Ajustando...' : 'Confirmar Ajuste'}
                       </button>
                     </div>
                   </div>
@@ -7120,7 +7459,142 @@ export default function Page() {
           </div>
         )}
       </AnimatePresence>
-      
+
+      {/* Sales Import Review Modal — revisão obrigatória antes de aplicar a baixa de estoque */}
+      <AnimatePresence>
+        {showSalesImportReview && pendingSalesImport && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowSalesImportReview(false); setPendingSalesImport(null); }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20 shrink-0">
+                    <FileUp size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-black text-slate-900">Revisar Importação de Vendas</h3>
+                    <p className="text-xs text-slate-500 font-medium truncate">{pendingSalesImport.fileName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowSalesImportReview(false); setPendingSalesImport(null); }}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                >
+                  <X size={20} className="text-secondary" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase">Identificados</p>
+                    <p className="text-2xl font-black text-emerald-700">{pendingSalesImport.matched.length}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-100">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase">Não identificados</p>
+                    <p className="text-2xl font-black text-amber-700">{pendingSalesImport.unmatched.length}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-secondary uppercase">Data da Venda</label>
+                  <input
+                    type="date"
+                    value={salesImportSaleDate}
+                    onChange={(e) => setSalesImportSaleDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                {pendingSalesImport.duplicateOf && (
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 space-y-2.5">
+                    <p className="text-xs font-bold text-red-700">
+                      Um arquivo com este nome já foi importado antes (venda de {pendingSalesImport.duplicateOf.saleDate ? new Date(pendingSalesImport.duplicateOf.saleDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}).
+                      Importar de novo pode descontar o mesmo estoque duas vezes.
+                    </p>
+                    <label className="flex items-center gap-2 text-xs font-bold text-red-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={salesImportConfirmDuplicate}
+                        onChange={(e) => setSalesImportConfirmDuplicate(e.target.checked)}
+                        className="rounded border-red-300"
+                      />
+                      Sim, quero importar mesmo assim
+                    </label>
+                  </div>
+                )}
+
+                {pendingSalesImport.unmatched.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold text-secondary uppercase">Não identificados — não terão o estoque descontado</p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {pendingSalesImport.unmatched.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px]">
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-700 truncate">{r.description || 'Sem descrição'}</p>
+                            <p className="text-slate-400">SKU: {r.sku || '—'} · EAN: {r.ean || '—'}</p>
+                          </div>
+                          <span className="font-black text-amber-700 shrink-0">{r.qty} un</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pendingSalesImport.matched.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold text-secondary uppercase">Identificados</p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {pendingSalesImport.matched.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px]">
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-700 truncate">{r.productName}</p>
+                            <p className="text-slate-400">Estoque atual: {r.productCount} un</p>
+                          </div>
+                          <span className="font-black text-red-500 shrink-0">-{r.qty} un</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 p-6 pt-4 border-t border-slate-100 shrink-0">
+                <button
+                  onClick={() => { setShowSalesImportReview(false); setPendingSalesImport(null); }}
+                  className="flex-1 py-3 bg-white border border-slate-200 text-secondary font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={applySalesImport}
+                  disabled={
+                    isApplyingSalesImport ||
+                    !salesImportSaleDate ||
+                    pendingSalesImport.matched.length === 0 ||
+                    (!!pendingSalesImport.duplicateOf && !salesImportConfirmDuplicate)
+                  }
+                  className="flex-[2] bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                >
+                  {isApplyingSalesImport ? 'Aplicando...' : `Confirmar e Baixar Estoque (${pendingSalesImport.matched.length})`}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Import Supplier Selection Modal */}
       <AnimatePresence>
         {showImportSupplierModal && (

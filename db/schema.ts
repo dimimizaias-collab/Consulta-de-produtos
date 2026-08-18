@@ -23,8 +23,49 @@ export const products = pgTable('products', {
   linkedProductId: uuid('linked_product_id').references((): any => products.id),
   isMother: boolean('is_mother').default(false),
   unitsPerMother: integer('units_per_mother').default(1),
+  minStock: integer('min_stock'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const salesImports = pgTable('sales_imports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  fileName: text('file_name').notNull(),
+  saleDate: text('sale_date').notNull(), // ISO date (YYYY-MM-DD) — dia da venda, informado pelo usuário no momento da importação
+  rowCount: integer('row_count').notNull().default(0),
+  matchedCount: integer('matched_count').notNull().default(0),
+  unmatchedCount: integer('unmatched_count').notNull().default(0),
+  status: text('status').notNull().default('applied'), // 'applied' (hoje só há aplicação direta após revisão)
+  employeeId: uuid('employee_id').references(() => hrEmployees.id),
+  employeeName: text('employee_name'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const salesImportItems = pgTable('sales_import_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  importId: uuid('import_id').references(() => salesImports.id).notNull(),
+  productId: uuid('product_id').references(() => products.id), // null quando a linha não foi identificada
+  rawSku: text('raw_sku'),
+  rawEan: text('raw_ean'),
+  rawDescription: text('raw_description'),
+  quantitySold: integer('quantity_sold').notNull(),
+  matched: boolean('matched').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const stockAdjustments = pgTable('stock_adjustments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  productId: uuid('product_id').references(() => products.id).notNull(),
+  previousCount: integer('previous_count').notNull(),
+  newCount: integer('new_count').notNull(),
+  delta: integer('delta').notNull(),
+  reason: text('reason').notNull(), // 'contagem_fisica' | 'avaria' | 'perda' | 'correcao_importacao' | 'outro' | 'venda_diaria'
+  note: text('note'),
+  source: text('source').notNull().default('manual'), // 'manual' | 'sales_import'
+  salesImportId: uuid('sales_import_id').references(() => salesImports.id),
+  employeeId: uuid('employee_id').references(() => hrEmployees.id),
+  employeeName: text('employee_name'), // snapshot do nome no momento do ajuste
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 export const requests = pgTable('requests', {
