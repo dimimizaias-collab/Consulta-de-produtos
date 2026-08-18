@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Building2, Plus, Trash2, Check, Loader2, ChevronDown } from 'lucide-react';
+import { X, Building2, CreditCard, Plus, Trash2, Check, Loader2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { maskDocumento, type DocumentoTipo } from '@/lib/masks';
@@ -250,15 +250,15 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
 
   const body = (
     <>
-      <div className="flex items-start gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <Building2 size={18} />
+      <div className="flex items-start gap-3 mb-6">
+        <div className="w-10 h-10 rounded-[13px] bg-primary/10 dark:bg-primary/15 flex items-center justify-center text-primary shrink-0">
+          <Building2 size={19} />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-[16px] font-extrabold text-on-surface block">Editar Favorecido</span>
+          <span className="text-[16.5px] font-extrabold text-on-surface block">Editar Favorecido</span>
           <span className="text-[11px] text-on-surface/40 font-medium">Nome no extrato → nome fiscal</span>
         </div>
-        <button onClick={onClose} className="w-[30px] h-[30px] rounded-[10px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/45 shrink-0">
+        <button onClick={onClose} className="w-8 h-8 rounded-[11px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/45 hover:bg-primary/10 hover:text-primary transition-colors shrink-0">
           <X size={14} strokeWidth={2.5} />
         </button>
       </div>
@@ -274,6 +274,7 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
         </div>
 
         <div className={sectionTitleCls}>
+          <Building2 size={12} className="text-primary shrink-0" />
           Identificação do Fornecedor
           <span className="flex-1 h-px bg-on-surface/[0.08]" />
         </div>
@@ -387,8 +388,12 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
 
         <div className="border-t border-on-surface/[0.08] mt-1 pt-4">
           <div className="mb-1">
-            <span className="text-[11px] font-black uppercase tracking-wide text-on-surface/42">Outras Contas desse Fornecedor</span>
-            <p className="text-[10.5px] text-on-surface/35 font-medium mt-0.5">Outras formas de recebimento usadas por este mesmo fornecedor</p>
+            <div className={sectionTitleCls}>
+              <CreditCard size={12} className="text-primary shrink-0" />
+              Outras Contas desse Fornecedor
+              <span className="flex-1 h-px bg-on-surface/[0.08]" />
+            </div>
+            <p className="text-[10.5px] text-on-surface/35 font-medium mt-1.5">Outras formas de recebimento usadas por este mesmo fornecedor</p>
           </div>
 
           {loadingSupplier ? (
@@ -405,7 +410,7 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
           ) : (
             <div className="flex flex-col gap-2.5 mt-2">
               {contas.map(c => (
-                <div key={c.localId} className="bg-surface border border-on-surface/[0.09] rounded-2xl p-3 relative">
+                <div key={c.localId} className="bg-surface border border-on-surface/[0.09] rounded-2xl p-3.5 relative shadow-[0_2px_10px_rgba(26,26,10,0.05)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
                   <button
                     onClick={() => removeConta(c.localId)}
                     className="absolute top-2.5 right-2.5 w-6 h-6 rounded-lg flex items-center justify-center text-on-surface/35 hover:bg-red-500/10 hover:text-red-500 transition-colors"
@@ -526,7 +531,7 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
               key="modal"
               initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[71] w-[520px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-6 shadow-2xl"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[71] w-full max-w-[672px] max-h-[88vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-7 shadow-2xl"
             >
               {body}
             </motion.div>

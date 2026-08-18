@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Building2, Loader2, Landmark } from 'lucide-react';
+import { X, Building2, Loader2, Landmark, FileText } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import type { FavorecidoLite } from './FavorecidoEditModal';
@@ -64,17 +64,22 @@ export function FavorecidoDetailsModal({ open, favorecido, onClose, variant = 'm
   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
   const sectionTitleCls = 'flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-on-surface/38 mt-1';
 
+  const viewRowCls = 'flex items-center gap-2.5 bg-surface border border-on-surface/[0.08] rounded-[13px] px-3.5 py-2.5';
+  const viewRowIconCls = 'w-[26px] h-[26px] rounded-[8px] bg-primary/[0.08] dark:bg-primary/[0.15] text-primary flex items-center justify-center shrink-0';
+  const viewRowLabelCls = 'text-[12.5px] font-semibold text-on-surface/55 shrink-0 w-[120px]';
+  const viewRowValCls = 'flex-1 text-right text-[12.5px] font-extrabold text-on-surface truncate';
+
   const body = (
     <>
-      <div className="flex items-start gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <Building2 size={18} />
+      <div className="flex items-start gap-3 mb-6">
+        <div className="w-10 h-10 rounded-[13px] bg-primary/10 dark:bg-primary/15 flex items-center justify-center text-primary shrink-0">
+          <Building2 size={19} />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-[16px] font-extrabold text-on-surface block truncate">{favorecido?.nome_fiscal ?? '—'}</span>
+          <span className="text-[16.5px] font-extrabold text-on-surface block truncate">{favorecido?.nome_fiscal ?? '—'}</span>
           <span className="text-[11px] text-on-surface/40 font-medium">Detalhes do favorecido</span>
         </div>
-        <button onClick={onClose} className="w-[30px] h-[30px] rounded-[10px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/45 shrink-0 active:scale-[0.93] transition-transform">
+        <button onClick={onClose} className="w-8 h-8 rounded-[11px] bg-on-surface/[0.06] flex items-center justify-center text-on-surface/45 hover:bg-primary/10 hover:text-primary shrink-0 active:scale-[0.93] transition-[background-color,color,transform]">
           <X size={14} strokeWidth={2.5} />
         </button>
       </div>
@@ -106,16 +111,21 @@ export function FavorecidoDetailsModal({ open, favorecido, onClose, variant = 'm
         </div>
       ) : tab === 'cadastro' ? (
         <div className="flex flex-col gap-3.5">
-          <div>
-            <label className={labelCls}>Nome Fiscal</label>
-            <div className={fieldCls}>{favorecido?.nome_fiscal || '—'}</div>
+          <div className={viewRowCls}>
+            <div className={viewRowIconCls}><Building2 size={12} /></div>
+            <span className={viewRowLabelCls}>Nome Fiscal</span>
+            <span className={viewRowValCls}>{favorecido?.nome_fiscal || '—'}</span>
           </div>
-          <div>
-            <label className={labelCls}>Nome no Extrato</label>
-            <div className={fieldCls}>{favorecido?.nome_banco || <span className="italic text-on-surface/30">sem mapeamento</span>}</div>
+          <div className={viewRowCls}>
+            <div className={viewRowIconCls}><FileText size={12} /></div>
+            <span className={viewRowLabelCls}>Nome no Extrato</span>
+            <span className={cn(viewRowValCls, 'font-[\'DM_Mono\',monospace] font-semibold', !favorecido?.nome_banco && 'italic text-on-surface/30 font-sans font-semibold')}>
+              {favorecido?.nome_banco || 'sem mapeamento'}
+            </span>
           </div>
 
           <div className={sectionTitleCls}>
+            <Building2 size={12} className="text-primary shrink-0" />
             Identificação do Fornecedor
             <span className="flex-1 h-px bg-on-surface/[0.08]" />
           </div>
@@ -160,7 +170,7 @@ export function FavorecidoDetailsModal({ open, favorecido, onClose, variant = 'm
             </div>
           ) : (
             contas.map(c => (
-              <div key={c.id} className="bg-surface border border-on-surface/[0.09] rounded-2xl p-3.5">
+              <div key={c.id} className="bg-surface border border-on-surface/[0.09] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(26,26,10,0.05)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
                 <div className="flex gap-2 mb-2.5">
                   <div className="flex-1 min-w-0 bg-on-surface/[0.035] border border-on-surface/[0.08] rounded-xl px-3 py-2">
                     <span className="block text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35 mb-0.5">Nome</span>
@@ -212,7 +222,7 @@ export function FavorecidoDetailsModal({ open, favorecido, onClose, variant = 'm
               key="modal"
               initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[71] w-[680px] max-h-[90vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-7 shadow-2xl"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[71] w-full max-w-[672px] max-h-[90vh] overflow-y-auto bg-surface-container border border-on-surface/[0.08] rounded-[24px] p-7 shadow-2xl"
             >
               {body}
             </motion.div>

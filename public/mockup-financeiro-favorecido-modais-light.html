@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Modais Favorecido &amp; Conta — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --background:#FFFCEC; --surface:#ffffff; --surface-container:#FAF6E6; --primary:#D81E1E; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#EDE6D0; min-height:100vh; padding:40px 16px 80px; display:flex; flex-direction:column; align-items:center; gap:22px;}
+  .note{font-size:12px; font-weight:800; color:rgba(26,18,8,0.45); text-transform:uppercase; letter-spacing:0.08em; text-align:center; max-width:900px;}
+  .nav{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; background:#fff; border:1px solid rgba(26,26,10,0.10); border-radius:9999px; padding:5px; box-shadow:0 4px 14px rgba(0,0,0,0.06);}
+  .nav button{border:none; background:transparent; padding:9px 15px; border-radius:9999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; color:rgba(26,26,10,0.45); cursor:pointer; white-space:nowrap;}
+  .nav button.active{background:var(--primary); color:#fff; box-shadow:0 3px 8px rgba(216,30,30,0.30);}
+
+  .stage{width:100%; max-width:1000px; background:#E2DDD3; border-radius:24px; padding:48px 16px; display:flex; justify-content:center;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  .modal{background:#FDFAF0; border-radius:24px; box-shadow:0 40px 90px rgba(0,0,0,0.22); overflow:hidden; display:flex; flex-direction:column;}
+  .modal.w520, .modal.w620{width:672px;}
+  .modal-body{padding:34px 38px 32px; overflow-y:auto; max-height:82vh;}
+
+  .m-head{display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;}
+  .m-icon{width:40px; height:40px; border-radius:13px; background:rgba(216,30,30,0.09); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .m-icon svg{width:19px;height:19px;}
+  .m-title{flex:1; min-width:0;}
+  .m-title h2{font-size:16.5px; font-weight:800; color:#1A1A0E; line-height:1.2;}
+  .m-title p{font-size:11px; font-weight:600; color:rgba(26,26,10,0.40); margin-top:2px;}
+  .m-close{width:32px;height:32px; border-radius:11px; background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.45); display:flex; align-items:center; justify-content:center; border:none; flex-shrink:0; cursor:pointer;}
+  .m-close svg{width:14px;height:14px;}
+
+  .section-label{display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.09em; color:rgba(26,26,10,0.40); margin:18px 0 10px;}
+  .section-label svg{width:12px; height:12px; color:var(--primary);}
+  .section-label .line{flex:1; height:1px; background:rgba(26,26,10,0.10);}
+
+  .field{margin-bottom:13px;}
+  .field label{display:block; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:rgba(26,26,10,0.42); margin-bottom:6px;}
+  .field input, .field select{width:100%; background:rgba(26,26,10,0.03); border:1px solid rgba(26,26,10,0.10); border-radius:11px; padding:10px 13px; font-size:13px; font-weight:600; color:#1A1A0E; font-family:inherit;}
+  .field input::placeholder{color:rgba(26,26,10,0.28);}
+  .field .readonly{background:rgba(26,26,10,0.03); border:1.5px dashed rgba(26,26,10,0.14); border-radius:11px; padding:10px 13px; font-size:13px; color:rgba(26,26,10,0.55); min-height:38px; display:flex; align-items:center;}
+  .row2{display:flex; gap:12px;}
+  .row2 .field{flex:1; min-width:0;}
+
+  .pillTabs{display:flex; gap:5px; background:rgba(26,26,10,0.05); padding:4px; border-radius:12px; margin-bottom:20px;}
+  .pillTabs button{flex:1; padding:9px; border-radius:8px; border:none; background:transparent; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:rgba(26,26,10,0.45); cursor:pointer;}
+  .pillTabs button.active{background:#fff; color:var(--primary); box-shadow:0 2px 6px rgba(0,0,0,0.08);}
+
+  .combo{display:flex; align-items:center; gap:8px; background:rgba(216,30,30,0.08); border:1.5px solid rgba(216,30,30,0.25); border-radius:11px; padding:10px 13px; font-size:13px; font-weight:700; color:var(--primary);}
+  .combo svg{width:14px;height:14px; flex-shrink:0;}
+
+  .hint{display:flex; align-items:flex-start; gap:8px; background:rgba(245,158,11,0.09); border:1px solid rgba(245,158,11,0.25); border-radius:11px; padding:9px 11px; font-size:10.5px; font-weight:700; color:#92400E; margin-bottom:14px;}
+  .hint svg{width:13px;height:13px; flex-shrink:0; margin-top:1px;}
+
+  .subCard{background:#fff; border:1px solid rgba(26,26,10,0.09); border-radius:16px; padding:14px; box-shadow:0 2px 10px rgba(26,26,10,0.05); margin-bottom:10px; position:relative;}
+  .subCard .del{position:absolute; top:10px; right:10px; width:24px;height:24px; border-radius:8px; border:none; background:transparent; color:rgba(26,26,10,0.30); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .subCard .del svg{width:12px;height:12px;}
+  .subGrid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .subGrid .full{grid-column:1/-1;}
+  .subField label{display:block; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:rgba(26,26,10,0.35); margin-bottom:4px;}
+  .subField input, .subField select{width:100%; background:rgba(26,26,10,0.035); border:1px solid rgba(26,26,10,0.08); border-radius:8px; padding:7px 9px; font-size:11.5px; color:#1A1A0E; font-family:inherit;}
+
+  .addRow{display:flex; align-items:center; justify-content:center; gap:7px; width:100%; padding:12px; border-radius:14px; border:2px dashed rgba(26,26,10,0.18); color:rgba(26,26,10,0.35); font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; background:transparent; cursor:pointer;}
+  .addRow svg{width:13px;height:13px;}
+
+  .m-footer{display:flex; gap:10px; margin-top:22px;}
+  .btn-cancel{flex:1; background:rgba(26,26,10,0.06); border:1px solid rgba(26,26,10,0.10); color:rgba(26,26,10,0.55); font-weight:800; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; padding:13px; border-radius:13px; cursor:pointer;}
+  .btn-save{flex:1.6; background:var(--primary); color:#fff; font-weight:800; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; padding:13px; border-radius:13px; box-shadow:0 10px 20px rgba(216,30,30,0.28); border:none; display:flex; align-items:center; justify-content:center; gap:7px; cursor:pointer;}
+  .btn-save svg{width:13px;height:13px;}
+
+  /* Detalhes — view rows */
+  .viewRow{display:flex; align-items:center; gap:11px; padding:11px 13px; background:#fff; border:1px solid rgba(26,26,10,0.08); border-radius:13px; margin-bottom:8px;}
+  .viewRow .ic{width:26px;height:26px; border-radius:8px; background:rgba(216,30,30,0.08); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .viewRow .ic svg{width:12px;height:12px;}
+  .viewRow .lbl{font-size:12.5px; font-weight:600; color:rgba(26,26,10,0.55); flex-shrink:0; width:110px;}
+  .viewRow .val{flex:1; text-align:right; font-size:12.5px; font-weight:800; color:#1A1A0E; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .viewRow .val.mono{font-family:'DM Mono',monospace; font-weight:600; font-size:12px;}
+  .viewRow .val.muted{color:rgba(26,26,10,0.28); font-weight:600; font-style:italic;}
+
+  .emptyBox{display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; padding:26px 16px; border:1.5px dashed rgba(26,26,10,0.15); border-radius:16px; color:rgba(26,26,10,0.32);}
+  .emptyBox svg{width:22px;height:22px; opacity:0.6;}
+  .emptyBox span{font-size:11.5px; font-weight:700; max-width:230px;}
+
+  /* Pendências */
+  .pend-head{background:#FFE500; border-bottom:1px solid #D4C000; padding:16px 20px; display:flex; align-items:center; gap:12px;}
+  .pend-icon{width:38px;height:38px; border-radius:11px; background:rgba(26,26,10,0.10); display:flex; align-items:center; justify-content:center; color:#1A1A0E; flex-shrink:0;}
+  .pend-icon svg{width:17px;height:17px;}
+  .pend-head h3{font-size:14px; font-weight:900; color:#1A1A0E;}
+  .pend-head p{font-size:10.5px; font-weight:700; color:rgba(26,26,10,0.55); margin-top:2px;}
+  .pend-close{margin-left:auto; width:28px;height:28px; border-radius:9px; background:rgba(26,26,10,0.08); color:rgba(26,26,10,0.45); display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; flex-shrink:0;}
+  .pend-close svg{width:13px;height:13px;}
+  .pend-body{padding:18px 20px; display:flex; flex-direction:column; gap:10px;}
+  .pend-card{background:#fff; border:1px solid rgba(26,26,10,0.09); border-radius:16px; padding:14px; box-shadow:0 2px 10px rgba(26,26,10,0.05);}
+  .pend-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .pend-name{font-size:13px; font-weight:800; color:#1A1A0E;}
+  .pend-count{display:inline-block; margin-top:5px; font-size:9.5px; font-weight:800; color:#92400E; background:rgba(245,158,11,0.12); border-radius:9999px; padding:2px 9px;}
+  .pend-total{text-align:right;}
+  .pend-total .lbl{display:block; font-size:8px; font-weight:900; text-transform:uppercase; letter-spacing:0.08em; color:rgba(26,26,10,0.28);}
+  .pend-total .val{font-family:'DM Mono',monospace; font-size:12.5px; color:rgba(26,26,10,0.60);}
+  .pend-actions{display:flex; gap:8px;}
+  .pend-actions button{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px; border-radius:10px; font-size:10.5px; font-weight:800; border:1px solid; cursor:pointer;}
+  .pend-actions button svg{width:12px;height:12px;}
+  .pend-actions .link{background:rgba(10,122,85,0.08); color:#0A7A55; border-color:rgba(10,122,85,0.25);}
+  .pend-actions .new{background:rgba(216,30,30,0.08); color:var(--primary); border-color:rgba(216,30,30,0.20);}
+
+  /* Conta modal — image upload */
+  .imgUpload{width:100%; height:120px; border-radius:16px; border:2px dashed rgba(26,26,10,0.14); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; color:rgba(26,26,10,0.32); margin-bottom:16px;}
+  .imgUpload svg{width:24px;height:24px;}
+  .imgUpload span{font-size:11px; font-weight:700;}
+
+  .cardListItem{display:flex; align-items:center; gap:12px; background:#fff; border:1px solid rgba(26,26,10,0.09); border-radius:16px; padding:13px 14px; box-shadow:0 2px 10px rgba(26,26,10,0.05); margin-bottom:9px;}
+  .cardListItem .ic{width:36px;height:36px; border-radius:11px; background:rgba(216,30,30,0.08); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .cardListItem .ic svg{width:17px;height:17px;}
+  .cardListItem .main{flex:1; min-width:0;}
+  .cardListItem .t{font-size:13px; font-weight:800; color:#1A1A0E;}
+  .cardListItem .s{font-size:10.5px; font-weight:600; color:rgba(26,26,10,0.42); margin-top:2px;}
+  .cardListItem .code{font-family:'DM Mono',monospace; font-size:10px; font-weight:800; background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.55); border-radius:8px; padding:4px 8px; flex-shrink:0;}
+
+  .diff-note{width:1000px; max-width:100%; background:#fff; border:1.5px dashed rgba(26,26,10,0.18); border-radius:14px; padding:14px 18px; font-size:11.5px; font-weight:600; color:rgba(26,26,10,0.6); line-height:1.6;}
+  .diff-note b{color:#1A1A0E;}
+</style>
+</head>
+<body>
+
+  <div class="note">Modais de Favorecido &amp; Conta — Modo Claro · use a navegação para trocar de modal</div>
+
+  <div class="nav">
+    <button class="active" onclick="setScreen('editar', this)">Editar Favorecido</button>
+    <button onclick="setScreen('detalhes', this)">Detalhes Favorecido</button>
+    <button onclick="setScreen('pendencias', this)">Pendências</button>
+    <button onclick="setScreen('conta', this)">Conta / Cartão</button>
+  </div>
+
+  <div class="stage">
+
+    <!-- ===================== EDITAR FAVORECIDO ===================== -->
+    <div class="screen active" id="screen-editar">
+      <div class="modal w520">
+        <div class="modal-body">
+          <div class="m-head">
+            <div class="m-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></div>
+            <div class="m-title"><h2>Editar Favorecido</h2><p>Nome no extrato → nome fiscal</p></div>
+            <button class="m-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+
+          <div class="field"><label>Nome no Extrato</label><input value="VINATI DISTRIB LTDA" /></div>
+          <div class="field"><label>Nome Fiscal</label><input value="Distribuidora Vinati Ltda" /></div>
+
+          <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>Identificação do Fornecedor<span class="line"></span></div>
+
+          <div class="combo" style="margin-bottom:14px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+            <span style="flex:1;">Vinati Distribuidora</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:.6"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </div>
+
+          <div class="hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+            Campos abaixo vêm do fornecedor vinculado — travados para não afetar outros favorecidos que usam o mesmo fornecedor.
+          </div>
+
+          <div class="field"><label>Identificação</label><div class="readonly" style="font-family:'DM Mono',monospace">12.345.678/0001-90</div></div>
+          <div class="row2">
+            <div class="field"><label>Razão Social</label><div class="readonly">Vinati Distribuidora Ltda</div></div>
+            <div class="field"><label>Nome Fantasia</label><div class="readonly">Vinati Distrib.</div></div>
+          </div>
+
+          <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Outras Contas desse Fornecedor<span class="line"></span></div>
+
+          <div class="subCard">
+            <button class="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></button>
+            <div class="subField" style="margin-bottom:8px;"><label>Nome</label><input value="Sócio — João" /></div>
+            <div class="subGrid" style="margin-bottom:8px;">
+              <div class="subField"><label>Identificação</label><input value="123.456.789-00" /></div>
+              <div class="subField"><label>Tipo</label><select><option>CPF</option></select></div>
+            </div>
+            <div class="subGrid">
+              <div class="subField"><label>Instituição</label><input value="Nubank" /></div>
+              <div class="subField"><label>Conta</label><input value="55231-9" /></div>
+            </div>
+          </div>
+
+          <button class="addRow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Adicionar Conta</button>
+
+          <div class="m-footer">
+            <button class="btn-cancel">Cancelar</button>
+            <button class="btn-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Salvar Favorecido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== DETALHES FAVORECIDO ===================== -->
+    <div class="screen" id="screen-detalhes">
+      <div class="modal w620">
+        <div class="modal-body">
+          <div class="m-head">
+            <div class="m-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></div>
+            <div class="m-title"><h2>Distribuidora Vinati Ltda</h2><p>Detalhes do favorecido</p></div>
+            <button class="m-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+
+          <div class="pillTabs">
+            <button class="active" onclick="setDetTab('cadastro', this)">Cadastro</button>
+            <button onclick="setDetTab('contas', this)">Contas (1)</button>
+          </div>
+
+          <div id="det-cadastro">
+            <div class="viewRow"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></div><span class="lbl">Nome Fiscal</span><span class="val">Distribuidora Vinati Ltda</span></div>
+            <div class="viewRow"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/></svg></div><span class="lbl">Nome no Extrato</span><span class="val mono">VINATI DISTRIB LTDA</span></div>
+
+            <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>Identificação do Fornecedor<span class="line"></span></div>
+
+            <div class="viewRow"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><span class="lbl">CNPJ</span><span class="val mono">12.345.678/0001-90</span></div>
+            <div class="viewRow"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></div><span class="lbl">Razão Social</span><span class="val">Vinati Distribuidora Ltda</span></div>
+            <div class="viewRow"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></div><span class="lbl">Nome Fantasia</span><span class="val">Vinati Distrib.</span></div>
+          </div>
+
+          <div id="det-contas" style="display:none;">
+            <div class="subCard" style="padding-right:14px;">
+              <div class="subGrid" style="margin-bottom:8px;">
+                <div class="subField full"><label>Nome</label><span style="font-size:12.5px;font-weight:800;color:#1A1A0E;">Sócio — João</span></div>
+              </div>
+              <div class="subGrid">
+                <div class="subField"><label>Instituição</label><span style="font-size:11.5px;font-weight:700;color:rgba(26,26,10,.7)">Nubank</span></div>
+                <div class="subField"><label>Conta</label><span style="font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;color:rgba(26,26,10,.7)">55231-9</span></div>
+                <div class="subField"><label>Agência</label><span style="font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;color:rgba(26,26,10,.7)">0001</span></div>
+                <div class="subField"><label>Chave Pix</label><span style="font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;color:rgba(26,26,10,.7)">—</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== PENDÊNCIAS ===================== -->
+    <div class="screen" id="screen-pendencias">
+      <div class="modal w520">
+        <div class="pend-head">
+          <div class="pend-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 7l-9 9-4 1 1-4 9-9"/><path d="M2 2l20 20"/></svg></div>
+          <div><h3>Movimentações sem favorecido vinculado</h3><p>3 descrições não batem com nenhum cadastro</p></div>
+          <button class="pend-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="pend-body">
+          <div class="pend-card">
+            <div class="pend-top">
+              <div><div class="pend-name">MERCADOLIVRE*COMPRA</div><span class="pend-count">4 movimentações</span></div>
+              <div class="pend-total"><span class="lbl">Total</span><span class="val">R$ 842,10</span></div>
+            </div>
+            <div class="pend-actions">
+              <button class="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Vincular a existente</button>
+              <button class="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Criar novo favorecido</button>
+            </div>
+          </div>
+          <div class="pend-card">
+            <div class="pend-top">
+              <div><div class="pend-name">POSTO IPIRANGA CENTRO</div><span class="pend-count">1 movimentação</span></div>
+              <div class="pend-total"><span class="lbl">Total</span><span class="val">R$ 180,00</span></div>
+            </div>
+            <div class="pend-actions">
+              <button class="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Vincular a existente</button>
+              <button class="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Criar novo favorecido</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== CONTA / CARTÃO ===================== -->
+    <div class="screen" id="screen-conta">
+      <div class="modal w520">
+        <div class="modal-body">
+          <div class="m-head">
+            <div class="m-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+            <div class="m-title"><h2>Editar Conta</h2><p>Conta Corrente — Itaú</p></div>
+            <button class="m-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+
+          <div class="pillTabs">
+            <button class="active" onclick="setContaTab('dados', this)">Dados</button>
+            <button onclick="setContaTab('cartao', this)">Cartão (1)</button>
+          </div>
+
+          <div id="conta-dados">
+            <div class="imgUpload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><span>Clique para adicionar imagem</span></div>
+            <div class="field"><label>Nome da Conta</label><input value="Conta Corrente" /></div>
+            <div class="field"><label>Banco</label><input value="Itaú" /></div>
+            <div class="row2">
+              <div class="field"><label>Agência</label><input value="4521" /></div>
+              <div class="field"><label>Número da Conta</label><input value="08812-4" /></div>
+            </div>
+            <div class="field"><label>Saldo Inicial</label><input value="R$ 12.480,55" /></div>
+
+            <div class="m-footer">
+              <button class="btn-cancel">Cancelar</button>
+              <button class="btn-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Salvar Alterações</button>
+            </div>
+          </div>
+
+          <div id="conta-cartao" style="display:none;">
+            <div class="cardListItem">
+              <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+              <div class="main"><div class="t">Itaú Click</div><div class="s">Fecha dia 28 · Vence dia 10 · Limite R$ 3.500,00</div></div>
+              <span class="code">#A1</span>
+            </div>
+            <button class="addRow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Novo Cartão</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="diff-note">
+    <b>Mudanças nesses modais:</b> cabeçalho passa a usar ícone-chip vermelho (em vez de vermelho translúcido genérico) + título/subtítulo no padrão Editar Produto. Grupos de campos ganham <b>section-label</b> (ícone + linha) no lugar do texto solto. As "Outras Contas" do fornecedor e os cartões da conta viram <b>cards com sombra sutil</b> iguais aos das abas. A tela de Detalhes usa <b>rows</b> ícone+rótulo+valor (mesmo padrão da Editar Produto em modo leitura). O modal de Pendências ganha cards com o mesmo tratamento visual da lista de Favorecidos.
+  </div>
+
+<script>
+  function setScreen(name, el) {
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+  }
+  function setDetTab(name, el) {
+    el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('det-cadastro').style.display = name === 'cadastro' ? '' : 'none';
+    document.getElementById('det-contas').style.display = name === 'contas' ? '' : 'none';
+  }
+  function setContaTab(name, el) {
+    el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('conta-dados').style.display = name === 'dados' ? '' : 'none';
+    document.getElementById('conta-cartao').style.display = name === 'cartao' ? '' : 'none';
+  }
+</script>
+
+</body>
+</html>
