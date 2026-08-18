@@ -515,12 +515,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setEditingId(t.id);
     setPendingNotes([]);
     const nextForm: TxForm = { ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] };
-    // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
-    const nextParcelasEnabled = !!t.vencimento;
+    // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento.
+    // Movimentações antigas em "Crédito" (de antes desta feature) não têm vencimento —
+    // mesmo assim precisam entrar no fluxo de parcelas (parcelasEnabled=true), senão o
+    // salvar cai no branch "sem vencimento", que zera card_id/fatura_periodo e a
+    // vinculação a um cartão feita na edição nunca é persistida.
+    const nextParcelasEnabled = !!t.vencimento || t.tipo_pagamento === 'Crédito';
     // seq preserva o número real da parcela (ex: editar a 2ª de 3 isoladamente) — importante
     // no fluxo de Crédito, onde o vencimento é recalculado a partir de seq-1 meses após o
     // fechamento do cartão, não da posição do array.
-    const nextParcelas = t.vencimento ? [{ seq: t.numero_parcela ?? 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : [];
+    const nextParcelas = t.vencimento
+      ? [{ seq: t.numero_parcela ?? 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }]
+      : t.tipo_pagamento === 'Crédito'
+        ? [{ seq: t.numero_parcela ?? 1, data: '', valor: String(t.valor_final), codigo_barras: '', id: t.id }]
+        : [];
     setTxForm(nextForm);
     setParcelasEnabled(nextParcelasEnabled);
     setParcelas(nextParcelas);
@@ -601,7 +609,33 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     try {
       if (parcelasEnabled) {
         const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
-        if (valid.length === 0) return;
+        if (valid.length === 0) {
+          // Editando uma movimentação de Crédito antiga (sem vencimento) e o usuário ainda
+          // não escolheu um cartão: não há parcela computável, mas outras alterações (tags,
+          // observações, favorecido...) ainda devem ser salvas em vez de abortar em silêncio.
+          if (editingId && !editingGroupIds && txForm.tipo_pagamento === 'Crédito' && !txForm.card_id) {
+            const original = originalRows[0];
+            await supabase.from('finance_transactions').update({
+              tipo: txForm.tipo,
+              tipo_pagamento: txForm.tipo_pagamento,
+              favorecido: txForm.favorecido,
+              estabelecimento: txForm.estabelecimento,
+              identificacao: txForm.identificacao?.trim() || null,
+              account_id: txForm.account_id ?? null,
+              tag_ids: txForm.tag_ids ?? [],
+              observacoes: txForm.observacoes?.trim() || null,
+              data: txForm.data,
+              vencimento: original?.vencimento ?? null,
+              valor_final: parseFloat(parcelas[0]?.valor) || original?.valor_final || 0,
+              card_id: null,
+              fatura_periodo: original?.fatura_periodo ?? null,
+            }).eq('id', editingId);
+            for (const [cardId, periodos] of creditSyncTargets) await syncFaturaConsolidada(cardId, [...periodos]);
+            await fetchAll();
+            setShowTxModal(false);
+          }
+          return;
+        }
         const base = {
           tipo: txForm.tipo,
           tipo_pagamento: txForm.tipo_pagamento,

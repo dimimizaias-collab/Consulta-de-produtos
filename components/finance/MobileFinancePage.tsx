@@ -1232,7 +1232,8 @@ function TxDetailSheet({
               )}
             >
               <CreditCard size={13} />
-              {parcelas.length === 1 ? 'Vencimento configurado'
+              {parcelas.length === 1 && !parcelas[0].validade ? 'Configurar vencimento'
+                : parcelas.length === 1 ? 'Vencimento configurado'
                 : parcelas.length > 1 ? `${parcelas.length} parcelas configuradas`
                 : 'Vencimento / Parcelas'}
             </button>
@@ -2437,9 +2438,14 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
     // salvar não apagar o vencimento existente. seq preserva o número real da parcela
     // (relevante no fluxo de Crédito, onde o vencimento é recalculado a partir dela).
+    // Movimentações antigas em "Crédito" (de antes desta feature) não têm vencimento —
+    // mesmo assim precisam de 1 linha em detailParcelas, senão handleSaveDetail cai no
+    // branch "sem vencimento", que zera card_id/fatura_periodo ao salvar.
     const nextParcelas: ParcelaRow[] = tx.vencimento
       ? [{ seq: tx.numero_parcela ?? 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, codigo_barras: tx.codigo_barras ?? '', id: tx.id }]
-      : [];
+      : tx.tipo_pagamento === 'Crédito'
+        ? [{ seq: tx.numero_parcela ?? 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: '', codigo_barras: '', id: tx.id }]
+        : [];
     setDetailParcelas(nextParcelas);
     setEditingGroupIds(null);
     setEditingParcelamentoId(null);
@@ -2547,16 +2553,21 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       // aberto) sempre vêm da própria transação, nunca do form, para não sobrescrever
       // com um valor desatualizado.
       const isSalarioRow = detailTx.origem === 'hr_salario';
+      // Crédito antigo (sem vencimento) que o usuário ainda não confirmou em "Configurar
+      // parcelas" — p.validade fica vazio até isso acontecer. Preserva o vencimento/cartão
+      // já salvos em vez de gravar uma data vazia, para não travar o salvar de outros campos.
+      const pendingCreditoSemData = !isSalarioRow && detailForm.tipo_pagamento === 'Crédito' && !p.validade;
       const updates = {
         ...base,
         data: isSalarioRow ? detailTx.data : detailForm.data,
-        vencimento: isSalarioRow ? detailTx.vencimento : p.validade,
+        vencimento: isSalarioRow ? detailTx.vencimento : (pendingCreditoSemData ? (detailTx.vencimento ?? null) : p.validade),
         valor_final: isSalarioRow ? detailTx.valor_final : valorNum,
         pago: isSalarioRow ? detailTx.pago : detailForm.pago,
         total_pago: isSalarioRow ? detailTx.total_pago : (detailForm.pago ? valorNum : 0),
         data_pagamento: isSalarioRow ? (detailTx.data_pagamento ?? null) : (detailForm.data_pagamento ?? null),
         codigo_barras: isSalarioRow ? detailTx.codigo_barras : (detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null),
-        fatura_periodo: isSalarioRow ? (detailTx.fatura_periodo ?? null) : (p.periodo ?? null),
+        fatura_periodo: isSalarioRow ? (detailTx.fatura_periodo ?? null) : (pendingCreditoSemData ? (detailTx.fatura_periodo ?? null) : (p.periodo ?? null)),
+        card_id: pendingCreditoSemData ? (detailTx.card_id ?? null) : base.card_id,
       };
       await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
       addSyncTarget(updates.card_id, updates.fatura_periodo);
