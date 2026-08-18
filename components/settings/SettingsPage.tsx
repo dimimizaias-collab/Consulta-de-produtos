@@ -206,7 +206,7 @@ export function SettingsPage() {
       )}
 
       {activeTab === 'seguranca' && (
-        <div className="flex flex-col xl:flex-row gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch max-w-4xl">
           <PerfilSection
             usuario={currentUsuario}
             loading={currentUsuarioLoading}
@@ -470,8 +470,8 @@ function PerfilSection({
     return () => clearTimeout(t);
   }, [message]);
 
-  const fieldCls = 'w-full min-w-0 bg-surface border border-on-surface/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-on-surface outline-none focus:border-primary/50';
-  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-on-surface/45 mb-1.5 block';
+  const fieldCls = 'w-full min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-primary/50';
+  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/45 dark:text-white/40 mb-1.5 block';
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -519,7 +519,7 @@ function PerfilSection({
   const usernameDirty = usuario && username.trim() !== (usuario.username || '');
 
   return (
-    <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 w-full xl:w-[340px] shrink-0">
+    <div className="bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/5 dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 flex flex-col">
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-[1.2rem] bg-primary/10 text-primary flex items-center justify-center shadow-inner">
           <UserCog size={22} />
@@ -537,7 +537,7 @@ function PerfilSection({
       ) : (
         <>
           <div className="flex flex-col items-center gap-2.5">
-            <div className="relative w-24 h-24 rounded-[24px] bg-surface overflow-hidden flex items-center justify-center text-on-surface/30 text-3xl font-black">
+            <div className="relative w-24 h-24 rounded-[24px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.10] overflow-hidden flex items-center justify-center text-[#1A1A0E]/25 dark:text-white/25 text-3xl font-black">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -666,7 +666,7 @@ function SegurancaSection({
   onDelete: (u: Usuario) => void;
 }) {
   return (
-    <div className="bg-surface-container-lowest rounded-[3rem] border border-on-surface/[0.03] shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 flex-1 min-w-0 max-w-2xl">
+    <div className="bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/5 dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 min-w-0 flex flex-col">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
@@ -700,9 +700,9 @@ function SegurancaSection({
         {usuarios.map(usuario => (
           <div
             key={usuario.id}
-            className="flex items-center gap-3.5 bg-surface-container border border-on-surface/[0.08] rounded-[20px] p-3.5"
+            className="flex items-center gap-3.5 bg-white dark:bg-[#2A2A23] border border-[#E8DEBE] dark:border-white/[0.09] rounded-[20px] p-3.5 shadow-sm shadow-on-surface/[0.02]"
           >
-            <div className="w-[46px] h-[46px] rounded-2xl bg-surface border border-on-surface/[0.08] flex items-center justify-center overflow-hidden shrink-0 text-on-surface/25">
+            <div className="w-[46px] h-[46px] rounded-2xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.10] flex items-center justify-center overflow-hidden shrink-0 text-[#1A1A0E]/25 dark:text-white/25">
               {usuario.hr_employees?.foto_url ? (
                 <img src={usuario.hr_employees.foto_url} alt={usuario.hr_employees.nome} className="w-full h-full object-cover" />
               ) : (
