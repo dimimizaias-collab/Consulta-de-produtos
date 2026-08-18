@@ -2097,6 +2097,404 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     </div>
   );
 
+  // Modais compartilhados entre as 3 abas (main/favorecidos/contas) — extraidos pra
+  // fora do JSX principal porque 'favorecidos' e 'contas' fazem return antecipado e
+  // nao alcancavam esses modais, deixando os botoes Novo/Editar sem efeito visivel.
+  const renderAccountModal = () => (
+    <>
+      <AnimatePresence>
+        {showAccountModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAccountModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Building2 size={18} className="text-primary" />
+                  </div>
+                  <h2 className="text-lg font-manrope font-extrabold text-on-surface">
+                    {editingAccountId ? 'Editar Conta' : 'Cadastrar Conta'}
+                  </h2>
+                </div>
+                <button onClick={() => setShowAccountModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex gap-1.5 mb-5 bg-on-surface/[0.05] p-1 rounded-xl">
+                <button
+                  onClick={() => setAccountModalTab('dados')}
+                  className={cn(
+                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
+                    accountModalTab === 'dados' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  onClick={() => editingAccountId && setAccountModalTab('cartao')}
+                  disabled={!editingAccountId}
+                  title={!editingAccountId ? 'Salve a conta primeiro para cadastrar cartões' : undefined}
+                  className={cn(
+                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
+                    !editingAccountId ? 'text-on-surface/20 cursor-not-allowed'
+                      : accountModalTab === 'cartao' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
+                  )}
+                >
+                  Cartão{accountCards(editingAccountId).length > 0 ? ` (${accountCards(editingAccountId).length})` : ''}
+                </button>
+              </div>
+
+              {accountModalTab === 'cartao' ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2.5">
+                    {accountCards(editingAccountId).length === 0 && !cardFormOpen && (
+                      <div className="flex flex-col items-center gap-2 text-center py-8 px-4 border-[1.5px] border-dashed border-on-surface/[0.14] rounded-2xl text-on-surface/35">
+                        <CreditCard size={20} className="opacity-50" />
+                        <span className="text-[11.5px] font-bold max-w-[260px]">Nenhum cartão cadastrado para esta conta</span>
+                      </div>
+                    )}
+                    {accountCards(editingAccountId).map(card => (
+                      <div key={card.id} className="flex items-center gap-3 bg-surface border border-on-surface/[0.08] rounded-2xl p-3.5">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <CreditCard size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13.5px] font-extrabold text-on-surface truncate">{card.nome}</p>
+                          <p className="text-[11px] text-on-surface/45 truncate">
+                            Fecha dia {card.dia_fechamento} · Vence dia {card.dia_vencimento}
+                            {card.limite != null ? ` · Limite ${fmt(card.limite)}` : ' · Sem limite definido'}
+                          </p>
+                        </div>
+                        <span className="font-mono text-[10.5px] font-bold bg-on-surface/[0.06] text-on-surface/55 rounded-lg px-2 py-1 shrink-0">{card.codigo}</span>
+                        <button onClick={() => openEditCard(card)} title="Editar" className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors shrink-0">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => handleDeleteCard(card.id)} title="Excluir" className="w-7 h-7 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-on-surface/40 hover:text-red-500 transition-colors shrink-0">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!cardFormOpen ? (
+                    <button
+                      onClick={openNewCard}
+                      className="border-[1.5px] border-dashed border-on-surface/20 rounded-2xl py-3.5 flex items-center justify-center gap-2 text-on-surface/40 text-xs font-extrabold uppercase tracking-wide hover:border-primary hover:text-primary transition-colors"
+                    >
+                      <Plus size={15} /> Novo Cartão
+                    </button>
+                  ) : (
+                    <div className="flex flex-col gap-4 pt-1 border-t border-on-surface/[0.08]">
+                      <div className="flex flex-col gap-1.5 mt-4">
+                        <label className={labelCls}>Nome do Cartão</label>
+                        <input type="text" value={cardForm.nome} onChange={e => setCardForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Nubank Roxinho" className={inputCls} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Data de Fechamento</label>
+                          <input type="number" min={1} max={31} value={cardForm.dia_fechamento} onChange={e => setCardForm(f => ({ ...f, dia_fechamento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Data de Vencimento</label>
+                          <input type="number" min={1} max={31} value={cardForm.dia_vencimento} onChange={e => setCardForm(f => ({ ...f, dia_vencimento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Limite <span className="normal-case font-medium opacity-70">(opcional)</span></label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
+                            <input type="number" step="0.01" min="0" value={cardForm.limite} onChange={e => setCardForm(f => ({ ...f, limite: e.target.value }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, 'pl-9', noSpinnerCls)} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Código</label>
+                          <div className={viewBlockCls}>{editingCardId ? cards.find(c => c.id === editingCardId)?.codigo : 'Gerado ao salvar'}</div>
+                        </div>
+                      </div>
+
+                      {cardError && (
+                        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
+                          {cardError}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button onClick={closeCardForm} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                          Cancelar
+                        </button>
+                        <button onClick={handleCardSubmit} disabled={cardSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                          {cardSubmitting && <Loader2 size={14} className="animate-spin" />}
+                          {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Existing accounts list — shown only when adding a new account */}
+              {accountModalTab === 'dados' && !editingAccountId && accounts.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Contas cadastradas</p>
+                  <div className="flex flex-col gap-1.5">
+                    {accounts.map(acc => (
+                      <div key={acc.id} className="flex items-center justify-between bg-surface-container rounded-xl px-3 py-2.5 border border-on-surface/5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-on-surface truncate">{acc.nome}</p>
+                          <p className="text-xs text-on-surface/40">{acc.banco} · Saldo inicial: <span className="font-bold text-emerald-600">{(acc.saldo_inicial ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
+                        </div>
+                        <button
+                          onClick={() => openEditAccount(acc)}
+                          className="ml-3 shrink-0 w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-px bg-on-surface/5 my-4" />
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Nova conta</p>
+                </div>
+              )}
+
+              {accountModalTab === 'dados' && (
+                <>
+                  <div className="flex flex-col gap-4">
+                    {/* Image upload */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Imagem da Conta</label>
+                      <label className="cursor-pointer group">
+                        <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
+                        {accountForm.imagemPreview ? (
+                          <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
+                            <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Upload size={20} className="text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-32 rounded-2xl border-2 border-dashed border-on-surface/10 flex flex-col items-center justify-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
+                            <ImageIcon size={28} />
+                            <span className="text-xs font-semibold">Clique para adicionar imagem</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Nome da Conta</label>
+                      <input type="text" value={accountForm.nome} onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Conta Corrente PF" className={inputCls} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Banco</label>
+                      <input type="text" value={accountForm.banco} onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))} placeholder="Ex: Banco do Brasil" className={inputCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls}>Agência</label>
+                        <input type="text" value={accountForm.agencia} onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))} placeholder="0000-0" className={inputCls} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls}>Número da Conta</label>
+                        <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={accountForm.saldo_inicial}
+                          onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
+                          onWheel={blockWheelChange}
+                          placeholder="0,00"
+                          className={cn(inputCls, 'pl-9', noSpinnerCls)}
+                        />
+                      </div>
+                      <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
+                    </div>
+                  </div>
+
+                  {accountError && (
+                    <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
+                      {accountError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => { setShowAccountModal(false); setAccountError(null); }} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                      {submitting && <Loader2 size={14} className="animate-spin" />}
+                      {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
+  const renderFavorecidoModals = () => (
+    <>
+      <FavorecidoEditModal
+        open={showFavorecidoEditModal}
+        favorecido={editingFavorecido}
+        initialNomeFiscal={favModalInitialNome}
+        suppliers={suppliers}
+        onClose={() => { setShowFavorecidoEditModal(false); setPendingFavLinkGroup(null); }}
+        onSaved={handleFavorecidoSaved}
+        variant="modal"
+      />
+
+      <FavorecidoDetailsModal
+        open={!!detailsFavorecido}
+        favorecido={detailsFavorecido}
+        onClose={() => setDetailsFavorecido(null)}
+        variant="modal"
+      />
+
+      {/* ── Pendências de Favorecido (movimentações sem cadastro vinculado) ── */}
+      <AnimatePresence>
+        {showFavPendingModal && (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              className="relative bg-surface rounded-[20px] shadow-2xl w-full max-w-lg max-h-[82vh] flex flex-col overflow-hidden"
+            >
+              <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[rgba(26,26,10,0.10)] flex items-center justify-center shrink-0">
+                    <Link2Off size={18} className="text-[#1A1A0E]" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-black text-[#1A1A0E]">Movimentações sem favorecido vinculado</h3>
+                    <p className="text-[11px] font-semibold text-[rgba(26,26,10,0.55)] mt-0.5">
+                      {favUnlinkedGroups.length === 0 ? 'Nenhuma pendência' : `${favUnlinkedGroups.length} descriç${favUnlinkedGroups.length === 1 ? 'ão não bate' : 'ões não batem'} com nenhum cadastro`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
+                  className="w-[30px] h-[30px] rounded-lg bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.45)] flex items-center justify-center hover:bg-[rgba(216,30,30,0.12)] hover:text-[#D81E1E] transition-colors shrink-0"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-5 flex flex-col gap-2.5 overflow-y-auto">
+                {favUnlinkedGroups.length === 0 ? (
+                  <div className="flex flex-col items-center py-10 text-on-surface/25">
+                    <Link2Off size={30} className="mb-2" />
+                    <p className="text-sm font-bold">Tudo certo — sem pendências</p>
+                  </div>
+                ) : (
+                  favUnlinkedGroups.map(group => (
+                    <div key={group.label.toLowerCase()} className="bg-surface-container-low border-[1.5px] border-on-surface/[0.08] rounded-[14px] p-4 flex flex-col gap-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-on-surface truncate">{group.label}</p>
+                          <span className="inline-block mt-1.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-full px-2.5 py-0.5">
+                            {group.count} movimenta{group.count === 1 ? 'ção' : 'ções'}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-on-surface/25">Total</span>
+                          <span className="font-['DM_Mono',monospace] text-sm text-on-surface/60">{fmt(group.total)}</span>
+                        </div>
+                      </div>
+
+                      {favLinkPickerKey === group.label.toLowerCase() ? (
+                        <div className="bg-surface border border-on-surface/10 rounded-xl p-2.5 flex flex-col gap-2">
+                          <div className="relative">
+                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
+                            <input
+                              autoFocus
+                              value={favLinkPickerSearch}
+                              onChange={e => setFavLinkPickerSearch(e.target.value)}
+                              placeholder="Buscar favorecido cadastrado..."
+                              className="w-full pl-8 pr-3 py-2 bg-surface-container-low rounded-lg text-xs text-on-surface placeholder:text-on-surface/30 border border-on-surface/10 focus:outline-none focus:border-primary/50"
+                            />
+                          </div>
+                          <div className="max-h-32 overflow-y-auto flex flex-col gap-1">
+                            {favorecidos
+                              .filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase()))
+                              .map(fv => (
+                                <button
+                                  key={fv.id}
+                                  onClick={async () => {
+                                    await bulkRelinkFavorecido(group.ids, fv.nome_fiscal);
+                                    setFavLinkPickerKey(null);
+                                    setFavLinkPickerSearch('');
+                                  }}
+                                  className="text-left px-2.5 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
+                                >
+                                  {fv.nome_fiscal}
+                                </button>
+                              ))}
+                            {favorecidos.filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase())).length === 0 && (
+                              <p className="px-2.5 py-2 text-xs italic text-on-surface/35">Nenhum resultado</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => { setFavLinkPickerKey(null); setFavLinkPickerSearch(''); }}
+                            className="text-[11px] font-bold text-on-surface/45 hover:text-on-surface/70 transition-colors self-start px-1"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setFavLinkPickerKey(group.label.toLowerCase()); setFavLinkPickerSearch(''); }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/[0.18] transition-colors"
+                          >
+                            <Users size={13} />
+                            Vincular a existente
+                          </button>
+                          <button
+                            onClick={() => openNewFavorecidoFromPending(group)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/[0.18] transition-colors"
+                          >
+                            <Plus size={13} />
+                            Criar novo favorecido
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
   if (financeView === 'favorecidos') {
     return (
       <div className="space-y-6">
@@ -2182,6 +2580,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </div>
               </div>
         </div>
+        {renderFavorecidoModals()}
       </div>
     );
   }
@@ -2259,6 +2658,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </div>
               </div>
         </div>
+        {renderAccountModal()}
       </div>
     );
   }
@@ -4033,252 +4433,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         )}
       </AnimatePresence>
 
-      {/* ── Bank Account Modal ─────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showAccountModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAccountModal(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-surface-container-low rounded-3xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Building2 size={18} className="text-primary" />
-                  </div>
-                  <h2 className="text-lg font-manrope font-extrabold text-on-surface">
-                    {editingAccountId ? 'Editar Conta' : 'Cadastrar Conta'}
-                  </h2>
-                </div>
-                <button onClick={() => setShowAccountModal(false)} className="w-8 h-8 rounded-xl hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40">
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="flex gap-1.5 mb-5 bg-on-surface/[0.05] p-1 rounded-xl">
-                <button
-                  onClick={() => setAccountModalTab('dados')}
-                  className={cn(
-                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
-                    accountModalTab === 'dados' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
-                  )}
-                >
-                  Dados
-                </button>
-                <button
-                  onClick={() => editingAccountId && setAccountModalTab('cartao')}
-                  disabled={!editingAccountId}
-                  title={!editingAccountId ? 'Salve a conta primeiro para cadastrar cartões' : undefined}
-                  className={cn(
-                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
-                    !editingAccountId ? 'text-on-surface/20 cursor-not-allowed'
-                      : accountModalTab === 'cartao' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
-                  )}
-                >
-                  Cartão{accountCards(editingAccountId).length > 0 ? ` (${accountCards(editingAccountId).length})` : ''}
-                </button>
-              </div>
-
-              {accountModalTab === 'cartao' ? (
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2.5">
-                    {accountCards(editingAccountId).length === 0 && !cardFormOpen && (
-                      <div className="flex flex-col items-center gap-2 text-center py-8 px-4 border-[1.5px] border-dashed border-on-surface/[0.14] rounded-2xl text-on-surface/35">
-                        <CreditCard size={20} className="opacity-50" />
-                        <span className="text-[11.5px] font-bold max-w-[260px]">Nenhum cartão cadastrado para esta conta</span>
-                      </div>
-                    )}
-                    {accountCards(editingAccountId).map(card => (
-                      <div key={card.id} className="flex items-center gap-3 bg-surface border border-on-surface/[0.08] rounded-2xl p-3.5">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                          <CreditCard size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13.5px] font-extrabold text-on-surface truncate">{card.nome}</p>
-                          <p className="text-[11px] text-on-surface/45 truncate">
-                            Fecha dia {card.dia_fechamento} · Vence dia {card.dia_vencimento}
-                            {card.limite != null ? ` · Limite ${fmt(card.limite)}` : ' · Sem limite definido'}
-                          </p>
-                        </div>
-                        <span className="font-mono text-[10.5px] font-bold bg-on-surface/[0.06] text-on-surface/55 rounded-lg px-2 py-1 shrink-0">{card.codigo}</span>
-                        <button onClick={() => openEditCard(card)} title="Editar" className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors shrink-0">
-                          <Edit2 size={13} />
-                        </button>
-                        <button onClick={() => handleDeleteCard(card.id)} title="Excluir" className="w-7 h-7 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-on-surface/40 hover:text-red-500 transition-colors shrink-0">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {!cardFormOpen ? (
-                    <button
-                      onClick={openNewCard}
-                      className="border-[1.5px] border-dashed border-on-surface/20 rounded-2xl py-3.5 flex items-center justify-center gap-2 text-on-surface/40 text-xs font-extrabold uppercase tracking-wide hover:border-primary hover:text-primary transition-colors"
-                    >
-                      <Plus size={15} /> Novo Cartão
-                    </button>
-                  ) : (
-                    <div className="flex flex-col gap-4 pt-1 border-t border-on-surface/[0.08]">
-                      <div className="flex flex-col gap-1.5 mt-4">
-                        <label className={labelCls}>Nome do Cartão</label>
-                        <input type="text" value={cardForm.nome} onChange={e => setCardForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Nubank Roxinho" className={inputCls} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <label className={labelCls}>Data de Fechamento</label>
-                          <input type="number" min={1} max={31} value={cardForm.dia_fechamento} onChange={e => setCardForm(f => ({ ...f, dia_fechamento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className={labelCls}>Data de Vencimento</label>
-                          <input type="number" min={1} max={31} value={cardForm.dia_vencimento} onChange={e => setCardForm(f => ({ ...f, dia_vencimento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <label className={labelCls}>Limite <span className="normal-case font-medium opacity-70">(opcional)</span></label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
-                            <input type="number" step="0.01" min="0" value={cardForm.limite} onChange={e => setCardForm(f => ({ ...f, limite: e.target.value }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, 'pl-9', noSpinnerCls)} />
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className={labelCls}>Código</label>
-                          <div className={viewBlockCls}>{editingCardId ? cards.find(c => c.id === editingCardId)?.codigo : 'Gerado ao salvar'}</div>
-                        </div>
-                      </div>
-
-                      {cardError && (
-                        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
-                          {cardError}
-                        </div>
-                      )}
-
-                      <div className="flex gap-3">
-                        <button onClick={closeCardForm} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
-                          Cancelar
-                        </button>
-                        <button onClick={handleCardSubmit} disabled={cardSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-                          {cardSubmitting && <Loader2 size={14} className="animate-spin" />}
-                          {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Existing accounts list — shown only when adding a new account */}
-              {accountModalTab === 'dados' && !editingAccountId && accounts.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Contas cadastradas</p>
-                  <div className="flex flex-col gap-1.5">
-                    {accounts.map(acc => (
-                      <div key={acc.id} className="flex items-center justify-between bg-surface-container rounded-xl px-3 py-2.5 border border-on-surface/5">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-on-surface truncate">{acc.nome}</p>
-                          <p className="text-xs text-on-surface/40">{acc.banco} · Saldo inicial: <span className="font-bold text-emerald-600">{(acc.saldo_inicial ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
-                        </div>
-                        <button
-                          onClick={() => openEditAccount(acc)}
-                          className="ml-3 shrink-0 w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-px bg-on-surface/5 my-4" />
-                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Nova conta</p>
-                </div>
-              )}
-
-              {accountModalTab === 'dados' && (
-                <>
-                  <div className="flex flex-col gap-4">
-                    {/* Image upload */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelCls}>Imagem da Conta</label>
-                      <label className="cursor-pointer group">
-                        <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
-                        {accountForm.imagemPreview ? (
-                          <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
-                            <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Upload size={20} className="text-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full h-32 rounded-2xl border-2 border-dashed border-on-surface/10 flex flex-col items-center justify-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
-                            <ImageIcon size={28} />
-                            <span className="text-xs font-semibold">Clique para adicionar imagem</span>
-                          </div>
-                        )}
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelCls}>Nome da Conta</label>
-                      <input type="text" value={accountForm.nome} onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Conta Corrente PF" className={inputCls} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelCls}>Banco</label>
-                      <input type="text" value={accountForm.banco} onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))} placeholder="Ex: Banco do Brasil" className={inputCls} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                        <label className={labelCls}>Agência</label>
-                        <input type="text" value={accountForm.agencia} onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))} placeholder="0000-0" className={inputCls} />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className={labelCls}>Número da Conta</label>
-                        <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={accountForm.saldo_inicial}
-                          onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
-                          onWheel={blockWheelChange}
-                          placeholder="0,00"
-                          className={cn(inputCls, 'pl-9', noSpinnerCls)}
-                        />
-                      </div>
-                      <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
-                    </div>
-                  </div>
-
-                  {accountError && (
-                    <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
-                      {accountError}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={() => { setShowAccountModal(false); setAccountError(null); }} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
-                      Cancelar
-                    </button>
-                    <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-                      {submitting && <Loader2 size={14} className="animate-spin" />}
-                      {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {renderAccountModal()}
 
       {/* ── Import Success Toast ──────────────────────────────────────────── */}
       <AnimatePresence>
@@ -4298,146 +4453,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         )}
       </AnimatePresence>
 
-      <FavorecidoEditModal
-        open={showFavorecidoEditModal}
-        favorecido={editingFavorecido}
-        initialNomeFiscal={favModalInitialNome}
-        suppliers={suppliers}
-        onClose={() => { setShowFavorecidoEditModal(false); setPendingFavLinkGroup(null); }}
-        onSaved={handleFavorecidoSaved}
-        variant="modal"
-      />
-
-      <FavorecidoDetailsModal
-        open={!!detailsFavorecido}
-        favorecido={detailsFavorecido}
-        onClose={() => setDetailsFavorecido(null)}
-        variant="modal"
-      />
-
-      {/* ── Pendências de Favorecido (movimentações sem cadastro vinculado) ── */}
-      <AnimatePresence>
-        {showFavPendingModal && (
-          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 12 }}
-              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-              className="relative bg-surface rounded-[20px] shadow-2xl w-full max-w-lg max-h-[82vh] flex flex-col overflow-hidden"
-            >
-              <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[rgba(26,26,10,0.10)] flex items-center justify-center shrink-0">
-                    <Link2Off size={18} className="text-[#1A1A0E]" />
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-black text-[#1A1A0E]">Movimentações sem favorecido vinculado</h3>
-                    <p className="text-[11px] font-semibold text-[rgba(26,26,10,0.55)] mt-0.5">
-                      {favUnlinkedGroups.length === 0 ? 'Nenhuma pendência' : `${favUnlinkedGroups.length} descriç${favUnlinkedGroups.length === 1 ? 'ão não bate' : 'ões não batem'} com nenhum cadastro`}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setShowFavPendingModal(false); setFavLinkPickerKey(null); }}
-                  className="w-[30px] h-[30px] rounded-lg bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.45)] flex items-center justify-center hover:bg-[rgba(216,30,30,0.12)] hover:text-[#D81E1E] transition-colors shrink-0"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              <div className="p-5 flex flex-col gap-2.5 overflow-y-auto">
-                {favUnlinkedGroups.length === 0 ? (
-                  <div className="flex flex-col items-center py-10 text-on-surface/25">
-                    <Link2Off size={30} className="mb-2" />
-                    <p className="text-sm font-bold">Tudo certo — sem pendências</p>
-                  </div>
-                ) : (
-                  favUnlinkedGroups.map(group => (
-                    <div key={group.label.toLowerCase()} className="bg-surface-container-low border-[1.5px] border-on-surface/[0.08] rounded-[14px] p-4 flex flex-col gap-2.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-extrabold text-on-surface truncate">{group.label}</p>
-                          <span className="inline-block mt-1.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-full px-2.5 py-0.5">
-                            {group.count} movimenta{group.count === 1 ? 'ção' : 'ções'}
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="block text-[8px] font-black uppercase tracking-widest text-on-surface/25">Total</span>
-                          <span className="font-['DM_Mono',monospace] text-sm text-on-surface/60">{fmt(group.total)}</span>
-                        </div>
-                      </div>
-
-                      {favLinkPickerKey === group.label.toLowerCase() ? (
-                        <div className="bg-surface border border-on-surface/10 rounded-xl p-2.5 flex flex-col gap-2">
-                          <div className="relative">
-                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/40" />
-                            <input
-                              autoFocus
-                              value={favLinkPickerSearch}
-                              onChange={e => setFavLinkPickerSearch(e.target.value)}
-                              placeholder="Buscar favorecido cadastrado..."
-                              className="w-full pl-8 pr-3 py-2 bg-surface-container-low rounded-lg text-xs text-on-surface placeholder:text-on-surface/30 border border-on-surface/10 focus:outline-none focus:border-primary/50"
-                            />
-                          </div>
-                          <div className="max-h-32 overflow-y-auto flex flex-col gap-1">
-                            {favorecidos
-                              .filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase()))
-                              .map(fv => (
-                                <button
-                                  key={fv.id}
-                                  onClick={async () => {
-                                    await bulkRelinkFavorecido(group.ids, fv.nome_fiscal);
-                                    setFavLinkPickerKey(null);
-                                    setFavLinkPickerSearch('');
-                                  }}
-                                  className="text-left px-2.5 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
-                                >
-                                  {fv.nome_fiscal}
-                                </button>
-                              ))}
-                            {favorecidos.filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase())).length === 0 && (
-                              <p className="px-2.5 py-2 text-xs italic text-on-surface/35">Nenhum resultado</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => { setFavLinkPickerKey(null); setFavLinkPickerSearch(''); }}
-                            className="text-[11px] font-bold text-on-surface/45 hover:text-on-surface/70 transition-colors self-start px-1"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => { setFavLinkPickerKey(group.label.toLowerCase()); setFavLinkPickerSearch(''); }}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/[0.18] transition-colors"
-                          >
-                            <Users size={13} />
-                            Vincular a existente
-                          </button>
-                          <button
-                            onClick={() => openNewFavorecidoFromPending(group)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11.5px] font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/[0.18] transition-colors"
-                          >
-                            <Plus size={13} />
-                            Criar novo favorecido
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {renderFavorecidoModals()}
 
       {/* ── Import Extrato Modal ───────────────────────────────────────────── */}
       <AnimatePresence>
