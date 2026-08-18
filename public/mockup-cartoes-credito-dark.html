@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Cartões de Crédito · Modo Escuro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&family=DM+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --surface:            #1c1c16;
+  --surface-container:  #252519;
+  --surface-container-low: #1e1e15;
+  --on-surface:         #f2f0e3;
+  --on-surface-rgb:      242,240,227;
+  --primary:            #D81E1E;
+  --primary-tint-bg:    rgba(216,30,30,.15);
+  --header-bg:          #252520;
+  --header-border:      rgba(242,240,227,.07);
+  --tab-active-text:    #F2F0E3;
+  --col-header-bg:      #FFEC4D;
+  --col-header-border:  #DCC63D;
+  --col-header-text:    rgba(26,26,10,.58);
+  --page-bg:            #14140F;
+}
+
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:var(--page-bg);
+  color:var(--on-surface);
+  min-height:100vh;
+  padding:40px 24px 120px;
+}
+
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+
+.section-label{
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;
+  color:rgba(var(--on-surface-rgb),.42);
+  margin-bottom:14px;display:flex;align-items:center;gap:10px;
+}
+.section-label::after{content:'';flex:1;height:1px;background:rgba(var(--on-surface-rgb),.10)}
+.section-note{font-size:12px;color:rgba(var(--on-surface-rgb),.45);margin-top:10px;line-height:1.5;max-width:640px}
+
+/* ---- top header + tabs (padrão real do FinanceManager) ---- */
+.fm-header-block{position:relative;margin-bottom:44px}
+.fm-header{
+  background:var(--header-bg);border:1px solid var(--header-border);
+  border-radius:20px 20px 20px 0;padding:20px 24px;
+  display:flex;align-items:center;gap:14px;
+}
+.fm-icon{width:52px;height:52px;border-radius:14px;background:var(--primary-tint-bg);
+  display:flex;align-items:center;justify-content:center;color:var(--primary);flex-shrink:0;font-size:22px}
+.fm-title{font-size:26px;font-weight:900;color:var(--tab-active-text);letter-spacing:-.01em;line-height:1.15}
+.fm-subtitle{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:rgba(var(--on-surface-rgb),.28)}
+.fm-tabs{position:absolute;left:0;top:100%;display:flex}
+.fm-tab{
+  width:136px;height:34px;display:flex;align-items:center;justify-content:center;
+  background:var(--header-bg);border:1px solid var(--header-border);border-top:0;
+  font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;
+  box-shadow:inset 0 6px 8px -5px rgba(0,0,0,.55);
+  color:rgba(var(--on-surface-rgb),.75);opacity:.55;cursor:pointer;
+}
+.fm-tab:last-child{border-radius:0 0 12px 0}
+.fm-tab.active{opacity:1;color:var(--tab-active-text)}
+
+/* ---- pill tabs (Favorecidos/Contas, Dados/Cartão) ---- */
+.pill-tabs{display:flex;gap:6px;background:rgba(var(--on-surface-rgb),.05);padding:4px;border-radius:12px;width:fit-content}
+.pill-tab{padding:8px 20px;border-radius:9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;
+  color:rgba(var(--on-surface-rgb),.45);cursor:pointer}
+.pill-tab.active{background:var(--surface);color:var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+
+/* ---- card container ---- */
+.card{background:var(--surface-container-low);border:1px solid rgba(var(--on-surface-rgb),.08);border-radius:18px;overflow:hidden}
+.card-header{background:var(--col-header-bg);border-bottom:1px solid var(--col-header-border);padding:10px 16px;
+  display:flex;align-items:center;justify-content:between;gap:10px}
+.card-header-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:900;color:#1A1A0E}
+.count-chip{background:rgba(26,26,10,.12);color:rgba(26,26,10,.6);border-radius:999px;
+  padding:2px 8px;font-size:9px;font-weight:900;letter-spacing:.02em}
+
+/* ---- table ---- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--col-header-bg);border-bottom:1px solid var(--col-header-border)}
+th{padding:11px 16px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--col-header-text);white-space:nowrap}
+td{padding:12px 16px;border-right:1px solid rgba(var(--on-surface-rgb),.06);vertical-align:middle;color:var(--on-surface)}
+td:last-child{border-right:0}
+tbody tr:nth-child(odd){background:var(--surface-container-low)}
+tbody tr:nth-child(even){background:var(--surface-container)}
+tbody tr:hover{background:rgba(var(--on-surface-rgb),.03)}
+
+.code-chip{display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:900;
+  border:1px solid rgba(216,30,30,.35);background:rgba(216,30,30,.16);color:#ff6b6b}
+.tag-tipo{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.tag-tipo.receita{background:rgba(52,211,153,.14);color:#34D399}
+.tag-tipo.despesa{background:rgba(251,113,133,.14);color:#fb7185}
+.pay-chip{display:inline-flex;align-items:center;gap:4px;width:fit-content;padding:2px 6px;border-radius:999px;font-size:10px;
+  font-weight:600;border:1px solid rgba(var(--on-surface-rgb),.16);color:rgba(var(--on-surface-rgb),.7)}
+.pay-chip b{color:#ff6b6b;font-weight:900}
+.fav-cell{display:flex;align-items:center;gap:6px;max-width:190px}
+.fav-name{font-weight:700;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eye-btn{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  color:rgba(var(--on-surface-rgb),.35);cursor:pointer}
+.eye-btn:hover{background:rgba(216,30,30,.18);color:#ff6b6b}
+.eye-btn.card-link{background:rgba(216,30,30,.22);color:#ff6b6b}
+.muted{color:rgba(var(--on-surface-rgb),.4)}
+.num{font-family:'DM Mono',monospace}
+
+/* ---- modal shell ---- */
+.modal-shell{background:var(--surface-container);border:1px solid rgba(var(--on-surface-rgb),.09);border-radius:24px;
+  padding:26px;max-width:480px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.modal-shell.wide{max-width:620px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-head-left{display:flex;align-items:center;gap:12px}
+.modal-icon{width:36px;height:36px;border-radius:12px;background:rgba(216,30,30,.15);display:flex;align-items:center;
+  justify-content:center;color:var(--primary);font-size:17px}
+.modal-title{font-size:18px;font-weight:800;color:var(--on-surface)}
+.close-btn{width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  color:rgba(var(--on-surface-rgb),.4);cursor:pointer}
+.close-btn:hover{background:rgba(var(--on-surface-rgb),.07)}
+
+label.field-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+  color:rgba(var(--on-surface-rgb),.45);display:block;margin-bottom:6px}
+.field-row{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+input.field-input,select.field-input{
+  width:100%;background:var(--surface);border:1.5px solid rgba(var(--on-surface-rgb),.10);border-radius:12px;
+  padding:11px 14px;font-size:13px;color:var(--on-surface);font-family:inherit;
+}
+input.field-input.readonly{background:rgba(var(--on-surface-rgb),.04);border-style:dashed;color:rgba(var(--on-surface-rgb),.5)}
+input.field-input:focus,select.field-input:focus{outline:none;border-color:rgba(216,30,30,.55)}
+.field-hint{font-size:10px;color:rgba(var(--on-surface-rgb),.32);line-height:1.4;margin-top:2px}
+
+.card-item{background:var(--surface);border:1px solid rgba(var(--on-surface-rgb),.09);border-radius:14px;padding:14px;
+  display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.card-item-icon{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#3a3a2e,#0d0d09);
+  display:flex;align-items:center;justify-content:center;color:#FFE500;font-size:16px;flex-shrink:0}
+.card-item-body{flex:1;min-width:0}
+.card-item-name{font-size:13.5px;font-weight:800;color:var(--on-surface)}
+.card-item-meta{font-size:11px;color:rgba(var(--on-surface-rgb),.45);margin-top:2px}
+.card-item-code{font-family:'DM Mono',monospace;font-size:10.5px;font-weight:700;background:rgba(var(--on-surface-rgb),.08);
+  color:rgba(var(--on-surface-rgb),.6);border-radius:8px;padding:4px 8px}
+.card-item-edit{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  color:rgba(var(--on-surface-rgb),.35);cursor:pointer}
+.card-item-edit:hover{background:rgba(var(--on-surface-rgb),.08);color:var(--primary)}
+
+.dashed-add{border:1.5px dashed rgba(var(--on-surface-rgb),.22);border-radius:14px;padding:14px;display:flex;align-items:center;
+  justify-content:center;gap:8px;color:rgba(var(--on-surface-rgb),.42);font-size:12px;font-weight:800;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.02em}
+.dashed-add:hover{border-color:var(--primary);color:var(--primary)}
+
+.switch{position:relative;width:38px;height:22px;border-radius:999px;background:rgba(var(--on-surface-rgb),.18);
+  flex-shrink:0;cursor:pointer;transition:background .15s}
+.switch.on{background:var(--primary)}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .15s}
+.switch.on::after{transform:translateX(16px)}
+
+.consolidado-box{background:rgba(var(--on-surface-rgb),.035);border:1px dashed rgba(var(--on-surface-rgb),.16);
+  border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
+.consolidado-label{font-size:11px;font-weight:700;color:rgba(var(--on-surface-rgb),.55)}
+.consolidado-value{font-family:'DM Mono',monospace;font-weight:800;font-size:14px;color:var(--on-surface)}
+
+.payment-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.payment-type-opt{border:1.5px solid rgba(var(--on-surface-rgb),.12);border-radius:12px;padding:10px 6px;text-align:center;
+  font-size:10.5px;font-weight:800;color:rgba(var(--on-surface-rgb),.5);cursor:pointer}
+.payment-type-opt.selected{border-color:var(--primary);background:rgba(216,30,30,.14);color:#ff6b6b}
+.payment-type-opt.disabled{opacity:.35;cursor:not-allowed;position:relative}
+
+.installment-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid rgba(var(--on-surface-rgb),.09);
+  border-radius:12px;padding:9px 12px;margin-bottom:8px}
+.installment-seq{width:24px;height:24px;border-radius:8px;background:rgba(216,30,30,.16);color:#ff6b6b;font-size:10px;
+  font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.installment-value{flex:1;font-family:'DM Mono',monospace;font-size:12.5px;color:var(--on-surface)}
+.installment-due{font-size:10.5px;color:rgba(var(--on-surface-rgb),.42);font-weight:700;font-family:'DM Mono',monospace;
+  white-space:nowrap}
+
+.btn-row{display:flex;gap:10px;margin-top:20px}
+.btn{flex:1;padding:11px;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer}
+.btn-cancel{border:1px solid rgba(var(--on-surface-rgb),.12);color:rgba(var(--on-surface-rgb),.55)}
+.btn-save{background:var(--primary);color:#fff;box-shadow:0 8px 18px rgba(216,30,30,.35)}
+
+.badge-new{display:inline-flex;align-items:center;gap:4px;background:rgba(216,30,30,.18);color:#ff6b6b;
+  font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= 1. HEADER COM NOVA ABA "CARTÕES" ================= -->
+  <div>
+    <div class="section-label">1 · Header · nova aba de nível superior "Cartões"</div>
+    <div class="fm-header-block">
+      <div class="fm-header">
+        <div class="fm-icon">💰</div>
+        <div>
+          <div class="fm-title">Controle Financeiro</div>
+          <div class="fm-subtitle">Gestão Financeira</div>
+        </div>
+      </div>
+      <div class="fm-tabs">
+        <div class="fm-tab">Controle Fin…</div>
+        <div class="fm-tab">Dados</div>
+        <div class="fm-tab active">Cartões</div>
+      </div>
+    </div>
+    <div class="section-note">Terceira aba adicionada ao mesmo padrão de header colado já existente (financeView). Ao clicar, carrega a view de faturas consolidadas por cartão.</div>
+  </div>
+
+  <!-- ================= 2. ABA DADOS — FAVORECIDOS / CONTAS NOMEADAS ================= -->
+  <div>
+    <div class="section-label">2 · Aba "Dados" — separação nomeada Favorecidos / Contas</div>
+    <div class="pill-tabs" style="margin-bottom:14px">
+      <div class="pill-tab">Favorecidos</div>
+      <div class="pill-tab active">Contas</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">🏦 Contas <span class="count-chip">3</span></span>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div class="card-item">
+          <div class="card-item-icon">🏛</div>
+          <div class="card-item-body">
+            <div class="card-item-name">Conta Corrente PF</div>
+            <div class="card-item-meta">Banco do Brasil · 2 cartões vinculados</div>
+          </div>
+          <div class="card-item-edit">✎</div>
+        </div>
+        <div class="card-item">
+          <div class="card-item-icon">🏛</div>
+          <div class="card-item-body">
+            <div class="card-item-name">Conta PJ Castelo Real</div>
+            <div class="card-item-meta">Nubank · 1 cartão vinculado</div>
+          </div>
+          <div class="card-item-edit">✎</div>
+        </div>
+      </div>
+    </div>
+    <div class="section-note">Continua sendo o carrossel já existente (<code>dadosPane</code>), só passa a exibir os rótulos "Favorecidos"/"Contas" como abas nomeadas em vez do botão de seta único.</div>
+  </div>
+
+  <!-- ================= 3. MODAL DE CONTA — PILL "DADOS" / "CARTÃO" ================= -->
+  <div>
+    <div class="section-label">3 · Modal de Conta — nova aba "Cartão" (N cartões por conta)</div>
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div class="modal-head-left">
+          <div class="modal-icon">🏛</div>
+          <div class="modal-title">Editar Conta</div>
+        </div>
+        <div class="close-btn">✕</div>
+      </div>
+      <div class="pill-tabs" style="margin-bottom:18px">
+        <div class="pill-tab">Dados</div>
+        <div class="pill-tab active">Cartão <span style="opacity:.6">(2)</span></div>
+      </div>
+
+      <div class="card-item">
+        <div class="card-item-icon">💳</div>
+        <div class="card-item-body">
+          <div class="card-item-name">Nubank Roxinho</div>
+          <div class="card-item-meta">Fecha dia 19 · Vence dia 26 · Limite R$ 8.000,00</div>
+        </div>
+        <div class="card-item-code">C1</div>
+        <div class="card-item-edit">✎</div>
+      </div>
+      <div class="card-item">
+        <div class="card-item-icon">💳</div>
+        <div class="card-item-body">
+          <div class="card-item-name">Cartão Adicional Esposa</div>
+          <div class="card-item-meta">Fecha dia 19 · Vence dia 26 · Sem limite definido</div>
+        </div>
+        <div class="card-item-code">C2</div>
+        <div class="card-item-edit">✎</div>
+      </div>
+
+      <div class="dashed-add" style="margin-top:4px">+ Novo Cartão</div>
+
+      <div style="height:1px;background:rgba(var(--on-surface-rgb),.09);margin:20px 0"></div>
+
+      <div class="section-note" style="margin-bottom:14px">Formulário do cartão (exibido ao clicar em "Novo Cartão" ou no ✎ de um cartão existente):</div>
+      <div class="field-row">
+        <label class="field-label">Nome do Cartão</label>
+        <input class="field-input" placeholder="Ex: Nubank Roxinho" value="Nubank Roxinho"/>
+      </div>
+      <div class="field-grid2">
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Data de Fechamento</label>
+          <input class="field-input" value="Dia 19"/>
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Data de Vencimento</label>
+          <input class="field-input" value="Dia 26"/>
+        </div>
+      </div>
+      <div class="field-grid2">
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Limite <span style="opacity:.5;text-transform:none">(opcional)</span></label>
+          <input class="field-input" value="R$ 8.000,00"/>
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Código</label>
+          <input class="field-input readonly" value="C1" disabled/>
+        </div>
+      </div>
+      <div class="field-hint" style="margin-bottom:10px">Código gerado automaticamente pelo sistema (C1, C2, ...) — identifica o cartão nas movimentações e faturas.</div>
+
+      <div class="btn-row">
+        <div class="btn btn-cancel">Cancelar</div>
+        <div class="btn btn-save">Salvar Cartão</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. MODAL MOVIMENTAÇÃO — CRÉDITO COM CARTÃO ================= -->
+  <div>
+    <div class="section-label">4 · Modal de Movimentação — pagamento "Crédito" com seletor de cartão</div>
+    <div class="modal-shell wide">
+      <div class="modal-head">
+        <div class="modal-head-left">
+          <div class="modal-icon">🧾</div>
+          <div class="modal-title">Nova Movimentação</div>
+        </div>
+        <div class="close-btn">✕</div>
+      </div>
+
+      <div class="field-grid2">
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Conta</label>
+          <select class="field-input">
+            <option>Conta Corrente PF — Nubank</option>
+          </select>
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <label class="field-label">Cartão</label>
+          <select class="field-input">
+            <option>C1 · Nubank Roxinho</option>
+            <option>C2 · Cartão Adicional Esposa</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="field-label" style="margin-bottom:8px;display:block">Tipo de Pagamento</label>
+      <div class="payment-type-grid">
+        <div class="payment-type-opt">Pix</div>
+        <div class="payment-type-opt">Débito</div>
+        <div class="payment-type-opt selected">Crédito</div>
+        <div class="payment-type-opt">Boleto</div>
+      </div>
+      <div class="field-hint" style="margin-top:-10px;margin-bottom:16px">A opção "Crédito" só fica disponível quando a conta selecionada tem ao menos um cartão cadastrado.</div>
+
+      <label class="field-label" style="margin-bottom:8px;display:block">Parcelas <span style="opacity:.5;text-transform:none">(vencimento calculado automaticamente pelo cartão)</span></label>
+      <div class="installment-row">
+        <div class="installment-seq">1/3</div>
+        <input class="installment-value field-input" style="border:none;background:transparent;padding:0" value="R$ 166,33"/>
+        <div class="installment-due">venc. 26/08/2026</div>
+      </div>
+      <div class="installment-row">
+        <div class="installment-seq">2/3</div>
+        <input class="installment-value field-input" style="border:none;background:transparent;padding:0" value="R$ 166,33"/>
+        <div class="installment-due">venc. 26/09/2026</div>
+      </div>
+      <div class="installment-row">
+        <div class="installment-seq">3/3</div>
+        <input class="installment-value field-input" style="border:none;background:transparent;padding:0" value="R$ 166,34"/>
+        <div class="installment-due">venc. 26/10/2026</div>
+      </div>
+      <div class="field-hint" style="margin-bottom:16px">Usuário digita só o valor de cada parcela — a data de vencimento é somente leitura, calculada a partir do fechamento/vencimento do cartão selecionado.</div>
+
+      <div class="btn-row">
+        <div class="btn btn-cancel">Cancelar</div>
+        <div class="btn btn-save">Salvar Movimentação</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 5. TABELA COMUM — LINHA DE FATURA CONSOLIDADA ================= -->
+  <div>
+    <div class="section-label">5 · Tabela comum — 1 linha consolidada por cartão/mês</div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th><th>Data</th><th>Tipo</th><th>Pagamento</th><th>Favorecido</th>
+            <th>Estabelec.</th><th>Vencimento</th><th>Valor Final</th><th>Pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="code-chip">12</span></td>
+            <td class="muted">05/08/2026</td>
+            <td><span class="tag-tipo despesa">Despesa</span></td>
+            <td><span class="pay-chip">Boleto</span></td>
+            <td>
+              <div class="fav-cell">
+                <span class="fav-name">Condomínio Ed. Central</span>
+                <div class="eye-btn">👁</div>
+              </div>
+            </td>
+            <td class="muted">Castelo Real</td>
+            <td class="num">10/08/2026</td>
+            <td class="num">R$ 890,00</td>
+            <td>✅</td>
+          </tr>
+          <tr style="background:rgba(216,30,30,.07)">
+            <td><span class="code-chip">13</span></td>
+            <td class="muted">—</td>
+            <td><span class="tag-tipo despesa">Despesa</span></td>
+            <td><span class="pay-chip">Fatura</span></td>
+            <td>
+              <div class="fav-cell">
+                <span class="fav-name" style="color:#ff6b6b">💳 Nubank Roxinho</span>
+                <div class="eye-btn card-link" title="Ver fatura detalhada">👁</div>
+              </div>
+            </td>
+            <td class="muted">Castelo Real</td>
+            <td class="num">19/08/2026</td>
+            <td class="num" style="font-weight:800">R$ 2.340,17</td>
+            <td>⬜</td>
+          </tr>
+          <tr>
+            <td><span class="code-chip">14</span></td>
+            <td class="muted">06/08/2026</td>
+            <td><span class="tag-tipo receita">Receita</span></td>
+            <td><span class="pay-chip">Pix</span></td>
+            <td>
+              <div class="fav-cell">
+                <span class="fav-name">Cliente Loja 2</span>
+                <div class="eye-btn">👁</div>
+              </div>
+            </td>
+            <td class="muted">Universo do R$1,99</td>
+            <td class="num">06/08/2026</td>
+            <td class="num">R$ 415,90</td>
+            <td>✅</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-note">Linha destacada = fatura consolidada do cartão "Nubank Roxinho" (agosto/2026). Coluna Favorecido mostra o nome do cartão, Vencimento mostra a data de fechamento, e o botão de olho leva direto para a aba "Cartões" filtrada por esse cartão + período — em vez do modal de detalhes de favorecido comum.</div>
+  </div>
+
+  <!-- ================= 6. ABA "CARTÕES" — TABELA DE MOVIMENTAÇÕES CONSOLIDADAS ================= -->
+  <div>
+    <div class="section-label">6 · Aba "Cartões" — movimentações de crédito consolidadas</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">💳 Fatura · Nubank Roxinho · Agosto/2026 <span class="count-chip">4 lançamentos</span></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th><th>Data</th><th>Tipo</th><th>Parcelas</th><th>Favorecido</th>
+            <th>Estabelec.</th><th>Vencimento</th><th>Valor Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="code-chip">13-a</span></td>
+            <td class="muted">03/08/2026</td>
+            <td><span class="tag-tipo despesa">Despesa</span></td>
+            <td><span class="pay-chip"><b>1/3</b></span></td>
+            <td class="fav-name">Amazon</td>
+            <td class="muted">Castelo Real</td>
+            <td class="num">19/08/2026</td>
+            <td class="num">R$ 166,33</td>
+          </tr>
+          <tr>
+            <td><span class="code-chip">13-b</span></td>
+            <td class="muted">08/08/2026</td>
+            <td><span class="tag-tipo despesa">Despesa</span></td>
+            <td><span class="pay-chip"><b>1/1</b></span></td>
+            <td class="fav-name">Posto Ipiranga</td>
+            <td class="muted">Castelo Real</td>
+            <td class="num">19/08/2026</td>
+            <td class="num">R$ 320,00</td>
+          </tr>
+          <tr>
+            <td><span class="code-chip">13-c</span></td>
+            <td class="muted">15/08/2026</td>
+            <td><span class="tag-tipo despesa">Despesa</span></td>
+            <td><span class="pay-chip"><b>2/2</b></span></td>
+            <td class="fav-name">Farmácia São João</td>
+            <td class="muted">Castelo Real</td>
+            <td class="num">19/08/2026</td>
+            <td class="num">R$ 1.853,84</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-note">Mesmas colunas da tabela comum, exceto "Pagamento" → vira "Parcelas", mostrando só o número (ex: 1/3) já que o meio de pagamento é sempre Crédito nessa view. Chegada aqui via clique no olho da linha de fatura consolidada, já filtrado por cartão + período.</div>
+  </div>
+
+  <!-- ================= 7. EDIÇÃO DA FATURA CONSOLIDADA — VALOR CONSOLIDADO / REAL ================= -->
+  <div>
+    <div class="section-label">7 · Edição da linha de fatura — Valor Consolidado / Valor Real</div>
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div class="modal-head-left">
+          <div class="modal-icon">💳</div>
+          <div class="modal-title">Editar Fatura — Nubank Roxinho</div>
+        </div>
+        <div class="close-btn">✕</div>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">Vencimento / Parcelas</label>
+        <input class="field-input readonly" value="Fatura fechada · 19/08/2026" disabled/>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">Valor <span class="badge-new">usa valor real</span></label>
+        <input class="field-input" style="font-weight:800;font-family:'DM Mono',monospace" value="R$ 2.310,00"/>
+      </div>
+
+      <div class="consolidado-box" style="margin-bottom:12px">
+        <span class="consolidado-label">Valor Consolidado <span style="opacity:.6">(soma automática dos lançamentos)</span></span>
+        <span class="consolidado-value">R$ 2.340,17</span>
+      </div>
+
+      <div class="consolidado-box" style="border-style:solid;border-color:rgba(216,30,30,.35);background:rgba(216,30,30,.08)">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span class="consolidado-label" style="color:#ff6b6b">Valor Real <span style="opacity:.7">(digitado do app do banco)</span></span>
+          <input class="field-input" style="border:none;background:transparent;padding:2px 0;font-family:'DM Mono',monospace;font-weight:800;font-size:14px" value="R$ 2.310,00"/>
+        </div>
+        <div class="switch on" title="Usar valor real como Valor exibido"></div>
+      </div>
+      <div class="field-hint" style="margin:8px 0 16px">Interruptor ligado → o campo "Valor" acima reflete o Valor Real. Desligado → volta a refletir o Valor Consolidado automaticamente.</div>
+
+      <div class="field-hint" style="margin-bottom:16px;font-style:italic">Sem seção de vínculo de nota fiscal nesta tela (não se aplica a faturas consolidadas).</div>
+
+      <div class="btn-row">
+        <div class="btn btn-cancel">Cancelar</div>
+        <div class="btn btn-save">Salvar Alterações</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

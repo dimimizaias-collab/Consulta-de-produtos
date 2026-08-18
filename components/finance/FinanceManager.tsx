@@ -18,60 +18,10 @@ import { TagGuide } from './TagGuide';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
+import type { PaymentType, TransactionType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
+import { calcularFatura } from '@/lib/creditoFatura';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
-type TransactionType = 'Receita' | 'Despesa';
-
-interface Transaction {
-  id: string;
-  data: string;
-  tipo: TransactionType;
-  tipo_pagamento: PaymentType;
-  favorecido: string;
-  estabelecimento: string;
-  vencimento: string | null;
-  valor_final: number;
-  total_pago: number;
-  pago: boolean;
-  numero_cheque: string | null;
-  identificacao: string | null;
-  numero_parcela: number | null;
-  total_parcelas: number | null;
-  parcelamento_id: string | null;
-  codigo_barras: string | null;
-  import_id?: string | null;
-  account_id?: string | null;
-  tag_ids: string[];
-  observacoes: string | null;
-  origem?: 'manual' | 'hr_salario';
-  data_pagamento?: string | null;
-  codigo?: string | null;
-  codigo_numero?: number | null;
-}
-
-interface BankAccount {
-  id: string;
-  nome: string;
-  banco: string;
-  agencia: string;
-  numero_conta: string;
-  imagem_url: string;
-  saldo_inicial: number;
-}
-
-interface Favorecido {
-  id: string;
-  nome_fiscal: string;
-  nome_banco: string;
-  supplier_id: string | null;
-}
-
-interface Supplier {
-  id: string;
-  name: string;
-}
 
 type TxForm = Omit<Transaction, 'id'> & { vencimento: string };
 
@@ -83,6 +33,13 @@ interface AccountForm {
   saldo_inicial: string;
   imagemPreview: string;
   imagemFile: File | null;
+}
+
+interface CardForm {
+  nome: string;
+  dia_fechamento: string;
+  dia_vencimento: string;
+  limite: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -145,6 +102,10 @@ const emptyAccountForm = (): AccountForm => ({
   nome: '', banco: '', agencia: '', numero_conta: '',
   saldo_inicial: '',
   imagemPreview: '', imagemFile: null,
+});
+
+const emptyCardForm = (): CardForm => ({
+  nome: '', dia_fechamento: '', dia_vencimento: '', limite: '',
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -241,14 +202,22 @@ interface FinanceManagerProps {
 export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: FinanceManagerProps = {}) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [cards, setCards] = useState<FinanceCard[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // "Dados" view (contas + favorecidos)
-  const [financeView, setFinanceView] = useState<'main' | 'dados'>('main');
+  const [financeView, setFinanceView] = useState<'main' | 'dados' | 'cartoes'>('main');
   const [dadosFavSearch, setDadosFavSearch] = useState('');
   const [dadosAccSearch, setDadosAccSearch] = useState('');
   const [dadosPane, setDadosPane] = useState<'favorecidos' | 'contas'>('favorecidos');
+
+  // aba "Cartões" — null mostra a lista de faturas, preenchido faz o drill-down na fatura
+  const [cartoesDrill, setCartoesDrill] = useState<{ cardId: string; periodo: string } | null>(null);
+  const goToFatura = (cardId: string, periodo: string) => {
+    setCartoesDrill({ cardId, periodo });
+    setFinanceView('cartoes');
+  };
 
   // transaction modal
   const [showTxModal, setShowTxModal] = useState(false);
@@ -257,7 +226,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [txForm, setTxForm] = useState<TxForm>(emptyTxForm());
   const [parcelasEnabled, setParcelasEnabled] = useState(false);
   // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
-  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; codigo_barras: string; id?: string }>>([]);
+  // `periodo` só é usado no fluxo de Crédito (calculado a partir do cartão) — grava fatura_periodo.
+  const [parcelas, setParcelas] = useState<Array<{ seq: number; data: string; valor: string; codigo_barras: string; id?: string; periodo?: string }>>([]);
   // Trava de edição do modal desktop — igual ao padrão do mobile: abre em modo leitura,
   // botão de lápis habilita a edição. Snapshot guarda o estado no momento em que abriu,
   // para detectar alterações não salvas ao tentar sair do modo de edição.
@@ -275,6 +245,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm());
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountModalTab, setAccountModalTab] = useState<'dados' | 'cartao'>('dados');
+
+  // cartões (dentro do modal de conta)
+  const [cardFormOpen, setCardFormOpen] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [cardForm, setCardForm] = useState<CardForm>(emptyCardForm());
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardSubmitting, setCardSubmitting] = useState(false);
 
   // favorecidos dictionary
   const [favorecidos, setFavorecidos] = useState<Favorecido[]>([]);
@@ -354,12 +332,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   const fetchAll = async () => {
     setLoadingData(true);
-    const [txRes, accRes] = await Promise.all([
+    const [txRes, accRes, cardRes] = await Promise.all([
       supabase.from('finance_transactions').select('*').order('data', { ascending: false }),
       supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
+      supabase.from('finance_cards').select('*').order('created_at', { ascending: true }),
     ]);
-    if (txRes.data)  setTransactions(txRes.data as Transaction[]);
-    if (accRes.data) setAccounts(accRes.data as BankAccount[]);
+    if (txRes.data)   setTransactions(txRes.data as Transaction[]);
+    if (accRes.data)  setAccounts(accRes.data as BankAccount[]);
+    if (cardRes.data) setCards(cardRes.data as FinanceCard[]);
     setLoadingData(false);
   };
 
@@ -500,6 +480,22 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // ── Transactions CRUD ────────────────────────────────────────────────────
 
+  // Recalcula data/período de cada parcela de crédito sempre que a data da compra, o
+  // cartão selecionado, ou a quantidade de parcelas mudam — vencimento nunca é digitado
+  // manualmente no fluxo de Crédito, só o valor de cada parcela.
+  useEffect(() => {
+    if (txForm.tipo_pagamento !== 'Crédito' || !txForm.card_id) return;
+    const card = cards.find(c => c.id === txForm.card_id);
+    if (!card) return;
+    setParcelas(prev => prev.map(p => {
+      // seq preserva a posição real da parcela (relevante ao editar uma parcela isolada
+      // de uma compra parcelada — ex: a 2ª de 3 — fora do fluxo de "editar todas").
+      const { periodo, vencimento } = calcularFatura(txForm.data, card, (p.seq || 1) - 1);
+      return { ...p, data: vencimento, periodo };
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txForm.tipo_pagamento, txForm.card_id, txForm.data, parcelas.length, cards]);
+
   const openAddTx = () => {
     setEditingId(null);
     setTxForm(emptyTxForm());
@@ -522,7 +518,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     const nextForm: TxForm = { ...t, vencimento: t.vencimento ?? '', tag_ids: t.tag_ids ?? [] };
     // Vencimento agora vive no editor de parcelas: 1 linha = pagamento único com vencimento
     const nextParcelasEnabled = !!t.vencimento;
-    const nextParcelas = t.vencimento ? [{ seq: 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : [];
+    // seq preserva o número real da parcela (ex: editar a 2ª de 3 isoladamente) — importante
+    // no fluxo de Crédito, onde o vencimento é recalculado a partir de seq-1 meses após o
+    // fechamento do cartão, não da posição do array.
+    const nextParcelas = t.vencimento ? [{ seq: t.numero_parcela ?? 1, data: t.vencimento, valor: String(t.valor_final), codigo_barras: t.codigo_barras ?? '', id: t.id }] : [];
     setTxForm(nextForm);
     setParcelasEnabled(nextParcelasEnabled);
     setParcelas(nextParcelas);
@@ -585,6 +584,21 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const handleTxSubmit = async () => {
     if (!txForm.favorecido.trim()) return;
     setSubmitting(true);
+    // Períodos de fatura que existiam ANTES desta edição (linha única ou grupo inteiro) —
+    // usados no final para ressincronizar a fatura de origem caso a movimentação mude de
+    // cartão, de período (a data mudou de mês), ou deixe de ser Crédito.
+    const creditSyncTargets = new Map<string, Set<string>>();
+    const addSyncTarget = (cardId: string | null | undefined, periodo: string | null | undefined) => {
+      if (!cardId || !periodo) return;
+      if (!creditSyncTargets.has(cardId)) creditSyncTargets.set(cardId, new Set());
+      creditSyncTargets.get(cardId)!.add(periodo);
+    };
+    const originalRows = editingGroupIds
+      ? transactions.filter(t => editingGroupIds.includes(t.id))
+      : editingId
+        ? transactions.filter(t => t.id === editingId)
+        : [];
+    for (const r of originalRows) addSyncTarget(r.card_id, r.fatura_periodo);
     try {
       if (parcelasEnabled) {
         const valid = parcelas.filter(p => p.data && parseFloat(p.valor) > 0);
@@ -599,7 +613,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           account_id: txForm.account_id ?? null,
           tag_ids: txForm.tag_ids ?? [],
           observacoes: txForm.observacoes?.trim() || null,
+          card_id: txForm.tipo_pagamento === 'Crédito' ? (txForm.card_id ?? null) : null,
         };
+        // Períodos de fatura afetados por esta submissão — sincronizados no final.
+        const creditoPeriodos = txForm.tipo_pagamento === 'Crédito' && txForm.card_id
+          ? [...new Set(valid.map(p => p.periodo).filter((p): p is string => !!p))]
+          : [];
 
         if (editingId && !editingGroupIds && valid.length === 1) {
           // Edição simples de uma linha (vencimento único ou parcela individual):
@@ -608,6 +627,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             ...base, data: txForm.data, vencimento: valid[0].data,
             valor_final: parseFloat(valid[0].valor) || 0,
             codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (valid[0].codigo_barras || null) : null,
+            fatura_periodo: valid[0].periodo ?? null,
           }).eq('id', editingId);
         } else if (editingGroupIds) {
           // Edição do grupo inteiro: diff contra as linhas carregadas — parcelas que
@@ -626,6 +646,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               ...base, data: p.data, vencimento: p.data, valor_final: parseFloat(p.valor) || 0,
               numero_parcela: i + 1, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
               codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+              fatura_periodo: p.periodo ?? null,
               pago: original?.pago ?? false,
               total_pago: original?.total_pago ?? 0,
               import_id: original?.import_id ?? null,
@@ -667,6 +688,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 total_pago: 0, pago: false, import_id: null,
                 numero_parcela: null as number | null, total_parcelas: null as number | null, parcelamento_id: null as string | null,
                 codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (valid[0].codigo_barras || null) : null,
+                fatura_periodo: valid[0].periodo ?? null,
               }]
             // data = data de lançamento; vencimento = data da parcela (usada pela DespesasPage)
             : (() => {
@@ -676,6 +698,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   total_pago: 0, pago: false, import_id: null,
                   numero_parcela: p.seq, total_parcelas: valid.length, parcelamento_id: parcelamentoId,
                   codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+                  fatura_periodo: p.periodo ?? null,
                 }));
               })();
           const { data: inserted } = await supabase.from('finance_transactions')
@@ -683,6 +706,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           if (inserted && relinkNoteIds.length > 0)
             await linkNotesToTransactions(inserted, relinkNoteIds);
         }
+
+        if (txForm.card_id) creditoPeriodos.forEach(p => addSyncTarget(txForm.card_id, p));
       } else {
         if (txForm.valor_final <= 0) return;
         const payload = {
@@ -695,6 +720,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           parcelamento_id: null,
           codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (txForm.codigo_barras || null) : null,
           observacoes: txForm.observacoes?.trim() || null,
+          // Crédito sempre passa pelo branch de parcelas (parcelasEnabled) — chegar aqui
+          // significa que não é (ou deixou de ser) uma movimentação de cartão.
+          card_id: null,
+          fatura_periodo: null,
+          is_fatura_consolidada: false,
         };
         if (editingId) {
           await supabase.from('finance_transactions').update(payload).eq('id', editingId);
@@ -705,10 +735,62 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
         }
       }
+
+      // Ressincroniza todas as faturas afetadas — tanto o período novo quanto qualquer
+      // período/cartão antigo que essa movimentação tenha deixado (mudou de mês, de
+      // cartão, ou deixou de ser Crédito).
+      for (const [cardId, periodos] of creditSyncTargets) {
+        await syncFaturaConsolidada(cardId, [...periodos]);
+      }
+
       await fetchAll();
       setShowTxModal(false);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Mantém em dia a linha-resumo mensal ("fatura consolidada") de um cartão: soma o
+  // valor_final de todas as movimentações de crédito daquele cartão/período (excluindo a
+  // própria linha-resumo) e cria/atualiza/remove a linha consolidada de acordo.
+  //
+  // Conhecido: não trata ainda o caso de uma movimentação mudar de período ao editar a
+  // data de uma parcela dentro de um grupo já existente (editingGroupIds) — isso ficará
+  // para uma etapa posterior de QA de casos de borda.
+  const syncFaturaConsolidada = async (cardId: string, periodos: string[]) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    for (const periodo of [...new Set(periodos)]) {
+      const { data: rows } = await supabase
+        .from('finance_transactions')
+        .select('valor_final, estabelecimento')
+        .eq('card_id', cardId).eq('fatura_periodo', periodo).eq('is_fatura_consolidada', false);
+      const total = (rows ?? []).reduce((s, r) => s + (r.valor_final || 0), 0);
+
+      const { data: existing } = await supabase
+        .from('finance_transactions')
+        .select('id')
+        .eq('card_id', cardId).eq('fatura_periodo', periodo).eq('is_fatura_consolidada', true)
+        .maybeSingle();
+
+      if (total <= 0) {
+        if (existing) await supabase.from('finance_transactions').delete().eq('id', existing.id);
+        continue;
+      }
+
+      const { vencimento } = calcularFatura(periodo, card, 0);
+      const estabelecimento = rows?.[0]?.estabelecimento || ESTABLISHMENTS[0];
+
+      if (existing) {
+        await supabase.from('finance_transactions').update({ valor_final: total, vencimento, estabelecimento }).eq('id', existing.id);
+      } else {
+        await supabase.from('finance_transactions').insert({
+          card_id: cardId, fatura_periodo: periodo, is_fatura_consolidada: true,
+          data: periodo, vencimento, valor_final: total,
+          tipo: 'Despesa', tipo_pagamento: 'Crédito',
+          favorecido: card.nome, estabelecimento, pago: false, tag_ids: [],
+        });
+      }
     }
   };
 
@@ -747,6 +829,26 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     }
   };
 
+  // Edição da linha-resumo de uma fatura de cartão: só Tags/Observações/Valor Real/
+  // interruptor são editáveis — vencimento, favorecido, conta e valor_final (o
+  // consolidado) são derivados e mantidos por syncFaturaConsolidada.
+  const handleSaveFaturaConsolidada = async () => {
+    if (!editingId) return;
+    setSubmitting(true);
+    try {
+      await supabase.from('finance_transactions').update({
+        valor_real: txForm.valor_real ?? null,
+        usar_valor_real: txForm.usar_valor_real ?? false,
+        tag_ids: txForm.tag_ids ?? [],
+        observacoes: txForm.observacoes?.trim() || null,
+      }).eq('id', editingId);
+      await fetchAll();
+      setShowTxModal(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDeleteTx = (id: string) => {
     const tx = transactions.find(t => t.id === id);
     if (tx?.origem === 'hr_salario') return;
@@ -763,6 +865,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setTransactions(prev => prev.filter(t => t.id !== id));
     await cleanupNoteLinksForDeletedTxs([id]);
     await cleanupOrphanedLogs([tx?.import_id]);
+    // Excluir uma compra de crédito precisa refazer o total da fatura daquele período.
+    if (tx?.card_id && !tx.is_fatura_consolidada && tx.fatura_periodo) {
+      await syncFaturaConsolidada(tx.card_id, [tx.fatura_periodo]);
+    }
   };
 
   const toggleSelectionMode = () => {
@@ -863,6 +969,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       }
       await supabase.from('finance_transactions').update(patch).eq('id', markPaidTx.id);
       setTransactions(prev => prev.map(x => x.id === markPaidTx.id ? { ...x, ...patch } : x));
+
+      // Fatura de cartão: pagar a fatura quita em cascata todas as compras daquele período.
+      if (markPaidTx.is_fatura_consolidada && markPaidTx.card_id && markPaidTx.fatura_periodo && patch.pago) {
+        const siblings = transactions.filter(x =>
+          x.card_id === markPaidTx.card_id && x.fatura_periodo === markPaidTx.fatura_periodo && !x.is_fatura_consolidada);
+        await Promise.all(siblings.map(s => supabase.from('finance_transactions').update({
+          pago: true, total_pago: s.valor_final, account_id: patch.account_id, data_pagamento: patch.data_pagamento,
+        }).eq('id', s.id)));
+        setTransactions(prev => prev.map(x =>
+          x.card_id === markPaidTx.card_id && x.fatura_periodo === markPaidTx.fatura_periodo && !x.is_fatura_consolidada
+            ? { ...x, pago: true, total_pago: x.valor_final, account_id: patch.account_id ?? null, data_pagamento: patch.data_pagamento ?? null }
+            : x
+        ));
+      }
       setMarkPaidTx(null);
     } finally {
       setMarkPaidSubmitting(false);
@@ -876,6 +996,15 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       const patch = { pago: false, total_pago: 0, data_pagamento: null as string | null };
       await supabase.from('finance_transactions').update(patch).eq('id', unmarkPaidTx.id);
       setTransactions(prev => prev.map(x => x.id === unmarkPaidTx.id ? { ...x, ...patch } : x));
+
+      if (unmarkPaidTx.is_fatura_consolidada && unmarkPaidTx.card_id && unmarkPaidTx.fatura_periodo) {
+        await supabase.from('finance_transactions').update(patch)
+          .eq('card_id', unmarkPaidTx.card_id).eq('fatura_periodo', unmarkPaidTx.fatura_periodo).eq('is_fatura_consolidada', false);
+        setTransactions(prev => prev.map(x =>
+          x.card_id === unmarkPaidTx.card_id && x.fatura_periodo === unmarkPaidTx.fatura_periodo && !x.is_fatura_consolidada
+            ? { ...x, ...patch } : x
+        ));
+      }
       setUnmarkPaidTx(null);
     } finally {
       setUnmarkPaidSubmitting(false);
@@ -888,6 +1017,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setEditingAccountId(null);
     setAccountForm(emptyAccountForm());
     setAccountError(null);
+    setAccountModalTab('dados');
+    closeCardForm();
     setShowAccountModal(true);
   };
 
@@ -903,6 +1034,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       imagemFile: null,
     });
     setAccountError(null);
+    setAccountModalTab('dados');
+    closeCardForm();
     setShowAccountModal(true);
   };
 
@@ -962,6 +1095,92 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // ── Cartões de crédito (dentro do modal de Conta) ───────────────────────────
+
+  const accountCards = (accountId: string | null) =>
+    accountId ? cards.filter(c => c.account_id === accountId) : [];
+
+  const openNewCard = () => {
+    setEditingCardId(null);
+    setCardForm(emptyCardForm());
+    setCardError(null);
+    setCardFormOpen(true);
+  };
+
+  const openEditCard = (card: FinanceCard) => {
+    setEditingCardId(card.id);
+    setCardForm({
+      nome: card.nome,
+      dia_fechamento: String(card.dia_fechamento),
+      dia_vencimento: String(card.dia_vencimento),
+      limite: card.limite != null ? String(card.limite) : '',
+    });
+    setCardError(null);
+    setCardFormOpen(true);
+  };
+
+  const closeCardForm = () => {
+    setCardFormOpen(false);
+    setEditingCardId(null);
+    setCardForm(emptyCardForm());
+    setCardError(null);
+  };
+
+  const handleCardSubmit = async () => {
+    if (!editingAccountId) return;
+    const nome = cardForm.nome.trim();
+    const fechamento = parseInt(cardForm.dia_fechamento, 10);
+    const vencimento = parseInt(cardForm.dia_vencimento, 10);
+    if (!nome) { setCardError('Informe o nome do cartão.'); return; }
+    if (!Number.isInteger(fechamento) || fechamento < 1 || fechamento > 31) {
+      setCardError('Data de fechamento deve ser um dia entre 1 e 31.'); return;
+    }
+    if (!Number.isInteger(vencimento) || vencimento < 1 || vencimento > 31) {
+      setCardError('Data de vencimento deve ser um dia entre 1 e 31.'); return;
+    }
+    const limite = cardForm.limite.trim() ? parseFloat(cardForm.limite.replace(',', '.')) : null;
+    if (limite != null && (isNaN(limite) || limite < 0)) { setCardError('Limite inválido.'); return; }
+
+    setCardSubmitting(true);
+    setCardError(null);
+    try {
+      if (editingCardId) {
+        const payload = { nome, dia_fechamento: fechamento, dia_vencimento: vencimento, limite };
+        const { error } = await supabase.from('finance_cards').update(payload).eq('id', editingCardId);
+        if (error) throw error;
+        setCards(prev => prev.map(c => c.id === editingCardId ? { ...c, ...payload } : c));
+      } else {
+        const { data, error } = await supabase
+          .from('finance_cards')
+          .insert({ account_id: editingAccountId, nome, dia_fechamento: fechamento, dia_vencimento: vencimento, limite })
+          .select()
+          .single();
+        if (error) throw error;
+        if (data) setCards(prev => [...prev, data as FinanceCard]);
+      }
+      closeCardForm();
+    } catch (err: any) {
+      setCardError(err?.message || 'Erro ao salvar cartão.');
+    } finally {
+      setCardSubmitting(false);
+    }
+  };
+
+  const handleDeleteCard = async (id: string) => {
+    const linkedCount = transactions.filter(t => t.card_id === id && !t.is_fatura_consolidada).length;
+    const msg = linkedCount > 0
+      ? `Excluir este cartão? ${linkedCount} movimentação(ões) já vinculada(s) a ele deixarão de aparecer na aba Cartões (não serão apagadas) e as faturas consolidadas dele serão removidas.`
+      : 'Excluir este cartão?';
+    if (!confirm(msg)) return;
+    // As linhas-resumo de fatura ficariam órfãs (sem cartão pra recalcular/exibir) —
+    // as compras individuais continuam existindo, só perdem o vínculo com o cartão.
+    await supabase.from('finance_transactions').delete().eq('card_id', id).eq('is_fatura_consolidada', true);
+    await supabase.from('finance_cards').delete().eq('id', id);
+    setCards(prev => prev.filter(c => c.id !== id));
+    setTransactions(prev => prev.filter(t => !(t.card_id === id && t.is_fatura_consolidada)));
+    if (editingCardId === id) closeCardForm();
   };
 
   // ── Import Extrato ───────────────────────────────────────────────────────
@@ -1228,6 +1447,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // dropdown de uma coluna reflitam o que a tabela já está mostrando (período + demais filtros),
   // sem esconder as próprias opções já selecionadas nessa coluna.
   const passesBaseFilters = (t: Transaction, excludeKey?: string): boolean => {
+    // Movimentações de crédito individuais (vinculadas a um cartão, mas não a linha-resumo
+    // da fatura) não aparecem na tabela comum — só na aba "Cartões", via o drill-down.
+    if (t.card_id && !t.is_fatura_consolidada) return false;
     for (const [key, selected] of Object.entries(columnFilters)) {
       if (key === excludeKey) continue;
       if (selected.size === 0) continue;
@@ -1471,6 +1693,80 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     </div>
   );
 
+  // Versão simplificada de renderParcelasSection para Crédito: sem toggle (sempre ativo
+  // enquanto Crédito estiver selecionado) e sem input de data — o usuário só digita o
+  // valor de cada parcela, o vencimento é sempre calculado a partir do cartão selecionado.
+  const renderCreditoParcelasSection = () => {
+    const card = cards.find(c => c.id === txForm.card_id);
+    return (
+      <div className="flex flex-col gap-2 md:col-span-2">
+        <span className={labelCls}>Parcelas{card ? ` — vencimento calculado pelo cartão ${card.nome}` : ''}</span>
+        {!card ? (
+          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/40 select-none')}>
+            Selecione um cartão para calcular o vencimento
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-xl border border-black/[0.10] dark:border-white/[0.10] overflow-hidden">
+              <div className="grid grid-cols-[52px_1fr_1fr_36px] bg-[#FFF7B0] dark:bg-[#FFE500] border-b border-[#DDD000] dark:border-[#C8B800]">
+                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Nº</span>
+                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Valor</span>
+                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Vencimento</span>
+                <span />
+              </div>
+              {parcelas.map((p, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'border-t border-black/[0.06] dark:border-white/[0.06] first:border-t-0 grid grid-cols-[52px_1fr_1fr_36px] gap-2 items-center p-2',
+                    idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'
+                  )}
+                >
+                  <span className="text-center text-[13px] font-extrabold text-on-surface/35">{p.seq}/{Math.max(parcelas.length, p.seq)}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={p.valor}
+                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                    onWheel={blockWheelChange}
+                    placeholder="0,00"
+                    className={cn(inputCls, noSpinnerCls)}
+                  />
+                  <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none text-center')}>
+                    {p.data ? fmtDate(p.data) : '—'}
+                  </div>
+                  {parcelas.length > 1 ? (
+                    <button
+                      onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
+                      title="Remover parcela"
+                      className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  ) : <span />}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: '', valor: '', codigo_barras: '' }])}
+                className="flex items-center gap-1.5 text-xs font-extrabold text-primary hover:opacity-70 transition-opacity"
+              >
+                <Plus size={13} />Adicionar parcela
+              </button>
+              {parcelas.length > 1 && totalParcelas > 0 && (
+                <span className="text-[11px] font-extrabold text-on-surface/50">
+                  {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const tagUseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of transactions) {
@@ -1606,58 +1902,214 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // Header + abas de nível superior — usado tanto no render principal (main/dados) quanto
+  // na aba "Cartões", que tem um retorno cedo próprio (ver abaixo) para não mexer no
+  // ternário grande main/dados já existente.
+  const renderFinanceHeader = () => (
+    <div className="relative mb-14">
+      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
+        <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
+          <Wallet size={24} strokeWidth={2} />
+        </div>
+        <div>
+          <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Controle Financeiro</h1>
+          <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Gestão Financeira</div>
+        </div>
+      </div>
+
+      <div className="absolute left-0 top-full flex">
+        {([
+          { key: 'main', label: 'Controle Financeiro' },
+          { key: 'dados', label: 'Dados' },
+          { key: 'cartoes', label: 'Cartões' },
+        ] as const).map((tab, i, arr) => {
+          const HEADER_TAB_LABEL_MAX = 12;
+          const label = tab.label.length > HEADER_TAB_LABEL_MAX
+            ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
+            : tab.label;
+          const active = financeView === tab.key;
+          return (
+            <button
+              key={tab.key}
+              title={tab.label}
+              onClick={() => {
+                if (tab.key === 'dados' && financeView !== 'dados') {
+                  fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos');
+                }
+                if (tab.key === 'cartoes' && financeView !== 'cartoes') {
+                  setCartoesDrill(null);
+                }
+                setFinanceView(tab.key);
+              }}
+              className={cn(
+                'w-[136px] h-[34px] flex items-center justify-center shrink-0',
+                'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                i === arr.length - 1 && 'rounded-br-[12px]',
+                'text-[12px] font-extrabold uppercase tracking-wide truncate',
+                'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                active
+                  ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                  : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (financeView === 'cartoes') {
+    const faturas = transactions
+      .filter(t => t.is_fatura_consolidada)
+      .sort((a, b) => (b.fatura_periodo ?? '').localeCompare(a.fatura_periodo ?? ''));
+    const drillCard = cartoesDrill ? cards.find(c => c.id === cartoesDrill.cardId) : null;
+    const drillItems = cartoesDrill
+      ? transactions
+          .filter(t => t.card_id === cartoesDrill.cardId && t.fatura_periodo === cartoesDrill.periodo && !t.is_fatura_consolidada)
+          .sort((a, b) => a.data.localeCompare(b.data))
+      : [];
+    const periodoLabel = (periodo: string | null | undefined) =>
+      periodo ? new Date(periodo + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase()) : '—';
+
+    return (
+      <div className="space-y-6">
+        {renderFinanceHeader()}
+
+        {!cartoesDrill ? (
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
+            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2">
+              <CreditCard size={15} className="text-[#1A1A0E]" />
+              <span className="text-[13px] font-black text-[#1A1A0E]">Faturas de Cartão</span>
+              <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{faturas.length}</span>
+            </div>
+            {faturas.length === 0 ? (
+              <div className="flex flex-col items-center py-10 text-on-surface/25">
+                <CreditCard size={32} className="mb-2" />
+                <p className="text-sm font-bold">Nenhuma fatura ainda</p>
+                <p className="text-xs mt-1">Movimentações em Crédito geram a fatura do mês automaticamente</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-on-surface/[0.06]">
+                {faturas.map(f => {
+                  const card = cards.find(c => c.id === f.card_id);
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => f.card_id && f.fatura_periodo && setCartoesDrill({ cardId: f.card_id, periodo: f.fatura_periodo })}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-on-surface/[0.03] transition-colors text-left"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <CreditCard size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] font-extrabold text-on-surface truncate">{card?.nome ?? f.favorecido}</p>
+                        <p className="text-[11px] text-on-surface/45">{periodoLabel(f.fatura_periodo)} · Vencimento {fmtDate(f.vencimento)}</p>
+                      </div>
+                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0', f.pago ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400')}>
+                        {f.pago ? 'Paga' : 'Em aberto'}
+                      </span>
+                      <span className="font-black text-on-surface shrink-0 tabular-nums">{fmt(f.usar_valor_real ? (f.valor_real ?? f.valor_final) : f.valor_final)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
+            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
+              <button
+                onClick={() => setCartoesDrill(null)}
+                title="Voltar para a lista de faturas"
+                className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform] shrink-0"
+              >
+                <ArrowLeft size={14} />
+              </button>
+              <CreditCard size={15} className="text-[#1A1A0E] shrink-0" />
+              <span className="text-[13px] font-black text-[#1A1A0E] truncate">
+                Fatura · {drillCard?.nome ?? '—'} · {periodoLabel(cartoesDrill.periodo)}
+              </span>
+              <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide shrink-0">{drillItems.length} lançamentos</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Código</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Data</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Tipo</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Parcelas</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Favorecido</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Estabelec.</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Vencimento</th>
+                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Valor Final</th>
+                    <th className="px-4 py-3 w-16" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {drillItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-14 text-center">
+                        <CreditCard size={32} className="mx-auto mb-2 text-on-surface/20" />
+                        <p className="font-bold text-on-surface/30 text-sm">Nenhum lançamento nesta fatura</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    drillItems.map((t, idx) => (
+                      <tr key={t.id} className={cn('border-t border-on-surface/[0.06]', idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]')}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {t.codigo && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border border-primary/20 bg-primary/10 text-primary">
+                              {t.codigo}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+                            t.tipo === 'Receita' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          )}>
+                            {t.tipo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
+                            <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 max-w-[180px] font-semibold text-on-surface truncate" title={t.favorecido}>{t.favorecido}</td>
+                        <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
+                        <td className="px-4 py-3 text-on-surface/70 whitespace-nowrap">{fmtDate(t.vencimento)}</td>
+                        <td className="px-4 py-3 font-bold text-on-surface whitespace-nowrap">{fmt(t.valor_final)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => openEditTx(t)} title="Editar" className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
+                              <Edit2 size={13} />
+                            </button>
+                            <button onClick={() => handleDeleteTx(t.id)} title="Excluir" className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative mb-14">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-            <Wallet size={24} strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Controle Financeiro</h1>
-            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Gestão Financeira</div>
-          </div>
-        </div>
-
-        <div className="absolute left-0 top-full flex">
-          {([
-            { key: 'main', label: 'Controle Financeiro' },
-            { key: 'dados', label: 'Dados' },
-          ] as const).map((tab, i, arr) => {
-            const HEADER_TAB_LABEL_MAX = 12;
-            const label = tab.label.length > HEADER_TAB_LABEL_MAX
-              ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
-              : tab.label;
-            const active = financeView === tab.key;
-            return (
-              <button
-                key={tab.key}
-                title={tab.label}
-                onClick={() => {
-                  if (tab.key === 'dados' && financeView !== 'dados') {
-                    fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos');
-                  }
-                  setFinanceView(tab.key);
-                }}
-                className={cn(
-                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                  i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[12px] font-extrabold uppercase tracking-wide truncate',
-                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
-                  active
-                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {renderFinanceHeader()}
 
       {financeView === 'dados' ? (
         <div className="overflow-hidden rounded-[18px]">
@@ -2508,7 +2960,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {(() => {
+                          {t.is_fatura_consolidada ? (
+                            <span className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-primary/20 bg-primary/10 text-primary">
+                              Fatura
+                            </span>
+                          ) : (() => {
                             const numero = t.tipo_pagamento === 'Cheque' ? t.numero_cheque
                               : t.tipo_pagamento === 'Boleto' ? (t.codigo_barras ? t.codigo_barras.slice(-8) : null)
                               : t.identificacao;
@@ -2533,7 +2989,19 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           })()}
                         </td>
                         <td className="px-4 py-3 max-w-[180px]">
-                          {(() => {
+                          {t.is_fatura_consolidada ? (
+                            <div className="flex items-center gap-1.5">
+                              <CreditCard size={12} className="text-primary shrink-0" />
+                              <span className="font-semibold text-on-surface truncate min-w-0" title={t.favorecido}>{t.favorecido}</span>
+                              <button
+                                onClick={() => t.card_id && t.fatura_periodo && goToFatura(t.card_id, t.fatura_periodo)}
+                                title="Ver fatura detalhada"
+                                className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center shrink-0 bg-primary/10 text-primary hover:bg-primary/20 active:scale-[0.9] transition-[background-color,transform]"
+                              >
+                                <Eye size={12} />
+                              </button>
+                            </div>
+                          ) : (() => {
                             const favMatch = favorecidos.find(f => f.nome_fiscal.trim().toLowerCase() === t.favorecido.trim().toLowerCase());
                             return (
                               <div className="flex items-center gap-1.5">
@@ -2677,6 +3145,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         {showTxModal && (() => {
           const isLockedView = !!editingId && txLocked;
           const isHrSalario = !!editingId && editingTx?.origem === 'hr_salario';
+          const isFaturaRow = !!editingTx?.is_fatura_consolidada;
+          const faturaValorConsolidado = isFaturaRow
+            ? transactions
+                .filter(x => x.card_id === editingTx!.card_id && x.fatura_periodo === editingTx!.fatura_periodo && !x.is_fatura_consolidada)
+                .reduce((s, x) => s + x.valor_final, 0)
+            : 0;
           const selectedAccount = accounts.find(a => a.id === txForm.account_id);
           const selectedTagObjs = tags.filter(tg => (txForm.tag_ids ?? []).includes(tg.id));
           const showIdentificacao = txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto';
@@ -2783,7 +3257,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {/* Data */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Data</label>
-                  {isLockedView || isHrSalario ? (
+                  {isLockedView || isHrSalario || isFaturaRow ? (
                     <div className={viewBlockCls}>{fmtDate(txForm.data)}</div>
                   ) : (
                     <input type="date" value={txForm.data} onChange={e => setTxForm(f => ({ ...f, data: e.target.value }))} className={inputCls} />
@@ -2793,7 +3267,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {/* Favorecido — custom combobox */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Favorecido</label>
-                  {isLockedView || isHrSalario ? (
+                  {isLockedView || isHrSalario || isFaturaRow ? (
                     <div className={viewBlockCls}>{txForm.favorecido || '—'}</div>
                   ) : (
                     <div className="flex gap-2 items-stretch">
@@ -2882,7 +3356,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {/* Conta */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Conta</label>
-                  {isLockedView ? (
+                  {isLockedView || isFaturaRow ? (
                     <div className={viewBlockCls}>{selectedAccount ? `${selectedAccount.nome} — ${selectedAccount.banco}` : '—'}</div>
                   ) : editingTx && needsPaymentQuestionnaire(editingTx) && editingTx.pago ? (
                     // Movimentação já paga: conta trava contra edições acidentais — a troca
@@ -2905,7 +3379,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     </div>
                   ) : (
                     <div className="flex gap-2 items-stretch">
-                      <select value={txForm.account_id ?? ''} onChange={e => setTxForm(f => ({ ...f, account_id: e.target.value || null }))} className={cn(inputCls, 'flex-1')}>
+                      <select
+                        value={txForm.account_id ?? ''}
+                        onChange={e => {
+                          const accountId = e.target.value || null;
+                          // Trocar de conta pode invalidar o cartão selecionado (pertence à conta anterior).
+                          const stillValid = cards.some(c => c.id === txForm.card_id && c.account_id === accountId);
+                          setTxForm(f => ({ ...f, account_id: accountId, card_id: stillValid ? f.card_id : null }));
+                          if (!stillValid && txForm.tipo_pagamento === 'Crédito') { setParcelasEnabled(false); setParcelas([]); }
+                        }}
+                        className={cn(inputCls, 'flex-1')}
+                      >
                         <option value="">Selecione a conta...</option>
                         {accounts.map(a => <option key={a.id} value={a.id}>{a.nome} — {a.banco}</option>)}
                       </select>
@@ -2925,16 +3409,55 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {/* Tipo de Pagamento (+ Numeração do Cheque + Vencimento/Parcelas) */}
                 <div className="flex flex-col gap-1.5">
                   <label className={labelCls}>Tipo de Pagamento</label>
-                  {isLockedView ? (
+                  {isLockedView || isFaturaRow ? (
                     <div className={viewBlockCls}>{txForm.tipo_pagamento}</div>
-                  ) : (
-                    <select
-                      value={txForm.tipo_pagamento}
-                      onChange={e => setTxForm(f => ({ ...f, tipo_pagamento: e.target.value as PaymentType }))}
-                      className={inputCls}
-                    >
-                      {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                  ) : (() => {
+                    const accountHasCards = cards.some(c => c.account_id === txForm.account_id);
+                    return (
+                      <select
+                        value={txForm.tipo_pagamento}
+                        onChange={e => {
+                          const nextType = e.target.value as PaymentType;
+                          if (nextType === 'Crédito') {
+                            const defaultCard = cards.find(c => c.account_id === txForm.account_id);
+                            setTxForm(f => ({ ...f, tipo_pagamento: nextType, card_id: defaultCard?.id ?? null }));
+                            setParcelasEnabled(true);
+                            setParcelas([{ seq: 1, data: '', valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: '' }]);
+                          } else {
+                            setTxForm(f => ({ ...f, tipo_pagamento: nextType, card_id: null }));
+                            if (txForm.tipo_pagamento === 'Crédito') { setParcelasEnabled(false); setParcelas([]); }
+                          }
+                        }}
+                        className={inputCls}
+                      >
+                        {PAYMENT_TYPES.map(p => (
+                          <option key={p} value={p} disabled={p === 'Crédito' && !accountHasCards}>
+                            {p}{p === 'Crédito' && !accountHasCards ? ' (conta sem cartão)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })()}
+
+                  {/* Cartão — só aparece quando Tipo de Pagamento é Crédito */}
+                  {txForm.tipo_pagamento === 'Crédito' && (
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <label className={labelCls}>Cartão</label>
+                      {isLockedView || isFaturaRow ? (
+                        <div className={viewBlockCls}>{cards.find(c => c.id === txForm.card_id)?.nome ?? '—'}</div>
+                      ) : (
+                        <select
+                          value={txForm.card_id ?? ''}
+                          onChange={e => setTxForm(f => ({ ...f, card_id: e.target.value || null }))}
+                          className={inputCls}
+                        >
+                          <option value="">Selecione o cartão...</option>
+                          {cards.filter(c => c.account_id === txForm.account_id).map(c => (
+                            <option key={c.id} value={c.id}>{c.codigo} · {c.nome}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   )}
 
                   {/* Numeração do Cheque */}
@@ -2957,15 +3480,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </div>
 
                 {/* Vencimento / Parcelas — 1 parcela = pagamento único com vencimento */}
-                {isLockedView || isHrSalario ? (
+                {isFaturaRow ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Vencimento / Parcelas</label>
+                    <div className={viewBlockCls}>Fatura fechada · {fmtDate(editingTx!.vencimento)}</div>
+                  </div>
+                ) : isLockedView || isHrSalario ? (
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Vencimento / Parcelas</label>
                     <div className={viewBlockCls}>{parcelasSummary}</div>
                   </div>
-                ) : renderParcelasSection()}
+                ) : txForm.tipo_pagamento === 'Crédito' ? renderCreditoParcelasSection() : renderParcelasSection()}
 
-                {/* Identificação — genérico para os tipos que não têm campo próprio */}
-                {showIdentificacao && (
+                {/* Identificação — genérico para os tipos que não têm campo próprio (não se aplica a faturas) */}
+                {showIdentificacao && !isFaturaRow && (
                   <div className="flex flex-col gap-1.5">
                     <label className={labelCls}>Identificação</label>
                     {isLockedView ? (
@@ -2983,18 +3511,85 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 )}
 
                 {/* Valor */}
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Valor (R$)</label>
-                  {isLockedView || isHrSalario ? (
-                    <div className={viewBlockCls}>{fmt(parcelasEnabled ? totalParcelas : txForm.valor_final)}</div>
-                  ) : parcelasEnabled ? (
-                    <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
-                      {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
+                {isFaturaRow ? (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={cn(labelCls, 'flex items-center gap-1.5')}>
+                        Valor (R$)
+                        {txForm.usar_valor_real && (
+                          <span className="normal-case font-bold text-primary text-[9px] bg-primary/10 rounded-full px-1.5 py-0.5">usa valor real</span>
+                        )}
+                      </label>
+                      <div className={cn(viewBlockCls, 'font-bold')}>
+                        {fmt(txForm.usar_valor_real ? (txForm.valor_real ?? faturaValorConsolidado) : faturaValorConsolidado)}
+                      </div>
                     </div>
-                  ) : (
-                    <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
-                  )}
-                </div>
+
+                    <div className="flex flex-col gap-1.5 md:col-span-2">
+                      <div className="flex items-center justify-between bg-on-surface/[0.03] border border-dashed border-on-surface/[0.14] rounded-xl px-3.5 py-2.5">
+                        <span className="text-[11px] font-bold text-on-surface/55">
+                          Valor Consolidado <span className="opacity-70 font-medium">(soma automática dos lançamentos)</span>
+                        </span>
+                        <span className="font-mono font-black text-[14px] text-on-surface">{fmt(faturaValorConsolidado)}</span>
+                      </div>
+
+                      <div className={cn(
+                        'flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 border',
+                        txForm.usar_valor_real ? 'border-primary/25 bg-primary/[0.04]' : 'border-dashed border-on-surface/[0.14]'
+                      )}>
+                        <div className="flex-1 min-w-0">
+                          <span className={cn('text-[11px] font-bold block mb-1', txForm.usar_valor_real ? 'text-primary' : 'text-on-surface/55')}>
+                            Valor Real <span className="opacity-70 font-medium normal-case">(digitado do app do banco)</span>
+                          </span>
+                          {isLockedView ? (
+                            <span className="font-mono font-black text-[14px] text-on-surface">{txForm.valor_real != null ? fmt(txForm.valor_real) : '—'}</span>
+                          ) : (
+                            <input
+                              type="number" step="0.01" min="0"
+                              value={txForm.valor_real ?? ''}
+                              onChange={e => setTxForm(f => ({ ...f, valor_real: e.target.value === '' ? null : parseFloat(e.target.value) || 0 }))}
+                              onWheel={blockWheelChange}
+                              placeholder="0,00"
+                              className={cn('bg-transparent border-none outline-none w-full font-mono font-black text-[14px] text-on-surface p-0', noSpinnerCls)}
+                            />
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isLockedView}
+                          onClick={() => setTxForm(f => ({ ...f, usar_valor_real: !f.usar_valor_real }))}
+                          title="Usar valor real como Valor exibido"
+                          className={cn(
+                            'relative w-[38px] h-[22px] rounded-full shrink-0 transition-colors',
+                            isLockedView && 'opacity-60 cursor-not-allowed',
+                            txForm.usar_valor_real ? 'bg-primary' : 'bg-on-surface/15'
+                          )}
+                        >
+                          <span className={cn(
+                            'absolute top-[2px] left-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform',
+                            txForm.usar_valor_real && 'translate-x-4'
+                          )} />
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-on-surface/30 leading-tight">
+                        Interruptor ligado: o campo "Valor" acima reflete o Valor Real. Desligado: volta a refletir o Valor Consolidado automaticamente.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelCls}>Valor (R$)</label>
+                    {isLockedView || isHrSalario ? (
+                      <div className={viewBlockCls}>{fmt(parcelasEnabled ? totalParcelas : txForm.valor_final)}</div>
+                    ) : parcelasEnabled ? (
+                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                        {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
+                      </div>
+                    ) : (
+                      <input type="number" step="0.01" min="0" value={txForm.valor_final || ''} onChange={e => setTxForm(f => ({ ...f, valor_final: parseFloat(e.target.value) || 0 }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, noSpinnerCls)} />
+                    )}
+                  </div>
+                )}
                 </div>
               </div>
 
@@ -3039,7 +3634,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 {/* Estabelecimento */}
                 <div className="flex flex-col gap-1.5 md:col-span-2">
                   <label className={labelCls}>Estabelecimento</label>
-                  {isLockedView || isHrSalario ? (
+                  {isLockedView || isHrSalario || isFaturaRow ? (
                     <div className={viewBlockCls}>{txForm.estabelecimento || '—'}</div>
                   ) : (
                     <select value={txForm.estabelecimento} onChange={e => setTxForm(f => ({ ...f, estabelecimento: e.target.value }))} className={inputCls}>
@@ -3050,6 +3645,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </div>
               </div>
 
+              {/* Notas Fiscais Vinculadas — não se aplica a faturas de cartão consolidadas */}
+              {!isFaturaRow && (
               <div className={sectionCls}>
                 <div className={sectionHeadCls}>
                   <FileUp size={15} className="text-primary shrink-0" />
@@ -3065,6 +3662,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   siblingTxs={editingTxSiblings}
                 />
               </div>
+              )}
 
               <div className={sectionCls}>
                 <div className={sectionHeadCls}>
@@ -3098,7 +3696,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
                     Cancelar
                   </button>
-                  <button onClick={isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button onClick={isFaturaRow ? handleSaveFaturaConsolidada : isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
                     {submitting && <Loader2 size={14} className="animate-spin" />}
                     {editingId ? 'Salvar Alterações' : 'Adicionar'}
                   </button>
@@ -3311,8 +3909,121 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </button>
               </div>
 
+              <div className="flex gap-1.5 mb-5 bg-on-surface/[0.05] p-1 rounded-xl">
+                <button
+                  onClick={() => setAccountModalTab('dados')}
+                  className={cn(
+                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
+                    accountModalTab === 'dados' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
+                  )}
+                >
+                  Dados
+                </button>
+                <button
+                  onClick={() => editingAccountId && setAccountModalTab('cartao')}
+                  disabled={!editingAccountId}
+                  title={!editingAccountId ? 'Salve a conta primeiro para cadastrar cartões' : undefined}
+                  className={cn(
+                    'flex-1 py-2 rounded-[9px] text-[11px] font-extrabold uppercase tracking-wide transition-colors',
+                    !editingAccountId ? 'text-on-surface/20 cursor-not-allowed'
+                      : accountModalTab === 'cartao' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface/45'
+                  )}
+                >
+                  Cartão{accountCards(editingAccountId).length > 0 ? ` (${accountCards(editingAccountId).length})` : ''}
+                </button>
+              </div>
+
+              {accountModalTab === 'cartao' ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2.5">
+                    {accountCards(editingAccountId).length === 0 && !cardFormOpen && (
+                      <div className="flex flex-col items-center gap-2 text-center py-8 px-4 border-[1.5px] border-dashed border-on-surface/[0.14] rounded-2xl text-on-surface/35">
+                        <CreditCard size={20} className="opacity-50" />
+                        <span className="text-[11.5px] font-bold max-w-[260px]">Nenhum cartão cadastrado para esta conta</span>
+                      </div>
+                    )}
+                    {accountCards(editingAccountId).map(card => (
+                      <div key={card.id} className="flex items-center gap-3 bg-surface border border-on-surface/[0.08] rounded-2xl p-3.5">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <CreditCard size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13.5px] font-extrabold text-on-surface truncate">{card.nome}</p>
+                          <p className="text-[11px] text-on-surface/45 truncate">
+                            Fecha dia {card.dia_fechamento} · Vence dia {card.dia_vencimento}
+                            {card.limite != null ? ` · Limite ${fmt(card.limite)}` : ' · Sem limite definido'}
+                          </p>
+                        </div>
+                        <span className="font-mono text-[10.5px] font-bold bg-on-surface/[0.06] text-on-surface/55 rounded-lg px-2 py-1 shrink-0">{card.codigo}</span>
+                        <button onClick={() => openEditCard(card)} title="Editar" className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors shrink-0">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => handleDeleteCard(card.id)} title="Excluir" className="w-7 h-7 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-on-surface/40 hover:text-red-500 transition-colors shrink-0">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!cardFormOpen ? (
+                    <button
+                      onClick={openNewCard}
+                      className="border-[1.5px] border-dashed border-on-surface/20 rounded-2xl py-3.5 flex items-center justify-center gap-2 text-on-surface/40 text-xs font-extrabold uppercase tracking-wide hover:border-primary hover:text-primary transition-colors"
+                    >
+                      <Plus size={15} /> Novo Cartão
+                    </button>
+                  ) : (
+                    <div className="flex flex-col gap-4 pt-1 border-t border-on-surface/[0.08]">
+                      <div className="flex flex-col gap-1.5 mt-4">
+                        <label className={labelCls}>Nome do Cartão</label>
+                        <input type="text" value={cardForm.nome} onChange={e => setCardForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Nubank Roxinho" className={inputCls} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Data de Fechamento</label>
+                          <input type="number" min={1} max={31} value={cardForm.dia_fechamento} onChange={e => setCardForm(f => ({ ...f, dia_fechamento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Data de Vencimento</label>
+                          <input type="number" min={1} max={31} value={cardForm.dia_vencimento} onChange={e => setCardForm(f => ({ ...f, dia_vencimento: e.target.value }))} onWheel={blockWheelChange} placeholder="Dia" className={cn(inputCls, noSpinnerCls)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Limite <span className="normal-case font-medium opacity-70">(opcional)</span></label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
+                            <input type="number" step="0.01" min="0" value={cardForm.limite} onChange={e => setCardForm(f => ({ ...f, limite: e.target.value }))} onWheel={blockWheelChange} placeholder="0,00" className={cn(inputCls, 'pl-9', noSpinnerCls)} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className={labelCls}>Código</label>
+                          <div className={viewBlockCls}>{editingCardId ? cards.find(c => c.id === editingCardId)?.codigo : 'Gerado ao salvar'}</div>
+                        </div>
+                      </div>
+
+                      {cardError && (
+                        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
+                          {cardError}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button onClick={closeCardForm} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                          Cancelar
+                        </button>
+                        <button onClick={handleCardSubmit} disabled={cardSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                          {cardSubmitting && <Loader2 size={14} className="animate-spin" />}
+                          {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               {/* Existing accounts list — shown only when adding a new account */}
-              {!editingAccountId && accounts.length > 0 && (
+              {accountModalTab === 'dados' && !editingAccountId && accounts.length > 0 && (
                 <div className="mb-4">
                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface/40 mb-2">Contas cadastradas</p>
                   <div className="flex flex-col gap-1.5">
@@ -3336,80 +4047,84 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 </div>
               )}
 
-              <div className="flex flex-col gap-4">
-                {/* Image upload */}
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Imagem da Conta</label>
-                  <label className="cursor-pointer group">
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
-                    {accountForm.imagemPreview ? (
-                      <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
-                        <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Upload size={20} className="text-white" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-32 rounded-2xl border-2 border-dashed border-on-surface/10 flex flex-col items-center justify-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
-                        <ImageIcon size={28} />
-                        <span className="text-xs font-semibold">Clique para adicionar imagem</span>
-                      </div>
-                    )}
-                  </label>
-                </div>
+              {accountModalTab === 'dados' && (
+                <>
+                  <div className="flex flex-col gap-4">
+                    {/* Image upload */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Imagem da Conta</label>
+                      <label className="cursor-pointer group">
+                        <input type="file" accept="image/*" className="hidden" onChange={handleAccountImageChange} />
+                        {accountForm.imagemPreview ? (
+                          <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-on-surface/10">
+                            <img src={accountForm.imagemPreview} alt="Preview" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Upload size={20} className="text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-32 rounded-2xl border-2 border-dashed border-on-surface/10 flex flex-col items-center justify-center gap-2 text-on-surface/30 hover:border-primary/40 hover:text-primary/50 transition-colors">
+                            <ImageIcon size={28} />
+                            <span className="text-xs font-semibold">Clique para adicionar imagem</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Nome da Conta</label>
-                  <input type="text" value={accountForm.nome} onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Conta Corrente PF" className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Banco</label>
-                  <input type="text" value={accountForm.banco} onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))} placeholder="Ex: Banco do Brasil" className={inputCls} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Agência</label>
-                    <input type="text" value={accountForm.agencia} onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))} placeholder="0000-0" className={inputCls} />
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Nome da Conta</label>
+                      <input type="text" value={accountForm.nome} onChange={e => setAccountForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Conta Corrente PF" className={inputCls} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Banco</label>
+                      <input type="text" value={accountForm.banco} onChange={e => setAccountForm(f => ({ ...f, banco: e.target.value }))} placeholder="Ex: Banco do Brasil" className={inputCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls}>Agência</label>
+                        <input type="text" value={accountForm.agencia} onChange={e => setAccountForm(f => ({ ...f, agencia: e.target.value }))} placeholder="0000-0" className={inputCls} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={labelCls}>Número da Conta</label>
+                        <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={accountForm.saldo_inicial}
+                          onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
+                          onWheel={blockWheelChange}
+                          placeholder="0,00"
+                          className={cn(inputCls, 'pl-9', noSpinnerCls)}
+                        />
+                      </div>
+                      <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className={labelCls}>Número da Conta</label>
-                    <input type="text" value={accountForm.numero_conta} onChange={e => setAccountForm(f => ({ ...f, numero_conta: e.target.value }))} placeholder="00000-0" className={inputCls} />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className={labelCls}>Saldo Inicial (Jan/2026)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-on-surface/40">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={accountForm.saldo_inicial}
-                      onChange={e => setAccountForm(f => ({ ...f, saldo_inicial: e.target.value }))}
-                      onWheel={blockWheelChange}
-                      placeholder="0,00"
-                      className={cn(inputCls, 'pl-9', noSpinnerCls)}
-                    />
-                  </div>
-                  <p className="text-[10px] text-on-surface/30 leading-tight">Saldo disponível na conta em 01/01/2026. Usado como base para o cálculo do saldo real.</p>
-                </div>
-              </div>
 
-              {accountError && (
-                <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
-                  {accountError}
-                </div>
+                  {accountError && (
+                    <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 leading-relaxed">
+                      {accountError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => { setShowAccountModal(false); setAccountError(null); }} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                      {submitting && <Loader2 size={14} className="animate-spin" />}
+                      {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => { setShowAccountModal(false); setAccountError(null); }} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
-                  Cancelar
-                </button>
-                <button onClick={handleAccountSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-                  {submitting && <Loader2 size={14} className="animate-spin" />}
-                  {editingAccountId ? 'Salvar Alterações' : 'Cadastrar Conta'}
-                </button>
-              </div>
             </motion.div>
           </div>
         )}

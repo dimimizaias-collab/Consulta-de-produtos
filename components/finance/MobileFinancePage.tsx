@@ -6,7 +6,7 @@ import {
   Plus, X, TrendingDown, Wallet, Monitor,
   Search, Filter, CheckSquare, Calendar, ChevronLeft, ChevronRight, Clock,
   Check, Loader2, Trash2, Pencil, Lock, CreditCard, AlertTriangle, Info,
-  Building2, Users, ImageIcon, Edit2,
+  Building2, Users, ImageIcon, Edit2, Eye, ArrowLeft,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -19,40 +19,14 @@ import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTag
 import { TagSelector } from './TagSelector';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
+import type { PaymentType, TransactionType as TxType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
+import { calcularFatura } from '@/lib/creditoFatura';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type PaymentType = 'Boleto' | 'Crédito' | 'Débito' | 'PIX' | 'Dinheiro' | 'Transferência' | 'Cheque' | 'Outro';
-type TxType = 'Receita' | 'Despesa';
-type Tab = 'mov' | 'dash' | 'dados';
+type Tab = 'mov' | 'dash' | 'dados' | 'cartoes';
 type DashPeriod = '7d' | '30d' | '3m' | '6m' | '1y';
 type SearchField = 'favorecido' | 'estabelecimento' | 'tipo' | 'tipo_pagamento' | 'tags' | 'vencimento';
-
-interface Transaction {
-  id: string;
-  data: string;
-  tipo: TxType;
-  tipo_pagamento: PaymentType;
-  favorecido: string;
-  estabelecimento: string;
-  vencimento: string | null;
-  valor_final: number;
-  total_pago: number;
-  pago: boolean;
-  numero_cheque: string | null;
-  identificacao: string | null;
-  numero_parcela: number | null;
-  total_parcelas: number | null;
-  parcelamento_id: string | null;
-  codigo_barras: string | null;
-  account_id?: string | null;
-  tag_ids: string[];
-  observacoes: string | null;
-  origem?: 'manual' | 'hr_salario';
-  data_pagamento?: string | null;
-  codigo?: string | null;
-  codigo_numero?: number | null;
-}
 
 type TxForm = {
   tipo: TxType;
@@ -68,32 +42,12 @@ type TxForm = {
   numero_cheque: string | null;
   identificacao: string | null;
   data_pagamento: string | null;
+  card_id: string | null;
 };
 
 // id presente = linha já existe no banco; ausente = parcela nova (ainda não salva)
-type ParcelaRow = { seq: number; valor: string; validade: string; codigo_barras?: string; id?: string };
-
-interface BankAccount {
-  id: string;
-  nome: string;
-  banco: string;
-  agencia: string;
-  numero_conta: string;
-  imagem_url: string;
-  saldo_inicial: number;
-}
-
-interface Favorecido {
-  id: string;
-  nome_fiscal: string;
-  nome_banco: string;
-  supplier_id: string | null;
-}
-
-interface Supplier {
-  id: string;
-  name: string;
-}
+// `periodo` só é usado no fluxo de Crédito (calculado a partir do cartão) — grava fatura_periodo.
+type ParcelaRow = { seq: number; valor: string; validade: string; codigo_barras?: string; id?: string; periodo?: string };
 
 interface AccountForm {
   nome: string;
@@ -137,6 +91,7 @@ const emptyForm = (): TxForm => ({
   numero_cheque: null,
   identificacao: null,
   data_pagamento: null,
+  card_id: null,
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -320,6 +275,7 @@ function TxSheet({
   tags,
   onCreateTag,
   accounts,
+  cards,
   parcelas,
   onOpenParcelas,
   pendingNotes,
@@ -333,6 +289,7 @@ function TxSheet({
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
   accounts: BankAccount[];
+  cards: FinanceCard[];
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
   pendingNotes: LinkedNoteLite[];
@@ -432,21 +389,48 @@ function TxSheet({
         <div>
           <span className={labelCls}>Tipo de pagamento</span>
           <div className="flex flex-wrap gap-2">
-            {PAYMENT_TYPES.map(pt => (
-              <button
-                key={pt}
-                onClick={() => setForm({ ...form, tipo_pagamento: pt })}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
-                  form.tipo_pagamento === pt
-                    ? 'bg-[rgba(26,26,10,0.09)] dark:bg-white/[0.10] border-[rgba(26,26,10,0.18)] dark:border-white/[0.18] text-[#1A1A0E] dark:text-[#F2F0E3]'
-                    : 'bg-transparent border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] text-[rgba(26,26,10,0.35)] dark:text-white/25'
-                )}
-              >
-                {pt}
-              </button>
-            ))}
+            {PAYMENT_TYPES.map(pt => {
+              const accountCards = cards.filter(c => c.account_id === form.account_id);
+              const disabled = pt === 'Crédito' && accountCards.length === 0;
+              return (
+                <button
+                  key={pt}
+                  disabled={disabled}
+                  onClick={() => {
+                    if (pt === 'Crédito') {
+                      setForm({ ...form, tipo_pagamento: pt, card_id: accountCards[0]?.id ?? null });
+                    } else {
+                      setForm({ ...form, tipo_pagamento: pt, card_id: null });
+                    }
+                  }}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    disabled && 'opacity-35',
+                    form.tipo_pagamento === pt
+                      ? 'bg-[rgba(26,26,10,0.09)] dark:bg-white/[0.10] border-[rgba(26,26,10,0.18)] dark:border-white/[0.18] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                      : 'bg-transparent border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] text-[rgba(26,26,10,0.35)] dark:text-white/25'
+                  )}
+                >
+                  {pt}{disabled ? ' 🔒' : ''}
+                </button>
+              );
+            })}
           </div>
+          {form.tipo_pagamento === 'Crédito' && (
+            <div className="mt-2">
+              <span className={labelCls}>Cartão</span>
+              <select
+                className={fieldCls}
+                value={form.card_id ?? ''}
+                onChange={e => setForm({ ...form, card_id: e.target.value || null })}
+              >
+                <option value="">Selecione o cartão...</option>
+                {cards.filter(c => c.account_id === form.account_id).map(c => (
+                  <option key={c.id} value={c.id}>{c.codigo} · {c.nome}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {form.tipo_pagamento === 'Cheque' && (
             <input
               className={cn(fieldCls, 'mt-2')}
@@ -457,15 +441,18 @@ function TxSheet({
           )}
           <button
             onClick={onOpenParcelas}
+            disabled={form.tipo_pagamento === 'Crédito' && !form.card_id}
             className={cn(
-              'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2',
+              'w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border-[1.5px] transition-colors flex items-center justify-center gap-2 disabled:opacity-40',
               parcelas.length > 0
                 ? 'bg-[rgba(216,30,30,0.10)] border-[rgba(216,30,30,0.24)] text-[#D81E1E]'
                 : 'bg-transparent border-[rgba(26,26,10,0.10)] dark:border-white/[0.08] text-[rgba(26,26,10,0.45)] dark:text-white/35'
             )}
           >
             <CreditCard size={13} />
-            {parcelas.length === 1 ? 'Vencimento configurado'
+            {form.tipo_pagamento === 'Crédito'
+              ? (parcelas.length > 0 ? `${parcelas.length} parcela${parcelas.length > 1 ? 's' : ''} configurada${parcelas.length > 1 ? 's' : ''}` : 'Configurar parcelas')
+              : parcelas.length === 1 ? 'Vencimento configurado'
               : parcelas.length > 1 ? `${parcelas.length} parcelas configuradas`
               : 'Vencimento / Parcelas'}
           </button>
@@ -968,6 +955,7 @@ function TxDetailSheet({
   tags,
   onCreateTag,
   accounts,
+  cards,
   parcelas,
   onOpenParcelas,
   groupTotal,
@@ -989,6 +977,7 @@ function TxDetailSheet({
   tags: FinanceTag[];
   onCreateTag: (nome: string, cor: string) => Promise<FinanceTag>;
   accounts: BankAccount[];
+  cards: FinanceCard[];
   parcelas: ParcelaRow[];
   onOpenParcelas: () => void;
   groupTotal: number | null;
@@ -1000,6 +989,7 @@ function TxDetailSheet({
   onTogglePago?: (tx: Transaction) => void;
 }) {
   const isHrSalario = tx.origem === 'hr_salario';
+  const isFaturaRow = !!tx.is_fatura_consolidada;
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isEdit = mode === 'edit';
 
@@ -1113,7 +1103,7 @@ function TxDetailSheet({
         {/* Favorecido */}
         <div>
           <span className={labelCls}>Favorecido / Descrição</span>
-          {isEdit && !isHrSalario ? (
+          {isEdit && !isHrSalario && !isFaturaRow ? (
             <input
               className={fieldCls}
               value={form.favorecido}
@@ -1128,7 +1118,9 @@ function TxDetailSheet({
         {/* Conta */}
         <div>
           <span className={labelCls}>Conta</span>
-          {isEdit && tx.pago && needsPaymentQuestionnaire(tx) ? (
+          {isFaturaRow ? (
+            <div className={viewBlockCls}>{accounts.find(a => a.id === tx.account_id)?.nome ?? '—'}</div>
+          ) : isEdit && tx.pago && needsPaymentQuestionnaire(tx) ? (
             // Movimentação já paga: conta trava contra edições acidentais — a troca só
             // acontece pelo mesmo mini-formulário usado ao marcar como paga.
             <div className="flex flex-col gap-1.5">
@@ -1166,27 +1158,51 @@ function TxDetailSheet({
         {/* Tipo Pagamento */}
         <div>
           <span className={labelCls}>Tipo de pagamento</span>
-          {isEdit ? (
+          {isEdit && !isFaturaRow ? (
             <div className="flex flex-wrap gap-2">
-              {PAYMENT_TYPES.map(pt => (
-                <button
-                  key={pt}
-                  onClick={() => setForm({ ...form, tipo_pagamento: pt })}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
-                    form.tipo_pagamento === pt
-                      ? 'bg-[rgba(26,26,10,0.09)] dark:bg-white/[0.10] border-[rgba(26,26,10,0.18)] dark:border-white/[0.18] text-[#1A1A0E] dark:text-[#F2F0E3]'
-                      : 'bg-transparent border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] text-[rgba(26,26,10,0.35)] dark:text-white/25'
-                  )}
-                >
-                  {pt}
-                </button>
-              ))}
+              {PAYMENT_TYPES.map(pt => {
+                const accountCards = cards.filter(c => c.account_id === form.account_id);
+                const disabled = pt === 'Crédito' && accountCards.length === 0;
+                return (
+                  <button
+                    key={pt}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (pt === 'Crédito') setForm({ ...form, tipo_pagamento: pt, card_id: accountCards[0]?.id ?? null });
+                      else setForm({ ...form, tipo_pagamento: pt, card_id: null });
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                      disabled && 'opacity-35',
+                      form.tipo_pagamento === pt
+                        ? 'bg-[rgba(26,26,10,0.09)] dark:bg-white/[0.10] border-[rgba(26,26,10,0.18)] dark:border-white/[0.18] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                        : 'bg-transparent border-[rgba(26,26,10,0.07)] dark:border-white/[0.07] text-[rgba(26,26,10,0.35)] dark:text-white/25'
+                    )}
+                  >
+                    {pt}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <span className="inline-block bg-[rgba(26,26,10,0.08)] dark:bg-white/[0.08] border-[1.5px] border-[rgba(26,26,10,0.14)] dark:border-white/[0.14] rounded-lg px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#1A1A0E] dark:text-[#F2F0E3]">
-              {tx.tipo_pagamento}
+              {isFaturaRow ? 'Fatura' : tx.tipo_pagamento}
             </span>
+          )}
+          {isEdit && !isFaturaRow && form.tipo_pagamento === 'Crédito' && (
+            <div className="mt-2">
+              <span className={labelCls}>Cartão</span>
+              <select
+                className={fieldCls}
+                value={form.card_id ?? ''}
+                onChange={e => setForm({ ...form, card_id: e.target.value || null })}
+              >
+                <option value="">Selecione o cartão...</option>
+                {cards.filter(c => c.account_id === form.account_id).map(c => (
+                  <option key={c.id} value={c.id}>{c.codigo} · {c.nome}</option>
+                ))}
+              </select>
+            </div>
           )}
           {isEdit && form.tipo_pagamento === 'Cheque' && (
             <input
@@ -1196,7 +1212,16 @@ function TxDetailSheet({
               placeholder="Numeração do cheque (ex: 000123)"
             />
           )}
-          {isEdit && !isHrSalario && (
+          {isFaturaRow && (
+            <div className="min-w-0 mt-2">
+              <span className={labelCls}>Vencimento</span>
+              <div className={cn(viewBlockCls, 'font-semibold')}>Fatura fechada · {tx.vencimento ? new Date(tx.vencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</div>
+              <p className="text-[10px] text-[rgba(26,26,10,0.35)] dark:text-white/25 mt-1.5 leading-tight">
+                Para ajustar o valor real da fatura ou ver os lançamentos, use o Controle Financeiro no computador.
+              </p>
+            </div>
+          )}
+          {isEdit && !isHrSalario && !isFaturaRow && (
             <button
               onClick={onOpenParcelas}
               className={cn(
@@ -1227,7 +1252,7 @@ function TxDetailSheet({
             </button>
           )}
           {/* Vencimento / Parcelamento (somente leitura — configurar via "Visualizar pagamento" acima) */}
-          {(!isEdit || isHrSalario) && (
+          {(!isEdit || isHrSalario) && !isFaturaRow && (
             <div className="min-w-0 mt-2">
               {tx.vencimento ? (
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1269,8 +1294,8 @@ function TxDetailSheet({
           )}
         </div>
 
-        {/* Identificação — genérico para os tipos que não têm campo próprio */}
-        {tx.tipo_pagamento !== 'Cheque' && tx.tipo_pagamento !== 'Boleto' && (
+        {/* Identificação — genérico para os tipos que não têm campo próprio (não se aplica a faturas) */}
+        {tx.tipo_pagamento !== 'Cheque' && tx.tipo_pagamento !== 'Boleto' && !isFaturaRow && (
           <div>
             <span className={labelCls}>Identificação</span>
             {isEdit ? (
@@ -1289,7 +1314,7 @@ function TxDetailSheet({
         {/* Valor */}
         <div>
           <span className={labelCls}>Valor</span>
-          {isEdit && !isHrSalario ? (
+          {isEdit && !isHrSalario && !isFaturaRow ? (
             <input
               type="text"
               inputMode="decimal"
@@ -1345,7 +1370,7 @@ function TxDetailSheet({
         {/* Estabelecimento */}
         <div>
           <span className={labelCls}>Estabelecimento</span>
-          {isEdit && !isHrSalario ? (
+          {isEdit && !isHrSalario && !isFaturaRow ? (
             <div className="flex gap-2">
               {ESTABLISHMENTS.map(e => (
                 <button
@@ -1369,14 +1394,16 @@ function TxDetailSheet({
           )}
         </div>
 
-        {/* Notas fiscais vinculadas */}
-        <LinkedNotesSection
-          variant="mobile"
-          editable={isEdit && !isHrSalario}
-          txId={tx.id}
-          txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
-          siblingTxs={siblingTxs}
-        />
+        {/* Notas fiscais vinculadas — não se aplica a faturas de cartão consolidadas */}
+        {!isFaturaRow && (
+          <LinkedNotesSection
+            variant="mobile"
+            editable={isEdit && !isHrSalario}
+            txId={tx.id}
+            txMeta={{ favorecido: tx.favorecido, valor_final: tx.valor_final }}
+            siblingTxs={siblingTxs}
+          />
+        )}
 
         {/* Observações */}
         <div>
@@ -1505,12 +1532,18 @@ function ParcelasModal({
   onClose,
   canAddParcela = true,
   tipoPagamento,
+  card,
+  dataCompra,
 }: {
   initialRows: ParcelaRow[];
   onSave: (rows: ParcelaRow[]) => void;
   onClose: () => void;
   canAddParcela?: boolean;
   tipoPagamento?: PaymentType;
+  // Quando informado, ativa o "modo Crédito": sem input de validade — a data de cada
+  // parcela é calculada automaticamente a partir do fechamento/vencimento do cartão.
+  card?: FinanceCard | null;
+  dataCompra?: string;
 }) {
   const [rows, setRows] = useState<ParcelaRow[]>(
     initialRows.length > 0 ? initialRows : [{ seq: 1, valor: '', validade: '', codigo_barras: '' }]
@@ -1529,6 +1562,19 @@ function ParcelasModal({
   function removeRow(idx: number) {
     setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, seq: i + 1 })));
   }
+
+  // Modo Crédito: recalcula validade/período de cada parcela sempre que o cartão, a
+  // data da compra, ou a quantidade de parcelas mudam — nunca digitado manualmente.
+  useEffect(() => {
+    if (!card) return;
+    setRows(prev => prev.map(r => {
+      // seq preserva a posição real da parcela (relevante ao editar uma parcela isolada
+      // fora do fluxo de "editar todas").
+      const { periodo, vencimento } = calcularFatura(dataCompra || new Date().toISOString().split('T')[0], card, (r.seq || 1) - 1);
+      return { ...r, validade: vencimento, periodo };
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card, dataCompra, rows.length]);
 
   const total = rows.reduce((s, r) => s + (parseFloat(r.valor.replace(',', '.')) || 0), 0);
 
@@ -1597,15 +1643,21 @@ function ParcelasModal({
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <span className={labelCls}>Validade</span>
-                <DateFieldButton
-                  className={fieldCls}
-                  value={row.validade}
-                  onOpen={() => setDatePickerIdx(idx)}
-                />
+                <span className={labelCls}>{card ? 'Vencimento (calculado)' : 'Validade'}</span>
+                {card ? (
+                  <div className={cn(fieldCls, 'bg-[rgba(26,26,10,0.04)] dark:bg-white/[0.04] text-[rgba(26,26,10,0.55)] dark:text-white/45 select-none')}>
+                    {row.validade ? shortDate(row.validade) : '—'}
+                  </div>
+                ) : (
+                  <DateFieldButton
+                    className={fieldCls}
+                    value={row.validade}
+                    onOpen={() => setDatePickerIdx(idx)}
+                  />
+                )}
               </div>
             </div>
-            {tipoPagamento === 'Boleto' && (
+            {tipoPagamento === 'Boleto' && !card && (
               <div>
                 <span className={labelCls}>Código de barras</span>
                 <input
@@ -1712,6 +1764,16 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
   const [showFavorecidoEditModal, setShowFavorecidoEditModal] = useState(false);
   const [editingFavorecido, setEditingFavorecido] = useState<Favorecido | null>(null);
 
+  // cartões de crédito (vinculados a uma conta)
+  const [cards, setCards] = useState<FinanceCard[]>([]);
+  const [cardFormOpen, setCardFormOpen] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [cardForm, setCardForm] = useState({ nome: '', dia_fechamento: '', dia_vencimento: '', limite: '' });
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardSubmitting, setCardSubmitting] = useState(false);
+  // aba "Cartões" — null mostra a lista de faturas, preenchido faz o drill-down na fatura
+  const [cartoesDrill, setCartoesDrill] = useState<{ cardId: string; periodo: string } | null>(null);
+
   // calendário
   // Mostra só as movimentações do dia por padrão, evitando poluir a tela com o histórico inteiro.
   const [showCalSheet, setShowCalSheet] = useState(false);
@@ -1766,22 +1828,26 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
   }
 
   useEffect(() => { loadData(); }, []);
-  // Contas precisam estar disponíveis para o campo "Conta" do formulário de
-  // movimentação mesmo antes do usuário visitar a aba Dados.
+  // Contas e cartões precisam estar disponíveis para o formulário de movimentação
+  // (seleção de Conta/Crédito) mesmo antes do usuário visitar a aba Dados/Cartões.
   useEffect(() => {
     supabase.from('finance_accounts').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setAccounts(data as BankAccount[]); });
+    supabase.from('finance_cards').select('*').order('created_at', { ascending: true })
+      .then(({ data }) => { if (data) setCards(data as FinanceCard[]); });
   }, []);
 
   async function loadDadosData() {
-    const [accRes, favRes, supRes] = await Promise.all([
+    const [accRes, favRes, supRes, cardRes] = await Promise.all([
       supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('finance_favorecidos').select('*').order('nome_fiscal', { ascending: true }),
       supabase.from('suppliers').select('id, name').order('name'),
+      supabase.from('finance_cards').select('*').order('created_at', { ascending: true }),
     ]);
     if (accRes.data) setAccounts(accRes.data as BankAccount[]);
     if (favRes.data) setFavorecidos(favRes.data as Favorecido[]);
     if (supRes.data) setSuppliers(supRes.data as Supplier[]);
+    if (cardRes.data) setCards(cardRes.data as FinanceCard[]);
     setDadosLoaded(true);
   }
 
@@ -1790,6 +1856,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
   function openAddAccount() {
     setEditingAccountId(null);
     setAccountForm(emptyAccountForm());
+    closeCardForm();
     setShowAccountSheet(true);
   }
 
@@ -1800,6 +1867,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       saldo_inicial: String(acc.saldo_inicial ?? 0),
       imagemPreview: acc.imagem_url ?? '', imagemFile: null,
     });
+    closeCardForm();
     setShowAccountSheet(true);
   }
 
@@ -1850,6 +1918,86 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     if (!confirm('Excluir esta conta? Movimentações já vinculadas a ela não serão apagadas.')) return;
     await supabase.from('finance_accounts').delete().eq('id', id);
     setAccounts(prev => prev.filter(a => a.id !== id));
+  }
+
+  // ── Cartões (dentro do sheet de Conta) ─────────────────────────────────────
+
+  function accountCards(accountId: string | null) {
+    return accountId ? cards.filter(c => c.account_id === accountId) : [];
+  }
+
+  function openNewCard() {
+    setEditingCardId(null);
+    setCardForm({ nome: '', dia_fechamento: '', dia_vencimento: '', limite: '' });
+    setCardError(null);
+    setCardFormOpen(true);
+  }
+
+  function openEditCard(card: FinanceCard) {
+    setEditingCardId(card.id);
+    setCardForm({
+      nome: card.nome,
+      dia_fechamento: String(card.dia_fechamento),
+      dia_vencimento: String(card.dia_vencimento),
+      limite: card.limite != null ? String(card.limite) : '',
+    });
+    setCardError(null);
+    setCardFormOpen(true);
+  }
+
+  function closeCardForm() {
+    setCardFormOpen(false);
+    setEditingCardId(null);
+    setCardError(null);
+  }
+
+  async function handleCardSubmit() {
+    if (!editingAccountId) return;
+    const nome = cardForm.nome.trim();
+    const fechamento = parseInt(cardForm.dia_fechamento, 10);
+    const vencimento = parseInt(cardForm.dia_vencimento, 10);
+    if (!nome) { setCardError('Informe o nome do cartão.'); return; }
+    if (!Number.isInteger(fechamento) || fechamento < 1 || fechamento > 31) { setCardError('Fechamento deve ser um dia entre 1 e 31.'); return; }
+    if (!Number.isInteger(vencimento) || vencimento < 1 || vencimento > 31) { setCardError('Vencimento deve ser um dia entre 1 e 31.'); return; }
+    const limite = cardForm.limite.trim() ? parseFloat(cardForm.limite.replace(',', '.')) : null;
+    if (limite != null && (isNaN(limite) || limite < 0)) { setCardError('Limite inválido.'); return; }
+
+    setCardSubmitting(true);
+    setCardError(null);
+    try {
+      if (editingCardId) {
+        const payload = { nome, dia_fechamento: fechamento, dia_vencimento: vencimento, limite };
+        const { error } = await supabase.from('finance_cards').update(payload).eq('id', editingCardId);
+        if (error) throw error;
+        setCards(prev => prev.map(c => c.id === editingCardId ? { ...c, ...payload } : c));
+      } else {
+        const { data, error } = await supabase.from('finance_cards')
+          .insert({ account_id: editingAccountId, nome, dia_fechamento: fechamento, dia_vencimento: vencimento, limite })
+          .select().single();
+        if (error) throw error;
+        if (data) setCards(prev => [...prev, data as FinanceCard]);
+      }
+      closeCardForm();
+    } catch (err: any) {
+      setCardError(err?.message || 'Erro ao salvar cartão.');
+    } finally {
+      setCardSubmitting(false);
+    }
+  }
+
+  async function handleDeleteCard(id: string) {
+    const linkedCount = transactions.filter(t => t.card_id === id && !t.is_fatura_consolidada).length;
+    const msg = linkedCount > 0
+      ? `Excluir este cartão? ${linkedCount} movimentação(ões) já vinculada(s) a ele deixarão de aparecer na aba Cartões (não serão apagadas) e as faturas consolidadas dele serão removidas.`
+      : 'Excluir este cartão?';
+    if (!confirm(msg)) return;
+    // As linhas-resumo de fatura ficariam órfãs (sem cartão pra recalcular/exibir) —
+    // as compras individuais continuam existindo, só perdem o vínculo com o cartão.
+    await supabase.from('finance_transactions').delete().eq('card_id', id).eq('is_fatura_consolidada', true);
+    await supabase.from('finance_cards').delete().eq('id', id);
+    setCards(prev => prev.filter(c => c.id !== id));
+    setTransactions(prev => prev.filter(t => !(t.card_id === id && t.is_fatura_consolidada)));
+    if (editingCardId === id) closeCardForm();
   }
 
   // ── Favorecidos ─────────────────────────────────────────────────────────
@@ -2057,6 +2205,9 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return transactions.filter(t => {
+      // Movimentações de crédito individuais (vinculadas a um cartão, mas não a
+      // linha-resumo da fatura) não aparecem na lista comum — só na aba "Cartões".
+      if (t.card_id && !t.is_fatura_consolidada) return false;
       if (q) {
         if (searchField === 'favorecido') {
           if (!t.favorecido.toLowerCase().includes(q)) return false;
@@ -2144,10 +2295,56 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
+  // Mantém em dia a linha-resumo mensal ("fatura consolidada") de um cartão — mesma
+  // lógica do desktop (FinanceManager.tsx: syncFaturaConsolidada).
+  async function syncFaturaConsolidada(cardId: string, periodos: string[]) {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    for (const periodo of [...new Set(periodos)]) {
+      const { data: rows } = await supabase
+        .from('finance_transactions')
+        .select('valor_final, estabelecimento')
+        .eq('card_id', cardId).eq('fatura_periodo', periodo).eq('is_fatura_consolidada', false);
+      const total = (rows ?? []).reduce((s, r) => s + (r.valor_final || 0), 0);
+
+      const { data: existing } = await supabase
+        .from('finance_transactions')
+        .select('id')
+        .eq('card_id', cardId).eq('fatura_periodo', periodo).eq('is_fatura_consolidada', true)
+        .maybeSingle();
+
+      if (total <= 0) {
+        if (existing) await supabase.from('finance_transactions').delete().eq('id', existing.id);
+        continue;
+      }
+
+      const { vencimento } = calcularFatura(periodo, card, 0);
+      const estabelecimento = rows?.[0]?.estabelecimento || ESTABLISHMENTS[0];
+
+      if (existing) {
+        await supabase.from('finance_transactions').update({ valor_final: total, vencimento, estabelecimento }).eq('id', existing.id);
+      } else {
+        await supabase.from('finance_transactions').insert({
+          card_id: cardId, fatura_periodo: periodo, is_fatura_consolidada: true,
+          data: periodo, vencimento, valor_final: total,
+          tipo: 'Despesa', tipo_pagamento: 'Crédito',
+          favorecido: card.nome, estabelecimento, pago: false, tag_ids: [],
+        });
+      }
+    }
+  }
+
+  async function flushCreditSync(targets: Map<string, Set<string>>) {
+    for (const [cardId, periodos] of targets) {
+      await syncFaturaConsolidada(cardId, [...periodos]);
+    }
+  }
+
   async function handleSave() {
     if (!txForm.favorecido.trim()) return;
     if (txParcelas.length === 0 && txForm.valor_final === '0') return;
     setSaving(true);
+    const isCredito = txForm.tipo_pagamento === 'Crédito' && !!txForm.card_id;
     const base = {
       tipo: txForm.tipo,
       tipo_pagamento: txForm.tipo_pagamento,
@@ -2158,7 +2355,10 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       identificacao: (txForm.tipo_pagamento !== 'Cheque' && txForm.tipo_pagamento !== 'Boleto') ? (txForm.identificacao?.trim() || null) : null,
       tag_ids: txForm.tag_ids ?? [],
       observacoes: txForm.observacoes.trim() || null,
+      card_id: isCredito ? txForm.card_id : null,
     };
+    const creditoPeriodos = isCredito ? [...new Set(txParcelas.map(p => p.periodo).filter((p): p is string => !!p))] : [];
+
     if (txParcelas.length > 1) {
       // Mesma convenção do desktop (FinanceManager.tsx): cada parcela vira sua própria
       // transação, com data/vencimento = a validade da parcela, e pago/total_pago zerados.
@@ -2175,6 +2375,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
           total_parcelas: txParcelas.length,
           parcelamento_id: parcelamentoId,
           codigo_barras: txForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+          fatura_periodo: p.periodo ?? null,
         }))
       ).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
@@ -2196,10 +2397,16 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
         total_parcelas: null,
         parcelamento_id: null,
         codigo_barras: txForm.tipo_pagamento === 'Boleto' ? ((single?.codigo_barras) || null) : null,
+        fatura_periodo: single?.periodo ?? null,
       }]).select('id, favorecido, valor_final');
       if (inserted && pendingNotes.length > 0)
         await linkNotesToTransactions(inserted, pendingNotes.map(n => n.id));
     }
+
+    if (creditoPeriodos.length > 0 && txForm.card_id) {
+      await syncFaturaConsolidada(txForm.card_id, creditoPeriodos);
+    }
+
     setSaving(false);
     setShowAddSheet(false);
     setTxForm(emptyForm());
@@ -2224,12 +2431,14 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       numero_cheque: tx.numero_cheque ?? null,
       identificacao: tx.identificacao ?? null,
       data_pagamento: tx.data_pagamento ?? null,
+      card_id: tx.card_id ?? null,
     };
     setDetailForm(nextForm);
     // Vencimento vive no editor de parcelas: pré-carrega a própria linha para o
-    // salvar não apagar o vencimento existente.
+    // salvar não apagar o vencimento existente. seq preserva o número real da parcela
+    // (relevante no fluxo de Crédito, onde o vencimento é recalculado a partir dela).
     const nextParcelas: ParcelaRow[] = tx.vencimento
-      ? [{ seq: 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, codigo_barras: tx.codigo_barras ?? '', id: tx.id }]
+      ? [{ seq: tx.numero_parcela ?? 1, valor: tx.valor_final.toFixed(2).replace('.', ','), validade: tx.vencimento, codigo_barras: tx.codigo_barras ?? '', id: tx.id }]
       : [];
     setDetailParcelas(nextParcelas);
     setEditingGroupIds(null);
@@ -2300,6 +2509,21 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     if (!detailForm.favorecido.trim()) return;
     if (detailParcelas.length === 0 && detailForm.valor_final === '0') return;
     setSavingDetail(true);
+
+    // Períodos de fatura que existiam ANTES desta edição — ressincronizados no final
+    // junto dos períodos novos, caso a movimentação mude de cartão/mês ou deixe de ser
+    // Crédito (mesma lógica do desktop, FinanceManager.tsx: handleTxSubmit).
+    const creditSyncTargets = new Map<string, Set<string>>();
+    const addSyncTarget = (cardId: string | null | undefined, periodo: string | null | undefined) => {
+      if (!cardId || !periodo) return;
+      if (!creditSyncTargets.has(cardId)) creditSyncTargets.set(cardId, new Set());
+      creditSyncTargets.get(cardId)!.add(periodo);
+    };
+    const originalRows = editingGroupIds
+      ? transactions.filter(t => editingGroupIds.includes(t.id))
+      : [detailTx];
+    for (const r of originalRows) addSyncTarget(r.card_id, r.fatura_periodo);
+
     const base = {
       tipo: detailForm.tipo,
       tipo_pagamento: detailForm.tipo_pagamento,
@@ -2310,6 +2534,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       identificacao: (detailForm.tipo_pagamento !== 'Cheque' && detailForm.tipo_pagamento !== 'Boleto') ? (detailForm.identificacao?.trim() || null) : null,
       tag_ids: detailForm.tag_ids ?? [],
       observacoes: detailForm.observacoes.trim() || null,
+      card_id: detailForm.tipo_pagamento === 'Crédito' ? (detailForm.card_id ?? null) : null,
     };
     if (detailParcelas.length === 1 && !editingGroupIds) {
       // Pagamento único com vencimento: atualiza no lugar, preservando
@@ -2331,8 +2556,11 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
         total_pago: isSalarioRow ? detailTx.total_pago : (detailForm.pago ? valorNum : 0),
         data_pagamento: isSalarioRow ? (detailTx.data_pagamento ?? null) : (detailForm.data_pagamento ?? null),
         codigo_barras: isSalarioRow ? detailTx.codigo_barras : (detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null),
+        fatura_periodo: isSalarioRow ? (detailTx.fatura_periodo ?? null) : (p.periodo ?? null),
       };
       await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
+      addSyncTarget(updates.card_id, updates.fatura_periodo);
+      await flushCreditSync(creditSyncTargets);
       setSavingDetail(false);
       setDetailTx({ ...detailTx, ...updates });
       setDetailMode('view');
@@ -2358,6 +2586,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
           valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
           numero_parcela: i + 1, total_parcelas: detailParcelas.length, parcelamento_id: parcelamentoId,
           codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+          fatura_periodo: p.periodo ?? null,
           pago: original?.pago ?? false,
           total_pago: original?.total_pago ?? 0,
           // Parcela já paga preserva a conta/data do pagamento — a edição em lote do
@@ -2379,6 +2608,8 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
         if (noteIds.length > 0 && newlyInserted.length > 0)
           await linkNotesToTransactions(newlyInserted, noteIds);
       }
+      rows.forEach(r => addSyncTarget(r.card_id, r.fatura_periodo));
+      await flushCreditSync(creditSyncTargets);
       setSavingDetail(false);
       setDetailTx(null);
       setDetailMode('view');
@@ -2394,23 +2625,25 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
         .select('note_id').eq('transaction_id', detailTx.id);
       await supabase.from('finance_transactions').delete().eq('id', detailTx.id);
       const parcelamentoId = crypto.randomUUID();
-      const { data: inserted } = await supabase.from('finance_transactions').insert(
-        detailParcelas.map(p => ({
-          ...base,
-          data: p.validade,
-          vencimento: p.validade,
-          valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
-          total_pago: 0,
-          pago: false,
-          numero_parcela: p.seq,
-          total_parcelas: detailParcelas.length,
-          parcelamento_id: parcelamentoId,
-          codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
-        }))
-      ).select('id, favorecido, valor_final');
+      const newRows = detailParcelas.map(p => ({
+        ...base,
+        data: p.validade,
+        vencimento: p.validade,
+        valor_final: parseFloat(p.valor.replace(',', '.')) || 0,
+        total_pago: 0,
+        pago: false,
+        numero_parcela: p.seq,
+        total_parcelas: detailParcelas.length,
+        parcelamento_id: parcelamentoId,
+        codigo_barras: detailForm.tipo_pagamento === 'Boleto' ? (p.codigo_barras || null) : null,
+        fatura_periodo: p.periodo ?? null,
+      }));
+      const { data: inserted } = await supabase.from('finance_transactions').insert(newRows).select('id, favorecido, valor_final');
       const relinkIds = [...new Set((linkedRows ?? []).map(r => r.note_id as string))];
       if (inserted && relinkIds.length > 0)
         await linkNotesToTransactions(inserted, relinkIds);
+      newRows.forEach(r => addSyncTarget(r.card_id, r.fatura_periodo));
+      await flushCreditSync(creditSyncTargets);
       setSavingDetail(false);
       setDetailTx(null);
       setDetailMode('view');
@@ -2430,8 +2663,12 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       numero_parcela: null,
       total_parcelas: null,
       parcelamento_id: null,
+      card_id: null,
+      fatura_periodo: null,
+      is_fatura_consolidada: false,
     };
     await supabase.from('finance_transactions').update(updates).eq('id', detailTx.id);
+    await flushCreditSync(creditSyncTargets);
     setSavingDetail(false);
     setDetailTx({ ...detailTx, ...updates });
     setDetailMode('view');
@@ -2460,6 +2697,16 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     await cleanupNoteLinksForDeletedTxs(ids);
     setSelectedIds(new Set());
     setSelectionMode(false);
+    loadData();
+  }
+
+  // Exclusão de uma compra de crédito individual (via drill-down da aba Cartões) —
+  // precisa refazer o total da fatura daquele período.
+  async function handleDeleteCreditoTx(t: Transaction) {
+    if (!confirm('Excluir esta movimentação?')) return;
+    await supabase.from('finance_transactions').delete().eq('id', t.id);
+    await cleanupNoteLinksForDeletedTxs([t.id]);
+    if (t.card_id && t.fatura_periodo) await syncFaturaConsolidada(t.card_id, [t.fatura_periodo]);
     loadData();
   }
 
@@ -2560,6 +2807,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
   function switchTab(t: Tab) {
     setActiveTab(t);
     if (t === 'dados' && !dadosLoaded) loadDadosData();
+    if (t === 'cartoes') setCartoesDrill(null);
     if (selectionMode) { setSelectionMode(false); setSelectedIds(new Set()); }
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -2606,17 +2854,18 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
       </div>
 
       {/* Tab pills — sem ícone, formato pílula */}
-      <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] px-4 pt-3 pb-2.5 flex gap-2">
+      <div className="shrink-0 bg-[#FDFAF0] dark:bg-[#1E1E18] px-4 pt-3 pb-2.5 flex gap-2 overflow-x-auto">
         {([
-          { key: 'mov',   label: 'Movimentações' },
-          { key: 'dash',  label: 'Dashboard' },
-          { key: 'dados', label: 'Dados' },
+          { key: 'mov',     label: 'Movimentações' },
+          { key: 'dash',    label: 'Dashboard' },
+          { key: 'dados',   label: 'Dados' },
+          { key: 'cartoes', label: 'Cartões' },
         ] as { key: Tab; label: string }[]).map(tab => (
           <button
             key={tab.key}
             onClick={() => switchTab(tab.key)}
             className={cn(
-              'px-[14px] py-[9px] rounded-full',
+              'px-[14px] py-[9px] rounded-full shrink-0',
               'text-[10.5px] font-black uppercase tracking-[0.04em]',
               'border-[1.5px] transition-all duration-150 active:scale-[0.97]',
               activeTab === tab.key
@@ -2782,13 +3031,23 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                   {txs.map(tx => (
                     <div
                       key={tx.id}
-                      onClick={() => selectionMode ? toggleSelect(tx.id) : openDetail(tx)}
+                      onClick={() => {
+                        if (selectionMode) { toggleSelect(tx.id); return; }
+                        if (tx.is_fatura_consolidada && tx.card_id && tx.fatura_periodo) {
+                          setCartoesDrill({ cardId: tx.card_id, periodo: tx.fatura_periodo });
+                          setActiveTab('cartoes');
+                          return;
+                        }
+                        openDetail(tx);
+                      }}
                       className={cn(
                         'mx-3 mb-2 bg-white dark:bg-[#252520] border-[1.5px] rounded-[18px] px-3.5 py-3 flex flex-col gap-2',
                         'active:scale-[0.99] transition-all',
                         selectionMode && selectedIds.has(tx.id)
                           ? 'border-[rgba(216,30,30,0.30)] bg-[rgba(216,30,30,0.04)] dark:bg-[rgba(216,30,30,0.08)]'
-                          : 'border-[rgba(26,26,10,0.08)] dark:border-white/[0.08]'
+                          : tx.is_fatura_consolidada
+                            ? 'border-[rgba(216,30,30,0.20)] bg-[rgba(216,30,30,0.03)] dark:bg-[rgba(216,30,30,0.06)]'
+                            : 'border-[rgba(26,26,10,0.08)] dark:border-white/[0.08]'
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -2814,7 +3073,11 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                             {tx.tipo === 'Receita' ? 'R' : 'D'}
                           </div>
                           <div>
-                            <p className="text-[14px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-snug">{tx.favorecido || '—'}</p>
+                            <p className="text-[14px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-snug flex items-center gap-1.5">
+                              {tx.is_fatura_consolidada && <CreditCard size={12} className="text-[#D81E1E] shrink-0" />}
+                              {tx.favorecido || '—'}
+                              {tx.is_fatura_consolidada && <Eye size={12} className="text-[#D81E1E] shrink-0" />}
+                            </p>
                             <p className="text-[10px] font-semibold text-[rgba(26,26,10,0.35)] dark:text-white/30">{tx.estabelecimento}</p>
                           </div>
                         </div>
@@ -2841,8 +3104,13 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                               {tx.codigo}
                             </span>
                           )}
-                          <span className="bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] rounded-[8px] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.45)] dark:text-white/35">
-                            {tx.tipo_pagamento}
+                          <span className={cn(
+                            'rounded-[8px] px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em]',
+                            tx.is_fatura_consolidada
+                              ? 'bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.16)] text-[#D81E1E] dark:text-[#F43F5E]'
+                              : 'bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.07] text-[rgba(26,26,10,0.45)] dark:text-white/35'
+                          )}>
+                            {tx.is_fatura_consolidada ? 'Fatura' : tx.tipo_pagamento}
                           </span>
                           {tx.vencimento && (
                             <span className="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[9px] font-black text-[#D81E1E] dark:text-[#F43F5E]">
@@ -3113,6 +3381,132 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
             </motion.div>
           )}
 
+          {activeTab === 'cartoes' && (() => {
+            const faturas = transactions
+              .filter(t => t.is_fatura_consolidada)
+              .sort((a, b) => (b.fatura_periodo ?? '').localeCompare(a.fatura_periodo ?? ''));
+            const drillCard = cartoesDrill ? cards.find(c => c.id === cartoesDrill.cardId) : null;
+            const drillItems = cartoesDrill
+              ? transactions
+                  .filter(t => t.card_id === cartoesDrill.cardId && t.fatura_periodo === cartoesDrill.periodo && !t.is_fatura_consolidada)
+                  .sort((a, b) => a.data.localeCompare(b.data))
+              : [];
+            const periodoLabel = (periodo: string | null | undefined) =>
+              periodo ? new Date(periodo + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase()) : '—';
+
+            return (
+              <motion.div
+                key="cartoes"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                className="pb-6 px-3 pt-3 flex flex-col gap-3.5"
+              >
+                {!cartoesDrill ? (
+                  <div className="bg-[rgba(255,246,201,0.75)] dark:bg-[#23231D] border border-[rgba(26,18,8,0.07)] dark:border-white/[0.07] rounded-[18px] overflow-hidden">
+                    <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-3.5 py-2.5 flex items-center gap-1.5">
+                      <CreditCard size={14} className="text-[#1A1A0E]" />
+                      <span className="text-[12px] font-black text-[#1A1A0E]">Faturas de Cartão</span>
+                      <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-[7px] py-[2px] text-[8.5px] font-black">{faturas.length}</span>
+                    </div>
+                    <div className="p-2.5 flex flex-col gap-1.75">
+                      {!dadosLoaded ? (
+                        <div className="flex items-center justify-center py-8 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                          <Loader2 size={20} className="animate-spin" />
+                        </div>
+                      ) : faturas.length === 0 ? (
+                        <div className="flex flex-col items-center py-7 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                          <CreditCard size={28} className="mb-1.5" />
+                          <p className="text-[11px] font-bold">Nenhuma fatura ainda</p>
+                          <p className="text-[10px] mt-1 text-center px-4">Movimentações em Crédito geram a fatura do mês automaticamente</p>
+                        </div>
+                      ) : (
+                        faturas.map(f => {
+                          const card = cards.find(c => c.id === f.card_id);
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => f.card_id && f.fatura_periodo && setCartoesDrill({ cardId: f.card_id, periodo: f.fatura_periodo })}
+                              className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.5 flex items-center gap-2.5 text-left active:scale-[0.98] transition-transform"
+                            >
+                              <div className="w-9 h-9 rounded-[10px] bg-[rgba(216,30,30,0.09)] dark:bg-[rgba(216,30,30,0.14)] flex items-center justify-center text-[#D81E1E] shrink-0">
+                                <CreditCard size={15} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[12.5px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{card?.nome ?? f.favorecido}</p>
+                                <p className="text-[9.5px] text-[rgba(26,26,10,0.42)] dark:text-white/35 truncate mt-0.5">
+                                  {periodoLabel(f.fatura_periodo)} · Vence {f.vencimento ? new Date(f.vencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                                </p>
+                              </div>
+                              <span className={cn(
+                                'text-[8.5px] font-black uppercase tracking-wide px-2 py-[3px] rounded-full shrink-0',
+                                f.pago ? 'bg-[rgba(5,150,105,0.10)] text-[#059669] dark:bg-[rgba(52,211,153,0.12)] dark:text-[#34D399]' : 'bg-[rgba(245,158,11,0.12)] text-[#B45309] dark:bg-[rgba(251,191,36,0.14)] dark:text-[#FCD34D]'
+                              )}>
+                                {f.pago ? 'Paga' : 'Aberta'}
+                              </span>
+                              <span className="font-['DM_Mono',monospace] text-[11px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] whitespace-nowrap shrink-0">
+                                {fmt(f.usar_valor_real ? (f.valor_real ?? f.valor_final) : f.valor_final)}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[rgba(255,246,201,0.75)] dark:bg-[#23231D] border border-[rgba(26,18,8,0.07)] dark:border-white/[0.07] rounded-[18px] overflow-hidden">
+                    <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-3.5 py-2.5 flex items-center gap-2">
+                      <button
+                        onClick={() => setCartoesDrill(null)}
+                        className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center active:scale-90 transition-transform shrink-0"
+                      >
+                        <ArrowLeft size={14} />
+                      </button>
+                      <CreditCard size={13} className="text-[#1A1A0E] shrink-0" />
+                      <span className="text-[11.5px] font-black text-[#1A1A0E] truncate">
+                        {drillCard?.nome ?? '—'} · {periodoLabel(cartoesDrill.periodo)}
+                      </span>
+                    </div>
+                    <div className="p-2.5 flex flex-col gap-1.75">
+                      {drillItems.length === 0 ? (
+                        <div className="flex flex-col items-center py-7 text-[rgba(26,26,10,0.25)] dark:text-white/20">
+                          <CreditCard size={28} className="mb-1.5" />
+                          <p className="text-[11px] font-bold">Nenhum lançamento nesta fatura</p>
+                        </div>
+                      ) : (
+                        drillItems.map(t => (
+                          <div
+                            key={t.id}
+                            onClick={() => { setActiveTab('mov'); openDetail(t); }}
+                            className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.99] transition-transform"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{t.favorecido}</p>
+                              <p className="text-[9.5px] text-[rgba(26,26,10,0.42)] dark:text-white/35 truncate mt-0.5">
+                                {new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')} · {t.estabelecimento}
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center justify-center min-w-[26px] h-[20px] px-1 rounded-full bg-[rgba(216,30,30,0.10)] dark:bg-[rgba(216,30,30,0.15)] text-[9px] font-black text-[#D81E1E] dark:text-[#F43F5E] shrink-0">
+                              {t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}
+                            </span>
+                            <span className="font-['DM_Mono',monospace] text-[11px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] whitespace-nowrap shrink-0">{fmt(t.valor_final)}</span>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeleteCreditoTx(t); }}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-[rgba(26,18,8,0.30)] dark:text-white/25 active:bg-rose-500/10 active:text-rose-500 transition-colors shrink-0"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })()}
+
         </AnimatePresence>
       </div>
     </div>
@@ -3154,6 +3548,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
             accounts={accounts}
+            cards={cards}
             parcelas={txParcelas}
             onOpenParcelas={() => setParcelasModalOpen('new')}
             pendingNotes={pendingNotes}
@@ -3241,6 +3636,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
             tags={tags}
             onCreateTag={(nome, cor) => createTag(nome, cor, '')}
             accounts={accounts}
+            cards={cards}
             parcelas={detailParcelas}
             onOpenParcelas={() => setParcelasModalOpen('edit')}
             groupTotal={getParcelaGroupTotal(detailTx)}
@@ -3490,6 +3886,12 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
             }}
             onClose={() => setParcelasModalOpen(null)}
             tipoPagamento={parcelasModalOpen === 'new' ? txForm.tipo_pagamento : detailForm.tipo_pagamento}
+            card={
+              parcelasModalOpen === 'new'
+                ? (txForm.tipo_pagamento === 'Crédito' ? cards.find(c => c.id === txForm.card_id) ?? null : null)
+                : (detailForm.tipo_pagamento === 'Crédito' ? cards.find(c => c.id === detailForm.card_id) ?? null : null)
+            }
+            dataCompra={parcelasModalOpen === 'new' ? txForm.data : detailForm.data}
             // Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
             // depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
             // um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs.
@@ -3602,6 +4004,105 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                   className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
                 />
               </div>
+
+              {editingAccountId && (
+                <div className="pt-1">
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1.5 flex items-center gap-1.5">
+                    <CreditCard size={11} /> Cartões desta conta
+                    {accountCards(editingAccountId).length > 0 && (
+                      <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-[6px] py-[1px] text-[8px]">{accountCards(editingAccountId).length}</span>
+                    )}
+                  </span>
+                  <div className="flex flex-col gap-1.5">
+                    {accountCards(editingAccountId).map(card => (
+                      <div key={card.id} className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.5 flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-[9px] bg-[rgba(216,30,30,0.09)] dark:bg-[rgba(216,30,30,0.14)] flex items-center justify-center text-[#D81E1E] shrink-0">
+                          <CreditCard size={14} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{card.nome}</p>
+                          <p className="text-[9px] text-[rgba(26,26,10,0.42)] dark:text-white/35 truncate mt-0.5">
+                            Fecha {card.dia_fechamento} · Vence {card.dia_vencimento}{card.limite != null ? ` · ${fmt(card.limite)}` : ''}
+                          </p>
+                        </div>
+                        <span className="font-['DM_Mono',monospace] text-[9px] font-bold bg-[rgba(26,26,10,0.06)] dark:bg-white/[0.08] text-[rgba(26,26,10,0.55)] dark:text-white/45 rounded-[6px] px-[6px] py-[3px] shrink-0">{card.codigo}</span>
+                        <button onClick={() => openEditCard(card)} className="w-6 h-6 rounded-lg flex items-center justify-center text-[rgba(26,18,8,0.30)] dark:text-white/25 active:bg-primary/10 active:text-primary transition-colors shrink-0">
+                          <Edit2 size={12} />
+                        </button>
+                        <button onClick={() => handleDeleteCard(card.id)} className="w-6 h-6 rounded-lg flex items-center justify-center text-[rgba(26,18,8,0.30)] dark:text-white/25 active:bg-rose-500/10 active:text-rose-500 transition-colors shrink-0">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!cardFormOpen ? (
+                    <button
+                      onClick={openNewCard}
+                      className="w-full mt-1.5 py-2.5 rounded-xl border-[1.5px] border-dashed border-[rgba(26,26,10,0.20)] dark:border-white/[0.18] text-[rgba(26,26,10,0.45)] dark:text-white/35 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                    >
+                      <Plus size={13} /> Novo Cartão
+                    </button>
+                  ) : (
+                    <div className="mt-2 flex flex-col gap-2.5 border-t border-[rgba(26,26,10,0.08)] dark:border-white/[0.08] pt-3">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Nome do Cartão</span>
+                        <input
+                          type="text" value={cardForm.nome}
+                          onChange={e => setCardForm(f => ({ ...f, nome: e.target.value }))}
+                          placeholder="Ex: Nubank Roxinho"
+                          className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Fechamento</span>
+                          <input
+                            type="text" inputMode="numeric" value={cardForm.dia_fechamento}
+                            onChange={e => setCardForm(f => ({ ...f, dia_fechamento: e.target.value }))}
+                            placeholder="Dia"
+                            className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Vencimento</span>
+                          <input
+                            type="text" inputMode="numeric" value={cardForm.dia_vencimento}
+                            onChange={e => setCardForm(f => ({ ...f, dia_vencimento: e.target.value }))}
+                            placeholder="Dia"
+                            className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[rgba(26,26,10,0.40)] dark:text-white/28 mb-1 block">Limite (opcional)</span>
+                        <input
+                          type="text" inputMode="decimal" value={cardForm.limite}
+                          onChange={e => setCardForm(f => ({ ...f, limite: e.target.value }))}
+                          placeholder="0,00"
+                          className="w-full min-w-0 box-border bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A0E] dark:text-[#F2F0E3] focus:outline-none focus:border-[#D81E1E]"
+                        />
+                      </div>
+                      {cardError && (
+                        <div className="px-3 py-2 rounded-xl bg-rose-500/10 text-[11px] font-semibold text-rose-600">{cardError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={closeCardForm} className="flex-1 py-2.5 rounded-xl border-[1.5px] border-[rgba(26,26,10,0.12)] dark:border-white/[0.10] text-[11px] font-black uppercase text-[rgba(26,26,10,0.50)] dark:text-white/40">
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleCardSubmit}
+                          disabled={cardSubmitting}
+                          className="flex-1 py-2.5 rounded-xl bg-[#D81E1E] text-white text-[11px] font-black uppercase tracking-wide shadow-[0_4px_14px_rgba(216,30,30,0.28)] active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {cardSubmitting && <Loader2 size={13} className="animate-spin" />}
+                          {editingCardId ? 'Salvar' : 'Salvar Cartão'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {editingAccountId && (
                 <button
