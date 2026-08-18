@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Painel Cartões — Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --background:#FFFCEC; --surface:#ffffff; --surface-container:#FAF6E6; --surface-container-low:#FFF6C9;
+    --on-surface:#1A1208; --primary:#D81E1E; --line:#E9DFC2;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#EDE6D0; min-height:100vh; padding:48px 16px; display:flex; flex-direction:column; align-items:center; gap:18px;}
+  .note{font-size:12px; font-weight:800; color:rgba(26,18,8,0.45); text-transform:uppercase; letter-spacing:0.08em; text-align:center; max-width:900px;}
+  .screen{width:900px; background:var(--background); border-radius:20px; padding:28px; box-shadow:0 30px 70px rgba(0,0,0,0.18);}
+
+  /* Header tabs (contexto — sem "Cartões") */
+  .headerCard{position:relative; margin-bottom:30px;}
+  .headerBar{background:#FFE500; border:1px solid #D4C000; border-radius:20px 20px 16px 16px; padding:20px 24px; display:flex; align-items:center; gap:14px;}
+  .headerIcon{width:52px; height:52px; border-radius:14px; background:rgba(26,26,10,0.09); display:flex; align-items:center; justify-content:center; color:#1A1A0E; flex-shrink:0;}
+  .headerIcon svg{width:24px; height:24px;}
+  .headerTitle{font-size:26px; font-weight:900; color:#1A1A0E; letter-spacing:-0.01em; line-height:1.1;}
+  .headerSub{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:rgba(26,26,10,0.40);}
+  .tabsRow{position:absolute; left:0; top:100%; display:flex;}
+  .tabsRow .tab{width:136px; height:34px; display:flex; align-items:center; justify-content:center; background:#FFE500; border:1px solid #D4C000; border-top:0; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.02em; color:#1A1A0E; box-shadow:inset 0 6px 8px -5px rgba(26,26,10,0.35);}
+  .tabsRow .tab:last-child{border-radius:0 0 12px 0;}
+  .tabsRow .tab.active{opacity:1;}
+  .tabsRow .tab:not(.active){opacity:0.55;}
+
+  /* Grid calendário + painel */
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch;}
+  .panelBox{background:var(--surface-container-low); border:1px solid rgba(26,26,10,0.07); border-radius:18px; overflow:hidden; display:flex; flex-direction:column;}
+
+  /* Calendário */
+  .calHeader{background:#FFE500; border-bottom:1px solid #D4C000; padding:10px 16px; display:flex; align-items:center; justify-content:space-between;}
+  .calMonth{font-size:13px; font-weight:900; color:#1A1A0E; text-transform:capitalize;}
+  .calBtns{display:flex; gap:4px;}
+  .calBtn{width:26px; height:26px; border-radius:8px; background:rgba(26,26,10,0.08); display:flex; align-items:center; justify-content:center; color:rgba(26,26,10,0.55);}
+  .calBtn svg{width:12px;height:12px;}
+  .calBody{padding:12px;}
+  .calWeek{display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px;}
+  .calWeek span{text-align:center; font-size:8.5px; font-weight:900; text-transform:uppercase; color:rgba(26,26,10,0.25); padding:4px 0;}
+  .calDays{display:grid; grid-template-columns:repeat(7,1fr); gap:2px;}
+  .calDay{height:26px; display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; border-radius:8px; color:rgba(26,26,10,0.55); position:relative;}
+  .calDay.muted{color:rgba(26,26,10,0.20);}
+  .calDay.today{background:rgba(216,30,30,0.10); color:var(--primary); font-weight:900;}
+  .calDay.sel{background:var(--primary); color:#fff; font-weight:900;}
+
+  /* Painel (Cartões / Contas / ADM) */
+  .panelHeader{background:#FFE500; border-bottom:1px solid #D4C000; padding:10px 16px;}
+  .pillWrap{display:flex; gap:2px; background:rgba(26,26,10,0.10); border-radius:9999px; padding:2px;}
+  .pill{flex:1; padding:6px 8px; border-radius:9999px; font-size:9.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.08em; text-align:center; color:rgba(26,26,10,0.45); cursor:pointer; white-space:nowrap;}
+  .pill.active{background:var(--primary); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.15);}
+  .panelBody{padding:10px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; min-height:0;}
+  .panelBody::-webkit-scrollbar{width:6px;}
+  .panelBody::-webkit-scrollbar-thumb{background:rgba(216,30,30,0.35); border-radius:9999px;}
+
+  .row-card{background:var(--surface-container); border:1px solid rgba(26,26,10,0.07); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px;}
+  .row-icon{width:28px; height:28px; border-radius:9px; background:rgba(216,30,30,0.08); display:flex; align-items:center; justify-content:center; color:var(--primary); flex-shrink:0;}
+  .row-icon svg{width:13px; height:13px;}
+  .row-icon.muted{background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.40);}
+  .row-main{min-width:0; flex:1;}
+  .row-title{font-size:10.5px; font-weight:800; color:#1A1A0E; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row-sub{font-size:9px; font-weight:600; color:rgba(26,26,10,0.40); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row-value{font-size:12px; font-weight:900; letter-spacing:-0.01em; flex-shrink:0; text-align:right;}
+  .row-value.red{color:var(--primary);}
+  .row-value.green{color:#0A7A55;}
+  .row-value.muted{color:rgba(26,26,10,0.25);}
+
+  .badge-count{shrink:0; min-width:44px; border-radius:10px; border:1.5px solid rgba(26,26,10,0.12); background:rgba(26,26,10,0.045); padding:5px 7px; display:flex; flex-direction:column; align-items:center; gap:0px;}
+  .badge-count b{font-family:'DM Mono',monospace; font-size:13px; font-weight:900; color:#1A1A0E; line-height:1;}
+  .badge-count span{font-size:6px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:rgba(26,26,10,0.40);}
+
+  .empty{background:var(--surface-container); border:1px solid rgba(26,26,10,0.07); border-radius:12px; display:flex; align-items:center; justify-content:center; padding:22px 8px;}
+  .empty p{font-size:10.5px; font-weight:700; color:rgba(26,26,10,0.25); text-align:center;}
+
+  .tab-panel{display:none; flex-direction:column; gap:6px;}
+  .tab-panel.active{display:flex;}
+
+  .diff-note{width:900px; background:#fff; border:1.5px dashed rgba(26,26,10,0.18); border-radius:14px; padding:14px 18px; font-size:11.5px; font-weight:600; color:rgba(26,26,10,0.6); line-height:1.6;}
+  .diff-note b{color:#1A1A0E;}
+</style>
+</head>
+<body>
+
+  <div class="note">Painel Financeiro — Modo Claro · clique nas abas do painel à direita para trocar entre Cartões / Contas / ADM</div>
+
+  <div class="screen">
+
+    <div class="headerCard">
+      <div class="headerBar">
+        <div class="headerIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+        <div>
+          <div class="headerTitle">Controle Financeiro</div>
+          <div class="headerSub">Gestão Financeira</div>
+        </div>
+      </div>
+      <div class="tabsRow">
+        <div class="tab active">Controle Financeiro</div>
+        <div class="tab">Favorecidos</div>
+        <div class="tab">Contas</div>
+      </div>
+    </div>
+
+    <div class="grid">
+
+      <!-- Calendário -->
+      <div class="panelBox">
+        <div class="calHeader">
+          <span class="calMonth">Agosto 2026</span>
+          <div class="calBtns">
+            <div class="calBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 5l-6 7 6 7"/></svg></div>
+            <div class="calBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 5l6 7-6 7"/></svg></div>
+          </div>
+        </div>
+        <div class="calBody">
+          <div class="calWeek"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+          <div class="calDays" id="calDays"></div>
+        </div>
+      </div>
+
+      <!-- Painel Cartões / Contas / ADM -->
+      <div class="panelBox">
+        <div class="panelHeader">
+          <div class="pillWrap">
+            <div class="pill active" onclick="setPanel('cartoes', this)">Cartões</div>
+            <div class="pill" onclick="setPanel('contas', this)">Contas</div>
+            <div class="pill" onclick="setPanel('adm', this)">ADM</div>
+          </div>
+        </div>
+        <div class="panelBody">
+
+          <!-- CARTÕES -->
+          <div class="tab-panel active" id="panel-cartoes">
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Nubank Roxinho</div>
+                <div class="row-sub">Vence 05/09 · Fecha 25/08</div>
+              </div>
+              <div class="row-value red">R$ 1.284,90</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Itaú Click</div>
+                <div class="row-sub">Vence 10/09 · Fecha 28/08</div>
+              </div>
+              <div class="row-value red">R$ 642,30</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Santander Free</div>
+                <div class="row-sub">Vence 15/09 · Fecha 01/09</div>
+              </div>
+              <div class="row-value muted">R$ 0,00</div>
+            </div>
+          </div>
+
+          <!-- CONTAS (sem título "Contas" dentro do painel) -->
+          <div class="tab-panel" id="panel-contas">
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M15 3v18"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Conta Corrente</div>
+                <div class="row-sub">Itaú</div>
+              </div>
+              <div class="row-value green">R$ 12.480,55</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M15 3v18"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Caixinha Loja Centro</div>
+                <div class="row-sub">Nubank</div>
+              </div>
+              <div class="row-value green">R$ 3.120,00</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M15 3v18"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Reserva</div>
+                <div class="row-sub">Santander</div>
+              </div>
+              <div class="row-value" style="color:var(--primary)">-R$ 540,10</div>
+            </div>
+          </div>
+
+          <!-- ADM (mesmo padrão de row-card das outras abas) -->
+          <div class="tab-panel" id="panel-adm">
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Vencimento no período</div>
+                <div class="row-sub">3 movimentações</div>
+              </div>
+              <div class="row-value red">R$ 2.140,00</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon" style="background:rgba(10,122,85,0.10); color:#0A7A55;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Total pago</div>
+                <div class="row-sub">2 movimentações quitadas</div>
+              </div>
+              <div class="row-value green">R$ 1.480,00</div>
+            </div>
+            <div class="row-card">
+              <div class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg></div>
+              <div class="row-main">
+                <div class="row-title">Saídas sem vencimento</div>
+                <div class="row-sub">Pagamentos à vista</div>
+              </div>
+              <div class="row-value red">R$ 860,40</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="diff-note">
+    <b>Mudanças nesta tela:</b> (1) aba "Cartões" removida do cabeçalho superior — a tabela de cartões já vive na aba principal; (2) aba "Resultados" do painel direito virou <b>"Cartões"</b>, com fatura do mês atual + vencimento + fechamento por cartão; (3) painel "Contas" perdeu o rótulo "Contas" solto no topo (a aba já diz isso); (4) painel "ADM" passou a usar o mesmo cartão de linha (ícone + título/subtítulo + valor) das outras duas abas; (5) as três abas do painel agora <b>esticam para a altura do calendário</b> e rolam por dentro se tiverem mais itens do que cabe.
+  </div>
+
+<script>
+  const today = 18;
+  const daysInMonth = 31;
+  const startOffset = 6; // Agosto/2026 começa num sábado
+  const calDays = document.getElementById('calDays');
+  for (let i = 0; i < startOffset; i++) {
+    const d = document.createElement('div');
+    d.className = 'calDay muted';
+    d.textContent = 31 - startOffset + i + 1 - 31 + 31; // dias do mês anterior (visual)
+    d.textContent = '';
+    calDays.appendChild(d);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = document.createElement('div');
+    d.className = 'calDay' + (day === today ? ' today' : '');
+    d.textContent = day;
+    calDays.appendChild(d);
+  }
+
+  function setPanel(name, el) {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+</script>
+
+</body>
+</html>

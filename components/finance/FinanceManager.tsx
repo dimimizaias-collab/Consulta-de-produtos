@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
+  Plus, X, Check, Edit2, Trash2, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, ArrowLeft, Lock, Unlock, Link2Off,
+  AlertTriangle, Info, Lock, Unlock, Link2Off,
   ArrowUp, ArrowDown, Eye,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -225,18 +225,32 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [submitting, setSubmitting] = useState(false);
 
   // Abas "Favorecidos" e "Contas" (antes agrupadas numa única aba "Dados")
-  const [financeView, setFinanceView] = useState<'main' | 'favorecidos' | 'contas' | 'cartoes'>('main');
+  const [financeView, setFinanceView] = useState<'main' | 'favorecidos' | 'contas'>('main');
   // Tabela exibida na aba principal — "comum" (movimentações) ou "cartoes" (compras de
   // cartão de crédito individuais), alternadas pelo botão de cartão ao lado de "Guia de tags".
   const [mainTableView, setMainTableView] = useState<'comum' | 'cartoes'>('comum');
   const [dadosFavSearch, setDadosFavSearch] = useState('');
   const [dadosAccSearch, setDadosAccSearch] = useState('');
 
-  // aba "Cartões" — null mostra a lista de faturas, preenchido faz o drill-down na fatura
-  const [cartoesDrill, setCartoesDrill] = useState<{ cardId: string; periodo: string } | null>(null);
+  // "Ver fatura detalhada" (linha-resumo na tabela comum) — leva à tabela de Cartões da aba
+  // principal já filtrada para aquele cartão, no mesmo vencimento da fatura (todos os itens
+  // de uma fatura compartilham o mesmo vencimento, calculado por calcularFatura).
   const goToFatura = (cardId: string, periodo: string) => {
-    setCartoesDrill({ cardId, periodo });
-    setFinanceView('cartoes');
+    const card = cards.find(c => c.id === cardId);
+    const consolidada = transactions.find(t => t.card_id === cardId && t.fatura_periodo === periodo && t.is_fatura_consolidada);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setMainTableView('cartoes');
+    if (card) setColumnFilters(prev => ({ ...prev, cartao: new Set([card.nome]) }));
+    if (consolidada?.vencimento) {
+      const d = new Date(consolidada.vencimento + 'T00:00:00');
+      setCalRangeMode(false);
+      setCalRangeStart(null);
+      setCalRangeEnd(null);
+      setCalSelectedDate(d);
+      setCalViewDate(d);
+    }
+    setFinanceView('main');
   };
 
   // transaction modal
@@ -339,7 +353,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const calLegendRef = useRef<HTMLDivElement>(null);
 
   // resultados/contas panel
-  const [financePanelTab, setFinancePanelTab] = useState<'resultados' | 'contas' | 'adm'>('adm');
+  const [financePanelTab, setFinancePanelTab] = useState<'adm' | 'cartoes' | 'contas'>('adm');
+  // Altura renderizada do card do calendário — aplicada como max-height no painel ao lado
+  // (ADM/Cartões/Contas), para que uma lista longa (muitos cartões/contas) role por dentro
+  // do painel em vez de esticar a linha inteira e destoar do calendário.
+  const calendarBoxRef = useRef<HTMLDivElement>(null);
+  const [calendarBoxHeight, setCalendarBoxHeight] = useState<number | null>(null);
 
   // Barra de rolagem horizontal flutuante da tabela — fica fixa na base da viewport
   // enquanto a tabela ainda continua abaixo da tela, evitando que o usuário precise
@@ -442,6 +461,19 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Mede a altura renderizada do card do calendário para limitar o painel ao lado
+  // (ADM/Cartões/Contas) à mesma altura — uma lista longa rola por dentro do painel
+  // em vez de esticar a linha e deixar o calendário com espaço vazio embaixo.
+  useEffect(() => {
+    const box = calendarBoxRef.current;
+    if (!box) return;
+    const update = () => setCalendarBoxHeight(box.getBoundingClientRect().height);
+    update();
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(box);
+    return () => resizeObserver.disconnect();
+  }, [financeView]);
 
   // Sincroniza a barra de rolagem horizontal flutuante com a tabela real e controla
   // sua visibilidade: só aparece enquanto o rodapé real da tabela ainda está fora da tela.
@@ -1883,24 +1915,6 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     return counts;
   }, [transactions]);
 
-  // Cards do painel (Resultados/ADM) refletem exatamente o que está filtrado na tabela
-  // (período do calendário + filtros de coluna + busca) — mesma base que `filtered`.
-  const totals = useMemo(() => {
-    if (hasDatePeriod) {
-      const inPeriod = filtered.filter(t => inSelectedPeriod(t.data));
-      const receitas = inPeriod.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
-      const despesas = inPeriod.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-      return { receitas, despesas, saldo: receitas - despesas };
-    }
-    const receitas = filtered.filter(t => t.tipo === 'Receita').reduce((s, t) => s + t.valor_final, 0);
-    const despesas = filtered.filter(t => t.tipo === 'Despesa').reduce((s, t) => s + t.valor_final, 0);
-    const saldoInicial = accounts.reduce((s, a) => s + (a.saldo_inicial ?? 0), 0);
-    // Saldo: apenas transações quitadas (pago=true) — exclui despesas/receitas com vencimento futuro
-    const receitasPagas = filtered.filter(t => t.tipo === 'Receita' && t.pago).reduce((s, t) => s + t.valor_final, 0);
-    const despesasPagas = filtered.filter(t => t.tipo === 'Despesa' && t.pago).reduce((s, t) => s + t.valor_final, 0);
-    return { receitas, despesas, saldo: saldoInicial + receitasPagas - despesasPagas };
-  }, [filtered, accounts, hasDatePeriod]);
-
   const vencimentoStats = useMemo(() => {
     const despesasVencendo = filtered.filter(t => t.tipo === 'Despesa' && inSelectedPeriod(t.vencimento));
     const despesasVencendoPagas = despesasVencendo.filter(t => t.pago);
@@ -1924,6 +1938,25 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       return { ...a, saldo: (a.saldo_inicial ?? 0) + r - d };
     });
   }, [accounts, transactions]);
+
+  // Painel "Cartões" — fatura do mês corrente de cada cartão cadastrado (mesmo sem
+  // compras ainda: mostra vencimento/fechamento calculados e valor zerado).
+  const cardFaturaStats = useMemo(() => {
+    const now = new Date();
+    const periodoAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const [y, m] = periodoAtual.split('-').map(Number);
+    const diasNoMes = new Date(y, m, 0).getDate();
+    return cards.map(card => {
+      const fatura = transactions.find(t => t.card_id === card.id && t.fatura_periodo === periodoAtual && t.is_fatura_consolidada);
+      const { vencimento } = calcularFatura(periodoAtual, card, 0);
+      // Fechamento cai no próprio mês da fatura (mesma regra de calcularFatura: compras até
+      // o dia de fechamento pertencem ao mês corrente da fatura).
+      const fechamentoDia = Math.min(card.dia_fechamento, diasNoMes);
+      const fechamento = `${y}-${String(m).padStart(2, '0')}-${String(fechamentoDia).padStart(2, '0')}`;
+      const valor = fatura ? (fatura.usar_valor_real ? (fatura.valor_real ?? fatura.valor_final) : fatura.valor_final) : 0;
+      return { card, valor, vencimento, fechamento, pago: fatura?.pago ?? false, temFatura: !!fatura };
+    });
+  }, [cards, transactions]);
 
   // Movimentações cujo texto de favorecido não bate (case/trim-insensitive) com nenhum cadastro
   const favUnlinkedGroups = useMemo(() => {
@@ -2026,7 +2059,6 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       <div className="absolute left-0 top-full flex">
         {([
           { key: 'main', label: 'Controle Financeiro' },
-          { key: 'cartoes', label: 'Cartões' },
           { key: 'favorecidos', label: 'Favorecidos' },
           { key: 'contas', label: 'Contas' },
         ] as const).map((tab, i, arr) => {
@@ -2042,9 +2074,6 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               onClick={() => {
                 if (tab.key === 'favorecidos' && financeView !== 'favorecidos') {
                   fetchFavorecidos(); fetchSuppliers();
-                }
-                if (tab.key === 'cartoes' && financeView !== 'cartoes') {
-                  setCartoesDrill(null);
                 }
                 setFinanceView(tab.key);
               }}
@@ -2067,151 +2096,6 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       </div>
     </div>
   );
-
-  if (financeView === 'cartoes') {
-    const faturas = transactions
-      .filter(t => t.is_fatura_consolidada)
-      .sort((a, b) => (b.fatura_periodo ?? '').localeCompare(a.fatura_periodo ?? ''));
-    const drillCard = cartoesDrill ? cards.find(c => c.id === cartoesDrill.cardId) : null;
-    const drillItems = cartoesDrill
-      ? transactions
-          .filter(t => t.card_id === cartoesDrill.cardId && t.fatura_periodo === cartoesDrill.periodo && !t.is_fatura_consolidada)
-          .sort((a, b) => a.data.localeCompare(b.data))
-      : [];
-    const periodoLabel = (periodo: string | null | undefined) =>
-      periodo ? new Date(periodo + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase()) : '—';
-
-    return (
-      <div className="space-y-6">
-        {renderFinanceHeader()}
-
-        {!cartoesDrill ? (
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2">
-              <CreditCard size={15} className="text-[#1A1A0E]" />
-              <span className="text-[13px] font-black text-[#1A1A0E]">Faturas de Cartão</span>
-              <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{faturas.length}</span>
-            </div>
-            {faturas.length === 0 ? (
-              <div className="flex flex-col items-center py-10 text-on-surface/25">
-                <CreditCard size={32} className="mb-2" />
-                <p className="text-sm font-bold">Nenhuma fatura ainda</p>
-                <p className="text-xs mt-1">Movimentações em Crédito geram a fatura do mês automaticamente</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-on-surface/[0.06]">
-                {faturas.map(f => {
-                  const card = cards.find(c => c.id === f.card_id);
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => f.card_id && f.fatura_periodo && setCartoesDrill({ cardId: f.card_id, periodo: f.fatura_periodo })}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-on-surface/[0.03] transition-colors text-left"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                        <CreditCard size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] font-extrabold text-on-surface truncate">{card?.nome ?? f.favorecido}</p>
-                        <p className="text-[11px] text-on-surface/45">{periodoLabel(f.fatura_periodo)} · Vencimento {fmtDate(f.vencimento)}</p>
-                      </div>
-                      <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0', f.pago ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400')}>
-                        {f.pago ? 'Paga' : 'Em aberto'}
-                      </span>
-                      <span className="font-black text-on-surface shrink-0 tabular-nums">{fmt(f.usar_valor_real ? (f.valor_real ?? f.valor_final) : f.valor_final)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center gap-2.5">
-              <button
-                onClick={() => setCartoesDrill(null)}
-                title="Voltar para a lista de faturas"
-                className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform] shrink-0"
-              >
-                <ArrowLeft size={14} />
-              </button>
-              <CreditCard size={15} className="text-[#1A1A0E] shrink-0" />
-              <span className="text-[13px] font-black text-[#1A1A0E] truncate">
-                Fatura · {drillCard?.nome ?? '—'} · {periodoLabel(cartoesDrill.periodo)}
-              </span>
-              <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide shrink-0">{drillItems.length} lançamentos</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Código</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Data</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Tipo</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Parcelas</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Favorecido</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Estabelec.</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Vencimento</th>
-                    <th className="px-4 py-3 text-left text-[10.5px] font-extrabold uppercase tracking-wide text-[rgba(26,26,10,0.55)]">Valor Final</th>
-                    <th className="px-4 py-3 w-16" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {drillItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-14 text-center">
-                        <CreditCard size={32} className="mx-auto mb-2 text-on-surface/20" />
-                        <p className="font-bold text-on-surface/30 text-sm">Nenhum lançamento nesta fatura</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    drillItems.map((t, idx) => (
-                      <tr key={t.id} className={cn('border-t border-on-surface/[0.06]', idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]')}>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {t.codigo && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border border-primary/20 bg-primary/10 text-primary">
-                              {t.codigo}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-on-surface/70">{fmtDate(t.data)}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
-                            t.tipo === 'Receita' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                          )}>
-                            {t.tipo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border border-on-surface/[0.14] text-on-surface/65">
-                            <span className="font-black text-primary">{t.numero_parcela ?? 1}/{t.total_parcelas ?? 1}</span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 max-w-[180px] font-semibold text-on-surface truncate" title={t.favorecido}>{t.favorecido}</td>
-                        <td className="px-4 py-3 text-on-surface/70">{t.estabelecimento}</td>
-                        <td className="px-4 py-3 text-on-surface/70 whitespace-nowrap">{fmtDate(t.vencimento)}</td>
-                        <td className="px-4 py-3 font-bold text-on-surface whitespace-nowrap">{fmt(t.valor_final)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => openEditTx(t)} title="Editar" className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
-                              <Edit2 size={13} />
-                            </button>
-                            <button onClick={() => handleDeleteTx(t.id)} title="Excluir" className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   if (financeView === 'favorecidos') {
     return (
@@ -2384,11 +2268,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       {/* Header */}
       {renderFinanceHeader()}
 
-      {/* Calendar + Resultados/Contas */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'start', flexShrink: 0 }}>
+      {/* Calendar + ADM/Cartões/Contas */}
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'stretch', flexShrink: 0 }}>
 
         {/* Mini Calendar */}
-        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+        <div ref={calendarBoxRef} className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
           <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
             <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
 
@@ -2592,11 +2476,15 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           </div>
         </div>
 
-        {/* Painel Resultados / Contas */}
-        <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
+        {/* Painel ADM / Cartões / Contas — limitado à altura do calendário ao lado (medida
+            via ResizeObserver) e rola por dentro quando o conteúdo não cabe. */}
+        <div
+          className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col"
+          style={calendarBoxHeight ? { maxHeight: calendarBoxHeight } : undefined}
+        >
+          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center shrink-0">
             <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
-              {(['resultados', 'contas', 'adm'] as const).map(tab => (
+              {(['adm', 'cartoes', 'contas'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setFinancePanelTab(tab)}
@@ -2607,123 +2495,100 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
                   )}
                 >
-                  {tab === 'resultados' ? 'Resultados' : tab === 'contas' ? 'Contas' : 'ADM'}
+                  {tab === 'adm' ? 'ADM' : tab === 'cartoes' ? 'Cartões' : 'Contas'}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="p-2.5">
-            {financePanelTab === 'resultados' ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { label: 'Receitas', value: totals.receitas, icon: TrendingUp,   iconCls: 'bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400', valCls: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: 'Despesas', value: totals.despesas, icon: TrendingDown, iconCls: 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]', iconColor: 'text-rose-600 dark:text-[#D81E1E]', valCls: 'text-rose-600 dark:text-[#D81E1E]' },
-                  { label: 'Saldo',    value: totals.saldo,   icon: Wallet,        iconCls: totals.saldo >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)]', iconColor: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-[#D81E1E]', valCls: totals.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-[#D81E1E]' },
-                ].map(({ label, value, icon: Icon, iconCls, iconColor, valCls }) => (
-                  <div key={label} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                    <div className={cn('w-6 h-6 rounded-[8px] flex items-center justify-center shrink-0', iconCls)}>
-                      <Icon size={12} strokeWidth={2.3} className={iconColor} />
+          <div className="p-2.5 flex-1 overflow-y-auto min-h-0 flex flex-col gap-1.5">
+            {financePanelTab === 'adm' ? (<>
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-[9px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                    <Clock size={13} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-extrabold text-on-surface truncate">Vencimento no período</p>
+                    <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">
+                      {vencimentoStats.count} {vencimentoStats.count === 1 ? 'movimentação' : 'movimentações'}
+                    </p>
+                  </div>
+                  <p className="text-[12px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</p>
+                </div>
+
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-[9px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 size={13} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-extrabold text-on-surface truncate">Total pago</p>
+                    <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">
+                      {vencimentoStats.pagoCount} {vencimentoStats.pagoCount === 1 ? 'movimentação quitada' : 'movimentações quitadas'}
+                    </p>
+                  </div>
+                  <p className="text-[12px] font-black shrink-0 tracking-tight text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</p>
+                </div>
+
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-[9px] bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center shrink-0 text-rose-600 dark:text-[#D81E1E]">
+                    <TrendingDown size={13} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-extrabold text-on-surface truncate">Saídas sem vencimento</p>
+                    <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">Pagamentos à vista</p>
+                  </div>
+                  <p className="text-[12px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.saidasValor)}</p>
+                </div>
+            </>) : financePanelTab === 'cartoes' ? (
+              cardFaturaStats.length === 0 ? (
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
+                  <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhum cartão cadastrado</p>
+                </div>
+              ) : (
+                cardFaturaStats.map(({ card, valor, vencimento, fechamento, pago, temFatura }) => (
+                  <div key={card.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                    <div className={cn(
+                      'w-7 h-7 rounded-[9px] flex items-center justify-center shrink-0',
+                      temFatura ? 'bg-primary/[0.08] dark:bg-primary/[0.12] text-primary' : 'bg-on-surface/[0.06] dark:bg-white/[0.06] text-on-surface/40'
+                    )}>
+                      <CreditCard size={13} strokeWidth={2} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">{label}</div>
-                      <div className={cn('text-[13px] font-black tracking-tight leading-tight truncate', valCls)}>{fmt(value)}</div>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
-                    <Clock size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Vencimento</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</div>
-                    <div className="text-[8px] font-bold text-on-surface/35 whitespace-nowrap">
-                      {vencimentoStats.count} {vencimentoStats.count === 1 ? 'movimentação' : 'movimentações'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-2 bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Total Pago</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</div>
-                  </div>
-                </div>
-              </div>
-            ) : financePanelTab === 'adm' ? (
-              <div className="flex flex-col gap-2">
-                {/* Vencimento */}
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-extrabold text-on-surface truncate">Vencimento</p>
-                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</p>
-                  </div>
-                  <div className="shrink-0 min-w-[48px] rounded-[11px] border-[1.5px] border-on-surface/[0.12] dark:border-white/[0.14] bg-on-surface/[0.045] dark:bg-white/[0.045] px-2 py-1.5 flex flex-col items-center justify-center gap-px">
-                    <span className="font-['DM_Mono',monospace] text-[15px] font-black text-on-surface leading-none">{vencimentoStats.count}</span>
-                    <span className="text-[6.5px] font-extrabold uppercase tracking-[0.08em] text-on-surface/40 leading-none whitespace-nowrap">mov.</span>
-                  </div>
-                </div>
-
-                {/* Conector visual — Total Pago é derivado de Vencimento */}
-                <div className="flex justify-center -my-1">
-                  <div className="w-[1.5px] h-2 bg-on-surface/[0.12]" />
-                </div>
-
-                {/* Total Pago (vinculado ao Vencimento) */}
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-extrabold text-on-surface truncate">Total Pago</p>
-                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</p>
-                  </div>
-                  <div className="shrink-0 min-w-[48px] rounded-[11px] border-[1.5px] border-on-surface/[0.12] dark:border-white/[0.14] bg-on-surface/[0.045] dark:bg-white/[0.045] px-2 py-1.5 flex flex-col items-center justify-center gap-px">
-                    <span className="font-['DM_Mono',monospace] text-[15px] font-black text-on-surface leading-none">{vencimentoStats.pagoCount}</span>
-                    <span className="text-[6.5px] font-extrabold uppercase tracking-[0.08em] text-on-surface/40 leading-none whitespace-nowrap">pagas</span>
-                  </div>
-                </div>
-
-                {/* Saídas — despesas sem vencimento */}
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[14px] px-3.5 py-3 flex items-center justify-between gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-extrabold text-on-surface truncate">Saídas</p>
-                    <p className="text-[17px] font-black tracking-tight leading-tight truncate text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.saidasValor)}</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 px-0.5 pb-0.5">
-                  <div className="w-6 h-6 rounded-[7px] bg-on-surface/[0.06] dark:bg-white/[0.06] flex items-center justify-center text-on-surface/45 shrink-0">
-                    <CreditCard size={12} strokeWidth={2.2} />
-                  </div>
-                  <span className="text-[9.5px] font-black uppercase tracking-[0.13em] text-on-surface/50">Contas</span>
-                </div>
-
-                {accountBalances.length === 0 ? (
-                  <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
-                    <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhuma conta cadastrada</p>
-                  </div>
-                ) : (
-                  accountBalances.map(a => (
-                    <div key={a.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-[9px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
-                        <CreditCard size={13} strokeWidth={2} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10.5px] font-extrabold text-on-surface truncate">{a.nome}</p>
-                        <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">{a.banco}</p>
-                      </div>
-                      <p className={cn('text-[12px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                        {fmt(a.saldo)}
+                      <p className="text-[10.5px] font-extrabold text-on-surface truncate">{card.nome}</p>
+                      <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">
+                        Vence {fmtDate(vencimento)} · Fecha {fmtDate(fechamento)}
                       </p>
                     </div>
-                  ))
-                )}
-              </div>
+                    <p className={cn(
+                      'text-[12px] font-black shrink-0 tracking-tight',
+                      !temFatura ? 'text-on-surface/25' : pago ? 'text-emerald-500' : 'text-rose-500'
+                    )}>
+                      {fmt(valor)}
+                    </p>
+                  </div>
+                ))
+              )
+            ) : (
+              accountBalances.length === 0 ? (
+                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
+                  <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhuma conta cadastrada</p>
+                </div>
+              ) : (
+                accountBalances.map(a => (
+                  <div key={a.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-[9px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
+                      <CreditCard size={13} strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10.5px] font-extrabold text-on-surface truncate">{a.nome}</p>
+                      <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">{a.banco}</p>
+                    </div>
+                    <p className={cn('text-[12px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                      {fmt(a.saldo)}
+                    </p>
+                  </div>
+                ))
+              )
             )}
           </div>
         </div>
