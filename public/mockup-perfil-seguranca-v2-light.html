@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Perfil + Segurança v2 — Light</title>
+<style>
+  :root {
+    --page: #FFFCEC;
+    --card: #F5EDCE;
+    --card-border: rgba(26,26,10,0.07);
+    --section-bg: #FFFFFF;
+    --section-border: rgba(26,26,10,0.11);
+    --section-shadow: 0 1px 2px rgba(26,26,10,0.04), 0 6px 16px -8px rgba(26,26,10,0.14);
+    --input-bg: rgba(26,26,10,0.045);
+    --input-border: rgba(26,26,10,0.14);
+    --ink: #1A1A0E;
+    --label: rgba(26,26,10,0.45);
+    --muted: rgba(26,26,10,0.38);
+    --primary: #D81E1E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--page);
+    min-height: 100vh;
+    padding: 32px;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 36px;
+    box-shadow: 0 12px 30px rgba(26,26,10,0.06);
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .icon-chip {
+    width: 42px; height: 42px; border-radius: 16px;
+    background: rgba(216,30,30,0.10); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .title { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+  .subtitle { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 1px; }
+
+  .section {
+    background: var(--section-bg);
+    border: 1px solid var(--section-border);
+    box-shadow: var(--section-shadow);
+    border-radius: 20px;
+    padding: 16px 18px;
+  }
+  .section-head { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+  .section-head svg { color: var(--primary); flex-shrink: 0; }
+  .section-title { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); }
+  .section-title.locked { color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+  /* Perfil - conta */
+  .account-row { display: flex; align-items: center; gap: 14px; }
+  .avatar {
+    width: 56px; height: 56px; border-radius: 18px; flex-shrink: 0;
+    background: var(--input-bg); border: 1px solid var(--input-border);
+    display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.28);
+  }
+  .account-info { min-width: 0; flex: 1; }
+  .name { font-size: 14px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .email { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trocar-foto { font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
+
+  .field-label { font-size: 10px; font-weight: 800; color: var(--label); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: block; }
+  .field {
+    width: 100%; background: var(--input-bg); border: 1.5px solid var(--input-border);
+    border-radius: 12px; padding: 10px 13px; font-size: 13px; font-weight: 700; color: var(--ink);
+  }
+  .field.disabled { opacity: 0.55; }
+  .hint { font-size: 10px; font-weight: 600; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Segurança */
+  .desc { font-size: 12.5px; color: rgba(26,26,10,0.58); line-height: 1.6; }
+  .desc b { color: rgba(26,26,10,0.78); }
+  .count-row { display: flex; align-items: center; justify-content: space-between; }
+  .count { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .btn-primary {
+    background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.05em; padding: 11px 18px; border-radius: 14px;
+    display: flex; align-items: center; gap: 7px; box-shadow: 0 8px 18px rgba(216,30,30,0.25);
+  }
+  .user-list { display: flex; flex-direction: column; gap: 10px; }
+  .user-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--section-bg); border: 1px solid var(--section-border);
+    border-radius: 18px; padding: 12px;
+    box-shadow: var(--section-shadow);
+  }
+  .user-avatar { width: 40px; height: 40px; border-radius: 14px; background: var(--input-bg); border: 1px solid var(--input-border); display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.28); flex-shrink: 0; }
+  .user-name { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .user-email { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+  .role-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 9px; background: rgba(216,30,30,0.10); color: var(--primary); }
+  .icon-btn { width: 30px; height: 30px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon-btn.green { background: rgba(16,150,90,0.12); color: #0A7A55; }
+  .icon-btn.red { background: rgba(216,30,30,0.10); color: var(--primary); }
+
+  .caption { margin-top: 16px; font-size: 11px; font-weight: 700; color: rgba(26,26,10,0.4); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <!-- Perfil -->
+    <div class="card">
+      <div class="head">
+        <div class="icon-chip">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <div class="title">Perfil</div>
+          <div class="subtitle">Sua conta</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="account-row">
+          <div class="avatar">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="account-info">
+            <div class="name">Dimitri Mizumoto Izaias</div>
+            <div class="email">dimimizaias@gmail.com</div>
+          </div>
+          <div class="trocar-foto">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Trocar Foto
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="section-title">Acesso</span>
+        </div>
+        <span class="field-label">Nome de usuário</span>
+        <input class="field" placeholder="ex: joao.silva" style="margin-bottom: 6px;" />
+        <div class="hint">Use no lugar do e-mail para entrar no sistema.</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <span class="section-title locked">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Editável por administradores
+          </span>
+        </div>
+        <div class="field-grid">
+          <div>
+            <span class="field-label">Funcionário</span>
+            <select class="field"><option>Dimitri Mizumoto Izaias</option></select>
+          </div>
+          <div>
+            <span class="field-label">Papel</span>
+            <select class="field"><option>Admin</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Segurança -->
+    <div class="card">
+      <div class="head">
+        <div class="icon-chip">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <div class="title">Segurança</div>
+          <div class="subtitle">Usuários com acesso ao sistema</div>
+        </div>
+      </div>
+
+      <div class="desc">Cada login é vinculado a um funcionário já cadastrado em <b>Recursos Humanos</b>. Crie um usuário por pessoa que precisa acessar o sistema.</div>
+
+      <div class="count-row">
+        <span class="count">2 usuários cadastrados</span>
+        <div class="btn-primary">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo Usuário
+        </div>
+      </div>
+
+      <div class="user-list">
+        <div class="user-row">
+          <div class="user-avatar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div class="user-name">Ricardo Mizumoto Izaias</div>
+            <div class="user-email">ricardomizumoto@gmail.com</div>
+          </div>
+          <span class="role-badge">Admin</span>
+          <div class="icon-btn green">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          </div>
+          <div class="icon-btn red">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </div>
+        </div>
+        <div class="user-row">
+          <div class="user-avatar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div class="user-name">Dimitri Mizumoto Izaias</div>
+            <div class="user-email">dimimizaias@gmail.com</div>
+          </div>
+          <span class="role-badge">Admin</span>
+          <div class="icon-btn green">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          </div>
+          <div class="icon-btn red">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="caption">Cards ocupam 100% da largura disponível (grid 1fr/1fr, sem max-width). Fundo do card em creme mais saturado (#F5EDCE) claramente distinto do fundo da página (#FFFCEC); dentro, "seções" brancas com sombra (igual ao modal Editar Produto) agrupam os campos, que usam fundo levemente escurecido (rgba preto 4,5%) — a mesma receita de contraste do modal de referência. Layout mais compacto (avatar 56px, seções agrupadas, grid 2 colunas p/ Funcionário+Papel) para caber sem scroll.</div>
+</body>
+</html>

@@ -20,6 +20,7 @@ import {
   User,
   Check,
   Lock,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -206,7 +207,7 @@ export function SettingsPage() {
       )}
 
       {activeTab === 'seguranca' && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch max-w-4xl">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
           <PerfilSection
             usuario={currentUsuario}
             loading={currentUsuarioLoading}
@@ -449,19 +450,24 @@ function PerfilSection({
   const isAdmin = usuario?.role === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [role, setRole] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [savingUsername, setSavingUsername] = useState(false);
-  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
+  const resetFromUsuario = () => {
     if (!usuario) return;
     setUsername(usuario.username || '');
     setEmployeeId(usuario.employee_id);
     setRole(usuario.role);
+  };
+
+  useEffect(() => {
+    resetFromUsuario();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario]);
 
   useEffect(() => {
@@ -470,7 +476,8 @@ function PerfilSection({
     return () => clearTimeout(t);
   }, [message]);
 
-  const fieldCls = 'w-full min-w-0 bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-primary/50';
+  const sectionCls = 'bg-white dark:bg-[#252520] border border-[#1A1A0E]/[0.11] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(26,26,10,0.04),0_6px_16px_-8px_rgba(26,26,10,0.14)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)] rounded-[20px] p-4';
+  const fieldCls = 'w-full min-w-0 bg-[#1A1A0E]/[0.045] dark:bg-white/[0.05] border-[1.5px] border-[#1A1A0E]/[0.14] dark:border-white/[0.12] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none focus:border-primary/50 disabled:opacity-55 disabled:cursor-not-allowed';
   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/45 dark:text-white/40 mb-1.5 block';
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -494,20 +501,34 @@ function PerfilSection({
     }
   };
 
-  const handleSaveUsername = async () => {
-    setSavingUsername(true);
+  const handleEditToggle = async () => {
+    if (!isEditing) {
+      setIsEditing(true);
+      return;
+    }
+    setSaving(true);
     setMessage(null);
-    const res = await onSave({ username: username.trim() || null });
-    setMessage(res.ok ? { type: 'ok', text: 'Nome de usuário salvo.' } : { type: 'error', text: res.error || 'Erro ao salvar.' });
-    setSavingUsername(false);
+    const updates: { username?: string | null; employeeId?: string; role?: string } = {
+      username: username.trim() || null,
+    };
+    if (isAdmin) {
+      updates.employeeId = employeeId;
+      updates.role = role;
+    }
+    const res = await onSave(updates);
+    setSaving(false);
+    if (res.ok) {
+      setIsEditing(false);
+      setMessage({ type: 'ok', text: 'Alterações salvas.' });
+    } else {
+      setMessage({ type: 'error', text: res.error || 'Erro ao salvar.' });
+    }
   };
 
-  const handleSaveAdmin = async () => {
-    setSavingAdmin(true);
+  const handleCancel = () => {
+    resetFromUsuario();
+    setIsEditing(false);
     setMessage(null);
-    const res = await onSave({ employeeId, role });
-    setMessage(res.ok ? { type: 'ok', text: 'Alterações salvas.' } : { type: 'error', text: res.error || 'Erro ao salvar.' });
-    setSavingAdmin(false);
   };
 
   const avatarUrl = usuario?.avatar_url || usuario?.hr_employees?.foto_url || null;
@@ -515,19 +536,46 @@ function PerfilSection({
   // então o funcionário atual do usuário sempre aparece nas opções.
   const employeesForSelect = allEmployees;
 
-  const adminDirty = usuario && (employeeId !== usuario.employee_id || role !== usuario.role);
-  const usernameDirty = usuario && username.trim() !== (usuario.username || '');
-
   return (
-    <div className="bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/5 dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 flex flex-col">
+    <div className="bg-[#F5EDCE] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/[0.07] dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-7 space-y-4 flex flex-col">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-[1.2rem] bg-primary/10 text-primary flex items-center justify-center shadow-inner">
-          <UserCog size={22} />
+        <div className="w-[42px] h-[42px] rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner shrink-0">
+          <UserCog size={20} />
         </div>
-        <div>
-          <h3 className="text-xl font-black text-on-surface tracking-tight">Perfil</h3>
-          <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Sua conta</p>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-black text-on-surface tracking-tight">Perfil</h3>
+          <p className="text-[10px] text-on-surface/40 font-extrabold uppercase tracking-widest">Sua conta</p>
         </div>
+        {!loading && usuario && (
+          <div className="flex items-center gap-2 shrink-0">
+            {isEditing && (
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                className="text-[11px] font-extrabold uppercase tracking-wide text-on-surface/45 hover:text-on-surface transition-colors px-2 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              onClick={handleEditToggle}
+              disabled={saving}
+              title={isEditing ? 'Salvar' : 'Editar perfil'}
+              className={cn(
+                'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-60',
+                isEditing ? 'bg-primary text-white' : 'bg-[#1A1A0E]/[0.07] dark:bg-white/[0.08] text-on-surface/55 hover:text-on-surface'
+              )}
+            >
+              {saving ? (
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+              ) : isEditing ? (
+                <Check size={15} />
+              ) : (
+                <Pencil size={14} />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading || !usuario ? (
@@ -536,108 +584,93 @@ function PerfilSection({
         </div>
       ) : (
         <>
-          <div className="flex flex-col items-center gap-2.5">
-            <div className="relative w-24 h-24 rounded-[24px] bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.10] overflow-hidden flex items-center justify-center text-[#1A1A0E]/25 dark:text-white/25 text-3xl font-black">
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <User size={30} />
-              )}
-              {uploading && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+          <div className={sectionCls}>
+            <div className="flex items-center gap-3.5">
+              <div className="relative w-14 h-14 rounded-[18px] bg-[#1A1A0E]/[0.045] dark:bg-white/[0.05] border border-[#1A1A0E]/[0.14] dark:border-white/[0.12] overflow-hidden flex items-center justify-center text-[#1A1A0E]/30 dark:text-white/30 shrink-0">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={22} />
+                )}
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[14px] font-extrabold text-on-surface truncate">
+                  {usuario.hr_employees?.nome || 'Funcionário removido'}
                 </div>
-              )}
+                <div className="text-[11px] font-bold text-on-surface/40 truncate">{usuario.email}</div>
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 text-[10.5px] font-extrabold text-primary uppercase tracking-wide disabled:opacity-50 shrink-0 whitespace-nowrap"
+              >
+                <Camera size={11} /> Trocar Foto
+              </button>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-1.5 text-[11px] font-extrabold text-primary uppercase tracking-wide disabled:opacity-50"
-            >
-              <Camera size={12} /> Trocar Foto
-            </button>
           </div>
 
-          <div className="text-center -mt-1">
-            <div className="text-[15px] font-extrabold text-on-surface truncate">
-              {usuario.hr_employees?.nome || 'Funcionário removido'}
+          <div className={sectionCls}>
+            <div className="flex items-center gap-1.5 mb-3">
+              <Lock size={12} className="text-primary shrink-0" />
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-on-surface">Acesso</span>
             </div>
-            <div className="text-[11px] font-bold text-on-surface/40 truncate">{usuario.email}</div>
-          </div>
-
-          <div>
             <label className={labelCls}>Nome de usuário</label>
-            <div className="flex items-center gap-2">
-              <input
-                className={fieldCls}
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="ex: joao.silva"
-                autoCapitalize="none"
-                autoCorrect="off"
-              />
-              {usernameDirty && (
-                <button
-                  onClick={handleSaveUsername}
-                  disabled={savingUsername}
-                  title="Salvar"
-                  className="w-9 h-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center disabled:opacity-60"
-                >
-                  {savingUsername ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <Check size={15} />}
-                </button>
-              )}
-            </div>
-            <p className="text-[10.5px] font-medium text-on-surface/35 mt-1.5 leading-relaxed">
+            <input
+              className={fieldCls}
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="ex: joao.silva"
+              autoCapitalize="none"
+              autoCorrect="off"
+              disabled={!isEditing}
+            />
+            <p className="text-[10px] font-medium text-on-surface/35 mt-1.5 leading-relaxed">
               Use no lugar do e-mail para entrar no sistema.
             </p>
           </div>
 
-          <div className="pt-2 border-t border-on-surface/[0.06] space-y-4">
-            <div className="flex items-center gap-1.5 text-on-surface/35">
+          <div className={sectionCls}>
+            <div className="flex items-center gap-1.5 mb-3 text-on-surface/40">
               {!isAdmin && <Lock size={11} />}
               <span className="text-[10px] font-extrabold uppercase tracking-wide">
                 {isAdmin ? 'Editável por administradores' : 'Somente administradores podem editar'}
               </span>
             </div>
 
-            <div>
-              <label className={labelCls}>Funcionário</label>
-              {isAdmin ? (
-                <select className={fieldCls} value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
-                  {employeesForSelect.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                  ))}
-                </select>
-              ) : (
-                <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed')}>{usuario.hr_employees?.nome || '—'}</div>
-              )}
-            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Funcionário</label>
+                {isAdmin ? (
+                  <select className={fieldCls} value={employeeId} onChange={e => setEmployeeId(e.target.value)} disabled={!isEditing}>
+                    {employeesForSelect.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed truncate')}>{usuario.hr_employees?.nome || '—'}</div>
+                )}
+              </div>
 
-            <div>
-              <label className={labelCls}>Papel</label>
-              {isAdmin ? (
-                <select className={fieldCls} value={role} onChange={e => setRole(e.target.value)}>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              ) : (
-                <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed')}>{ROLE_LABELS[usuario.role] || usuario.role}</div>
-              )}
+              <div>
+                <label className={labelCls}>Papel</label>
+                {isAdmin ? (
+                  <select className={fieldCls} value={role} onChange={e => setRole(e.target.value)} disabled={!isEditing}>
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className={cn(fieldCls, 'opacity-60 cursor-not-allowed truncate')}>{ROLE_LABELS[usuario.role] || usuario.role}</div>
+                )}
+              </div>
             </div>
-
-            {isAdmin && adminDirty && (
-              <button
-                onClick={handleSaveAdmin}
-                disabled={savingAdmin}
-                className="w-full flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-2xl font-black text-xs hover:bg-on-surface transition-[colors,transform] shadow-lg shadow-primary/25 uppercase tracking-wide active:scale-95 disabled:opacity-60"
-              >
-                {savingAdmin ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" /> : <Check size={14} />}
-                Salvar alterações
-              </button>
-            )}
           </div>
 
           {message && (
@@ -666,57 +699,57 @@ function SegurancaSection({
   onDelete: (u: Usuario) => void;
 }) {
   return (
-    <div className="bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/5 dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-10 space-y-6 min-w-0 flex flex-col">
+    <div className="bg-[#F5EDCE] dark:bg-[#1E1E18] rounded-[3rem] border border-[#1A1A0E]/[0.07] dark:border-white/5 shadow-xl shadow-on-surface/[0.02] p-7 space-y-4 min-w-0 flex flex-col">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-[1.2rem] bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner">
-            <ShieldCheck size={22} />
+          <div className="w-[42px] h-[42px] rounded-2xl bg-red-500/10 text-red-600 flex items-center justify-center shadow-inner shrink-0">
+            <ShieldCheck size={20} />
           </div>
           <div>
-            <h3 className="text-xl font-black text-on-surface tracking-tight">Segurança</h3>
-            <p className="text-xs text-on-surface/40 font-medium uppercase tracking-widest">Usuários com acesso ao sistema</p>
+            <h3 className="text-lg font-black text-on-surface tracking-tight">Segurança</h3>
+            <p className="text-[10px] text-on-surface/40 font-extrabold uppercase tracking-widest">Usuários com acesso ao sistema</p>
           </div>
         </div>
       </div>
 
-      <p className="text-sm text-on-surface/50 leading-relaxed">
-        Cada login é vinculado a um funcionário já cadastrado em <strong className="text-on-surface/70">Recursos Humanos</strong>. Crie um usuário por pessoa que precisa acessar o sistema.
+      <p className="text-[12.5px] text-on-surface/55 leading-relaxed">
+        Cada login é vinculado a um funcionário já cadastrado em <strong className="text-on-surface/75">Recursos Humanos</strong>. Crie um usuário por pessoa que precisa acessar o sistema.
       </p>
 
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-xs font-extrabold text-on-surface/35 uppercase tracking-widest">
+      <div className="flex items-center justify-between">
+        <span className="text-[10.5px] font-extrabold text-on-surface/40 uppercase tracking-widest">
           {loading ? 'Carregando…' : `${usuarios.length} usuário${usuarios.length !== 1 ? 's' : ''} cadastrado${usuarios.length !== 1 ? 's' : ''}`}
         </span>
         <button
           onClick={onAdd}
-          className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-2xl font-black text-xs hover:bg-on-surface transition-[colors,transform] shadow-lg shadow-primary/25 uppercase tracking-wide active:scale-95"
+          className="flex items-center gap-2 bg-primary text-white px-4.5 py-2.5 rounded-2xl font-black text-[10.5px] hover:bg-on-surface transition-[colors,transform] shadow-lg shadow-primary/25 uppercase tracking-wide active:scale-95"
         >
-          <Plus size={15} strokeWidth={2.6} />
+          <Plus size={14} strokeWidth={2.6} />
           Novo Usuário
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {usuarios.map(usuario => (
           <div
             key={usuario.id}
-            className="flex items-center gap-3.5 bg-white dark:bg-[#2A2A23] border border-[#E8DEBE] dark:border-white/[0.09] rounded-[20px] p-3.5 shadow-sm shadow-on-surface/[0.02]"
+            className="flex items-center gap-3 bg-white dark:bg-[#252520] border border-[#1A1A0E]/[0.11] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(26,26,10,0.04),0_6px_16px_-8px_rgba(26,26,10,0.14)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)] rounded-[18px] p-3"
           >
-            <div className="w-[46px] h-[46px] rounded-2xl bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.10] flex items-center justify-center overflow-hidden shrink-0 text-[#1A1A0E]/25 dark:text-white/25">
+            <div className="w-10 h-10 rounded-[14px] bg-[#1A1A0E]/[0.045] dark:bg-white/[0.05] border border-[#1A1A0E]/[0.14] dark:border-white/[0.12] flex items-center justify-center overflow-hidden shrink-0 text-[#1A1A0E]/30 dark:text-white/30">
               {usuario.hr_employees?.foto_url ? (
                 <img src={usuario.hr_employees.foto_url} alt={usuario.hr_employees.nome} className="w-full h-full object-cover" />
               ) : (
-                <UserCog size={20} />
+                <UserCog size={17} />
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-extrabold text-on-surface truncate">
+              <div className="text-[13px] font-extrabold text-on-surface truncate">
                 {usuario.hr_employees?.nome || 'Funcionário removido'}
               </div>
-              <div className="text-[11px] font-bold text-on-surface/45 truncate">{usuario.email}</div>
+              <div className="text-[10.5px] font-bold text-on-surface/45 truncate">{usuario.email}</div>
             </div>
             <span className={cn(
-              'text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-lg shrink-0',
+              'text-[9.5px] font-black uppercase tracking-wide px-2.5 py-1 rounded-lg shrink-0',
               'bg-primary/10 text-primary'
             )}>
               {ROLE_LABELS[usuario.role] || usuario.role}
@@ -725,18 +758,18 @@ function SegurancaSection({
               onClick={() => onToggleAtivo(usuario)}
               title={usuario.ativo ? 'Desativar acesso' : 'Ativar acesso'}
               className={cn(
-                'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                'w-[30px] h-[30px] rounded-xl flex items-center justify-center shrink-0 transition-colors',
                 usuario.ativo ? 'bg-green-500/10 text-green-600' : 'bg-on-surface/[0.06] text-on-surface/30'
               )}
             >
-              <Power size={15} />
+              <Power size={14} />
             </button>
             <button
               onClick={() => onDelete(usuario)}
               title="Remover usuário"
-              className="w-8 h-8 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
+              className="w-[30px] h-[30px] rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
             >
-              <Trash2 size={15} />
+              <Trash2 size={14} />
             </button>
           </div>
         ))}
