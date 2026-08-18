@@ -53,7 +53,7 @@ export interface ReviewNote {
   supplierName?: string;
   receivedDate?: string;
   createdAt?: string;
-  transporte?: 'fornecedor' | 'proprio' | 'transportadora';
+  orderDate?: string;
   companyId?: string | null;
   // Marca se a quantidade recebida já foi somada ao estoque da empresa — evita duplicar o
   // incremento se a nota for resalva/reaprovada depois de já estar "Aprovada".

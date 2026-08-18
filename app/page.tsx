@@ -1105,6 +1105,7 @@ export default function Page() {
         lockedByName: n.locked_by_name ?? null,
         lockedAt: n.locked_at ?? null,
         receivedDate: n.received_date ?? undefined,
+        orderDate: n.order_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
       })));
@@ -3359,6 +3360,7 @@ export default function Page() {
       file_name: viewingReviewNote.fileName,
       note_number: viewingReviewNote.noteNumber || null,
       received_date: viewingReviewNote.receivedDate || null,
+      order_date: viewingReviewNote.orderDate || null,
       company_id: viewingReviewNote.companyId || null,
       supplier_id: viewingReviewNote.supplierId || null,
       supplier_name: viewingReviewNote.supplierName || null,
@@ -8446,17 +8448,13 @@ export default function Page() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Transporte</label>
-                        <select
-                          value={viewingReviewNote.transporte || ''}
-                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, transporte: (e.target.value || undefined) as ReviewNote['transporte'] })}
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data do pedido</label>
+                        <input
+                          type="date"
+                          value={viewingReviewNote.orderDate || ''}
+                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, orderDate: e.target.value || undefined })}
                           className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors w-fit cursor-pointer"
-                        >
-                          <option value="">Selecionar...</option>
-                          <option value="fornecedor">Fornecedor</option>
-                          <option value="proprio">Transporte próprio</option>
-                          <option value="transportadora">Transportadora</option>
-                        </select>
+                        />
                       </div>
                     </div>
 
