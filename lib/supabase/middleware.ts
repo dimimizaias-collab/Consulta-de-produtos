@@ -21,6 +21,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  const isApiPath = request.nextUrl.pathname.startsWith('/api');
+  if (isApiPath) {
+    // Rotas de API cuidam da própria autorização (RLS ou service role).
+    // Login por usuário, por exemplo, precisa ser chamado sem sessão ainda ativa.
+    return response;
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
 
   const isLoginPath = request.nextUrl.pathname.startsWith('/login');
