@@ -6,7 +6,7 @@ import {
   Plus, X, Check, Edit2, Trash2, TrendingUp, TrendingDown,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
-  AlertTriangle, Info, ArrowLeft, ArrowRight, Lock, Unlock, Link2Off,
+  AlertTriangle, Info, ArrowLeft, Lock, Unlock, Link2Off,
   ArrowUp, ArrowDown, Eye,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -206,11 +206,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // "Dados" view (contas + favorecidos)
-  const [financeView, setFinanceView] = useState<'main' | 'dados' | 'cartoes'>('main');
+  // Abas "Favorecidos" e "Contas" (antes agrupadas numa única aba "Dados")
+  const [financeView, setFinanceView] = useState<'main' | 'favorecidos' | 'contas' | 'cartoes'>('main');
   const [dadosFavSearch, setDadosFavSearch] = useState('');
   const [dadosAccSearch, setDadosAccSearch] = useState('');
-  const [dadosPane, setDadosPane] = useState<'favorecidos' | 'contas'>('favorecidos');
 
   // aba "Cartões" — null mostra a lista de faturas, preenchido faz o drill-down na fatura
   const [cartoesDrill, setCartoesDrill] = useState<{ cardId: string; periodo: string } | null>(null);
@@ -1920,8 +1919,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       <div className="absolute left-0 top-full flex">
         {([
           { key: 'main', label: 'Controle Financeiro' },
-          { key: 'dados', label: 'Dados' },
           { key: 'cartoes', label: 'Cartões' },
+          { key: 'favorecidos', label: 'Favorecidos' },
+          { key: 'contas', label: 'Contas' },
         ] as const).map((tab, i, arr) => {
           const HEADER_TAB_LABEL_MAX = 12;
           const label = tab.label.length > HEADER_TAB_LABEL_MAX
@@ -1933,8 +1933,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               key={tab.key}
               title={tab.label}
               onClick={() => {
-                if (tab.key === 'dados' && financeView !== 'dados') {
-                  fetchFavorecidos(); fetchSuppliers(); setDadosPane('favorecidos');
+                if (tab.key === 'favorecidos' && financeView !== 'favorecidos') {
+                  fetchFavorecidos(); fetchSuppliers();
                 }
                 if (tab.key === 'cartoes' && financeView !== 'cartoes') {
                   setCartoesDrill(null);
@@ -2106,33 +2106,18 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      {renderFinanceHeader()}
-
-      {financeView === 'dados' ? (
-        <div className="overflow-hidden rounded-[18px]">
-          <div
-            className="flex w-[200%] transition-transform duration-[320ms]"
-            style={{ transform: dadosPane === 'contas' ? 'translateX(-50%)' : 'translateX(0)', transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)' }}
-          >
-            {/* Favorecidos */}
-            <div className="w-1/2 shrink-0 pr-1.5">
-              <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+  if (financeView === 'favorecidos') {
+    return (
+      <div className="space-y-6">
+        {renderFinanceHeader()}
+        <div>
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
                 <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
                   <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
                     <Users size={15} />
                     Favorecidos
                     <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{favorecidos.length}</span>
                   </span>
-                  <button
-                    onClick={() => setDadosPane('contas')}
-                    title="Ir para Contas"
-                    className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform]"
-                  >
-                    <ArrowRight size={14} />
-                  </button>
                 </div>
                 <div className="p-4 flex flex-col gap-2.5">
                   <div className="flex items-center gap-2.5">
@@ -2205,24 +2190,23 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   )}
                 </div>
               </div>
-            </div>
+        </div>
+      </div>
+    );
+  }
 
-            {/* Contas */}
-            <div className="w-1/2 shrink-0 pl-1.5">
-              <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+  if (financeView === 'contas') {
+    return (
+      <div className="space-y-6">
+        {renderFinanceHeader()}
+        <div>
+          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
                 <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
                   <span className="flex items-center gap-2 text-[13px] font-black text-[#1A1A0E]">
                     <Building2 size={15} />
                     Contas
                     <span className="bg-[rgba(26,26,10,0.10)] text-[rgba(26,26,10,0.55)] rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide">{accounts.length}</span>
                   </span>
-                  <button
-                    onClick={() => setDadosPane('favorecidos')}
-                    title="Voltar para Favorecidos"
-                    className="w-[27px] h-[27px] rounded-[9px] bg-[rgba(26,26,10,0.10)] text-[#1A1A0E] flex items-center justify-center hover:bg-[rgba(26,26,10,0.18)] active:scale-[0.93] transition-[background-color,transform]"
-                  >
-                    <ArrowLeft size={14} />
-                  </button>
                 </div>
                 <div className="p-4 flex flex-col gap-2.5">
                   <div className="flex items-center gap-2.5">
@@ -2283,10 +2267,15 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   )}
                 </div>
               </div>
-            </div>
-          </div>
         </div>
-      ) : (<>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      {renderFinanceHeader()}
 
       {/* Calendar + Resultados/Contas */}
       <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'start', flexShrink: 0 }}>
@@ -3138,7 +3127,6 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       >
         <div ref={floatScrollInnerRef} className="h-px" />
       </div>
-      </>)}
 
       {/* ── Transaction Modal ──────────────────────────────────────────────── */}
       <AnimatePresence>
