@@ -319,9 +319,9 @@ export function RequestCenter({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-[20px] px-6 py-5 flex items-center gap-3.5">
+      {/* Header — Desktop: mesmo padrão "folder tabs" da página Inventory */}
+      <div className="relative mb-14 hidden lg:block">
+        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
           <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
             <ArrowLeftRight size={24} strokeWidth={2} />
           </div>
@@ -330,28 +330,61 @@ export function RequestCenter({
             <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Protocol Management &amp; Product Revisions</div>
           </div>
         </div>
+
+        <div className="absolute left-0 top-full flex">
+          {([
+            { id: 'requisicoes' as const, label: 'Requisições' },
+            { id: 'analise' as const, label: 'Análise de Produtos' },
+          ]).map((tab, i, arr) => {
+            const active = activeView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveView(tab.id)}
+                className={cn(
+                  'h-[34px] px-6 flex items-center justify-center shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
+                  i === arr.length - 1 && 'rounded-br-[12px]',
+                  'text-[12px] font-extrabold uppercase tracking-wide',
+                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  active
+                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
+                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Sub-abas: Requisições x Análise de Produtos */}
-      <div className="flex items-center gap-2">
-        {([
-          { id: 'requisicoes' as const, label: 'Requisições', icon: ArrowLeftRight },
-          { id: 'analise' as const, label: 'Análise de Produtos', icon: BarChart3 },
-        ]).map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveView(tab.id)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border',
-              activeView === tab.id
-                ? 'bg-on-surface text-surface-container border-on-surface'
-                : 'bg-surface-container-low/30 text-on-surface/50 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
-            )}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
+      {/* Header — Mobile: título solto + pills, mesmo padrão da página Inventory */}
+      <div className="lg:hidden mb-6">
+        <h1 className="text-[32px] font-black text-on-surface tracking-tight leading-tight">Requisições</h1>
+        <div className="flex items-center gap-2 mt-3">
+          {([
+            { id: 'requisicoes' as const, label: 'Requisições' },
+            { id: 'analise' as const, label: 'Análise de Produtos' },
+          ]).map(tab => {
+            const active = activeView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveView(tab.id)}
+                className={cn(
+                  'px-[18px] py-[9px] rounded-full text-[11px] font-extrabold uppercase tracking-wide border transition-colors active:scale-[0.97]',
+                  active
+                    ? 'bg-[#1A1A0E] text-[#FFE500] border-transparent dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                    : 'bg-on-surface/[0.055] text-on-surface/55 border-on-surface/[0.08] hover:text-on-surface'
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeView === 'analise' ? (
