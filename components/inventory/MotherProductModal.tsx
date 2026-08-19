@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, Package, Link as LinkIcon, Info, Image as ImageIcon } from 'lucide-react';
+import { X, Package, Link as LinkIcon, Info, Image as ImageIcon, Keyboard, Delete } from 'lucide-react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface MotherPackage {
   id: string;
@@ -46,6 +47,29 @@ const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
 const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
 const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
 
+// Teclado virtual de texto (Sufixo) — mesmo padrão do teclado usado em MobileBulkTable.tsx,
+// exibido apenas no modo mobile pra não cobrir o teclado nativo do desktop.
+const SUFFIX_KBD: Record<string, string[][]> = {
+  abc: [
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['SHIFT','z','x','c','v','b','n','m','⌫'],
+    ['123','SPACE','↵'],
+  ],
+  '123': [
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['-','/',':', ';','(',')', '$','&','@','"'],
+    ['#+=','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+  '#+=': [
+    ['[',']','{','}','#','%','^','*','+','='],
+    ['_','\\','|','~','<','>','€','£','¥','•'],
+    ['123','.',',','?','!','\'','⌫'],
+    ['ABC','SPACE','↵'],
+  ],
+};
+
 export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved }: MotherProductModalProps) {
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
@@ -63,8 +87,43 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
   const [error, setError] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  const isMobile = useIsMobile();
+  const [showUnitsKbd, setShowUnitsKbd] = useState(false);
+  const [showSuffixKbd, setShowSuffixKbd] = useState(false);
+  const [suffixKbdMode, setSuffixKbdMode] = useState<'abc' | '123' | '#+='>('abc');
+  const [suffixKbdShift, setSuffixKbdShift] = useState(true);
+
+  function handleUnitsKey(key: string) {
+    const cur = unitsPerChild === '' ? '' : String(unitsPerChild);
+    if (key === '⌫') {
+      const next = cur.slice(0, -1);
+      setUnitsPerChild(next === '' ? '' : parseInt(next) || '');
+      return;
+    }
+    if (key === 'C') { setUnitsPerChild(''); return; }
+    const next = cur + key;
+    setUnitsPerChild(parseInt(next) || '');
+  }
+
+  function handleSuffixKey(key: string) {
+    if (key === '⌫') { setSuffix(v => v.slice(0, -1)); return; }
+    if (key === 'SHIFT') { setSuffixKbdShift(v => !v); return; }
+    if (key === 'SPACE') { setSuffix(v => v + ' '); return; }
+    if (key === '↵') { setShowSuffixKbd(false); return; }
+    if (key === '123') { setSuffixKbdMode('123'); return; }
+    if (key === 'ABC') { setSuffixKbdMode('abc'); return; }
+    if (key === '#+=') { setSuffixKbdMode('#+='); return; }
+    const char = suffixKbdMode === 'abc' ? (suffixKbdShift ? key.toUpperCase() : key) : key;
+    setSuffix(v => v + char);
+    if (suffixKbdMode === 'abc' && suffixKbdShift) setSuffixKbdShift(false);
+  }
+
   useEffect(() => {
     if (!open) return;
+    setShowUnitsKbd(false);
+    setShowSuffixKbd(false);
+    setSuffixKbdMode('abc');
+    setSuffixKbdShift(true);
     if (editingPackage) {
       setSku(editingPackage.sku || '');
       setName(editingPackage.name || '');
@@ -263,7 +322,90 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                   </div>
                   <div className="space-y-1.5">
                     <label className={labelCls}>Sufixo (opcional)</label>
-                    <input type="text" value={suffix} onChange={e => setSuffix(e.target.value)} className={inputCls} placeholder="Ex: Caixa, Pacote, Fardo..." />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        inputMode={isMobile && showSuffixKbd ? 'none' : undefined}
+                        value={suffix}
+                        onChange={e => setSuffix(e.target.value)}
+                        className={cn(inputCls, 'flex-1 min-w-0')}
+                        placeholder="Ex: Caixa, Pacote, Fardo..."
+                      />
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowSuffixKbd(v => !v); setShowUnitsKbd(false); setSuffixKbdMode('abc'); }}
+                          title="Teclado de texto"
+                          className={cn(
+                            'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                            showSuffixKbd
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/60 hover:text-primary hover:border-primary/40'
+                          )}
+                        >
+                          <Keyboard size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    <AnimatePresence>
+                      {isMobile && showSuffixKbd && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                          transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                          className="z-50 bg-white dark:bg-[#2e2e28] border border-black/[0.10] dark:border-white/[0.10] rounded-2xl shadow-2xl p-2.5 select-none"
+                        >
+                          <div className="space-y-[6px]">
+                            {SUFFIX_KBD[suffixKbdMode].map((row, ri) => (
+                              <div key={ri} className="flex gap-[5px] justify-center">
+                                {row.map(key => {
+                                  const isShiftKey = key === 'SHIFT';
+                                  const isDelete = key === '⌫';
+                                  const isSpace = key === 'SPACE';
+                                  const isModeKey = ['123', 'ABC', '#+='].includes(key);
+                                  const isReturn = key === '↵';
+                                  const isSpecial = isShiftKey || isDelete || isSpace || isModeKey || isReturn;
+                                  const displayKey = suffixKbdMode === 'abc' && !isSpecial
+                                    ? (suffixKbdShift ? key.toUpperCase() : key)
+                                    : key;
+                                  return (
+                                    <motion.button
+                                      key={key + ri}
+                                      type="button"
+                                      onMouseDown={e => { e.preventDefault(); handleSuffixKey(key); }}
+                                      whileTap={{ scale: isSpecial ? 0.88 : 0.82 }}
+                                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                                      className={cn(
+                                        'h-10 rounded-[10px] flex items-center justify-center',
+                                        isSpace ? 'flex-1 text-xs font-medium' :
+                                        isModeKey ? 'w-10 text-[10px] font-bold' :
+                                        isReturn ? 'w-10 text-sm' :
+                                        (isShiftKey || isDelete) ? 'w-10' : 'flex-1 text-sm font-normal',
+                                        (isShiftKey && suffixKbdShift)
+                                          ? 'bg-primary/20 text-primary'
+                                          : isSpecial
+                                            ? 'bg-black/[0.06] dark:bg-white/[0.08] text-on-surface'
+                                            : 'bg-black/[0.035] dark:bg-white/[0.06] text-on-surface',
+                                      )}
+                                    >
+                                      {isShiftKey
+                                        ? <span className={cn('text-base leading-none', suffixKbdShift ? 'font-black' : 'font-light')}>⇧</span>
+                                        : isDelete ? <Delete size={13} />
+                                        : isSpace ? 'espaço'
+                                        : isReturn ? '↵'
+                                        : displayKey
+                                      }
+                                    </motion.button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="space-y-1.5">
                     <label className={labelCls}>Código EAN Principal</label>
@@ -288,16 +430,68 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                 <div className={fieldGridCls}>
                   <div className="space-y-1.5">
                     <label className={labelCls}>Unidades por Embalagem</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={unitsPerChild}
-                      onChange={e => setUnitsPerChild(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                      onWheel={e => e.currentTarget.blur()}
-                      placeholder="Ex.: 12"
-                      className={cn(inputCls, '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        inputMode={isMobile && showUnitsKbd ? 'none' : undefined}
+                        value={unitsPerChild}
+                        onChange={e => setUnitsPerChild(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        onWheel={e => e.currentTarget.blur()}
+                        placeholder="Ex.: 12"
+                        className={cn(inputCls, 'flex-1 min-w-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                      />
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowUnitsKbd(v => !v); setShowSuffixKbd(false); }}
+                          title="Teclado numérico"
+                          className={cn(
+                            'w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-95',
+                            showUnitsKbd
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/60 hover:text-primary hover:border-primary/40'
+                          )}
+                        >
+                          <Keyboard size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    <AnimatePresence>
+                      {isMobile && showUnitsKbd && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                          transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                          className="z-50 bg-white dark:bg-[#2e2e28] border border-black/[0.10] dark:border-white/[0.10] rounded-2xl shadow-2xl p-3 select-none"
+                        >
+                          <div className="grid grid-cols-3 gap-2">
+                            {['1','2','3','4','5','6','7','8','9','C','0','⌫'].map(key => (
+                              <motion.button
+                                key={key}
+                                type="button"
+                                onMouseDown={e => { e.preventDefault(); handleUnitsKey(key); }}
+                                whileTap={{ scale: 0.88 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                                className={cn(
+                                  'h-12 rounded-xl border text-base font-black flex items-center justify-center transition-colors',
+                                  key === 'C'
+                                    ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20'
+                                    : key === '⌫'
+                                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20'
+                                      : 'bg-black/[0.035] dark:bg-white/[0.06] border-black/[0.10] dark:border-white/[0.10] text-on-surface hover:bg-primary/10 hover:border-primary/40'
+                                )}
+                              >
+                                {key === '⌫' ? <Delete size={16} /> : key}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="space-y-1.5">
                     <label className={labelCls}>Fornecedor (opcional)</label>
