@@ -49,6 +49,77 @@ function ThermometerIcon({ level, className }: { level: 'Alta' | 'Média' | 'Bai
   );
 }
 
+// ── Análise de Produtos: cruzamento com o histórico de notas ───────────────
+
+interface SupplierStat {
+  supplierKey: string;
+  supplierName: string;
+  qtyTotal: number;
+  noteCount: number;
+  avgLeadTime: number | null;
+  leadTimeSampleSize: number;
+  lastPrice: number | null;
+}
+
+// Cruza um produto com o histórico de notas aprovadas: quem já forneceu, com que
+// frequência, a que preço (custo unitário = valor da linha / multiplicador da embalagem)
+// e em quantos dias entre "Data do pedido" e "Data de recebimento" (quando ambas existem).
+// Compartilhada entre a visão "Por Produto" (1 produto) e "Por Fornecedor" (todos de uma vez).
+function computeSupplierBreakdown(productId: string, reviewNotes: any[]): SupplierStat[] {
+  const bySupplier = new Map<string, {
+    supplierName: string; qtyTotal: number; noteCount: number;
+    leadTimes: number[]; lastPrice: number | null; lastDate: string | null;
+  }>();
+
+  for (const note of reviewNotes) {
+    if (!Array.isArray(note.items)) continue;
+    for (const item of note.items) {
+      if (item.product_id !== productId) continue;
+      const qty = Number(item.qty) || 0;
+      if (qty <= 0) continue;
+
+      const key = note.supplierId || note.supplierName || 'desconhecido';
+      let acc = bySupplier.get(key);
+      if (!acc) {
+        acc = { supplierName: note.supplierName || 'Fornecedor não identificado', qtyTotal: 0, noteCount: 0, leadTimes: [], lastPrice: null, lastDate: null };
+        bySupplier.set(key, acc);
+      }
+      acc.qtyTotal += qty;
+      acc.noteCount += 1;
+
+      if (note.orderDate && note.receivedDate) {
+        const days = Math.round((new Date(note.receivedDate).getTime() - new Date(note.orderDate).getTime()) / 86400000);
+        if (days >= 0) acc.leadTimes.push(days);
+      }
+
+      const noteDate = note.receivedDate || note.orderDate || note.createdAt || null;
+      if (noteDate && (!acc.lastDate || noteDate > acc.lastDate)) {
+        acc.lastDate = noteDate;
+        const unitCost = (Number(item.price) || 0) / (Number(item.multiplier) || 1);
+        if (unitCost > 0) acc.lastPrice = unitCost;
+      }
+    }
+  }
+
+  return Array.from(bySupplier.entries())
+    .map(([supplierKey, s]) => ({
+      supplierKey,
+      supplierName: s.supplierName,
+      qtyTotal: s.qtyTotal,
+      noteCount: s.noteCount,
+      lastPrice: s.lastPrice,
+      avgLeadTime: s.leadTimes.length > 0 ? Math.round(s.leadTimes.reduce((a, b) => a + b, 0) / s.leadTimes.length) : null,
+      leadTimeSampleSize: s.leadTimes.length,
+    }))
+    .sort((a, b) => b.qtyTotal - a.qtyTotal);
+}
+
+// Faixa de "atenção" antes do crítico: 20% acima do mínimo, arredondado pra cima,
+// com margem mínima de 1 unidade — evita que mínimos pequenos (1-4 un) fiquem sem faixa.
+function attentionThreshold(minStock: number): number {
+  return minStock + Math.max(Math.ceil(minStock * 0.2), minStock > 0 ? 1 : 0);
+}
+
 interface RequestCenterProps {
   requests: any[];
   onAddRequest: () => void;
@@ -104,67 +175,85 @@ export function RequestCenter({
 
   // ── Análise de Produtos ──────────────────────────────────────────────────
   const [activeView, setActiveView] = useState<'requisicoes' | 'analise'>('requisicoes');
+  const [analysisGrouping, setAnalysisGrouping] = useState<'produto' | 'fornecedor'>('produto');
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [expandedSupplierKey, setExpandedSupplierKey] = useState<string | null>(null);
 
-  const lowStockProducts = useMemo(() => {
-    return products
-      .filter(p => p.min_stock != null && (p.count || 0) <= p.min_stock)
-      .sort((a, b) => (b.min_stock - (b.count || 0)) - (a.min_stock - (a.count || 0)));
+  // Crítico = já no limite ou abaixo. Atenção = acima do mínimo mas dentro da margem
+  // (ver attentionThreshold) — avisa antes de precisar comprar às pressas.
+  const stockStatusProducts = useMemo(() => {
+    const critical: any[] = [];
+    const attention: any[] = [];
+    for (const p of products) {
+      if (p.min_stock == null) continue;
+      const count = p.count || 0;
+      if (count <= p.min_stock) critical.push(p);
+      else if (count <= attentionThreshold(p.min_stock)) attention.push(p);
+    }
+    critical.sort((a, b) => (b.min_stock - (b.count || 0)) - (a.min_stock - (a.count || 0)));
+    attention.sort((a, b) => (a.count || 0) - a.min_stock - ((b.count || 0) - b.min_stock));
+    return { critical, attention };
   }, [products]);
+
+  const lowStockProducts = useMemo(
+    () => [...stockStatusProducts.critical, ...stockStatusProducts.attention],
+    [stockStatusProducts]
+  );
 
   const noMinStockCount = useMemo(
     () => products.filter(p => p.min_stock == null).length,
     [products]
   );
 
-  // Cruza o produto expandido com o histórico de notas: quem já forneceu, com que
-  // frequência, a que preço (custo unitário = valor da linha / multiplicador da embalagem)
-  // e em quantos dias entre "Data do pedido" e "Data de recebimento" (quando ambas existem).
   const supplierBreakdown = useMemo(() => {
     if (!expandedProductId) return [];
-    const bySupplier = new Map<string, {
-      supplierName: string; qtyTotal: number; noteCount: number;
-      leadTimes: number[]; lastPrice: number | null; lastDate: string | null;
-    }>();
+    return computeSupplierBreakdown(expandedProductId, reviewNotes);
+  }, [expandedProductId, reviewNotes]);
 
-    for (const note of reviewNotes) {
-      if (!Array.isArray(note.items)) continue;
-      for (const item of note.items) {
-        if (item.product_id !== expandedProductId) continue;
-        const qty = Number(item.qty) || 0;
-        if (qty <= 0) continue;
+  const bestPriceKeys = useMemo(() => {
+    const priced = supplierBreakdown.filter(s => s.lastPrice != null);
+    if (priced.length === 0) return new Set<string>();
+    const min = Math.min(...priced.map(s => s.lastPrice as number));
+    return new Set(priced.filter(s => s.lastPrice === min).map(s => s.supplierKey));
+  }, [supplierBreakdown]);
 
-        const key = note.supplierId || note.supplierName || 'desconhecido';
-        let acc = bySupplier.get(key);
+  const bestLeadTimeKeys = useMemo(() => {
+    const timed = supplierBreakdown.filter(s => s.avgLeadTime != null);
+    if (timed.length === 0) return new Set<string>();
+    const min = Math.min(...timed.map(s => s.avgLeadTime as number));
+    return new Set(timed.filter(s => s.avgLeadTime === min).map(s => s.supplierKey));
+  }, [supplierBreakdown]);
+
+  // Visão "Por Fornecedor" — só calculada quando essa sub-view está ativa (é mais
+  // pesada: cruza TODOS os produtos em falta/atenção com o histórico de notas de uma vez).
+  const supplierGroups = useMemo(() => {
+    if (analysisGrouping !== 'fornecedor' || lowStockProducts.length === 0) return { groups: [], uncovered: [] as any[] };
+
+    const bySupplier = new Map<string, { supplierName: string; products: { product: any; stat: SupplierStat }[] }>();
+    const uncovered: any[] = [];
+
+    for (const product of lowStockProducts) {
+      const breakdown = computeSupplierBreakdown(product.id, reviewNotes);
+      if (breakdown.length === 0) {
+        uncovered.push(product);
+        continue;
+      }
+      for (const stat of breakdown) {
+        let acc = bySupplier.get(stat.supplierKey);
         if (!acc) {
-          acc = { supplierName: note.supplierName || 'Fornecedor não identificado', qtyTotal: 0, noteCount: 0, leadTimes: [], lastPrice: null, lastDate: null };
-          bySupplier.set(key, acc);
+          acc = { supplierName: stat.supplierName, products: [] };
+          bySupplier.set(stat.supplierKey, acc);
         }
-        acc.qtyTotal += qty;
-        acc.noteCount += 1;
-
-        if (note.orderDate && note.receivedDate) {
-          const days = Math.round((new Date(note.receivedDate).getTime() - new Date(note.orderDate).getTime()) / 86400000);
-          if (days >= 0) acc.leadTimes.push(days);
-        }
-
-        const noteDate = note.receivedDate || note.orderDate || note.createdAt || null;
-        if (noteDate && (!acc.lastDate || noteDate > acc.lastDate)) {
-          acc.lastDate = noteDate;
-          const unitCost = (Number(item.price) || 0) / (Number(item.multiplier) || 1);
-          if (unitCost > 0) acc.lastPrice = unitCost;
-        }
+        acc.products.push({ product, stat });
       }
     }
 
-    return Array.from(bySupplier.values())
-      .map(s => ({
-        ...s,
-        avgLeadTime: s.leadTimes.length > 0 ? Math.round(s.leadTimes.reduce((a, b) => a + b, 0) / s.leadTimes.length) : null,
-        leadTimeSampleSize: s.leadTimes.length,
-      }))
-      .sort((a, b) => b.qtyTotal - a.qtyTotal);
-  }, [expandedProductId, reviewNotes]);
+    const groups = Array.from(bySupplier.entries())
+      .map(([supplierKey, g]) => ({ supplierKey, ...g }))
+      .sort((a, b) => b.products.length - a.products.length);
+
+    return { groups, uncovered };
+  }, [analysisGrouping, lowStockProducts, reviewNotes]);
 
   // Inicializa checkedItems a partir dos dados salvos no banco
   const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>(() => {
@@ -282,62 +371,174 @@ export function RequestCenter({
             >
               <BarChart3 size={56} className="mb-5 opacity-20" />
               <p className="text-base font-black uppercase tracking-[0.25em] text-on-surface/20">Estoque dentro do esperado</p>
-              <p className="text-sm font-medium opacity-50 mt-2">Nenhum produto com Estoque Mínimo definido está abaixo do limite.</p>
+              <p className="text-sm font-medium opacity-50 mt-2">Nenhum produto com Estoque Mínimo definido está abaixo do limite ou perto dele.</p>
             </motion.div>
           ) : (
-            <div className="space-y-3">
-              {lowStockProducts.map(p => {
-                const deficit = (p.min_stock || 0) - (p.count || 0);
-                const isExpanded = expandedProductId === p.id;
-                return (
-                  <div key={p.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
-                    <button
-                      onClick={() => setExpandedProductId(isExpanded ? null : p.id)}
-                      className="w-full flex items-center gap-4 p-4 text-left"
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
-                        <AlertTriangle size={18} />
+            <>
+              {/* Alternância Por Produto x Por Fornecedor */}
+              <div className="flex items-center gap-2">
+                {([
+                  { id: 'produto' as const, label: 'Por Produto' },
+                  { id: 'fornecedor' as const, label: 'Por Fornecedor' },
+                ]).map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAnalysisGrouping(opt.id)}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border',
+                      analysisGrouping === opt.id
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface-container-low/30 text-on-surface/50 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {analysisGrouping === 'produto' ? (
+                <div className="space-y-5">
+                  {([
+                    { tier: 'critical' as const, list: stockStatusProducts.critical, title: 'Crítico — comprar agora', accent: 'red' as const },
+                    { tier: 'attention' as const, list: stockStatusProducts.attention, title: 'Atenção — se aproximando do mínimo', accent: 'amber' as const },
+                  ]).map(section => section.list.length === 0 ? null : (
+                    <div key={section.tier} className="space-y-2.5">
+                      <p className={cn(
+                        'text-[10px] font-black uppercase tracking-widest',
+                        section.accent === 'red' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+                      )}>
+                        {section.title} ({section.list.length})
+                      </p>
+                      <div className="space-y-3">
+                        {section.list.map(p => {
+                          const deficit = (p.min_stock || 0) - (p.count || 0);
+                          const isExpanded = expandedProductId === p.id;
+                          return (
+                            <div key={p.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
+                              <button
+                                onClick={() => setExpandedProductId(isExpanded ? null : p.id)}
+                                className="w-full flex items-center gap-4 p-4 text-left"
+                              >
+                                <div className={cn(
+                                  'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                                  section.accent === 'red' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                )}>
+                                  <AlertTriangle size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-black text-on-surface truncate">{p.name}</p>
+                                  <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
+                                    SKU {p.sku || '—'} · Estoque {p.count || 0} un · Mínimo {p.min_stock} un
+                                  </p>
+                                </div>
+                                <span className={cn(
+                                  'text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shrink-0',
+                                  section.accent === 'red' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                )}>
+                                  {section.tier === 'critical' ? (deficit > 0 ? `Faltam ${deficit}` : 'No limite') : 'Perto do mínimo'}
+                                </span>
+                                <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
+                              </button>
+                              {isExpanded && (
+                                <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08]">
+                                  <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest mb-2 mt-2">Fornecedores deste produto</p>
+                                  {supplierBreakdown.length === 0 ? (
+                                    <p className="text-xs text-on-surface/40">Nenhuma nota de entrada aprovada encontrada com este produto ainda.</p>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      {supplierBreakdown.map((s) => (
+                                        <div key={s.supplierKey} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
+                                          <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <p className="font-black text-on-surface truncate">{s.supplierName}</p>
+                                              {bestPriceKeys.has(s.supplierKey) && (
+                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 uppercase tracking-widest shrink-0">Melhor preço</span>
+                                              )}
+                                              {bestLeadTimeKeys.has(s.supplierKey) && (
+                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 uppercase tracking-widest shrink-0">Menor prazo</span>
+                                              )}
+                                            </div>
+                                            <p className="text-[10px] text-on-surface/40">{s.noteCount} nota{s.noteCount !== 1 ? 's' : ''} · {s.qtyTotal} un compradas</p>
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                            <p className="font-black text-on-surface">{s.lastPrice ? `R$ ${s.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
+                                            <p className="text-[10px] text-on-surface/40">
+                                              {s.avgLeadTime != null ? `~${s.avgLeadTime}d de prazo (${s.leadTimeSampleSize} nota${s.leadTimeSampleSize !== 1 ? 's' : ''})` : 'sem prazo registrado'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-on-surface truncate">{p.name}</p>
-                        <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
-                          SKU {p.sku || '—'} · Estoque {p.count || 0} un · Mínimo {p.min_stock} un
-                        </p>
-                      </div>
-                      <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
-                        {deficit > 0 ? `Faltam ${deficit}` : 'No limite'}
-                      </span>
-                      <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
-                    </button>
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08]">
-                        <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest mb-2 mt-2">Fornecedores deste produto</p>
-                        {supplierBreakdown.length === 0 ? (
-                          <p className="text-xs text-on-surface/40">Nenhuma nota de entrada aprovada encontrada com este produto ainda.</p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {supplierBreakdown.map((s, i) => (
-                              <div key={i} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-on-surface/30">Baseado nas últimas 300 notas de entrada aprovadas. Fornecedores cadastrados em duplicidade podem aparecer separados.</p>
+                  {supplierGroups.groups.map(group => {
+                    const isExpanded = expandedSupplierKey === group.supplierKey;
+                    return (
+                      <div key={group.supplierKey} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
+                        <button
+                          onClick={() => setExpandedSupplierKey(isExpanded ? null : group.supplierKey)}
+                          className="w-full flex items-center gap-4 p-4 text-left"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <BarChart3 size={18} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-on-surface truncate">{group.supplierName}</p>
+                            <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
+                              Cobre {group.products.length} produto{group.products.length !== 1 ? 's' : ''} em falta/atenção
+                            </p>
+                          </div>
+                          <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
+                        </button>
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08] space-y-1.5">
+                            {group.products.map(({ product, stat }) => (
+                              <div key={product.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
                                 <div className="min-w-0">
-                                  <p className="font-black text-on-surface truncate">{s.supplierName}</p>
-                                  <p className="text-[10px] text-on-surface/40">{s.noteCount} nota{s.noteCount !== 1 ? 's' : ''} · {s.qtyTotal} un compradas</p>
+                                  <p className="font-black text-on-surface truncate">{product.name}</p>
+                                  <p className="text-[10px] text-on-surface/40">Estoque {product.count || 0} un · Mínimo {product.min_stock} un</p>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <p className="font-black text-on-surface">{s.lastPrice ? `R$ ${s.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
-                                  <p className="text-[10px] text-on-surface/40">
-                                    {s.avgLeadTime != null ? `~${s.avgLeadTime}d de prazo (${s.leadTimeSampleSize} nota${s.leadTimeSampleSize !== 1 ? 's' : ''})` : 'sem prazo registrado'}
-                                  </p>
+                                  <p className="font-black text-on-surface">{stat.lastPrice ? `R$ ${stat.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
+                                  <p className="text-[10px] text-on-surface/40">{stat.avgLeadTime != null ? `~${stat.avgLeadTime}d de prazo` : 'sem prazo registrado'}</p>
                                 </div>
                               </div>
                             ))}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+
+                  {supplierGroups.uncovered.length > 0 && (
+                    <div className="bg-surface-container-low/30 border border-on-surface/[0.05] rounded-[20px] p-4 space-y-2">
+                      <p className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest">
+                        Sem fornecedor conhecido ({supplierGroups.uncovered.length})
+                      </p>
+                      <div className="space-y-1.5">
+                        {supplierGroups.uncovered.map(p => (
+                          <div key={p.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
+                            <p className="font-black text-on-surface truncate">{p.name}</p>
+                            <p className="text-[10px] text-on-surface/40 shrink-0">Estoque {p.count || 0} un · Mínimo {p.min_stock} un</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : (
