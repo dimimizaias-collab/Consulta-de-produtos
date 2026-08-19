@@ -4491,8 +4491,10 @@ export default function Page() {
                   setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
                 />
             ) : activeTab === 'Requisições' ? (
-                <RequestCenter 
+                <RequestCenter
                   requests={requests}
+                  products={products}
+                  reviewNotes={reviewNotes}
                   onAddRequest={() => {
                     setShowAddRequestModal(true);
                     setIsReviewingExistingRequest(false);

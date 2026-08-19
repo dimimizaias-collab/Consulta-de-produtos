@@ -15,6 +15,10 @@ import {
   ClipboardList,
   FilePenLine,
   CheckSquare,
+  AlertTriangle,
+  ChevronDown,
+  Info,
+  BarChart3,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -54,6 +58,10 @@ interface RequestCenterProps {
   onToggleCheck?: (requestId: string, checkedIndices: number[]) => void;
   onApproveMultiple?: (requestIds: string[]) => void;
   onDeleteMultiple?: (requestIds: string[]) => void;
+  // Análise de Produtos — dados já carregados no app, só lidos aqui (edição continua
+  // acontecendo em Estoque/Editar Produto e em Entrada de Mercadoria).
+  products?: any[];
+  reviewNotes?: any[];
 }
 
 function ProductImage({ src, alt }: { src: string, alt: string }) {
@@ -89,8 +97,74 @@ export function RequestCenter({
   onToggleCheck,
   onApproveMultiple,
   onDeleteMultiple,
+  products = [],
+  reviewNotes = [],
 }: RequestCenterProps) {
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
+
+  // ── Análise de Produtos ──────────────────────────────────────────────────
+  const [activeView, setActiveView] = useState<'requisicoes' | 'analise'>('requisicoes');
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+
+  const lowStockProducts = useMemo(() => {
+    return products
+      .filter(p => p.min_stock != null && (p.count || 0) <= p.min_stock)
+      .sort((a, b) => (b.min_stock - (b.count || 0)) - (a.min_stock - (a.count || 0)));
+  }, [products]);
+
+  const noMinStockCount = useMemo(
+    () => products.filter(p => p.min_stock == null).length,
+    [products]
+  );
+
+  // Cruza o produto expandido com o histórico de notas: quem já forneceu, com que
+  // frequência, a que preço (custo unitário = valor da linha / multiplicador da embalagem)
+  // e em quantos dias entre "Data do pedido" e "Data de recebimento" (quando ambas existem).
+  const supplierBreakdown = useMemo(() => {
+    if (!expandedProductId) return [];
+    const bySupplier = new Map<string, {
+      supplierName: string; qtyTotal: number; noteCount: number;
+      leadTimes: number[]; lastPrice: number | null; lastDate: string | null;
+    }>();
+
+    for (const note of reviewNotes) {
+      if (!Array.isArray(note.items)) continue;
+      for (const item of note.items) {
+        if (item.product_id !== expandedProductId) continue;
+        const qty = Number(item.qty) || 0;
+        if (qty <= 0) continue;
+
+        const key = note.supplierId || note.supplierName || 'desconhecido';
+        let acc = bySupplier.get(key);
+        if (!acc) {
+          acc = { supplierName: note.supplierName || 'Fornecedor não identificado', qtyTotal: 0, noteCount: 0, leadTimes: [], lastPrice: null, lastDate: null };
+          bySupplier.set(key, acc);
+        }
+        acc.qtyTotal += qty;
+        acc.noteCount += 1;
+
+        if (note.orderDate && note.receivedDate) {
+          const days = Math.round((new Date(note.receivedDate).getTime() - new Date(note.orderDate).getTime()) / 86400000);
+          if (days >= 0) acc.leadTimes.push(days);
+        }
+
+        const noteDate = note.receivedDate || note.orderDate || note.createdAt || null;
+        if (noteDate && (!acc.lastDate || noteDate > acc.lastDate)) {
+          acc.lastDate = noteDate;
+          const unitCost = (Number(item.price) || 0) / (Number(item.multiplier) || 1);
+          if (unitCost > 0) acc.lastPrice = unitCost;
+        }
+      }
+    }
+
+    return Array.from(bySupplier.values())
+      .map(s => ({
+        ...s,
+        avgLeadTime: s.leadTimes.length > 0 ? Math.round(s.leadTimes.reduce((a, b) => a + b, 0) / s.leadTimes.length) : null,
+        leadTimeSampleSize: s.leadTimes.length,
+      }))
+      .sort((a, b) => b.qtyTotal - a.qtyTotal);
+  }, [expandedProductId, reviewNotes]);
 
   // Inicializa checkedItems a partir dos dados salvos no banco
   const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>(() => {
@@ -169,6 +243,105 @@ export function RequestCenter({
         </div>
       </div>
 
+      {/* Sub-abas: Requisições x Análise de Produtos */}
+      <div className="flex items-center gap-2">
+        {([
+          { id: 'requisicoes' as const, label: 'Requisições', icon: ArrowLeftRight },
+          { id: 'analise' as const, label: 'Análise de Produtos', icon: BarChart3 },
+        ]).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveView(tab.id)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border',
+              activeView === tab.id
+                ? 'bg-on-surface text-surface-container border-on-surface'
+                : 'bg-surface-container-low/30 text-on-surface/50 border-on-surface/[0.06] hover:border-primary/30 hover:text-primary'
+            )}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeView === 'analise' ? (
+        <div className="space-y-4">
+          {noMinStockCount > 0 && (
+            <div className="flex items-center gap-2.5 text-xs font-bold text-on-surface/50 bg-surface-container-low/30 border border-on-surface/[0.05] rounded-2xl px-4 py-3">
+              <Info size={15} className="shrink-0 text-on-surface/30" />
+              {noMinStockCount} produto{noMinStockCount !== 1 ? 's' : ''} sem Estoque Mínimo definido — {noMinStockCount !== 1 ? 'não entram' : 'não entra'} nos alertas abaixo. Defina em Editar Produto.
+            </div>
+          )}
+
+          {lowStockProducts.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-32 text-on-surface/10 bg-surface-container-low/20 rounded-[3rem] border-2 border-dashed border-on-surface/[0.03]"
+            >
+              <BarChart3 size={56} className="mb-5 opacity-20" />
+              <p className="text-base font-black uppercase tracking-[0.25em] text-on-surface/20">Estoque dentro do esperado</p>
+              <p className="text-sm font-medium opacity-50 mt-2">Nenhum produto com Estoque Mínimo definido está abaixo do limite.</p>
+            </motion.div>
+          ) : (
+            <div className="space-y-3">
+              {lowStockProducts.map(p => {
+                const deficit = (p.min_stock || 0) - (p.count || 0);
+                const isExpanded = expandedProductId === p.id;
+                return (
+                  <div key={p.id} className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden">
+                    <button
+                      onClick={() => setExpandedProductId(isExpanded ? null : p.id)}
+                      className="w-full flex items-center gap-4 p-4 text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-on-surface truncate">{p.name}</p>
+                        <p className="text-[10px] font-bold text-on-surface/40 uppercase tracking-widest">
+                          SKU {p.sku || '—'} · Estoque {p.count || 0} un · Mínimo {p.min_stock} un
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
+                        {deficit > 0 ? `Faltam ${deficit}` : 'No limite'}
+                      </span>
+                      <ChevronDown size={16} className={cn('transition-transform shrink-0 text-on-surface/30', isExpanded && 'rotate-180')} />
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-1 border-t border-[#E0D8BF] dark:border-white/[0.08]">
+                        <p className="text-[10px] font-black text-on-surface/30 uppercase tracking-widest mb-2 mt-2">Fornecedores deste produto</p>
+                        {supplierBreakdown.length === 0 ? (
+                          <p className="text-xs text-on-surface/40">Nenhuma nota de entrada aprovada encontrada com este produto ainda.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {supplierBreakdown.map((s, i) => (
+                              <div key={i} className="flex items-center justify-between gap-3 bg-surface-container-lowest rounded-xl px-3.5 py-2.5 text-xs">
+                                <div className="min-w-0">
+                                  <p className="font-black text-on-surface truncate">{s.supplierName}</p>
+                                  <p className="text-[10px] text-on-surface/40">{s.noteCount} nota{s.noteCount !== 1 ? 's' : ''} · {s.qtyTotal} un compradas</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="font-black text-on-surface">{s.lastPrice ? `R$ ${s.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</p>
+                                  <p className="text-[10px] text-on-surface/40">
+                                    {s.avgLeadTime != null ? `~${s.avgLeadTime}d de prazo (${s.leadTimeSampleSize} nota${s.leadTimeSampleSize !== 1 ? 's' : ''})` : 'sem prazo registrado'}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Campo de filtro */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -593,7 +766,7 @@ export function RequestCenter({
       </div>
 
       {pendingRequests.length === 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex flex-col items-center justify-center py-40 text-on-surface/10 bg-surface-container-low/20 rounded-[3rem] border-2 border-dashed border-on-surface/[0.03]"
@@ -602,6 +775,8 @@ export function RequestCenter({
           <p className="text-lg font-black uppercase tracking-[0.3em] text-on-surface/20">Protocol Clearance</p>
           <p className="text-sm font-medium opacity-50 mt-2">No pending revision requests in the system.</p>
         </motion.div>
+      )}
+      </>
       )}
     </div>
   );
