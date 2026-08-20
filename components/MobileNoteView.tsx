@@ -24,6 +24,14 @@ function findMotherPackageByCode(product: any, code: string | null | undefined) 
   return (product.motherEans || []).find((m: any) => m.ean === c) || null;
 }
 
+// Código usado para buscar/vincular um item de nota a um produto: prioriza o EAN, mas cai
+// para o Código do fornecedor (supplier_code) quando o EAN está vazio — espelha o mesmo
+// helper do desktop (app/page.tsx).
+function getNoteItemMatchCode(ean: string | null | undefined, supplierCode: string | null | undefined): string {
+  const e = (ean || '').trim();
+  return e || (supplierCode || '').trim();
+}
+
 // ─── types ───────────────────────────────────────────────────────────────────
 
 export interface EanVariant {
@@ -339,7 +347,7 @@ function LinkingPanel({ idx, item, products, onLink, onClose }: {
   idx: number; item: any; products: any[];
   onLink: (product: any) => void; onClose: () => void;
 }) {
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(() => getNoteItemMatchCode(item?.ean, item?.supplier_code));
   const results = q.trim().length < 2 ? [] : products.filter(p => {
     const s = q.toLowerCase();
     return (
@@ -711,7 +719,7 @@ export function MobileNoteView({
     // encontrado, aplica o mesmo fator de conversão (units_per_child) que a importação
     // automática e o vínculo manual no desktop já aplicam — senão a quantidade de caixas
     // ficaria gravada como se fossem unidades avulsas.
-    const code = (eans[activeIdx] ?? updatedItems[activeIdx]?.ean ?? '').trim();
+    const code = getNoteItemMatchCode(eans[activeIdx] ?? updatedItems[activeIdx]?.ean, updatedItems[activeIdx]?.supplier_code);
     const motherMatch = findMotherPackageByCode(product, code);
     let conversion: any = {};
     if (motherMatch) {

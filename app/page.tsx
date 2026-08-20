@@ -297,6 +297,15 @@ function findMotherPackageByCode(product: any, code: string | null | undefined) 
   return (product.motherEans || []).find((m: any) => m.ean === c) || null;
 }
 
+// Código usado para buscar/vincular um item de nota a um produto: prioriza o EAN (coluna
+// "EAN"), mas cai para o Código do fornecedor (coluna "Códigos"/supplier_code) quando o EAN
+// está vazio — na prática o usuário às vezes digita o EAN da caixa/mãe ali em vez de na
+// coluna EAN, e sem esse fallback nenhuma busca/vínculo automático o enxerga.
+function getNoteItemMatchCode(ean: string | null | undefined, supplierCode: string | null | undefined): string {
+  const e = (ean || '').trim();
+  return e || (supplierCode || '').trim();
+}
+
 export default function Page() {
   const { isMobileView } = useViewMode();
   const [activeTab, setActiveTab] = useState('Inventory');
@@ -3333,7 +3342,7 @@ export default function Page() {
   // corresponde a algum produto cadastrado, abre a busca (fluxo normal); se não há nenhum
   // resultado, pula direto para "Criar Novo Produto" com nome/EAN pré-preenchidos.
   const openNoteItemLink = (idx: number, item: any) => {
-    const q = viewingNoteEans[idx] ?? item.ean ?? '';
+    const q = getNoteItemMatchCode(viewingNoteEans[idx] ?? item.ean, item.supplier_code);
     const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
     const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
     setLinkingItemIdx(idx);
@@ -3367,10 +3376,11 @@ export default function Page() {
   };
 
   // Confirma o vínculo do item da nota ao produto selecionado na busca do modal "Vincular ao
-  // Dicionário" (Enter no campo de preço ou botão "Vincular com este preço"). Se o Código da
-  // linha bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto encontrado, aplica o
-  // mesmo fator de conversão (units_per_child) que a importação automática já aplica — senão
-  // a quantidade de caixas ficaria gravada como se fossem unidades avulsas (ver
+  // Dicionário" (Enter no campo de preço ou botão "Vincular com este preço"). Se o código da
+  // linha (coluna EAN, ou Código do fornecedor quando o EAN está vazio — getNoteItemMatchCode)
+  // bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto encontrado, aplica o mesmo
+  // fator de conversão (units_per_child) que a importação automática já aplica — senão a
+  // quantidade de caixas ficaria gravada como se fossem unidades avulsas (ver
   // handleNoteImportExcel, que faz o mesmo cálculo no caminho de importação).
   const confirmNoteItemLink = async () => {
     if (!viewingReviewNote || linkingItemIdx === null || !noteItemSelectedProduct) return;
@@ -3380,7 +3390,7 @@ export default function Page() {
     const linkItem = viewingReviewNote.items[i];
     const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
     const updatedItems = [...viewingReviewNote.items];
-    const code = (viewingNoteEans[i] ?? updatedItems[i].ean ?? '').trim();
+    const code = getNoteItemMatchCode(viewingNoteEans[i] ?? updatedItems[i].ean, updatedItems[i].supplier_code);
     const motherMatch = findMotherPackageByCode(p, code);
     let conversion: any = {};
     if (motherMatch) {
@@ -3437,7 +3447,7 @@ export default function Page() {
   };
 
   const openQuickCreateOrLink = (idx: number, item: any) => {
-    const q = viewingNoteEans[idx] ?? item.ean ?? '';
+    const q = getNoteItemMatchCode(viewingNoteEans[idx] ?? item.ean, item.supplier_code);
     const hasMatch = q.trim().length > 0 && searchProductsForLink(q).length > 0;
     if (q.trim().length === 0 || hasMatch) {
       openNoteItemLink(idx, item);
