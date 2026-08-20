@@ -9409,7 +9409,15 @@ export default function Page() {
                           {!reviewHiddenCols.has('Valor Total') && (
                           <th style={{ ...thBar, position: 'relative' }}>
                             <div style={lbl({ justifyContent: 'flex-end' })}>
-                              Valor Total
+                              <span style={{ color: reviewEditableCols.has('Valor Total') ? 'rgb(52 211 153)' : 'inherit' }}>Valor Total</span>
+                              <button
+                                onClick={() => setReviewEditableCols(prev => { const s = new Set(prev); s.has('Valor Total') ? s.delete('Valor Total') : s.add('Valor Total'); return s; })}
+                                title={reviewEditableCols.has('Valor Total') ? 'Bloquear coluna' : 'Editar coluna — informe o valor total e o Preço Custo é calculado automaticamente (Valor Total ÷ Qtd.)'}
+                                style={{ color: reviewEditableCols.has('Valor Total') ? 'rgb(52 211 153)' : 'inherit', opacity: reviewEditableCols.has('Valor Total') ? 1 : 0.5 }}
+                                className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
+                              >
+                                <Pencil size={9} />
+                              </button>
                               {filterBtn('valor_total')}
                             </div>
                             {renderFilterDropdown('valor_total')}
@@ -10001,13 +10009,44 @@ export default function Page() {
                             })()}
                           </td>
                           )}
-                          {/* Valor Total */}
+                          {/* Valor Total — editável via coluna (lápis): informar o total divide pela Qtd.
+                              e grava o resultado como Preço Custo (mesma fonte que a coluna Preço Custo
+                              usa), evitando o usuário calcular por fora. Só faz sentido quando não há
+                              desconto/acréscimo ativo na linha (aí Preço Custo também vira só leitura,
+                              porque o valor exibido já é ajustado) e quando há uma Qtd. válida pra dividir. */}
                           {!reviewHiddenCols.has('Valor Total') && (
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
-                              <span className="text-xs font-bold" style={{ color: totalValue > 0 ? 'var(--rn-text-muted)' : 'var(--rn-text-subtle)' }}>
-                                {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
-                              </span>
+                              {(canEditItems || reviewEditableCols.has('Valor Total')) && !hasDiscount && !hasSurcharge && displayQty > 0 ? (
+                                <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
+                                  <span className="text-[10px] font-black shrink-0" style={{ color: 'var(--rn-text-muted)' }}>R$</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={totalValue > 0 ? parseFloat(totalValue.toFixed(2)) : ''}
+                                    onChange={e => {
+                                      const raw = e.target.value;
+                                      const u = [...viewingNoteItemPrices];
+                                      if (raw === '') { u[idx] = null; setViewingNoteItemPrices(u); return; }
+                                      const newTotal = parseFloat(raw);
+                                      if (isNaN(newTotal)) return;
+                                      const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+                                      u[idx] = (newTotal / displayQty) * mult;
+                                      setViewingNoteItemPrices(u);
+                                    }}
+                                    onBlur={captureSnapshot}
+                                    onWheel={blockWheelChange}
+                                    title="Preço Custo é calculado automaticamente (Valor Total ÷ Qtd.)"
+                                    className="w-16 text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden text-right"
+                                    style={{ color: 'var(--rn-text)' }}
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-xs font-bold" style={{ color: totalValue > 0 ? 'var(--rn-text-muted)' : 'var(--rn-text-subtle)' }}>
+                                  {totalValue > 0 ? `R$ ${totalValue.toFixed(2)}` : '—'}
+                                </span>
+                              )}
                             </div>
                           </td>
                           )}
