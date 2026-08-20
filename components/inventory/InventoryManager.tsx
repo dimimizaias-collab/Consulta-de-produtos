@@ -118,13 +118,18 @@ export function InventoryManager({
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
-      const matchesSearch = !searchQuery || 
-        product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.ean?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesFilters = 
-        (!filters.ean || product.ean?.toLowerCase().includes(filters.ean.toLowerCase())) &&
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery ||
+        product.name?.toLowerCase().includes(searchLower) ||
+        product.sku?.toLowerCase().includes(searchLower) ||
+        product.ean?.toLowerCase().includes(searchLower) ||
+        (product.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(searchLower)) ||
+        (product.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(searchLower));
+
+      const matchesFilters =
+        (!filters.ean || product.ean?.toLowerCase().includes(filters.ean.toLowerCase()) ||
+          (product.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(filters.ean.toLowerCase())) ||
+          (product.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(filters.ean.toLowerCase()))) &&
         (!filters.internalCode || product.sku?.toLowerCase().includes(filters.internalCode.toLowerCase())) &&
         (!filters.category || product.category?.toLowerCase().includes(filters.category.toLowerCase())) &&
         (!filters.subcategory || product.subcategory?.toLowerCase().includes(filters.subcategory.toLowerCase())) &&

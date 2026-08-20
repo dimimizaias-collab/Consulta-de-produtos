@@ -277,11 +277,24 @@ function buildEanToProductId(products: any[], extraEanRows?: { ean: string; prod
     (p.extraEans || []).forEach((e: { ean: string }) => {
       if (e.ean?.trim() && !map.has(e.ean.trim())) map.set(e.ean.trim(), p.id);
     });
+    (p.motherEans || []).forEach((e: { ean: string }) => {
+      if (e.ean?.trim() && !map.has(e.ean.trim())) map.set(e.ean.trim(), p.id);
+    });
   });
   (extraEanRows || []).forEach(r => {
     if (r.ean?.trim() && !map.has(r.ean.trim())) map.set(r.ean.trim(), r.product_id);
   });
   return map;
+}
+
+// Verifica se um código bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto
+// (product.motherEans, anexado por fetchProducts). Usado ao vincular manualmente um item
+// de nota pelo EAN da caixa, para aplicar o mesmo fator de conversão (units_per_child)
+// que a importação automática já aplica (ver handleNoteImportExcel).
+function findMotherPackageByCode(product: any, code: string | null | undefined) {
+  const c = (code || '').trim();
+  if (!c || !product) return null;
+  return (product.motherEans || []).find((m: any) => m.ean === c) || null;
 }
 
 export default function Page() {
@@ -1106,14 +1119,45 @@ export default function Page() {
         extraEansByProduct.set(r.product_id, list);
       });
 
+      // EANs de Produto Mãe (embalagem/caixa) — o EAN vive em product_mother_packages
+      // (e variações em product_mother_package_ean_codes), vinculado ao produto filho
+      // via child_product_id. Precisam entrar na busca para que o EAN da caixa
+      // encontre o produto filho ao qual está vinculado. unitsPerChild viaja junto
+      // para que o vínculo manual (confirmNoteItemLink) também converta qty/preço
+      // pelo fator da embalagem, igual à importação automática (handleNoteImportExcel).
+      const { data: motherPackagesData } = await supabase
+        .from('product_mother_packages')
+        .select('id, child_product_id, ean, name, units_per_child');
+      const { data: motherEanCodesData } = await supabase
+        .from('product_mother_package_ean_codes')
+        .select('mother_package_id, ean, description');
+      const motherPackageById = new Map<string, any>();
+      (motherPackagesData || []).forEach((m: any) => {
+        if (m.id) motherPackageById.set(m.id, m);
+      });
+      const motherEansByProduct = new Map<string, { ean: string; description: string | null; motherPackageId: string; motherPackageName: string | null; unitsPerChild: number }[]>();
+      const addMotherEan = (childId: string | null | undefined, ean: string | null | undefined, mp: any, description: string | null = null) => {
+        if (!childId || !ean || !ean.trim() || !mp) return;
+        const list = motherEansByProduct.get(childId) || [];
+        list.push({ ean, description, motherPackageId: mp.id, motherPackageName: mp.name || null, unitsPerChild: Number(mp.units_per_child) || 1 });
+        motherEansByProduct.set(childId, list);
+      };
+      (motherPackagesData || []).forEach((m: any) => addMotherEan(m.child_product_id, m.ean, m));
+      (motherEanCodesData || []).forEach((r: any) => {
+        const mp = motherPackageById.get(r.mother_package_id);
+        addMotherEan(mp?.child_product_id, r.ean, mp, r.description);
+      });
+
       // Sempre mapeia, mesmo que vazio, para limpar dados estáticos se necessário
       const mappedData = allData.map((p: any) => {
         const extraEans = extraEansByProduct.get(p.id) || [];
+        const motherEans = motherEansByProduct.get(p.id) || [];
         return {
           ...p,
           ean: p.ean || '',
           extraEans,
-          allEans: [p.ean, ...extraEans.map(e => e.ean)].filter((e): e is string => !!e && e.trim() !== ''),
+          motherEans,
+          allEans: [p.ean, ...extraEans.map(e => e.ean), ...motherEans.map(e => e.ean)].filter((e): e is string => !!e && e.trim() !== ''),
           category: p.category || 'Geral',
           subcategory: p.subcategory || 'Geral',
           brand: p.brand || 'Geral',
@@ -3280,7 +3324,8 @@ export default function Page() {
       p.name?.toLowerCase().includes(q) ||
       p.sku?.toLowerCase().includes(q) ||
       (p.ean && p.ean.toLowerCase().includes(q)) ||
-      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
+      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q)) ||
+      (p.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
     ).slice(0, 12);
   }, [products]);
 
@@ -3319,6 +3364,76 @@ export default function Page() {
     const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
     const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
     setNotification({ type: 'success', message: `Vinculado via tradução permanente: ${p.name}` });
+  };
+
+  // Confirma o vínculo do item da nota ao produto selecionado na busca do modal "Vincular ao
+  // Dicionário" (Enter no campo de preço ou botão "Vincular com este preço"). Se o Código da
+  // linha bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto encontrado, aplica o
+  // mesmo fator de conversão (units_per_child) que a importação automática já aplica — senão
+  // a quantidade de caixas ficaria gravada como se fossem unidades avulsas (ver
+  // handleNoteImportExcel, que faz o mesmo cálculo no caminho de importação).
+  const confirmNoteItemLink = async () => {
+    if (!viewingReviewNote || linkingItemIdx === null || !noteItemSelectedProduct) return;
+    captureSnapshot();
+    const i = linkingItemIdx;
+    const p = noteItemSelectedProduct;
+    const linkItem = viewingReviewNote.items[i];
+    const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
+    const updatedItems = [...viewingReviewNote.items];
+    const code = (viewingNoteEans[i] ?? updatedItems[i].ean ?? '').trim();
+    const motherMatch = findMotherPackageByCode(p, code);
+    let conversion: any = {};
+    if (motherMatch) {
+      const mult = Number(motherMatch.unitsPerChild) || 1;
+      const originalQty = updatedItems[i].original_qty ?? Math.round((updatedItems[i].qty || 0) / (updatedItems[i].multiplier || 1));
+      const originalPrice = updatedItems[i].original_price ?? (updatedItems[i].price || 0) * (updatedItems[i].multiplier || 1);
+      conversion = {
+        multiplier: mult,
+        qty: originalQty * mult,
+        original_qty: originalQty,
+        price: mult > 0 ? originalPrice / mult : originalPrice,
+        original_price: originalPrice,
+        mother_package_id: motherMatch.motherPackageId,
+        mother_package_name: motherMatch.motherPackageName,
+        mother_package_ean: motherMatch.ean,
+      };
+    }
+    updatedItems[i] = {
+      ...updatedItems[i],
+      name: p.name,
+      sku: p.sku || updatedItems[i].sku,
+      ean: p.ean || updatedItems[i].ean,
+      product_id: p.id,
+      product_price: sellPrice,
+      status_translation: motherMatch ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
+      ...conversion,
+    };
+    setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+    const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
+    const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
+    const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
+    if (motherMatch) {
+      const uQ = [...viewingNoteQtys]; uQ[i] = conversion.qty; setViewingNoteQtys(uQ);
+      const uIP = [...viewingNoteItemPrices]; uIP[i] = conversion.price; setViewingNoteItemPrices(uIP);
+      const uM = [...viewingNoteMultipliers]; uM[i] = conversion.multiplier; setViewingNoteMultipliers(uM);
+    }
+    if (noteItemSaveTranslation) {
+      const supplierId = await resolveNoteSupplierId();
+      if (!supplierId) {
+        setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
+      } else {
+        const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
+        if (mappingErr) {
+          setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
+        } else {
+          setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
+          setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
+        }
+      }
+    } else if (motherMatch) {
+      setNotification({ type: 'success', message: `Vinculado via EAN de caixa — quantidade convertida ×${conversion.multiplier}.` });
+    }
+    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
   };
 
   const openQuickCreateOrLink = (idx: number, item: any) => {
@@ -4373,25 +4488,6 @@ export default function Page() {
     XLSX.writeFile(wb, "modelo_importacao_estoque.xlsx");
   };
 
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      // Global search
-      const query = searchQuery.toLowerCase();
-      const matchesGlobal = !query ||
-        p.name?.toLowerCase().includes(query) ||
-        p.sku?.toLowerCase().includes(query) ||
-        p.location?.toLowerCase().includes(query) ||
-        (p.ean && p.ean.includes(query)) ||
-        (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(query)) ||
-        (p.internalCode && p.internalCode.toLowerCase().includes(query)) ||
-        (p.category && p.category.toLowerCase().includes(query)) ||
-        (p.subcategory && p.subcategory.toLowerCase().includes(query)) ||
-        (p.brand && p.brand.toLowerCase().includes(query));
-
-      return matchesGlobal;
-    });
-  }, [searchQuery, products]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -10481,33 +10577,9 @@ export default function Page() {
                                       min="0"
                                       value={noteItemSellPriceInput}
                                       onChange={e => setNoteItemSellPriceInput(e.target.value)}
-                                      onKeyDown={async e => {
+                                      onKeyDown={e => {
                                         if (e.key === 'Enter') {
-                                          captureSnapshot();
-                                          const i = linkingItemIdx!;
-                                          const p = noteItemSelectedProduct;
-                                          const sellPrice = parseFloat(noteItemSellPriceInput) || 0;
-                                          const updatedItems = [...viewingReviewNote!.items];
-                                          updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, status_translation: 'Identificado (SKU/EAN)' };
-                                          setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                          const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
-                                          const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
-                                          const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
-                                          if (noteItemSaveTranslation) {
-                                            const supplierId = await resolveNoteSupplierId();
-                                            if (!supplierId) {
-                                              setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
-                                            } else {
-                                              const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
-                                              if (mappingErr) {
-                                                setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
-                                              } else {
-                                                setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
-                                                setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
-                                              }
-                                            }
-                                          }
-                                          setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
+                                          confirmNoteItemLink();
                                         }
                                       }}
                                       placeholder="0,00"
@@ -10525,33 +10597,7 @@ export default function Page() {
                                 })()}
 
                                 <button
-                                  onClick={async () => {
-                                    captureSnapshot();
-                                    const i = linkingItemIdx!;
-                                    const p = noteItemSelectedProduct;
-                                    const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
-                                    const updatedItems = [...viewingReviewNote!.items];
-                                    updatedItems[i] = { ...updatedItems[i], name: p.name, sku: p.sku || updatedItems[i].sku, ean: p.ean || updatedItems[i].ean, product_id: p.id, product_price: sellPrice, status_translation: 'Identificado (SKU/EAN)' };
-                                    setViewingReviewNote({ ...viewingReviewNote!, items: updatedItems });
-                                    const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
-                                    const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
-                                    const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
-                                    if (noteItemSaveTranslation) {
-                                      const supplierId = await resolveNoteSupplierId();
-                                      if (!supplierId) {
-                                        setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
-                                      } else {
-                                        const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
-                                        if (mappingErr) {
-                                          setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
-                                        } else {
-                                          setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
-                                          setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
-                                        }
-                                      }
-                                    }
-                                    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false);
-                                  }}
+                                  onClick={() => confirmNoteItemLink()}
                                   className="w-full bg-primary text-white py-3 rounded-xl font-black text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                 >
                                   <Check size={15} />Vincular com este preço
@@ -10578,7 +10624,8 @@ export default function Page() {
                                       p.name?.toLowerCase().includes(q) ||
                                       p.sku?.toLowerCase().includes(q) ||
                                       (p.ean && p.ean.toLowerCase().includes(q)) ||
-                                      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
+                                      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(q)) ||
+                                      (p.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(q))
                                     ).slice(0, 12);
                                     if (filtered.length === 0) return (
                                       <p className="text-xs text-slate-400 text-center py-8">

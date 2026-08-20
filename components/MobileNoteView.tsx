@@ -14,6 +14,16 @@ import type { EanCodeEntry } from '@/components/shared/EanCodesEditor';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
+// Verifica se um código bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto
+// (product.motherEans, anexado por fetchProducts em app/page.tsx). Espelha o mesmo helper
+// do desktop — usado para aplicar o fator de conversão (units_per_child) ao vincular
+// manualmente um item de nota pelo EAN da caixa.
+function findMotherPackageByCode(product: any, code: string | null | undefined) {
+  const c = (code || '').trim();
+  if (!c || !product) return null;
+  return (product.motherEans || []).find((m: any) => m.ean === c) || null;
+}
+
 // ─── types ───────────────────────────────────────────────────────────────────
 
 export interface EanVariant {
@@ -332,7 +342,13 @@ function LinkingPanel({ idx, item, products, onLink, onClose }: {
   const [q, setQ] = useState('');
   const results = q.trim().length < 2 ? [] : products.filter(p => {
     const s = q.toLowerCase();
-    return (p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s) || p.ean?.toLowerCase().includes(s));
+    return (
+      p.name?.toLowerCase().includes(s) ||
+      p.sku?.toLowerCase().includes(s) ||
+      p.ean?.toLowerCase().includes(s) ||
+      (p.extraEans || []).some((e: any) => e.ean?.toLowerCase().includes(s)) ||
+      (p.motherEans || []).some((e: any) => e.ean?.toLowerCase().includes(s))
+    );
   }).slice(0, 10);
 
   return (
@@ -691,6 +707,28 @@ export function MobileNoteView({
     const existing = sellPrices[activeIdx] ?? items[activeIdx]?.product_price ?? 0;
     const sellPrice = existing > 0 ? existing : 0;
     const updatedItems = [...items];
+    // Se o Código da linha bate com o EAN de uma embalagem-mãe (caixa/fardo) do produto
+    // encontrado, aplica o mesmo fator de conversão (units_per_child) que a importação
+    // automática e o vínculo manual no desktop já aplicam — senão a quantidade de caixas
+    // ficaria gravada como se fossem unidades avulsas.
+    const code = (eans[activeIdx] ?? updatedItems[activeIdx]?.ean ?? '').trim();
+    const motherMatch = findMotherPackageByCode(product, code);
+    let conversion: any = {};
+    if (motherMatch) {
+      const mult = Number(motherMatch.unitsPerChild) || 1;
+      const originalQty = updatedItems[activeIdx].original_qty ?? Math.round((updatedItems[activeIdx].qty || 0) / (updatedItems[activeIdx].multiplier || 1));
+      const originalPrice = updatedItems[activeIdx].original_price ?? (updatedItems[activeIdx].price || 0) * (updatedItems[activeIdx].multiplier || 1);
+      conversion = {
+        multiplier: mult,
+        qty: originalQty * mult,
+        original_qty: originalQty,
+        price: mult > 0 ? originalPrice / mult : originalPrice,
+        original_price: originalPrice,
+        mother_package_id: motherMatch.motherPackageId,
+        mother_package_name: motherMatch.motherPackageName,
+        mother_package_ean: motherMatch.ean,
+      };
+    }
     updatedItems[activeIdx] = {
       ...updatedItems[activeIdx],
       product_id: product.id,
@@ -698,11 +736,17 @@ export function MobileNoteView({
       sku: product.sku || updatedItems[activeIdx].sku,
       ean: product.ean || updatedItems[activeIdx].ean,
       product_price: sellPrice,
+      status_translation: motherMatch ? 'Traduzido (Caixa)' : updatedItems[activeIdx].status_translation,
+      ...conversion,
     };
     setNote({ ...note, items: updatedItems });
     setSkus(prev => { const u = [...prev]; u[activeIdx] = product.sku || items[activeIdx]?.sku || ''; return u; });
     setEans(prev => { const u = [...prev]; u[activeIdx] = product.ean || items[activeIdx]?.ean || ''; return u; });
     setSellPrices(prev => { const u = [...prev]; u[activeIdx] = sellPrice; return u; });
+    if (motherMatch) {
+      setQtys(prev => { const u = [...prev]; u[activeIdx] = conversion.qty; return u; });
+      setItemPrices(prev => { const u = [...prev]; u[activeIdx] = conversion.price; return u; });
+    }
     setLinkingPanel(false);
   }
 
