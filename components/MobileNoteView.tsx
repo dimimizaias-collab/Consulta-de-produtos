@@ -730,7 +730,11 @@ export function MobileNoteView({
         multiplier: mult,
         qty: originalQty * mult,
         original_qty: originalQty,
-        price: mult > 0 ? originalPrice / mult : originalPrice,
+        // price fica com o valor bruto (preço da caixa, não dividido) — o custo por unidade
+        // do produto filho é sempre recalculado como price / multiplier (ver cost() acima e
+        // o mesmo comentário em confirmNoteItemLink no desktop). Dividir aqui também dobraria
+        // a divisão e o Preço Custo apareceria igual ao valor digitado em Valor Total.
+        price: originalPrice,
         original_price: originalPrice,
         mother_package_id: motherMatch.motherPackageId,
         mother_package_name: motherMatch.motherPackageName,

@@ -3401,7 +3401,13 @@ export default function Page() {
         multiplier: mult,
         qty: originalQty * mult,
         original_qty: originalQty,
-        price: mult > 0 ? originalPrice / mult : originalPrice,
+        // price fica com o valor BRUTO (preço da caixa, não dividido) — em todo o resto do
+        // app (cost/markup/Valor Total/Histórico em Notas) o custo por unidade já é sempre
+        // recalculado como price / multiplier. Se dividíssemos aqui também, o custo por
+        // unidade do produto filho ficaria dividido em dobro (bug encontrado ao editar
+        // Valor Total: o Preço Custo aparecia igual ao valor digitado, sem considerar o
+        // fator da embalagem-mãe).
+        price: originalPrice,
         original_price: originalPrice,
         mother_package_id: motherMatch.motherPackageId,
         mother_package_name: motherMatch.motherPackageName,
@@ -3852,7 +3858,18 @@ export default function Page() {
     } else if (field === 'qty') {
       setViewingNoteQtys(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
     } else if (field === 'price') {
-      setViewingNoteItemPrices(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
+      // Cola valores de custo por unidade — multiplica pelo fator de conversão da linha
+      // (se houver, ex: produto mãe) antes de gravar, pra ficar consistente com o mesmo
+      // "cost = preço bruto / mult" usado no input de Preço Custo e em todo o resto da tela.
+      setViewingNoteItemPrices(prev => {
+        const u = [...prev];
+        values.forEach((v, i) => {
+          const rIdx = rowIndex + i;
+          const rowMult = (viewingNoteMultipliers[rIdx] ?? viewingReviewNote.items[rIdx]?.multiplier) || 1;
+          u[rIdx] = (parseFloat(v) || 0) * rowMult;
+        });
+        return u;
+      });
     }
   };
 
@@ -4173,9 +4190,10 @@ export default function Page() {
 
           const finalQty = qty * multiplier;
           const rawPrice = isNaN(price) ? 0 : price;
-          // Custo unitário: quando vem de caixa, o valor lido na nota é da embalagem (ex: R$150,00 a caixa),
-          // não da unidade — converte dividindo pelo fator, para o markup em "Histórico em Notas" ficar correto.
-          const finalPrice = motherMatch && multiplier > 0 ? rawPrice / multiplier : rawPrice;
+          // price fica com o valor BRUTO lido na nota (preço da embalagem, ex: R$150,00 a
+          // caixa) — em todo o app o custo por unidade é sempre recalculado como price /
+          // multiplier (cost/markup/Valor Total/Histórico em Notas). Dividir aqui também
+          // dobraria a divisão e o custo por unidade do produto filho ficaria errado.
 
           processedItems.push({
             sku: product?.sku || sku || '',
@@ -4186,7 +4204,7 @@ export default function Page() {
             multiplier,
             qty: finalQty,
             original_qty: qty,
-            price: finalPrice,
+            price: rawPrice,
             original_price: rawPrice,
             product_price: product?.price || 0,
             status_translation: statusTranslation,
@@ -9521,7 +9539,8 @@ export default function Page() {
                           )
                         );
                       return _filtered.flatMap(({ item, origIdx: idx }) => {
-                      const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
+                      const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+                      const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
                       const displayQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
                       const rowDiscrepancy = getItemDiscrepancy(idx, item);
                       const isDisregarded = !!rowDiscrepancy?.disregarded;
@@ -9994,8 +10013,20 @@ export default function Page() {
                                         min="0"
                                         step="0.01"
                                         data-nav-table="review-note" data-nav-row={idx} data-nav-col={4}
-                                        value={viewingNoteItemPrices[idx] === null ? '' : (viewingNoteItemPrices[idx] ?? item.price ?? '')}
-                                        onChange={e => { const u = [...viewingNoteItemPrices]; u[idx] = e.target.value === '' ? null : parseFloat(e.target.value); setViewingNoteItemPrices(u); }}
+                                        // Mostra/edita o custo por unidade (já dividido pelo fator de conversão, se
+                                        // houver) — não o valor bruto armazenado, que pode ser o preço da embalagem
+                                        // inteira (produto mãe). Editar aqui grava de volta multiplicado por `mult`,
+                                        // mantendo a mesma convenção usada em todo o resto da tela (cost = preço/mult).
+                                        value={viewingNoteItemPrices[idx] === null ? '' : cost}
+                                        onChange={e => {
+                                          const raw = e.target.value;
+                                          const u = [...viewingNoteItemPrices];
+                                          if (raw === '') { u[idx] = null; setViewingNoteItemPrices(u); return; }
+                                          const newCost = parseFloat(raw);
+                                          if (isNaN(newCost)) return;
+                                          u[idx] = newCost * mult;
+                                          setViewingNoteItemPrices(u);
+                                        }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
                                         onPaste={e => handleNoteColumnPaste(e, idx, 'price')}
                                         onBlur={captureSnapshot}
@@ -10031,7 +10062,6 @@ export default function Page() {
                                       if (raw === '') { u[idx] = null; setViewingNoteItemPrices(u); return; }
                                       const newTotal = parseFloat(raw);
                                       if (isNaN(newTotal)) return;
-                                      const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
                                       u[idx] = (newTotal / displayQty) * mult;
                                       setViewingNoteItemPrices(u);
                                     }}
