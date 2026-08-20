@@ -10495,6 +10495,12 @@ export default function Page() {
               {/* ── Vincular ao Dicionário — Modal separado ────────────────── */}
               {linkingItemIdx !== null && (() => {
                 const linkItem = viewingReviewNote.items[linkingItemIdx];
+                // Se este item já tem uma tradução permanente válida (aponta para um produto
+                // que ainda existe), não faz sentido oferecer "salvar como tradução permanente"
+                // de novo — ela já está salva. Só volta a oferecer quando não há tradução, ou
+                // quando a existente aponta para um produto removido (precisa ser recriada).
+                const existingMapping = getItemMapping(linkItem);
+                const hasValidPermanentTranslation = !!existingMapping && products.some((p: any) => p.id === existingMapping.internal_product_id);
                 return (
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
@@ -10533,7 +10539,7 @@ export default function Page() {
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                         {/* Aviso: tradução permanente já existe para este item */}
                         {(() => {
-                          const mapping = getItemMapping(linkItem);
+                          const mapping = existingMapping;
                           if (!mapping) return null;
                           const mappedProduct = products.find((p: any) => p.id === mapping.internal_product_id);
                           if (!mappedProduct) return (
@@ -10589,34 +10595,39 @@ export default function Page() {
                                   </div>
                                 </div>
 
-                                {/* Toggle: salvar como tradução permanente */}
-                                <button
-                                  onClick={() => setNoteItemSaveTranslation(v => !v)}
-                                  className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
-                                >
-                                  <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
-                                    {noteItemSaveTranslation && <Check size={10} className="text-white" />}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
-                                    <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
-                                  </div>
-                                </button>
-                                {noteItemSaveTranslation && (
-                                  <div className="mt-2 space-y-1.5">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
-                                    <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
-                                        <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
+                                {/* Toggle: salvar como tradução permanente — escondido quando o item já
+                                    tem uma tradução permanente válida, pra não oferecer salvar de novo. */}
+                                {!hasValidPermanentTranslation && (
+                                  <>
+                                    <button
+                                      onClick={() => setNoteItemSaveTranslation(v => !v)}
+                                      className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
+                                    >
+                                      <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
+                                        {noteItemSaveTranslation && <Check size={10} className="text-white" />}
                                       </div>
-                                      <div className="w-px bg-slate-200 shrink-0" />
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
-                                        <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
+                                        <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
+                                        <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
                                       </div>
-                                    </div>
-                                  </div>
+                                    </button>
+                                    {noteItemSaveTranslation && (
+                                      <div className="mt-2 space-y-1.5">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
+                                        <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
+                                            <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
+                                          </div>
+                                          <div className="w-px bg-slate-200 shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
+                                            <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
 
                                 {/* Preço de venda — se a linha já tem preço, usa direto sem perguntar;
