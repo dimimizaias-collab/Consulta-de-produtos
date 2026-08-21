@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Redimensionar Colunas (Excel-like) — Light</title>
+<style>
+  :root {
+    --rn-th-bg: #FFEC4D;
+    --rn-th-border: #E6CE33;
+    --rn-th-chip-bg: rgba(26,26,10,0.05);
+    --rn-th-chip-border: rgba(26,26,10,0.10);
+    --rn-th-color: rgba(26,26,10,0.55);
+    --rn-cell-bg: #FFFFFF;
+    --rn-cell-bg-alt: #FAF7EE;
+    --rn-cell-border: rgba(224,216,191,0.80);
+    --rn-text: rgba(26,26,10,0.85);
+    --rn-text-muted: rgba(26,26,10,0.50);
+    --page-bg: #FDFAF0;
+    --primary: #D81E1E;
+    --handle-hover: rgba(216,30,30,0.35);
+    --handle-drag: #D81E1E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px;
+    background: var(--page-bg);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--rn-text);
+  }
+  h1 { font-size: 15px; font-weight: 900; margin: 0 0 4px; color: #1A1A0E; }
+  p.sub { font-size: 12px; color: rgba(26,26,10,0.45); margin: 0 0 20px; font-weight: 500; max-width: 620px; line-height: 1.5; }
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .btn {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.02em;
+    padding: 7px 13px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--rn-cell-border); background: #fff; color: var(--rn-text);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .hint { font-size: 10.5px; color: var(--rn-text-muted); font-weight: 600; }
+
+  .card {
+    max-width: 100%;
+    overflow-x: auto;
+    border-radius: 16px;
+    border: 1px solid var(--rn-cell-border);
+    background: var(--rn-cell-bg);
+  }
+  table { border-collapse: collapse; table-layout: fixed; }
+  thead tr { background: var(--rn-th-bg); border-bottom: 1.5px solid var(--rn-th-border); }
+  th {
+    position: relative;
+    padding: 9px 8px; vertical-align: middle; height: 36px;
+    overflow: hidden;
+  }
+  th .lbl {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 900; letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--rn-th-color); white-space: nowrap;
+    background: var(--rn-th-chip-bg); border: 1.5px solid var(--rn-th-chip-border);
+    border-radius: 9999px; padding: 5px 13px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
+  td {
+    padding: 8px; font-size: 12px; font-weight: 600;
+    border-bottom: 1px solid var(--rn-cell-border);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  tr:nth-child(odd) td { background: var(--rn-cell-bg-alt); }
+  tr:nth-child(even) td { background: var(--rn-cell-bg); }
+
+  /* ── Handle de redimensionamento — faixa fina na borda direita de cada th ── */
+  .resize-handle {
+    position: absolute;
+    top: 0; right: -3px;
+    width: 7px; height: 100%;
+    cursor: col-resize;
+    z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .resize-handle::after {
+    content: '';
+    width: 2px; height: 60%;
+    border-radius: 2px;
+    background: transparent;
+    transition: background 0.12s ease, height 0.12s ease;
+  }
+  .resize-handle:hover::after { background: var(--handle-hover); height: 70%; }
+  .resize-handle.dragging::after { background: var(--handle-drag); height: 80%; width: 2.5px; }
+  th.resizing-target { background: rgba(216,30,30,0.07); }
+
+  /* Linha-guia vertical exibida durante o arrasto, cobrindo a tabela toda */
+  .drag-guide {
+    position: fixed;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--primary);
+    opacity: 0.55;
+    z-index: 999;
+    display: none;
+    pointer-events: none;
+  }
+
+  .width-badge {
+    position: fixed;
+    transform: translate(-50%, -130%);
+    background: #1A1A0E;
+    color: #FFEC4D;
+    font-size: 10px; font-weight: 800;
+    padding: 3px 7px; border-radius: 6px;
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .section-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(26,26,10,0.35); margin: 30px 0 10px; }
+  .step-list { max-width: 620px; display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .step-list li { display: flex; gap: 10px; font-size: 12px; line-height: 1.5; }
+  .step-num {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--rn-th-bg); border: 1px solid var(--rn-th-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 900; color: #1A1A0E;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Redimensionar Colunas da Tabela de Nota (estilo Excel)</h1>
+  <p class="sub">Arraste a borda direita de qualquer cabeçalho para ajustar a largura da coluna. Duplo-clique na borda para ajuste automático ao conteúdo. As larguras ficam salvas por navegador.</p>
+
+  <div class="toolbar">
+    <button class="btn" id="resetBtn">↺ Restaurar larguras padrão</button>
+    <span class="hint">Dica: arraste a borda entre colunas · duplo-clique = autoajuste</span>
+  </div>
+
+  <div class="card">
+    <table id="demoTable">
+      <colgroup>
+        <col style="width:36px">
+        <col style="width:90px">
+        <col style="width:220px">
+        <col style="width:160px">
+        <col style="width:130px">
+        <col style="width:80px">
+        <col style="width:70px">
+        <col style="width:100px">
+        <col style="width:100px">
+        <col style="width:70px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th><div class="lbl">#</div></th>
+          <th><div class="lbl">Código</div></th>
+          <th><div class="lbl">Produto na Nota</div></th>
+          <th><div class="lbl">Identificação Interna</div></th>
+          <th><div class="lbl">EAN</div></th>
+          <th><div class="lbl">Medida</div></th>
+          <th><div class="lbl">Qtd.</div></th>
+          <th><div class="lbl">Preço Custo</div></th>
+          <th><div class="lbl">Valor Total</div></th>
+          <th><div class="lbl">Markup</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>7891234</td><td>Refrigerante Cola 2L PET</td><td>Refri Cola 2L</td><td>7891234567890</td><td>UN</td><td>12</td><td>R$ 6,20</td><td>R$ 74,40</td><td>28%</td>
+        </tr>
+        <tr>
+          <td>2</td><td>7897654</td><td>Caixa de Sabão em Pó 1kg (fardo c/12)</td><td>Sabão Pó 1kg</td><td>7897654321098</td><td>CX</td><td>4</td><td>R$ 41,90</td><td>R$ 167,60</td><td>19%</td>
+        </tr>
+        <tr>
+          <td>3</td><td>7893321</td><td>Água Mineral 500ml (pack c/6)</td><td>Água Min. 500ml</td><td>7893321456789</td><td>PCT</td><td>10</td><td>R$ 9,80</td><td>R$ 98,00</td><td>35%</td>
+        </tr>
+        <tr>
+          <td>4</td><td>7891122</td><td>Detergente Neutro 500ml</td><td>Detergente Neutro</td><td>7891122334455</td><td>UN</td><td>24</td><td>R$ 2,10</td><td>R$ 50,40</td><td>42%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="section-label">Como funciona</p>
+  <ol class="step-list">
+    <li><span class="step-num">1</span><span><strong>Handle na borda do cabeçalho</strong> — cada coluna ganha uma faixa fina e invisível de 7px na borda direita do <code>&lt;th&gt;</code>, com cursor <code>col-resize</code>. Só aparece um traço vermelho sutil no hover, sem poluir o cabeçalho.</span></li>
+    <li><span class="step-num">2</span><span><strong>Arrastar</strong> — ao pressionar e mover o mouse, uma linha-guia vertical acompanha o cursor e um selo mostra a largura em pixels em tempo real, igual ao Excel/Sheets.</span></li>
+    <li><span class="step-num">3</span><span><strong>Duplo-clique = autoajuste</strong> — mede o conteúdo mais largo da coluna (incluindo o texto do próprio cabeçalho) e ajusta a largura automaticamente, como o autofit do Excel.</span></li>
+    <li><span class="step-num">4</span><span><strong>Persistência</strong> — as larguras customizadas ficam salvas em <code>localStorage</code>, então a tabela mantém o layout entre sessões. Um botão "Restaurar larguras padrão" limpa a customização.</span></li>
+    <li><span class="step-num">5</span><span><strong>Largura mínima</strong> — nenhuma coluna encolhe abaixo de ~40px, evitando que o conteúdo fique ilegível ou que o ícone de arrasto suma.</span></li>
+  </ol>
+
+  <div class="drag-guide" id="dragGuide"></div>
+  <div class="width-badge" id="widthBadge"></div>
+
+<script>
+(function () {
+  const table = document.getElementById('demoTable');
+  const cols = table.querySelectorAll('colgroup col');
+  const ths = table.querySelectorAll('thead th');
+  const guide = document.getElementById('dragGuide');
+  const badge = document.getElementById('widthBadge');
+  const MIN_WIDTH = 40;
+  const STORAGE_KEY = 'mockupColResizeDemo';
+  const defaults = Array.from(cols).map(c => parseInt(c.style.width, 10));
+
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const widths = JSON.parse(raw);
+      widths.forEach((w, i) => { if (cols[i] && w) cols[i].style.width = w + 'px'; });
+    } catch (e) {}
+  }
+  function saveWidths() {
+    try {
+      const widths = Array.from(cols).map(c => parseInt(c.style.width, 10));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    } catch (e) {}
+  }
+  loadSaved();
+
+  ths.forEach((th, i) => {
+    const handle = document.createElement('div');
+    handle.className = 'resize-handle';
+    th.appendChild(handle);
+
+    let startX = 0, startWidth = 0, dragging = false;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startWidth = cols[i].getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      th.classList.add('resizing-target');
+      guide.style.display = 'block';
+      badge.style.display = 'block';
+      document.body.style.userSelect = 'none';
+      updateGuide(e.clientX, Math.round(startWidth));
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const delta = e.clientX - startX;
+      const newWidth = Math.max(MIN_WIDTH, Math.round(startWidth + delta));
+      cols[i].style.width = newWidth + 'px';
+      updateGuide(e.clientX, newWidth);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      th.classList.remove('resizing-target');
+      guide.style.display = 'none';
+      badge.style.display = 'none';
+      document.body.style.userSelect = '';
+      saveWidths();
+    });
+
+    handle.addEventListener('dblclick', () => {
+      // Autofit: mede o maior conteúdo da coluna (cabeçalho + células)
+      let maxWidth = 0;
+      const measurer = document.createElement('span');
+      measurer.style.visibility = 'hidden';
+      measurer.style.position = 'absolute';
+      measurer.style.whiteSpace = 'nowrap';
+      measurer.style.font = '600 12px DM Sans, sans-serif';
+      document.body.appendChild(measurer);
+
+      const rows = table.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        const cell = row.children[i];
+        if (!cell) return;
+        measurer.textContent = cell.textContent.trim();
+        maxWidth = Math.max(maxWidth, measurer.getBoundingClientRect().width + 16);
+      });
+      measurer.style.font = '900 9px DM Sans, sans-serif';
+      measurer.textContent = th.querySelector('.lbl').textContent.trim();
+      maxWidth = Math.max(maxWidth, measurer.getBoundingClientRect().width + 26);
+      document.body.removeChild(measurer);
+
+      cols[i].style.width = Math.max(MIN_WIDTH, Math.round(maxWidth)) + 'px';
+      saveWidths();
+    });
+  });
+
+  function updateGuide(clientX, widthPx) {
+    guide.style.left = clientX + 'px';
+    const tableRect = table.getBoundingClientRect();
+    guide.style.top = tableRect.top + 'px';
+    guide.style.height = tableRect.height + 'px';
+    badge.style.left = clientX + 'px';
+    badge.style.top = tableRect.top + 'px';
+    badge.textContent = widthPx + 'px';
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    cols.forEach((c, i) => { c.style.width = defaults[i] + 'px'; });
+    localStorage.removeItem(STORAGE_KEY);
+  });
+})();
+</script>
+
+</body>
+</html>

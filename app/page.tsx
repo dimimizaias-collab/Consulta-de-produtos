@@ -29,7 +29,7 @@ import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPag
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -684,6 +684,82 @@ export default function Page() {
   const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set(['Marca']));
   const [showHideColsModal, setShowHideColsModal] = useState(false);
   const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
+
+  // ── Redimensionar colunas da tabela de nota (estilo Excel) ──
+  // Larguras customizadas por coluna, chaveadas pelo mesmo nome usado em reviewHiddenCols
+  // (ou pelo id da coluna dinâmica de ajuste). Persistidas por navegador — não por nota.
+  const REVIEW_COL_WIDTHS_STORAGE_KEY = 'notaReviewColWidths';
+  const REVIEW_COL_MIN_WIDTH = 36;
+  const REVIEW_COL_DEFAULT_WIDTHS: Record<string, number> = {
+    '#': 40, 'Código': 92, 'Produto na Nota': 230, 'Identificação Interna': 190, 'EAN': 150,
+    'Marca': 110, 'Medida': 92, 'Qtd.': 72, 'Preço Custo': 100, 'Valor Total': 100,
+    'Preço Venda': 100, 'Markup': 80, 'Status': 120, 'Ok': 56, 'Revisão': 76, 'Distribuição': 100,
+  };
+  const [reviewColWidths, setReviewColWidths] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REVIEW_COL_WIDTHS_STORAGE_KEY);
+      if (raw) setReviewColWidths(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const reviewColDragRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const drag = reviewColDragRef.current;
+      if (!drag) return;
+      const newWidth = Math.max(REVIEW_COL_MIN_WIDTH, Math.round(drag.startWidth + (e.clientX - drag.startX)));
+      setReviewColWidths(prev => ({ ...prev, [drag.key]: newWidth }));
+    };
+    const onUp = () => {
+      if (!reviewColDragRef.current) return;
+      reviewColDragRef.current = null;
+      document.body.style.userSelect = '';
+      setReviewColWidths(prev => { try { localStorage.setItem(REVIEW_COL_WIDTHS_STORAGE_KEY, JSON.stringify(prev)); } catch {} return prev; });
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
+  const reviewColWidthFor = (key: string) => reviewColWidths[key] ?? REVIEW_COL_DEFAULT_WIDTHS[key] ?? 110;
+  const resetReviewColWidths = () => {
+    setReviewColWidths({});
+    try { localStorage.removeItem(REVIEW_COL_WIDTHS_STORAGE_KEY); } catch {}
+  };
+  // Handle de arrasto — faixa fina na borda direita do <th>; duplo-clique = autoajuste ao conteúdo
+  const ReviewColResizeHandle = ({ colKey }: { colKey: string }) => (
+    <div
+      onMouseDown={e => {
+        e.preventDefault(); e.stopPropagation();
+        const th = (e.currentTarget as HTMLElement).closest('th');
+        const startWidth = th?.getBoundingClientRect().width ?? reviewColWidthFor(colKey);
+        reviewColDragRef.current = { key: colKey, startX: e.clientX, startWidth };
+        document.body.style.userSelect = 'none';
+      }}
+      onDoubleClick={e => {
+        e.preventDefault(); e.stopPropagation();
+        const th = (e.currentTarget as HTMLElement).closest('th');
+        const table = th?.closest('table');
+        if (!th || !table) return;
+        const thIdx = Array.from(th.parentElement!.children).indexOf(th);
+        let maxWidth = th.scrollWidth;
+        table.querySelectorAll('tbody > tr').forEach(row => {
+          const cellEl = row.children[thIdx] as HTMLElement | undefined;
+          if (cellEl) maxWidth = Math.max(maxWidth, cellEl.scrollWidth);
+        });
+        const next = Math.max(REVIEW_COL_MIN_WIDTH, maxWidth + 6);
+        setReviewColWidths(prev => {
+          const merged = { ...prev, [colKey]: next };
+          try { localStorage.setItem(REVIEW_COL_WIDTHS_STORAGE_KEY, JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+      }}
+      title="Arraste para redimensionar · duplo-clique para ajustar ao conteúdo"
+      className="group/colresize"
+      style={{ position: 'absolute', top: 0, right: -3, width: '7px', height: '100%', cursor: 'col-resize', zIndex: 5 }}
+    >
+      <div className="mx-auto h-full w-[2px] rounded-full bg-primary/0 group-hover/colresize:bg-primary/50 transition-colors" />
+    </div>
+  );
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
@@ -8568,6 +8644,15 @@ export default function Page() {
                   >
                     <EyeOff size={13} />
                   </button>
+                  {Object.keys(reviewColWidths).length > 0 && (
+                    <button
+                      onClick={resetReviewColWidths}
+                      title="Restaurar larguras padrão das colunas"
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60"
+                    >
+                      <Columns3 size={13} />
+                    </button>
+                  )}
                   <div className="flex items-center gap-1.5">
                     {/* Adj column buttons */}
                     <button
@@ -9190,7 +9275,13 @@ export default function Page() {
                 )}
                 style={{ padding: 0 }}
               >
-                <table style={{ borderCollapse: 'collapse', width: 'max-content' }}>
+                <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <colgroup>
+                    {(['#', 'Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', ...adjColumns.map(c => c.id), 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as string[])
+                      .filter(key => key === '#' || !reviewHiddenCols.has(key))
+                      .map(key => (<col key={key} style={{ width: reviewColWidthFor(key) }} />))}
+                    <col style={{ width: 36 }} />
+                  </colgroup>
                   <thead className="sticky top-0 z-10">
                     <tr className="text-left" style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
                       {/* Cabeçalho igual ao da tabela de Controle Financeiro: barra amarela contínua
@@ -9324,6 +9415,7 @@ export default function Page() {
                         };
                         return (<>
                           <th style={{ ...thFirst, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="#" />
                             <div style={lbl({ justifyContent: 'center' })}>
                               #
                               {filterBtn('seq')}
@@ -9332,6 +9424,7 @@ export default function Page() {
                           </th>
                           {!reviewHiddenCols.has('Código') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Código" />
                             <div style={lbl(hasCodigoDup ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={hasCodigoDup ? 'Existem códigos duplicados nesta coluna' : undefined}>
                               {hasCodigoDup && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
                               <span style={{ color: hasCodigoDup ? 'var(--rn-dup-th-text)' : reviewEditableCols.has('Código') ? 'rgb(52 211 153)' : 'inherit' }}>Código</span>
@@ -9356,6 +9449,7 @@ export default function Page() {
                             const isDupCol = col === 'EAN' && hasEanDup;
                             return (
                               <th key={col} style={{ ...thBar, position: 'relative' }}>
+                                <ReviewColResizeHandle colKey={col} />
                                 <div style={lbl(isDupCol ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={isDupCol ? 'Existem EANs duplicados nesta coluna' : undefined}>
                                   {isDupCol && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
                                   <span style={{ color: isDupCol ? 'var(--rn-dup-th-text)' : editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
@@ -9377,6 +9471,7 @@ export default function Page() {
                           })}
                           {!reviewHiddenCols.has('Marca') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Marca" />
                             <div style={lbl()}>
                               <span style={{ color: reviewEditableCols.has('Marca') ? 'rgb(52 211 153)' : 'inherit' }}>Marca</span>
                               <button
@@ -9397,6 +9492,7 @@ export default function Page() {
                             const filterKey = colFilterKey[col];
                             return (
                               <th key={col} style={{ ...thBar, position: 'relative' }}>
+                                <ReviewColResizeHandle colKey={col} />
                                 <div style={lbl()}>
                                   <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
                                   {canEdit && (
@@ -9417,6 +9513,7 @@ export default function Page() {
                           })}
                           {!reviewHiddenCols.has('Preço Custo') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Preço Custo" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Preço Custo
                               {filterBtn('preco_custo')}
@@ -9426,6 +9523,7 @@ export default function Page() {
                           )}
                           {!reviewHiddenCols.has('Valor Total') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Valor Total" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               <span style={{ color: reviewEditableCols.has('Valor Total') ? 'rgb(52 211 153)' : 'inherit' }}>Valor Total</span>
                               <button
@@ -9444,6 +9542,7 @@ export default function Page() {
                           {/* Dynamic adj column headers */}
                           {adjColumns.filter(col => !reviewHiddenCols.has(col.id)).map(col => (
                             <th key={col.id} style={{ ...thBar, position: 'relative' }}>
+                              <ReviewColResizeHandle colKey={col.id} />
                               <div style={lbl()}>
                                 <span className="text-[9px] font-black uppercase tracking-[0.12em]" style={{ color: col.kind === 'desconto' ? 'rgba(248,113,113,0.8)' : 'rgba(52,211,153,0.8)' }}>{col.name}</span>
                                 <button
@@ -9457,10 +9556,11 @@ export default function Page() {
                             </th>
                           ))}
                           {!reviewHiddenCols.has('Preço Venda') && (
-                          <th style={thBar}><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}><ReviewColResizeHandle colKey="Preço Venda" /><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
                           )}
                           {!reviewHiddenCols.has('Markup') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Markup" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Markup
                               {filterBtn('markup')}
@@ -9471,6 +9571,7 @@ export default function Page() {
                           {/* Status — with filter */}
                           {!reviewHiddenCols.has('Status') && (
                           <th style={{ ...thBar, position: 'relative' }}>
+                            <ReviewColResizeHandle colKey="Status" />
                             <div style={lbl()}>
                               <span>Status</span>
                               {filterBtn('status')}
@@ -9479,13 +9580,13 @@ export default function Page() {
                           </th>
                           )}
                           {!reviewHiddenCols.has('Ok') && (
-                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Ok</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}><ReviewColResizeHandle colKey="Ok" /><div style={lbl({ justifyContent: 'center' })}>Ok</div></th>
                           )}
                           {!reviewHiddenCols.has('Revisão') && (
-                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Revisão</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}><ReviewColResizeHandle colKey="Revisão" /><div style={lbl({ justifyContent: 'center' })}>Revisão</div></th>
                           )}
                           {!reviewHiddenCols.has('Distribuição') && (
-                          <th style={thBar}><div style={lbl({ justifyContent: 'center' })}>Distribuição</div></th>
+                          <th style={{ ...thBar, position: 'relative' }}><ReviewColResizeHandle colKey="Distribuição" /><div style={lbl({ justifyContent: 'center' })}>Distribuição</div></th>
                           )}
                           <th style={thLast}><div style={lbl({ justifyContent: 'center', minWidth: 0 })}></div></th>
                         </>);
@@ -9639,7 +9740,7 @@ export default function Page() {
                           </td>
                           )}
                           {!reviewHiddenCols.has('Produto na Nota') && (
-                          <td style={{ ...tdP, maxWidth: '220px' }}
+                          <td style={tdP}
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
@@ -9673,7 +9774,7 @@ export default function Page() {
                           </td>
                           )}
                           {!reviewHiddenCols.has('Identificação Interna') && (
-                          <td style={{ ...tdP, maxWidth: '200px', position: 'relative' }}>
+                          <td style={{ ...tdP, position: 'relative' }}>
                             <div style={cell({ padding: '0 8px', overflow: 'visible', gap: '6px' })}>
                               {item.product_id ? (
                                 /* Produto vinculado: nome truncado + botão icon para trocar */
@@ -10416,7 +10517,7 @@ export default function Page() {
                                 <span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-subtle)' }}>{item.supplier_code || '—'}</span>
                               </div>
                             </td>
-                            <td style={{ ...tdP, maxWidth: '220px' }}>
+                            <td style={tdP}>
                               <div style={cell({ padding: '0 10px' })}>
                                 <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--rn-text-muted)' }}>
                                   {item.original_description || '-'}
@@ -10424,7 +10525,7 @@ export default function Page() {
                                 </p>
                               </div>
                             </td>
-                            <td style={{ ...tdP, maxWidth: '200px' }}>
+                            <td style={tdP}>
                               <div style={cell({ padding: '0 8px' })}>
                                 <span className="text-[10px]" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               </div>
