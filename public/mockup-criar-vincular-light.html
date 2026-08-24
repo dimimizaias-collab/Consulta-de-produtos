@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Criar Novo Produto (Nota) — Light</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* ── Tokens extraídos do padrão real "Editar Produto" (app/page.tsx) ── */
+    --modal-bg:       #F0E7CC;
+    --header-bg:      #FFE500;
+    --header-border:  #D4C000;
+    --icon-chip-bg:   rgba(26,26,10,0.09);
+    --icon-chip:      #1A1A0E;
+    --title:          #1A1A0E;
+    --subtitle:       rgba(26,26,10,0.55);
+    --close-bg:       rgba(26,26,10,0.08);
+    --close-border:   rgba(26,26,10,0.10);
+    --close-color:    rgba(26,26,10,0.50);
+
+    --card-bg:        #FFFFFF;
+    --card-border:    rgba(26,26,10,0.07);
+
+    --label:          rgba(74,63,46,0.80);
+    --input-bg:       rgba(26,26,10,0.035);
+    --input-border:   rgba(26,26,10,0.10);
+    --input-text:     #1A1208;
+    --input-ph:       rgba(26,26,10,0.30);
+
+    --back-link:      #4A3F2E;
+
+    --store-row-bg:     rgba(26,26,10,0.02);
+    --store-row-border: rgba(26,26,10,0.08);
+    --store-name:       #1A1208;
+    --store-primary-bg: rgba(216,30,30,0.06);
+    --store-primary-border: rgba(216,30,30,0.22);
+
+    --amber-bg:       #FFFBEB;
+    --amber-border:   #FBBF24;
+    --amber-text:     #B45309;
+
+    --cancel-bg:      rgba(26,26,10,0.06);
+    --cancel-text:    #4A3F2E;
+    --primary:        #D81E1E;
+    --primary-text:   #FFFFFF;
+
+    --overlay:        rgba(26,26,10,0.40);
+    --copy-hover:     rgba(26,26,10,0.07);
+    --copy-color:     rgba(26,26,10,0.45);
+  }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: #FFFCEC;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    backdrop-filter: blur(4px);
+    z-index: 0;
+  }
+
+  .modal {
+    position: relative;
+    z-index: 1;
+    background: var(--modal-bg);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    border: 1px solid rgba(26,26,10,0.10);
+    width: 100%;
+    max-width: 620px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+
+  /* ── Header ── */
+  .modal-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--header-border);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .icon-chip {
+    width: 44px; height: 44px;
+    background: var(--icon-chip-bg);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--icon-chip);
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 20px; height: 20px; stroke-width: 2; }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--title);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .header-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--subtitle);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .close-btn {
+    width: 36px; height: 36px;
+    background: var(--close-bg);
+    border: 1px solid var(--close-border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--close-color);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .close-btn svg { width: 18px; height: 18px; stroke-width: 2.5; }
+
+  /* ── Body ── */
+  .modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--back-link);
+    cursor: pointer;
+    width: fit-content;
+  }
+  .back-link:hover { color: var(--primary); }
+  .back-link svg { width: 13px; height: 13px; stroke-width: 2.5; }
+
+  /* ── Section card (padrão "Editar Produto") ── */
+  .section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-head svg { width: 15px; height: 15px; stroke-width: 2.2; color: var(--primary); flex-shrink: 0; }
+  .section-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--input-text);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .section-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .field-grid .span-2 { grid-column: 1 / -1; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+
+  label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  input, select {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    color: var(--input-text);
+    font-family: inherit;
+    width: 100%;
+    outline: none;
+    transition: border-color 130ms, box-shadow 130ms, background 130ms;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+  input::placeholder { color: var(--input-ph); font-size: 12.5px; }
+  input:focus, select:focus {
+    border-color: var(--primary);
+    background: var(--card-bg);
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.16);
+  }
+
+  .price-input-wrap { position: relative; }
+  .price-input-wrap input { padding-left: 32px; }
+  .price-prefix {
+    position: absolute;
+    left: 13px; top: 50%; transform: translateY(-50%);
+    font-size: 13px; font-weight: 700; color: var(--input-ph);
+    pointer-events: none;
+  }
+
+  /* EAN input with inline copy button */
+  .ean-row { display: flex; gap: 8px; align-items: center; }
+  .ean-input-wrap { flex: 1; min-width: 0; position: relative; }
+  .ean-input-wrap input { padding-right: 38px; font-family: 'DM Mono', monospace; letter-spacing: 0.02em; }
+  .copy-btn {
+    position: absolute;
+    right: 5px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--copy-color);
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .copy-btn:hover { background: var(--copy-hover); }
+  .copy-btn svg { width: 13px; height: 13px; stroke-width: 2.3; }
+
+  .add-ean-btn {
+    width: 40px; height: 40px;
+    background: rgba(216,30,30,0.10);
+    border: 1.5px solid rgba(216,30,30,0.22);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .add-ean-btn svg { width: 16px; height: 16px; stroke-width: 2.5; }
+
+  /* ── Preços por Loja ── */
+  .add-store-wrap { position: relative; }
+  .add-store-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(216,30,30,0.10);
+    border: 1.5px solid rgba(216,30,30,0.22);
+    border-radius: 10px;
+    padding: 7px 12px 7px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--primary);
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .add-store-btn:hover { background: rgba(216,30,30,0.16); }
+  .add-store-btn svg { width: 13px; height: 13px; stroke-width: 2.6; }
+
+  .add-store-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 5;
+    width: 168px;
+    background: var(--card-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(26,26,10,0.16), 0 4px 10px rgba(26,26,10,0.08);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .dropdown-demo-tag {
+    position: absolute;
+    top: -22px;
+    right: 0;
+    font-size: 9px;
+    font-weight: 800;
+    color: rgba(216,30,30,0.65);
+    white-space: nowrap;
+    font-style: italic;
+  }
+  .add-store-dropdown-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--subtitle);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 6px 9px 4px;
+  }
+  .add-store-option {
+    padding: 8px 9px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--input-text);
+    cursor: pointer;
+    transition: background 100ms;
+  }
+  .add-store-option:hover { background: rgba(216,30,30,0.08); color: var(--primary); }
+
+  .store-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .store-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--store-row-bg);
+    border: 1px solid var(--store-row-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .store-row.primary {
+    background: var(--store-primary-bg);
+    border-color: var(--store-primary-border);
+  }
+  .store-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(26,26,10,0.22);
+    flex-shrink: 0;
+  }
+  .store-row.primary .store-dot { background: var(--primary); }
+  .store-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--store-name);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .store-tag {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(216,30,30,0.10);
+    padding: 3px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .store-price-wrap { position: relative; width: 130px; flex-shrink: 0; }
+  .store-price-wrap input { padding: 7px 10px 7px 28px; font-size: 12.5px; }
+  .store-price-wrap .price-prefix { font-size: 12px; left: 10px; }
+  .store-remove-btn {
+    width: 26px; height: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--subtitle);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 120ms, color 120ms;
+  }
+  .store-remove-btn:hover { background: rgba(216,30,30,0.10); color: var(--primary); }
+  .store-remove-btn svg { width: 12px; height: 12px; stroke-width: 2.5; }
+
+  /* ── Toggle tradução permanente ── */
+  .translation-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: border-color 130ms, background 130ms;
+  }
+  .translation-toggle.checked {
+    border-color: var(--amber-border);
+    background: var(--amber-bg);
+  }
+  .check-box {
+    width: 18px; height: 18px;
+    border-radius: 6px;
+    border: 2px solid rgba(26,26,10,0.20);
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .translation-toggle.checked .check-box {
+    border-color: var(--amber-border);
+    background: var(--amber-border);
+  }
+  .check-box svg { width: 11px; height: 11px; stroke-width: 3.5; color: #fff; }
+  .translation-copy { flex: 1; min-width: 0; }
+  .translation-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--subtitle);
+  }
+  .translation-toggle.checked .translation-title { color: var(--amber-text); }
+  .translation-desc {
+    font-size: 11px;
+    color: var(--subtitle);
+    margin-top: 2px;
+    line-height: 1.4;
+    opacity: 0.85;
+  }
+
+  /* ── Footer ── */
+  .modal-footer {
+    padding: 18px 24px;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .btn-cancel {
+    flex: 0 0 30%;
+    padding: 13px 16px;
+    background: var(--cancel-bg);
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--cancel-text);
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .btn-cancel:hover { background: rgba(26,26,10,0.10); }
+  .btn-submit {
+    flex: 1;
+    padding: 13px 16px;
+    background: var(--primary);
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--primary-text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 10px 20px rgba(216,30,30,0.28);
+    transition: opacity 120ms, transform 150ms;
+  }
+  .btn-submit svg { width: 15px; height: 15px; stroke-width: 2.5; }
+  .btn-submit:hover { opacity: 0.92; }
+  .btn-submit:active { transform: scale(0.98); }
+
+  .col-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(26,26,10,0.40);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+<div class="modal">
+
+  <!-- Header — mesmo padrão de "Editar Produto": header amarelo, icon chip 44px, título + subtítulo -->
+  <div class="modal-header">
+    <div class="icon-chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    </div>
+    <div class="header-text">
+      <div class="header-title">Criar Novo Produto</div>
+      <div class="header-subtitle">PANELA PADRAO PINTADA 18 C</div>
+    </div>
+    <button class="close-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="modal-body">
+    <div class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Voltar para busca
+    </div>
+
+    <!-- Identificação -->
+    <div class="section">
+      <div class="section-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span class="section-title">Identificação</span>
+      </div>
+      <div class="field-grid">
+        <div class="field span-2">
+          <label>Nome do Produto</label>
+          <input type="text" value="panela padrao pintada 18 c" />
+        </div>
+        <div class="field">
+          <label>SKU (Código Interno)</label>
+          <input type="text" placeholder="Opcional" />
+        </div>
+        <div class="field">
+          <label>Código EAN</label>
+          <div class="ean-row">
+            <div class="ean-input-wrap">
+              <input type="text" value="7898452822140" />
+              <button class="copy-btn" title="Copiar EAN">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <div class="add-ean-btn" title="Adicionar outro código">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preços por Loja -->
+    <div class="section">
+      <div class="section-head-row">
+        <div class="section-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18M7 15v3M12 10v8M17 6v12"/></svg>
+          <span class="section-title">Preços por Loja</span>
+        </div>
+        <div class="add-store-wrap">
+          <button class="add-store-btn" title="Adicionar loja">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar loja
+          </button>
+          <div class="add-store-dropdown">
+            <div class="dropdown-demo-tag">exemplo ao clicar</div>
+            <div class="add-store-dropdown-label">Escolher loja</div>
+            <div class="add-store-option">Loja Norte</div>
+            <div class="add-store-option">Loja Outlet</div>
+          </div>
+        </div>
+      </div>
+      <div class="store-list">
+        <div class="store-row primary">
+          <div class="store-dot"></div>
+          <span class="store-name">Loja Centro</span>
+          <span class="store-tag">Principal</span>
+          <div class="store-price-wrap">
+            <span class="price-prefix">R$</span>
+            <input type="text" value="42,00" />
+          </div>
+        </div>
+        <div class="store-row">
+          <div class="store-dot"></div>
+          <span class="store-name">Loja Sul</span>
+          <div class="store-price-wrap">
+            <span class="price-prefix">R$</span>
+            <input type="text" placeholder="0,00" />
+          </div>
+          <button class="store-remove-btn" title="Remover loja">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tradução permanente -->
+    <div class="translation-toggle checked">
+      <div class="check-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="translation-copy">
+        <div class="translation-title">Salvar como tradução permanente</div>
+        <div class="translation-desc">Próximas notas deste fornecedor identificarão este item automaticamente</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="modal-footer">
+    <button class="btn-cancel">Cancelar</button>
+    <button class="btn-submit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Criar e Vincular
+    </button>
+  </div>
+
+</div>
+</body>
+</html>

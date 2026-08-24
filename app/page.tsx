@@ -460,11 +460,16 @@ export default function Page() {
   const [noteItemExtraEans, setNoteItemExtraEans] = useState<EanCodeEntry[]>([]);
   const [noteItemNewSellPrice, setNoteItemNewSellPrice] = useState('');
   const [noteItemCreating, setNoteItemCreating] = useState(false);
-  const [noteItemNewImage, setNoteItemNewImage] = useState('');
-  const [noteItemNewImageUploading, setNoteItemNewImageUploading] = useState(false);
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [noteItemSaveTranslation, setNoteItemSaveTranslation] = useState(false);
+  // "Preços por Loja" no formulário de criação — a loja principal (dona da nota) usa
+  // noteItemNewSellPrice normalmente; as demais são lançadas em viewingNoteExtraPricing
+  // (mesmo mecanismo de "distribuição" já usado na tabela de revisão) via setExtraSellPrice.
+  const [noteItemExtraStoreIds, setNoteItemExtraStoreIds] = useState<string[]>([]);
+  const [noteItemExtraStorePrices, setNoteItemExtraStorePrices] = useState<Record<string, string>>({});
+  const [noteItemAddStoreOpen, setNoteItemAddStoreOpen] = useState(false);
+  const [noteItemEanCopied, setNoteItemEanCopied] = useState(false);
   const [multiLinkSaveTranslation, setMultiLinkSaveTranslation] = useState(false);
   // Atalho "Criar e Vincular" na coluna Identificação Interna: item pendente de confirmação
   // (produto não encontrado no dicionário) e estado de submissão do modal de confirmação.
@@ -812,7 +817,6 @@ export default function Page() {
   }, [notification]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
-  const noteItemImageInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [newProduct, setNewProduct] = useState({
     sku: '',
@@ -3319,7 +3323,7 @@ export default function Page() {
       // da nota via applyNoteToCompanyStock, nunca a criação do produto (evita gravar prematuramente
       // na empresa padrão antes do usuário escolher a Empresa da nota na aba Recebimento).
       const { data: created, error } = await supabase.from('products')
-        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: noteItemNewImage || null, price: 0, brand: viewingReviewNote.items[linkingItemIdx]?.brand || null })
+        .insert({ name: noteItemNewName.trim(), sku, ean: noteItemNewEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', image: null, price: 0, brand: viewingReviewNote.items[linkingItemIdx]?.brand || null })
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
@@ -3338,6 +3342,13 @@ export default function Page() {
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
+        // Preços das demais lojas ("Preços por Loja") entram no mesmo mecanismo de distribuição
+        // já usado na tabela de revisão — ficam pendentes em pricingByCompany até a nota ser salva/aprovada.
+        noteItemExtraStoreIds.forEach(companyId => {
+          const raw = noteItemExtraStorePrices[companyId];
+          const val = raw ? parseFloat(raw.replace(',', '.')) || 0 : 0;
+          if (val > 0) setExtraSellPrice(companyId, linkingItemIdx, val);
+        });
         const extraEanRows = noteItemExtraEans.filter(e => e.ean.trim()).map(e => ({
           product_id: created.id,
           ean: e.ean.trim(),
@@ -3379,8 +3390,9 @@ export default function Page() {
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
-        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice(''); setNoteItemNewImage(''); setNoteItemNewImageUploading(false);
+        setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice('');
         setNoteItemSaveTranslation(false);
+        setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
         if (extraEanRows.length === 0 || !eanInsertFailed) {
           setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
         }
@@ -10606,38 +10618,38 @@ export default function Page() {
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
                     />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: 16 }}
                       transition={{ duration: 0.18 }}
-                      className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden max-h-[80vh]"
+                      className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh] border border-black/10 dark:border-white/[0.08]"
                     >
-                      {/* Header */}
-                      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3 shrink-0">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <Package size={17} />
+                      {/* Header — mesmo padrão do modal "Editar Produto": header amarelo, icon chip grande */}
+                      <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
+                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                          <Package size={20} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">
                             {noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
-                          </p>
-                          <p className="text-sm font-bold text-slate-800 truncate">
+                          </h2>
+                          <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">
                             {linkItem?.original_description || 'Item sem descrição'}
                           </p>
                         </div>
                         <button
-                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); }}
-                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                         >
-                          <X size={16} className="text-slate-400" />
+                          <X size={18} />
                         </button>
                       </div>
 
                       {/* Body */}
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
                         {/* Aviso: tradução permanente já existe para este item */}
                         {(() => {
                           const mapping = existingMapping;
@@ -10857,6 +10869,7 @@ export default function Page() {
                                 <button
                                   onClick={() => {
                                     setNoteItemShowCreate(true);
+                                    setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
                                     // Pré-preenche o preço de venda com o valor já digitado na linha
                                     const rowPrice = linkingItemIdx !== null ? viewingNoteSellPrices[linkingItemIdx] : undefined;
                                     if (rowPrice && rowPrice > 0) setNoteItemNewSellPrice(String(rowPrice));
@@ -10875,166 +10888,228 @@ export default function Page() {
                               </>
                             )}
                           </>
-                        ) : (
-                          <div className="space-y-3">
+                        ) : (() => {
+                          const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-3.5';
+                          const sectionHeadCls = 'flex items-center gap-2';
+                          const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+                          const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
+                          const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+                          const primaryCompany = companies.find((c: any) => c.id === (viewingReviewNote.companyId || primaryCompanyId));
+                          const availableCompanies = companies.filter((c: any) =>
+                            c.id !== (viewingReviewNote.companyId || primaryCompanyId) && !noteItemExtraStoreIds.includes(c.id)
+                          );
+                          return (
+                          <div className="space-y-4">
                             <button
-                              onClick={() => { setNoteItemShowCreate(false); setNoteItemNewImage(''); setNoteItemNewImageUploading(false); }}
-                              className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
+                              onClick={() => setNoteItemShowCreate(false)}
+                              className="text-xs font-bold text-secondary/70 hover:text-primary transition-colors flex items-center gap-1"
                             >
                               ← Voltar para busca
                             </button>
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nome *</label>
-                              <input autoFocus type="text" value={noteItemNewName} onChange={e => setNoteItemNewName(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                placeholder="Nome do produto" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU</label>
-                                <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  placeholder="Opcional" />
+
+                            {/* Identificação */}
+                            <div className={sectionCls}>
+                              <div className={sectionHeadCls}>
+                                <Package size={15} className="text-primary shrink-0" />
+                                <span className={sectionTitleCls}>Identificação</span>
                               </div>
                               <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">EAN</label>
-                                <div className="flex gap-2">
-                                  <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
-                                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Cód. barras" />
-                                  <EanCodesEditor entries={noteItemExtraEans} onChange={setNoteItemExtraEans} />
+                                <label className={labelCls}>Nome do Produto</label>
+                                <input autoFocus type="text" value={noteItemNewName} onChange={e => setNoteItemNewName(e.target.value)}
+                                  className={cn(inputCls, 'mt-1.5')}
+                                  placeholder="Nome do produto" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3.5">
+                                <div>
+                                  <label className={labelCls}>SKU (Código Interno)</label>
+                                  <input type="text" value={noteItemNewSku} onChange={e => setNoteItemNewSku(e.target.value)}
+                                    className={cn(inputCls, 'mt-1.5')}
+                                    placeholder="Opcional" />
+                                </div>
+                                <div>
+                                  <label className={labelCls}>Código EAN</label>
+                                  <div className="flex gap-2 mt-1.5">
+                                    <div className="relative flex-1 min-w-0">
+                                      <input type="text" value={noteItemNewEan} onChange={e => setNoteItemNewEan(e.target.value)}
+                                        className={cn(inputCls, 'pr-9 font-mono')}
+                                        placeholder="Cód. barras" />
+                                      {noteItemNewEan.trim() && (
+                                        <button
+                                          type="button"
+                                          title="Copiar EAN"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(noteItemNewEan.trim());
+                                            setNoteItemEanCopied(true);
+                                            setTimeout(() => setNoteItemEanCopied(false), 1500);
+                                          }}
+                                          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors"
+                                        >
+                                          {noteItemEanCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <EanCodesEditor entries={noteItemExtraEans} onChange={setNoteItemExtraEans} />
+                                  </div>
                                 </div>
                               </div>
+                              {/* Aviso: EAN já cadastrado em outro produto (evita duplicidade) */}
+                              {(() => {
+                                const eanMap = buildEanToProductId(products);
+                                const candidateEans = Array.from(new Set(
+                                  [noteItemNewEan.trim(), ...noteItemExtraEans.map(e => e.ean.trim())].filter(Boolean)
+                                ));
+                                const matches = candidateEans
+                                  .map(ean => ({ ean, product: products.find((p: any) => p.id === eanMap.get(ean)) }))
+                                  .filter((m): m is { ean: string; product: any } => !!m.product);
+                                if (matches.length === 0) return null;
+                                return (
+                                  <div className="space-y-1.5">
+                                    {matches.map(m => (
+                                      <div key={m.ean} className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl">
+                                        <AlertTriangle size={13} className="text-red-500 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-wider">EAN {m.ean} já cadastrado — evite duplicar</p>
+                                          <p className="text-xs font-bold text-red-700 dark:text-red-300 truncate">{m.product.name}</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const i = linkingItemIdx!;
+                                            const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
+                                            setNoteItemSelectedProduct(m.product);
+                                            setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (m.product.price ? String(m.product.price) : ''));
+                                            setNoteItemShowCreate(false);
+                                          }}
+                                          className="text-[10px] font-black text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline shrink-0"
+                                        >
+                                          Usar este
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </div>
-                            {/* Aviso: EAN já cadastrado em outro produto (evita duplicidade) */}
-                            {(() => {
-                              const eanMap = buildEanToProductId(products);
-                              const candidateEans = Array.from(new Set(
-                                [noteItemNewEan.trim(), ...noteItemExtraEans.map(e => e.ean.trim())].filter(Boolean)
-                              ));
-                              const matches = candidateEans
-                                .map(ean => ({ ean, product: products.find((p: any) => p.id === eanMap.get(ean)) }))
-                                .filter((m): m is { ean: string; product: any } => !!m.product);
-                              if (matches.length === 0) return null;
-                              return (
-                                <div className="space-y-1.5">
-                                  {matches.map(m => (
-                                    <div key={m.ean} className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
-                                      <AlertTriangle size={13} className="text-red-500 shrink-0" />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-wider">EAN {m.ean} já cadastrado — evite duplicar</p>
-                                        <p className="text-xs font-bold text-red-700 truncate">{m.product.name}</p>
+
+                            {/* Preços por Loja */}
+                            <div className={sectionCls}>
+                              <div className="flex items-center justify-between">
+                                <div className={sectionHeadCls}>
+                                  <BarChart3 size={15} className="text-primary shrink-0" />
+                                  <span className={sectionTitleCls}>Preços por Loja</span>
+                                </div>
+                                {availableCompanies.length > 0 && (
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setNoteItemAddStoreOpen(v => !v)}
+                                      className="flex items-center gap-1.5 bg-primary/10 border border-primary/25 rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-primary hover:bg-primary/15 transition-colors"
+                                    >
+                                      <Plus size={13} />Adicionar loja
+                                    </button>
+                                    {noteItemAddStoreOpen && (
+                                      <div className="absolute right-0 top-[calc(100%+6px)] z-10 w-44 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-xl p-1.5">
+                                        <p className="text-[9px] font-extrabold uppercase tracking-wide text-secondary/60 px-2 pt-1 pb-1.5">Escolher loja</p>
+                                        {availableCompanies.map((c: any) => (
+                                          <button
+                                            key={c.id}
+                                            type="button"
+                                            onClick={() => {
+                                              setNoteItemExtraStoreIds(prev => [...prev, c.id]);
+                                              setNoteItemAddStoreOpen(false);
+                                            }}
+                                            className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
+                                          >
+                                            {c.nome_fantasia}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-3 bg-primary/[0.06] border border-primary/20 rounded-xl px-3 py-2.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                  <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">
+                                    {primaryCompany?.nome_fantasia || 'Empresa da nota não definida'}
+                                  </span>
+                                  <span className="text-[9px] font-extrabold uppercase tracking-wide text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">Principal</span>
+                                  <div className="relative w-[110px] shrink-0">
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary/50">R$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={noteItemNewSellPrice}
+                                      onChange={e => setNoteItemNewSellPrice(e.target.value)}
+                                      placeholder="0,00"
+                                      onWheel={blockWheelChange}
+                                      className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    />
+                                  </div>
+                                </div>
+                                {noteItemExtraStoreIds.map(companyId => {
+                                  const company = companies.find((c: any) => c.id === companyId);
+                                  return (
+                                    <div key={companyId} className="flex items-center gap-3 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] rounded-xl px-3 py-2.5">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-secondary/30 shrink-0" />
+                                      <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">{company?.nome_fantasia || 'Loja'}</span>
+                                      <div className="relative w-[110px] shrink-0">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary/50">R$</span>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={noteItemExtraStorePrices[companyId] || ''}
+                                          onChange={e => setNoteItemExtraStorePrices(prev => ({ ...prev, [companyId]: e.target.value }))}
+                                          placeholder="0,00"
+                                          onWheel={blockWheelChange}
+                                          className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        />
                                       </div>
                                       <button
                                         type="button"
+                                        title="Remover loja"
                                         onClick={() => {
-                                          const i = linkingItemIdx!;
-                                          const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
-                                          setNoteItemSelectedProduct(m.product);
-                                          setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : (m.product.price ? String(m.product.price) : ''));
-                                          setNoteItemShowCreate(false);
+                                          setNoteItemExtraStoreIds(prev => prev.filter(id => id !== companyId));
+                                          setNoteItemExtraStorePrices(prev => { const { [companyId]: _drop, ...rest } = prev; return rest; });
                                         }}
-                                        className="text-[10px] font-black text-red-600 hover:text-red-800 underline shrink-0"
+                                        className="w-6 h-6 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
                                       >
-                                        Usar este
+                                        <X size={12} />
                                       </button>
                                     </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
-                            {/* ── Preço de venda + Foto do produto ── */}
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Preço de Venda (R$)</label>
-                                <div className="relative">
-                                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">R$</span>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={noteItemNewSellPrice}
-                                    onChange={e => setNoteItemNewSellPrice(e.target.value)}
-                                    placeholder="0,00"
-                                    onWheel={blockWheelChange}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Foto do Produto</label>
-                                <input
-                                  ref={noteItemImageInputRef}
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    setNoteItemNewImageUploading(true);
-                                    const formData = new FormData();
-                                    formData.append('file', file);
-                                    try {
-                                      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                                      if (res.ok) {
-                                        const d = await res.json();
-                                        setNoteItemNewImage(d.url);
-                                      }
-                                    } catch {}
-                                    setNoteItemNewImageUploading(false);
-                                    if (e.target) e.target.value = '';
-                                  }}
-                                />
-                                {noteItemNewImage ? (
-                                  <div className="relative inline-flex">
-                                    <img src={noteItemNewImage} alt="foto" className="w-[46px] h-[46px] rounded-xl object-cover border border-slate-200" />
-                                    <button
-                                      onClick={() => setNoteItemNewImage('')}
-                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-slate-700 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
-                                    >
-                                      <X size={9} className="text-white" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => noteItemImageInputRef.current?.click()}
-                                    disabled={noteItemNewImageUploading}
-                                    className="w-full h-[46px] bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center gap-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
-                                  >
-                                    {noteItemNewImageUploading
-                                      ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-r-transparent" />
-                                      : <><ImageIcon size={13} /><span className="text-[11px] font-bold">Foto</span></>
-                                    }
-                                  </button>
-                                )}
+                                  );
+                                })}
                               </div>
                             </div>
+
                             {/* Toggle: salvar como tradução permanente */}
                             <button
                               onClick={() => setNoteItemSaveTranslation(v => !v)}
-                              className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:border-slate-300')}
+                              className={cn('w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all text-left', noteItemSaveTranslation ? 'border-amber-400 bg-amber-50 dark:bg-amber-400/10' : 'border-black/[0.07] dark:border-white/[0.07] bg-surface hover:border-black/20 dark:hover:border-white/20')}
                             >
-                              <div className={cn('w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-slate-300 bg-white')}>
-                                {noteItemSaveTranslation && <Check size={10} className="text-white" />}
+                              <div className={cn('w-[18px] h-[18px] rounded-md flex items-center justify-center shrink-0 transition-colors', noteItemSaveTranslation ? 'bg-amber-400' : 'border-2 border-black/20 dark:border-white/20 bg-white dark:bg-transparent')}>
+                                {noteItemSaveTranslation && <Check size={11} className="text-white" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
-                                <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
+                                <p className={cn('text-xs font-extrabold', noteItemSaveTranslation ? 'text-amber-700 dark:text-amber-300' : 'text-secondary/70')}>Salvar como tradução permanente</p>
+                                <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Próximas notas deste fornecedor identificarão este item automaticamente</p>
                               </div>
                             </button>
                             {noteItemSaveTranslation && (
-                              <div className="mt-2 space-y-1.5">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Será vinculado por</p>
-                                <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                              <div className="space-y-1.5">
+                                <p className="text-[10px] font-black text-secondary/50 uppercase tracking-widest">Será vinculado por</p>
+                                <div className="flex items-stretch gap-2 px-3 py-2 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03]">
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Código</p>
-                                    <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.supplier_code || '—'}</p>
+                                    <p className="text-[10px] font-black text-secondary/60 uppercase tracking-wider">Código</p>
+                                    <p className="text-xs font-bold text-on-surface truncate">{linkItem?.supplier_code || '—'}</p>
                                   </div>
-                                  <div className="w-px bg-slate-200 shrink-0" />
+                                  <div className="w-px bg-black/10 dark:bg-white/10 shrink-0" />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Produto na Nota</p>
-                                    <p className="text-xs font-bold text-slate-800 truncate">{linkItem?.original_description || '—'}</p>
+                                    <p className="text-[10px] font-black text-secondary/60 uppercase tracking-wider">Produto na Nota</p>
+                                    <p className="text-xs font-bold text-on-surface truncate">{linkItem?.original_description || '—'}</p>
                                   </div>
                                 </div>
                               </div>
@@ -11043,15 +11118,16 @@ export default function Page() {
                             <button
                               onClick={handleNoteItemCreateAndLink}
                               disabled={noteItemCreating || !noteItemNewName.trim()}
-                              className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                              className="w-full bg-primary text-white py-3.5 rounded-2xl font-extrabold text-sm shadow-lg shadow-primary/30 hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                               {noteItemCreating
                                 ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-                                : <><Plus size={13} />Criar e Vincular</>
+                                : <><Plus size={15} />Criar e Vincular</>
                               }
                             </button>
                           </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </motion.div>
                   </div>
