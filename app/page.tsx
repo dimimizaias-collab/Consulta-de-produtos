@@ -3437,7 +3437,7 @@ export default function Page() {
     setNoteItemLinkQuery(q);
     setNoteItemNewEan(q);
     setNoteItemNewSku('');
-    setNoteItemNewName((item.original_description || item.description || '').toLowerCase());
+    setNoteItemNewName((item.original_description || item.description || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
     setNoteItemNewSellPrice(sellPrice > 0 ? String(sellPrice) : '');
     setNoteItemSellPriceInput(sellPrice > 0 ? String(sellPrice) : '');
     setNoteItemShowCreate(q.trim().length > 0 && !hasMatch);
@@ -10878,7 +10878,7 @@ export default function Page() {
                                       const desc = viewingReviewNote.items[linkingItemIdx]?.original_description
                                         || viewingReviewNote.items[linkingItemIdx]?.description
                                         || '';
-                                      setNoteItemNewName(desc.toLowerCase());
+                                      setNoteItemNewName(desc.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
                                     }
                                   }}
                                   className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 text-slate-400 rounded-xl hover:border-primary/30 hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold"
