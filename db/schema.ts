@@ -6,7 +6,9 @@ export const manufacturers = pgTable('manufacturers', {
   cnpj: text('cnpj'),
   prefix: text('prefix').notNull(), // 3 dígitos numéricos, zero-padded (ex: "007")
   active: boolean('active').default(true),
-  nextSeq: integer('next_seq').default(1), // usar a RPC get_next_manufacturer_code() em vez de ler/escrever direto
+  // Código final gerado pela RPC get_next_manufacturer_code(): "7816-<prefix>-<nextSeq com 5 dígitos>"
+  // (ex: 7816-007-00001). "7816" é constante fixa da empresa. Usar a RPC em vez de ler/escrever nextSeq direto.
+  nextSeq: integer('next_seq').default(1),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
