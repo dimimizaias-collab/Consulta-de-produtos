@@ -618,6 +618,8 @@ export default function Page() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [noteSupplierMappings, setNoteSupplierMappings] = useState<any[]>([]);
+  const [showSupplierProductsModal, setShowSupplierProductsModal] = useState(false);
+  const [supplierProductsSearch, setSupplierProductsSearch] = useState('');
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [reviewUnitMenuIdx, setReviewUnitMenuIdx] = useState<number | null>(null);
   const [reviewUnitMenuPos, setReviewUnitMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -9475,6 +9477,16 @@ export default function Page() {
                                       <Pencil size={9} />
                                     </button>
                                   )}
+                                  {col === 'Produto na Nota' && getNoteStatus(viewingReviewNote!) === 'registro' && (
+                                    <button
+                                      onClick={() => { setSupplierProductsSearch(''); setShowSupplierProductsModal(true); }}
+                                      title="Consultar produtos cadastrados deste fornecedor"
+                                      style={{ color: 'inherit', opacity: 0.65 }}
+                                      className="w-4 h-4 rounded flex items-center justify-center transition-colors hover:opacity-100"
+                                    >
+                                      <BookText size={10} />
+                                    </button>
+                                  )}
                                   {filterKey && filterBtn(filterKey)}
                                 </div>
                                 {filterKey && renderFilterDropdown(filterKey)}
@@ -11869,6 +11881,87 @@ export default function Page() {
                   </motion.div>
                 </div>
               )}
+
+              {/* ── Produtos do Fornecedor — consulta rápida do dicionário (só na etapa Registro) ── */}
+              {showSupplierProductsModal && (() => {
+                const supplierProducts = Array.from(
+                  new Map(
+                    noteSupplierMappings
+                      .filter(m => m.internal_product_id)
+                      .map(m => [m.internal_product_id, products.find((p: any) => p.id === m.internal_product_id)])
+                  ).values()
+                ).filter(Boolean) as any[];
+                const q = supplierProductsSearch.toLowerCase().trim();
+                const filtered = q
+                  ? supplierProducts.filter(p => (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.ean || '').toLowerCase().includes(q))
+                  : supplierProducts;
+                return (
+                  <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSupplierProductsModal(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                      transition={{ duration: 0.18 }}
+                      className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden max-h-[85vh] border border-black/10 dark:border-white/[0.08]"
+                    >
+                      <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
+                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                          <BookText size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Produtos do Fornecedor</h2>
+                          <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{viewingReviewNote?.supplierName || 'Fornecedor'} — {supplierProducts.length} produto(s) no dicionário</p>
+                        </div>
+                        <button
+                          onClick={() => setShowSupplierProductsModal(false)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                      <div className="px-6 pt-4 shrink-0">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={supplierProductsSearch}
+                            onChange={e => setSupplierProductsSearch(e.target.value)}
+                            placeholder="Buscar por nome, SKU ou EAN..."
+                            className="w-full pl-9 pr-3 py-2.5 text-sm font-medium bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:border-primary transition-colors text-slate-800 dark:text-on-surface"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-2 min-h-0">
+                        {filtered.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                            <BookText size={26} className="text-slate-300" />
+                            <p className="text-sm font-bold text-slate-400">
+                              {supplierProducts.length === 0 ? 'Nenhum produto deste fornecedor cadastrado no dicionário ainda.' : 'Nenhum produto encontrado para essa busca.'}
+                            </p>
+                          </div>
+                        ) : filtered.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => { openEditModal(p); setShowSupplierProductsModal(false); }}
+                            className="w-full flex items-center gap-3 px-3.5 py-2.5 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 hover:border-primary/50 hover:bg-primary/5 rounded-xl transition-all text-left"
+                          >
+                            <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              <Package size={15} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 dark:text-on-surface truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}{p.price > 0 ? ` · R$ ${p.price.toFixed(2).replace('.', ',')}` : ''}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </div>
+                );
+              })()}
 
               {/* Vincular Vários modal */}
               {multiLinkItemIdx !== null && (
