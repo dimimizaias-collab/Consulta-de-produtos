@@ -29,6 +29,7 @@ import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPag
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
+import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturerModal';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -263,6 +264,120 @@ function SearchableSelect({
   );
 }
 
+// Select de Fabricante/Marca — como manufacturers precisa guardar o ID (não texto livre,
+// diferente de categoria/localização/etc.), não reaproveita o SearchableSelect genérico.
+// "+ Novo Fabricante" só aparece pra quem pode cadastrar (canCreate) e abre o modal de
+// verdade (AddManufacturerModal), já que fabricante exige prefixo — não dá pra criar só
+// digitando um texto livre como as outras opções "+ Nova categoria" etc.
+function ManufacturerSelect({
+  value,
+  onChange,
+  manufacturers,
+  canCreate,
+  onRequestCreate,
+  placeholder = 'Pesquisar fabricante...',
+}: {
+  value: string | null;
+  onChange: (id: string | null) => void;
+  manufacturers: { id: string; name: string; prefix: string; active: boolean }[];
+  canCreate: boolean;
+  onRequestCreate: () => void;
+  placeholder?: string;
+}) {
+  const [search, setSearch] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fabricante inativo continua aparecendo se já for o selecionado — senão o produto
+  // fica mostrando um select vazio sem explicação nenhuma.
+  const selectable = useMemo(() => manufacturers.filter(m => m.active || m.id === value), [manufacturers, value]);
+  const selected = selectable.find(m => m.id === value) || null;
+  const filtered = useMemo(
+    () => selectable.filter(m => m.name.toLowerCase().includes(search.toLowerCase())),
+    [selectable, search]
+  );
+
+  return (
+    <div className="flex gap-2 flex-1" ref={containerRef}>
+      <div className="relative flex-1">
+        <div className="relative">
+          <input
+            type="text"
+            value={isOpen ? search : (selected?.name || '')}
+            onFocus={() => { setIsOpen(true); setSearch(''); }}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={placeholder}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+            <ChevronDown size={16} />
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute z-[60] left-0 right-0 mt-1 bg-surface-container-lowest border border-on-surface/10 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+            >
+              <button
+                type="button"
+                onClick={() => { onChange(null); setIsOpen(false); setSearch(''); }}
+                className={cn(
+                  "w-full text-left px-4 py-2 text-sm italic hover:bg-on-surface/5 transition-colors",
+                  !value ? "text-primary font-bold bg-primary/5" : "text-on-surface/50"
+                )}
+              >
+                Sem fabricante
+              </button>
+              {filtered.length > 0 ? (
+                filtered.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { onChange(m.id); setIsOpen(false); setSearch(''); }}
+                    className={cn(
+                      "w-full text-left px-4 py-2 text-sm hover:bg-on-surface/5 transition-colors flex items-center justify-between gap-2",
+                      value === m.id ? "text-primary font-bold bg-primary/5" : "text-on-surface"
+                    )}
+                  >
+                    <span className="truncate">{m.name}</span>
+                    <span className="text-[10px] font-mono text-on-surface/30 shrink-0">{m.prefix}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-2 text-sm text-on-surface/50 italic">
+                  {canCreate ? 'Nenhum fabricante encontrado' : 'Nenhum fabricante encontrado — peça a um admin/gerente pra cadastrar'}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {canCreate && (
+        <button
+          type="button"
+          onClick={onRequestCreate}
+          title="Cadastrar novo fabricante"
+          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-red-500 border-red-600 text-white hover:bg-red-600"
+        >
+          <Plus size={18} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Constrói um mapa EAN -> product_id considerando tanto o EAN principal
 // (products.ean) quanto os EANs adicionais (product_ean_codes). Aceita tanto
 // produtos já vindos de fetchProducts() (com `extraEans` anexado) quanto uma
@@ -374,6 +489,11 @@ export default function Page() {
   // Supplier Dictionary states
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
   const [supplierNames, setSupplierNames] = useState<any[]>([]);
+
+  // Fabricantes/Marcas — usado no campo "Fabricante" do produto e no botão "Sugerir código"
+  const [manufacturers, setManufacturers] = useState<{ id: string; name: string; prefix: string; active: boolean; next_seq: number }[]>([]);
+  const [canManageManufacturers, setCanManageManufacturers] = useState(false);
+  const [showQuickAddManufacturer, setShowQuickAddManufacturer] = useState(false);
 
   // Empresas cadastradas em Configurações > Dados — usadas no campo Empresa da aba Recebimento
   const [companies, setCompanies] = useState<any[]>([]);
@@ -832,8 +952,7 @@ export default function Page() {
     category: '',
     subcategory: '',
     brand: '',
-    fabricante: '',
-    cnpj: '',
+    manufacturerId: null as string | null,
     composicao: '',
     minStock: null as number | null,
   });
@@ -1667,6 +1786,16 @@ export default function Page() {
     fetchProducts();
   }, [primaryCompanyId]);
 
+  useEffect(() => {
+    fetchManufacturers();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('usuarios').select('role').eq('auth_user_id', user.id).maybeSingle();
+      setCanManageManufacturers(data?.role === 'admin' || data?.role === 'gerente');
+    })();
+  }, []);
+
   const handleApproveNote = async (noteId: string) => {
     await supabase.from('review_notes').update({ approved: true, status: 'aprovada' }).eq('id', noteId);
     setReviewNotes(prev => prev.map(n => n.id === noteId ? { ...n, approved: true, status: 'aprovada' } : n));
@@ -2034,6 +2163,7 @@ export default function Page() {
       };
       const primaryStock = (primaryCompanyId && mergedStockByCompany[primaryCompanyId]) || { count: 0, price: 0 };
 
+      const selectedManufacturer = manufacturers.find(m => m.id === newProduct.manufacturerId) || null;
       const productToInsert = {
         sku: newProduct.sku?.trim() || null,
         name: newProduct.name,
@@ -2045,9 +2175,10 @@ export default function Page() {
         ean: newProduct.ean || '',
         category: newProduct.category || 'Geral',
         subcategory: newProduct.subcategory || 'Geral',
-        brand: newProduct.brand || 'Geral',
-        fabricante: newProduct.fabricante?.trim() || null,
-        cnpj: newProduct.cnpj?.trim() || null,
+        // brand fica sincronizado com o nome do fabricante selecionado — mantém os ~40
+        // pontos do app que ainda leem products.brand funcionando sem precisar mexer neles.
+        brand: selectedManufacturer?.name || 'Geral',
+        manufacturer_id: newProduct.manufacturerId,
         composicao: newProduct.composicao?.trim() || null,
         min_stock: newProduct.minStock,
         internal_code: newProduct.sku,
@@ -2108,8 +2239,7 @@ export default function Page() {
         category: '',
         subcategory: '',
         brand: '',
-        fabricante: '',
-        cnpj: '',
+        manufacturerId: null,
         composicao: '',
         minStock: null,
       });
@@ -2154,6 +2284,7 @@ export default function Page() {
       const editPrice = isNaN(editingProduct.price) ? 0 : editingProduct.price;
       const isPrimaryCompanySelected = !editProductCompanyId || editProductCompanyId === primaryCompanyId;
 
+      const editedManufacturer = manufacturers.find(m => m.id === editingProduct.manufacturerId) || null;
       const productToUpdate = {
         sku: editingProduct.sku,
         name: editingProduct.name,
@@ -2166,9 +2297,8 @@ export default function Page() {
         ean: editingProduct.ean || '',
         category: editingProduct.category || '',
         subcategory: editingProduct.subcategory || '',
-        brand: editingProduct.brand || '',
-        fabricante: editingProduct.fabricante?.trim() || null,
-        cnpj: editingProduct.cnpj?.trim() || null,
+        brand: editedManufacturer?.name || '',
+        manufacturer_id: editingProduct.manufacturerId,
         composicao: editingProduct.composicao?.trim() || null,
         min_stock: editingProduct.minStock === '' || editingProduct.minStock === undefined ? null : editingProduct.minStock,
         internal_code: editingProduct.sku,
@@ -4333,6 +4463,26 @@ export default function Page() {
     setCompanies(data || []);
   };
 
+  const fetchManufacturers = async () => {
+    const { data } = await supabase.from('manufacturers').select('*').order('name');
+    setManufacturers(data || []);
+  };
+
+  const [suggestingCode, setSuggestingCode] = useState(false);
+  const suggestManufacturerCode = async (manufacturerId: string | null, apply: (code: string) => void) => {
+    if (!manufacturerId) return;
+    setSuggestingCode(true);
+    try {
+      const { data, error } = await supabase.rpc('get_next_manufacturer_code', { p_manufacturer_id: manufacturerId });
+      if (error) throw error;
+      if (data) apply(data as string);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao gerar código.' });
+    } finally {
+      setSuggestingCode(false);
+    }
+  };
+
   // Supplier Management Functions
   const fetchSuppliers = async () => {
     setIsLoadingSuppliers(true);
@@ -4430,6 +4580,7 @@ export default function Page() {
       ...product,
       originalCount: product.count || 0,
       minStock: product.min_stock ?? null,
+      manufacturerId: product.manufacturer_id ?? null,
     });
     setEditingProductExtraEans((product.extraEans || []).map((e: any) => ({ ean: e.ean, description: e.description || '' })));
     setEditProductTab(tab);
@@ -5041,12 +5192,23 @@ export default function Page() {
                           </div>
                           <div className={fieldRowCls}>
                             <label className={fieldLabelCls}>SKU (Código Interno)</label>
-                            <input
-                              type="text"
-                              value={editingProduct.sku}
-                              onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                              className={inputCls}
-                            />
+                            <div className="flex gap-2 flex-1">
+                              <input
+                                type="text"
+                                value={editingProduct.sku}
+                                onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
+                                className={inputCls}
+                              />
+                              <button
+                                type="button"
+                                disabled={!editingProduct.manufacturerId || suggestingCode}
+                                onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
+                                title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                                className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <Hash size={16} />
+                              </button>
+                            </div>
                           </div>
                           <div className={fieldRowCls}>
                             <label className={fieldLabelCls}>Código EAN</label>
@@ -5257,16 +5419,13 @@ export default function Page() {
                             />
                           </div>
                           <div className={fieldRowCls}>
-                            <label className={fieldLabelCls}>Marca</label>
-                            <SearchableSelect
-                              value={editingProduct.brand}
-                              onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
-                              options={uniqueBrands}
-                              placeholder="Pesquisar marca..."
-                              isAddingNew={isAddingNew.brand}
-                              onToggleAddingNew={() => toggleAddingNew('brand')}
-                              addNewPlaceholder="Nova marca..."
-                              defaultValue="Geral"
+                            <label className={fieldLabelCls}>Fabricante/Marca</label>
+                            <ManufacturerSelect
+                              value={editingProduct.manufacturerId}
+                              onChange={(id) => setEditingProduct({...editingProduct, manufacturerId: id})}
+                              manufacturers={manufacturers}
+                              canCreate={canManageManufacturers}
+                              onRequestCreate={() => setShowQuickAddManufacturer(true)}
                             />
                           </div>
                         </>
@@ -5280,16 +5439,6 @@ export default function Page() {
                       {!editing ? (
                         <>
                           <div className={rowCls}>
-                            <div className={rowIconCls}><Factory size={12} /></div>
-                            <span className={rowLabelCls}>Fabricante</span>
-                            <span className={cn(rowValueCls, !editingProduct.fabricante && 'text-secondary/35 font-semibold')}>{editingProduct.fabricante || 'Não definido'}</span>
-                          </div>
-                          <div className={rowCls}>
-                            <div className={rowIconCls}><IdCard size={12} /></div>
-                            <span className={rowLabelCls}>CNPJ</span>
-                            <span className={cn(rowValueCls, !editingProduct.cnpj && 'text-secondary/35 font-semibold')}>{editingProduct.cnpj || 'Não definido'}</span>
-                          </div>
-                          <div className={rowCls}>
                             <div className={rowIconCls}><AlignLeft size={12} /></div>
                             <span className={rowLabelCls}>Composição</span>
                             <span className={cn(rowValueCls, !editingProduct.composicao && 'text-secondary/35 font-semibold')}>{editingProduct.composicao || 'Não definido'}</span>
@@ -5297,26 +5446,6 @@ export default function Page() {
                         </>
                       ) : (
                         <>
-                          <div className={fieldRowCls}>
-                            <label className={fieldLabelCls}>Fabricante</label>
-                            <input
-                              type="text"
-                              value={editingProduct.fabricante || ''}
-                              onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
-                              placeholder="Nome do fabricante..."
-                              className={inputCls}
-                            />
-                          </div>
-                          <div className={fieldRowCls}>
-                            <label className={fieldLabelCls}>CNPJ</label>
-                            <input
-                              type="text"
-                              value={editingProduct.cnpj || ''}
-                              onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
-                              placeholder="00.000.000/0000-00"
-                              className={inputCls}
-                            />
-                          </div>
                           <div className={fieldRowCls}>
                             <label className={fieldLabelCls}>Composição</label>
                             <textarea
@@ -5623,12 +5752,23 @@ export default function Page() {
                       </div>
                       <div className="space-y-1.5">
                         <label className={labelCls}>SKU (Código Interno)</label>
-                        <input
-                          type="text"
-                          value={editingProduct.sku}
-                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                          className={inputCls}
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingProduct.sku}
+                            onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
+                            className={inputCls}
+                          />
+                          <button
+                            type="button"
+                            disabled={!editingProduct.manufacturerId || suggestingCode}
+                            onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
+                            title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                            className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Hash size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className="md:col-span-2 space-y-1.5">
                         <label className={labelCls}>Código EAN</label>
@@ -5777,16 +5917,13 @@ export default function Page() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className={labelCls}>Marca</label>
-                        <SearchableSelect
-                          value={editingProduct.brand}
-                          onChange={(val) => setEditingProduct({...editingProduct, brand: val})}
-                          options={uniqueBrands}
-                          placeholder="Pesquisar marca..."
-                          isAddingNew={isAddingNew.brand}
-                          onToggleAddingNew={() => toggleAddingNew('brand')}
-                          addNewPlaceholder="Nova marca..."
-                          defaultValue="Geral"
+                        <label className={labelCls}>Fabricante/Marca</label>
+                        <ManufacturerSelect
+                          value={editingProduct.manufacturerId}
+                          onChange={(id) => setEditingProduct({...editingProduct, manufacturerId: id})}
+                          manufacturers={manufacturers}
+                          canCreate={canManageManufacturers}
+                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
                         />
                       </div>
                     </div>
@@ -5798,26 +5935,6 @@ export default function Page() {
                       <span className={sectionTitleCls}>Detalhes</span>
                     </div>
                     <div className={fieldGridCls}>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Fabricante</label>
-                        <input
-                          type="text"
-                          value={editingProduct.fabricante || ''}
-                          onChange={(e) => setEditingProduct({...editingProduct, fabricante: e.target.value})}
-                          placeholder="Nome do fabricante..."
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>CNPJ</label>
-                        <input
-                          type="text"
-                          value={editingProduct.cnpj || ''}
-                          onChange={(e) => setEditingProduct({...editingProduct, cnpj: e.target.value})}
-                          placeholder="00.000.000/0000-00"
-                          className={inputCls}
-                        />
-                      </div>
                       <div className="md:col-span-2 space-y-1.5">
                         <label className={labelCls}>Composição</label>
                         <textarea
@@ -6617,13 +6734,24 @@ export default function Page() {
                       </div>
                       <div className={fieldRowCls}>
                         <label className={fieldLabelCls}>SKU (Opcional)</label>
-                        <input
-                          type="text"
-                          value={newProduct.sku}
-                          onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                          className={inputCls}
-                          placeholder="ex: BM-500-A4"
-                        />
+                        <div className="flex gap-2 flex-1">
+                          <input
+                            type="text"
+                            value={newProduct.sku}
+                            onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                            className={inputCls}
+                            placeholder="ex: BM-500-A4"
+                          />
+                          <button
+                            type="button"
+                            disabled={!newProduct.manufacturerId || suggestingCode}
+                            onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
+                            title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                            className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Hash size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className={fieldRowCls}>
                         <label className={fieldLabelCls}>Código EAN</label>
@@ -6767,16 +6895,13 @@ export default function Page() {
                         />
                       </div>
                       <div className={fieldRowCls}>
-                        <label className={fieldLabelCls}>Marca</label>
-                        <SearchableSelect
-                          value={newProduct.brand}
-                          onChange={(val) => setNewProduct({...newProduct, brand: val})}
-                          options={uniqueBrands}
-                          placeholder="Pesquisar marca..."
-                          isAddingNew={isAddingNew.brand}
-                          onToggleAddingNew={() => toggleAddingNew('brand')}
-                          addNewPlaceholder="Nova marca..."
-                          defaultValue="Geral"
+                        <label className={fieldLabelCls}>Fabricante/Marca</label>
+                        <ManufacturerSelect
+                          value={newProduct.manufacturerId}
+                          onChange={(id) => setNewProduct({...newProduct, manufacturerId: id})}
+                          manufacturers={manufacturers}
+                          canCreate={canManageManufacturers}
+                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
                         />
                       </div>
                     </div>
@@ -6785,26 +6910,6 @@ export default function Page() {
                   <div>
                     <div className={sectionLabelCls}><FileText size={12} className="text-primary" />Detalhes</div>
                     <div className={cardCls}>
-                      <div className={fieldRowCls}>
-                        <label className={fieldLabelCls}>Fabricante</label>
-                        <input
-                          type="text"
-                          value={newProduct.fabricante || ''}
-                          onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
-                          placeholder="Nome do fabricante..."
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className={fieldRowCls}>
-                        <label className={fieldLabelCls}>CNPJ</label>
-                        <input
-                          type="text"
-                          value={newProduct.cnpj || ''}
-                          onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
-                          placeholder="00.000.000/0000-00"
-                          className={inputCls}
-                        />
-                      </div>
                       <div className={fieldRowCls}>
                         <label className={fieldLabelCls}>Composição</label>
                         <textarea
@@ -6938,13 +7043,24 @@ export default function Page() {
                     <div className={fieldGridCls}>
                       <div className="space-y-1.5">
                         <label className={labelCls}>SKU (Opcional)</label>
-                        <input
-                          type="text"
-                          value={newProduct.sku}
-                          onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                          className={inputCls}
-                          placeholder="ex: BM-500-A4"
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newProduct.sku}
+                            onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                            className={inputCls}
+                            placeholder="ex: BM-500-A4"
+                          />
+                          <button
+                            type="button"
+                            disabled={!newProduct.manufacturerId || suggestingCode}
+                            onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
+                            title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                            className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Hash size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         <label className={labelCls}>Nome do Produto</label>
@@ -7105,16 +7221,13 @@ export default function Page() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className={labelCls}>Marca</label>
-                        <SearchableSelect
-                          value={newProduct.brand}
-                          onChange={(val) => setNewProduct({...newProduct, brand: val})}
-                          options={uniqueBrands}
-                          placeholder="Pesquisar marca..."
-                          isAddingNew={isAddingNew.brand}
-                          onToggleAddingNew={() => toggleAddingNew('brand')}
-                          addNewPlaceholder="Nova marca..."
-                          defaultValue="Geral"
+                        <label className={labelCls}>Fabricante/Marca</label>
+                        <ManufacturerSelect
+                          value={newProduct.manufacturerId}
+                          onChange={(id) => setNewProduct({...newProduct, manufacturerId: id})}
+                          manufacturers={manufacturers}
+                          canCreate={canManageManufacturers}
+                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
                         />
                       </div>
                     </div>
@@ -7126,26 +7239,6 @@ export default function Page() {
                       <span className={sectionTitleCls}>Detalhes</span>
                     </div>
                     <div className={fieldGridCls}>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Fabricante</label>
-                        <input
-                          type="text"
-                          value={newProduct.fabricante || ''}
-                          onChange={(e) => setNewProduct({...newProduct, fabricante: e.target.value})}
-                          placeholder="Nome do fabricante..."
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>CNPJ</label>
-                        <input
-                          type="text"
-                          value={newProduct.cnpj || ''}
-                          onChange={(e) => setNewProduct({...newProduct, cnpj: e.target.value})}
-                          placeholder="00.000.000/0000-00"
-                          className={inputCls}
-                        />
-                      </div>
                       <div className="md:col-span-2 space-y-1.5">
                         <label className={labelCls}>Composição</label>
                         <textarea
@@ -12672,6 +12765,17 @@ export default function Page() {
         </AnimatePresence>,
         document.body,
       )}
+
+      {/* ── Novo Fabricante (quick add a partir do formulário de produto) ── */}
+      <AddManufacturerModal
+        isOpen={showQuickAddManufacturer}
+        onClose={() => setShowQuickAddManufacturer(false)}
+        onSuccess={(m) => {
+          setManufacturers(prev => [...prev, m].sort((a, b) => a.name.localeCompare(b.name)));
+          if (editingProduct) setEditingProduct({ ...editingProduct, manufacturerId: m.id });
+          else if (showAddModal) setNewProduct(p => ({ ...p, manufacturerId: m.id }));
+        }}
+      />
     </div>
   );
 }
