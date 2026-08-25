@@ -9,6 +9,7 @@ import {
   Plus,
   BookText,
   ClipboardList,
+  Factory,
   Pencil,
   ChevronDown,
   ChevronLeft,
@@ -34,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { AddSupplierModal, type EditingSupplier } from '@/components/suppliers/AddSupplierModal';
 import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
+import { AddManufacturerModal, type Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { fmtDateBR } from './ReceivedDateField';
 
@@ -159,7 +161,7 @@ const notePeriodIso = (note: ReviewNote): string | null => {
   return null;
 };
 
-type Section = 'notas' | 'dicionario' | 'fornecedores' | 'rascunhos';
+type Section = 'notas' | 'dicionario' | 'fornecedores' | 'fabricantes' | 'rascunhos';
 
 const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
   { key: 'status', label: 'Situação' },
@@ -235,6 +237,14 @@ export function LogisticsCenter({
   const [supplierSearch, setSupplierSearch]         = useState('');
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
+  const [showAddManufacturer, setShowAddManufacturer] = useState(false);
+  const [pickerManufacturers, setPickerManufacturers] = useState<Manufacturer[]>([]);
+  const [manufacturerSearch, setManufacturerSearch]   = useState('');
+  const [loadingManufacturersPicker, setLoadingManufacturersPicker] = useState(false);
+  const [editingManufacturer, setEditingManufacturer] = useState<Manufacturer | null>(null);
+  // Cadastrar/editar fabricante é restrito a admin/gerente (RLS já bloqueia no banco;
+  // aqui é só pra esconder o botão de quem não tem permissão).
+  const [canManageManufacturers, setCanManageManufacturers] = useState(false);
   const [activeSection, setActiveSection]            = useState<Section>('notas');
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
@@ -309,6 +319,38 @@ export function LogisticsCenter({
     return (s.nome_fantasia || s.name).toLowerCase().includes(q) ||
       (s.razao_social || '').toLowerCase().includes(q);
   });
+
+  const fetchPickerManufacturers = async () => {
+    setLoadingManufacturersPicker(true);
+    const { data } = await supabase.from('manufacturers').select('*').order('name');
+    setPickerManufacturers((data || []) as Manufacturer[]);
+    setLoadingManufacturersPicker(false);
+  };
+
+  useEffect(() => {
+    if (activeSection === 'fabricantes' && pickerManufacturers.length === 0 && !loadingManufacturersPicker) {
+      fetchPickerManufacturers();
+    }
+  }, [activeSection]);
+
+  const filteredManufacturers = pickerManufacturers.filter(m => {
+    if (!manufacturerSearch.trim()) return true;
+    const q = manufacturerSearch.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.prefix.includes(q);
+  });
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      setCanManageManufacturers(data?.role === 'admin' || data?.role === 'gerente');
+    })();
+  }, []);
 
   // Notas "cruas" da seção ativa (Notas), antes de filtro de período/busca/coluna —
   // usadas para marcar os pontinhos do calendário do mês inteiro.
@@ -527,6 +569,7 @@ export function LogisticsCenter({
             { key: 'notas', label: 'Notas', count: reviewNotes.length },
             { key: 'dicionario', label: 'Dicionário', count: 0 },
             { key: 'fornecedores', label: 'Fornecedores', count: 0 },
+            { key: 'fabricantes', label: 'Fabricantes', count: 0 },
             { key: 'rascunhos', label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
           ] as const).map((tab, i, arr) => {
             const HEADER_TAB_LABEL_MAX = 12;
@@ -602,6 +645,7 @@ export function LogisticsCenter({
             { key: 'notas'  as const, label: 'Notas',  count: reviewNotes.length },
             { key: 'dicionario' as const, label: 'Dicionário', count: 0 },
             { key: 'fornecedores' as const, label: 'Fornecedores', count: 0 },
+            { key: 'fabricantes' as const, label: 'Fabricantes', count: 0 },
             { key: 'rascunhos' as const, label: 'Rascunhos', count: bulkDrafts?.length ?? 0 },
           ]).map(tab => (
             <button
@@ -807,6 +851,61 @@ export function LogisticsCenter({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {activeSection === 'fabricantes' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+                <input
+                  type="text"
+                  value={manufacturerSearch}
+                  onChange={e => setManufacturerSearch(e.target.value)}
+                  placeholder="Buscar fabricante..."
+                  className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface/30 focus:outline-none"
+                />
+              </div>
+              {canManageManufacturers && (
+                <button
+                  onClick={() => { setEditingManufacturer(null); setShowAddManufacturer(true); }}
+                  className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20"
+                >
+                  <Plus size={18} />
+                </button>
+              )}
+            </div>
+            {loadingManufacturersPicker ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+              </div>
+            ) : filteredManufacturers.length === 0 ? (
+              <p className="text-sm text-on-surface/30 text-center py-10">
+                {manufacturerSearch ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
+              </p>
+            ) : filteredManufacturers.map(m => (
+              <div key={m.id} className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-[#FDFAF0] dark:bg-[#252520]",
+                !m.active && 'opacity-50'
+              )}>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                  <Factory size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-on-surface truncate">{m.name}</p>
+                  <p className="text-[10px] text-on-surface/40 font-mono">Prefixo {m.prefix}{!m.active && ' · Inativo'}</p>
+                </div>
+                {canManageManufacturers && (
+                  <button
+                    onClick={() => { setEditingManufacturer(m); setShowAddManufacturer(true); }}
+                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1677,6 +1776,76 @@ export function LogisticsCenter({
         </div>
       )}
 
+      {/* ── Fabricantes (aba) ────────────────────────────────────────────── */}
+      {activeSection === 'fabricantes' && (
+        <div className="hidden md:block bg-surface-container-lowest rounded-3xl border border-on-surface/[0.04] shadow-md overflow-hidden">
+          <div className="p-6 border-b border-on-surface/[0.06] flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+              <Factory size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-black text-on-surface leading-none">Fabricantes</h2>
+              <p className="text-xs text-on-surface/40 font-medium mt-0.5">{pickerManufacturers.length} cadastrado{pickerManufacturers.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="relative w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
+              <input
+                type="text"
+                value={manufacturerSearch}
+                onChange={e => setManufacturerSearch(e.target.value)}
+                placeholder="Buscar fabricante..."
+                className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
+              />
+            </div>
+            {canManageManufacturers && (
+              <button
+                onClick={() => { setEditingManufacturer(null); setShowAddManufacturer(true); }}
+                className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors shrink-0 shadow-lg shadow-amber-500/20"
+                title="Cadastrar novo fabricante"
+              >
+                <Plus size={18} />
+              </button>
+            )}
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {loadingManufacturersPicker ? (
+              <div className="col-span-full flex items-center justify-center py-10">
+                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-r-transparent animate-spin" />
+              </div>
+            ) : filteredManufacturers.length === 0 ? (
+              <p className="col-span-full text-sm text-on-surface/30 text-center py-10">
+                {manufacturerSearch ? 'Nenhum fabricante encontrado.' : 'Nenhum fabricante cadastrado.'}
+              </p>
+            ) : filteredManufacturers.map(m => (
+              <div key={m.id}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl border border-on-surface/[0.06] bg-surface-container/50 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group",
+                  !m.active && 'opacity-50'
+                )}>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                  <Factory size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{m.name}</p>
+                  <p className="text-[10px] text-on-surface/40 font-mono">Prefixo {m.prefix}{!m.active && ' · Inativo'}</p>
+                  {m.cnpj && <p className="text-[10px] text-on-surface/30 font-mono">{m.cnpj}</p>}
+                </div>
+                {canManageManufacturers && (
+                  <button
+                    onClick={() => { setEditingManufacturer(m); setShowAddManufacturer(true); }}
+                    className="w-8 h-8 rounded-lg text-on-surface/20 hover:text-amber-600 hover:bg-amber-500/10 flex items-center justify-center transition-all shrink-0"
+                    title="Editar fabricante"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Confirm Approve Dialog ─────────────────────────────────────────── */}
       <AnimatePresence>
         {confirmNote && (() => {
@@ -1764,6 +1933,13 @@ export function LogisticsCenter({
         onClose={() => { setShowAddSupplier(false); setEditingSupplier(null); }}
         editingSupplier={editingSupplier}
         onSuccess={() => { fetchPickerSuppliers(); }}
+      />
+
+      <AddManufacturerModal
+        isOpen={showAddManufacturer}
+        onClose={() => { setShowAddManufacturer(false); setEditingManufacturer(null); }}
+        editingManufacturer={editingManufacturer}
+        onSuccess={() => { fetchPickerManufacturers(); }}
       />
 
       {/* ── Link Transaction Modal ─────────────────────────────────────────── */}
