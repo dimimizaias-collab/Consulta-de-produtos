@@ -4,11 +4,12 @@ import { useState, useRef } from 'react';
 import {
   X, Plus, Trash2, FileText, List, CheckCircle2,
   AlertTriangle, ChevronLeft, ChevronRight, ClipboardList,
-  Keyboard, Delete,
+  Keyboard, Delete, Tag, Boxes,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
+import { useViewMode } from '@/lib/view-mode';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -132,6 +133,15 @@ const NAME_KBD: Record<string, string[][]> = {
   ],
 };
 
+// ── Desktop section style tokens (mesmo padrão do modal "Editar Produto") ──
+
+const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+const sectionHeadCls = 'flex items-center gap-2';
+const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+const labelCls = 'block text-[10px] font-extrabold uppercase tracking-wide text-secondary/80 mb-1.5';
+const deskInputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function MobileBulkTable({
@@ -146,6 +156,7 @@ export function MobileBulkTable({
   onSaveDraft,
   onReportEanProblem,
 }: MobileBulkTableProps) {
+  const { isMobileView } = useViewMode();
   const [rows, setRows] = useState<BulkRow[]>([emptyRow()]);
   const [tab, setTab] = useState<Tab>('itens');
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -176,6 +187,29 @@ export function MobileBulkTable({
     return new Set(Object.entries(count).filter(([, n]) => n > 1).map(([e]) => e));
   })();
 
+  // Reseta todo o estado do formulário — chamado sempre que o modal fecha
+  // (envio bem-sucedido, descarte ou botão de fechar), para que a próxima
+  // abertura sempre comece em branco em vez de reaproveitar dados antigos.
+  function resetForm() {
+    setRows([emptyRow()]);
+    setTab('itens');
+    setSelectedIdx(0);
+    setListTitle('');
+    setConfirmDiscard(false);
+    setEanProblemIdx(null);
+    setProblemDesc('Não lê');
+    setProblemObs('');
+    setShowPriceKeyboard(false);
+    setShowNameKeyboard(false);
+    setNameKbdMode('abc');
+    setNameKbdShift(true);
+  }
+
+  function handleClose() {
+    resetForm();
+    onClose();
+  }
+
   function openDetail(idx: number) {
     setSelectedIdx(idx);
     setTab('detalhe');
@@ -188,7 +222,7 @@ export function MobileBulkTable({
     setRows(prev => [...prev, newRow]);
     setSelectedIdx(rows.length);
     setTab('detalhe');
-    setShowPriceKeyboard(true);
+    setShowPriceKeyboard(isMobileView);
     setShowNameKeyboard(false);
     setNameKbdShift(true);
     setTimeout(() => eanInputRef.current?.focus(), 60);
@@ -227,6 +261,7 @@ export function MobileBulkTable({
     setSaving(true);
     try {
       await onSaveDraft(rows, listTitle);
+      resetForm();
       onClose();
     } finally {
       setSaving(false);
@@ -266,6 +301,511 @@ export function MobileBulkTable({
     { id: 'resumo',  label: 'Resumo',  icon: <CheckCircle2 size={20} /> },
   ];
 
+  // ══════════════════════════════════════════════════════════════════════
+  // DESKTOP — diálogo centralizado, mesmo padrão do modal "Editar Produto"
+  // ══════════════════════════════════════════════════════════════════════
+  if (!isMobileView) {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={handleClose}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden border border-black/10 dark:border-white/[0.08]"
+        >
+          {/* Header */}
+          <div className="shrink-0 px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+              <ClipboardList size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#1A1A0E]/55">
+                Cadastro Mobile
+              </p>
+              <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight truncate">
+                Conferência de Mercadoria
+              </h2>
+            </div>
+            <span className="text-xs font-black text-[#1A1A0E]/50 shrink-0">
+              {rows.length} {rows.length === 1 ? 'item' : 'itens'}
+            </span>
+            <button
+              onClick={handleClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="shrink-0 px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
+                  tab === t.id ? 'border-primary text-primary' : 'border-transparent text-secondary hover:text-on-surface'
+                )}
+              >
+                {t.label}
+                {t.id === 'itens' && (
+                  <span className={cn(
+                    'px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none',
+                    tab === 'itens' ? 'bg-primary/10 text-primary' : 'bg-black/[0.06] dark:bg-white/[0.08] text-secondary/70'
+                  )}>
+                    {rows.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6">
+
+            {/* ITENS */}
+            {tab === 'itens' && (
+              <div className="space-y-2">
+                {rows.map((row, idx) => {
+                  const isDup = row.ean.trim() && eanSet.has(row.ean.trim());
+                  const isDupInCurrentList = !!(row.ean.trim() && listDupEanSet.has(row.ean.trim()));
+                  const hasProblem = row.ean.trim() && eanProblems.some(p => p.ean === row.ean.trim());
+                  return (
+                    <button
+                      key={row.id}
+                      onClick={() => openDetail(idx)}
+                      className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-black/[0.07] dark:border-white/[0.06] rounded-2xl hover:border-primary/30 hover:bg-primary/[0.02] transition-colors text-left"
+                    >
+                      <div className={cn(
+                        'w-9 h-9 rounded-full flex items-center justify-center font-black text-sm shrink-0 border',
+                        row.name.trim()
+                          ? 'bg-primary/10 border-primary/25 text-primary'
+                          : 'bg-on-surface/[0.05] border-on-surface/[0.06] text-on-surface/30',
+                      )}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          'text-sm font-black truncate',
+                          (row.name.trim() || row.ean.trim()) ? 'text-on-surface' : 'text-on-surface/30 italic',
+                        )}>
+                          {row.name.trim() || (row.ean.trim() ? row.ean : 'Item vazio')}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {(row.sku || (row.ean && row.name.trim())) && (
+                            <p className="text-[10px] text-on-surface/35 font-medium truncate">
+                              {[row.sku && `SKU ${row.sku}`, (row.ean && row.name.trim()) && `EAN ${row.ean}`].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                          {row.price.trim() && (
+                            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 shrink-0">
+                              R$ {row.price}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isDupInCurrentList && (
+                          <span title="EAN repetido nesta lista" className="text-red-500">
+                            <AlertTriangle size={14} />
+                          </span>
+                        )}
+                        {isDup && (
+                          <span title="EAN já cadastrado no inventário" className="text-amber-500">
+                            <AlertTriangle size={14} />
+                          </span>
+                        )}
+                        {hasProblem && (
+                          <span title="Problema registrado" className="text-red-500">
+                            <AlertTriangle size={14} />
+                          </span>
+                        )}
+                        <ChevronRight size={14} className="text-on-surface/15" />
+                      </div>
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={addRow}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed border-primary/25 text-primary text-sm font-bold hover:bg-primary/[0.04] transition-colors"
+                >
+                  <Plus size={16} /> Adicionar item
+                </button>
+              </div>
+            )}
+
+            {/* DETALHE */}
+            {tab === 'detalhe' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    disabled={selectedIdx === 0}
+                    onClick={() => setSelectedIdx(i => Math.max(0, i - 1))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 hover:bg-on-surface/10 transition-colors"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <p className="text-[11px] font-black text-on-surface/50">
+                    Item <span className="text-on-surface">{selectedIdx + 1}</span> de {rows.length}
+                  </p>
+                  <button
+                    disabled={selectedIdx === rows.length - 1}
+                    onClick={() => setSelectedIdx(i => Math.min(rows.length - 1, i + 1))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 hover:bg-on-surface/10 transition-colors"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <FileText size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Identificação</span>
+                  </div>
+                  <div className={fieldGridCls}>
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className={labelCls}>EAN</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={eanInputRef}
+                          type="text"
+                          value={selectedRow?.ean ?? ''}
+                          onChange={e => updateField(selectedIdx, 'ean', e.target.value)}
+                          placeholder="Código de barras"
+                          className={cn(
+                            'flex-1',
+                            deskInputCls,
+                            isDupInList && 'border-red-500/70 bg-red-500/[0.04] text-red-700 dark:text-red-400',
+                            !isDupInList && isDupEan && 'border-amber-400/60 text-amber-700 dark:text-amber-400',
+                            !isDupInList && !isDupEan && hasEanProblem && 'border-red-400/60',
+                          )}
+                        />
+                        {selectedRow?.ean.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateField(selectedIdx, 'ean', '');
+                              setTimeout(() => eanInputRef.current?.focus(), 20);
+                            }}
+                            title="Limpar EAN"
+                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-black/[0.10] dark:border-white/[0.10] text-on-surface/40 hover:text-red-500 hover:border-red-400/50 hover:bg-red-500/[0.06] transition-all shrink-0"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                        {selectedRow?.ean.trim() && onReportEanProblem && (
+                          <EanProblemButton
+                            ean={selectedRow.ean}
+                            problems={eanProblems}
+                            onReport={(ean, desc, obs) => onReportEanProblem(ean, desc, obs)}
+                            size="sm"
+                          />
+                        )}
+                      </div>
+                      {isDupInList && (
+                        <p className="text-[10px] text-red-500 font-medium">EAN repetido nesta lista</p>
+                      )}
+                      {isDupEan && (
+                        <p className="text-[10px] text-amber-600 font-medium">EAN já cadastrado no inventário</p>
+                      )}
+
+                      {eanProblemIdx === selectedIdx && (
+                        <div className="p-3 bg-on-surface/[0.03] dark:bg-white/[0.03] rounded-2xl border border-on-surface/[0.06] space-y-2">
+                          <p className="text-[10px] font-black text-on-surface/50 uppercase tracking-wider">Reportar problema</p>
+                          <div className="space-y-1">
+                            {(['Não lê', 'Sem código', 'Outro'] as const).map(opt => (
+                              <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  value={opt}
+                                  checked={problemDesc === opt}
+                                  onChange={() => setProblemDesc(opt)}
+                                  className="accent-primary"
+                                />
+                                <span className="text-sm text-on-surface font-medium">{opt}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <textarea
+                            value={problemObs}
+                            onChange={e => setProblemObs(e.target.value)}
+                            placeholder="Observação..."
+                            className={cn(deskInputCls, 'resize-none h-14')}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveProblem(selectedIdx)}
+                              disabled={savingProblem}
+                              className="flex-1 bg-primary text-white text-xs font-black py-2 rounded-xl hover:opacity-90 transition-colors disabled:opacity-50"
+                            >
+                              {savingProblem ? 'Salvando...' : 'Salvar'}
+                            </button>
+                            <button
+                              onClick={() => setEanProblemIdx(null)}
+                              className="px-3 py-2 text-xs font-bold text-on-surface/50 hover:bg-on-surface/5 rounded-xl"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className={labelCls}>
+                        Nome <span className="text-primary">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedRow?.name ?? ''}
+                        onChange={e => updateField(selectedIdx, 'name', e.target.value)}
+                        placeholder="Nome do produto"
+                        className={cn(
+                          deskInputCls,
+                          !(selectedRow?.name?.trim()) && 'border-primary/50 bg-primary/[0.03]',
+                        )}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className={labelCls}>SKU</label>
+                      <input
+                        type="text"
+                        value={selectedRow?.sku ?? ''}
+                        onChange={e => updateField(selectedIdx, 'sku', e.target.value)}
+                        placeholder="Código interno"
+                        className={deskInputCls}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className={labelCls}>Preço R$</label>
+                      <input
+                        type="text"
+                        value={selectedRow?.price ?? ''}
+                        onChange={e => updateField(selectedIdx, 'price', e.target.value)}
+                        placeholder="0,00"
+                        className={deskInputCls}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <Tag size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Categorização</span>
+                  </div>
+                  <div className={fieldGridCls}>
+                    <ComboInput
+                      label="Categoria"
+                      value={selectedRow?.category ?? ''}
+                      onChange={v => updateField(selectedIdx, 'category', v)}
+                      options={categories}
+                      placeholder="Selecione ou digite..."
+                    />
+                    <ComboInput
+                      label="Subcategoria"
+                      value={selectedRow?.subcategory ?? ''}
+                      onChange={v => updateField(selectedIdx, 'subcategory', v)}
+                      options={subcategories}
+                      placeholder="Selecione ou digite..."
+                    />
+                    <ComboInput
+                      label="Marca"
+                      value={selectedRow?.brand ?? ''}
+                      onChange={v => updateField(selectedIdx, 'brand', v)}
+                      options={brands}
+                      placeholder="Selecione ou digite..."
+                    />
+                    <ComboInput
+                      label="Localização"
+                      value={selectedRow?.location ?? ''}
+                      onChange={v => updateField(selectedIdx, 'location', v)}
+                      options={locations}
+                      placeholder="Corredor A..."
+                    />
+                  </div>
+                </div>
+
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <Boxes size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Estoque</span>
+                  </div>
+                  <div className={fieldGridCls}>
+                    <div className="space-y-1.5">
+                      <label className={labelCls}>Quantidade</label>
+                      <input
+                        type="number"
+                        value={selectedRow?.count ?? ''}
+                        onChange={e => updateField(selectedIdx, 'count', e.target.value)}
+                        onWheel={blockWheelChange}
+                        placeholder="0"
+                        className={cn(deskInputCls, '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden')}
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className={labelCls}>Status</label>
+                      <div className="flex flex-wrap gap-2">
+                        {STATUS_OPTIONS.map(opt => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => updateField(selectedIdx, 'status', opt)}
+                            className={cn(
+                              'px-3 py-1.5 rounded-full text-xs font-black transition-all',
+                              selectedRow?.status === opt
+                                ? opt === 'Em Estoque'      ? 'bg-emerald-500 text-white'
+                                : opt === 'Estoque em Alta' ? 'bg-blue-500 text-white'
+                                : opt === 'Estoque Baixo'   ? 'bg-amber-500 text-white'
+                                : 'bg-red-500 text-white'
+                                : 'bg-on-surface/[0.06] text-on-surface/50 hover:bg-on-surface/10',
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => removeRow(selectedIdx)}
+                  className="flex items-center gap-2 text-red-500 text-sm font-bold py-2 px-3 rounded-xl hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 size={15} />
+                  Remover este item
+                </button>
+              </div>
+            )}
+
+            {/* RESUMO */}
+            {tab === 'resumo' && (
+              <div className="space-y-4">
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <FileText size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Rascunho</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Nome do rascunho</label>
+                    <input
+                      type="text"
+                      value={listTitle}
+                      onChange={e => setListTitle(e.target.value)}
+                      placeholder="Ex: Feira de Janeiro..."
+                      className={deskInputCls}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3.5">
+                  <div className="bg-surface border border-black/[0.07] dark:border-white/[0.06] rounded-2xl p-4 text-center">
+                    <p className="text-2xl font-black text-on-surface">{namedRows.length}</p>
+                    <p className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mt-0.5">Produtos</p>
+                  </div>
+                  {unnamedCount > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
+                      <p className="text-2xl font-black text-amber-600">{unnamedCount}</p>
+                      <p className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest mt-0.5">Sem nome</p>
+                    </div>
+                  )}
+                  {dupEanCount > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
+                      <p className="text-2xl font-black text-amber-600">{dupEanCount}</p>
+                      <p className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest mt-0.5">EANs dup.</p>
+                    </div>
+                  )}
+                </div>
+
+                {namedRows.length > 0 ? (
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <List size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Produtos preenchidos</span>
+                    </div>
+                    <div className="space-y-0">
+                      {namedRows.map((row, i) => (
+                        <div key={row.id} className="flex items-center gap-3 py-2 border-b border-on-surface/[0.06] last:border-b-0">
+                          <span className="text-[10px] font-mono text-on-surface/30 w-5 text-right">{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-on-surface truncate">{row.name}</p>
+                            {row.ean && <p className="text-[10px] text-on-surface/35">{row.ean}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-on-surface/20 text-center">
+                    <ClipboardList size={36} className="mb-3 opacity-30" />
+                    <p className="text-xs font-bold">Nenhum produto com nome preenchido</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-black/[0.09] dark:border-white/[0.07] px-6 py-4">
+            {confirmDiscard ? (
+              <div className="flex items-center gap-3">
+                <p className="flex-1 text-sm font-bold text-red-600 dark:text-red-400">Descartar todas as alterações?</p>
+                <button
+                  onClick={() => setConfirmDiscard(false)}
+                  className="px-4 py-2.5 rounded-xl bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold text-sm hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-black text-sm hover:bg-red-600 transition-colors"
+                >
+                  Sim, descartar
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDiscard(true)}
+                  className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+                >
+                  Descartar
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={saving || namedRows.length === 0}
+                  className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving
+                    ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
+                    : <><CheckCircle2 size={16} />Salvar Rascunho</>
+                  }
+                </button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MOBILE — tela cheia com teclados on-screen
+  // ══════════════════════════════════════════════════════════════════════
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -278,7 +818,7 @@ export function MobileBulkTable({
       <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.09] dark:bg-white/[0.08] text-[#1A1A0E] dark:text-white/70 active:bg-black/20 transition-colors"
           >
             <X size={18} />
@@ -805,7 +1345,7 @@ export function MobileBulkTable({
                 <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl">
                   <p className="text-sm font-bold text-red-600 dark:text-red-400 flex-1">Descartar todas as alterações?</p>
                   <button
-                    onClick={() => { setConfirmDiscard(false); onClose(); }}
+                    onClick={handleClose}
                     className="px-3 py-1.5 bg-red-500 text-white text-xs font-black rounded-xl"
                   >
                     Sim, descartar

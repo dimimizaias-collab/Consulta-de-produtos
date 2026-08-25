@@ -4,10 +4,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   X, Plus, Trash2, ChevronLeft, ChevronRight,
   Keyboard, Delete, CheckCircle2, Send, AlertTriangle,
+  ClipboardCheck, Tag, MessageSquare,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useViewMode } from '@/lib/view-mode';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,13 +79,22 @@ function emptyItem(): TaskItemDraft {
   };
 }
 
+// ── Desktop section style tokens (mesmo padrão do modal "Editar Produto") ──
+
+const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
+const sectionHeadCls = 'flex items-center gap-2';
+const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
+const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+const labelCls = 'block text-[10px] font-extrabold uppercase tracking-wide text-secondary/80 mb-1.5';
+const deskInputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
+
 // ── ComboInput ─────────────────────────────────────────────────────────────
 
 function ComboInput({
-  value, onChange, options, placeholder, label,
+  value, onChange, options, placeholder, label, desktop,
 }: {
   value: string; onChange: (v: string) => void;
-  options: string[]; placeholder?: string; label: string;
+  options: string[]; placeholder?: string; label: string; desktop?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const filtered = value.trim()
@@ -91,13 +102,13 @@ function ComboInput({
     : options;
   return (
     <div className="relative">
-      <label className="block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1">{label}</label>
+      <label className={desktop ? labelCls : "block text-[10px] font-black text-on-surface/40 uppercase tracking-wider mb-1"}>{label}</label>
       <input
         type="text" value={value} placeholder={placeholder}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"
+        className={desktop ? deskInputCls : "w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:border-[#D81E1E]"}
       />
       {open && filtered.length > 0 && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-y-auto rounded-xl bg-white dark:bg-[#2e2e28] border border-[#E0D8BF] dark:border-white/[0.08] shadow-xl">
@@ -218,6 +229,8 @@ export function MobileTaskPage({
   categories = [], subcategories = [], brands = [], locations = [],
   onSendTask,
 }: MobileTaskPageProps) {
+  const { isMobileView } = useViewMode();
+
   // ── State ──
   const [taskType, setTaskType] = useState<'revisao' | 'tarefa_livre' | null>(null);
   const [responsavel, setResponsavel] = useState('');
@@ -264,6 +277,38 @@ export function MobileTaskPage({
   if (!isOpen) return null;
 
   const curItem = editingItemIdx !== null ? items[editingItemIdx] : null;
+
+  // Reseta todo o estado do formulário — chamado sempre que o modal fecha
+  // (envio bem-sucedido, cancelamento ou botão de fechar), para que a
+  // próxima abertura sempre comece em branco em vez de reaproveitar dados antigos.
+  function resetForm() {
+    setTaskType(null);
+    setResponsavel('');
+    setClassificacao('');
+    setObservacaoGeral('');
+    setItems([]);
+    setEditingItemIdx(null);
+    setDeleteConfirm(false);
+    setShowObsKeyboard(false);
+    setObsKbdMode('abc');
+    setObsKbdShift(true);
+    setShowEanKeyboard(false);
+    setEanKbdMode('abc');
+    setEanKbdShift(true);
+    setShowPriceKeyboard(false);
+    setShowNewPriceKeyboard(false);
+    setShowItemNameKeyboard(false);
+    setShowItemObsKeyboard(false);
+    setItemNameKbdMode('abc');
+    setItemNameKbdShift(true);
+    setItemObsKbdMode('abc');
+    setItemObsKbdShift(true);
+  }
+
+  function handleClose() {
+    resetForm();
+    onClose();
+  }
 
   // ── Item helpers ──
 
@@ -374,6 +419,7 @@ export function MobileTaskPage({
         observacao: observacaoGeral,
         items: taskType === 'revisao' ? items : [],
       });
+      resetForm();
       onClose();
     } finally {
       setSending(false);
@@ -384,7 +430,302 @@ export function MobileTaskPage({
   const activeItemKbd = showEanKeyboard ? 'ean' : showItemNameKeyboard ? 'name' : showItemObsKeyboard ? 'obs' : null;
 
   // ══════════════════════════════════════════════════════════════════════════
-  // RENDER — ITEM DETAIL VIEW
+  // DESKTOP — diálogo centralizado, mesmo padrão do modal "Editar Produto"
+  // ══════════════════════════════════════════════════════════════════════════
+
+  if (!isMobileView) {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={handleClose}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden border border-black/10 dark:border-white/[0.08]"
+        >
+          {/* Header */}
+          <div className="shrink-0 px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+              <ClipboardCheck size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#1A1A0E]/55">
+                Tarefas
+              </p>
+              <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">
+                Nova Tarefa
+              </h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+            {/* ── Item detail (inline, substitui a lista de itens) ── */}
+            {editingItemIdx !== null && curItem ? (
+              <div className={sectionCls}>
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setEditingItemIdx(null)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-secondary hover:text-on-surface transition-colors"
+                  >
+                    <ChevronLeft size={14} /> Voltar para itens
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={editingItemIdx === 0}
+                      onClick={() => setEditingItemIdx(i => Math.max(0, (i ?? 1) - 1))}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 hover:bg-on-surface/10 transition-colors"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                    <p className="text-[10px] font-black text-on-surface/50">
+                      Item <span className="text-on-surface">{editingItemIdx + 1}</span> de {items.length}
+                    </p>
+                    <button
+                      disabled={editingItemIdx === items.length - 1}
+                      onClick={() => setEditingItemIdx(i => Math.min(items.length - 1, (i ?? 0) + 1))}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-on-surface/[0.05] text-on-surface/50 disabled:opacity-25 hover:bg-on-surface/10 transition-colors"
+                    >
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className={fieldGridCls}>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className={labelCls}>EAN</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={eanInputRef}
+                        type="text"
+                        value={curItem.ean}
+                        onChange={e => updateItemField(editingItemIdx, 'ean', e.target.value)}
+                        onBlur={e => handleEanBlur(e.target.value, editingItemIdx)}
+                        placeholder="Código de barras"
+                        className={cn(deskInputCls, 'flex-1')}
+                      />
+                      {curItem.ean.trim() && (
+                        <button type="button" title="Limpar EAN"
+                          onClick={() => { updateItemField(editingItemIdx, 'ean', ''); updateItemField(editingItemIdx, 'foundInInventory', false); setTimeout(() => eanInputRef.current?.focus(), 20); }}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl border border-black/[0.10] dark:border-white/[0.10] text-on-surface/40 hover:text-red-500 hover:border-red-400/50 hover:bg-red-500/[0.06] transition-all shrink-0">
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                    {curItem.foundInInventory && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 size={11} /> Produto encontrado no inventário
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Preço R$</label>
+                    <input type="text" value={curItem.price}
+                      onChange={e => updateItemField(editingItemIdx, 'price', e.target.value)}
+                      placeholder="0,00"
+                      className={deskInputCls} />
+                  </div>
+
+                  {curItem.foundInInventory && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className={cn(labelCls, 'mb-0')}>Preço novo</label>
+                        <button type="button"
+                          onClick={() => updateItemField(editingItemIdx, 'newPriceEnabled', !curItem.newPriceEnabled)}
+                          className={cn('relative w-9 h-5 rounded-full transition-colors',
+                            curItem.newPriceEnabled ? 'bg-primary' : 'bg-on-surface/20')}>
+                          <span className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all',
+                            curItem.newPriceEnabled ? 'left-4' : 'left-0.5')} />
+                        </button>
+                      </div>
+                      <input type="text" value={curItem.newPrice}
+                        onChange={e => updateItemField(editingItemIdx, 'newPrice', e.target.value)}
+                        placeholder="0,00"
+                        disabled={!curItem.newPriceEnabled}
+                        className={cn(deskInputCls, !curItem.newPriceEnabled && 'opacity-40')} />
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className={labelCls}>Nome</label>
+                    <input type="text" value={curItem.name}
+                      onChange={e => updateItemField(editingItemIdx, 'name', e.target.value)}
+                      placeholder="Nome do produto"
+                      className={deskInputCls} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>SKU</label>
+                    <input type="text" value={curItem.sku}
+                      onChange={e => updateItemField(editingItemIdx, 'sku', e.target.value)}
+                      placeholder="Código interno"
+                      className={deskInputCls} />
+                  </div>
+
+                  <ComboInput desktop label="Categoria" value={curItem.category} onChange={v => updateItemField(editingItemIdx, 'category', v)} options={categories} placeholder="Selecione ou digite..." />
+                  <ComboInput desktop label="Subcategoria" value={curItem.subcategory} onChange={v => updateItemField(editingItemIdx, 'subcategory', v)} options={subcategories} placeholder="Selecione ou digite..." />
+                  <ComboInput desktop label="Marca" value={curItem.brand} onChange={v => updateItemField(editingItemIdx, 'brand', v)} options={brands} placeholder="Selecione ou digite..." />
+
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className={labelCls}>Observação</label>
+                    <textarea value={curItem.observacao} onChange={e => updateItemField(editingItemIdx, 'observacao', e.target.value)}
+                      placeholder="Observação sobre este item..."
+                      rows={2}
+                      className={cn(deskInputCls, 'resize-none')} />
+                  </div>
+                </div>
+
+                <button onClick={() => removeItem(editingItemIdx)}
+                  className="flex items-center gap-2 text-red-500 text-sm font-bold py-2 px-3 rounded-xl hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={15} /> Remover este item
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <ClipboardCheck size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Dados da tarefa</span>
+                  </div>
+                  <div className={fieldGridCls}>
+                    <div className="space-y-1.5">
+                      <label className={labelCls}>Responsável</label>
+                      <select value={responsavel} onChange={e => setResponsavel(e.target.value)}
+                        className={cn(deskInputCls, 'cursor-pointer')}>
+                        <option value="">Selecionar responsável...</option>
+                        {colaboradores.map(c => (
+                          <option key={c.id} value={c.nome}>{c.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className={labelCls}>Tipo</label>
+                      <select value={taskType ?? ''} onChange={e => setTaskType((e.target.value || null) as any)}
+                        className={cn(deskInputCls, 'cursor-pointer')}>
+                        <option value="">Selecione o tipo...</option>
+                        <option value="revisao">Revisão de mercadoria</option>
+                        <option value="tarefa_livre">Escrever tarefa</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {taskType === 'revisao' && (
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <Tag size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Itens para revisão</span>
+                    </div>
+
+                    {items.length > 0 && (
+                      <div className="space-y-2">
+                        {items.map((item, idx) => (
+                          <button key={idx} onClick={() => setEditingItemIdx(idx)}
+                            className="w-full flex items-center gap-3 px-3.5 py-2.5 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.07] rounded-xl text-left hover:border-primary/30 hover:bg-primary/[0.02] transition-colors">
+                            <div className={cn('w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0',
+                              item.ean || item.name ? 'bg-primary/10 text-primary' : 'bg-on-surface/[0.05] text-on-surface/30')}>
+                              {idx + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-on-surface truncate">
+                                {item.name || item.ean || 'Item vazio'}
+                              </p>
+                              {item.ean && item.name && (
+                                <p className="text-[10px] text-on-surface/35">EAN {item.ean}</p>
+                              )}
+                            </div>
+                            {item.foundInInventory && (
+                              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                            )}
+                            <ChevronRight size={14} className="text-on-surface/20 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <button onClick={addItem}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-primary/25 text-primary text-sm font-bold hover:bg-primary/[0.04] transition-colors">
+                      <Plus size={16} /> Adicionar item
+                    </button>
+                  </div>
+                )}
+
+                <div className={sectionCls}>
+                  <div className={sectionHeadCls}>
+                    <MessageSquare size={15} className="text-primary shrink-0" />
+                    <span className={sectionTitleCls}>Observações &amp; prioridade</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Observação</label>
+                    <textarea value={observacaoGeral} onChange={e => setObservacaoGeral(e.target.value)}
+                      placeholder="Observações gerais sobre a tarefa..."
+                      rows={3}
+                      className={cn(deskInputCls, 'resize-none')} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Classificação</label>
+                    <div className="flex gap-2">
+                      {(['Alta', 'Média', 'Baixa'] as const).map(nivel => (
+                        <button key={nivel} type="button" onClick={() => setClassificacao(nivel)}
+                          className={cn('flex-1 py-2.5 rounded-xl text-xs font-black transition-all border',
+                            classificacao === nivel
+                              ? nivel === 'Alta' ? 'bg-red-500 text-white border-red-500 shadow-md shadow-red-500/20'
+                              : nivel === 'Média' ? 'bg-amber-400 text-[#1A1A0E] border-amber-400 shadow-md shadow-amber-400/20'
+                              : 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                              : 'bg-on-surface/[0.04] text-on-surface/50 border-on-surface/[0.06] hover:bg-on-surface/[0.07]')}>
+                          {nivel}
+                        </button>
+                      ))}
+                    </div>
+                    {!classificacao && (
+                      <p className="text-[10px] text-on-surface/30">Selecione uma classificação para enviar</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-black/[0.09] dark:border-white/[0.07] px-6 py-4 flex gap-3">
+            <button
+              onClick={handleClose}
+              className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={sending || !classificacao || !taskType}
+              className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {sending
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Enviando...</>
+                : <><Send size={16} />Enviar</>}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MOBILE — RENDER — ITEM DETAIL VIEW
   // ══════════════════════════════════════════════════════════════════════════
 
   if (editingItemIdx !== null && curItem) {
@@ -601,7 +942,7 @@ export function MobileTaskPage({
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // RENDER — MAIN TASK SCREEN
+  // MOBILE — RENDER — MAIN TASK SCREEN
   // ══════════════════════════════════════════════════════════════════════════
 
   return (
@@ -614,7 +955,7 @@ export function MobileTaskPage({
     >
       {/* Header */}
       <div className="shrink-0 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] px-4 py-3 flex items-center gap-3">
-        <button onClick={onClose}
+        <button onClick={handleClose}
           className="w-9 h-9 flex items-center justify-center rounded-full bg-black/[0.09] dark:bg-white/[0.08] text-[#1A1A0E] dark:text-white/70 active:bg-black/20 transition-colors">
           <X size={18} />
         </button>
@@ -744,7 +1085,7 @@ export function MobileTaskPage({
           {deleteConfirm ? (
             <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl">
               <p className="text-sm font-bold text-red-600 dark:text-red-400 flex-1">Excluir esta tarefa?</p>
-              <button onClick={() => { setDeleteConfirm(false); onClose(); }}
+              <button onClick={handleClose}
                 className="px-3 py-1.5 bg-red-500 text-white text-xs font-black rounded-xl">Sim</button>
               <button onClick={() => setDeleteConfirm(false)}
                 className="px-3 py-1.5 bg-on-surface/10 text-on-surface/60 text-xs font-black rounded-xl">Cancelar</button>

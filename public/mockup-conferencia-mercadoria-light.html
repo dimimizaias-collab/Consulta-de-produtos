@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Conferência de Mercadoria — Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #E3D9B8;
+    --modal: #F0E7CC;
+    --header: #FFE500;
+    --header-border: #D4C000;
+    --chip-bg: rgba(26,26,10,0.09);
+    --chip-color: #1A1A0E;
+    --title: #1A1A0E;
+    --muted: rgba(26,26,10,0.45);
+    --muted-2: rgba(26,26,10,0.30);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.11);
+    --card-shadow: 0 1px 2px rgba(26,26,10,0.04), 0 6px 16px -8px rgba(26,26,10,0.12);
+    --input-bg: rgba(26,26,10,0.045);
+    --input-border: rgba(26,26,10,0.12);
+    --label: rgba(26,26,10,0.42);
+    --red: #D81E1E;
+    --amber: #92400e;
+    --tab-inactive: rgba(26,26,10,0.40);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px 96px;
+    color: var(--title);
+  }
+  .page { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+  .eyebrow { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(26,26,10,0.45); text-align: center; margin-bottom: 16px; }
+
+  .modal { background: var(--modal); border-radius: 24px; border: 1px solid rgba(26,26,10,0.10); box-shadow: 0 30px 60px -20px rgba(26,26,10,0.30); overflow: hidden; }
+  .modal-header { background: var(--header); border-bottom: 1px solid var(--header-border); padding: 20px 24px; display: flex; align-items: center; gap: 14px; }
+  .chip-icon { width: 44px; height: 44px; border-radius: 14px; background: var(--chip-bg); color: var(--chip-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .header-text { flex: 1; min-width: 0; }
+  .header-eyebrow { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(26,26,10,0.55); }
+  .header-title { font-size: 18px; font-weight: 800; color: var(--title); line-height: 1.2; margin-top: 2px; }
+  .item-count { font-size: 12px; font-weight: 900; color: rgba(26,26,10,0.50); flex-shrink: 0; }
+  .close-btn { width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; background: rgba(26,26,10,0.08); border: 1px solid rgba(26,26,10,0.10); color: rgba(26,26,10,0.50); display: flex; align-items: center; justify-content: center; }
+
+  .tabs { display: flex; gap: 4px; padding: 12px 24px 0; background: var(--modal); border-bottom: 1px solid rgba(26,26,10,0.10); }
+  .tab { padding: 10px 16px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 2px solid transparent; color: var(--tab-inactive); display: flex; align-items: center; gap: 6px; }
+  .tab.active { color: var(--red); border-color: var(--red); }
+  .tab .badge { background: rgba(216,30,30,0.10); color: var(--red); font-size: 10px; font-weight: 900; padding: 1px 7px; border-radius: 99px; line-height: 1.5; }
+  .tab:not(.active) .badge { background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.45); }
+
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  .item-row { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 16px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .item-badge { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; flex-shrink: 0; background: rgba(216,30,30,0.10); border: 1px solid rgba(216,30,30,0.22); color: var(--red); }
+  .item-badge.empty { background: rgba(26,26,10,0.05); border-color: rgba(26,26,10,0.06); color: rgba(26,26,10,0.30); }
+  .item-name { font-size: 13.5px; font-weight: 900; color: var(--title); }
+  .item-name.italic { color: rgba(26,26,10,0.30); font-style: italic; font-weight: 700; }
+  .item-meta { font-size: 10.5px; color: rgba(26,26,10,0.35); font-weight: 600; margin-top: 2px; display: flex; gap: 8px; }
+  .item-price { font-size: 10.5px; font-weight: 900; color: #0A7A55; }
+  .item-flags { margin-left: auto; display: flex; align-items: center; gap: 6px; color: rgba(26,26,10,0.20); }
+  .item-flags .warn { color: #d97706; }
+  .item-flags .err { color: var(--red); }
+
+  .add-item-btn { padding: 14px; border-radius: 16px; border: 2px dashed rgba(216,30,30,0.28); color: var(--red); font-size: 13px; font-weight: 800; text-align: center; }
+
+  .section { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 18px; padding: 18px 20px; margin-top: 8px; }
+  .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .section-head svg { color: var(--red); flex-shrink: 0; }
+  .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--title); }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--label); }
+  .field input, .field select { background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; padding: 10px 13px; font-size: 13px; font-family: inherit; color: var(--title); outline: none; }
+  .field input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(216,30,30,0.12); }
+  .ean-row { display: flex; gap: 8px; }
+  .ean-row input { flex: 1; min-width: 0; }
+  .icon-btn { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--input-border); color: rgba(26,26,10,0.45); display: flex; align-items: center; justify-content: center; }
+
+  .navigator { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
+  .nav-btn { width: 30px; height: 30px; border-radius: 8px; background: rgba(26,26,10,0.05); color: rgba(26,26,10,0.5); display: flex; align-items: center; justify-content: center; }
+  .nav-label { font-size: 11px; font-weight: 800; color: rgba(26,26,10,0.5); }
+  .nav-label b { color: var(--title); }
+
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { padding: 8px 14px; border-radius: 99px; font-size: 11px; font-weight: 800; border: 1.5px solid var(--input-border); color: rgba(26,26,10,0.55); background: var(--input-bg); }
+  .pill.on { background: #059669; border-color: #059669; color: #fff; }
+
+  .modal-footer { padding: 18px 24px 22px; display: flex; gap: 10px; border-top: 1px solid rgba(26,26,10,0.09); }
+  .btn { flex: 1; padding: 13px; border-radius: 14px; font-size: 13px; font-weight: 800; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-cancel { background: rgba(26,26,10,0.07); color: rgba(26,26,10,0.55); }
+  .btn-save { background: var(--red); color: #fff; box-shadow: 0 10px 24px -8px rgba(216,30,30,0.45); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div>
+    <div class="eyebrow">Aba "Itens" — desktop</div>
+    <div class="modal">
+      <div class="modal-header">
+        <div class="chip-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6a2 2 0 0 1 2 2v2H7V4a2 2 0 0 1 2-2z"/><rect x="5" y="4" width="14" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+        </div>
+        <div class="header-text">
+          <div class="header-eyebrow">Cadastro Mobile</div>
+          <div class="header-title">Conferência de Mercadoria</div>
+        </div>
+        <div class="item-count">3 itens</div>
+        <button class="close-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active">Itens <span class="badge">3</span></div>
+        <div class="tab">Detalhe</div>
+        <div class="tab">Resumo</div>
+      </div>
+
+      <div class="modal-body">
+        <div class="item-row">
+          <div class="item-badge">1</div>
+          <div style="flex:1; min-width:0;">
+            <div class="item-name">Lixeira Rattan com Pedal 6L</div>
+            <div class="item-meta"><span>SKU 4471</span><span>EAN 7891234560012</span><span class="item-price">R$ 34,90</span></div>
+          </div>
+          <div class="item-flags">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+        <div class="item-row">
+          <div class="item-badge">2</div>
+          <div style="flex:1; min-width:0;">
+            <div class="item-name">Escorredor de Louças Inox</div>
+            <div class="item-meta"><span>EAN 7891234560029</span></div>
+          </div>
+          <div class="item-flags">
+            <span class="warn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+        <div class="item-row">
+          <div class="item-badge empty">3</div>
+          <div style="flex:1; min-width:0;">
+            <div class="item-name italic">Item vazio</div>
+          </div>
+          <div class="item-flags">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+
+        <div class="add-item-btn">+ Adicionar item</div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-cancel">Descartar</button>
+        <button class="btn btn-save">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Salvar Rascunho
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="eyebrow">Aba "Detalhe" — grade de 2 colunas, seções agrupadas (mesmo padrão de "Editar Produto")</div>
+    <div class="modal">
+      <div class="modal-header">
+        <div class="chip-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6a2 2 0 0 1 2 2v2H7V4a2 2 0 0 1 2-2z"/><rect x="5" y="4" width="14" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+        </div>
+        <div class="header-text">
+          <div class="header-eyebrow">Cadastro Mobile</div>
+          <div class="header-title">Conferência de Mercadoria</div>
+        </div>
+        <div class="item-count">3 itens</div>
+        <button class="close-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab">Itens <span class="badge">3</span></div>
+        <div class="tab active">Detalhe</div>
+        <div class="tab">Resumo</div>
+      </div>
+
+      <div class="modal-body">
+        <div class="navigator">
+          <div class="nav-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="nav-label">Item <b>1</b> de 3</div>
+          <div class="nav-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="section-title">Identificação</span>
+          </div>
+          <div class="field-grid">
+            <div class="field full">
+              <label>EAN</label>
+              <div class="ean-row">
+                <input value="7891234560012">
+                <div class="icon-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+              </div>
+            </div>
+            <div class="field full">
+              <label>Nome *</label>
+              <input value="Lixeira Rattan com Pedal 6L">
+            </div>
+            <div class="field">
+              <label>SKU</label>
+              <input value="4471">
+            </div>
+            <div class="field">
+              <label>Preço R$</label>
+              <input value="34,90">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.82 0l4.6-4.6a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+            <span class="section-title">Categorização</span>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Categoria</label><input value="Utilidades"></div>
+            <div class="field"><label>Subcategoria</label><input value="Lixeiras"></div>
+            <div class="field"><label>Marca</label><input value="Coza"></div>
+            <div class="field"><label>Localização</label><input placeholder="Corredor A..."></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span class="section-title">Estoque</span>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Quantidade</label><input value="12"></div>
+            <div class="field full">
+              <label>Status</label>
+              <div class="pill-row">
+                <div class="pill on">Em Estoque</div>
+                <div class="pill">Estoque em Alta</div>
+                <div class="pill">Estoque Baixo</div>
+                <div class="pill">Fora de Estoque</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-cancel">Descartar</button>
+        <button class="btn btn-save">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Salvar Rascunho
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
