@@ -1,5 +1,16 @@
 import { pgTable, text, integer, boolean, timestamp, uuid, numeric } from 'drizzle-orm/pg-core';
 
+export const manufacturers = pgTable('manufacturers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  cnpj: text('cnpj'),
+  prefix: text('prefix').notNull(), // 3 dígitos numéricos, zero-padded (ex: "007")
+  active: boolean('active').default(true),
+  nextSeq: integer('next_seq').default(1), // usar a RPC get_next_manufacturer_code() em vez de ler/escrever direto
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 export const products = pgTable('products', {
   id: uuid('id').defaultRandom().primaryKey(),
   sku: text('sku'),
@@ -16,10 +27,11 @@ export const products = pgTable('products', {
   internalCode: text('internal_code'),
   category: text('category'),
   subcategory: text('subcategory'),
-  brand: text('brand'),
-  fabricante: text('fabricante'),
-  cnpj: text('cnpj'),
+  brand: text('brand'), // legado — será substituído por manufacturerId (Fase 5)
+  fabricante: text('fabricante'), // legado — idem
+  cnpj: text('cnpj'), // legado — CNPJ passa a viver em manufacturers (Fase 5)
   composicao: text('composicao'),
+  manufacturerId: uuid('manufacturer_id').references(() => manufacturers.id),
   linkedProductId: uuid('linked_product_id').references((): any => products.id),
   isMother: boolean('is_mother').default(false),
   unitsPerMother: integer('units_per_mother').default(1),
