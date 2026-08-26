@@ -1796,7 +1796,10 @@ export default function Page() {
           .map((item: any) => {
             const qty = alreadyAppliedThisCompany ? 0 : (Number(item.distribuicaoByCompany?.[extraCompanyId]) || 0);
             const nextCount = (extraStockByProduct[item.product_id]?.count || 0) + qty;
-            const sellPrice = item.pricingByCompany?.[extraCompanyId]?.precoVenda;
+            // Preço de venda NÃO é mais sincronizado aqui — o mecanismo antigo (botão de preço /
+            // pricingByCompany) foi removido da nota. Quem define o preço de venda da loja
+            // destino agora é o próprio manifesto de Distribuição, ao confirmar o recebimento
+            // (decisão 3-B) — ver updateItemPricing em DistributionManifestModal.tsx.
             const payload: any = {
               product_id: item.product_id,
               company_id: extraCompanyId,
@@ -1807,9 +1810,6 @@ export default function Page() {
               cost_received_date: noteReceivedDate,
               updated_at: new Date().toISOString(),
             };
-            // Preço de venda continua opcional (fluxo antigo do "botão de preço") — só grava
-            // se já foi preenchido, pra não zerar um preço que a própria loja já tenha definido.
-            if (sellPrice > 0) { payload.price = sellPrice; payload.price_received_date = noteReceivedDate; }
             return supabase.from('product_company_stock').upsert(payload, { onConflict: 'product_id,company_id' });
           });
         if (extraUpserts.length > 0) await Promise.all(extraUpserts);
@@ -3630,13 +3630,6 @@ export default function Page() {
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
-        // Preços das demais lojas ("Preços por Loja") entram no mesmo mecanismo de distribuição
-        // já usado na tabela de revisão — ficam pendentes em pricingByCompany até a nota ser salva/aprovada.
-        noteItemExtraStoreIds.forEach(companyId => {
-          const raw = noteItemExtraStorePrices[companyId];
-          const val = raw ? parseFloat(raw.replace(',', '.')) || 0 : 0;
-          if (val > 0) setExtraSellPrice(companyId, linkingItemIdx, val);
-        });
         const extraEanRows = noteItemExtraEans.filter(e => e.ean.trim()).map(e => ({
           product_id: created.id,
           ean: e.ean.trim(),
@@ -9168,91 +9161,6 @@ export default function Page() {
                   )}
                 </button>
                 </div>
-                <div style={{ position: 'relative' }} className="shrink-0">
-                  {(() => {
-                    const ownerId = viewingReviewNote.companyId || null;
-                    const selectedId = viewingPriceCompanyId || ownerId;
-                    const selected = companies.find((c: any) => c.id === selectedId);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (companies.length === 0) fetchCompanies();
-                          setPriceCompanyDropdownOpen(o => !o);
-                        }}
-                        disabled={switchingPriceCompany}
-                        title="Precificar para outra empresa"
-                        className={cn(
-                          'flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border transition-all disabled:opacity-50',
-                          viewingPriceCompanyId
-                            ? 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#D81E1E]'
-                            : 'border-line dark:border-white/[0.1] bg-on-surface/[0.04] text-on-surface/70 hover:bg-on-surface/[0.08]',
-                        )}
-                      >
-                        {selected?.logo ? (
-                          <img src={selected.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className={cn(
-                            'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0',
-                            viewingPriceCompanyId ? 'bg-[#D81E1E]/15 text-[#D81E1E]' : 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]',
-                          )}>
-                            {(selected?.nome_fantasia || '?').slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-[11px] font-bold max-w-[72px] truncate">{selected?.nome_fantasia || 'Empresa'}</span>
-                        <ChevronDown size={12} className="flex-shrink-0" />
-                      </button>
-                    );
-                  })()}
-                  {priceCompanyDropdownOpen && (
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
-                        {(() => {
-                          const ownerId = viewingReviewNote?.companyId || null;
-                          const owner = companies.find((c: any) => c.id === ownerId);
-                          const others = companies.filter((c: any) => c.id !== ownerId);
-                          const row = (c: any, isOwner: boolean) => (
-                            <button
-                              key={c.id}
-                              onClick={() => switchPriceCompany(isOwner ? null : c.id)}
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
-                                (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
-                                  ? 'bg-[#D81E1E]/10'
-                                  : 'hover:bg-on-surface/[0.05]',
-                              )}
-                            >
-                              {c.logo ? (
-                                <img src={c.logo} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
-                              ) : (
-                                <div className={cn(
-                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
-                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
-                                )}>
-                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                              <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
-                              {isOwner && (
-                                <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
-                              )}
-                            </button>
-                          );
-                          return (
-                            <>
-                              {owner ? row(owner, true) : (
-                                <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
-                              )}
-                              {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
-                              {others.map((c: any) => row(c, false))}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
 
               {noteEditorTab === 'financeiro' && (() => {
@@ -11466,97 +11374,32 @@ export default function Page() {
                               })()}
                             </div>
 
-                            {/* Preços por Loja */}
+                            {/* Preço de Venda — preço de venda das demais lojas ("Preços por Loja")
+                                foi removido daqui; agora é definido no manifesto de Distribuição
+                                pela própria loja destino, ao confirmar o recebimento (decisão 3-B). */}
                             <div className={sectionCls}>
-                              <div className="flex items-center justify-between">
-                                <div className={sectionHeadCls}>
-                                  <BarChart3 size={15} className="text-primary shrink-0" />
-                                  <span className={sectionTitleCls}>Preços por Loja</span>
-                                </div>
-                                {availableCompanies.length > 0 && (
-                                  <div className="relative">
-                                    <button
-                                      type="button"
-                                      onClick={() => setNoteItemAddStoreOpen(v => !v)}
-                                      className="flex items-center gap-1.5 bg-primary/10 border border-primary/25 rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-primary hover:bg-primary/15 transition-colors"
-                                    >
-                                      <Plus size={13} />Adicionar loja
-                                    </button>
-                                    {noteItemAddStoreOpen && (
-                                      <div className="absolute right-0 top-[calc(100%+6px)] z-10 w-44 bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-xl p-1.5">
-                                        <p className="text-[9px] font-extrabold uppercase tracking-wide text-secondary/60 px-2 pt-1 pb-1.5">Escolher loja</p>
-                                        {availableCompanies.map((c: any) => (
-                                          <button
-                                            key={c.id}
-                                            type="button"
-                                            onClick={() => {
-                                              setNoteItemExtraStoreIds(prev => [...prev, c.id]);
-                                              setNoteItemAddStoreOpen(false);
-                                            }}
-                                            className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
-                                          >
-                                            {c.nome_fantasia}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                              <div className={sectionHeadCls}>
+                                <BarChart3 size={15} className="text-primary shrink-0" />
+                                <span className={sectionTitleCls}>Preço de Venda</span>
                               </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3 bg-primary/[0.06] border border-primary/20 rounded-xl px-3 py-2.5">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                  <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">
-                                    {primaryCompany?.nome_fantasia || 'Empresa da nota não definida'}
-                                  </span>
-                                  <span className="text-[9px] font-extrabold uppercase tracking-wide text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">Principal</span>
-                                  <div className="relative w-[110px] shrink-0">
-                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary/50">R$</span>
-                                    <input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      value={noteItemNewSellPrice}
-                                      onChange={e => setNoteItemNewSellPrice(e.target.value)}
-                                      placeholder="0,00"
-                                      onWheel={blockWheelChange}
-                                      className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    />
-                                  </div>
+                              <div className="flex items-center gap-3 bg-primary/[0.06] border border-primary/20 rounded-xl px-3 py-2.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">
+                                  {primaryCompany?.nome_fantasia || 'Empresa da nota não definida'}
+                                </span>
+                                <div className="relative w-[110px] shrink-0">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary/50">R$</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteItemNewSellPrice}
+                                    onChange={e => setNoteItemNewSellPrice(e.target.value)}
+                                    placeholder="0,00"
+                                    onWheel={blockWheelChange}
+                                    className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                  />
                                 </div>
-                                {noteItemExtraStoreIds.map(companyId => {
-                                  const company = companies.find((c: any) => c.id === companyId);
-                                  return (
-                                    <div key={companyId} className="flex items-center gap-3 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] rounded-xl px-3 py-2.5">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-secondary/30 shrink-0" />
-                                      <span className="flex-1 min-w-0 text-xs font-bold text-on-surface truncate">{company?.nome_fantasia || 'Loja'}</span>
-                                      <div className="relative w-[110px] shrink-0">
-                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary/50">R$</span>
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          min="0"
-                                          value={noteItemExtraStorePrices[companyId] || ''}
-                                          onChange={e => setNoteItemExtraStorePrices(prev => ({ ...prev, [companyId]: e.target.value }))}
-                                          placeholder="0,00"
-                                          onWheel={blockWheelChange}
-                                          className="w-full bg-surface border border-black/10 dark:border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                        />
-                                      </div>
-                                      <button
-                                        type="button"
-                                        title="Remover loja"
-                                        onClick={() => {
-                                          setNoteItemExtraStoreIds(prev => prev.filter(id => id !== companyId));
-                                          setNoteItemExtraStorePrices(prev => { const { [companyId]: _drop, ...rest } = prev; return rest; });
-                                        }}
-                                        className="w-6 h-6 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
-                                      >
-                                        <X size={12} />
-                                      </button>
-                                    </div>
-                                  );
-                                })}
                               </div>
                             </div>
 

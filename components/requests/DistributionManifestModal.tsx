@@ -33,6 +33,10 @@ interface ManifestItem {
   qty: number;
   costPrice: number;
   salePriceOrigin: number;
+  // Preenchidos pela loja destino após o envio — decisão 3-B do plano de Distribuição,
+  // substitui o antigo "botão de preço" da nota (pricingByCompany, removido).
+  salePriceDestination: number | null;
+  verified: boolean;
 }
 
 interface DistributionManifestModalProps {
@@ -163,7 +167,7 @@ export function DistributionManifestModal({
     (async () => {
       const { data } = await supabase
         .from('distribution_manifest_items')
-        .select('id, product_id, product_name, sku, ean, qty, cost_price, sale_price_origin')
+        .select('id, product_id, product_name, sku, ean, qty, cost_price, sale_price_origin, sale_price_destination, verified')
         .eq('manifest_id', manifest.id);
       setItems((data || []).map((r: any) => ({
         id: r.id,
@@ -174,6 +178,8 @@ export function DistributionManifestModal({
         qty: parseFloat(r.qty) || 0,
         costPrice: parseFloat(r.cost_price) || 0,
         salePriceOrigin: parseFloat(r.sale_price_origin) || 0,
+        salePriceDestination: r.sale_price_destination !== null ? parseFloat(r.sale_price_destination) : null,
+        verified: !!r.verified,
       })));
       setLoadingItems(false);
     })();
@@ -244,6 +250,8 @@ export function DistributionManifestModal({
       qty,
       costPrice: p.costPrice,
       salePriceOrigin: p.salePriceOrigin,
+      salePriceDestination: null,
+      verified: false,
     }]);
     setSelectedProduct(null);
     setQtyInput('');
@@ -349,6 +357,8 @@ export function DistributionManifestModal({
             qty: it.qty,
             cost_price: it.costPrice,
             sale_price_origin: it.salePriceOrigin,
+            sale_price_destination: it.salePriceDestination,
+            verified: it.verified,
           }))
         );
         if (itemsError) throw itemsError;
@@ -383,6 +393,29 @@ export function DistributionManifestModal({
     if (ok) {
       setNotification({ type: 'success', message: 'Pedido enviado com sucesso.' });
       handleClose();
+    }
+  };
+
+  // Preço de venda / Ok do item — preenchido pela loja destino depois do envio (decisão 3-B).
+  // Salva direto (fora do fluxo de "Salvar Rascunho", que fica desabilitado pós-envio) e já
+  // propaga o preço pro Estoque & Preço da loja destino, substituindo o antigo mecanismo da
+  // nota (botão de preço / pricingByCompany, removido).
+  const updateItemPricing = async (itemId: string, productId: string, salePrice: number | null, verified: boolean) => {
+    setItems(prev => prev.map(it => it.id === itemId ? { ...it, salePriceDestination: salePrice, verified } : it));
+    const nowIso = new Date().toISOString();
+    await supabase.from('distribution_manifest_items').update({
+      sale_price_destination: salePrice,
+      verified,
+      verified_at: verified ? nowIso : null,
+    }).eq('id', itemId);
+    if (destinationCompanyId && salePrice !== null && salePrice > 0) {
+      await supabase.from('product_company_stock').upsert({
+        product_id: productId,
+        company_id: destinationCompanyId,
+        price: salePrice,
+        price_received_date: nowIso.slice(0, 10),
+        updated_at: nowIso,
+      }, { onConflict: 'product_id,company_id' });
     }
   };
 
@@ -665,6 +698,8 @@ export function DistributionManifestModal({
                             <th className="px-3 py-2 text-left text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">SKU / EAN</th>
                             <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Qtd</th>
                             <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Total</th>
+                            <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Preço de Venda</th>
+                            <th className="px-3 py-2 text-center text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Ok</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -674,6 +709,27 @@ export function DistributionManifestModal({
                               <td className="px-3 py-2.5 font-mono text-[11px] text-on-surface/50">{it.sku || '—'} · {it.ean || '—'}</td>
                               <td className="px-3 py-2.5 font-mono text-right text-on-surface">{it.qty}</td>
                               <td className="px-3 py-2.5 font-mono text-right font-black text-on-surface">{fmtBRL(it.qty * it.costPrice)}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  defaultValue={it.salePriceDestination !== null ? it.salePriceDestination.toFixed(2).replace('.', ',') : ''}
+                                  placeholder="0,00"
+                                  onBlur={e => {
+                                    const n = parseFloat(e.target.value.replace(',', '.'));
+                                    updateItemPricing(it.id, it.productId, isNaN(n) ? null : n, it.verified);
+                                  }}
+                                  className="w-24 text-right font-mono text-[12px] font-bold bg-white dark:bg-white/[0.06] border border-on-surface/15 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary/40 text-on-surface"
+                                />
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={it.verified}
+                                  onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
+                                  className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
