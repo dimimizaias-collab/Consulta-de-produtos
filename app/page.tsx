@@ -29,6 +29,7 @@ import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPag
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
+import { MotherProductModal } from '@/components/inventory/MotherProductModal';
 import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturerModal';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
@@ -586,6 +587,13 @@ export default function Page() {
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [noteItemSaveTranslation, setNoteItemSaveTranslation] = useState(false);
+  // Toggle "Também cadastrar Produto Mãe" — ao criar o produto normal pela tela "Criar e
+  // Vincular" da nota, abre em seguida o MotherProductModal (mesmo componente usado na aba
+  // "Produtos Mãe" da Edição de Produto) já vinculado ao produto recém-criado, sem exigir que
+  // o usuário salve o produto e depois volte numa tela separada para cadastrar a embalagem.
+  const [noteItemAddMotherPackage, setNoteItemAddMotherPackage] = useState(false);
+  const [noteItemMotherModalOpen, setNoteItemMotherModalOpen] = useState(false);
+  const [noteItemMotherProduct, setNoteItemMotherProduct] = useState<{ id: string; name: string } | null>(null);
   // "Preços por Loja" no formulário de criação — a loja principal (dona da nota) usa
   // noteItemNewSellPrice normalmente; as demais são lançadas em viewingNoteExtraPricing
   // (mesmo mecanismo de "distribuição" já usado na tabela de revisão) via setExtraSellPrice.
@@ -3672,15 +3680,21 @@ export default function Page() {
             }
           }
         }
+        const shouldOpenMotherModal = noteItemAddMotherPackage;
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
         setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice('');
         setNoteItemSaveTranslation(false);
+        setNoteItemAddMotherPackage(false);
         setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
         if (extraEanRows.length === 0 || !eanInsertFailed) {
           setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
         }
         fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
+        if (shouldOpenMotherModal) {
+          setNoteItemMotherProduct({ id: created.id, name: created.name });
+          setNoteItemMotherModalOpen(true);
+        }
       }
     } catch (err: any) {
       const msg = err.message || '';
@@ -11004,7 +11018,7 @@ export default function Page() {
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemAddMotherPackage(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
                     />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
@@ -11027,7 +11041,7 @@ export default function Page() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemAddMotherPackage(false); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                         >
                           <X size={18} />
@@ -11436,6 +11450,22 @@ export default function Page() {
                               </div>
                             )}
 
+                            {/* Toggle: também cadastrar o Produto Mãe (caixa/fardo) deste produto —
+                                abre o MotherProductModal logo após criar e vincular, já vinculado ao
+                                produto recém-criado, sem precisar voltar depois pela Edição de Produto. */}
+                            <button
+                              onClick={() => setNoteItemAddMotherPackage(v => !v)}
+                              className={cn('w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all text-left', noteItemAddMotherPackage ? 'border-primary bg-primary/[0.06]' : 'border-black/[0.07] dark:border-white/[0.07] bg-surface hover:border-black/20 dark:hover:border-white/20')}
+                            >
+                              <div className={cn('w-[18px] h-[18px] rounded-md flex items-center justify-center shrink-0 transition-colors', noteItemAddMotherPackage ? 'bg-primary' : 'border-2 border-black/20 dark:border-white/20 bg-white dark:bg-transparent')}>
+                                {noteItemAddMotherPackage && <Check size={11} className="text-white" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn('text-xs font-extrabold', noteItemAddMotherPackage ? 'text-primary' : 'text-secondary/70')}>Também cadastrar Produto Mãe (caixa/fardo)</p>
+                                <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Abre o cadastro da embalagem logo em seguida, já vinculada a este produto</p>
+                              </div>
+                            </button>
+
                             <button
                               onClick={handleNoteItemCreateAndLink}
                               disabled={noteItemCreating || !noteItemNewName.trim()}
@@ -11454,6 +11484,18 @@ export default function Page() {
                   </div>
                 );
               })()}
+
+              {/* Produto Mãe (caixa/fardo) do produto recém-criado pelo "Criar e Vincular" — mesmo
+                  MotherProductModal usado na aba "Produtos Mãe" da Edição de Produto. */}
+              <MotherProductModal
+                open={noteItemMotherModalOpen}
+                onClose={() => setNoteItemMotherModalOpen(false)}
+                childProductId={noteItemMotherProduct?.id || ''}
+                childProductName={noteItemMotherProduct?.name || ''}
+                editingPackage={null}
+                suppliers={supplierNames}
+                onSaved={fetchProducts}
+              />
 
               {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}
               {distribModalIdx !== null && viewingReviewNote && (() => {
