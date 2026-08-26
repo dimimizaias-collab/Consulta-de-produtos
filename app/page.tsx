@@ -10160,6 +10160,21 @@ export default function Page() {
                                     <ArrowLeftRight size={8} strokeWidth={3} />
                                   </span>
                                 )}
+                                {(() => {
+                                  const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                                  if (distribQty <= 0) return null;
+                                  return (
+                                    <span
+                                      className={cn(
+                                        'absolute -top-[5px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]',
+                                        viewingNoteMeasureConverted[idx] ? 'left-[9px]' : '-left-[3px]'
+                                      )}
+                                      title={`Distribuído para outra loja (${distribQty} un.)`}
+                                    >
+                                      <Truck size={8} strokeWidth={3} />
+                                    </span>
+                                  );
+                                })()}
                                 <input
                                   type="text"
                                   value={viewingNoteUnits[idx] ?? item.unit ?? ''}
@@ -10200,6 +10215,21 @@ export default function Page() {
                                     <ArrowLeftRight size={8} strokeWidth={3} />
                                   </span>
                                 )}
+                                {(() => {
+                                  const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                                  if (distribQty <= 0) return null;
+                                  return (
+                                    <span
+                                      className={cn(
+                                        'absolute -top-[5px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]',
+                                        viewingNoteMeasureConverted[idx] ? 'left-[9px]' : '-left-[3px]'
+                                      )}
+                                      title={`Distribuído para outra loja (${distribQty} un.)`}
+                                    >
+                                      <Truck size={8} strokeWidth={3} />
+                                    </span>
+                                  );
+                                })()}
                                 <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
                                 {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
                                   <span className="text-[9px] font-black text-primary/60 leading-none shrink-0">×{viewingNoteMultipliers[idx] ?? item.multiplier}</span>
@@ -10212,6 +10242,18 @@ export default function Page() {
                           {/* Quantidade — só o número; medida/tradução vivem na coluna Medida */}
                           {!reviewHiddenCols.has('Qtd.') && (
                           <td style={{ ...tdP, position: 'relative' }}>
+                            {(() => {
+                              const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                              if (distribQty <= 0) return null;
+                              return (
+                                <span
+                                  className="absolute top-[2px] left-[2px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]"
+                                  title={`Distribuído para outra loja (${distribQty} un.)`}
+                                >
+                                  <Truck size={8} strokeWidth={3} />
+                                </span>
+                              );
+                            })()}
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
                             <div className="flex items-center gap-1.5">
                             {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
