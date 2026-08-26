@@ -4133,6 +4133,57 @@ export default function Page() {
     }
   };
 
+  // Colagem em coluna para as colunas dinâmicas de Desconto/Acréscimo (modo individual) —
+  // mesmo comportamento das demais colunas: distribui multi-linhas pra baixo, criando linhas
+  // novas quando falta espaço.
+  const handleAdjColumnPaste = (e: React.ClipboardEvent, rowIndex: number, colIdx: number) => {
+    if (!viewingReviewNote) return;
+    const text = e.clipboardData.getData('text');
+    const lines = text
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+    if (lines.length <= 1) return; // comportamento padrão do browser para linha única
+    e.preventDefault();
+    const values = lines.map(normalizeNumericPaste).filter(v => v.length > 0);
+    if (values.length === 0) return;
+
+    const currentLen = viewingReviewNote.items.length;
+    const rowsToAdd = Math.max(0, (rowIndex + values.length) - currentLen);
+    if (rowsToAdd > 0) {
+      const blanks = Array.from({ length: rowsToAdd }, (_, i) => ({
+        seq: currentLen + i + 1, original_description: '', name: '', supplier_code: '',
+        ean: '', sku: '', unit: '', multiplier: 1, qty: null, price: 0, product_price: 0, verified: false, product_id: null, brand: '',
+      }));
+      setViewingReviewNote(prev => prev ? { ...prev, items: [...prev.items, ...blanks] } : prev);
+      setViewingNoteVerified(prev => [...prev, ...blanks.map(() => false)]);
+      setViewingNoteQtys(prev => [...prev, ...blanks.map(() => null)]);
+      setViewingNoteItemPrices(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteSellPrices(prev => [...prev, ...blanks.map(() => 0)]);
+      setViewingNoteEans(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteSkus(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteUnits(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
+      setViewingNoteMeasureConverted(prev => [...prev, ...blanks.map(() => false)]);
+      setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
+      setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteDistribByCompany(prev => [...prev, ...blanks.map(() => ({}))]);
+      setViewingDistribMode(prev => [...prev, ...blanks.map(() => '')]);
+      setAdjColumns(prev => prev.map(col => ({ ...col, items: [...col.items, ...blanks.map(() => '')] })));
+      setViewingNoteDiscrepancies(prev => [...prev, ...blanks.map(() => null)]);
+      setViewingNoteEanVariants(prev => [...prev, ...blanks.map(() => [])]);
+      setViewingNoteExtraEans(prev => [...prev, ...blanks.map(() => [])]);
+    }
+
+    setAdjColumns(prev => prev.map((c, ci) => {
+      if (ci !== colIdx) return c;
+      const items = [...c.items];
+      values.forEach((v, i) => { items[rowIndex + i] = v; });
+      return { ...c, items };
+    }));
+  };
+
   const handleMultiLinkItemSearch = async () => {
     if (!multiLinkItemSearch.trim()) return;
     const { data } = await supabase.from('products').select('id, name, sku, ean, price')
@@ -10498,6 +10549,7 @@ export default function Page() {
                                         }));
                                       }}
                                       onKeyDown={tableCellKeyDown('review-note', idx, 5 + colIdx)}
+                                      onPaste={e => handleAdjColumnPaste(e, idx, colIdx)}
                                       placeholder="0"
                                       onWheel={blockWheelChange}
                                       className={`w-12 text-right text-xs font-bold ${colorClass} bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
