@@ -11918,38 +11918,35 @@ export default function Page() {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                        className="bg-[#FDFAF0] dark:bg-[#1E1E18] border border-black/[0.10] dark:border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+                        className="bg-[#F0E7CC] dark:bg-[#1E1E18] border border-black/10 dark:border-white/[0.08] rounded-3xl shadow-2xl w-full max-w-[520px] mx-4 overflow-hidden"
                         onClick={e => e.stopPropagation()}
                       >
-                        {/* Header */}
-                        <div className="bg-[#FFE500] dark:bg-[#252520] px-5 py-4 flex items-center justify-between border-b border-[#D4C000] dark:border-white/[0.07]">
-                          <div className="flex items-center gap-2.5">
-                            <span className={cn(
-                              "w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-transparent",
-                              isFalta ? "dark:bg-red-500/[0.13]" : "dark:bg-emerald-500/[0.13]",
-                              accentCls
-                            )}>
-                              <AlertTriangle size={17} />
-                            </span>
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-black/45 dark:text-white/40">Divergência</p>
-                              <p className="text-[13.5px] font-black text-[#1A1A0E] dark:text-[#f2f0e3] leading-tight max-w-[180px] truncate">{item?.name || item?.original_description || `Item ${discrepancyModalIdx + 1}`}</p>
-                            </div>
+                        {/* Header — mesmo padrão do modal "Editar Produto": header amarelo, icon chip grande */}
+                        <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                          <span className={cn(
+                            "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09]",
+                            isFalta ? "dark:bg-[#D81E1E]/[0.16] dark:text-[#D81E1E] text-[#D81E1E]" : "dark:bg-emerald-500/[0.16] dark:text-emerald-500 text-emerald-600"
+                          )}>
+                            <AlertTriangle size={20} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/45">Divergência</p>
+                            <h2 className="text-lg font-extrabold text-[#1A1A0E] leading-tight truncate mt-0.5">{item?.name || item?.original_description || `Item ${discrepancyModalIdx + 1}`}</h2>
                           </div>
                           <button
                             onClick={() => setDiscrepancyModalIdx(null)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-black/45 dark:text-white/35 bg-black/[0.08] dark:bg-white/[0.06] hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-all active:scale-90"
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                           >
-                            <X size={13} />
+                            <X size={16} />
                           </button>
                         </div>
 
                         {/* Tab switcher */}
-                        <div className="px-5 pt-4 pb-0 flex gap-2">
+                        <div className="px-6 pt-5 pb-0 flex gap-2">
                           <button
                             onClick={() => setDiscrepancyTab('falta')}
                             className={cn(
-                              "flex-1 py-2 rounded-xl text-sm font-black transition-all",
+                              "flex-1 py-2.5 rounded-xl text-sm font-black transition-all",
                               discrepancyTab === 'falta'
                                 ? "bg-red-500/10 dark:bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/30"
                                 : "bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55"
@@ -11961,7 +11958,7 @@ export default function Page() {
                           <button
                             onClick={() => setDiscrepancyTab('sobra')}
                             className={cn(
-                              "flex-1 py-2 rounded-xl text-sm font-black transition-all",
+                              "flex-1 py-2.5 rounded-xl text-sm font-black transition-all",
                               discrepancyTab === 'sobra'
                                 ? "bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                                 : "bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55"
@@ -11973,7 +11970,7 @@ export default function Page() {
                         </div>
 
                         {/* Body */}
-                        <div className="px-5 py-4 space-y-3">
+                        <div className="px-6 py-5 space-y-4">
                           <AnimatePresence mode="wait">
                             {isFalta ? (
                               <motion.div
@@ -11982,13 +11979,13 @@ export default function Page() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: 6 }}
                                 transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
-                                className="space-y-3"
+                                className="bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-4 flex items-center gap-5"
                               >
                                 {/* Toggle: não veio */}
                                 <button
                                   type="button"
                                   onClick={() => setDiscrepancyMissingAll(v => !v)}
-                                  className="w-full flex items-center gap-3 py-2.5 px-3 bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.07] rounded-xl hover:bg-black/[0.055] dark:hover:bg-white/[0.06] transition-all text-left"
+                                  className="flex-1 flex items-center gap-3 text-left"
                                 >
                                   <div className={cn(
                                     "w-9 h-5 rounded-full relative shrink-0 transition-colors",
@@ -12006,30 +12003,33 @@ export default function Page() {
                                 <AnimatePresence>
                                   {!discrepancyMissingAll && (
                                     <motion.div
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      exit={{ opacity: 0, height: 0 }}
+                                      initial={{ opacity: 0, width: 0 }}
+                                      animate={{ opacity: 1, width: 'auto' }}
+                                      exit={{ opacity: 0, width: 0 }}
                                       transition={{ duration: 0.15 }}
-                                      className="overflow-hidden"
+                                      className="overflow-hidden flex items-stretch gap-5 flex-1"
                                     >
-                                      <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
-                                        Qtd. faltando
-                                      </label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        value={discrepancyQty}
-                                        onChange={e => setDiscrepancyQty(e.target.value)}
-                                        autoFocus
-                                        placeholder="0"
-                                        onWheel={blockWheelChange}
-                                        className={cn(
-                                          "w-full bg-white dark:bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
-                                          "border-[#E0D8BF] dark:border-white/[0.08]", accentRing
-                                        )}
-                                        style={{ transition: 'box-shadow 150ms ease' }}
-                                      />
+                                      <div className="w-px self-stretch bg-black/[0.08] dark:bg-white/[0.08] shrink-0" />
+                                      <div className="flex-1 min-w-[140px]">
+                                        <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
+                                          Qtd. faltando
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="1"
+                                          value={discrepancyQty}
+                                          onChange={e => setDiscrepancyQty(e.target.value)}
+                                          autoFocus
+                                          placeholder="0"
+                                          onWheel={blockWheelChange}
+                                          className={cn(
+                                            "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                            "border-black/[0.10] dark:border-white/[0.10]", accentRing
+                                          )}
+                                          style={{ transition: 'box-shadow 150ms ease' }}
+                                        />
+                                      </div>
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
@@ -12041,8 +12041,9 @@ export default function Page() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -6 }}
                                 transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
+                                className="bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-4"
                               >
-                                <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
+                                <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
                                   Qtd. sobrando
                                 </label>
                                 <input
@@ -12055,8 +12056,8 @@ export default function Page() {
                                   placeholder="0"
                                   onWheel={blockWheelChange}
                                   className={cn(
-                                    "w-full bg-white dark:bg-white/[0.05] border rounded-xl px-4 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
-                                    "border-[#E0D8BF] dark:border-white/[0.08]", accentRing
+                                    "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                    "border-black/[0.10] dark:border-white/[0.10]", accentRing
                                   )}
                                   style={{ transition: 'box-shadow 150ms ease' }}
                                 />
@@ -12064,11 +12065,9 @@ export default function Page() {
                             )}
                           </AnimatePresence>
 
-                          <div className="h-px bg-black/[0.08] dark:bg-white/[0.07]" />
-
                           {/* Desconsiderar produto */}
                           <div className={cn(
-                            "rounded-[13px] border-[1.5px] border-dashed px-3.5 py-3 transition-colors",
+                            "rounded-2xl border-[1.5px] border-dashed px-4 py-3.5 transition-colors",
                             discrepancyDisregarded
                               ? "border-[#DDD000] dark:border-amber-400/30 bg-[#FFE500]/[0.14] dark:bg-amber-400/[0.07]"
                               : "border-black/15 dark:border-white/[0.10] bg-black/[0.02] dark:bg-white/[0.02]"
@@ -12100,7 +12099,7 @@ export default function Page() {
 
                           {/* Observations */}
                           <div>
-                            <label className="block text-[10.5px] font-bold uppercase tracking-wider text-black/45 dark:text-white/35 mb-1.5">
+                            <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
                               Observações
                             </label>
                             <textarea
@@ -12108,16 +12107,16 @@ export default function Page() {
                               onChange={e => setDiscrepancyObs(e.target.value)}
                               placeholder="Detalhes adicionais sobre a divergência..."
                               rows={2}
-                              className="w-full bg-white dark:bg-white/[0.05] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-[#1A1A0E] dark:text-[#f2f0e3] placeholder:text-black/25 dark:placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20 resize-none transition-all"
+                              className="w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A0E] dark:text-[#f2f0e3] placeholder:text-black/25 dark:placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20 resize-none transition-all"
                             />
                           </div>
                         </div>
 
                         {/* Footer actions */}
-                        <div className="px-5 pb-5 flex gap-2">
+                        <div className="px-6 pb-6 flex gap-2.5">
                           <button
                             onClick={handleClearDiscrepancy}
-                            className="flex-1 py-2.5 rounded-xl bg-black/[0.08] dark:bg-white/[0.04] border border-black/[0.14] dark:border-white/[0.07] text-sm font-bold text-black/55 dark:text-white/45 hover:bg-black/[0.13] dark:hover:bg-white/[0.08] hover:text-black/70 dark:hover:text-white/65 transition-all active:scale-[0.97]"
+                            className="flex-1 py-3 rounded-xl bg-black/[0.08] dark:bg-white/[0.04] border border-black/[0.14] dark:border-white/[0.07] text-sm font-bold text-black/55 dark:text-white/45 hover:bg-black/[0.13] dark:hover:bg-white/[0.08] hover:text-black/70 dark:hover:text-white/65 transition-all active:scale-[0.97]"
                             style={{ transition: 'all 150ms cubic-bezier(0.23,1,0.32,1)' }}
                           >
                             Limpar
@@ -12125,7 +12124,7 @@ export default function Page() {
                           <button
                             onClick={handleSaveDiscrepancy}
                             className={cn(
-                              "flex-1 py-2.5 rounded-xl text-sm font-black text-white shadow-lg transition-all active:scale-[0.97]",
+                              "flex-1 py-3 rounded-xl text-sm font-black text-white shadow-lg transition-all active:scale-[0.97]",
                               isFalta
                                 ? "bg-red-500 hover:bg-red-600 shadow-red-500/25"
                                 : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25"

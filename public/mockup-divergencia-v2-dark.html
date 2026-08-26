@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Divergência v2 — Dark Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#111110; display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:60px 16px;}
+  .col{display:flex; flex-direction:column; align-items:center; gap:14px;}
+  .col-label{font-size:12px; font-weight:800; color:rgba(242,240,227,0.45); text-transform:uppercase; letter-spacing:0.10em; text-align:center; max-width:480px;}
+
+  .modal{width:520px; background:#1E1E18; border-radius:24px; box-shadow:0 30px 70px rgba(0,0,0,0.55); overflow:hidden; border:1px solid rgba(242,240,227,0.08);}
+
+  /* Header — mesmo padrão do modal Editar Produto: amarelo tambem no escuro */
+  .header{padding:20px 24px; display:flex; align-items:center; gap:14px; background:#FFE500; border-bottom:1px solid #C8B800;}
+  .icon-chip{width:44px; height:44px; border-radius:16px; background:rgba(216,30,30,0.16); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#D81E1E;}
+  .icon-chip.sobra{background:rgba(52,211,153,0.16); color:#0A7A55;}
+  .icon-chip svg{width:20px; height:20px;}
+  .header-text{flex:1; min-width:0;}
+  .eyebrow{font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:0.12em; color:rgba(26,26,10,0.45);}
+  .h-title{font-size:18px; font-weight:800; color:#1A1A0E; line-height:1.25; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .close-btn{width:36px; height:36px; border-radius:12px; background:rgba(26,26,10,0.08); border:1px solid rgba(26,26,10,0.10); color:rgba(26,26,10,0.50); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s;}
+  .close-btn:hover{background:rgba(26,26,10,0.16);}
+  .close-btn svg{width:16px; height:16px;}
+
+  /* Tab switcher */
+  .tabs{padding:18px 24px 0; display:flex; gap:8px;}
+  .tab{flex:1; padding:10px; border-radius:12px; font-size:13px; font-weight:800; text-align:center; border:1.5px solid transparent; cursor:pointer; transition:all .15s;}
+  .tab.falta{background:rgba(248,113,113,0.15); color:#F87171; border-color:rgba(248,113,113,0.30);}
+  .tab.sobra-inactive{background:rgba(242,240,227,0.04); color:rgba(242,240,227,0.35); border-color:rgba(242,240,227,0.07);}
+
+  .body{padding:18px 24px 24px; display:flex; flex-direction:column; gap:16px;}
+
+  .card{background:#252520; border:1px solid rgba(242,240,227,0.07); border-radius:16px; padding:18px 20px; display:flex; align-items:center; gap:20px;}
+
+  .toggle-row{display:flex; align-items:center; gap:12px; cursor:pointer; flex:1;}
+  .qty-field{flex:1;}
+  .card-divider{width:1px; align-self:stretch; background:rgba(242,240,227,0.08);}
+  .switch{width:38px; height:22px; border-radius:9999px; background:rgba(242,240,227,0.14); position:relative; flex-shrink:0; transition:background .18s;}
+  .switch.on{background:#D81E1E;}
+  .switch-knob{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:9999px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.3); transition:left .18s;}
+  .switch.on .switch-knob{left:18px;}
+  .toggle-label{font-size:13.5px; font-weight:700; color:rgba(242,240,227,0.80);}
+
+  .field-label{display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:rgba(242,240,227,0.40); margin-bottom:6px;}
+  .field-input{width:100%; background:rgba(242,240,227,0.05); border:1px solid rgba(242,240,227,0.10); border-radius:12px; padding:10px 14px; font-size:14px; font-weight:700; color:#F2F0E3; font-family:inherit; transition:box-shadow .15s,border-color .15s;}
+  .field-input:focus{outline:none; border-color:#D81E1E; box-shadow:0 0 0 3px rgba(216,30,30,0.22); background:rgba(242,240,227,0.07);}
+  textarea.field-input{resize:none; font-weight:500; min-height:60px;}
+  .field-input::placeholder{color:rgba(242,240,227,0.25);}
+
+  .disregard{border:1.5px dashed rgba(242,240,227,0.14); border-radius:16px; padding:14px; background:rgba(242,240,227,0.02);}
+  .disregard.active{background:rgba(251,191,36,0.07); border-color:rgba(251,191,36,0.30);}
+  .disregard-top{display:flex; align-items:center; gap:10px;}
+  .disregard-icon{width:28px; height:28px; border-radius:9px; background:rgba(251,191,36,0.14); color:#FCD34D; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .disregard-icon svg{width:14px; height:14px;}
+  .disregard-title{font-size:12.5px; font-weight:800; color:#FCD34D; flex:1;}
+  .disregard-switch{width:36px; height:20px; border-radius:9999px; background:rgba(251,191,36,0.20); position:relative; flex-shrink:0; transition:background .18s;}
+  .disregard-switch.on{background:#D97706;}
+  .disregard-switch .knob{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:9999px; background:#1A1A0E; transition:left .18s;}
+  .disregard-switch.on .knob{left:18px; background:#fff;}
+  .disregard-desc{font-size:11px; font-weight:600; line-height:1.5; color:rgba(252,211,77,0.75); margin-top:8px;}
+
+  .footer{display:flex; gap:10px;}
+  .btn-clear{flex:1; padding:12px; border-radius:14px; background:rgba(242,240,227,0.06); border:1px solid rgba(242,240,227,0.09); color:rgba(242,240,227,0.50); font-weight:800; font-size:13.5px; cursor:pointer; transition:all .15s;}
+  .btn-clear:hover{background:rgba(242,240,227,0.10); color:rgba(242,240,227,0.70);}
+  .btn-save{flex:1; padding:12px; border-radius:14px; background:#D81E1E; color:#fff; font-weight:800; font-size:13.5px; border:none; cursor:pointer; box-shadow:0 10px 24px rgba(216,30,30,0.35); transition:all .15s;}
+  .btn-save:hover{background:#ef2c2c;}
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="col-label">Divergência v2 — Dark Mode<br/>(header amarelo mantido no escuro, igual ao modal "Editar Produto")</div>
+    <div class="modal">
+      <div class="header">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+        </div>
+        <div class="header-text">
+          <div class="eyebrow">Divergência</div>
+          <div class="h-title">coca cola original 600ml</div>
+        </div>
+        <div class="close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab falta">Falta</div>
+        <div class="tab sobra-inactive">Sobra</div>
+      </div>
+
+      <div class="body">
+        <div class="card">
+          <div class="toggle-row">
+            <div class="switch"><div class="switch-knob"></div></div>
+            <span class="toggle-label">Produto não veio</span>
+          </div>
+          <div class="card-divider"></div>
+          <div class="qty-field">
+            <label class="field-label">Qtd. faltando</label>
+            <input class="field-input" value="12" />
+          </div>
+        </div>
+
+        <div class="disregard">
+          <div class="disregard-top">
+            <div class="disregard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></div>
+            <span class="disregard-title">Desconsiderar produto</span>
+            <div class="disregard-switch"><div class="knob"></div></div>
+          </div>
+          <p class="disregard-desc">A quantidade informada acima deixa de ser somada no valor total e no markup da nota (quantidade inteira, se "Produto não veio" estiver marcado).</p>
+        </div>
+
+        <div>
+          <label class="field-label">Observações</label>
+          <textarea class="field-input" placeholder="Detalhes adicionais sobre a divergência..."></textarea>
+        </div>
+
+        <div class="footer">
+          <button class="btn-clear">Limpar</button>
+          <button class="btn-save">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
