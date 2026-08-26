@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Selos Medida/Qtd (Dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #17170F;
+    --card-bg: #1E1E18;
+    --header-bg: #FFE500;
+    --header-border: #C8B800;
+    --title: #1A1A0E;
+    --subtitle: rgba(26,26,10,0.55);
+    --col-header-bg: #FFE500;
+    --col-header-border: #C8B800;
+    --col-header-text: rgba(26,26,10,0.58);
+    --row-even: #252520;
+    --row-odd: #1E1E18;
+    --cell-inner: rgba(242,240,227,0.06);
+    --cell-border: rgba(242,240,227,0.08);
+    --text: #F2F0E3;
+    --text-muted: rgba(242,240,227,0.55);
+    --ring: #1E1E18;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .card {
+    background: var(--card-bg); border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 22px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .header {
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+    padding: 18px 22px;
+  }
+  .header h1 { font-size: 15px; font-weight: 900; margin: 0; color: var(--title); }
+  .header p { font-size: 10.5px; font-weight: 700; color: rgba(26,26,10,0.60); margin: 3px 0 0; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--col-header-bg); border-bottom: 1px solid var(--col-header-border); }
+  th {
+    text-align: center; padding: 12px 10px; font-size: 9px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.09em; color: var(--col-header-text);
+  }
+  th:first-child { text-align: left; padding-left: 20px; }
+  tbody td {
+    padding: 16px 10px; border-bottom: 1px solid var(--cell-border); text-align: center;
+  }
+  tbody td:first-child { text-align: left; padding-left: 20px; }
+  tbody tr:nth-child(odd) { background: var(--row-even); }
+  tbody tr:nth-child(even) { background: var(--row-odd); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .prod-name { font-size: 12.5px; font-weight: 800; color: var(--text); }
+  .prod-tag { font-size: 9.5px; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
+
+  .measure-cell {
+    position: relative; display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 13px; border-radius: 9px; background: var(--cell-inner);
+  }
+  .measure-unit { font-size: 13.5px; font-weight: 900; color: var(--text-muted); }
+  .measure-mult { font-size: 9px; font-weight: 900; color: #FF6B6B; }
+
+  .qty-cell-wrap { position: relative; display: inline-block; }
+  .qty-cell {
+    font-size: 13.5px; font-weight: 900; padding: 7px 15px; border-radius: 9px;
+    background: var(--cell-inner); color: var(--text); display: inline-block;
+  }
+
+  .badge {
+    position: absolute; top: -5px; width: 15px; height: 15px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45); box-sizing: content-box;
+    border: 1.5px solid var(--ring);
+  }
+  .badge.amber { left: -3px; background: rgba(252,211,77,0.20); color: #FCD34D; z-index: 2; }
+  .badge.violet { left: -3px; background: rgba(167,139,250,0.22); color: #C4B5FD; z-index: 1; }
+  .badge.violet.shifted { left: 9px; }
+  .badge svg { width: 8px; height: 8px; }
+
+  .qty-badge { top: 2px; left: 2px; position: absolute; }
+
+  .legend {
+    display: flex; gap: 18px; padding: 14px 22px; border-top: 1px solid var(--cell-border);
+    background: rgba(242,240,227,0.02);
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+  .legend-dot {
+    width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--ring); box-shadow: 0 1px 3px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .legend-dot.amber { background: rgba(252,211,77,0.20); color: #FCD34D; }
+  .legend-dot.violet { background: rgba(167,139,250,0.22); color: #C4B5FD; }
+  .legend-dot svg { width: 8px; height: 8px; }
+
+  .note { text-align: center; font-size: 10.5px; font-weight: 700; color: rgba(242,240,227,0.30); margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header">
+      <h1>Colunas Medida &amp; Qtd. — selos de item</h1>
+      <p>Tabela de revisão de notas · Entrada de Mercadoria · Modo Escuro</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>Medida</th>
+          <th>Qtd.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="prod-name">Sabonete Líquido Erva Doce</div>
+            <div class="prod-tag">sem selo</div>
+          </td>
+          <td>
+            <span class="measure-cell">
+              <span class="measure-unit">UN</span>
+            </span>
+          </td>
+          <td>
+            <div class="qty-cell-wrap">
+              <span class="qty-cell">40</span>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="prod-name">Detergente Neutro 500ml</div>
+            <div class="prod-tag">só medida convertida</div>
+          </td>
+          <td>
+            <span class="measure-cell">
+              <span class="badge amber" title="Medida definida por conversão (tradução ou medida cadastrada)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg>
+              </span>
+              <span class="measure-unit">UN</span>
+              <span class="measure-mult">×12</span>
+            </span>
+          </td>
+          <td>
+            <div class="qty-cell-wrap">
+              <span class="qty-cell">288</span>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="prod-name">Papel Toalha Folha Dupla</div>
+            <div class="prod-tag">só distribuído</div>
+          </td>
+          <td>
+            <span class="measure-cell">
+              <span class="badge violet" title="Distribuído para outra loja (15 un.)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 8h3l3 4v5a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+              </span>
+              <span class="measure-unit">UN</span>
+            </span>
+          </td>
+          <td>
+            <div class="qty-cell-wrap">
+              <span class="badge violet qty-badge" title="Distribuído para outra loja (15 un.)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 8h3l3 4v5a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+              </span>
+              <span class="qty-cell">50</span>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <div class="prod-name">Amaciante Concentrado 1L</div>
+            <div class="prod-tag">medida convertida + distribuído</div>
+          </td>
+          <td>
+            <span class="measure-cell">
+              <span class="badge amber" title="Medida definida por conversão (tradução ou medida cadastrada)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg>
+              </span>
+              <span class="badge violet shifted" title="Distribuído para outra loja (30 un.)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 8h3l3 4v5a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+              </span>
+              <span class="measure-unit" style="margin-left: 8px;">UN</span>
+              <span class="measure-mult">×6</span>
+            </span>
+          </td>
+          <td>
+            <div class="qty-cell-wrap">
+              <span class="badge violet qty-badge" title="Distribuído para outra loja (30 un.)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 8h3l3 4v5a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+              </span>
+              <span class="qty-cell">108</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-dot amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="M16 21l4-4-4-4"/><path d="M20 17H4"/></svg>
+        </span>
+        Medida convertida (já existia)
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot violet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 8h3l3 4v5a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+        </span>
+        Distribuído para outra loja (novo)
+      </div>
+    </div>
+  </div>
+  <p class="note">Mockup estático — conferência dos selos já implementados em app/page.tsx · Modo Escuro</p>
+</div>
+</body>
+</html>

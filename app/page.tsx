@@ -805,6 +805,8 @@ export default function Page() {
   }, [viewingReviewNote?.id, noteFinanceRefreshKey]);
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<NoteStatus | null>(null);
   const [savingNoteStatus, setSavingNoteStatus] = useState(false);
+  const [distribSendConfirmOpen, setDistribSendConfirmOpen] = useState(false);
+  const [sendingDistribution, setSendingDistribution] = useState(false);
   // Combobox de Fornecedor no cabeçalho da nota (mesmo padrão do campo Favorecido em Nova Movimentação)
   const [noteSupplierQuery, setNoteSupplierQuery] = useState('');
   const [noteSupplierOpen, setNoteSupplierOpen] = useState(false);
@@ -1509,6 +1511,9 @@ export default function Page() {
         orderDate: n.order_date ?? undefined,
         createdAt: n.created_at ?? undefined,
         finance_transaction_id: n.finance_transaction_id ?? null,
+        distributionStatus: n.distribution_status ?? null,
+        distributionSentAt: n.distribution_sent_at ?? null,
+        distributionSentByName: n.distribution_sent_by_name ?? null,
       })));
     }
   };
@@ -1655,19 +1660,23 @@ export default function Page() {
       if (d?.type === 'falta' && d.missingAll) return false;
       return true;
     });
-    // Itens elegíveis para as empresas extras (preço lançado via botão de preço na revisão) —
-    // independente do preço da empresa dona, pois uma pode ter preço lançado sem a outra ter.
+    // Itens elegíveis para as empresas extras — cada empresa que aparece em
+    // item.distribuicaoByCompany com quantidade > 0 (preço de venda, via pricingByCompany, é
+    // opcional agora: distribuir não depende mais de já ter precificado — ver Etapa 6/plano de
+    // Distribuição, decisão 3 do fluxo dentro da nota).
     const distributionCandidates = (note.items || []).filter((item: any) => {
       if (!item.product_id) return false;
       const d = item.discrepancy;
       if (d?.type === 'falta' && d.missingAll) return false;
       return true;
     });
+    const itemDistribTotal = (item: any): number =>
+      Object.values(item.distribuicaoByCompany || {}).reduce((acc: number, v: any) => acc + (Number(v) || 0), 0);
     const extraCompanyIds = Array.from(new Set(
-      distributionCandidates.flatMap((item: any) => Object.keys(item.pricingByCompany || {}))
+      distributionCandidates.flatMap((item: any) => Object.keys(item.distribuicaoByCompany || {}))
     )).filter((cid) => cid && cid !== note.companyId);
     const hasExtraWork = extraCompanyIds.some((cid) =>
-      distributionCandidates.some((item: any) => (item.pricingByCompany?.[cid]?.precoVenda ?? 0) > 0)
+      distributionCandidates.some((item: any) => (Number(item.distribuicaoByCompany?.[cid]) || 0) > 0)
     );
     if (priceCandidates.length === 0 && !hasExtraWork) return;
 
@@ -1691,7 +1700,10 @@ export default function Page() {
           return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
         })
         .map((item: any) => {
-          const qty = alreadyAppliedStock ? 0 : (parseFloat(item.qty) || 0);
+          // Decisão 2-C do plano de Distribuição: a dona só fica com o que sobrou depois de
+          // distribuído — só vale para aprovações novas, já que notas já aprovadas nunca
+          // reexecutam esta soma (guardadas por alreadyAppliedStock).
+          const qty = alreadyAppliedStock ? 0 : Math.max(0, (parseFloat(item.qty) || 0) - itemDistribTotal(item));
           const nextCount = (stockByProduct[item.product_id]?.count || 0) + qty;
           return supabase.from('product_company_stock').upsert({
             product_id: item.product_id,
@@ -1720,7 +1732,7 @@ export default function Page() {
             return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
           })
           .map((item: any) => {
-            const qty = alreadyAppliedStock ? 0 : (parseFloat(item.qty) || 0);
+            const qty = alreadyAppliedStock ? 0 : Math.max(0, (parseFloat(item.qty) || 0) - itemDistribTotal(item));
             const nextCount = (productMeta[item.product_id]?.count || 0) + qty;
             const payload: any = { price: item.product_price, count: nextCount, is_low: nextCount < 5 };
             if (noteReceivedDate) payload.price_received_date = noteReceivedDate;
@@ -1756,16 +1768,15 @@ export default function Page() {
       if (priceUpdates.length > 0) await Promise.all(priceUpdates);
     }
 
-    // Empresas extras (não-donas) precificadas via botão de preço na revisão. A quantidade
-    // que entra no product_company_stock delas vem da coluna Distribuição (item.distribuicao),
-    // não da quantidade total recebida — essa é exclusiva da empresa dona, que recebeu a
-    // mercadoria fisicamente. Preço é ressincronizado sempre (regra "só avança se mais recente"),
-    // mas a quantidade de Distribuição só é somada UMA VEZ por empresa (guarda: stockAppliedCompanies).
+    // Empresas extras (não-donas) que receberam alguma quantidade via item.distribuicaoByCompany.
+    // Preço de venda (pricingByCompany, opcional) é ressincronizado sempre que já preenchido
+    // (regra "só avança se mais recente"); a quantidade distribuída só é somada UMA VEZ por
+    // empresa (guarda: stockAppliedCompanies), igual à empresa dona.
     if (hasExtraWork) {
       const alreadyAppliedCompanies = new Set(note.stockAppliedCompanies || []);
       const newlyAppliedCompanies: string[] = [];
       for (const extraCompanyId of extraCompanyIds) {
-        const extraCandidates = distributionCandidates.filter((item: any) => (item.pricingByCompany?.[extraCompanyId]?.precoVenda ?? 0) > 0);
+        const extraCandidates = distributionCandidates.filter((item: any) => (Number(item.distribuicaoByCompany?.[extraCompanyId]) || 0) > 0);
         if (extraCandidates.length === 0) continue;
         const extraProductIds = Array.from(new Set(extraCandidates.map((item: any) => item.product_id)));
         const { data: currentExtraStockRows } = await supabase
@@ -1783,16 +1794,23 @@ export default function Page() {
             return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
           })
           .map((item: any) => {
-            const qty = alreadyAppliedThisCompany ? 0 : (parseFloat(item.distribuicao) || 0);
+            const qty = alreadyAppliedThisCompany ? 0 : (Number(item.distribuicaoByCompany?.[extraCompanyId]) || 0);
             const nextCount = (extraStockByProduct[item.product_id]?.count || 0) + qty;
-            return supabase.from('product_company_stock').upsert({
+            const sellPrice = item.pricingByCompany?.[extraCompanyId]?.precoVenda;
+            const payload: any = {
               product_id: item.product_id,
               company_id: extraCompanyId,
               count: nextCount,
-              price: item.pricingByCompany[extraCompanyId].precoVenda,
-              price_received_date: noteReceivedDate,
+              // Custo por loja também propaga pra quem recebeu via distribuição — mesmo valor
+              // usado no snapshot do manifesto (Etapa 6 do plano de Distribuição).
+              cost_price: item.price || 0,
+              cost_received_date: noteReceivedDate,
               updated_at: new Date().toISOString(),
-            }, { onConflict: 'product_id,company_id' });
+            };
+            // Preço de venda continua opcional (fluxo antigo do "botão de preço") — só grava
+            // se já foi preenchido, pra não zerar um preço que a própria loja já tenha definido.
+            if (sellPrice > 0) { payload.price = sellPrice; payload.price_received_date = noteReceivedDate; }
+            return supabase.from('product_company_stock').upsert(payload, { onConflict: 'product_id,company_id' });
           });
         if (extraUpserts.length > 0) await Promise.all(extraUpserts);
         if (!alreadyAppliedThisCompany) newlyAppliedCompanies.push(extraCompanyId);
@@ -1876,6 +1894,114 @@ export default function Page() {
     } finally {
       setSavingNoteStatus(false);
       setStatusConfirmTarget(null);
+    }
+  };
+
+  // Situação da Distribuição (Separação -> Distribuição Enviada) — independente da Situação
+  // de Entrada, só liberada com a nota em Revisão. Ao enviar, agrupa item.distribuicaoByCompany
+  // por loja de destino e cria 1 manifesto por loja (decisão 1-A do plano de Distribuição),
+  // com os itens já com custo/venda de referência (Estoque & Preço da loja de origem).
+  const handleSendDistribution = async () => {
+    if (!viewingReviewNote) return;
+    if (getNoteStatus(viewingReviewNote) !== 'revisao') {
+      setNotification({ type: 'error', message: 'A nota precisa estar em Revisão para enviar a distribuição.' });
+      return;
+    }
+    if (viewingReviewNote.distributionStatus === 'distribuicao_enviada') return;
+    setSendingDistribution(true);
+    try {
+      // Garante que a distribuição (e qualquer outra edição pendente) já está salva antes
+      // de gerar os manifestos a partir dela.
+      await persistNote();
+      const note = viewingReviewNote;
+      const originCompanyId = note.companyId;
+      if (!originCompanyId) throw new Error(EMPRESA_REQUIRED_MSG);
+
+      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number }[]> = {};
+      note.items.forEach((item: any, idx: number) => {
+        const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
+        Object.entries(dist).forEach(([companyId, qty]) => {
+          const q = Number(qty) || 0;
+          if (q <= 0 || !item.product_id) return;
+          if (!byCompany[companyId]) byCompany[companyId] = [];
+          byCompany[companyId].push({
+            productId: item.product_id,
+            productName: item.name || item.original_description || 'Produto',
+            sku: (viewingNoteSkus[idx] ?? item.sku) || null,
+            ean: (viewingNoteEans[idx] ?? item.ean) || null,
+            qty: q,
+          });
+        });
+      });
+
+      const destCompanyIds = Object.keys(byCompany);
+      if (destCompanyIds.length === 0) {
+        setNotification({ type: 'error', message: 'Nenhuma distribuição preenchida — adicione ao menos uma quantidade na coluna Distribuição antes de enviar.' });
+        return;
+      }
+
+      const allProductIds = Array.from(new Set(Object.values(byCompany).flat().map(r => r.productId)));
+      const { data: originStock } = await supabase
+        .from('product_company_stock')
+        .select('product_id, cost_price, price')
+        .eq('company_id', originCompanyId)
+        .in('product_id', allProductIds);
+      const stockByProduct: Record<string, { cost_price: number; price: number }> = {};
+      (originStock || []).forEach((r: any) => { stockByProduct[r.product_id] = { cost_price: parseFloat(r.cost_price) || 0, price: parseFloat(r.price) || 0 }; });
+
+      const nowIso = new Date().toISOString();
+      const shippingDate = note.receivedDate || nowIso.slice(0, 10);
+
+      for (const destCompanyId of destCompanyIds) {
+        const { data: manifestNumber, error: rpcError } = await supabase.rpc('get_next_distribution_manifest_number');
+        if (rpcError || !manifestNumber) throw new Error('Não foi possível gerar o número do manifesto.');
+        const manifestId = crypto.randomUUID();
+        const { error: manifestError } = await supabase.from('distribution_manifests').insert({
+          id: manifestId,
+          manifest_number: manifestNumber,
+          origin_company_id: originCompanyId,
+          destination_company_id: destCompanyId,
+          status: 'pedido_enviado',
+          shipping_date: shippingDate,
+          created_by_id: colaboradorId || null,
+          created_by_name: colaboradorNome || null,
+          sent_by_id: colaboradorId || null,
+          sent_by_name: colaboradorNome || null,
+          sent_at: nowIso,
+          source_note_id: note.id,
+        });
+        if (manifestError) throw manifestError;
+
+        const itemsPayload = byCompany[destCompanyId].map(r => ({
+          manifest_id: manifestId,
+          product_id: r.productId,
+          product_name: r.productName,
+          sku: r.sku,
+          ean: r.ean,
+          qty: r.qty,
+          cost_price: stockByProduct[r.productId]?.cost_price || 0,
+          sale_price_origin: stockByProduct[r.productId]?.price || 0,
+        }));
+        const { error: itemsError } = await supabase.from('distribution_manifest_items').insert(itemsPayload);
+        if (itemsError) throw itemsError;
+      }
+
+      await supabase.from('review_notes').update({
+        distribution_status: 'distribuicao_enviada',
+        distribution_sent_at: nowIso,
+        distribution_sent_by_id: colaboradorId || null,
+        distribution_sent_by_name: colaboradorNome || null,
+      }).eq('id', note.id);
+
+      const updatedNote: ReviewNote = { ...note, distributionStatus: 'distribuicao_enviada', distributionSentAt: nowIso, distributionSentByName: colaboradorNome || null };
+      setViewingReviewNote(updatedNote);
+      setReviewNotes(prev => prev.map(n => n.id === note.id ? updatedNote : n));
+      setNotification({ type: 'success', message: `Distribuição enviada — ${destCompanyIds.length} manifesto(s) criado(s).` });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao enviar distribuição.' });
+    } finally {
+      setSendingDistribution(false);
+      setDistribSendConfirmOpen(false);
     }
   };
 
@@ -9450,6 +9576,65 @@ export default function Page() {
                         );
                       })}
                     </div>
+
+                    {/* ── Situação da Distribuição — independente da Situação de Entrada, só
+                        aparece se a nota tiver alguma distribuição preenchida ────────────── */}
+                    {(() => {
+                      const hasDistribution = (viewingReviewNote.items || []).some((item: any, idx: number) => {
+                        const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
+                        return Object.values(dist).some((v: any) => (Number(v) || 0) > 0);
+                      }) || !!viewingReviewNote.distributionStatus;
+                      if (!hasDistribution) return null;
+                      const sent = viewingReviewNote.distributionStatus === 'distribuicao_enviada';
+                      const canSend = !sent && getNoteStatus(viewingReviewNote) === 'revisao';
+                      return (
+                        <div className="mt-8">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Situação da Distribuição</p>
+                          <div className="grid grid-cols-2 gap-3 max-w-lg">
+                            <div className={cn('flex items-center gap-2.5 p-4 rounded-2xl border-2', !sent ? 'bg-amber-500/10 border-amber-500/30' : 'border-on-surface/10 bg-white dark:bg-[#252520]')}>
+                              <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', !sent ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-on-surface/10 text-on-surface/40')}>
+                                <Pencil size={17} />
+                              </span>
+                              <div>
+                                <div className="text-xs font-black text-on-surface">Separação</div>
+                                <div className="text-[10.5px] font-medium text-on-surface/40">Editável</div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => canSend && setDistribSendConfirmOpen(true)}
+                              disabled={!canSend && !sent}
+                              className={cn(
+                                'flex items-center gap-2.5 p-4 rounded-2xl border-2 text-left transition-all',
+                                sent ? 'bg-emerald-500/10 border-emerald-500/30'
+                                  : canSend ? 'bg-emerald-500/10 border-emerald-500/30 hover:-translate-y-0.5 cursor-pointer'
+                                    : 'border-on-surface/10 bg-white dark:bg-[#252520] opacity-50 cursor-not-allowed'
+                              )}
+                            >
+                              <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', (sent || canSend) ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/40')}>
+                                <CheckCircle2 size={17} />
+                              </span>
+                              <div>
+                                <div className="text-xs font-black text-on-surface">Distribuição Enviada</div>
+                                <div className="text-[10.5px] font-medium text-on-surface/40">
+                                  {sent ? 'Definitivo' : canSend ? 'Clique para confirmar' : 'Disponível apenas em Revisão'}
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                          {!sent ? (
+                            <p className="text-[10.5px] font-bold text-on-surface/35 mt-2.5 flex items-center gap-1.5 max-w-lg">
+                              <AlertTriangle size={11} className="shrink-0" />
+                              Cria 1 manifesto por loja de destino na aba Distribuição — ação não pode ser desfeita.
+                            </p>
+                          ) : (
+                            <p className="text-[11px] font-bold text-on-surface/45 mt-2.5">
+                              Enviado por <b className="text-on-surface font-black">{viewingReviewNote.distributionSentByName}</b>
+                              {viewingReviewNote.distributionSentAt ? ` em ${new Date(viewingReviewNote.distributionSentAt).toLocaleString('pt-BR')}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ── Produtos com Falta ──────────────────────────────────── */}
@@ -12674,6 +12859,46 @@ export default function Page() {
             </div>
           );
         })()}
+      </AnimatePresence>
+
+      {/* Confirmação de envio da Distribuição — irreversível, gera 1 manifesto por loja extra */}
+      <AnimatePresence>
+        {distribSendConfirmOpen && viewingReviewNote && (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !sendingDistribution && setDistribSendConfirmOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="relative w-full max-w-sm bg-white dark:bg-[#1e1e18] border border-line dark:border-white/10 rounded-3xl p-6 text-center shadow-2xl"
+            >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Truck size={22} />
+              </div>
+              <h3 className="text-base font-black text-on-surface mb-2">Confirmar envio da distribuição?</h3>
+              <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
+                Cria 1 manifesto por loja de destino na aba Distribuição, já como "Pedido Enviado". Essa ação não pode ser desfeita.
+              </p>
+              <button
+                disabled={sendingDistribution}
+                onClick={handleSendDistribution}
+                className="w-full py-3.5 rounded-2xl text-white font-black text-xs uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2 mb-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                <CheckCircle2 size={15} /> {sendingDistribution ? 'Enviando...' : 'Confirmar Envio'}
+              </button>
+              <button
+                onClick={() => setDistribSendConfirmOpen(false)}
+                disabled={sendingDistribution}
+                className="w-full py-2.5 text-on-surface/45 font-bold text-xs hover:text-on-surface/70 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {/* Mode choice — Administrador vs Estoque, ao abrir uma nota no mobile */}

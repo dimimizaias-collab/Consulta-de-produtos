@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Modal Distribuição (Dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --title: #F2F0E3;
+    --subtitle: rgba(242,240,227,0.45);
+    --modal-bg: #1E1E18;
+    --input-bg: #2E2E28;
+    --input-border: rgba(242,240,227,0.16);
+    --primary: #D81E1E;
+    --emerald: #34D399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: #0d0d09;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--title);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .backdrop-note { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.35); }
+
+  .modal {
+    width: 100%; max-width: 672px;
+    background: var(--modal-bg);
+    border-radius: 24px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+    border: 1px solid rgba(242,240,227,0.10);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    background: #FFE500; border-bottom: 1px solid #C8B800;
+    padding: 20px 24px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+  }
+  .icon-chip {
+    width: 44px; height: 44px; border-radius: 16px;
+    background: rgba(216,30,30,0.16); color: #D81E1E;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 19px;
+  }
+  .header-text h2 { font-size: 18px; font-weight: 800; margin: 0; color: #1A1A0E; line-height: 1.2; }
+  .header-text p { font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.60); margin: 3px 0 0; }
+  .close-btn {
+    width: 36px; height: 36px; border-radius: 12px; margin-left: auto; flex-shrink: 0;
+    background: rgba(26,26,10,0.08); border: 1px solid rgba(26,26,10,0.10); color: rgba(26,26,10,0.50);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+
+  .modal-body { padding: 22px 24px; overflow-y: auto; flex: 1; min-height: 0; }
+
+  .product-card {
+    background: rgba(242,240,227,0.04); border: 1px solid rgba(242,240,227,0.10);
+    border-radius: 14px; padding: 13px 15px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .product-icon {
+    width: 38px; height: 38px; border-radius: 11px; background: rgba(216,30,30,0.16); color: #FF6B6B;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px;
+  }
+  .product-info { flex: 1; min-width: 0; }
+  .product-info .name { font-size: 13.5px; font-weight: 800; color: var(--title); }
+  .product-info .codes { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600; color: var(--subtitle); margin-top: 1px; }
+  .qty-received-pill {
+    flex-shrink: 0; background: rgba(242,240,227,0.08); padding: 6px 12px; border-radius: 999px;
+    font-size: 11px; font-weight: 800; color: var(--title); white-space: nowrap;
+  }
+
+  .remaining-indicator {
+    padding: 10px 14px; border-radius: 12px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 12px; font-weight: 800;
+  }
+  .remaining-indicator.ok { background: rgba(52,211,153,0.10); color: var(--emerald); border: 1px solid rgba(52,211,153,0.28); }
+  .remaining-indicator.full { background: rgba(216,30,30,0.14); color: #FF8A8A; border: 1px solid rgba(216,30,30,0.35); }
+
+  .section-label {
+    font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--subtitle); margin-bottom: 8px;
+  }
+
+  .company-list { display: flex; flex-direction: column; gap: 8px; }
+  .company-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #252520; border: 1.5px solid rgba(242,240,227,0.10); border-radius: 13px;
+    padding: 11px 14px;
+  }
+  .company-card.filled { background: rgba(216,30,30,0.08); border-color: rgba(216,30,30,0.40); }
+  .company-name { font-size: 13px; font-weight: 800; color: var(--title); display: flex; align-items: center; gap: 8px; }
+  .company-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+  .qty-input {
+    width: 88px; text-align: right; font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 800;
+    background: var(--input-bg); border: 1.5px solid var(--input-border); border-radius: 10px;
+    padding: 8px 11px; color: var(--title); outline: none;
+  }
+  .qty-input::placeholder { color: rgba(242,240,227,0.32); font-weight: 700; }
+  .qty-input.filled-val { border-color: var(--primary); color: #FF8A8A; background: rgba(216,30,30,0.12); }
+
+  .modal-footer {
+    padding: 16px 24px; flex-shrink: 0;
+  }
+  .btn-confirm {
+    width: 100%; background: var(--primary); color: white; font-size: 13.5px; font-weight: 900;
+    padding: 13px; border-radius: 14px; border: none; box-shadow: 0 6px 14px rgba(216,30,30,0.35);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="backdrop-note">Mockup estático — Modal Distribuição (tamanho/estilo de "Vincular ao Dicionário") · Modo Escuro</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <div class="icon-chip">📦</div>
+    <div class="header-text">
+      <h2>Distribuição entre Lojas</h2>
+      <p>Amaciante Concentrado 1L</p>
+    </div>
+    <div class="close-btn">✕</div>
+  </div>
+
+  <div class="modal-body">
+    <div class="product-card">
+      <div class="product-icon">🧴</div>
+      <div class="product-info">
+        <div class="name">Amaciante Concentrado 1L</div>
+        <div class="codes">SKU 00302 · EAN 7891234500036</div>
+      </div>
+      <div class="qty-received-pill">Recebido: 40 un.</div>
+    </div>
+
+    <div class="remaining-indicator ok">
+      <span>38 de 40 un. distribuídos</span>
+      <span>2 restantes</span>
+    </div>
+
+    <div class="section-label">Empresas cadastradas</div>
+    <div class="company-list">
+      <div class="company-card filled">
+        <span class="company-name"><span class="company-dot"></span>Loja Shopping</span>
+        <input class="qty-input filled-val" type="text" value="30" />
+      </div>
+      <div class="company-card filled">
+        <span class="company-name"><span class="company-dot"></span>Loja Bairro Sul</span>
+        <input class="qty-input filled-val" type="text" value="8" />
+      </div>
+      <div class="company-card">
+        <span class="company-name"><span class="company-dot"></span>Loja Centro</span>
+        <input class="qty-input" type="text" placeholder="até 2" />
+      </div>
+      <div class="company-card">
+        <span class="company-name"><span class="company-dot"></span>Loja Depósito</span>
+        <input class="qty-input" type="text" placeholder="até 2" />
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn-confirm">✓ Confirmar Distribuição</button>
+  </div>
+</div>
+
+</body>
+</html>

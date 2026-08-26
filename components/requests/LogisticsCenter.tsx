@@ -73,6 +73,11 @@ export interface ReviewNote {
   finance_transaction_id?: string | null;
   finance_tx_favorecido?: string | null;
   finance_tx_valor?: number | null;
+  // Situação da Distribuição — independente da Situação de Entrada, exclusiva do fluxo de
+  // distribuição entre lojas (item.distribuicaoByCompany). Ver add_review_notes_distribution_status.sql.
+  distributionStatus?: 'separacao' | 'distribuicao_enviada' | null;
+  distributionSentAt?: string | null;
+  distributionSentByName?: string | null;
 }
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
