@@ -24,6 +24,22 @@ export interface MotherPackage {
   suppliers?: { nome_fantasia?: string; name?: string } | null;
 }
 
+// Dados do Produto Mãe capturados no formulário antes de existir um produto filho salvo
+// (ex: modal de "Criar e Vincular" da nota) — fica em memória até o filho ser criado, quando
+// então é gravado via saveMotherPackage.
+export interface MotherPackageDraft {
+  sku: string | null;
+  name: string;
+  ean: string | null;
+  extraEans: EanCodeEntry[];
+  unitsPerChild: number;
+  supplierId: string | null;
+  location: string | null;
+  category: string | null;
+  subcategory: string | null;
+  image: string | null;
+}
+
 interface Supplier {
   id: string;
   name?: string;
@@ -38,6 +54,99 @@ interface MotherProductModalProps {
   editingPackage: MotherPackage | null;
   suppliers: Supplier[];
   onSaved: () => void;
+  // Modo "staging": quando informado, o modal não grava nada no banco — apenas valida os
+  // campos e devolve o rascunho via onStage, pra ser persistido depois (junto com o produto
+  // filho) por quem chamou. Usado quando ainda não existe um child_product_id (a tabela exige
+  // NOT NULL). Tem prioridade sobre o fluxo normal de salvar.
+  onStage?: (draft: MotherPackageDraft) => void;
+  // Pré-preenche o formulário ao reabrir um rascunho já staged (ex: usuário clicou "Editar").
+  initialDraft?: MotherPackageDraft | null;
+}
+
+// Grava (insert ou update) um Produto Mãe e sincroniza EANs extras, supplier_units e o
+// auto-redirecionamento de tradução — mesma lógica usada tanto pelo salvamento "ao vivo" deste
+// modal (childProductId já existente) quanto pelo fluxo de staging, chamado por quem persiste o
+// rascunho assim que o produto filho é criado (ex: handleNoteItemCreateAndLink em app/page.tsx).
+export async function saveMotherPackage(params: {
+  childProductId: string;
+  draft: MotherPackageDraft;
+  existingId?: string;
+}): Promise<string> {
+  const { childProductId, draft, existingId } = params;
+  const payload = {
+    child_product_id: childProductId,
+    supplier_id: draft.supplierId,
+    sku: draft.sku,
+    name: draft.name,
+    ean: draft.ean,
+    location: draft.location,
+    category: draft.category,
+    subcategory: draft.subcategory,
+    image: draft.image,
+    units_per_child: draft.unitsPerChild || 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  let motherPackageId = existingId;
+  if (motherPackageId) {
+    const { error: updErr } = await supabase.from('product_mother_packages').update(payload).eq('id', motherPackageId);
+    if (updErr) throw updErr;
+  } else {
+    const { data, error: insErr } = await supabase.from('product_mother_packages').insert(payload).select('id').single();
+    if (insErr) throw insErr;
+    motherPackageId = data.id;
+  }
+
+  // Sincroniza EANs extras (multi-código, ex: fabricante trocou o código de barras da caixa)
+  await supabase.from('product_mother_package_ean_codes').delete().eq('mother_package_id', motherPackageId);
+  const validExtraEans = draft.extraEans.filter(e => e.ean.trim());
+  if (validExtraEans.length > 0) {
+    await supabase.from('product_mother_package_ean_codes').insert(
+      validExtraEans.map(e => ({ mother_package_id: motherPackageId, ean: e.ean.trim(), description: e.description || null }))
+    );
+  }
+
+  // Sincroniza com supplier_units — mesmo motor de conversão de quantidade usado no import de notas.
+  if (draft.supplierId) {
+    const { data: existingUnit } = await supabase
+      .from('supplier_units')
+      .select('id')
+      .eq('product_id', childProductId)
+      .eq('supplier_id', draft.supplierId)
+      .eq('unit_name', draft.name)
+      .maybeSingle();
+    if (existingUnit) {
+      await supabase.from('supplier_units').update({ multiplier: draft.unitsPerChild || 1 }).eq('id', existingUnit.id);
+    } else {
+      await supabase.from('supplier_units').insert({
+        product_id: childProductId,
+        supplier_id: draft.supplierId,
+        unit_name: draft.name,
+        multiplier: draft.unitsPerChild || 1,
+      });
+    }
+  }
+
+  // Auto-redireciona a tradução do Dicionário para este Produto Mãe — só quando for
+  // inequívoco (exatamente 1 mapeamento desse fornecedor para este produto). Havendo mais
+  // de um (ex: caixa e unidade avulsa cadastradas separadamente), não mexe sozinho — fica
+  // como sugestão manual na aba "Produtos Mãe" do Dicionário, pra evitar redirecionar a
+  // tradução errada.
+  if (draft.supplierId) {
+    const { data: candidateMappings } = await supabase
+      .from('supplier_mappings')
+      .select('id')
+      .eq('supplier_id', draft.supplierId)
+      .eq('internal_product_id', childProductId);
+    if (candidateMappings && candidateMappings.length === 1) {
+      await supabase
+        .from('supplier_mappings')
+        .update({ mother_package_id: motherPackageId, internal_product_id: null })
+        .eq('id', candidateMappings[0].id);
+    }
+  }
+
+  return motherPackageId!;
 }
 
 const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
@@ -79,7 +188,7 @@ const SUFFIX_KBD: Record<string, string[][]> = {
 
 const UNITS_KEYS = ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK'];
 
-export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved }: MotherProductModalProps) {
+export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved, onStage, initialDraft }: MotherProductModalProps) {
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
   const [suffix, setSuffix] = useState('');
@@ -153,12 +262,24 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
         .select('ean, description')
         .eq('mother_package_id', editingPackage.id)
         .then(({ data }) => setExtraEans((data || []) as EanCodeEntry[]));
+    } else if (initialDraft) {
+      setSku(initialDraft.sku || '');
+      setName(initialDraft.name || '');
+      setSuffix('');
+      setEan(initialDraft.ean || '');
+      setExtraEans(initialDraft.extraEans || []);
+      setUnitsPerChild(initialDraft.unitsPerChild || '');
+      setSupplierId(initialDraft.supplierId || '');
+      setLocation(initialDraft.location || '');
+      setCategory(initialDraft.category || '');
+      setSubcategory(initialDraft.subcategory || '');
+      setImage(initialDraft.image || '');
     } else {
       setSku(''); setName(childProductName || ''); setSuffix(''); setEan(''); setExtraEans([]);
       setUnitsPerChild(''); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
-  }, [open, editingPackage, childProductName]);
+  }, [open, editingPackage, initialDraft, childProductName]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -191,82 +312,31 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
     if (!name.trim()) { setError('Informe o nome da embalagem.'); return; }
     if (!unitsPerChild || unitsPerChild <= 0) { setError('Informe as unidades por embalagem.'); return; }
     const finalName = suffix.trim() ? `${name.trim()} ${suffix.trim()}` : name.trim();
+    const draft: MotherPackageDraft = {
+      sku: sku.trim() || null,
+      name: finalName,
+      ean: ean.trim() || null,
+      extraEans: extraEans.filter(e => e.ean.trim()),
+      unitsPerChild: unitsPerChild || 1,
+      supplierId: supplierId || null,
+      location: location.trim() || null,
+      category: category.trim() || null,
+      subcategory: subcategory.trim() || null,
+      image: image.trim() || null,
+    };
+
+    // Staging: ainda não existe child_product_id (produto filho será criado depois) — só
+    // devolve o rascunho pra quem chamou persistir junto com o produto, sem gravar agora.
+    if (onStage) {
+      onStage(draft);
+      onClose();
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
-      const payload = {
-        child_product_id: childProductId,
-        supplier_id: supplierId || null,
-        sku: sku.trim() || null,
-        name: finalName,
-        ean: ean.trim() || null,
-        location: location.trim() || null,
-        category: category.trim() || null,
-        subcategory: subcategory.trim() || null,
-        image: image.trim() || null,
-        units_per_child: unitsPerChild || 1,
-        updated_at: new Date().toISOString(),
-      };
-
-      let motherPackageId = editingPackage?.id;
-      if (motherPackageId) {
-        const { error: updErr } = await supabase.from('product_mother_packages').update(payload).eq('id', motherPackageId);
-        if (updErr) throw updErr;
-      } else {
-        const { data, error: insErr } = await supabase.from('product_mother_packages').insert(payload).select('id').single();
-        if (insErr) throw insErr;
-        motherPackageId = data.id;
-      }
-
-      // Sincroniza EANs extras (multi-código, ex: fabricante trocou o código de barras da caixa)
-      await supabase.from('product_mother_package_ean_codes').delete().eq('mother_package_id', motherPackageId);
-      const validExtraEans = extraEans.filter(e => e.ean.trim());
-      if (validExtraEans.length > 0) {
-        await supabase.from('product_mother_package_ean_codes').insert(
-          validExtraEans.map(e => ({ mother_package_id: motherPackageId, ean: e.ean.trim(), description: e.description || null }))
-        );
-      }
-
-      // Sincroniza com supplier_units — mesmo motor de conversão de quantidade usado no import de notas.
-      if (supplierId) {
-        const { data: existingUnit } = await supabase
-          .from('supplier_units')
-          .select('id')
-          .eq('product_id', childProductId)
-          .eq('supplier_id', supplierId)
-          .eq('unit_name', finalName)
-          .maybeSingle();
-        if (existingUnit) {
-          await supabase.from('supplier_units').update({ multiplier: unitsPerChild || 1 }).eq('id', existingUnit.id);
-        } else {
-          await supabase.from('supplier_units').insert({
-            product_id: childProductId,
-            supplier_id: supplierId,
-            unit_name: finalName,
-            multiplier: unitsPerChild || 1,
-          });
-        }
-      }
-
-      // Auto-redireciona a tradução do Dicionário para este Produto Mãe — só quando for
-      // inequívoco (exatamente 1 mapeamento desse fornecedor para este produto). Havendo mais
-      // de um (ex: caixa e unidade avulsa cadastradas separadamente), não mexe sozinho — fica
-      // como sugestão manual na aba "Produtos Mãe" do Dicionário, pra evitar redirecionar a
-      // tradução errada.
-      if (supplierId) {
-        const { data: candidateMappings } = await supabase
-          .from('supplier_mappings')
-          .select('id')
-          .eq('supplier_id', supplierId)
-          .eq('internal_product_id', childProductId);
-        if (candidateMappings && candidateMappings.length === 1) {
-          await supabase
-            .from('supplier_mappings')
-            .update({ mother_package_id: motherPackageId, internal_product_id: null })
-            .eq('id', candidateMappings[0].id);
-        }
-      }
-
+      await saveMotherPackage({ childProductId, draft, existingId: editingPackage?.id });
       onSaved();
       onClose();
     } catch (err: any) {
