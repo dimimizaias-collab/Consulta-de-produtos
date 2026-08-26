@@ -3190,7 +3190,7 @@ export default function Page() {
     setViewingDistribMode([]);
     setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
-    setViewingNoteMeasureConverted(note.items.map(() => false));
+    setViewingNoteMeasureConverted(note.items.map((item: any) => !!item.measureConverted));
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
     setReviewEditableCols(new Set());
@@ -3841,6 +3841,9 @@ export default function Page() {
       distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
         ? parseInt(viewingNoteDistribuicao[idx]) || null
         : (item.distribuicao ?? null),
+      // Selo de "Medida definida por conversão" — precisa ser persistido (não só na tela),
+      // senão some ao reabrir a nota mesmo com a unidade/quantidade já convertidas.
+      measureConverted: viewingNoteMeasureConverted[idx] ?? item.measureConverted ?? false,
       ...((() => { const leg = adjLegacy(); return {
         adj_discount_mode: leg.discountMode,
         adj_discount_applied: leg.discountMode === 'geral' ? leg.discountApplied : null,
