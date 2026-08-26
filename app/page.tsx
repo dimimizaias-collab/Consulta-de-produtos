@@ -30,7 +30,10 @@ import { EanProblemButton, type EanProblem } from '@/components/shared/EanProble
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
 import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturerModal';
-import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3 } from 'lucide-react';
+import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -11483,6 +11486,24 @@ export default function Page() {
                   captureSnapshot();
                 };
 
+                // Navegação entre itens sem fechar o modal — travada se houver quantidade
+                // digitada ainda não confirmada, pra não perder o que foi preenchido (comparação
+                // ignora ordem das chaves, já que o rascunho é preenchido na ordem que o usuário
+                // digitou, não necessariamente a ordem salva).
+                const draftNormalized: Record<string, number> = {};
+                Object.entries(distribModalDraft).forEach(([cid, v]) => { const n = parseInt(v) || 0; if (n > 0) draftNormalized[cid] = n; });
+                const savedForItem = viewingNoteDistribByCompany[idx] || {};
+                const navKeys = new Set([...Object.keys(draftNormalized), ...Object.keys(savedForItem)]);
+                const isDirty = Array.from(navKeys).some(k => (draftNormalized[k] || 0) !== (savedForItem[k] || 0));
+                const totalItems = viewingReviewNote.items.length;
+                const goToItem = (newIdx: number) => {
+                  if (isDirty || newIdx < 0 || newIdx >= totalItems) return;
+                  const draft: Record<string, string> = {};
+                  Object.entries(viewingNoteDistribByCompany[newIdx] || {}).forEach(([cid, v]) => { draft[cid] = String(v); });
+                  setDistribModalDraft(draft);
+                  setDistribModalIdx(newIdx);
+                };
+
                 return (
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDistribModalIdx(null)} />
@@ -11501,9 +11522,40 @@ export default function Page() {
                           <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Distribuição entre Lojas</h2>
                           <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{item.name || item.original_description || 'Item sem descrição'}</p>
                         </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {[
+                            { title: 'Primeiro item', target: 0, Icon: ChevronsLeft },
+                            { title: 'Item anterior', target: idx - 1, Icon: ChevronLeft },
+                          ].map(({ title, target, Icon }) => (
+                            <button
+                              key={title}
+                              onClick={() => goToItem(target)}
+                              disabled={isDirty || target < 0}
+                              title={title}
+                              className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center bg-black/[0.08] border border-black/10 text-black/55 hover:bg-black/[0.14] transition-colors disabled:opacity-35 disabled:pointer-events-none"
+                            >
+                              <Icon size={15} />
+                            </button>
+                          ))}
+                          <span className="font-mono text-[10.5px] font-bold text-[#1A1A0E]/50 px-2 whitespace-nowrap">Item {idx + 1} de {totalItems}</span>
+                          {[
+                            { title: 'Próximo item', target: idx + 1, Icon: ChevronRight },
+                            { title: 'Último item', target: totalItems - 1, Icon: ChevronsRight },
+                          ].map(({ title, target, Icon }) => (
+                            <button
+                              key={title}
+                              onClick={() => goToItem(target)}
+                              disabled={isDirty || target >= totalItems}
+                              title={title}
+                              className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center bg-black/[0.08] border border-black/10 text-black/55 hover:bg-black/[0.14] transition-colors disabled:opacity-35 disabled:pointer-events-none"
+                            >
+                              <Icon size={15} />
+                            </button>
+                          ))}
+                        </div>
                         <button
                           onClick={() => setDistribModalIdx(null)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors ml-1.5"
                         >
                           <X size={18} />
                         </button>
@@ -11534,6 +11586,13 @@ export default function Page() {
                           <span>{draftTotal} de {qtyRecebida} un. distribuídos</span>
                           <span>{remaining} restante{remaining === 1 ? '' : 's'}</span>
                         </div>
+
+                        {isDirty && (
+                          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-xl px-3.5 py-2.5 text-[11px] font-extrabold">
+                            <AlertTriangle size={14} className="shrink-0" />
+                            Confirme a distribuição deste item antes de navegar para outro
+                          </div>
+                        )}
 
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/40 dark:text-white/30 mb-2">Empresas cadastradas</p>
