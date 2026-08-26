@@ -34,7 +34,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3 } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -587,13 +587,18 @@ export default function Page() {
   const [noteItemSelectedProduct, setNoteItemSelectedProduct] = useState<any>(null);
   const [noteItemSellPriceInput, setNoteItemSellPriceInput] = useState('');
   const [noteItemSaveTranslation, setNoteItemSaveTranslation] = useState(false);
-  // Produto Mãe (caixa/fardo) definido ANTES do produto normal existir, pela tela "Criar e
-  // Vincular" da nota — o MotherProductModal roda em modo "staging" (product_mother_packages
-  // exige child_product_id NOT NULL, então nada é gravado ainda) e devolve o rascunho aqui;
-  // ele só é persistido (via saveMotherPackage) depois que o produto normal é criado, dentro
-  // de handleNoteItemCreateAndLink — tudo num único clique de "Criar e Vincular".
-  const [noteItemMotherDraft, setNoteItemMotherDraft] = useState<MotherPackageDraft | null>(null);
+  // Aba ativa na tela "Criar Novo Produto" do modal "Vincular ao Dicionário": deixa o usuário
+  // escolher se está definindo o Produto (filho) ou o Produto Mãe (caixa/fardo) — nessa ordem
+  // ou na inversa, já que o Produto Mãe pode ser salvo (pendente) antes do produto existir.
+  const [noteItemCreateTab, setNoteItemCreateTab] = useState<'produto' | 'mae'>('produto');
   const [noteItemMotherModalOpen, setNoteItemMotherModalOpen] = useState(false);
+  // Produto Mãe salvo pela aba "Produto Mãe" ANTES do produto normal existir fica gravado
+  // diretamente em item.mother_draft (dentro de viewingReviewNote.items, JSONB da tabela
+  // review_notes) — sobrevive a fechar/reabrir a nota, ao contrário de estado local. A tabela
+  // product_mother_packages exige child_product_id NOT NULL, então nada é gravado no banco
+  // ainda; o rascunho só vira uma linha real quando o produto filho for criado (dentro de
+  // handleNoteItemCreateAndLink), que também limpa item.mother_draft nesse momento. Enquanto
+  // pendente, bloqueia a aprovação da nota (ver blockedByPendingMotherDraft).
   // "Preços por Loja" no formulário de criação — a loja principal (dona da nota) usa
   // noteItemNewSellPrice normalmente; as demais são lançadas em viewingNoteExtraPricing
   // (mesmo mecanismo de "distribuição" já usado na tabela de revisão) via setExtraSellPrice.
@@ -3613,8 +3618,22 @@ export default function Page() {
     setReviewUnitMenuIdx(idx);
   };
 
+  // Salva (ou remove) o rascunho de Produto Mãe da aba "Produto Mãe" diretamente no item da
+  // nota em edição — sem exigir que o produto filho já exista. Fica só em estado local até o
+  // usuário salvar a nota (mesmo comportamento de qualquer outra edição de item aqui), mas por
+  // estar no item (não em estado efêmero do modal) sobrevive a fechar e reabrir o vínculo.
+  const commitItemMotherDraft = (draft: MotherPackageDraft | null) => {
+    if (!viewingReviewNote || linkingItemIdx === null) return;
+    const updated = [...viewingReviewNote.items];
+    updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft };
+    setViewingReviewNote({ ...viewingReviewNote, items: updated });
+  };
+
   const handleNoteItemCreateAndLink = async () => {
     if (!noteItemNewName.trim() || linkingItemIdx === null || !viewingReviewNote) return;
+    // Produto Mãe pendente já salvo na aba "Produto Mãe" (fica em item.mother_draft até o
+    // produto filho existir) — captura antes de sobrescrever o item abaixo.
+    const pendingMotherDraft: MotherPackageDraft | null = viewingReviewNote.items[linkingItemIdx]?.mother_draft || null;
     setNoteItemCreating(true);
     try {
       const sku = noteItemNewSku.trim() || null;
@@ -3635,6 +3654,7 @@ export default function Page() {
           product_id: created.id,
           product_price: 0,
           status_translation: 'Identificado (SKU/EAN)',
+          mother_draft: null, // consumido abaixo (vira uma linha real em product_mother_packages)
         };
         setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
         const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
@@ -3680,21 +3700,21 @@ export default function Page() {
             }
           }
         }
-        // Produto Mãe definido antes de criar o produto — só é gravado agora, que já existe
-        // um child_product_id pra satisfazer a constraint NOT NULL da tabela.
+        // Produto Mãe definido antes de criar o produto (aba "Produto Mãe") — só é gravado
+        // agora, que já existe um child_product_id pra satisfazer a constraint NOT NULL da tabela.
         let motherPackageError = '';
-        if (noteItemMotherDraft) {
+        if (pendingMotherDraft) {
           try {
-            await saveMotherPackage({ childProductId: created.id, draft: noteItemMotherDraft });
+            await saveMotherPackage({ childProductId: created.id, draft: pendingMotherDraft });
           } catch (mpErr: any) {
             motherPackageError = mpErr.message || 'Erro ao salvar o Produto Mãe.';
           }
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
+        setNoteItemCreateTab('produto');
         setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(''); setNoteItemExtraEans([]); setNoteItemNewSellPrice('');
         setNoteItemSaveTranslation(false);
-        setNoteItemMotherDraft(null);
         setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
         if (motherPackageError) {
           setNotification({ type: 'error', message: 'Produto criado e vinculado, mas houve erro ao salvar o Produto Mãe: ' + motherPackageError });
@@ -10220,13 +10240,21 @@ export default function Page() {
                                 <div className="relative group shrink-0">
                                   <button
                                     onClick={() => openNoteItemLink(idx, item)}
-                                    className="w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all active:scale-90"
-                                    style={{ background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
+                                    className={cn(
+                                      'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
+                                      (item as any).mother_draft ? 'border-primary/40 bg-primary/10 text-primary' : 'border-dashed hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                                    )}
+                                    style={(item as any).mother_draft ? undefined : { background: 'var(--rn-cell-inner)', borderColor: 'var(--rn-cell-border)', color: 'var(--rn-text-muted)' }}
                                   >
                                     <Plus size={12} />
                                   </button>
+                                  {/* Produto Mãe já definido (item.mother_draft) mas o produto normal ainda
+                                      não foi criado — sinaliza a pendência que bloqueia a aprovação da nota. */}
+                                  {(item as any).mother_draft && (
+                                    <span className="pointer-events-none absolute -top-1 -right-1 w-[9px] h-[9px] rounded-full bg-primary border-2 border-[var(--rn-cell-inner,white)]" />
+                                  )}
                                   <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[300] after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3a3a32]">
-                                    Vincular
+                                    {(item as any).mother_draft ? 'Produto Mãe pendente — falta criar o produto' : 'Vincular'}
                                   </span>
                                 </div>
                               )}
@@ -11025,7 +11053,7 @@ export default function Page() {
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemMotherDraft(null); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
+                      onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto'); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
                     />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
@@ -11048,7 +11076,7 @@ export default function Page() {
                           </p>
                         </div>
                         <button
-                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemMotherDraft(null); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
+                          onClick={() => { setLinkingItemIdx(null); setNoteItemShowCreate(false); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto'); setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false); }}
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
                         >
                           <X size={18} />
@@ -11305,6 +11333,10 @@ export default function Page() {
                           const availableCompanies = companies.filter((c: any) =>
                             c.id !== (viewingReviewNote.companyId || primaryCompanyId) && !noteItemExtraStoreIds.includes(c.id)
                           );
+                          // Produto Mãe pendente deste item — pode ter sido salvo antes ou depois de
+                          // preencher os dados do produto normal, já que fica gravado no próprio item
+                          // (item.mother_draft) até o produto filho existir.
+                          const itemMotherDraft: MotherPackageDraft | null = linkItem?.mother_draft || null;
                           return (
                           <div className="space-y-4">
                             <button
@@ -11314,6 +11346,80 @@ export default function Page() {
                               ← Voltar para busca
                             </button>
 
+                            {/* Abas: Produto (filho) ou Produto Mãe (caixa/fardo) — o usuário pode
+                                preencher em qualquer ordem; o Produto Mãe fica pendente até um
+                                produto normal existir pra vincular. */}
+                            <div className="flex gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05]">
+                              <button
+                                type="button"
+                                onClick={() => setNoteItemCreateTab('produto')}
+                                className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemCreateTab === 'produto' ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                              >
+                                <Package size={13} />Produto
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setNoteItemCreateTab('mae')}
+                                className={cn('relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemCreateTab === 'mae' ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                              >
+                                <Boxes size={13} />Produto Mãe
+                                {itemMotherDraft && <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-[calc(50%-38px)]" />}
+                              </button>
+                            </div>
+
+                            {noteItemCreateTab === 'mae' ? (
+                              <div className="space-y-3">
+                                {itemMotherDraft ? (
+                                  <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary bg-primary/[0.06] text-left">
+                                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                      <Boxes size={16} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-extrabold text-primary truncate">{itemMotherDraft.name}</p>
+                                      <p className="text-[10px] text-secondary/60 truncate">1 emb. = {itemMotherDraft.unitsPerChild} un{itemMotherDraft.ean ? ` · EAN ${itemMotherDraft.ean}` : ''}</p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setNoteItemMotherModalOpen(true)}
+                                      className="text-[10px] font-black text-primary underline shrink-0"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => commitItemMotherDraft(null)}
+                                      title="Remover Produto Mãe"
+                                      className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
+                                    >
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setNoteItemMotherModalOpen(true)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
+                                  >
+                                    <div className="w-9 h-9 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-secondary/50 flex items-center justify-center shrink-0">
+                                      <Boxes size={16} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-extrabold text-secondary/70">Definir Produto Mãe</p>
+                                      <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Nome, sufixo, EAN e unidades por embalagem</p>
+                                    </div>
+                                  </button>
+                                )}
+                                <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
+                                  <Info size={13} className="text-secondary/50 shrink-0 mt-[1px]" />
+                                  <p className="text-[10.5px] font-semibold text-secondary/65 leading-relaxed">
+                                    {itemMotherDraft
+                                      ? 'Salvo, mas ainda pendente: este item só fica totalmente vinculado quando o produto normal (aba "Produto") for criado. Até lá, a nota não pode ser aprovada.'
+                                      : 'Pode ser definido antes ou depois do produto normal — troque de aba a qualquer momento.'}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
                             {/* Identificação */}
                             <div className={sectionCls}>
                               <div className={sectionHeadCls}>
@@ -11457,46 +11563,13 @@ export default function Page() {
                               </div>
                             )}
 
-                            {/* Produto Mãe (caixa/fardo) — definido ANTES do produto normal existir:
-                                o rascunho fica em noteItemMotherDraft e só é gravado (via saveMotherPackage)
-                                depois que "Criar e Vincular" cria o produto normal, num único clique. */}
-                            {noteItemMotherDraft ? (
-                              <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary bg-primary/[0.06] text-left">
-                                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                  <Package size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-extrabold text-primary truncate">{noteItemMotherDraft.name}</p>
-                                  <p className="text-[10px] text-secondary/60 truncate">1 emb. = {noteItemMotherDraft.unitsPerChild} un{noteItemMotherDraft.ean ? ` · EAN ${noteItemMotherDraft.ean}` : ''}</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setNoteItemMotherModalOpen(true)}
-                                  className="text-[10px] font-black text-primary underline shrink-0"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setNoteItemMotherDraft(null)}
-                                  title="Remover Produto Mãe"
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
-                                >
-                                  <X size={13} />
-                                </button>
+                            {itemMotherDraft && (
+                              <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-primary/[0.06] border border-dashed border-primary/25">
+                                <Boxes size={13} className="text-primary shrink-0 mt-[1px]" />
+                                <p className="text-[10.5px] font-semibold text-primary/90 leading-relaxed">
+                                  Produto Mãe "{itemMotherDraft.name}" já definido — será vinculado a este produto ao criar e vincular.
+                                </p>
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setNoteItemMotherModalOpen(true)}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
-                              >
-                                <div className="w-[18px] h-[18px] rounded-md border-2 border-black/20 dark:border-white/20 shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-extrabold text-secondary/70">Também cadastrar Produto Mãe (caixa/fardo)</p>
-                                  <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Defina a embalagem agora — ela é criada junto com o produto ao confirmar</p>
-                                </div>
-                              </button>
                             )}
 
                             <button
@@ -11509,6 +11582,8 @@ export default function Page() {
                                 : <><Plus size={15} />Criar e Vincular</>
                               }
                             </button>
+                              </>
+                            )}
                           </div>
                           );
                         })()}
@@ -11528,10 +11603,10 @@ export default function Page() {
                 childProductId=""
                 childProductName={noteItemNewName || 'Novo produto'}
                 editingPackage={null}
-                initialDraft={noteItemMotherDraft}
+                initialDraft={(linkingItemIdx !== null ? viewingReviewNote?.items[linkingItemIdx]?.mother_draft : null) || null}
                 suppliers={supplierNames}
                 onSaved={() => {}}
-                onStage={draft => setNoteItemMotherDraft(draft)}
+                onStage={draft => commitItemMotherDraft(draft)}
               />
 
               {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}
@@ -12769,6 +12844,14 @@ export default function Page() {
             const price = viewingNoteSellPrices[idx] ?? item.product_price;
             return !(price > 0);
           });
+          // Regra restrita: só bloqueia por causa de Produto Mãe pendente (item.mother_draft
+          // salvo pela aba "Produto Mãe" mas ainda sem o produto filho criado) — um item
+          // simplesmente não vinculado (sem mother_draft) continua não bloqueando a aprovação,
+          // como já era o comportamento antes desta feature.
+          const pendingMotherDraftCount = statusConfirmTarget === 'aprovada'
+            ? viewingReviewNote.items.filter((item: any) => !!item.mother_draft).length
+            : 0;
+          const blockedByPendingMotherDraft = pendingMotherDraftCount > 0;
           return (
             <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
               <motion.div
@@ -12789,6 +12872,21 @@ export default function Page() {
                     <h3 className="text-base font-black text-on-surface mb-2">Falta a data de recebimento</h3>
                     <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
                       Para colocar essa nota em <b>Revisão</b> é preciso preencher a "Data de recebimento" acima nesta mesma aba.
+                    </p>
+                    <button
+                      onClick={() => setStatusConfirmTarget(null)}
+                      className="w-full py-3 rounded-2xl bg-on-surface/10 text-on-surface font-black text-xs uppercase tracking-widest hover:bg-on-surface/15 transition-all"
+                    >
+                      Entendi
+                    </button>
+                  </>
+                ) : blockedByPendingMotherDraft ? (
+                  <>
+                    <h3 className="text-base font-black text-on-surface mb-2">Produto Mãe pendente</h3>
+                    <p className="text-xs text-on-surface/55 leading-relaxed mb-5">
+                      {pendingMotherDraftCount === 1
+                        ? 'Existe 1 item com um Produto Mãe já definido, mas sem o produto normal criado e vinculado ainda.'
+                        : `Existem ${pendingMotherDraftCount} itens com um Produto Mãe já definido, mas sem o produto normal criado e vinculado ainda.`} Finalize pela aba "Produto" (dentro de "Criar e Vincular") antes de aprovar.
                     </p>
                     <button
                       onClick={() => setStatusConfirmTarget(null)}
