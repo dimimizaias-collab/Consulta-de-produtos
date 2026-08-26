@@ -959,6 +959,7 @@ export default function Page() {
   const [newProductExtraEans, setNewProductExtraEans] = useState<EanCodeEntry[]>([]);
   const [newProductPriceDisplay, setNewProductPriceDisplay] = useState('');
   const [editProductPriceDisplay, setEditProductPriceDisplay] = useState('');
+  const [editProductCostPriceDisplay, setEditProductCostPriceDisplay] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductExtraEans, setEditingProductExtraEans] = useState<EanCodeEntry[]>([]);
   // Aba "Editar Produto": Dados x Histórico em Notas. EANs-alvo do histórico são "congelados" ao
@@ -971,7 +972,7 @@ export default function Page() {
   // Estoque & Preço por Empresa — a empresa selecionada define quais valores de
   // count/price aparecem nos campos; o resto do produto é compartilhado entre lojas.
   const [editProductCompanyId, setEditProductCompanyId] = useState<string>('');
-  const [editProductStockCache, setEditProductStockCache] = useState<Record<string, { count: number; price: number }>>({});
+  const [editProductStockCache, setEditProductStockCache] = useState<Record<string, { count: number; price: number; costPrice: number }>>({});
   const [newProductCompanyId, setNewProductCompanyId] = useState<string>('');
   const [newProductStockByCompany, setNewProductStockByCompany] = useState<Record<string, { count: number; price: number }>>({});
 
@@ -2288,6 +2289,7 @@ export default function Page() {
     try {
       const editCount = isNaN(editingProduct.count) ? 0 : editingProduct.count;
       const editPrice = isNaN(editingProduct.price) ? 0 : editingProduct.price;
+      const editCostPrice = isNaN(editingProduct.costPrice) ? 0 : editingProduct.costPrice;
       const isPrimaryCompanySelected = !editProductCompanyId || editProductCompanyId === primaryCompanyId;
 
       const editedManufacturer = manufacturers.find(m => m.id === editingProduct.manufacturerId) || null;
@@ -2326,6 +2328,10 @@ export default function Page() {
           company_id: editProductCompanyId,
           count: editCount,
           price: editPrice,
+          // Edição manual de custo sobrescreve direto e registra hoje como referência (ver
+          // handleEditProductCompanyChange acima para a mesma regra na troca de empresa).
+          cost_price: editCostPrice,
+          cost_received_date: new Date().toISOString().slice(0, 10),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'product_id,company_id' });
       }
@@ -4597,6 +4603,7 @@ export default function Page() {
     );
     const initialPrice = isNaN(product.price) ? 0 : (product.price || 0);
     setEditProductPriceDisplay(initialPrice > 0 ? initialPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+    setEditProductCostPriceDisplay('');
     setOriginalProductSnapshot({
       name: product.name,
       sku: product.sku,
@@ -4625,6 +4632,8 @@ export default function Page() {
 
   // Ao abrir o modal (ou assim que a lista de empresas carrega), seleciona a empresa padrão
   // e pré-popula o cache com os valores de products.count/price — que já espelham essa empresa.
+  // Preço de Custo não é espelhado em products (é exclusivo de product_company_stock), então
+  // precisa de uma busca própria em vez do atalho síncrono usado para count/price.
   useEffect(() => {
     if (showEditModal && editingProduct && primaryCompanyId && !editProductCompanyId) {
       setEditProductCompanyId(primaryCompanyId);
@@ -4633,8 +4642,21 @@ export default function Page() {
         [primaryCompanyId]: {
           count: isNaN(editingProduct.count) ? 0 : (editingProduct.count || 0),
           price: isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0),
+          costPrice: 0,
         },
       }));
+      (async () => {
+        const { data } = await supabase
+          .from('product_company_stock')
+          .select('cost_price')
+          .eq('product_id', editingProduct.id)
+          .eq('company_id', primaryCompanyId)
+          .maybeSingle();
+        const costPrice = parseFloat(data?.cost_price) || 0;
+        setEditProductStockCache(prev => ({ ...prev, [primaryCompanyId]: { ...prev[primaryCompanyId], costPrice } }));
+        setEditingProduct((p: any) => p ? { ...p, costPrice } : p);
+        setEditProductCostPriceDisplay(costPrice > 0 ? costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+      })();
     }
   }, [showEditModal, editingProduct, primaryCompanyId, editProductCompanyId]);
 
@@ -4645,6 +4667,7 @@ export default function Page() {
     const prevCompanyId = editProductCompanyId;
     const prevCount = isNaN(editingProduct.count) ? 0 : (editingProduct.count || 0);
     const prevPrice = isNaN(editingProduct.price) ? 0 : (editingProduct.price || 0);
+    const prevCostPrice = isNaN(editingProduct.costPrice) ? 0 : (editingProduct.costPrice || 0);
 
     // Persiste a empresa anterior antes de trocar, para não perder edição feita nela nesta sessão.
     if (prevCompanyId && editingProduct.id) {
@@ -4654,12 +4677,16 @@ export default function Page() {
           company_id: prevCompanyId,
           count: prevCount,
           price: prevPrice,
+          // Edição manual de custo sobrescreve direto (sem a trava de data usada na aprovação
+          // de notas) e registra hoje como referência, pra não confundir essa trava depois.
+          cost_price: prevCostPrice,
+          cost_received_date: new Date().toISOString().slice(0, 10),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'product_id,company_id' });
         if (prevCompanyId === primaryCompanyId) {
           await supabase.from('products').update({ count: prevCount, price: prevPrice }).eq('id', editingProduct.id);
         }
-        setEditProductStockCache(prev => ({ ...prev, [prevCompanyId]: { count: prevCount, price: prevPrice } }));
+        setEditProductStockCache(prev => ({ ...prev, [prevCompanyId]: { count: prevCount, price: prevPrice, costPrice: prevCostPrice } }));
       } catch (err: any) {
         setNotification({ type: 'error', message: 'Erro ao salvar Estoque & Preço da empresa anterior.' });
       }
@@ -4668,16 +4695,17 @@ export default function Page() {
     let next = editProductStockCache[nextCompanyId];
     if (!next && editingProduct.id) {
       const { data } = await supabase.from('product_company_stock')
-        .select('count, price')
+        .select('count, price, cost_price')
         .eq('product_id', editingProduct.id)
         .eq('company_id', nextCompanyId)
         .maybeSingle();
-      next = data ? { count: data.count || 0, price: data.price || 0 } : { count: 0, price: 0 };
+      next = data ? { count: data.count || 0, price: data.price || 0, costPrice: parseFloat((data as any).cost_price) || 0 } : { count: 0, price: 0, costPrice: 0 };
       setEditProductStockCache(prev => ({ ...prev, [nextCompanyId]: next! }));
     }
-    next = next || { count: 0, price: 0 };
-    setEditingProduct((prev: any) => ({ ...prev, count: next!.count, price: next!.price }));
+    next = next || { count: 0, price: 0, costPrice: 0 };
+    setEditingProduct((prev: any) => ({ ...prev, count: next!.count, price: next!.price, costPrice: next!.costPrice }));
     setEditProductPriceDisplay(next.price > 0 ? next.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+    setEditProductCostPriceDisplay(next.costPrice > 0 ? next.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
     setEditProductCompanyId(nextCompanyId);
   };
 
@@ -5258,7 +5286,12 @@ export default function Page() {
                           </div>
                           <div className={rowCls}>
                             <div className={rowIconCls}><Wallet size={12} /></div>
-                            <span className={rowLabelCls}>Preço</span>
+                            <span className={rowLabelCls}>Preço de Custo</span>
+                            <span className={rowValueCls}>R$ {(editingProduct.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className={rowCls}>
+                            <div className={rowIconCls}><Wallet size={12} /></div>
+                            <span className={rowLabelCls}>Preço de Venda</span>
                             <span className={rowValueCls}>R$ {(editingProduct.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </div>
                           <div className={rowCls}>
@@ -5313,26 +5346,52 @@ export default function Page() {
                             />
                           </div>
                           <div className={fieldRowCls}>
-                            <label className={fieldLabelCls}>Preço (R$)</label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={editProductPriceDisplay}
-                              onChange={(e) => {
-                                const digits = e.target.value.replace(/\D/g, '');
-                                if (!digits) {
-                                  setEditProductPriceDisplay('');
-                                  setEditingProduct({...editingProduct, price: 0});
-                                  return;
-                                }
-                                const cents = parseInt(digits, 10);
-                                const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                setEditProductPriceDisplay(display);
-                                setEditingProduct({...editingProduct, price: cents / 100});
-                              }}
-                              placeholder="0,00"
-                              className={inputCls}
-                            />
+                            <div className="flex gap-2.5">
+                              <div className="flex-1">
+                                <label className={fieldLabelCls}>Preço de Custo (R$)</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={editProductCostPriceDisplay}
+                                  onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, '');
+                                    if (!digits) {
+                                      setEditProductCostPriceDisplay('');
+                                      setEditingProduct({...editingProduct, costPrice: 0});
+                                      return;
+                                    }
+                                    const cents = parseInt(digits, 10);
+                                    const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    setEditProductCostPriceDisplay(display);
+                                    setEditingProduct({...editingProduct, costPrice: cents / 100});
+                                  }}
+                                  placeholder="0,00"
+                                  className={inputCls}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className={fieldLabelCls}>Preço de Venda (R$)</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={editProductPriceDisplay}
+                                  onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, '');
+                                    if (!digits) {
+                                      setEditProductPriceDisplay('');
+                                      setEditingProduct({...editingProduct, price: 0});
+                                      return;
+                                    }
+                                    const cents = parseInt(digits, 10);
+                                    const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    setEditProductPriceDisplay(display);
+                                    setEditingProduct({...editingProduct, price: cents / 100});
+                                  }}
+                                  placeholder="0,00"
+                                  className={inputCls}
+                                />
+                              </div>
+                            </div>
                           </div>
                           <div className={fieldRowCls}>
                             <label className={fieldLabelCls}>Status</label>
@@ -5835,7 +5894,29 @@ export default function Page() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className={labelCls}>Preço (R$)</label>
+                        <label className={labelCls}>Preço de Custo (R$)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editProductCostPriceDisplay}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (!digits) {
+                              setEditProductCostPriceDisplay('');
+                              setEditingProduct({...editingProduct, costPrice: 0});
+                              return;
+                            }
+                            const cents = parseInt(digits, 10);
+                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            setEditProductCostPriceDisplay(display);
+                            setEditingProduct({...editingProduct, costPrice: cents / 100});
+                          }}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className={labelCls}>Preço de Venda (R$)</label>
                         <input
                           type="text"
                           inputMode="numeric"
