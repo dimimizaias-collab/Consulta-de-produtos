@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Manifesto / Produtos (Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F5F1E0;
+    --modal-bg: #F0E7CC;
+    --header-bg: #FFE500;
+    --header-border: #D4C000;
+    --icon-chip-bg: rgba(26,26,10,0.09);
+    --icon-chip-color: #1A1A0E;
+    --title: #1A1A0E;
+    --subtitle: rgba(26,26,10,0.45);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.08);
+    --input-bg: #FDFBF3;
+    --input-border: rgba(26,26,10,0.10);
+    --primary: #D81E1E;
+    --on-primary: #FFFFFF;
+    --emerald: #0A7A55;
+    --footer-bg: #FFF7B0;
+    --footer-border: #DDD000;
+    --close-bg: rgba(26,26,10,0.08);
+    --close-border: rgba(26,26,10,0.10);
+    --close-color: rgba(26,26,10,0.45);
+    --cancel-bg: rgba(26,26,10,0.08);
+    --cancel-text: rgba(26,26,10,0.55);
+    --cancel-border: rgba(26,26,10,0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--title);
+    display: flex; align-items: center; justify-content: center;
+    padding: 10px;
+  }
+  .backdrop-note { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: rgba(26,26,10,0.35); z-index: 5; }
+
+  /* Mesmo porte da janela de nota hoje: fixed inset com 10px de margem,
+     w-full h-full, rounded-[20px] — não o max-w-2xl do "Editar Produto". */
+  .modal {
+    width: calc(100vw - 20px); height: calc(100vh - 20px); max-width: 900px;
+    background: var(--modal-bg);
+    border-radius: 20px;
+    box-shadow: 0 30px 70px rgba(26,26,10,0.20);
+    border: 1px solid rgba(26,26,10,0.08);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  /* Header */
+  .modal-header {
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+    padding: 22px 28px 0; flex-shrink: 0;
+  }
+  .header-top { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 16px; }
+  .icon-chip {
+    width: 46px; height: 46px; border-radius: 14px;
+    background: var(--icon-chip-bg); color: var(--icon-chip-color);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 20px; margin-top: 2px;
+  }
+  .header-fields { flex: 1; min-width: 0; }
+  .origin-input {
+    width: 100%; font-size: 20px; font-weight: 900; color: var(--title);
+    background: transparent; border: none; border-bottom: 2px solid var(--primary);
+    outline: none; padding: 0 0 4px; font-family: 'DM Sans', sans-serif;
+  }
+  .origin-input::placeholder { color: rgba(26,26,10,0.30); font-weight: 800; }
+  .manifest-number {
+    margin-top: 8px; display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700;
+    color: var(--subtitle); background: rgba(26,26,10,0.06); padding: 4px 10px; border-radius: 999px;
+  }
+  .close-btn {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    background: var(--close-bg); border: 1px solid var(--close-border); color: var(--close-color);
+    display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;
+  }
+
+  .modal-tabs { display: flex; gap: 4px; }
+  .modal-tab {
+    padding: 10px 18px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(26,26,10,0.45); border-bottom: 3px solid transparent;
+  }
+  .modal-tab.active { color: var(--title); border-bottom-color: var(--primary); }
+
+  /* Body (scrollable) */
+  .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; min-height: 0; }
+
+  .search-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-label {
+    font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--subtitle); margin-bottom: 6px; display: block;
+  }
+  .search-field input {
+    width: 100%; background: var(--input-bg); border: 1.5px solid var(--input-border);
+    border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 600;
+    color: var(--title); font-family: 'DM Sans', sans-serif; outline: none;
+  }
+  .search-field input::placeholder { color: rgba(26,26,10,0.28); font-weight: 500; }
+
+  .create-link-btn {
+    margin-top: 12px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: rgba(216,30,30,0.06); border: 1.5px dashed rgba(216,30,30,0.35);
+    color: var(--primary); font-size: 12.5px; font-weight: 800;
+    padding: 11px; border-radius: 12px;
+  }
+
+  /* Selected product card — imagem à esquerda, campos em grid à direita
+     (Descrição full-width, depois EAN/SKU, depois Custo/Venda) */
+  .product-card {
+    margin-top: 16px; background: var(--card-bg); border: 1.5px solid var(--card-border);
+    border-radius: 18px; padding: 16px; box-shadow: 0 4px 14px rgba(26,26,10,0.06);
+  }
+  .product-card-grid { display: flex; gap: 14px; margin-bottom: 14px; }
+  .product-thumb {
+    width: 92px; height: 92px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(216,30,30,0.06); border: 1.5px dashed rgba(216,30,30,0.30); color: var(--primary);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 26px;
+  }
+  .product-thumb span { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(216,30,30,0.55); }
+  .product-fields { flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field-box {
+    background: rgba(26,26,10,0.03); border: 1px solid rgba(26,26,10,0.08); border-radius: 10px; padding: 7px 11px;
+    min-width: 0;
+  }
+  .field-box.full { grid-column: 1 / -1; }
+  .field-box-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.07em; color: var(--subtitle); }
+  .field-box-value {
+    font-size: 13.5px; font-weight: 800; color: var(--title); margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .field-box-value.mono { font-family: 'DM Mono', monospace; font-size: 12.5px; }
+  .field-box-value.price { font-size: 15px; }
+  .field-box-value.muted { color: rgba(26,26,10,0.50); }
+  .field-box .field-hint { font-size: 8px; font-weight: 700; color: rgba(26,26,10,0.30); margin-top: 1px; }
+
+  .confirm-row { display: flex; gap: 10px; align-items: flex-end; }
+  .qty-field { flex: 1; }
+  .qty-field input {
+    width: 100%; background: var(--input-bg); border: 1.5px solid var(--input-border);
+    border-radius: 12px; padding: 10px 12px; font-size: 15px; font-weight: 800;
+    color: var(--title); font-family: 'DM Mono', monospace; outline: none;
+  }
+  .confirm-btn {
+    background: var(--primary); color: white; font-size: 13px; font-weight: 900;
+    padding: 11px 20px; border-radius: 12px; border: none; white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(216,30,30,0.25);
+  }
+
+  /* Added items list */
+  .list-title {
+    margin-top: 22px; margin-bottom: 10px; font-size: 10px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--subtitle);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .list-title .line { flex: 1; height: 1px; background: rgba(26,26,10,0.10); }
+
+  .item-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 14px; padding: 10px 14px; margin-bottom: 8px;
+  }
+  .item-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); flex-shrink: 0; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-size: 13px; font-weight: 800; color: var(--title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-codes { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600; color: var(--subtitle); margin-top: 1px; }
+  .item-qty {
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 800; color: var(--title);
+    background: rgba(26,26,10,0.05); padding: 4px 10px; border-radius: 999px; flex-shrink: 0;
+  }
+  .item-total { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 900; color: var(--title); flex-shrink: 0; width: 88px; text-align: right; }
+  .item-delete {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(216,30,30,0.08); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+  }
+
+  /* Footer */
+  .modal-footer {
+    flex-shrink: 0; background: var(--footer-bg); border-top: 1px solid var(--footer-border);
+    padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .footer-stats { display: flex; gap: 18px; }
+  .footer-stat-label { font-size: 8.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,10,0.40); }
+  .footer-stat-value { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 900; color: var(--title); }
+  .footer-actions { display: flex; gap: 8px; }
+  .btn-cancel {
+    background: var(--cancel-bg); color: var(--cancel-text); border: 1px solid var(--cancel-border);
+    font-size: 12.5px; font-weight: 800; padding: 10px 16px; border-radius: 12px;
+  }
+  .btn-save {
+    background: var(--primary); color: white; font-size: 12.5px; font-weight: 900;
+    padding: 10px 18px; border-radius: 12px; border: none; box-shadow: 0 4px 10px rgba(216,30,30,0.25);
+  }
+</style>
+</head>
+<body>
+<div class="backdrop-note">Mockup estático — Etapa 4 · Modal Manifesto · Aba Produtos · Modo Claro</div>
+<div class="modal">
+
+  <div class="modal-header">
+    <div class="header-top">
+      <div class="icon-chip">📦</div>
+      <div class="header-fields">
+        <input class="origin-input" placeholder="Selecionar empresa origem…" value="Loja Centro" />
+        <div class="manifest-number">DIST-000005</div>
+      </div>
+      <div class="close-btn">✕</div>
+    </div>
+    <div class="modal-tabs">
+      <div class="modal-tab active">Produtos</div>
+      <div class="modal-tab">Recebimento</div>
+    </div>
+  </div>
+
+  <div class="modal-body">
+
+    <div class="search-row">
+      <div class="search-field">
+        <span class="field-label">Descrição do produto</span>
+        <input type="text" placeholder="Buscar por nome…" value="Detergente Neutro 500ml" />
+      </div>
+      <div class="search-field">
+        <span class="field-label">EAN</span>
+        <input type="text" placeholder="Buscar por código de barras…" />
+      </div>
+    </div>
+
+    <!-- Selected product card -->
+    <div class="product-card">
+      <div class="product-card-grid">
+        <div class="product-thumb">🧴<span>Imagem</span></div>
+        <div class="product-fields">
+          <div class="field-box full">
+            <div class="field-box-label">Descrição</div>
+            <div class="field-box-value">Detergente Neutro 500ml</div>
+          </div>
+          <div class="field-box">
+            <div class="field-box-label">EAN</div>
+            <div class="field-box-value mono">7891234567890</div>
+          </div>
+          <div class="field-box">
+            <div class="field-box-label">SKU</div>
+            <div class="field-box-value mono">00214</div>
+          </div>
+          <div class="field-box">
+            <div class="field-box-label">Preço de Custo (Origem)</div>
+            <div class="field-box-value mono price">R$ 3,80</div>
+          </div>
+          <div class="field-box">
+            <div class="field-box-label">Preço de Venda (Origem)</div>
+            <div class="field-box-value mono price muted">R$ 6,90</div>
+            <div class="field-hint">apenas referência</div>
+          </div>
+        </div>
+      </div>
+      <div class="confirm-row">
+        <div class="qty-field">
+          <span class="field-label">Quantidade a enviar</span>
+          <input type="text" value="24" />
+        </div>
+        <button class="confirm-btn">✓ Confirmar</button>
+      </div>
+    </div>
+
+    <!-- Create & link fallback (shown as example, would appear when search has no match) -->
+    <div class="create-link-btn">⚡ Criar e Vincular "Detergente Neutro 500ml"</div>
+
+    <div class="list-title">Produtos na Distribuição · 3<div class="line"></div></div>
+
+    <div class="item-card">
+      <span class="item-dot"></span>
+      <div class="item-info">
+        <div class="item-name">Sabonete Líquido Erva Doce 250ml</div>
+        <div class="item-codes">SKU 00187 · EAN 7891234500012</div>
+      </div>
+      <span class="item-qty">40 un.</span>
+      <span class="item-total">R$ 152,00</span>
+      <div class="item-delete">🗑</div>
+    </div>
+
+    <div class="item-card">
+      <span class="item-dot"></span>
+      <div class="item-info">
+        <div class="item-name">Papel Toalha Folha Dupla</div>
+        <div class="item-codes">SKU 00098 · EAN 7891234500029</div>
+      </div>
+      <span class="item-qty">18 un.</span>
+      <span class="item-total">R$ 90,00</span>
+      <div class="item-delete">🗑</div>
+    </div>
+
+    <div class="item-card">
+      <span class="item-dot"></span>
+      <div class="item-info">
+        <div class="item-name">Amaciante Concentrado 1L</div>
+        <div class="item-codes">SKU 00302 · EAN 7891234500036</div>
+      </div>
+      <span class="item-qty">30 un.</span>
+      <span class="item-total">R$ 210,00</span>
+      <div class="item-delete">🗑</div>
+    </div>
+
+  </div>
+
+  <div class="modal-footer">
+    <div class="footer-stats">
+      <div>
+        <div class="footer-stat-label">Itens</div>
+        <div class="footer-stat-value">3</div>
+      </div>
+      <div>
+        <div class="footer-stat-label">Valor Total</div>
+        <div class="footer-stat-value">R$ 452,00</div>
+      </div>
+    </div>
+    <div class="footer-actions">
+      <button class="btn-cancel">Cancelar</button>
+      <button class="btn-save">Salvar Rascunho</button>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -29,6 +29,7 @@ import {
   Clock,
   Eye,
   Maximize2,
+  Truck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ import { SupplierDictionary } from '@/components/suppliers/SupplierDictionary';
 import { AddManufacturerModal, type Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
 import { LinkTransactionModal } from './LinkTransactionModal';
 import { fmtDateBR } from './ReceivedDateField';
+import { DistributionManifestModal, type DistributionManifestDraft } from './DistributionManifestModal';
 
 export type NoteStatus = 'registro' | 'aguardando_recebimento' | 'revisao' | 'aprovada';
 
@@ -161,7 +163,36 @@ const notePeriodIso = (note: ReviewNote): string | null => {
   return null;
 };
 
-type Section = 'notas' | 'dicionario' | 'fornecedores' | 'fabricantes' | 'rascunhos';
+type Section = 'notas' | 'distribuicao' | 'dicionario' | 'fornecedores' | 'fabricantes' | 'rascunhos';
+
+export type DistributionManifestStatus = 'registro' | 'pedido_enviado';
+
+export interface DistributionManifest {
+  id: string;
+  manifestNumber: string;
+  originCompanyId: string;
+  destinationCompanyId: string | null;
+  status: DistributionManifestStatus;
+  shippingDate: string | null;
+  itemCount: number;
+  totalQty: number;
+  total: number;
+}
+
+const DIST_STATUS_META: Record<DistributionManifestStatus, { label: string; fg: string; bg: string; border: string }> = {
+  registro:       { label: 'Registro',       fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]', border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30' },
+  pedido_enviado: { label: 'Pedido Enviado', fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/10 dark:bg-emerald-500/[0.14]', border: 'border-emerald-500/25 dark:border-emerald-500/35' },
+};
+
+const DIST_TABLE_COLUMNS: { key: string; label: string }[] = [
+  { key: 'status', label: 'Situação' },
+  { key: 'manifestNumber', label: 'Manifesto' },
+  { key: 'origin', label: 'Empresa Origem' },
+  { key: 'destination', label: 'Empresa Destino' },
+  { key: 'itemCount', label: 'Itens' },
+  { key: 'total', label: 'Valor Total' },
+  { key: 'shippingDate', label: 'Data de Envio' },
+];
 
 const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
   { key: 'status', label: 'Situação' },
@@ -214,6 +245,8 @@ interface LogisticsCenterProps {
   onDeleteBulkDraft?: (noteId: string) => void;
   onViewMobile?: (note: ReviewNote) => void;
   setNotification: (notif: { type: 'success' | 'error', message: string } | null) => void;
+  colaboradorId?: string | null;
+  colaboradorNome?: string | null;
 }
 
 export function LogisticsCenter({
@@ -231,6 +264,8 @@ export function LogisticsCenter({
   onDeleteBulkDraft,
   onViewMobile,
   setNotification,
+  colaboradorId,
+  colaboradorNome,
 }: LogisticsCenterProps) {
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
@@ -246,6 +281,87 @@ export function LogisticsCenter({
   // aqui é só pra esconder o botão de quem não tem permissão).
   const [canManageManufacturers, setCanManageManufacturers] = useState(false);
   const [activeSection, setActiveSection]            = useState<Section>('notas');
+
+  // ── Distribuição (Fase 3 — casca + tabela real; painel de Resultados e modal
+  // de Manifesto ainda não implementados, ver plano de implementação) ────────
+  const [companiesList, setCompaniesList]             = useState<{ id: string; nome_fantasia: string }[]>([]);
+  const [distributionManifests, setDistributionManifests] = useState<DistributionManifest[]>([]);
+  const [loadingDistManifests, setLoadingDistManifests]   = useState(false);
+  const [distSearch, setDistSearch]                    = useState('');
+  const [distManifestDraft, setDistManifestDraft]      = useState<DistributionManifestDraft | null>(null);
+
+  const handleCreateDistributionManifest = async () => {
+    const id = crypto.randomUUID();
+    const { data: manifestNumber, error } = await supabase.rpc('get_next_distribution_manifest_number');
+    if (error || !manifestNumber) {
+      setNotification({ type: 'error', message: 'Não foi possível gerar o número do manifesto.' });
+      return;
+    }
+    setDistManifestDraft({ id, isExisting: false, manifestNumber, originCompanyId: null, status: 'registro' });
+  };
+
+  const handleOpenDistributionManifest = (m: DistributionManifest) => {
+    setDistManifestDraft({ id: m.id, isExisting: true, manifestNumber: m.manifestNumber, originCompanyId: m.originCompanyId, status: m.status });
+  };
+
+  const fetchCompaniesList = async () => {
+    const { data } = await supabase.from('companies').select('id, nome_fantasia').order('nome_fantasia');
+    setCompaniesList((data || []) as { id: string; nome_fantasia: string }[]);
+  };
+
+  const fetchDistributionManifests = async () => {
+    setLoadingDistManifests(true);
+    const { data } = await supabase
+      .from('distribution_manifests')
+      .select('id, manifest_number, origin_company_id, destination_company_id, status, shipping_date, distribution_manifest_items(qty, cost_price)')
+      .order('created_at', { ascending: false });
+    const mapped: DistributionManifest[] = (data || []).map((m: any) => {
+      const items = m.distribution_manifest_items || [];
+      return {
+        id: m.id,
+        manifestNumber: m.manifest_number,
+        originCompanyId: m.origin_company_id,
+        destinationCompanyId: m.destination_company_id,
+        status: m.status,
+        shippingDate: m.shipping_date,
+        itemCount: items.length,
+        totalQty: items.reduce((acc: number, it: any) => acc + (parseFloat(it.qty) || 0), 0),
+        total: items.reduce((acc: number, it: any) => acc + (parseFloat(it.qty) || 0) * (parseFloat(it.cost_price) || 0), 0),
+      };
+    });
+    setDistributionManifests(mapped);
+    setLoadingDistManifests(false);
+  };
+
+  useEffect(() => {
+    if (activeSection === 'distribuicao' && companiesList.length === 0) fetchCompaniesList();
+    if (activeSection === 'distribuicao' && distributionManifests.length === 0 && !loadingDistManifests) fetchDistributionManifests();
+  }, [activeSection]);
+
+  const companyName = (id: string | null) => id ? (companiesList.find(c => c.id === id)?.nome_fantasia || '—') : '—';
+
+  const getDistColumnValue = (m: DistributionManifest, key: string): string => {
+    switch (key) {
+      case 'status':         return DIST_STATUS_META[m.status].label;
+      case 'manifestNumber': return m.manifestNumber;
+      case 'origin':         return companyName(m.originCompanyId);
+      case 'destination':    return companyName(m.destinationCompanyId);
+      case 'itemCount':      return String(m.itemCount);
+      case 'total':          return fmtBRL(m.total);
+      case 'shippingDate':   return m.shippingDate ? fmtDateBR(m.shippingDate) : '—';
+      default:               return '—';
+    }
+  };
+
+  const visibleDistManifests = useMemo(() => {
+    const q = distSearch.trim().toLowerCase();
+    if (!q) return distributionManifests;
+    return distributionManifests.filter(m =>
+      m.manifestNumber.toLowerCase().includes(q) ||
+      companyName(m.originCompanyId).toLowerCase().includes(q) ||
+      companyName(m.destinationCompanyId).toLowerCase().includes(q)
+    );
+  }, [distributionManifests, distSearch, companiesList]);
   const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState<string | null>(null);
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
@@ -492,7 +608,11 @@ export function LogisticsCenter({
     const firstDow = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const daysInPrevMonth = new Date(year, month, 0).getDate();
-    const notesByDay = new Set(sectionNotesRaw.map(noteDateIso).filter(Boolean) as string[]);
+    // Pontinhos do calendário: nota recebida (aba Notas) ou manifesto enviado na data (aba
+    // Distribuição) — a mesma grade de calendário é reutilizada pelas duas seções.
+    const notesByDay = activeSection === 'distribuicao'
+      ? new Set(distributionManifests.filter(m => m.status === 'pedido_enviado' && m.shippingDate).map(m => m.shippingDate!.slice(0, 10)))
+      : new Set(sectionNotesRaw.map(noteDateIso).filter(Boolean) as string[]);
     const cells: { day: number; type: 'prev' | 'curr' | 'next'; hasNote: boolean }[] = [];
     for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, type: 'prev', hasNote: false });
     for (let d = 1; d <= daysInMonth; d++) {
@@ -502,7 +622,7 @@ export function LogisticsCenter({
     let n = 1;
     while (cells.length < 42) cells.push({ day: n++, type: 'next', hasNote: false });
     return cells;
-  }, [calViewDate, sectionNotesRaw]);
+  }, [calViewDate, sectionNotesRaw, activeSection, distributionManifests]);
 
   const calMonthLabel = calViewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
@@ -548,7 +668,39 @@ export function LogisticsCenter({
   const fornecMaxValue = Math.max(1, ...fornecChartData.map(f => f.value));
   const fornecTotalCount = fornecPerSupplier.length;
 
-  const showCalendarResultsPanel = activeSection === 'notas';
+  // ── Cards de loja do painel de Resultados da Distribuição — filtra por período do
+  // calendário usando shipping_date (data de negócio, não o sent_at técnico — ver Etapa 5
+  // do plano) e só considera manifestos já enviados (Registro não movimentou nada ainda).
+  const sentManifestsInPeriod = useMemo(() => {
+    return distributionManifests.filter(m => {
+      if (m.status !== 'pedido_enviado' || !m.shippingDate) return false;
+      const d = m.shippingDate.slice(0, 10);
+      if (calRangeStart && calRangeEnd) return d >= toIsoDay(calRangeStart) && d <= toIsoDay(calRangeEnd);
+      if (calSelectedDate) return d === toIsoDay(calSelectedDate);
+      const monthPrefix = `${calViewDate.getFullYear()}-${String(calViewDate.getMonth() + 1).padStart(2, '0')}`;
+      return d.startsWith(monthPrefix);
+    });
+  }, [distributionManifests, calRangeStart, calRangeEnd, calSelectedDate, calViewDate]);
+
+  const distCompanyStats = useMemo(() => {
+    const stats: Record<string, { out: number; outQty: number; in: number; inQty: number }> = {};
+    companiesList.forEach(c => { stats[c.id] = { out: 0, outQty: 0, in: 0, inQty: 0 }; });
+    sentManifestsInPeriod.forEach(m => {
+      if (stats[m.originCompanyId]) {
+        stats[m.originCompanyId].out += m.total;
+        stats[m.originCompanyId].outQty += m.totalQty;
+      }
+      if (m.destinationCompanyId && stats[m.destinationCompanyId]) {
+        stats[m.destinationCompanyId].in += m.total;
+        stats[m.destinationCompanyId].inQty += m.totalQty;
+      }
+    });
+    return stats;
+  }, [sentManifestsInPeriod, companiesList]);
+
+  const [showDistResultsExpanded, setShowDistResultsExpanded] = useState(false);
+
+  const showCalendarResultsPanel = activeSection === 'notas' || activeSection === 'distribuicao';
 
   return (
     <div className="space-y-4 md:space-y-12">
@@ -567,6 +719,7 @@ export function LogisticsCenter({
         <div className="hidden md:flex absolute left-0 top-full">
           {([
             { key: 'notas', label: 'Notas', count: reviewNotes.length },
+            { key: 'distribuicao', label: 'Distribuição', count: distributionManifests.filter(m => m.status === 'registro').length },
             { key: 'dicionario', label: 'Dicionário', count: 0 },
             { key: 'fornecedores', label: 'Fornecedores', count: 0 },
             { key: 'fabricantes', label: 'Fabricantes', count: 0 },
@@ -643,6 +796,7 @@ export function LogisticsCenter({
         <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
           {([
             { key: 'notas'  as const, label: 'Notas',  count: reviewNotes.length },
+            { key: 'distribuicao' as const, label: 'Distribuição', count: distributionManifests.filter(m => m.status === 'registro').length },
             { key: 'dicionario' as const, label: 'Dicionário', count: 0 },
             { key: 'fornecedores' as const, label: 'Fornecedores', count: 0 },
             { key: 'fabricantes' as const, label: 'Fabricantes', count: 0 },
@@ -768,6 +922,18 @@ export function LogisticsCenter({
             </div>
           )}
         </>)}
+
+        {activeSection === 'distribuicao' && (
+          <div className="flex flex-col items-center justify-center py-14 text-center px-4">
+            <div className="w-14 h-14 bg-[#1A1A0E]/[0.05] dark:bg-white/[0.05] rounded-2xl flex items-center justify-center mb-3">
+              <Truck size={26} className="text-[#1A1A0E]/25 dark:text-white/25" />
+            </div>
+            <p className="text-xs font-black text-[#1A1A0E]/45 dark:text-white/35 uppercase tracking-[0.08em]">Disponível apenas no desktop</p>
+            <p className="text-[11px] text-[#1A1A0E]/28 dark:text-white/22 mt-1 leading-relaxed max-w-[240px]">
+              A aba Distribuição ainda não tem uma versão mobile — acesse pelo computador.
+            </p>
+          </div>
+        )}
 
         {activeSection === 'rascunhos' && (
           <div className="space-y-3">
@@ -914,7 +1080,7 @@ export function LogisticsCenter({
 
       {/* Calendário + Painel de Resultados (Revisões / Aprovados) */}
       {showCalendarResultsPanel && (
-        <div className="hidden md:grid grid-cols-2 gap-3.5 items-start">
+        <div className={cn('hidden md:grid grid-cols-2 gap-3.5', activeSection === 'distribuicao' ? 'items-stretch' : 'items-start')}>
           {/* Calendário */}
           <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
             <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
@@ -1093,6 +1259,49 @@ export function LogisticsCenter({
           </div>
 
           {/* Painel de Resultados */}
+          {activeSection === 'distribuicao' ? (
+            <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
+              <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2">
+                <span className="text-[9.5px] font-black uppercase tracking-[0.08em] text-[rgba(26,26,10,0.65)] px-2">Resultados</span>
+                <button
+                  onClick={() => setShowDistResultsExpanded(true)}
+                  title="Expandir"
+                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.10)] flex items-center justify-center text-[rgba(26,26,10,0.60)] hover:bg-[rgba(26,26,10,0.16)] transition-colors shrink-0"
+                >
+                  <Maximize2 size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 p-2.5 flex-1 min-h-0 overflow-y-auto content-start">
+                {companiesList.length === 0 ? (
+                  <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
+                    <p className="text-xs font-bold">Nenhuma loja cadastrada</p>
+                  </div>
+                ) : companiesList.map(c => {
+                  const s = distCompanyStats[c.id] || { out: 0, outQty: 0, in: 0, inQty: 0 };
+                  return (
+                    <div key={c.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] p-2.5">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="text-[11px] font-black text-on-surface truncate">{c.nome_fantasia}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-[9px] px-2 py-1.5">
+                          <div className="text-[6.5px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Saiu</div>
+                          <div className="text-[11.5px] font-black text-primary">{fmtBRL(s.out)}</div>
+                          <div className="text-[8px] font-bold text-on-surface/35">{s.outQty} un.</div>
+                        </div>
+                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-[9px] px-2 py-1.5">
+                          <div className="text-[6.5px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Entrou</div>
+                          <div className="text-[11.5px] font-black text-emerald-600 dark:text-emerald-400">{fmtBRL(s.in)}</div>
+                          <div className="text-[8px] font-bold text-on-surface/35">{s.inQty} un.</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
             <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
               <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
@@ -1211,8 +1420,73 @@ export function LogisticsCenter({
               </div>
             )}
           </div>
+          )}
         </div>
       )}
+
+      {/* Distribuição — expandir painel de Resultados (mesmo porte do "Editar Produto":
+          max-w-2xl, não tela cheia — ver Etapa 3 do plano) */}
+      <AnimatePresence>
+        {showDistResultsExpanded && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDistResultsExpanded(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="relative w-full max-w-2xl bg-[#FDFAF0] dark:bg-[#1e1e18] rounded-3xl shadow-2xl overflow-hidden border border-black/10 dark:border-white/[0.08] max-h-[85vh] flex flex-col"
+            >
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Truck size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Resultados — Distribuição</h2>
+                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate capitalize">{calMonthLabel}</p>
+                </div>
+                <button
+                  onClick={() => setShowDistResultsExpanded(false)}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 p-6 overflow-y-auto">
+                {companiesList.map(c => {
+                  const s = distCompanyStats[c.id] || { out: 0, outQty: 0, in: 0, inQty: 0 };
+                  return (
+                    <div key={c.id} className="bg-surface-container border border-on-surface/[0.07] rounded-2xl p-4">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span className="text-sm font-black text-on-surface truncate">{c.nome_fantasia}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-xl px-3 py-2.5">
+                          <div className="text-[8px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Saiu</div>
+                          <div className="text-base font-black text-primary">{fmtBRL(s.out)}</div>
+                          <div className="text-[10px] font-bold text-on-surface/35">{s.outQty} un.</div>
+                        </div>
+                        <div className="bg-surface-container-low border border-on-surface/[0.06] rounded-xl px-3 py-2.5">
+                          <div className="text-[8px] font-black uppercase tracking-[0.08em] text-on-surface/40">R$ Entrou</div>
+                          <div className="text-base font-black text-emerald-600 dark:text-emerald-400">{fmtBRL(s.in)}</div>
+                          <div className="text-[10px] font-bold text-on-surface/35">{s.inQty} un.</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Fornecedores em tela cheia - mesmo padrao da janela de edicao de notas */}
       <AnimatePresence>
@@ -1658,6 +1932,138 @@ export function LogisticsCenter({
             <div ref={floatScrollInnerRef} className="h-px" />
           </div>
         </div>
+      )}
+
+      {/* ── Distribuição (Fase 3 — tabela real; painel de Resultados e modal de
+          Manifesto ainda não implementados) ──────────────────────────────── */}
+      {activeSection === 'distribuicao' && (
+        <div className="hidden md:block space-y-6">
+
+          <div className="flex flex-wrap items-center gap-3">
+            {visibleDistManifests.length > 0 && (
+              <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-primary/10 text-primary">
+                {visibleDistManifests.length}
+              </span>
+            )}
+
+            <div className="relative group">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
+              <input
+                type="text"
+                value={distSearch}
+                onChange={e => setDistSearch(e.target.value)}
+                placeholder="Pesquisar por loja, número..."
+                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
+              />
+              {distSearch && (
+                <button
+                  onClick={() => setDistSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface/30 hover:text-on-surface transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            <button
+              disabled
+              title="Filtro por coluna — em breve"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border bg-surface-container-lowest border-on-surface/[0.06] text-on-surface/30 cursor-not-allowed"
+            >
+              <Filter size={14} />
+              Filtrar colunas
+            </button>
+
+            <button
+              onClick={handleCreateDistributionManifest}
+              title="Criar Manifesto"
+              className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {loadingDistManifests ? (
+            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center justify-center shadow-sm">
+              <p className="text-sm font-bold text-on-surface/40">Carregando manifestos…</p>
+            </div>
+          ) : visibleDistManifests.length === 0 ? (
+            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
+              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                <Truck size={32} />
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-on-surface leading-tight uppercase tracking-[0.1em]">
+                  Sem Manifestos
+                </h4>
+                <p className="text-sm text-on-surface/40 font-medium mt-1 leading-relaxed">
+                  Manifestos de distribuição entre lojas aparecerão aqui.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
+              <div className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
+                      {DIST_TABLE_COLUMNS.map(({ label, key }) => (
+                        <th key={key} className="px-3 py-3 text-left whitespace-nowrap">
+                          <span className="inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]">
+                            {label}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleDistManifests.map((m, idx) => {
+                      const meta = DIST_STATUS_META[m.status];
+                      return (
+                        <tr
+                          key={m.id}
+                          onClick={() => handleOpenDistributionManifest(m)}
+                          className={cn(
+                            'transition-colors cursor-pointer',
+                            idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40',
+                            'hover:bg-on-surface/[0.03]'
+                          )}
+                        >
+                          <td className="px-4 py-3.5">
+                            <span
+                              title={meta.label}
+                              className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-black uppercase tracking-wide', meta.bg, meta.fg, meta.border)}
+                            >
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-[12.5px] font-bold text-on-surface">{m.manifestNumber}</td>
+                          <td className="px-4 py-3.5 font-semibold text-on-surface">{companyName(m.originCompanyId)}</td>
+                          <td className="px-4 py-3.5 font-semibold text-on-surface">{m.destinationCompanyId ? companyName(m.destinationCompanyId) : <span className="text-on-surface/30">—</span>}</td>
+                          <td className="px-4 py-3.5 text-on-surface">{m.itemCount}</td>
+                          <td className="px-4 py-3.5 font-mono text-on-surface">{fmtBRL(m.total)}</td>
+                          <td className="px-4 py-3.5 text-on-surface">{m.shippingDate ? fmtDateBR(m.shippingDate) : <span className="text-on-surface/30">—</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {distManifestDraft && (
+        <DistributionManifestModal
+          manifest={distManifestDraft}
+          companies={companiesList}
+          colaboradorId={colaboradorId}
+          colaboradorNome={colaboradorNome}
+          setNotification={setNotification}
+          onClose={() => setDistManifestDraft(null)}
+          onSaved={() => fetchDistributionManifests()}
+        />
       )}
 
       {/* ── Rascunhos ────────────────────────────────────────────────────── */}

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Distribuição (Dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #17170F;
+    --bg-modal: #1E1E18;
+    --header-bg: #252520;
+    --header-border: rgba(242,240,227,0.07);
+    --header-anchor-bg: #FFE500;
+    --header-anchor-border: #C8B800;
+    --icon-chip-bg: rgba(216,30,30,0.13);
+    --icon-chip-color: #D81E1E;
+    --title: #F2F0E3;
+    --subtitle: rgba(242,240,227,0.28);
+    --col-header-bg: #FFE500;
+    --col-header-border: #C8B800;
+    --col-header-text: rgba(26,26,10,0.58);
+    --row-even: #252520;
+    --row-odd: #1E1E18;
+    --row-hover: rgba(242,240,227,0.03);
+    --cell-border: rgba(242,240,227,0.08);
+    --cell-text: #F2F0E3;
+    --cell-muted: rgba(242,240,227,0.30);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.07);
+    --input-bg: #2E2E28;
+    --input-border: rgba(242,240,227,0.10);
+    --primary: #D81E1E;
+    --on-primary: #FFFFFF;
+    --tab-text-inactive: rgba(242,240,227,0.45);
+    --emerald: #34D399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--title);
+    padding: 40px 32px 80px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* Header + tabs */
+  .header {
+    position: relative;
+    margin-bottom: 56px;
+  }
+  .header-bar {
+    background: var(--header-bg);
+    border: 1px solid var(--header-border);
+    border-radius: 20px 20px 20px 0;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .icon-chip {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--icon-chip-bg); color: var(--icon-chip-color);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 22px;
+  }
+  .header-bar h1 { font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.01em; color: var(--title); }
+  .header-bar .eyebrow {
+    font-size: 9px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.18em; color: var(--subtitle); margin-top: 2px;
+  }
+  .tabs {
+    position: absolute; left: 0; top: 100%; display: flex;
+  }
+  .tab {
+    width: 122px; height: 34px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--header-bg);
+    border: 1px solid var(--header-border); border-top: none;
+    font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em;
+    color: var(--tab-text-inactive); opacity: 0.85; cursor: pointer;
+    box-shadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  .tab:last-child { border-radius: 0 0 12px 0; }
+  .tab.active { opacity: 1; color: var(--title); }
+  .tab .count {
+    font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 999px;
+    background: rgba(242,240,227,0.10);
+  }
+  .tab.new { position: relative; }
+  .tab.new::after {
+    content: 'NOVO';
+    position: absolute; top: -9px; right: 2px;
+    font-size: 7px; font-weight: 900; letter-spacing: 0.08em;
+    background: var(--primary); color: white; padding: 2px 5px; border-radius: 999px;
+  }
+
+  /* Panels row: calendar + results */
+  .panels {
+    display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px;
+    align-items: stretch; margin-bottom: 28px;
+  }
+  .panel {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 18px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    background: var(--header-anchor-bg); border-bottom: 1px solid var(--header-anchor-border);
+    padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; flex-shrink: 0;
+  }
+  .panel-head .month { font-size: 13px; font-weight: 900; text-transform: capitalize; color: #1A1A0E; }
+  .cal-actions { display: flex; gap: 4px; }
+  .cal-btn {
+    width: 26px; height: 26px; border-radius: 8px; background: rgba(26,26,10,0.08);
+    display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.55);
+    font-size: 12px; font-weight: 700;
+  }
+  .cal-body { padding: 12px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-dow {
+    text-align: center; font-size: 8.5px; font-weight: 900; text-transform: uppercase;
+    color: rgba(242,240,227,0.25); padding: 4px 0;
+  }
+  .cal-day {
+    height: 26px; display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; border-radius: 8px; color: rgba(242,240,227,0.55);
+    position: relative;
+  }
+  .cal-day.muted { color: rgba(242,240,227,0.15); }
+  .cal-day.today { background: rgba(216,30,30,0.16); color: #FF6B6B; font-weight: 900; }
+  .cal-day.sel { background: var(--primary); color: white; font-weight: 900; box-shadow: 0 2px 6px rgba(216,30,30,0.30); }
+  .cal-badge {
+    margin-top: 10px; display: flex; align-items: center; justify-content: space-between;
+    background: rgba(242,240,227,0.04); border: 1px solid rgba(242,240,227,0.08);
+    border-radius: 10px; padding: 7px 10px; font-size: 9.5px; font-weight: 700; color: rgba(242,240,227,0.45);
+  }
+
+  .results-tabs { flex: 1; display: flex; gap: 2px; background: rgba(26,26,10,0.10); border-radius: 999px; padding: 2px; }
+  .results-tab {
+    flex: 1; padding: 6px 8px; border-radius: 999px; text-align: center;
+    font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(26,26,10,0.45);
+  }
+  .results-tab.active { background: var(--primary); color: white; }
+  .expand-btn {
+    width: 26px; height: 26px; border-radius: 8px; background: rgba(26,26,10,0.10);
+    display: flex; align-items: center; justify-content: center; color: rgba(26,26,10,0.60);
+    font-size: 12px; font-weight: 700; flex-shrink: 0; cursor: pointer;
+  }
+
+  .store-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    padding: 10px; flex: 1; min-height: 0; overflow-y: auto; align-content: start;
+  }
+  .store-card {
+    background: var(--input-bg); border: 1px solid var(--input-border);
+    border-radius: 12px; padding: 9px 10px;
+  }
+  .store-card .store-name {
+    font-size: 11px; font-weight: 900; color: var(--title); margin-bottom: 6px;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .store-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+  .store-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .stat-box {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 9px;
+    padding: 6px 7px;
+  }
+  .stat-label {
+    font-size: 6.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(242,240,227,0.35); margin-bottom: 1px; white-space: nowrap;
+  }
+  .stat-value { font-size: 11.5px; font-weight: 900; letter-spacing: -0.01em; }
+  .stat-value.out { color: #FF6B6B; }
+  .stat-value.in { color: var(--emerald); }
+  .stat-sub { font-size: 8px; font-weight: 700; color: rgba(242,240,227,0.35); margin-top: 1px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .count-pill {
+    padding: 3px 10px; font-size: 12px; font-weight: 900; border-radius: 999px;
+    background: rgba(216,30,30,0.16); color: #FF6B6B;
+  }
+  .search-box {
+    position: relative; width: 240px;
+  }
+  .search-box input {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--input-border);
+    border-radius: 12px; padding: 8px 12px 8px 30px; font-size: 12px; font-weight: 500;
+    color: var(--title); font-family: 'DM Sans', sans-serif; outline: none;
+  }
+  .search-box input::placeholder { color: rgba(242,240,227,0.28); }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: rgba(242,240,227,0.30); }
+  .filter-btn {
+    display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 12px;
+    font-size: 12px; font-weight: 800; border: 1px solid var(--input-border);
+    background: var(--input-bg); color: rgba(242,240,227,0.60);
+  }
+  .add-btn {
+    margin-left: auto; width: 36px; height: 36px; border-radius: 12px;
+    background: var(--primary); color: white; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; box-shadow: 0 4px 10px rgba(216,30,30,0.35);
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 16px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--col-header-bg); border-bottom: 1px solid var(--col-header-border); }
+  th {
+    text-align: left; padding: 12px 14px; white-space: nowrap;
+  }
+  th span {
+    display: inline-flex; align-items: center; background: rgba(26,26,10,0.05);
+    border: 1.5px solid rgba(26,26,10,0.12); border-radius: 999px; padding: 5px 13px;
+    font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--col-header-text);
+  }
+  tbody td {
+    padding: 14px; border-right: 1px solid var(--cell-border); border-bottom: 1px solid var(--cell-border);
+    color: var(--cell-text); font-weight: 600;
+  }
+  tbody td:last-child { border-right: none; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(odd) { background: var(--row-even); }
+  tbody tr:nth-child(even) { background: var(--row-odd); }
+  tbody tr:hover { background: var(--row-hover); }
+
+  .status-chip {
+    width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; border: 1px solid;
+  }
+  .status-chip.registro { background: rgba(252,211,77,0.10); color: #FCD34D; border-color: rgba(252,211,77,0.25); }
+  .status-chip.enviado { background: rgba(52,211,153,0.10); color: var(--emerald); border-color: rgba(52,211,153,0.25); }
+
+  .mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .muted-cell { color: var(--cell-muted); font-weight: 700; }
+
+  .section-note {
+    margin-top: 18px; font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.30);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-bar">
+      <div class="icon-chip">📦</div>
+      <div>
+        <h1>Entrada de Mercadoria</h1>
+        <div class="eyebrow">Logistics Orchestration &amp; Inventory Feed</div>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab">Notas <span class="count">18</span></div>
+      <div class="tab active new">Distribuição <span class="count">3</span></div>
+      <div class="tab">Dicionário</div>
+      <div class="tab">Fornecedores</div>
+      <div class="tab">Fabricantes</div>
+    </div>
+  </div>
+
+  <!-- Calendário + Resultados -->
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="month">Agosto 2026</span>
+        <div class="cal-actions">
+          <div class="cal-btn">i</div>
+          <div class="cal-btn">▤</div>
+          <div class="cal-btn">‹</div>
+          <div class="cal-btn">›</div>
+        </div>
+      </div>
+      <div class="cal-body">
+        <div class="cal-grid">
+          <div class="cal-dow">D</div><div class="cal-dow">S</div><div class="cal-dow">T</div><div class="cal-dow">Q</div><div class="cal-dow">Q</div><div class="cal-dow">S</div><div class="cal-dow">S</div>
+          <div class="cal-day muted">26</div><div class="cal-day muted">27</div><div class="cal-day muted">28</div><div class="cal-day muted">29</div><div class="cal-day muted">30</div><div class="cal-day muted">31</div><div class="cal-day">1</div>
+          <div class="cal-day">2</div><div class="cal-day">3</div><div class="cal-day">4</div><div class="cal-day">5</div><div class="cal-day">6</div><div class="cal-day">7</div><div class="cal-day">8</div>
+          <div class="cal-day">9</div><div class="cal-day">10</div><div class="cal-day">11</div><div class="cal-day">12</div><div class="cal-day">13</div><div class="cal-day">14</div><div class="cal-day">15</div>
+          <div class="cal-day">16</div><div class="cal-day">17</div><div class="cal-day">18</div><div class="cal-day">19</div><div class="cal-day">20</div><div class="cal-day">21</div><div class="cal-day">22</div>
+          <div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day">25</div><div class="cal-day today">26</div><div class="cal-day">27</div><div class="cal-day">28</div><div class="cal-day">29</div>
+        </div>
+        <div class="cal-badge">Mostrando: Agosto 2026 (mês atual)</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="results-tabs">
+          <div class="results-tab active">Resultados</div>
+        </div>
+        <div class="expand-btn" title="Expandir painel">⤢</div>
+      </div>
+      <div class="store-grid">
+        <div class="store-card">
+          <div class="store-name"><span class="store-dot"></span>Loja Centro</div>
+          <div class="store-stats">
+            <div class="stat-box"><div class="stat-label">R$ Saiu</div><div class="stat-value out">R$ 4.280</div><div class="stat-sub">312 un.</div></div>
+            <div class="stat-box"><div class="stat-label">R$ Entrou</div><div class="stat-value in">R$ 1.150</div><div class="stat-sub">90 un.</div></div>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-name"><span class="store-dot"></span>Loja Shopping</div>
+          <div class="store-stats">
+            <div class="stat-box"><div class="stat-label">R$ Saiu</div><div class="stat-value out">R$ 0</div><div class="stat-sub">0 un.</div></div>
+            <div class="stat-box"><div class="stat-label">R$ Entrou</div><div class="stat-value in">R$ 4.280</div><div class="stat-sub">312 un.</div></div>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-name"><span class="store-dot"></span>Loja Bairro Sul</div>
+          <div class="store-stats">
+            <div class="stat-box"><div class="stat-label">R$ Saiu</div><div class="stat-value out">R$ 1.150</div><div class="stat-sub">90 un.</div></div>
+            <div class="stat-box"><div class="stat-label">R$ Entrou</div><div class="stat-value in">R$ 0</div><div class="stat-sub">0 un.</div></div>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-name"><span class="store-dot"></span>Loja Depósito</div>
+          <div class="store-stats">
+            <div class="stat-box"><div class="stat-label">R$ Saiu</div><div class="stat-value out">R$ 0</div><div class="stat-sub">0 un.</div></div>
+            <div class="stat-box"><div class="stat-label">R$ Entrou</div><div class="stat-value in">R$ 0</div><div class="stat-sub">0 un.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="count-pill">3</span>
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Pesquisar por loja, número..." />
+    </div>
+    <div class="filter-btn">▾ Filtrar colunas</div>
+    <div class="add-btn">+</div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><span>Situação</span></th>
+          <th><span>Manifesto</span></th>
+          <th><span>Empresa Origem</span></th>
+          <th><span>Empresa Destino</span></th>
+          <th><span>Itens</span></th>
+          <th><span>Valor Total</span></th>
+          <th><span>Data de Envio</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="status-chip enviado">✓</span></td>
+          <td class="mono">DIST-000003</td>
+          <td>Loja Centro</td>
+          <td>Loja Shopping</td>
+          <td>12</td>
+          <td class="mono">R$ 4.280,00</td>
+          <td>24/08/2026</td>
+        </tr>
+        <tr>
+          <td><span class="status-chip enviado">✓</span></td>
+          <td class="mono">DIST-000002</td>
+          <td>Loja Bairro Sul</td>
+          <td>Loja Centro</td>
+          <td>5</td>
+          <td class="mono">R$ 1.150,00</td>
+          <td>20/08/2026</td>
+        </tr>
+        <tr>
+          <td><span class="status-chip registro">✎</span></td>
+          <td class="mono">DIST-000004</td>
+          <td>Loja Depósito</td>
+          <td class="muted-cell">—</td>
+          <td>3</td>
+          <td class="mono">R$ 620,00</td>
+          <td class="muted-cell">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-note">Mockup estático — Etapa 3 do plano de implementação · Distribuição · Modo Escuro</div>
+
+</div>
+</body>
+</html>
