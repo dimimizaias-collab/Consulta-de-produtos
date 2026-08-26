@@ -106,6 +106,7 @@ export function DistributionManifestModal({
 
   // ── Aba Produtos ─────────────────────────────────────────────────────────
   const [items, setItems] = useState<ManifestItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(manifest.isExisting);
   const [descQuery, setDescQuery] = useState('');
   const [eanQuery, setEanQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ProductHit[]>([]);
@@ -174,6 +175,7 @@ export function DistributionManifestModal({
         costPrice: parseFloat(r.cost_price) || 0,
         salePriceOrigin: parseFloat(r.sale_price_origin) || 0,
       })));
+      setLoadingItems(false);
     })();
   }, [manifest.id, manifest.isExisting]);
 
@@ -649,7 +651,9 @@ export function DistributionManifestModal({
                     Produtos na Distribuição · {items.length}
                     <span className="flex-1 h-px bg-on-surface/10" />
                   </div>
-                  {items.length === 0 ? (
+                  {loadingItems ? (
+                    <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Carregando produtos…</p>
+                  ) : items.length === 0 ? (
                     <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Nenhum produto adicionado ainda.</p>
                   ) : !editable ? (
                     // Pedido já enviado — vira tabela somente leitura (trava a edição/exclusão).

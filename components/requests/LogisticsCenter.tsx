@@ -285,6 +285,7 @@ export function LogisticsCenter({
   // ── Distribuição (Fase 3 — casca + tabela real; painel de Resultados e modal
   // de Manifesto ainda não implementados, ver plano de implementação) ────────
   const [companiesList, setCompaniesList]             = useState<{ id: string; nome_fantasia: string }[]>([]);
+  const [loadingCompanies, setLoadingCompanies]        = useState(false);
   const [distributionManifests, setDistributionManifests] = useState<DistributionManifest[]>([]);
   const [loadingDistManifests, setLoadingDistManifests]   = useState(false);
   const [distSearch, setDistSearch]                    = useState('');
@@ -305,8 +306,10 @@ export function LogisticsCenter({
   };
 
   const fetchCompaniesList = async () => {
+    setLoadingCompanies(true);
     const { data } = await supabase.from('companies').select('id, nome_fantasia').order('nome_fantasia');
     setCompaniesList((data || []) as { id: string; nome_fantasia: string }[]);
+    setLoadingCompanies(false);
   };
 
   const fetchDistributionManifests = async () => {
@@ -334,7 +337,7 @@ export function LogisticsCenter({
   };
 
   useEffect(() => {
-    if (activeSection === 'distribuicao' && companiesList.length === 0) fetchCompaniesList();
+    if (activeSection === 'distribuicao' && companiesList.length === 0 && !loadingCompanies) fetchCompaniesList();
     if (activeSection === 'distribuicao' && distributionManifests.length === 0 && !loadingDistManifests) fetchDistributionManifests();
   }, [activeSection]);
 
@@ -1152,7 +1155,7 @@ export function LogisticsCenter({
               </div>
             </div>
 
-            <div className="p-3">
+            <div className={cn('p-3', activeSection === 'distribuicao' && 'flex-1 flex flex-col justify-center')}>
               <div className="grid grid-cols-7 mb-1">
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
                   <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
@@ -1272,7 +1275,11 @@ export function LogisticsCenter({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2 p-2.5 flex-1 min-h-0 overflow-y-auto content-start">
-                {companiesList.length === 0 ? (
+                {loadingCompanies ? (
+                  <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
+                    <p className="text-xs font-bold">Carregando lojas…</p>
+                  </div>
+                ) : companiesList.length === 0 ? (
                   <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
                     <p className="text-xs font-bold">Nenhuma loja cadastrada</p>
                   </div>
@@ -1459,6 +1466,11 @@ export function LogisticsCenter({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3 p-6 overflow-y-auto">
+                {companiesList.length === 0 && (
+                  <div className="col-span-2 flex items-center justify-center py-8 text-on-surface/25">
+                    <p className="text-sm font-bold">Nenhuma loja cadastrada</p>
+                  </div>
+                )}
                 {companiesList.map(c => {
                   const s = distCompanyStats[c.id] || { out: 0, outQty: 0, in: 0, inQty: 0 };
                   return (
