@@ -4,9 +4,11 @@ Feature "Distribuição" (aba na página Entrada de Mercadoria — transferênci
 
 Contexto/decisões completas da feature: ver histórico de commits `feat(distribuicao): fase N - ...` a partir de `585d1e4`.
 
-## 1. Confirmação de recebimento real pela loja destino
+## 1. Confirmação de recebimento real pela loja destino (parcialmente endereçada)
 
 Hoje o fluxo para em "Pedido Enviado" (irreversível). Não existe uma etapa em que a loja destino confirma o que de fato chegou, nem tratamento de divergência (item quebrado, faltando, quantidade errada).
+
+**Atualização**: a decisão 3-B (preço de venda/Ok migrados da nota pro manifesto — commit `c46168e`) já cobre uma fatia disso — a tabela do manifesto pós-envio tem campos de "Preço de Venda" e "Ok" editáveis pela loja destino, que já propagam pro Estoque & Preço dela. Mas isso **não é** a confirmação de recebimento completa: não há tratamento de divergência (item quebrado/faltando/quantidade errada), nem um status dedicado tipo `recebido`/`recebido_com_divergencia`. "Ok" hoje é só uma checkbox solta, sem consequência estruturada.
 
 Decisão registrada durante o planejamento: qualquer erro no envio (produto errado, quantidade a mais/menos, item faltando) deve ser tratado **nesse fluxo de recebimento**, não por reabertura do manifesto original (que foi deliberadamente marcado como não-reversível). Ou seja, esta pendência não é opcional — o sistema hoje não tem onde registrar esse tipo de correção.
 
@@ -35,3 +37,15 @@ Não existe hoje nenhuma coluna `company_id` em `usuarios`/`hr_employees`. Por c
 ## 7. Custo de produtos criados via "Criar e Vincular" dentro do manifesto
 
 Produto novo criado direto na busca da aba Produtos nasce com `product_company_stock.cost_price = 0` (nunca teve nota aprovada) — o usuário precisa preencher o custo manualmente no card antes de confirmar. Não é bug, é a mesma limitação estrutural que motivou o backfill (`supabase/backfill_product_company_stock_cost_price.sql`): custo só existe onde uma nota já foi aprovada ou onde alguém editou manualmente via "Editar Produto".
+
+## 8. Coluna Distribuição da nota — mobile e criação ainda usam o campo legado
+
+A tabela de revisão **desktop** da nota migrou pro modal por loja (`item.distribuicaoByCompany`, commit `fbfd9a6`), mas dois outros lugares continuam no formato antigo (`item.distribuicao`, número único sem empresa):
+- O editor mobile (`components/tasks`-adjacent `MobileNoteView`, usado no app celular).
+- A pré-visualização "Inteiro/Metade/Nada" da coluna Distribuição no formulário de criação da nota (`nfItemDistribuicao`).
+
+Enquanto isso não for migrado, uma distribuição feita pelo mobile não aparece dividida por loja (só soma no total) e não gera manifesto automaticamente ao mandar pra Distribuição Enviada (essa etapa só existe no desktop).
+
+## 9. Código morto deixado pela remoção do 3-B
+
+Ao remover o "botão de preço"/"Preços por Loja" da nota (commit `c46168e`), as funções que alimentavam esse mecanismo (`getExtraSellPrice`, `setExtraSellPrice`, `getExtraVerified`, `setExtraVerified`, `getExtraReviewTimestamp`, `switchPriceCompany`) e o estado relacionado (`viewingPriceCompanyId`, `priceCompanyDropdownOpen`, `switchingPriceCompany`, `viewingNoteExtraPricing`, `noteItemExtraStoreIds`, `noteItemExtraStorePrices`, `noteItemAddStoreOpen`) ficaram **declarados mas inalcançáveis** em `app/page.tsx` — nada mais os chama, mas não foram apagados (risco de mexer em código interligado num arquivo de 12k+ linhas sem necessidade real). `item.pricingByCompany` também continua existindo no schema (JSONB), só não é mais escrito por nenhuma tela. Limpeza segura de se fazer quando alguém for mexer nessa área de novo.
