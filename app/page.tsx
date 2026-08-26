@@ -1683,6 +1683,12 @@ export default function Page() {
             count: nextCount,
             price: item.product_price,
             price_received_date: noteReceivedDate,
+            // Custo por loja (Distribuição) — mesma trava de data do preço de venda acima,
+            // sempre sobrescreve com o último custo recebido (ver Etapa 1/6 do plano de
+            // Distribuição). Coluna separada de price_received_date por precaução, ainda que
+            // hoje os dois sempre venham do mesmo evento de aprovação de nota.
+            cost_price: item.price || 0,
+            cost_received_date: noteReceivedDate,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'product_id,company_id' });
         });
@@ -4923,6 +4929,8 @@ export default function Page() {
                   bulkDrafts={bulkDrafts}
                   onApproveBulkDraft={handleApproveBulkDraft}
                   onDeleteBulkDraft={handleDeleteBulkDraft}
+                  colaboradorId={colaboradorId}
+                  colaboradorNome={colaboradorNome}
                 />
             ) : activeTab === 'Pedidos de Compra' ? (
                 // Inalcançável: item removido da navegação (ver components/Sidebar.tsx). Bloco mantido para reativação futura.
