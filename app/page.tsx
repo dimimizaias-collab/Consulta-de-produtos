@@ -725,6 +725,11 @@ export default function Page() {
   const [viewingNoteDistribuicao, setViewingNoteDistribuicao] = useState<string[]>([]);
   const [viewingDistribDropdownIdx, setViewingDistribDropdownIdx] = useState<number | null>(null);
   const [viewingDistribMode, setViewingDistribMode] = useState<string[]>([]);
+  // Distribuição por loja — um item pode ir para várias empresas ao mesmo tempo (Record
+  // company_id -> quantidade), substituindo o número único antigo (item.distribuicao).
+  const [viewingNoteDistribByCompany, setViewingNoteDistribByCompany] = useState<Record<string, number>[]>([]);
+  const [distribModalIdx, setDistribModalIdx] = useState<number | null>(null);
+  const [distribModalDraft, setDistribModalDraft] = useState<Record<string, string>>({});
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
   // Marca itens cuja Medida foi definida via "Usar tradução" ou "Adicionar medida" (badge de conversão na célula)
@@ -732,6 +737,16 @@ export default function Page() {
   // product_ids com tradução de medida (supplier_units) já cadastrada — evita abrir o menu Medida
   // com a opção "Usar tradução" quando não há nada pra usar (pula direto pra "Adicionar Medida")
   const [productsWithMeasureTranslation, setProductsWithMeasureTranslation] = useState<Set<string>>(new Set());
+
+  // Total distribuído pra outras lojas nesse item — soma de viewingNoteDistribByCompany[idx],
+  // com fallback pro campo legado (item.distribuicao) em notas salvas antes dessa mudança.
+  const getDistribTotal = (idx: number, item: any): number => {
+    const byCompany = viewingNoteDistribByCompany[idx];
+    if (byCompany && Object.keys(byCompany).length > 0) {
+      return Object.values(byCompany).reduce((acc: number, v: any) => acc + (parseFloat(v) || 0), 0);
+    }
+    return item?.distribuicao || 0;
+  };
   // Undo/Redo history
   const noteHistoryRef = useRef<any[]>([]);
   const noteHistoryIdxRef = useRef<number>(-1);
@@ -3106,6 +3121,7 @@ export default function Page() {
       viewingNoteMultipliers: [...viewingNoteMultipliers],
       viewingNoteMeasureConverted: [...viewingNoteMeasureConverted],
       viewingNoteDistribuicao: [...viewingNoteDistribuicao],
+      viewingNoteDistribByCompany: viewingNoteDistribByCompany.map(m => ({ ...m })),
       viewingNoteSellPrices: [...viewingNoteSellPrices],
       viewingNoteVerified: [...viewingNoteVerified],
       viewingNoteReviewTimestamps: [...viewingNoteReviewTimestamps],
@@ -3119,7 +3135,7 @@ export default function Page() {
     noteHistoryIdxRef.current = newStack.length - 1;
     setCanUndo(noteHistoryIdxRef.current > 0);
     setCanRedo(false);
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteMeasureConverted, viewingNoteDistribuicao, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteMeasureConverted, viewingNoteDistribuicao, viewingNoteDistribByCompany, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
 
   const applySnapshot = useCallback((snap: any) => {
     setViewingReviewNote(snap.viewingReviewNote);
@@ -3131,6 +3147,7 @@ export default function Page() {
     setViewingNoteMultipliers(snap.viewingNoteMultipliers);
     setViewingNoteMeasureConverted(snap.viewingNoteMeasureConverted ?? []);
     setViewingNoteDistribuicao(snap.viewingNoteDistribuicao);
+    setViewingNoteDistribByCompany(snap.viewingNoteDistribByCompany ?? []);
     setViewingDistribMode([]); // Presets não participam do undo/redo
     setViewingNoteSellPrices(snap.viewingNoteSellPrices);
     setViewingNoteVerified(snap.viewingNoteVerified);
@@ -3188,6 +3205,7 @@ export default function Page() {
     setViewingNoteItemPrices(note.items.map((item: any) => item.price || 0));
     setViewingNoteDistribuicao(note.items.map((item: any) => item.distribuicao !== null && item.distribuicao !== undefined ? String(item.distribuicao) : ''));
     setViewingDistribMode([]);
+    setViewingNoteDistribByCompany(note.items.map((item: any) => item.distribuicaoByCompany || {}));
     setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
     setViewingNoteMeasureConverted(note.items.map((item: any) => !!item.measureConverted));
@@ -3775,6 +3793,7 @@ export default function Page() {
     setViewingNoteMeasureConverted(prev => [...prev, false]);
     setViewingNoteReviewTimestamps(prev => [...prev, null]);
     setViewingNoteDistribuicao(prev => [...prev, '']);
+    setViewingNoteDistribByCompany(prev => [...prev, {}]);
     setViewingDistribMode(prev => [...prev, '']);
     setAdjColumns(prev => prev.map(col => ({ ...col, items: [...col.items, ''] })));
     setViewingNoteDiscrepancies(prev => [...prev, null]);
@@ -3838,9 +3857,14 @@ export default function Page() {
           },
         ])),
       } : item.pricingByCompany,
+      // Legado (número único, sem empresa) — a tabela de revisão desktop não escreve mais
+      // aqui (virou distribuicaoByCompany), mas o editor mobile (MobileNoteView) ainda usa
+      // esse campo, então continua sendo salvo por esse caminho.
       distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== ''
         ? parseInt(viewingNoteDistribuicao[idx]) || null
         : (item.distribuicao ?? null),
+      // Distribuição por loja (Record company_id -> qty) — usada pela tabela de revisão desktop.
+      distribuicaoByCompany: viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {},
       // Selo de "Medida definida por conversão" — precisa ser persistido (não só na tela),
       // senão some ao reabrir a nota mesmo com a unidade/quantidade já convertidas.
       measureConverted: viewingNoteMeasureConverted[idx] ?? item.measureConverted ?? false,
@@ -4070,6 +4094,7 @@ export default function Page() {
       setViewingNoteMeasureConverted(prev => [...prev, ...blanks.map(() => false)]);
       setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
+      setViewingNoteDistribByCompany(prev => [...prev, ...blanks.map(() => ({}))]);
       setViewingDistribMode(prev => [...prev, ...blanks.map(() => '')]);
       setAdjColumns(prev => prev.map(col => ({ ...col, items: [...col.items, ...blanks.map(() => '')] })));
       setViewingNoteDiscrepancies(prev => [...prev, ...blanks.map(() => null)]);
@@ -4181,6 +4206,7 @@ export default function Page() {
     const pS = pad(viewingNoteSkus, (i) => viewingReviewNote.items[i]?.sku || '');
     const pQ = pad(viewingNoteQtys, (i) => viewingReviewNote.items[i]?.qty || 0);
     const pD = pad(viewingNoteDistribuicao, (i) => { const d = viewingReviewNote.items[i]?.distribuicao; return d != null ? String(d) : ''; });
+    const pDBC = pad(viewingNoteDistribByCompany, (i) => viewingReviewNote.items[i]?.distribuicaoByCompany || {});
     const pU = pad(viewingNoteUnits, (i) => viewingReviewNote.items[i]?.unit || 'UN');
     const pM = pad(viewingNoteMultipliers, (i) => viewingReviewNote.items[i]?.multiplier || 1);
     const pC = pad(viewingNoteMeasureConverted, () => false);
@@ -4216,6 +4242,9 @@ export default function Page() {
     setViewingNoteSkus(sp(pS, multiLinkItemEntries.map(e => e.product.sku || '')));
     setViewingNoteQtys(sp(pQ, multiLinkItemEntries.map(e => parseFloat(e.qty) || 0)));
     setViewingNoteDistribuicao(sp(pD, newItems.map(() => pD[srcIdx])));
+    // Distribuição por loja NÃO é copiada pros itens gerados pelo split — copiar cegaria a
+    // mesma quantidade pra vários produtos diferentes, violando o limite por item.
+    setViewingNoteDistribByCompany(sp(pDBC, newItems.map(() => ({}))));
     setViewingNoteUnits(sp(pU, newItems.map(() => pU[srcIdx])));
     setViewingNoteMultipliers(sp(pM, newItems.map(() => pM[srcIdx])));
     setViewingNoteMeasureConverted(sp(pC, newItems.map(() => pC[srcIdx])));
@@ -10161,7 +10190,7 @@ export default function Page() {
                                   </span>
                                 )}
                                 {(() => {
-                                  const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                                  const distribQty = getDistribTotal(idx, item);
                                   if (distribQty <= 0) return null;
                                   return (
                                     <span
@@ -10216,7 +10245,7 @@ export default function Page() {
                                   </span>
                                 )}
                                 {(() => {
-                                  const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                                  const distribQty = getDistribTotal(idx, item);
                                   if (distribQty <= 0) return null;
                                   return (
                                     <span
@@ -10243,7 +10272,7 @@ export default function Page() {
                           {!reviewHiddenCols.has('Qtd.') && (
                           <td style={{ ...tdP, position: 'relative' }}>
                             {(() => {
-                              const distribQty = parseInt(viewingNoteDistribuicao[idx] ?? '') || item.distribuicao || 0;
+                              const distribQty = getDistribTotal(idx, item);
                               if (distribQty <= 0) return null;
                               return (
                                 <span
@@ -10629,61 +10658,30 @@ export default function Page() {
                             </div>
                           </td>
                           )}
-                          {/* Distribuição */}
+                          {/* Distribuição — abre modal de distribuição por loja (Record company_id -> qty) */}
                           {!reviewHiddenCols.has('Distribuição') && (
-                          <td style={tdP}
-                            onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                            onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
-                          >
-                            <div data-cell style={cell({ justifyContent: 'center', padding: '0 8px', position: 'relative', overflow: 'visible' })}>
-                              {/* Botão preset — canto superior direito */}
-                              <button
-                                style={{ position: 'absolute', top: -7, right: -7, zIndex: 10, width: 16, height: 16, borderRadius: '50%', background: 'var(--rn-cell-inner)', border: '1px solid var(--rn-cell-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--rn-text-subtle)', flexShrink: 0 }}
-                                onClick={() => setViewingDistribDropdownIdx(viewingDistribDropdownIdx === idx ? null : idx)}
-                                title="Preencher distribuição"
-                              >
-                                <ChevronDown size={8} />
-                              </button>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                data-nav-table="review-note" data-nav-row={idx} data-nav-col={8}
-                                value={viewingNoteDistribuicao[idx] ?? ''}
-                                onChange={e => {
-                                  const val = e.target.value.replace(/[^0-9]/g, '');
-                                  const u = [...viewingNoteDistribuicao]; u[idx] = val; setViewingNoteDistribuicao(u);
-                                  const m = [...viewingDistribMode]; m[idx] = ''; setViewingDistribMode(m);
-                                }}
-                                onKeyDown={tableCellKeyDown('review-note', idx, 8)}
-                                onBlur={captureSnapshot}
-                                placeholder="—"
-                                className="w-10 text-center text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }}
-                              />
-                              {viewingDistribDropdownIdx === idx && (
-                                <>
-                                  <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setViewingDistribDropdownIdx(null)} />
-                                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 200, background: '#2e2e28', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', minWidth: 100 }}>
-                                    {(['Inteiro', 'Metade', 'Nada'] as const).map((label, i) => {
-                                      const preset = label.toLowerCase() as 'inteiro' | 'metade' | 'nada';
-                                      return (
-                                        <button key={label}
-                                          onClick={() => {
-                                            const qty = viewingNoteQtys[idx] ?? (viewingReviewNote?.items[idx] as any)?.qty ?? 0;
-                                            const val = preset === 'inteiro' ? String(qty) : preset === 'metade' ? String(Math.floor(qty / 2)) : '0';
-                                            const d = [...viewingNoteDistribuicao]; d[idx] = val; setViewingNoteDistribuicao(d);
-                                            const m = [...viewingDistribMode]; m[idx] = preset; setViewingDistribMode(m);
-                                            setViewingDistribDropdownIdx(null);
-                                            captureSnapshot();
-                                          }}
-                                          style={{ width: '100%', padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)', background: 'transparent', border: 'none', cursor: 'pointer', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : undefined }}
-                                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                        >{label}</button>
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              )}
+                          <td style={tdP}>
+                            <div style={cell({ justifyContent: 'center', padding: '0 8px' })}>
+                              {(() => {
+                                const total = getDistribTotal(idx, item);
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      const draft: Record<string, string> = {};
+                                      Object.entries(viewingNoteDistribByCompany[idx] || {}).forEach(([cid, v]) => { draft[cid] = String(v); });
+                                      setDistribModalDraft(draft);
+                                      setDistribModalIdx(idx);
+                                    }}
+                                    className={cn(
+                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-colors',
+                                      total > 0 ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300 hover:bg-violet-500/20' : 'text-white/25 hover:text-white/45 hover:bg-white/5'
+                                    )}
+                                  >
+                                    <Truck size={11} />
+                                    {total > 0 ? `${total} un.` : '—'}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </td>
                           )}
@@ -10707,6 +10705,7 @@ export default function Page() {
                                     setViewingNoteMeasureConverted(remove(viewingNoteMeasureConverted));
                                     setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
+                                    setViewingNoteDistribByCompany(remove(viewingNoteDistribByCompany));
                                     setViewingDistribMode(remove(viewingDistribMode));
                                     setAdjColumns(prev => prev.map(col => ({ ...col, items: remove(col.items) })));
                                     setViewingNoteDiscrepancies(remove(viewingNoteDiscrepancies));
@@ -11367,6 +11366,147 @@ export default function Page() {
                           </div>
                           );
                         })()}
+                      </div>
+                    </motion.div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}
+              {distribModalIdx !== null && viewingReviewNote && (() => {
+                const idx = distribModalIdx;
+                const item = viewingReviewNote.items[idx];
+                if (!item) return null;
+                const qtyRecebida = Number(viewingNoteQtys[idx] ?? item.qty) || 0;
+                const otherCompanies = companies.filter((c: any) => c.id !== viewingReviewNote.companyId);
+                const draftTotal = Object.values(distribModalDraft).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
+                const remaining = qtyRecebida - draftTotal;
+
+                const setCompanyQty = (companyId: string, raw: string) => {
+                  const digits = raw.replace(/[^0-9]/g, '');
+                  const othersSum = Object.entries(distribModalDraft)
+                    .filter(([cid]) => cid !== companyId)
+                    .reduce((acc, [, v]) => acc + (parseInt(v) || 0), 0);
+                  const maxForThis = Math.max(0, qtyRecebida - othersSum);
+                  const clamped = digits === '' ? '' : String(Math.min(parseInt(digits) || 0, maxForThis));
+                  setDistribModalDraft(prev => ({ ...prev, [companyId]: clamped }));
+                };
+
+                const handleConfirm = () => {
+                  const cleaned: Record<string, number> = {};
+                  Object.entries(distribModalDraft).forEach(([cid, v]) => {
+                    const n = parseInt(v) || 0;
+                    if (n > 0) cleaned[cid] = n;
+                  });
+                  const u = [...viewingNoteDistribByCompany]; u[idx] = cleaned; setViewingNoteDistribByCompany(u);
+                  setDistribModalIdx(null);
+                  captureSnapshot();
+                };
+
+                return (
+                  <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDistribModalIdx(null)} />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                      transition={{ duration: 0.18 }}
+                      className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh] border border-black/10 dark:border-white/[0.08]"
+                    >
+                      <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
+                        <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                          <Truck size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Distribuição entre Lojas</h2>
+                          <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{item.name || item.original_description || 'Item sem descrição'}</p>
+                        </div>
+                        <button
+                          onClick={() => setDistribModalIdx(null)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+                        <div className="bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.10] rounded-2xl p-3.5 flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <Package size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{item.name || item.original_description || 'Item sem descrição'}</div>
+                            <div className="font-mono text-[10px] font-semibold text-[#1A1A0E]/50 dark:text-white/40 mt-0.5">
+                              {(viewingNoteSkus[idx] ?? item.sku) || '—'} · {(viewingNoteEans[idx] ?? item.ean) || '—'}
+                            </div>
+                          </div>
+                          <div className="shrink-0 bg-black/[0.08] dark:bg-white/[0.08] px-3 py-1.5 rounded-full text-[11px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] whitespace-nowrap">
+                            Recebido: {qtyRecebida} un.
+                          </div>
+                        </div>
+
+                        <div className={cn(
+                          'rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs font-extrabold border',
+                          remaining > 0
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                            : 'bg-primary/10 text-primary border-primary/30'
+                        )}>
+                          <span>{draftTotal} de {qtyRecebida} un. distribuídos</span>
+                          <span>{remaining} restante{remaining === 1 ? '' : 's'}</span>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/40 dark:text-white/30 mb-2">Empresas cadastradas</p>
+                          <div className="space-y-2">
+                            {otherCompanies.length === 0 && (
+                              <p className="text-xs font-semibold text-[#1A1A0E]/40 dark:text-white/35 py-3 text-center">Nenhuma outra empresa cadastrada.</p>
+                            )}
+                            {otherCompanies.map((c: any) => {
+                              const filled = distribModalDraft[c.id];
+                              const othersSum = Object.entries(distribModalDraft)
+                                .filter(([cid]) => cid !== c.id)
+                                .reduce((acc, [, v]) => acc + (parseInt(v) || 0), 0);
+                              const suggestion = Math.max(0, qtyRecebida - othersSum);
+                              return (
+                                <div
+                                  key={c.id}
+                                  className={cn(
+                                    'flex items-center justify-between gap-3 rounded-[13px] border-[1.5px] px-3.5 py-2.5',
+                                    filled ? 'bg-primary/[0.04] border-primary/35' : 'bg-white dark:bg-white/[0.04] border-black/10 dark:border-white/10'
+                                  )}
+                                >
+                                  <span className="text-[13px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] flex items-center gap-2 min-w-0 truncate">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                    {c.nome_fantasia}
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={distribModalDraft[c.id] ?? ''}
+                                    onChange={e => setCompanyQty(c.id, e.target.value)}
+                                    placeholder={suggestion > 0 ? `até ${suggestion}` : '0'}
+                                    className={cn(
+                                      'w-[88px] text-right font-mono text-sm font-extrabold rounded-[10px] px-2.5 py-2 outline-none border-[1.5px] transition-colors',
+                                      filled
+                                        ? 'border-primary text-primary bg-primary/[0.06]'
+                                        : 'border-black/[0.14] dark:border-white/[0.16] bg-[#FDFBF3] dark:bg-white/[0.06] text-[#1A1A0E] dark:text-[#F2F0E3]'
+                                    )}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 shrink-0">
+                        <button
+                          onClick={handleConfirm}
+                          className="w-full bg-primary text-white py-3.5 rounded-2xl font-extrabold text-sm shadow-lg shadow-primary/30 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 size={16} />
+                          Confirmar Distribuição
+                        </button>
                       </div>
                     </motion.div>
                   </div>
