@@ -34,7 +34,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -789,7 +789,7 @@ export default function Page() {
     favorecido: string; vencimento: string | null; valor_final: number; pago: boolean;
     numero_parcela: number | null; total_parcelas: number | null; parcelamento_id: string | null;
   };
-  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento' | 'financeiro'>('produtos');
+  const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'nota_original' | 'recebimento' | 'financeiro'>('produtos');
   const [noteFinanceTxs, setNoteFinanceTxs] = useState<NoteFinanceTx[]>([]);
   const [noteFinanceLoading, setNoteFinanceLoading] = useState(false);
   const [noteFinanceGoToTx, setNoteFinanceGoToTx] = useState<NoteFinanceTx | null>(null);
@@ -9222,6 +9222,16 @@ export default function Page() {
                   <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{viewingReviewNote.items?.length ?? 0}</span>
                 </button>
                 <button
+                  onClick={() => setNoteEditorTab('nota_original')}
+                  title="Itens exatamente como vieram na nota, sem conversão, vínculo, preço de venda ou distribuição"
+                  className={cn(
+                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
+                    noteEditorTab === 'nota_original' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
+                  )}
+                >
+                  <ScrollText size={13} /> Nota Original
+                </button>
+                <button
                   onClick={() => setNoteEditorTab('recebimento')}
                   className={cn(
                     'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
@@ -9488,6 +9498,92 @@ export default function Page() {
                   }}
                 />
               )}
+
+              {noteEditorTab === 'nota_original' && (() => {
+                const rows = (viewingReviewNote.items || []).map((item: any, idx: number) => {
+                  const qty = item.original_qty ?? item.qty ?? 0;
+                  const price = item.original_price ?? item.price ?? 0;
+                  return { item, idx, qty, price, total: qty * price };
+                });
+                const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+                return (
+                  <div
+                    className="flex-1 overflow-auto p-8 [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
+                  >
+                    <div className="max-w-5xl">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
+                        <ScrollText size={12} />
+                        Nota Original
+                        <span className="normal-case font-semibold text-on-surface/30 tracking-normal">— itens exatamente como vieram na importação, sem conversão de unidade, produto vinculado, preço de venda ou distribuição</span>
+                      </p>
+                      <div className="rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--rn-cell-border)' }}>
+                        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
+                              {(() => {
+                                const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
+                                const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  fontSize: '9px', fontWeight: 900,
+                                  letterSpacing: '0.10em', textTransform: 'uppercase' as const,
+                                  color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
+                                  background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
+                                  borderRadius: '9999px', padding: '5px 13px', ...extra,
+                                });
+                                const cols: { label: string; align?: 'left' | 'right' | 'center' }[] = [
+                                  { label: '#', align: 'center' },
+                                  { label: 'Código' },
+                                  { label: 'Produto na Nota' },
+                                  { label: 'EAN' },
+                                  { label: 'Unidade', align: 'center' },
+                                  { label: 'Qtd.', align: 'center' },
+                                  { label: 'Preço Unit.', align: 'right' },
+                                  { label: 'Valor Total', align: 'right' },
+                                ];
+                                return cols.map(c => (
+                                  <th key={c.label} style={{ ...thBar, paddingLeft: c.label === '#' ? '10px' : thBar.padding }}>
+                                    <div style={lbl({ justifyContent: c.align === 'right' ? 'flex-end' : c.align === 'center' ? 'center' : 'flex-start' })}>
+                                      {c.label}
+                                    </div>
+                                  </th>
+                                ));
+                              })()}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(({ item, idx, qty, price, total }, i) => {
+                              const tdCls = "px-3 py-2.5 text-[12px] font-semibold";
+                              return (
+                                <tr key={idx}
+                                  className={i % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'}
+                                  style={{ borderBottom: '1px solid var(--rn-cell-border)' }}
+                                >
+                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</td>
+                                  <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</td>
+                                  <td className={tdCls} style={{ color: 'var(--rn-text)' }}>{item.original_description || '-'}</td>
+                                  <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.ean || '-'}</td>
+                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-muted)' }}>{item.unit || '-'}</td>
+                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text)' }}>{qty}</td>
+                                  <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>{price > 0 ? `R$ ${price.toFixed(2)}` : '-'}</td>
+                                  <td className={cn(tdCls, "text-right font-black")} style={{ color: 'var(--rn-text)' }}>{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          {rows.length > 0 && (
+                            <tfoot>
+                              <tr style={{ borderTop: '1.5px solid var(--rn-th-border)' }}>
+                                <td colSpan={7} className="px-3 py-2.5 text-[11px] font-black text-right uppercase tracking-wide" style={{ color: 'var(--rn-text-muted)' }}>Total da Nota</td>
+                                <td className="px-3 py-2.5 text-[13px] font-black text-right" style={{ color: 'var(--rn-text)' }}>{`R$ ${grandTotal.toFixed(2)}`}</td>
+                              </tr>
+                            </tfoot>
+                          )}
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {noteEditorTab === 'recebimento' && (
                 <div className="flex-1 overflow-auto p-8">
