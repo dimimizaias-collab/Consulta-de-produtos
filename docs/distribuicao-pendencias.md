@@ -36,7 +36,7 @@ Não existe hoje nenhuma coluna `company_id` em `usuarios`/`hr_employees`. Por c
 
 ## 7. Custo de produtos criados via "Criar e Vincular" dentro do manifesto (resolvido)
 
-Produto novo criado direto na busca da aba Produtos nascia com `product_company_stock.cost_price = 0` e sem SKU (nunca teve nota aprovada) — mesma limitação estrutural que motivou o backfill (`supabase/backfill_product_company_stock_cost_price.sql`). O card do produto recém-criado agora libera SKU, Preço de Custo (Origem) e Preço de Venda (Origem) para edição manual antes de confirmar a quantidade; ao confirmar, esses valores são gravados em `products.sku` e `product_company_stock` (upsert) para a Empresa Origem.
+Produto novo criado direto na busca da aba Produtos nascia com `product_company_stock.cost_price = 0` e sem SKU (nunca teve nota aprovada) — mesma limitação estrutural que motivou o backfill (`supabase/backfill_product_company_stock_cost_price.sql`). O botão "Criar e Vincular" agora abre um painel de criação (no molde do painel equivalente da nota, seções "Identificação" e "Preços"), com Nome, SKU, EAN, Preço de Custo e Preço de Venda — só depois de preenchido o produto é gravado (`products` + `product_company_stock` via upsert) e cai pronto no card de quantidade + confirmar.
 
 ## 8. Coluna Distribuição da nota — mobile e criação ainda usam o campo legado
 

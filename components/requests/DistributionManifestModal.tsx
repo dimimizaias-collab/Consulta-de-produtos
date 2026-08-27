@@ -32,7 +32,7 @@ interface Company { id: string; nome_fantasia: string }
 
 interface ProductHit { id: string; name: string; sku: string | null; ean: string | null }
 
-interface SelectedProduct extends ProductHit { costPrice: number; salePriceOrigin: number; justCreated?: boolean }
+interface SelectedProduct extends ProductHit { costPrice: number; salePriceOrigin: number }
 
 interface ManifestItem {
   id: string;
@@ -141,11 +141,15 @@ export function DistributionManifestModal({
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
   const [qtyInput, setQtyInput] = useState('');
   const [creatingProduct, setCreatingProduct] = useState(false);
-  // SKU/custo/venda do produto recém-criado via "Criar e Vincular" — o produto nasce sem
-  // esses dados (nunca teve nota aprovada, ver docs/distribuicao-pendencias.md #7), então o
-  // card libera esses campos pra edição manual antes de confirmar a quantidade.
-  const [newCostInput, setNewCostInput] = useState('');
-  const [newSaleInput, setNewSaleInput] = useState('');
+  // Painel "Criar e Vincular" — mesmo formato do painel de criação da nota (Identificação +
+  // Preço), aberto em vez de criar o produto direto: o usuário preenche tudo (nome, SKU, EAN,
+  // custo, venda) antes de o produto ser gravado e cair pronto pra quantidade + confirmar.
+  const [creatingFormOpen, setCreatingFormOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSku, setNewSku] = useState('');
+  const [newEan, setNewEan] = useState('');
+  const [newCost, setNewCost] = useState('');
+  const [newSale, setNewSale] = useState('');
   // Duplicidade (produto já está na lista): mescla automática (soma qty), mas só depois de
   // o usuário confirmar — EAN do card em vermelho + ícone de alerta, ver Etapa 6 do plano.
   const [duplicatePendingQty, setDuplicatePendingQty] = useState<number | null>(null);
@@ -248,36 +252,63 @@ export function DistributionManifestModal({
     return () => { cancelled = true; clearTimeout(t); };
   }, [descQuery, eanQuery, originCompanyId]);
 
-  const selectProduct = async (p: ProductHit, justCreated = false) => {
+  const selectProduct = async (p: ProductHit) => {
     const { data: stock } = await supabase
       .from('product_company_stock')
       .select('cost_price, price')
       .eq('product_id', p.id)
       .eq('company_id', originCompanyId)
       .maybeSingle();
-    setSelectedProduct({ ...p, costPrice: parseFloat(stock?.cost_price) || 0, salePriceOrigin: parseFloat(stock?.price) || 0, justCreated });
+    setSelectedProduct({ ...p, costPrice: parseFloat(stock?.cost_price) || 0, salePriceOrigin: parseFloat(stock?.price) || 0 });
     setDescQuery('');
     setEanQuery('');
     setSearchResults([]);
     setQtyInput('');
     setDuplicatePendingQty(null);
-    setNewCostInput('');
-    setNewSaleInput('');
   };
 
-  const handleCreateAndLink = async () => {
-    const name = (descQuery.trim() || eanQuery.trim());
-    if (!name) return;
+  // Abre o painel de criação (molde do "Criar e Vincular" da nota) em vez de criar o produto
+  // na hora — o usuário preenche Nome/SKU/EAN/Custo/Venda ali antes de qualquer gravação.
+  const openCreateForm = () => {
+    setNewName(descQuery.trim() || eanQuery.trim());
+    setNewSku('');
+    setNewEan(eanQuery.trim());
+    setNewCost('');
+    setNewSale('');
+    setCreatingFormOpen(true);
+  };
+
+  const handleSubmitCreateForm = async () => {
+    const name = newName.trim();
+    if (!name) {
+      setNotification({ type: 'error', message: 'Informe o nome do produto.' });
+      return;
+    }
     setCreatingProduct(true);
     try {
+      const costPrice = parseFloat(newCost.replace(',', '.')) || 0;
+      const salePriceOrigin = parseFloat(newSale.replace(',', '.')) || 0;
       const { data: created, error } = await supabase
         .from('products')
-        .insert({ name, sku: null, ean: eanQuery.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0 })
+        .insert({ name, sku: newSku.trim() || null, ean: newEan.trim() || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0 })
         .select('id, name, sku, ean')
         .single();
       if (error) throw error;
-      await selectProduct(created as ProductHit, true);
-      setNotification({ type: 'success', message: 'Produto criado e vinculado. Preencha SKU, custo e venda antes de confirmar.' });
+      await supabase.from('product_company_stock').upsert({
+        product_id: created.id,
+        company_id: originCompanyId,
+        cost_price: costPrice,
+        price: salePriceOrigin,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'product_id,company_id' });
+      setSelectedProduct({ ...(created as ProductHit), costPrice, salePriceOrigin });
+      setDescQuery('');
+      setEanQuery('');
+      setSearchResults([]);
+      setQtyInput('');
+      setDuplicatePendingQty(null);
+      setCreatingFormOpen(false);
+      setNotification({ type: 'success', message: 'Produto criado e vinculado.' });
     } catch (err: any) {
       const msg = err?.message || '';
       setNotification({ type: 'error', message: msg.includes('ean') ? 'Este EAN já está cadastrado em outro produto.' : (msg || 'Erro ao criar produto.') });
@@ -286,29 +317,8 @@ export function DistributionManifestModal({
     }
   };
 
-  const addItem = async (p: SelectedProduct, qty: number) => {
+  const addItem = (p: SelectedProduct, qty: number) => {
     itemsDirtyRef.current = true;
-    const costPrice = p.justCreated ? (parseFloat(newCostInput.replace(',', '.')) || 0) : p.costPrice;
-    const salePriceOrigin = p.justCreated ? (parseFloat(newSaleInput.replace(',', '.')) || 0) : p.salePriceOrigin;
-    if (p.justCreated) {
-      // Grava descrição/EAN/SKU/custo/venda preenchidos no card de volta no cadastro do
-      // produto — sem isso o produto criado aqui ficaria pra sempre com custo 0 e sem esses
-      // dados (ver pendência #7).
-      try {
-        await Promise.all([
-          supabase.from('products').update({ name: p.name.trim(), ean: p.ean || null, sku: p.sku || null }).eq('id', p.id),
-          supabase.from('product_company_stock').upsert({
-            product_id: p.id,
-            company_id: originCompanyId,
-            cost_price: costPrice,
-            price: salePriceOrigin,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'product_id,company_id' }),
-        ]);
-      } catch (err: any) {
-        setNotification({ type: 'error', message: err?.message || 'Erro ao salvar dados do produto criado.' });
-      }
-    }
     setItems(prev => [...prev, {
       id: crypto.randomUUID(),
       productId: p.id,
@@ -317,8 +327,8 @@ export function DistributionManifestModal({
       ean: p.ean,
       qty,
       measure: 'UN',
-      costPrice,
-      salePriceOrigin,
+      costPrice: p.costPrice,
+      salePriceOrigin: p.salePriceOrigin,
       salePriceDestination: null,
       verified: false,
       qtyReceived: null,
@@ -326,8 +336,6 @@ export function DistributionManifestModal({
     setSelectedProduct(null);
     setQtyInput('');
     setDuplicatePendingQty(null);
-    setNewCostInput('');
-    setNewSaleInput('');
   };
 
   // Edição inline de campos do item em Registro (Qtd./Medida) — tabela no molde da nota.
@@ -336,12 +344,8 @@ export function DistributionManifestModal({
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
   };
 
-  const handleConfirmAddItem = async () => {
+  const handleConfirmAddItem = () => {
     if (!selectedProduct) return;
-    if (selectedProduct.justCreated && !selectedProduct.name.trim()) {
-      setNotification({ type: 'error', message: 'Informe a descrição do produto.' });
-      return;
-    }
     const qty = parseFloat(qtyInput.replace(',', '.'));
     if (!qty || qty <= 0) {
       setNotification({ type: 'error', message: 'Informe uma quantidade válida.' });
@@ -352,7 +356,7 @@ export function DistributionManifestModal({
       setDuplicatePendingQty(qty);
       return;
     }
-    await addItem(selectedProduct, qty);
+    addItem(selectedProduct, qty);
   };
 
   const confirmDuplicateMerge = () => {
@@ -695,7 +699,7 @@ export function DistributionManifestModal({
               </div>
             ) : (
               <div className="space-y-4">
-                {editable && (
+                {editable && !creatingFormOpen && (
                   <div className="grid grid-cols-2 gap-2.5 max-w-3xl">
                     <div className="relative">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
@@ -720,7 +724,7 @@ export function DistributionManifestModal({
                   </div>
                 )}
 
-                {editable && (descQuery || eanQuery) && !selectedProduct && (
+                {editable && !creatingFormOpen && (descQuery || eanQuery) && !selectedProduct && (
                   <div className="bg-surface-container-lowest border border-on-surface/10 rounded-xl overflow-hidden max-w-3xl">
                     {searchLoading ? (
                       <div className="px-4 py-3 text-xs font-bold text-on-surface/35">Buscando…</div>
@@ -737,18 +741,85 @@ export function DistributionManifestModal({
                       ))
                     ) : (
                       <button
-                        onClick={handleCreateAndLink}
-                        disabled={creatingProduct}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[#D81E1E] text-sm font-black hover:bg-[#D81E1E]/5 transition-colors disabled:opacity-60"
+                        onClick={openCreateForm}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[#D81E1E] text-sm font-black hover:bg-[#D81E1E]/5 transition-colors"
                       >
                         <Zap size={14} />
-                        {creatingProduct ? 'Criando…' : `Criar e Vincular "${(descQuery || eanQuery).trim()}"`}
+                        {`Criar e Vincular "${(descQuery || eanQuery).trim()}"`}
                       </button>
                     )}
                   </div>
                 )}
 
-                {selectedProduct && (
+                {editable && creatingFormOpen && (() => {
+                  const labelCls = 'text-[9px] font-black uppercase tracking-wider text-on-surface/45';
+                  const inputCls = 'w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 mt-1';
+                  const sectionCls = 'bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 space-y-3';
+                  return (
+                    <div className="max-w-3xl space-y-4">
+                      <button
+                        onClick={() => setCreatingFormOpen(false)}
+                        className="text-xs font-bold text-on-surface/55 hover:text-[#D81E1E] transition-colors flex items-center gap-1"
+                      >
+                        ← Voltar para busca
+                      </button>
+
+                      <div className={sectionCls}>
+                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-on-surface/50">
+                          <Package size={14} className="text-[#D81E1E] shrink-0" />
+                          Identificação
+                        </div>
+                        <div>
+                          <label className={labelCls}>Nome do Produto</label>
+                          <input autoFocus type="text" value={newName} onChange={e => setNewName(e.target.value)} className={inputCls} placeholder="Nome do produto" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelCls}>SKU (Código Interno)</label>
+                            <input type="text" value={newSku} onChange={e => setNewSku(e.target.value)} className={inputCls} placeholder="Opcional" />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Código EAN</label>
+                            <input type="text" value={newEan} onChange={e => setNewEan(e.target.value)} className={cn(inputCls, 'font-mono')} placeholder="Opcional" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={sectionCls}>
+                        <div className="text-[11px] font-black uppercase tracking-wider text-on-surface/50">Preços (Empresa Origem)</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelCls}>Preço de Custo</label>
+                            <div className="relative mt-1">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface/40">R$</span>
+                              <input type="text" value={newCost} onChange={e => setNewCost(e.target.value)} placeholder="0,00" className="w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg pl-8 pr-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 font-mono" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className={labelCls}>Preço de Venda</label>
+                            <div className="relative mt-1">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface/40">R$</span>
+                              <input type="text" value={newSale} onChange={e => setNewSale(e.target.value)} placeholder="0,00" className="w-full bg-white dark:bg-[#252520] border border-on-surface/15 rounded-lg pl-8 pr-3 py-2 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-primary/20 font-mono" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleSubmitCreateForm}
+                        disabled={creatingProduct || !newName.trim()}
+                        className="w-full h-11 rounded-xl bg-[#D81E1E] text-white text-sm font-black flex items-center justify-center gap-2 hover:bg-[#B91818] active:scale-[0.99] transition-all disabled:opacity-40"
+                      >
+                        {creatingProduct
+                          ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                          : <Zap size={14} />}
+                        {creatingProduct ? 'Criando…' : 'Criar e Vincular'}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {!creatingFormOpen && selectedProduct && (
                   <div className="bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 relative max-w-3xl">
                     {isDuplicateOfSelected && (
                       <div className="absolute top-3 right-3 text-[#D81E1E]">
@@ -762,86 +833,30 @@ export function DistributionManifestModal({
                       <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5">
                         <div className="col-span-2 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Descrição</div>
-                          {selectedProduct.justCreated ? (
-                            <input
-                              type="text"
-                              value={selectedProduct.name}
-                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, name: e.target.value } : prev)}
-                              className="text-[13px] font-bold text-on-surface bg-transparent outline-none w-full"
-                            />
-                          ) : (
-                            <div className="text-[13px] font-bold text-on-surface truncate">{selectedProduct.name}</div>
-                          )}
+                          <div className="text-[13px] font-bold text-on-surface truncate">{selectedProduct.name}</div>
                         </div>
                         <div className={cn(
                           'bg-on-surface/[0.03] border rounded-lg px-2.5 py-1.5',
                           isDuplicateOfSelected ? 'border-[#D81E1E]/60 bg-[#D81E1E]/[0.05]' : 'border-on-surface/[0.08]'
                         )}>
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">EAN</div>
-                          {selectedProduct.justCreated ? (
-                            <input
-                              type="text"
-                              value={selectedProduct.ean || ''}
-                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, ean: e.target.value || null } : prev)}
-                              placeholder="Opcional"
-                              className="font-mono text-[12px] font-bold text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
-                            />
-                          ) : (
-                            <div className={cn('font-mono text-[12px] font-bold truncate', isDuplicateOfSelected ? 'text-[#D81E1E]' : 'text-on-surface')}>{selectedProduct.ean || '—'}</div>
-                          )}
+                          <div className={cn('font-mono text-[12px] font-bold truncate', isDuplicateOfSelected ? 'text-[#D81E1E]' : 'text-on-surface')}>{selectedProduct.ean || '—'}</div>
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">SKU</div>
-                          {selectedProduct.justCreated ? (
-                            <input
-                              type="text"
-                              value={selectedProduct.sku || ''}
-                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, sku: e.target.value || null } : prev)}
-                              placeholder="Opcional"
-                              className="font-mono text-[12px] font-bold text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
-                            />
-                          ) : (
-                            <div className="font-mono text-[12px] font-bold text-on-surface truncate">{selectedProduct.sku || '—'}</div>
-                          )}
+                          <div className="font-mono text-[12px] font-bold text-on-surface truncate">{selectedProduct.sku || '—'}</div>
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Custo (Origem)</div>
-                          {selectedProduct.justCreated ? (
-                            <input
-                              type="text"
-                              value={newCostInput}
-                              onChange={e => setNewCostInput(e.target.value)}
-                              placeholder="0,00"
-                              className="font-mono text-[14px] font-black text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
-                            />
-                          ) : (
-                            <div className="font-mono text-[14px] font-black text-on-surface">{fmtBRL(selectedProduct.costPrice)}</div>
-                          )}
+                          <div className="font-mono text-[14px] font-black text-on-surface">{fmtBRL(selectedProduct.costPrice)}</div>
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Venda (Origem)</div>
-                          {selectedProduct.justCreated ? (
-                            <input
-                              type="text"
-                              value={newSaleInput}
-                              onChange={e => setNewSaleInput(e.target.value)}
-                              placeholder="0,00"
-                              className="font-mono text-[14px] font-black text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
-                            />
-                          ) : (
-                            <>
-                              <div className="font-mono text-[14px] font-black text-on-surface/55">{fmtBRL(selectedProduct.salePriceOrigin)}</div>
-                              <div className="text-[8px] font-bold text-on-surface/30">apenas referência</div>
-                            </>
-                          )}
+                          <div className="font-mono text-[14px] font-black text-on-surface/55">{fmtBRL(selectedProduct.salePriceOrigin)}</div>
+                          <div className="text-[8px] font-bold text-on-surface/30">apenas referência</div>
                         </div>
                       </div>
                     </div>
-                    {selectedProduct.justCreated && !isDuplicateOfSelected && (
-                      <p className="text-[10px] font-bold text-[#D81E1E]/70 -mt-2 mb-3">
-                        Produto novo — preencha SKU, custo e venda antes de confirmar.
-                      </p>
-                    )}
 
                     {isDuplicateOfSelected ? (
                       <div className="bg-[#D81E1E]/[0.06] border border-[#D81E1E]/25 rounded-xl p-3 flex flex-col gap-2.5">
@@ -875,7 +890,7 @@ export function DistributionManifestModal({
                           Confirmar
                         </button>
                         <button
-                          onClick={() => { setSelectedProduct(null); setQtyInput(''); setNewCostInput(''); setNewSaleInput(''); }}
+                          onClick={() => { setSelectedProduct(null); setQtyInput(''); }}
                           className="h-[38px] px-3 rounded-lg border border-on-surface/15 text-on-surface/50 text-[12px] font-bold hover:bg-on-surface/5 transition-colors shrink-0"
                         >
                           Cancelar
