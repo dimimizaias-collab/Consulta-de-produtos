@@ -61,6 +61,10 @@ interface MotherProductModalProps {
   onStage?: (draft: MotherPackageDraft) => void;
   // Pré-preenche o formulário ao reabrir um rascunho já staged (ex: usuário clicou "Editar").
   initialDraft?: MotherPackageDraft | null;
+  // Sugestão de EAN pro campo "Código EAN Principal" na primeira abertura (sem editingPackage
+  // nem initialDraft ainda) — ex: o código já digitado na coluna EAN da nota, que foi o que
+  // levou o usuário a cadastrar esta embalagem.
+  initialEan?: string;
 }
 
 // Grava (insert ou update) um Produto Mãe e sincroniza EANs extras, supplier_units e o
@@ -188,7 +192,7 @@ const SUFFIX_KBD: Record<string, string[][]> = {
 
 const UNITS_KEYS = ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK'];
 
-export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved, onStage, initialDraft }: MotherProductModalProps) {
+export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved, onStage, initialDraft, initialEan }: MotherProductModalProps) {
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
   const [suffix, setSuffix] = useState('');
@@ -275,11 +279,11 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
       setSubcategory(initialDraft.subcategory || '');
       setImage(initialDraft.image || '');
     } else {
-      setSku(''); setName(childProductName || ''); setSuffix(''); setEan(''); setExtraEans([]);
+      setSku(''); setName(childProductName || ''); setSuffix(''); setEan(initialEan || ''); setExtraEans([]);
       setUnitsPerChild(''); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
-  }, [open, editingPackage, initialDraft, childProductName]);
+  }, [open, editingPackage, initialDraft, childProductName, initialEan]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

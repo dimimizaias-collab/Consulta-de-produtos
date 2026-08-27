@@ -11651,6 +11651,7 @@ export default function Page() {
                 childProductName={noteItemNewName || 'Novo produto'}
                 editingPackage={null}
                 initialDraft={(linkingItemIdx !== null ? viewingReviewNote?.items[linkingItemIdx]?.mother_draft : null) || null}
+                initialEan={(linkingItemIdx !== null ? (viewingNoteEans[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.ean) : '') || ''}
                 suppliers={supplierNames}
                 onSaved={() => {}}
                 onStage={draft => commitItemMotherDraft(draft)}

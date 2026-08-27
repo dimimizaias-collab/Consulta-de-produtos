@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Fluxo Produto Mãe (Criar e Vincular) — Light</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* ── Tokens extraídos do padrão real do app (app/page.tsx, MotherProductModal.tsx) ── */
+    --page-bg:        #FFFCEC;
+    --modal-bg:       #F0E7CC;
+    --header-bg:      #FFE500;
+    --header-border:  #D4C000;
+    --icon-chip-bg:   rgba(26,26,10,0.09);
+    --icon-chip:      #1A1A0E;
+    --title:          #1A1A0E;
+    --subtitle:       rgba(26,26,10,0.55);
+    --close-bg:       rgba(26,26,10,0.08);
+    --close-border:   rgba(26,26,10,0.10);
+    --close-color:    rgba(26,26,10,0.50);
+
+    --card-bg:        #FFFFFF;
+    --card-border:    rgba(26,26,10,0.07);
+
+    --label:          rgba(74,63,46,0.80);
+    --input-bg:       rgba(26,26,10,0.035);
+    --input-border:   rgba(26,26,10,0.10);
+    --input-text:     #1A1208;
+    --input-ph:       rgba(26,26,10,0.30);
+
+    --back-link:      #4A3F2E;
+
+    --tab-track-bg:   rgba(26,26,10,0.045);
+    --tab-active-bg:  #FFFFFF;
+    --tab-inactive:   rgba(26,26,10,0.45);
+
+    --amber-bg:       #FFFBEB;
+    --amber-border:   #FBBF24;
+    --amber-text:     #B45309;
+
+    --primary-bg:     rgba(216,30,30,0.06);
+    --primary-border: rgba(216,30,30,0.22);
+    --primary-text:   #B01818;
+
+    --cancel-bg:      rgba(26,26,10,0.06);
+    --cancel-text:    #4A3F2E;
+    --primary:        #D81E1E;
+    --on-primary:     #FFFFFF;
+
+    --overlay:        rgba(26,26,10,0.40);
+
+    --row-bg:         #FFFFFF;
+    --row-bg-alt:     #FAF7EE;
+    --row-border:     #E0D8BF;
+    --header-row-bg:  #FFE500;
+    --header-row-border: #D4C000;
+    --header-row-text:   rgba(26,26,10,0.55);
+
+    --dot:            #D81E1E;
+  }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: var(--page-bg);
+    color: var(--input-text);
+    padding: 40px 24px 120px;
+  }
+
+  .page-title {
+    max-width: 1180px;
+    margin: 0 auto 8px;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .page-subtitle {
+    max-width: 1180px;
+    margin: 0 auto 40px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--subtitle);
+    line-height: 1.6;
+  }
+
+  .storyboard {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .step-badge {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(216,30,30,0.25);
+  }
+  .step-rail {
+    width: 2px;
+    flex: 1;
+    background: repeating-linear-gradient(to bottom, rgba(26,26,10,0.18) 0 4px, transparent 4px 9px);
+    margin: 8px auto 0;
+  }
+  .step-content { display: flex; flex-direction: column; gap: 10px; }
+  .step-caption {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--title);
+    line-height: 1.5;
+  }
+  .step-caption b { color: var(--primary); }
+  .frame {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(26,26,10,0.06);
+    overflow: hidden;
+  }
+
+  /* ── Frame 1: linha da tabela ── */
+  .table-frame { padding: 0; }
+  .table-mini { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .table-mini thead th {
+    background: var(--header-row-bg);
+    border-bottom: 1px solid var(--header-row-border);
+    color: var(--header-row-text);
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 14px;
+    text-align: left;
+  }
+  .table-mini tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--row-border);
+    vertical-align: middle;
+  }
+  .table-mini tbody tr:nth-child(odd) { background: var(--row-bg); }
+  .table-mini tbody tr:nth-child(even) { background: var(--row-bg-alt); }
+  .desc-cell { font-weight: 700; color: var(--input-text); }
+  .desc-sub { font-size: 10.5px; color: var(--subtitle); font-weight: 600; margin-top: 2px; }
+  .id-cell { display: flex; align-items: center; gap: 6px; }
+  .mini-btn {
+    position: relative;
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(26,26,10,0.03);
+    border: 1px dashed rgba(26,26,10,0.22);
+    color: rgba(26,26,10,0.45);
+  }
+  .mini-btn svg { width: 12px; height: 12px; stroke-width: 2.4; }
+  .mini-btn.pending { border-style: solid; border-color: rgba(216,30,30,0.35); background: rgba(216,30,30,0.06); color: var(--primary); }
+  .pending-dot {
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--dot);
+    border: 2px solid var(--card-bg);
+  }
+  .mini-tooltip {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--primary);
+    background: rgba(216,30,30,0.08);
+    border: 1px solid rgba(216,30,30,0.18);
+    border-radius: 8px;
+    padding: 3px 8px;
+    margin-left: 8px;
+  }
+
+  /* ── Modal chrome reutilizado ── */
+  .modal-shell { background: var(--modal-bg); }
+  .modal-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--header-border);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .icon-chip {
+    width: 38px; height: 38px;
+    background: var(--icon-chip-bg);
+    border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--icon-chip);
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 17px; height: 17px; stroke-width: 2; }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title { font-size: 15.5px; font-weight: 800; color: var(--title); letter-spacing: -0.01em; line-height: 1.2; }
+  .header-subtitle { font-size: 11px; font-weight: 700; color: var(--subtitle); margin-top: 2px; }
+  .close-btn {
+    width: 30px; height: 30px;
+    background: var(--close-bg);
+    border: 1px solid var(--close-border);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--close-color);
+    flex-shrink: 0;
+  }
+  .close-btn svg { width: 15px; height: 15px; stroke-width: 2.5; }
+  .modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 5px; padding: 4px; border-radius: 14px; background: var(--tab-track-bg); }
+  .tab {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 0;
+    border-radius: 10px;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--tab-inactive);
+    position: relative;
+  }
+  .tab svg { width: 13px; height: 13px; stroke-width: 2.3; }
+  .tab.active { background: var(--tab-active-bg); color: var(--title); box-shadow: 0 1px 2px rgba(26,26,10,0.08); }
+  .tab-dot { position: absolute; top: 6px; right: 22px; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+
+  /* ── Cards / empty states ── */
+  .dashed-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 14px;
+    border-radius: 16px;
+    border: 2px dashed rgba(26,26,10,0.16);
+    background: transparent;
+    text-align: left;
+  }
+  .dashed-icon {
+    width: 34px; height: 34px; border-radius: 11px;
+    background: rgba(26,26,10,0.045);
+    color: var(--subtitle);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .dashed-icon svg { width: 16px; height: 16px; stroke-width: 2.1; }
+  .dashed-title { font-size: 12.5px; font-weight: 800; color: var(--input-text); }
+  .dashed-sub { font-size: 10px; font-weight: 600; color: var(--subtitle); margin-top: 2px; }
+
+  .info-box {
+    display: flex; gap: 8px;
+    padding: 10px 13px;
+    border-radius: 12px;
+    background: rgba(26,26,10,0.03);
+    border: 1px dashed rgba(26,26,10,0.14);
+  }
+  .info-box svg { width: 14px; height: 14px; stroke-width: 2; color: var(--subtitle); flex-shrink: 0; margin-top: 1px; }
+  .info-box p { font-size: 10.5px; font-weight: 600; color: rgba(26,26,10,0.65); line-height: 1.5; }
+  .info-box.primary { background: rgba(216,30,30,0.055); border-color: rgba(216,30,30,0.22); }
+  .info-box.primary svg { color: var(--primary); }
+  .info-box.primary p { color: var(--primary-text); }
+
+  .summary-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 2px solid var(--primary);
+    background: rgba(216,30,30,0.055);
+  }
+  .summary-icon {
+    width: 36px; height: 36px; border-radius: 12px;
+    background: rgba(216,30,30,0.14);
+    color: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .summary-icon svg { width: 17px; height: 17px; stroke-width: 2.1; }
+  .summary-title { font-size: 12.5px; font-weight: 800; color: var(--primary); }
+  .summary-sub { font-size: 10.5px; font-weight: 600; color: rgba(26,26,10,0.55); margin-top: 2px; }
+  .summary-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .link-btn { font-size: 10px; font-weight: 800; color: var(--primary); text-decoration: underline; }
+  .icon-x-btn {
+    width: 26px; height: 26px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--subtitle);
+  }
+  .icon-x-btn svg { width: 13px; height: 13px; stroke-width: 2.3; }
+
+  /* ── Formulário Produto Mãe (popup) ── */
+  .popup-frame {
+    max-width: 380px;
+    margin: 0 auto;
+    border-radius: 18px;
+    border: 1px solid rgba(26,26,10,0.10);
+    box-shadow: 0 20px 40px rgba(26,26,10,0.18);
+  }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.span-2 { grid-column: 1 / -1; }
+  label { font-size: 9.5px; font-weight: 800; color: var(--label); text-transform: uppercase; letter-spacing: 0.05em; }
+  .fake-input {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 11px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: var(--input-text);
+    font-weight: 600;
+  }
+  .fake-input.placeholder { color: var(--input-ph); font-weight: 500; }
+
+  /* ── Aviso "já definido" na aba Produto ── */
+  .search-input {
+    background: #fff;
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    color: var(--input-text);
+    font-weight: 600;
+  }
+  .result-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(216,30,30,0.18);
+    background: rgba(216,30,30,0.04);
+  }
+  .result-icon {
+    width: 30px; height: 30px; border-radius: 10px;
+    background: rgba(26,26,10,0.06);
+    color: var(--subtitle);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .result-icon svg { width: 14px; height: 14px; stroke-width: 2.1; }
+  .result-name { font-size: 12px; font-weight: 700; color: var(--input-text); }
+  .result-sub { font-size: 10px; color: var(--subtitle); font-weight: 600; }
+  .or-divider { display: flex; align-items: center; gap: 10px; font-size: 9.5px; font-weight: 800; color: var(--subtitle); text-transform: uppercase; letter-spacing: 0.08em; }
+  .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: rgba(26,26,10,0.12); }
+
+  .btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 0;
+    border-radius: 14px;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 12.5px;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(216,30,30,0.25);
+  }
+  .btn-primary svg { width: 14px; height: 14px; stroke-width: 2.4; }
+  .btn-outline {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 0;
+    border-radius: 14px;
+    border: 2px dashed rgba(26,26,10,0.18);
+    color: var(--subtitle);
+    font-size: 11.5px;
+    font-weight: 800;
+  }
+
+  /* ── Diálogo de bloqueio de aprovação ── */
+  .confirm-dialog {
+    max-width: 340px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid rgba(26,26,10,0.08);
+    border-radius: 22px;
+    box-shadow: 0 20px 40px rgba(26,26,10,0.16);
+    padding: 22px;
+    text-align: center;
+  }
+  .confirm-icon {
+    width: 46px; height: 46px;
+    margin: 0 auto 14px;
+    border-radius: 16px;
+    background: rgba(216,30,30,0.10);
+    color: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .confirm-icon svg { width: 21px; height: 21px; stroke-width: 2.1; }
+  .confirm-title { font-size: 15px; font-weight: 800; color: var(--title); margin-bottom: 8px; }
+  .confirm-text { font-size: 11.5px; font-weight: 600; color: rgba(26,26,10,0.55); line-height: 1.6; margin-bottom: 16px; }
+  .confirm-btn {
+    width: 100%;
+    padding: 11px 0;
+    border-radius: 14px;
+    background: rgba(26,26,10,0.07);
+    color: var(--title);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 720px) {
+    .step { grid-template-columns: 34px 1fr; }
+    .field-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <h1 class="page-title">Fluxo: Produto Mãe pelo "Criar e Vincular" — Modo Claro</h1>
+  <p class="page-subtitle">
+    Mockup estático do fluxo completo: o usuário define a embalagem (Produto Mãe) antes de existir um produto normal, deixa o item pendente,
+    e depois finaliza vinculando um produto já existente ou criando um novo — em qualquer ordem, pelas abas <b>Produto</b> / <b>Produto Mãe</b>
+    do modal "Vincular ao Dicionário".
+  </p>
+
+  <div class="storyboard">
+
+    <!-- STEP 1 -->
+    <div class="step">
+      <div><div class="step-badge">1</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">Usuário recebeu uma <b>caixa fechada</b> na nota — o código EAN da coluna não bate com nenhum produto cadastrado. Clica em "Vincular" na coluna <b>Identificação Interna</b>.</p>
+        <div class="frame table-frame">
+          <table class="table-mini">
+            <thead><tr><th>Descrição</th><th>EAN</th><th>Qtd.</th><th>Identificação Interna</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="desc-cell">papel higiênico fofinho</div><div class="desc-sub">Cód. fornecedor: 88213</div></td>
+                <td style="font-family:'DM Mono',monospace">7891234500019</td>
+                <td>4</td>
+                <td>
+                  <div class="id-cell">
+                    <div class="mini-btn">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+                    </div>
+                    <span class="mini-tooltip" style="background:transparent;border:none;color:rgba(26,26,10,0.4);padding:0">← clique aqui</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step">
+      <div><div class="step-badge">2</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">O modal abre. Como não há produto correspondente, o usuário vai direto na aba <b>Produto Mãe</b> — ainda vazia — pra registrar a caixa que tem em mãos.</p>
+        <div class="frame modal-shell">
+          <div class="modal-header">
+            <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></div>
+            <div class="header-text">
+              <div class="header-title">Produto Mãe</div>
+              <div class="header-subtitle">papel higiênico fofinho</div>
+            </div>
+            <div class="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="modal-body">
+            <div class="tabs">
+              <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg>Produto</div>
+              <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>Produto Mãe</div>
+            </div>
+            <button class="dashed-btn" style="width:100%">
+              <div class="dashed-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div>
+              <div><div class="dashed-title">Definir Produto Mãe</div><div class="dashed-sub">Nome, sufixo, EAN e unidades por embalagem</div></div>
+            </button>
+            <div class="info-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <p>Pode ser definido antes ou depois do produto — troque de aba a qualquer momento. Depois, na aba "Produto", vincule um produto já existente ou crie um novo pra finalizar.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step">
+      <div><div class="step-badge">3</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">Clicando em "Definir Produto Mãe", abre o formulário (mesmo usado na aba "Produtos Mãe" da Edição de Produto). Preenche <b>nome, sufixo, EAN da caixa e unidades por embalagem</b> e salva.</p>
+        <div class="frame popup-frame modal-shell">
+          <div class="modal-header">
+            <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div>
+            <div class="header-text">
+              <div class="header-title">Novo Produto Mãe</div>
+              <div class="header-subtitle">Embalagem vinculada a "papel higiênico fofinho"</div>
+            </div>
+            <div class="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="modal-body">
+            <div class="field-grid">
+              <div class="field"><label>Nome da Embalagem</label><div class="fake-input">papel higiênico fofinho</div></div>
+              <div class="field"><label>Sufixo (opcional)</label><div class="fake-input">Caixa 12un</div></div>
+              <div class="field span-2"><label>Código EAN Principal</label><div class="fake-input" style="font-family:'DM Mono',monospace">7891234500019</div></div>
+              <div class="field"><label>Unidades por Embalagem</label><div class="fake-input">12</div></div>
+              <div class="field"><label>Fornecedor (opcional)</label><div class="fake-input placeholder">Sem fornecedor específico</div></div>
+            </div>
+            <div class="btn-primary">Salvar Produto Mãe</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step">
+      <div><div class="step-badge">4</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">De volta ao modal principal: a aba <b>Produto Mãe</b> agora mostra o resumo salvo — mas <b>ainda pendente</b>, já que nenhum produto normal foi vinculado.</p>
+        <div class="frame modal-shell">
+          <div class="modal-header">
+            <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></div>
+            <div class="header-text">
+              <div class="header-title">Produto Mãe</div>
+              <div class="header-subtitle">papel higiênico fofinho</div>
+            </div>
+            <div class="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="modal-body">
+            <div class="tabs">
+              <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg>Produto</div>
+              <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>Produto Mãe<span class="tab-dot"></span></div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div>
+              <div style="flex:1;min-width:0">
+                <div class="summary-title">papel higiênico fofinho Caixa 12un</div>
+                <div class="summary-sub">1 emb. = 12 un · EAN 7891234500019</div>
+              </div>
+              <div class="summary-actions">
+                <span class="link-btn">Editar</span>
+                <div class="icon-x-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+              </div>
+            </div>
+            <div class="info-box primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <p>Salvo, mas ainda pendente: vá até a aba "Produto" e vincule um produto já existente, ou crie um novo, pra finalizar. Até lá, a nota não pode ser aprovada.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="step">
+      <div><div class="step-badge">5</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">O usuário troca pra aba <b>Produto</b>. Um aviso lembra do Produto Mãe pendente. Ele pode <b>buscar um produto já existente</b> no dicionário…</p>
+        <div class="frame modal-shell">
+          <div class="modal-header">
+            <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></div>
+            <div class="header-text">
+              <div class="header-title">Vincular ao Dicionário</div>
+              <div class="header-subtitle">papel higiênico fofinho</div>
+            </div>
+            <div class="close-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="modal-body">
+            <div class="tabs">
+              <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg>Produto</div>
+              <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>Produto Mãe<span class="tab-dot"></span></div>
+            </div>
+            <div class="info-box primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+              <p>Produto Mãe "papel higiênico fofinho Caixa 12un" já definido — busque um produto existente ou crie um novo abaixo pra finalizar o vínculo dele.</p>
+            </div>
+            <div class="search-input">papel higiênico</div>
+            <div class="result-row">
+              <div class="result-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3.5a3.5 3.5 0 1 0-3.5 3.5H20"/><path d="M4 7h16v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></div>
+              <div style="flex:1;min-width:0">
+                <div class="result-name">papel higiênico fofinho 30m</div>
+                <div class="result-sub">SKU-0231 · 7891234500002</div>
+              </div>
+              <span style="font-size:10px;font-weight:800;color:rgba(26,26,10,0.5)">R$ 4,90</span>
+            </div>
+            <div class="or-divider">ou</div>
+            <div class="btn-outline">+ Criar novo produto</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="step">
+      <div><div class="step-badge">6</div><div class="step-rail"></div></div>
+      <div class="step-content">
+        <p class="step-caption">Ele escolhe o produto existente e clica em "Vincular com este preço" — <b>o Produto Mãe é gravado de vez</b> nesse mesmo clique. Até lá, a linha da nota mostrava o indicador de pendência:</p>
+        <div class="frame table-frame">
+          <table class="table-mini">
+            <thead><tr><th>Descrição</th><th>EAN</th><th>Qtd.</th><th>Identificação Interna</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="desc-cell">papel higiênico fofinho</div><div class="desc-sub">Cód. fornecedor: 88213</div></td>
+                <td style="font-family:'DM Mono',monospace">7891234500019</td>
+                <td>4</td>
+                <td>
+                  <div class="id-cell">
+                    <div class="mini-btn pending">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+                      <span class="pending-dot"></span>
+                    </div>
+                    <span class="mini-tooltip">Produto Mãe pendente — falta criar o produto</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 7 -->
+    <div class="step">
+      <div><div class="step-badge">7</div></div>
+      <div class="step-content">
+        <p class="step-caption">Enquanto o Produto Mãe estiver pendente em <b>qualquer item</b> da nota, a nota <b>não pode ser aprovada</b> — o sistema explica o motivo:</p>
+        <div class="frame confirm-dialog">
+          <div class="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
+          <div class="confirm-title">Produto Mãe pendente</div>
+          <p class="confirm-text">Existe 1 item com um Produto Mãe já definido, mas sem o produto normal criado e vinculado ainda. Finalize pela aba "Produto" (dentro de "Criar e Vincular") antes de aprovar.</p>
+          <div class="confirm-btn">Entendi</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
