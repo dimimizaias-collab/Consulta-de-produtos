@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MANIFEST_LOCK_TTL_MS = 2 * 60 * 1000;
 
@@ -104,6 +106,8 @@ export function DistributionManifestModal({
   const [sending, setSending] = useState(false);
   const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (!manifest.isExisting) return;
@@ -521,6 +525,61 @@ export function DistributionManifestModal({
   const canSend = editable && !!destinationCompanyId && items.length > 0;
   const canApprove = receiving && items.length > 0;
 
+  // Gera o PDF da nota de distribuição — mesmo padrão jsPDF + autoTable usado no PDF de
+  // Pedido de Compra (components/orders/PurchaseOrderManager.tsx), adaptado pro cabeçalho e
+  // colunas do manifesto (origem/destino, status, preço de venda destino quando já preenchido).
+  const generateManifestPdf = () => {
+    if (items.length === 0) return;
+    setGeneratingPdf(true);
+    try {
+      const originName = companies.find(c => c.id === originCompanyId)?.nome_fantasia || 'Não definida';
+      const destinationName = companies.find(c => c.id === destinationCompanyId)?.nome_fantasia || 'Não definida';
+      const statusLabel = approved ? 'Aprovado' : receiving ? 'Pedido Enviado' : 'Registro';
+
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text('Nota de Distribuição', 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Manifesto: ${manifest.manifestNumber}`, 14, 28);
+      doc.text(`Status: ${statusLabel}`, 14, 33);
+      doc.text(`Empresa Origem: ${originName}`, 14, 40);
+      doc.text(`Empresa Destino: ${destinationName}`, 14, 45);
+      if (shippingDate) doc.text(`Data de Envio: ${new Date(shippingDate + 'T00:00:00').toLocaleDateString('pt-BR')}`, 120, 40);
+      if (sentAt) doc.text(`Enviado em: ${fmtDateTimeBR(sentAt)}`, 120, 45);
+
+      const showDestinationCols = receiving || approved;
+      const headers = ['Descrição', 'EAN', 'Medida', 'Qtd. Env.', 'Preço Custo', 'Preço Venda Orig.'];
+      if (showDestinationCols) headers.push('Preço Venda Dest.', 'Qtd. Receb.');
+
+      const tableData = items.map(it => {
+        const row: any[] = [it.productName, it.ean || '-', it.measure, it.qty, fmtBRL(it.costPrice), fmtBRL(it.salePriceOrigin)];
+        if (showDestinationCols) row.push(it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '-', it.qtyReceived !== null ? it.qtyReceived : '-');
+        return row;
+      });
+
+      autoTable(doc, {
+        startY: 52,
+        head: [headers],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [216, 30, 30], textColor: [255, 255, 255] },
+        styles: { fontSize: 8 },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 52;
+      doc.setFontSize(10);
+      doc.text(`Valor Total (Custo): ${fmtBRL(itemsTotal)}`, 14, finalY + 8);
+
+      doc.save(`Distribuicao_${manifest.manifestNumber}.pdf`);
+      setPdfModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao gerar PDF da distribuição:', err);
+      setNotification({ type: 'error', message: 'Erro ao gerar arquivo PDF.' });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   // Confirmar recebimento — trava definitivamente o manifesto e lança a quantidade recebida
   // (ou a enviada, se a loja destino não corrigiu) no estoque da Empresa Destino. É a "fase
   // futura" que distribuicao.sql deixou em aberto: até aqui, product_company_stock.count
@@ -665,6 +724,15 @@ export function DistributionManifestModal({
                 {manifest.manifestNumber}
               </div>
             </div>
+            {items.length > 0 && (
+              <button
+                onClick={() => setPdfModalOpen(true)}
+                title="Baixar PDF"
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+              >
+                <FileText size={16} />
+              </button>
+            )}
             <button
               onClick={handleClose}
               className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
@@ -1273,6 +1341,56 @@ export function DistributionManifestModal({
                     className="flex-1 h-10 rounded-xl bg-emerald-600 text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-emerald-700 active:scale-[0.97] transition-all disabled:opacity-60"
                   >
                     {approving ? 'Aprovando…' : 'Aprovar Recebimento'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Baixar PDF da nota de distribuição */}
+        <AnimatePresence>
+          {pdfModalOpen && (
+            <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-[380px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] rounded-[22px] shadow-2xl p-8 pb-7 text-center"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-[#D81E1E]/10 dark:bg-[#D81E1E]/20 text-[#D81E1E] dark:text-[#FF6B6B] flex items-center justify-center mx-auto mb-4">
+                  <FileText size={26} />
+                </div>
+                <div className="text-[15px] font-black text-on-surface mb-1.5">Baixar PDF da nota</div>
+                <p className="text-[12px] font-bold text-on-surface/55 mb-5 leading-relaxed">
+                  Gera o PDF com os dados do manifesto {manifest.manifestNumber} e a lista de produtos atual.
+                </p>
+                <div className="text-left space-y-1.5 mb-5 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-xl px-3.5 py-3">
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Origem</span>
+                    <span className="font-black text-on-surface truncate ml-2">{companies.find(c => c.id === originCompanyId)?.nome_fantasia || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Destino</span>
+                    <span className="font-black text-on-surface truncate ml-2">{companies.find(c => c.id === destinationCompanyId)?.nome_fantasia || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Itens</span>
+                    <span className="font-black text-on-surface">{items.length}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPdfModalOpen(false)} className="flex-1 h-10 rounded-xl border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={generateManifestPdf}
+                    disabled={generatingPdf}
+                    className="flex-1 h-10 rounded-xl bg-[#D81E1E] text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-[#B91818] active:scale-[0.97] transition-all disabled:opacity-60"
+                  >
+                    <Download size={13} />
+                    {generatingPdf ? 'Gerando…' : 'Baixar PDF'}
                   </button>
                 </div>
               </motion.div>
