@@ -32,7 +32,7 @@ interface Company { id: string; nome_fantasia: string }
 
 interface ProductHit { id: string; name: string; sku: string | null; ean: string | null }
 
-interface SelectedProduct extends ProductHit { costPrice: number; salePriceOrigin: number }
+interface SelectedProduct extends ProductHit { costPrice: number; salePriceOrigin: number; justCreated?: boolean }
 
 interface ManifestItem {
   id: string;
@@ -141,6 +141,11 @@ export function DistributionManifestModal({
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null);
   const [qtyInput, setQtyInput] = useState('');
   const [creatingProduct, setCreatingProduct] = useState(false);
+  // SKU/custo/venda do produto recém-criado via "Criar e Vincular" — o produto nasce sem
+  // esses dados (nunca teve nota aprovada, ver docs/distribuicao-pendencias.md #7), então o
+  // card libera esses campos pra edição manual antes de confirmar a quantidade.
+  const [newCostInput, setNewCostInput] = useState('');
+  const [newSaleInput, setNewSaleInput] = useState('');
   // Duplicidade (produto já está na lista): mescla automática (soma qty), mas só depois de
   // o usuário confirmar — EAN do card em vermelho + ícone de alerta, ver Etapa 6 do plano.
   const [duplicatePendingQty, setDuplicatePendingQty] = useState<number | null>(null);
@@ -243,19 +248,21 @@ export function DistributionManifestModal({
     return () => { cancelled = true; clearTimeout(t); };
   }, [descQuery, eanQuery, originCompanyId]);
 
-  const selectProduct = async (p: ProductHit) => {
+  const selectProduct = async (p: ProductHit, justCreated = false) => {
     const { data: stock } = await supabase
       .from('product_company_stock')
       .select('cost_price, price')
       .eq('product_id', p.id)
       .eq('company_id', originCompanyId)
       .maybeSingle();
-    setSelectedProduct({ ...p, costPrice: parseFloat(stock?.cost_price) || 0, salePriceOrigin: parseFloat(stock?.price) || 0 });
+    setSelectedProduct({ ...p, costPrice: parseFloat(stock?.cost_price) || 0, salePriceOrigin: parseFloat(stock?.price) || 0, justCreated });
     setDescQuery('');
     setEanQuery('');
     setSearchResults([]);
     setQtyInput('');
     setDuplicatePendingQty(null);
+    setNewCostInput('');
+    setNewSaleInput('');
   };
 
   const handleCreateAndLink = async () => {
@@ -269,8 +276,8 @@ export function DistributionManifestModal({
         .select('id, name, sku, ean')
         .single();
       if (error) throw error;
-      await selectProduct(created as ProductHit);
-      setNotification({ type: 'success', message: 'Produto criado e vinculado.' });
+      await selectProduct(created as ProductHit, true);
+      setNotification({ type: 'success', message: 'Produto criado e vinculado. Preencha SKU, custo e venda antes de confirmar.' });
     } catch (err: any) {
       const msg = err?.message || '';
       setNotification({ type: 'error', message: msg.includes('ean') ? 'Este EAN já está cadastrado em outro produto.' : (msg || 'Erro ao criar produto.') });
@@ -279,8 +286,29 @@ export function DistributionManifestModal({
     }
   };
 
-  const addItem = (p: SelectedProduct, qty: number) => {
+  const addItem = async (p: SelectedProduct, qty: number) => {
     itemsDirtyRef.current = true;
+    const costPrice = p.justCreated ? (parseFloat(newCostInput.replace(',', '.')) || 0) : p.costPrice;
+    const salePriceOrigin = p.justCreated ? (parseFloat(newSaleInput.replace(',', '.')) || 0) : p.salePriceOrigin;
+    if (p.justCreated) {
+      // Grava descrição/EAN/SKU/custo/venda preenchidos no card de volta no cadastro do
+      // produto — sem isso o produto criado aqui ficaria pra sempre com custo 0 e sem esses
+      // dados (ver pendência #7).
+      try {
+        await Promise.all([
+          supabase.from('products').update({ name: p.name.trim(), ean: p.ean || null, sku: p.sku || null }).eq('id', p.id),
+          supabase.from('product_company_stock').upsert({
+            product_id: p.id,
+            company_id: originCompanyId,
+            cost_price: costPrice,
+            price: salePriceOrigin,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'product_id,company_id' }),
+        ]);
+      } catch (err: any) {
+        setNotification({ type: 'error', message: err?.message || 'Erro ao salvar dados do produto criado.' });
+      }
+    }
     setItems(prev => [...prev, {
       id: crypto.randomUUID(),
       productId: p.id,
@@ -289,8 +317,8 @@ export function DistributionManifestModal({
       ean: p.ean,
       qty,
       measure: 'UN',
-      costPrice: p.costPrice,
-      salePriceOrigin: p.salePriceOrigin,
+      costPrice,
+      salePriceOrigin,
       salePriceDestination: null,
       verified: false,
       qtyReceived: null,
@@ -298,6 +326,8 @@ export function DistributionManifestModal({
     setSelectedProduct(null);
     setQtyInput('');
     setDuplicatePendingQty(null);
+    setNewCostInput('');
+    setNewSaleInput('');
   };
 
   // Edição inline de campos do item em Registro (Qtd./Medida) — tabela no molde da nota.
@@ -306,8 +336,12 @@ export function DistributionManifestModal({
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
   };
 
-  const handleConfirmAddItem = () => {
+  const handleConfirmAddItem = async () => {
     if (!selectedProduct) return;
+    if (selectedProduct.justCreated && !selectedProduct.name.trim()) {
+      setNotification({ type: 'error', message: 'Informe a descrição do produto.' });
+      return;
+    }
     const qty = parseFloat(qtyInput.replace(',', '.'));
     if (!qty || qty <= 0) {
       setNotification({ type: 'error', message: 'Informe uma quantidade válida.' });
@@ -318,7 +352,7 @@ export function DistributionManifestModal({
       setDuplicatePendingQty(qty);
       return;
     }
-    addItem(selectedProduct, qty);
+    await addItem(selectedProduct, qty);
   };
 
   const confirmDuplicateMerge = () => {
@@ -728,30 +762,86 @@ export function DistributionManifestModal({
                       <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5">
                         <div className="col-span-2 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Descrição</div>
-                          <div className="text-[13px] font-bold text-on-surface truncate">{selectedProduct.name}</div>
+                          {selectedProduct.justCreated ? (
+                            <input
+                              type="text"
+                              value={selectedProduct.name}
+                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                              className="text-[13px] font-bold text-on-surface bg-transparent outline-none w-full"
+                            />
+                          ) : (
+                            <div className="text-[13px] font-bold text-on-surface truncate">{selectedProduct.name}</div>
+                          )}
                         </div>
                         <div className={cn(
                           'bg-on-surface/[0.03] border rounded-lg px-2.5 py-1.5',
                           isDuplicateOfSelected ? 'border-[#D81E1E]/60 bg-[#D81E1E]/[0.05]' : 'border-on-surface/[0.08]'
                         )}>
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">EAN</div>
-                          <div className={cn('font-mono text-[12px] font-bold truncate', isDuplicateOfSelected ? 'text-[#D81E1E]' : 'text-on-surface')}>{selectedProduct.ean || '—'}</div>
+                          {selectedProduct.justCreated ? (
+                            <input
+                              type="text"
+                              value={selectedProduct.ean || ''}
+                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, ean: e.target.value || null } : prev)}
+                              placeholder="Opcional"
+                              className="font-mono text-[12px] font-bold text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
+                            />
+                          ) : (
+                            <div className={cn('font-mono text-[12px] font-bold truncate', isDuplicateOfSelected ? 'text-[#D81E1E]' : 'text-on-surface')}>{selectedProduct.ean || '—'}</div>
+                          )}
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">SKU</div>
-                          <div className="font-mono text-[12px] font-bold text-on-surface truncate">{selectedProduct.sku || '—'}</div>
+                          {selectedProduct.justCreated ? (
+                            <input
+                              type="text"
+                              value={selectedProduct.sku || ''}
+                              onChange={e => setSelectedProduct(prev => prev ? { ...prev, sku: e.target.value || null } : prev)}
+                              placeholder="Opcional"
+                              className="font-mono text-[12px] font-bold text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
+                            />
+                          ) : (
+                            <div className="font-mono text-[12px] font-bold text-on-surface truncate">{selectedProduct.sku || '—'}</div>
+                          )}
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Custo (Origem)</div>
-                          <div className="font-mono text-[14px] font-black text-on-surface">{fmtBRL(selectedProduct.costPrice)}</div>
+                          {selectedProduct.justCreated ? (
+                            <input
+                              type="text"
+                              value={newCostInput}
+                              onChange={e => setNewCostInput(e.target.value)}
+                              placeholder="0,00"
+                              className="font-mono text-[14px] font-black text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
+                            />
+                          ) : (
+                            <div className="font-mono text-[14px] font-black text-on-surface">{fmtBRL(selectedProduct.costPrice)}</div>
+                          )}
                         </div>
                         <div className="bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-lg px-2.5 py-1.5">
                           <div className="text-[8px] font-black uppercase tracking-wider text-on-surface/40">Preço de Venda (Origem)</div>
-                          <div className="font-mono text-[14px] font-black text-on-surface/55">{fmtBRL(selectedProduct.salePriceOrigin)}</div>
-                          <div className="text-[8px] font-bold text-on-surface/30">apenas referência</div>
+                          {selectedProduct.justCreated ? (
+                            <input
+                              type="text"
+                              value={newSaleInput}
+                              onChange={e => setNewSaleInput(e.target.value)}
+                              placeholder="0,00"
+                              className="font-mono text-[14px] font-black text-on-surface bg-transparent outline-none w-full placeholder:text-on-surface/30 placeholder:font-normal"
+                            />
+                          ) : (
+                            <>
+                              <div className="font-mono text-[14px] font-black text-on-surface/55">{fmtBRL(selectedProduct.salePriceOrigin)}</div>
+                              <div className="text-[8px] font-bold text-on-surface/30">apenas referência</div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
+                    {selectedProduct.justCreated && !isDuplicateOfSelected && (
+                      <p className="text-[10px] font-bold text-[#D81E1E]/70 -mt-2 mb-3">
+                        Produto novo — preencha SKU, custo e venda antes de confirmar.
+                      </p>
+                    )}
 
                     {isDuplicateOfSelected ? (
                       <div className="bg-[#D81E1E]/[0.06] border border-[#D81E1E]/25 rounded-xl p-3 flex flex-col gap-2.5">
@@ -785,7 +875,7 @@ export function DistributionManifestModal({
                           Confirmar
                         </button>
                         <button
-                          onClick={() => { setSelectedProduct(null); setQtyInput(''); }}
+                          onClick={() => { setSelectedProduct(null); setQtyInput(''); setNewCostInput(''); setNewSaleInput(''); }}
                           className="h-[38px] px-3 rounded-lg border border-on-surface/15 text-on-surface/50 text-[12px] font-bold hover:bg-on-surface/5 transition-colors shrink-0"
                         >
                           Cancelar

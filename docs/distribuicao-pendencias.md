@@ -34,9 +34,9 @@ O mockup aprovado da tab bar já não mostra mais "Rascunhos" (posicionamento fi
 
 Não existe hoje nenhuma coluna `company_id` em `usuarios`/`hr_employees`. Por causa disso, o campo "Empresa Origem" do manifesto é 100% manual (sem pré-preenchimento pela loja do usuário logado) — decisão 1B-final da Etapa 1. Se um dia esse vínculo for criado (provavelmente pra mais telas do sistema, não só Distribuição), dá pra voltar e pré-popular a origem automaticamente.
 
-## 7. Custo de produtos criados via "Criar e Vincular" dentro do manifesto
+## 7. Custo de produtos criados via "Criar e Vincular" dentro do manifesto (resolvido)
 
-Produto novo criado direto na busca da aba Produtos nasce com `product_company_stock.cost_price = 0` (nunca teve nota aprovada) — o usuário precisa preencher o custo manualmente no card antes de confirmar. Não é bug, é a mesma limitação estrutural que motivou o backfill (`supabase/backfill_product_company_stock_cost_price.sql`): custo só existe onde uma nota já foi aprovada ou onde alguém editou manualmente via "Editar Produto".
+Produto novo criado direto na busca da aba Produtos nascia com `product_company_stock.cost_price = 0` e sem SKU (nunca teve nota aprovada) — mesma limitação estrutural que motivou o backfill (`supabase/backfill_product_company_stock_cost_price.sql`). O card do produto recém-criado agora libera SKU, Preço de Custo (Origem) e Preço de Venda (Origem) para edição manual antes de confirmar a quantidade; ao confirmar, esses valores são gravados em `products.sku` e `product_company_stock` (upsert) para a Empresa Origem.
 
 ## 8. Coluna Distribuição da nota — mobile e criação ainda usam o campo legado
 
