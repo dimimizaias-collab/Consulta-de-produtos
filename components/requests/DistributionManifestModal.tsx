@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -36,6 +36,10 @@ interface ProductHit { id: string; name: string; sku: string | null; ean: string
 
 interface SelectedProduct extends ProductHit { costPrice: number; salePriceOrigin: number }
 
+// Divergência de recebimento — mesmo formato usado no "Falta/Sobra" da nota
+// (app/page.tsx, DiscrepancyData), registrada pelo mesmo modal/fluxo aqui no manifesto.
+type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string; disregarded?: boolean } | null;
+
 interface ManifestItem {
   id: string;
   productId: string;
@@ -50,8 +54,10 @@ interface ManifestItem {
   // substitui o antigo "botão de preço" da nota (pricingByCompany, removido).
   salePriceDestination: number | null;
   verified: boolean;
-  // Quantidade efetivamente recebida — alimenta o badge Falta/Sobra na aprovação.
-  qtyReceived: number | null;
+  // Divergência registrada pela loja destino via botão na coluna Qtd. Env. — substitui o
+  // antigo campo solto "Qtd. Receb." (qty_received): agora o Falta/Sobra é explícito e vem
+  // com observação, igual ao fluxo da nota.
+  discrepancy: DiscrepancyData;
 }
 
 interface DistributionManifestModalProps {
@@ -108,6 +114,15 @@ export function DistributionManifestModal({
   const [approving, setApproving] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  // Modal de Falta/Sobra — mesmo fluxo do modal de divergência da nota (app/page.tsx),
+  // acionado pelo botão na coluna Qtd. Env. da tabela de itens.
+  const [discrepancyModalItemId, setDiscrepancyModalItemId] = useState<string | null>(null);
+  const [discrepancyTab, setDiscrepancyTab] = useState<'falta' | 'sobra'>('falta');
+  const [discrepancyQty, setDiscrepancyQty] = useState('');
+  const [discrepancyMissingAll, setDiscrepancyMissingAll] = useState(false);
+  const [discrepancyObs, setDiscrepancyObs] = useState('');
+  const [discrepancyDisregarded, setDiscrepancyDisregarded] = useState(false);
 
   useEffect(() => {
     if (!manifest.isExisting) return;
@@ -216,7 +231,7 @@ export function DistributionManifestModal({
     (async () => {
       const { data } = await supabase
         .from('distribution_manifest_items')
-        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, verified, qty_received')
+        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, verified, discrepancy')
         .eq('manifest_id', manifest.id);
       if (itemsDirtyRef.current) { setLoadingItems(false); return; }
       setItems((data || []).map((r: any) => ({
@@ -231,7 +246,7 @@ export function DistributionManifestModal({
         salePriceOrigin: parseFloat(r.sale_price_origin) || 0,
         salePriceDestination: r.sale_price_destination !== null ? parseFloat(r.sale_price_destination) : null,
         verified: !!r.verified,
-        qtyReceived: r.qty_received !== null && r.qty_received !== undefined ? parseFloat(r.qty_received) : null,
+        discrepancy: r.discrepancy ?? null,
       })));
       setLoadingItems(false);
     })();
@@ -335,7 +350,7 @@ export function DistributionManifestModal({
       salePriceOrigin: p.salePriceOrigin,
       salePriceDestination: null,
       verified: false,
-      qtyReceived: null,
+      discrepancy: null,
     }]);
     setSelectedProduct(null);
     setQtyInput('');
@@ -454,7 +469,7 @@ export function DistributionManifestModal({
             sale_price_origin: it.salePriceOrigin,
             sale_price_destination: it.salePriceDestination,
             verified: it.verified,
-            qty_received: it.qtyReceived,
+            discrepancy: it.discrepancy,
           }))
         );
         if (itemsError) throw itemsError;
@@ -515,11 +530,33 @@ export function DistributionManifestModal({
     }
   };
 
-  // Qtd. recebida — alimenta o badge Falta/Sobra, preenchida pela loja destino em Pedido
-  // Enviado, antes de aprovar. Não mexe em estoque (isso só acontece na aprovação).
-  const updateItemReceivedQty = async (itemId: string, qtyReceived: number | null) => {
-    setItems(prev => prev.map(it => it.id === itemId ? { ...it, qtyReceived } : it));
-    await supabase.from('distribution_manifest_items').update({ qty_received: qtyReceived }).eq('id', itemId);
+  // Falta/Sobra — registrado pela loja destino via botão na coluna Qtd. Env., mesmo modal/
+  // fluxo da nota. Salva direto (fora do "Salvar Rascunho", desabilitado pós-envio).
+  const openDiscrepancyModal = (it: ManifestItem) => {
+    const existing = it.discrepancy;
+    setDiscrepancyTab(existing?.type ?? 'falta');
+    setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
+    setDiscrepancyMissingAll(existing?.missingAll ?? false);
+    setDiscrepancyObs(existing?.obs ?? '');
+    setDiscrepancyDisregarded(existing?.disregarded ?? false);
+    setDiscrepancyModalItemId(it.id);
+  };
+
+  const persistDiscrepancy = async (itemId: string, data: DiscrepancyData) => {
+    setItems(prev => prev.map(it => it.id === itemId ? { ...it, discrepancy: data } : it));
+    await supabase.from('distribution_manifest_items').update({ discrepancy: data }).eq('id', itemId);
+    setDiscrepancyModalItemId(null);
+  };
+
+  // Quantidade efetiva recebida — Qtd. Env. ajustada pela divergência confirmada
+  // ("Desconsiderar produto"), usada pra alimentar o estoque da Empresa Destino na aprovação.
+  // Diferente da nota (getEffectiveQty): aqui "sobra" soma à quantidade, não subtrai — faz
+  // sentido pro contexto de recebimento (chegou mais do que foi enviado).
+  const getEffectiveReceivedQty = (it: ManifestItem): number => {
+    const d = it.discrepancy;
+    if (!d || !d.disregarded) return it.qty;
+    if (d.type === 'falta') return d.missingAll ? 0 : Math.max(0, it.qty - (d.qty || 0));
+    return it.qty + (d.qty || 0);
   };
 
   const canSend = editable && !!destinationCompanyId && items.length > 0;
@@ -549,11 +586,18 @@ export function DistributionManifestModal({
 
       const showDestinationCols = receiving || approved;
       const headers = ['Descrição', 'EAN', 'Medida', 'Qtd. Env.', 'Preço Custo', 'Preço Venda Orig.'];
-      if (showDestinationCols) headers.push('Preço Venda Dest.', 'Qtd. Receb.');
+      if (showDestinationCols) headers.push('Preço Venda Dest.', 'Falta/Sobra');
+
+      const discrepancyLabel = (it: ManifestItem) => {
+        const d = it.discrepancy;
+        if (!d) return '-';
+        if (d.type === 'falta') return d.missingAll ? 'Falta (não veio)' : `Falta ${d.qty}`;
+        return `Sobra ${d.qty}`;
+      };
 
       const tableData = items.map(it => {
         const row: any[] = [it.productName, it.ean || '-', it.measure, it.qty, fmtBRL(it.costPrice), fmtBRL(it.salePriceOrigin)];
-        if (showDestinationCols) row.push(it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '-', it.qtyReceived !== null ? it.qtyReceived : '-');
+        if (showDestinationCols) row.push(it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '-', discrepancyLabel(it));
         return row;
       });
 
@@ -598,7 +642,7 @@ export function DistributionManifestModal({
 
       const nowIso = new Date().toISOString();
       await Promise.all(items.map(it => {
-        const receivedQty = it.qtyReceived !== null ? it.qtyReceived : it.qty;
+        const receivedQty = getEffectiveReceivedQty(it);
         const nextCount = (countByProduct[it.productId] || 0) + receivedQty;
         const payload: any = {
           product_id: it.productId,
@@ -989,14 +1033,12 @@ export function DistributionManifestModal({
                           <col />
                           <col style={{ width: 140 }} />
                           <col style={{ width: 80 }} />
-                          <col style={{ width: 90 }} />
+                          <col style={{ width: editable ? 90 : 110 }} />
                           <col style={{ width: 100 }} />
                           <col style={{ width: 110 }} />
                           <col style={{ width: 80 }} />
                           {!editable && <col style={{ width: 110 }} />}
-                          {!editable && <col style={{ width: 90 }} />}
-                          {!editable && <col style={{ width: 120 }} />}
-                          {!editable && <col style={{ width: 50 }} />}
+                          {!editable && <col style={{ width: 130 }} />}
                           {editable && <col style={{ width: 40 }} />}
                         </colgroup>
                         <thead>
@@ -1011,17 +1053,18 @@ export function DistributionManifestModal({
                             <th className={thBarCls}><div className={thLblCls}>Valor Total</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Markup</div></th>
                             {!editable && <th className={thBarCls}><div className={thLblCls}>Preço Venda</div></th>}
-                            {!editable && <th className={thBarCls}><div className={thLblCls}>Qtd. Receb.</div></th>}
                             {!editable && <th className={thBarCls}><div className={thLblCls}>Falta / Sobra</div></th>}
-                            {!editable && <th className={thBarCls}><div className={thLblCls}>Ok</div></th>}
                             {editable && <th className={thBarCls}></th>}
                           </tr>
                         </thead>
                         <tbody>
                           {items.map((it, idx) => {
                             const total = it.qty * it.costPrice;
-                            const markup = it.costPrice > 0 ? ((it.salePriceOrigin - it.costPrice) / it.costPrice) * 100 : null;
-                            const diff = it.qtyReceived !== null ? it.qtyReceived - it.qty : null;
+                            // Markup conectado ao Preço de Venda da loja destino (não mais à origem,
+                            // que é "apenas referência") — mesmo cálculo por loja usado na nota.
+                            const markup = it.costPrice > 0 && it.salePriceDestination !== null
+                              ? ((it.salePriceDestination - it.costPrice) / it.costPrice) * 100
+                              : null;
                             return (
                               <tr key={it.id}>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-center text-on-surface/35 font-medium')}>{idx + 1}</div></td>
@@ -1037,11 +1080,35 @@ export function DistributionManifestModal({
                                   </div>
                                 </td>
                                 <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-end font-mono')}>
+                                  <div className={cn(cellCls, 'justify-end font-mono gap-1.5')}>
                                     {editable ? (
                                       <input type="number" min="0" value={it.qty} onChange={e => updateItemField(it.id, { qty: parseFloat(e.target.value) || 0 })}
                                         className={cn(cellInputCls, 'text-right')} />
-                                    ) : it.qty}
+                                    ) : (
+                                      <>
+                                        <span className="flex items-baseline gap-0.5">
+                                          {it.qty}
+                                          {it.discrepancy && (
+                                            <span className={cn('text-[8px] font-black leading-none', it.discrepancy.type === 'falta' ? 'text-red-500' : 'text-emerald-500')}>
+                                              {it.discrepancy.type === 'falta' ? '●' : '+'}
+                                            </span>
+                                          )}
+                                        </span>
+                                        {/* Botão Falta/Sobra — mesmo gatilho/modal da coluna Qtd. da nota */}
+                                        <button
+                                          onClick={() => openDiscrepancyModal(it)}
+                                          title={it.discrepancy?.disregarded ? 'Divergência confirmada' : 'Registrar Falta/Sobra'}
+                                          className={cn(
+                                            'relative flex items-center justify-center w-5 h-5 rounded-full transition-colors shrink-0',
+                                            it.discrepancy?.type === 'falta' ? 'text-red-500 dark:text-red-400/90 hover:text-red-600 dark:hover:text-red-300'
+                                            : it.discrepancy?.type === 'sobra' ? 'text-emerald-600 dark:text-emerald-400/90 hover:text-emerald-700 dark:hover:text-emerald-300'
+                                            : 'text-on-surface/25 hover:text-on-surface/50'
+                                          )}
+                                        >
+                                          <AlertTriangle size={11} />
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 </td>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono text-on-surface/70')}>{fmtBRL(it.costPrice)}</div></td>
@@ -1066,40 +1133,30 @@ export function DistributionManifestModal({
                                 )}
                                 {!editable && (
                                   <td className={tdCls}>
-                                    <div className={cn(cellCls, 'justify-end font-mono')}>
-                                      {receiving ? (
-                                        <input type="number" min="0" defaultValue={it.qtyReceived ?? ''} placeholder={String(it.qty)}
-                                          onBlur={e => { const n = parseFloat(e.target.value); updateItemReceivedQty(it.id, isNaN(n) ? null : n); }}
-                                          className={cn(cellInputCls, 'text-right')} />
-                                      ) : it.qtyReceived ?? '—'}
-                                    </div>
-                                  </td>
-                                )}
-                                {!editable && (
-                                  <td className={tdCls}>
                                     <div className={cn(cellCls, 'justify-center')}>
-                                      {diff === null || diff === 0 ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2 py-0.5">
-                                          <Check size={10} /> {diff === null ? 'A conferir' : 'OK'}
-                                        </span>
-                                      ) : diff < 0 ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#D81E1E] bg-[#D81E1E]/10 border border-[#D81E1E]/25 rounded-full px-2 py-0.5">
-                                          <ArrowDown size={10} /> Falta {Math.abs(diff)}
-                                        </span>
+                                      {it.discrepancy ? (
+                                        <button
+                                          onClick={() => openDiscrepancyModal(it)}
+                                          className={cn(
+                                            'inline-flex items-center gap-1 text-[10px] font-black rounded-full px-2 py-0.5 border transition-colors',
+                                            it.discrepancy.type === 'falta'
+                                              ? 'text-[#D81E1E] bg-[#D81E1E]/10 border-[#D81E1E]/25 hover:bg-[#D81E1E]/15'
+                                              : 'text-amber-700 dark:text-[#FCD34D] bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15'
+                                          )}
+                                        >
+                                          {it.discrepancy.type === 'falta' ? <ArrowDown size={10} /> : <ArrowUp size={10} />}
+                                          {it.discrepancy.type === 'falta'
+                                            ? (it.discrepancy.missingAll ? 'Não veio' : `Falta ${it.discrepancy.qty}`)
+                                            : `Sobra ${it.discrepancy.qty}`}
+                                        </button>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-700 dark:text-[#FCD34D] bg-amber-500/10 border border-amber-500/25 rounded-full px-2 py-0.5">
-                                          <ArrowUp size={10} /> Sobra {diff}
-                                        </span>
+                                        <label className="flex items-center gap-1.5 cursor-pointer" title="Sem divergência — confirmar item">
+                                          <input type="checkbox" checked={it.verified} disabled={!receiving}
+                                            onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
+                                            className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
+                                          {it.verified && <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">OK</span>}
+                                        </label>
                                       )}
-                                    </div>
-                                  </td>
-                                )}
-                                {!editable && (
-                                  <td className={tdCls}>
-                                    <div className={cn(cellCls, 'justify-center')}>
-                                      <input type="checkbox" checked={it.verified} disabled={!receiving}
-                                        onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
-                                        className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
                                     </div>
                                   </td>
                                 )}
@@ -1346,6 +1403,253 @@ export function DistributionManifestModal({
               </motion.div>
             </div>
           )}
+        </AnimatePresence>
+
+        {/* Modal Falta/Sobra — mesmo fluxo/layout do modal de divergência da nota (app/page.tsx) */}
+        <AnimatePresence>
+          {discrepancyModalItemId !== null && (() => {
+            const item = items.find(it => it.id === discrepancyModalItemId);
+            if (!item) return null;
+            const isFalta = discrepancyTab === 'falta';
+            const accentRing = isFalta ? 'focus:ring-red-400/40' : 'focus:ring-emerald-400/40';
+
+            const handleSaveDiscrepancy = () => {
+              const qty = discrepancyMissingAll ? 0 : (parseFloat(discrepancyQty) || 0);
+              persistDiscrepancy(item.id, {
+                type: discrepancyTab,
+                qty,
+                missingAll: isFalta && discrepancyMissingAll,
+                obs: discrepancyObs.trim(),
+                disregarded: discrepancyDisregarded,
+              });
+            };
+
+            const handleClearDiscrepancy = () => persistDiscrepancy(item.id, null);
+
+            return (
+              <motion.div
+                key="discrepancy-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="absolute inset-0 z-[220] flex items-center justify-center bg-black/45 backdrop-blur-[6px]"
+                onClick={() => setDiscrepancyModalItemId(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                  className="bg-[#F0E7CC] dark:bg-[#1E1E18] border border-black/10 dark:border-white/[0.08] rounded-3xl shadow-2xl w-full max-w-[520px] mx-4 overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+                    <span className={cn(
+                      'w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09]',
+                      isFalta ? 'dark:bg-[#D81E1E]/[0.16] dark:text-[#D81E1E] text-[#D81E1E]' : 'dark:bg-emerald-500/[0.16] dark:text-emerald-500 text-emerald-600'
+                    )}>
+                      <AlertTriangle size={20} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/45">Divergência</p>
+                      <h2 className="text-lg font-extrabold text-[#1A1A0E] leading-tight truncate mt-0.5">{item.productName}</h2>
+                    </div>
+                    <button
+                      onClick={() => setDiscrepancyModalItemId(null)}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Tab switcher */}
+                  <div className="px-6 pt-5 pb-0 flex gap-2">
+                    <button
+                      onClick={() => setDiscrepancyTab('falta')}
+                      className={cn(
+                        'flex-1 py-2.5 rounded-xl text-sm font-black transition-all',
+                        isFalta
+                          ? 'bg-red-500/10 dark:bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/30'
+                          : 'bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55'
+                      )}
+                    >
+                      Falta
+                    </button>
+                    <button
+                      onClick={() => setDiscrepancyTab('sobra')}
+                      className={cn(
+                        'flex-1 py-2.5 rounded-xl text-sm font-black transition-all',
+                        !isFalta
+                          ? 'bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                          : 'bg-black/[0.04] dark:bg-white/[0.04] text-black/35 dark:text-white/35 border border-black/[0.08] dark:border-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/[0.08] hover:text-black/55 dark:hover:text-white/55'
+                      )}
+                    >
+                      Sobra
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="px-6 py-5 space-y-4">
+                    <AnimatePresence mode="wait">
+                      {isFalta ? (
+                        <motion.div
+                          key="falta"
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 6 }}
+                          transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
+                          className="bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-4 flex items-center gap-5"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setDiscrepancyMissingAll(v => !v)}
+                            className="flex-1 flex items-center gap-3 text-left"
+                          >
+                            <div className={cn(
+                              'w-9 h-5 rounded-full relative shrink-0 transition-colors',
+                              discrepancyMissingAll ? 'bg-red-500' : 'bg-black/[0.14] dark:bg-white/[0.12]'
+                            )}>
+                              <span className={cn(
+                                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                                discrepancyMissingAll ? 'left-4' : 'left-0.5'
+                              )} />
+                            </div>
+                            <span className="text-sm font-semibold text-black/70 dark:text-white/70">Produto não veio</span>
+                          </button>
+
+                          <AnimatePresence>
+                            {!discrepancyMissingAll && (
+                              <motion.div
+                                initial={{ opacity: 0, width: 0 }}
+                                animate={{ opacity: 1, width: 'auto' }}
+                                exit={{ opacity: 0, width: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="overflow-hidden flex items-stretch gap-5 flex-1"
+                              >
+                                <div className="w-px self-stretch bg-black/[0.08] dark:bg-white/[0.08] shrink-0" />
+                                <div className="flex-1 min-w-[140px]">
+                                  <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
+                                    Qtd. faltando
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={discrepancyQty}
+                                    onChange={e => setDiscrepancyQty(e.target.value)}
+                                    autoFocus
+                                    placeholder="0"
+                                    className={cn(
+                                      'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all',
+                                      'border-black/[0.10] dark:border-white/[0.10]', accentRing
+                                    )}
+                                  />
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="sobra"
+                          initial={{ opacity: 0, x: 6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -6 }}
+                          transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
+                          className="bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.07] rounded-2xl p-4"
+                        >
+                          <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
+                            Qtd. sobrando
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={discrepancyQty}
+                            onChange={e => setDiscrepancyQty(e.target.value)}
+                            autoFocus
+                            placeholder="0"
+                            className={cn(
+                              'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all',
+                              'border-black/[0.10] dark:border-white/[0.10]', accentRing
+                            )}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Desconsiderar produto */}
+                    <div className={cn(
+                      'rounded-2xl border-[1.5px] border-dashed px-4 py-3.5 transition-colors',
+                      discrepancyDisregarded
+                        ? 'border-[#DDD000] dark:border-amber-400/30 bg-[#FFE500]/[0.14] dark:bg-amber-400/[0.07]'
+                        : 'border-black/15 dark:border-white/[0.10] bg-black/[0.02] dark:bg-white/[0.02]'
+                    )}>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-[9px] bg-[#92400E]/[0.12] dark:bg-amber-400/[0.14] text-[#92400E] dark:text-amber-300 flex items-center justify-center shrink-0">
+                          <Ban size={14} strokeWidth={2.3} />
+                        </span>
+                        <span className="text-[12.5px] font-black text-[#92400E] dark:text-amber-300 flex-1">Confirmar divergência</span>
+                        <button
+                          type="button"
+                          onClick={() => setDiscrepancyDisregarded(v => !v)}
+                          className={cn(
+                            'w-9 h-5 rounded-full relative shrink-0 transition-colors',
+                            discrepancyDisregarded ? 'bg-amber-500' : 'bg-[#92400E]/20 dark:bg-amber-400/20'
+                          )}
+                        >
+                          <span className={cn(
+                            'absolute top-0.5 w-4 h-4 rounded-full shadow transition-all bg-white dark:bg-[#1A1A0E]',
+                            discrepancyDisregarded ? 'left-4' : 'left-0.5'
+                          )} />
+                        </button>
+                      </div>
+                      <p className="text-[11px] font-semibold leading-[1.45] text-[#92400E]/85 dark:text-amber-300/75 mt-1.5">
+                        Ajusta a quantidade lançada no estoque da Empresa Destino na aprovação (abate a falta ou soma a sobra à Qtd. Env.).
+                      </p>
+                    </div>
+
+                    {/* Observations */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-wide text-black/45 dark:text-white/35 mb-1.5">
+                        Observações
+                      </label>
+                      <textarea
+                        value={discrepancyObs}
+                        onChange={e => setDiscrepancyObs(e.target.value)}
+                        placeholder="Detalhes adicionais sobre a divergência..."
+                        rows={2}
+                        className="w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-[#1A1A0E] dark:text-[#f2f0e3] placeholder:text-black/25 dark:placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20 resize-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer actions */}
+                  <div className="px-6 pb-6 flex gap-2.5">
+                    <button
+                      onClick={handleClearDiscrepancy}
+                      disabled={approved}
+                      className="flex-1 py-3 rounded-xl bg-black/[0.08] dark:bg-white/[0.04] border border-black/[0.14] dark:border-white/[0.07] text-sm font-bold text-black/55 dark:text-white/45 hover:bg-black/[0.13] dark:hover:bg-white/[0.08] hover:text-black/70 dark:hover:text-white/65 transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      onClick={handleSaveDiscrepancy}
+                      disabled={approved}
+                      className={cn(
+                        'flex-1 py-3 rounded-xl text-sm font-black text-white shadow-lg transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none',
+                        isFalta ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25'
+                      )}
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })()}
         </AnimatePresence>
 
         {/* Baixar PDF da nota de distribuição */}
