@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Modal Distribuição v2 (Light)</title>
+<style>
+  :root{
+    --bg:#FDFAF0; --header-bg:#FFE500; --header-border:#D4C000;
+    --chip-bg:rgba(26,26,10,0.09); --chip-color:#1A1A0E;
+    --title:#1A1A0E; --muted:rgba(26,26,10,0.40);
+    --th-bg:#FFE500; --th-border:#D4C000; --th-text:rgba(26,26,10,0.55);
+    --row-even:#FFFFFF; --row-odd:#FAF7EE; --row-hover:#FFF8D0;
+    --cell-bg:#FFFFFF; --cell-border:#E0D8BF; --cell-text:#1A1A0E; --cell-muted:rgba(26,26,10,0.35);
+    --footer-bg:#FFF7B0; --footer-border:#DDD000; --footer-text:#1A1A0E; --footer-muted:rgba(26,26,10,0.45);
+    --red:#D81E1E; --emerald:#0A7A55; --amber:#92400E;
+    --panel-border: rgba(26,26,10,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;background:#e9e4d0;color:var(--title);padding:28px;}
+  .note{max-width:900px;margin:0 auto 18px;font-size:13px;font-weight:700;color:#5b5636;}
+  .modal{max-width:1400px;margin:0 auto;background:var(--bg);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.25);overflow:hidden;border:1px solid rgba(0,0,0,0.08);display:flex;flex-direction:column;height:86vh;}
+  /* Header */
+  .header{background:var(--header-bg);border-bottom:1px solid var(--header-border);padding:20px 24px 0;}
+  .header-top{display:flex;align-items:flex-start;gap:14px;padding-bottom:16px;}
+  .icon-chip{width:46px;height:46px;border-radius:14px;background:var(--chip-bg);color:var(--chip-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;}
+  .htitle{flex:1;min-width:0;}
+  .htitle input{font-size:20px;font-weight:800;color:var(--title);border:none;border-bottom:2px solid var(--red);outline:none;background:transparent;width:100%;}
+  .manifest-badge{margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:rgba(26,26,10,0.55);background:rgba(0,0,0,0.06);padding:4px 10px;border-radius:999px;}
+  .close-btn{width:36px;height:36px;border-radius:12px;background:rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.1);color:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:16px;}
+  .tabs{display:flex;gap:4px;}
+  .tab-btn{padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;border:none;background:transparent;border-bottom:3px solid transparent;color:rgba(26,26,10,0.45);cursor:pointer;}
+  .tab-btn.active{color:var(--title);border-bottom-color:var(--red);}
+
+  /* Body */
+  .body{flex:1;overflow:auto;padding:20px 24px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* Produtos toolbar */
+  .toolbar{display:flex;gap:10px;margin-bottom:14px;}
+  .toolbar input{flex:1;background:#fff;border:1px solid rgba(26,26,10,0.12);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:600;}
+
+  /* Table — molde da nota */
+  table.rn{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;}
+  table.rn thead th{background:var(--th-bg);padding:9px 8px;height:38px;vertical-align:middle;border-bottom:1px solid var(--th-border);}
+  .lbl{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:900;letter-spacing:0.10em;text-transform:uppercase;color:var(--th-text);white-space:nowrap;background:var(--chip-bg);border:1.5px solid rgba(26,26,10,0.10);border-radius:999px;padding:5px 12px;justify-content:center;width:100%;}
+  table.rn tbody td{padding:3px 3px;border-bottom:1px solid var(--cell-border);}
+  table.rn tbody tr:nth-child(odd) td{background:var(--row-odd);}
+  table.rn tbody tr:nth-child(even) td{background:var(--row-even);}
+  table.rn tbody tr:hover td{background:var(--row-hover);}
+  .cell{border-radius:9px;border:1.5px solid var(--cell-border);height:38px;display:flex;align-items:center;padding:0 10px;overflow:hidden;background:#fff;font-size:12px;font-weight:600;color:var(--cell-text);}
+  .cell.num{justify-content:flex-end;font-family:'DM Mono',monospace;}
+  .cell.center{justify-content:center;}
+  .cell.muted{color:var(--cell-muted);font-weight:500;}
+  .cell input{border:none;outline:none;background:transparent;width:100%;height:100%;font:inherit;color:inherit;text-align:inherit;}
+  .cell input.num{text-align:right;font-family:'DM Mono',monospace;}
+  .badge-markup{font-weight:800;color:var(--emerald);}
+  .badge-diff-ok{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:var(--emerald);background:rgba(10,122,85,0.08);border:1px solid rgba(10,122,85,0.25);border-radius:999px;padding:3px 8px;}
+  .badge-diff-falta{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:var(--red);background:rgba(216,30,30,0.08);border:1px solid rgba(216,30,30,0.25);border-radius:999px;padding:3px 8px;}
+  .badge-diff-sobra{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:var(--amber);background:rgba(146,64,14,0.08);border:1px solid rgba(146,64,14,0.25);border-radius:999px;padding:3px 8px;}
+  .ok-check{width:17px;height:17px;accent-color:var(--emerald);cursor:pointer;}
+
+  /* Recebimento tab — full width, not centered */
+  .receb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;align-items:start;}
+  .field label{display:block;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;}
+  .field select, .field input[type=date]{width:100%;padding:11px 14px;border:1px solid rgba(26,26,10,0.15);border-radius:12px;font-size:13px;font-weight:700;background:rgba(26,26,10,0.03);}
+  .situacao-panel{grid-column:1/-1;background:#fff;border:1.5px solid rgba(26,26,10,0.08);border-radius:18px;padding:18px;}
+  .stepper{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .step{border-radius:16px;padding:14px;display:flex;align-items:center;gap:10px;border:2px solid transparent;cursor:default;text-align:left;}
+  .step .sicon{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .step .stitle{font-size:12.5px;font-weight:900;}
+  .step .ssub{font-size:9.5px;font-weight:700;}
+  .step.registro{background:rgba(146,64,14,0.08);border-color:rgba(146,64,14,0.30);}
+  .step.registro .sicon{background:rgba(146,64,14,0.15);color:var(--amber);}
+  .step.registro .stitle,.step.registro .ssub{color:var(--amber);}
+  .step.enviado{background:rgba(10,122,85,0.08);border-color:rgba(10,122,85,0.30);}
+  .step.enviado .sicon{background:rgba(10,122,85,0.15);color:var(--emerald);}
+  .step.enviado .stitle,.step.enviado .ssub{color:var(--emerald);}
+  .step.aprovado{background:rgba(10,122,85,0.08);border-color:rgba(10,122,85,0.30);cursor:pointer;}
+  .step.aprovado .sicon{background:rgba(10,122,85,0.15);color:var(--emerald);}
+  .step.aprovado .stitle,.step.aprovado .ssub{color:var(--emerald);}
+  .step.locked{background:rgba(26,26,10,0.03);border-color:transparent;opacity:0.5;}
+  .step.locked .sicon{background:rgba(26,26,10,0.08);color:rgba(26,26,10,0.35);}
+  .step.locked .stitle,.step.locked .ssub{color:rgba(26,26,10,0.35);}
+  .step.current{background:rgba(216,30,30,0.08)!important;border-color:rgba(216,30,30,0.35)!important;}
+  .step.current .sicon{background:rgba(216,30,30,0.15)!important;color:var(--red)!important;}
+  .step.current .stitle,.step.current .ssub{color:var(--red)!important;}
+  .step-hint{margin-top:12px;display:flex;gap:8px;align-items:flex-start;background:rgba(26,26,10,0.04);border:1px solid rgba(26,26,10,0.08);border-radius:12px;padding:10px 12px;font-size:11px;font-weight:700;color:rgba(26,26,10,0.55);}
+
+  /* Footer */
+  .footer{background:var(--footer-bg);border-top:1px solid var(--footer-border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;}
+  .stats{display:flex;align-items:center;gap:28px;}
+  .stat .slabel{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:var(--footer-muted);margin-bottom:3px;}
+  .stat .sval{font-family:'DM Mono',monospace;font-size:22px;font-weight:900;color:var(--footer-text);}
+  .factions{display:flex;gap:10px;}
+  .btn{padding:12px 20px;border-radius:14px;font-size:13px;font-weight:800;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+  .btn-ghost{background:rgba(0,0,0,0.08);color:rgba(26,26,10,0.55);border:1px solid rgba(0,0,0,0.12);}
+  .btn-primary{background:var(--red);color:#fff;box-shadow:0 6px 16px rgba(216,30,30,0.25);}
+  .btn-approve{background:var(--emerald);color:#fff;box-shadow:0 6px 16px rgba(10,122,85,0.25);}
+
+  .mode-switch{max-width:1400px;margin:0 auto 14px;display:flex;gap:8px;justify-content:center;}
+  .mode-switch button{padding:8px 14px;border-radius:10px;border:1px solid rgba(0,0,0,0.15);background:#fff;font-weight:800;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:0.04em;}
+  .mode-switch button.on{background:var(--red);color:#fff;border-color:var(--red);}
+</style>
+</head>
+<body>
+
+<div class="note">Mockup — clique nos botões abaixo para alternar aba / estágio de status.</div>
+
+<div class="mode-switch">
+  <button data-tab="produtos" class="on" onclick="setTab('produtos')">Aba Produtos</button>
+  <button data-tab="recebimento" onclick="setTab('recebimento')">Aba Recebimento</button>
+  <span style="width:1px;background:rgba(0,0,0,0.15);margin:0 6px;"></span>
+  <button data-status="registro" class="on" onclick="setStatus('registro')">Status: Registro</button>
+  <button data-status="pedido_enviado" onclick="setStatus('pedido_enviado')">Status: Pedido Enviado</button>
+  <button data-status="aprovado" onclick="setStatus('aprovado')">Status: Aprovado</button>
+</div>
+
+<div class="modal">
+  <div class="header">
+    <div class="header-top">
+      <div class="icon-chip">📦</div>
+      <div class="htitle">
+        <input value="Loja Centro" readonly>
+        <div class="manifest-badge">DIST-000042</div>
+      </div>
+      <div class="close-btn">✕</div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tabbtn="produtos" onclick="setTab('produtos')">📄 Produtos</button>
+      <button class="tab-btn" data-tabbtn="recebimento" onclick="setTab('recebimento')">📅 Recebimento</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- ── PRODUTOS ── -->
+    <div class="tab-panel active" data-panel="produtos">
+      <div class="toolbar" data-editable-only>
+        <input placeholder="Buscar por descrição…">
+        <input placeholder="Buscar por EAN…">
+      </div>
+
+      <table class="rn">
+        <colgroup>
+          <col style="width:34px"><col style="width:150px"><col style="width:220px"><col style="width:130px">
+          <col style="width:80px"><col style="width:70px"><col style="width:90px"><col style="width:100px">
+          <col style="width:70px"><col style="width:100px" data-post-send><col style="width:80px" data-post-send>
+          <col style="width:110px" data-post-send><col style="width:50px" data-post-send>
+        </colgroup>
+        <thead>
+          <tr>
+            <th><div class="lbl">#</div></th>
+            <th><div class="lbl">Ident. Interna</div></th>
+            <th><div class="lbl">Produto</div></th>
+            <th><div class="lbl">EAN</div></th>
+            <th><div class="lbl">Medida</div></th>
+            <th><div class="lbl">Qtd. Env.</div></th>
+            <th><div class="lbl">Preço Custo</div></th>
+            <th><div class="lbl">Valor Total</div></th>
+            <th><div class="lbl">Markup</div></th>
+            <th data-post-send><div class="lbl">Preço Venda</div></th>
+            <th data-post-send><div class="lbl">Qtd. Receb.</div></th>
+            <th data-post-send><div class="lbl">Falta / Sobra</div></th>
+            <th data-post-send><div class="lbl">Ok</div></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- ── RECEBIMENTO ── -->
+    <div class="tab-panel" data-panel="recebimento">
+      <div class="receb-grid">
+        <div class="field">
+          <label>Empresa Destino *</label>
+          <select><option>Loja Norte</option></select>
+        </div>
+        <div class="field">
+          <label>Data de Envio</label>
+          <input type="date" value="2026-08-20">
+        </div>
+        <div></div>
+
+        <div class="situacao-panel">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px;">Situação</div>
+          <div class="stepper" id="stepper"></div>
+          <div class="step-hint" id="stepHint"></div>
+        </div>
+
+        <div style="grid-column:1/-1;padding-top:6px;border-top:1px dashed rgba(26,26,10,0.14);font-size:12px;font-weight:700;color:rgba(26,26,10,0.55);">
+          Criado por <b style="color:var(--title)">Ana Souza</b> em 20/08/2026 09:12 · Enviado por <b style="color:var(--title)">Ana Souza</b> em 20/08/2026 14:03
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="stats">
+      <div class="stat"><div class="slabel">Itens</div><div class="sval" id="statItens">4</div></div>
+      <div class="stat"><div class="slabel">Valor Total</div><div class="sval" id="statValor">R$ 812,40</div></div>
+    </div>
+    <div class="factions" id="footerActions"></div>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  { interno:'INT-0231', nome:'Arroz Tipo 1 5kg', ean:'7891000100103', medida:'FD', qtdEnv:12, custo:18.50, venda:24.90, qtdReceb:12, ok:true },
+  { interno:'INT-0198', nome:'Feijão Carioca 1kg', ean:'7891000100202', medida:'UN', qtdEnv:24, custo:6.20, venda:8.90, qtdReceb:22, ok:true },
+  { interno:'INT-0512', nome:'Óleo de Soja 900ml', ean:'7891000100305', medida:'CX', qtdEnv:8, custo:7.80, venda:10.50, qtdReceb:8, ok:false },
+  { interno:'INT-0087', nome:'Açúcar Cristal 1kg', ean:'7891000100406', medida:'UN', qtdEnv:20, custo:4.10, venda:5.90, qtdReceb:21, ok:false },
+];
+
+function fmtBRL(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+
+function renderTable(status){
+  const tbody = document.getElementById('tbody');
+  const postSend = status !== 'registro';
+  document.querySelectorAll('[data-post-send]').forEach(el => el.style.display = postSend ? '' : 'none');
+  document.querySelectorAll('[data-editable-only]').forEach(el => el.style.display = status === 'registro' ? '' : 'none');
+
+  let totalValor = 0;
+  tbody.innerHTML = ITEMS.map((it, i) => {
+    const total = it.qtdEnv * it.custo;
+    totalValor += total;
+    const markup = ((it.venda - it.custo) / it.custo * 100).toFixed(1);
+    const diff = it.qtdReceb - it.qtdEnv;
+    let diffBadge = '<span class="badge-diff-ok">✓ Sem diferença</span>';
+    if (diff < 0) diffBadge = `<span class="badge-diff-falta">▼ Falta ${Math.abs(diff)}</span>`;
+    if (diff > 0) diffBadge = `<span class="badge-diff-sobra">▲ Sobra ${diff}</span>`;
+
+    return `<tr>
+      <td><div class="cell center muted">${i+1}</div></td>
+      <td><div class="cell muted">${it.interno}</div></td>
+      <td><div class="cell" style="font-weight:800;">${it.nome}</div></td>
+      <td><div class="cell muted" style="font-family:'DM Mono',monospace;font-size:11px;">${it.ean}</div></td>
+      <td><div class="cell center">${it.medida}</div></td>
+      <td><div class="cell num">${status==='registro' ? `<input class="num" value="${it.qtdEnv}">` : it.qtdEnv}</div></td>
+      <td><div class="cell num">${fmtBRL(it.custo)}</div></td>
+      <td><div class="cell num" style="font-weight:800;">${fmtBRL(total)}</div></td>
+      <td><div class="cell num badge-markup">+${markup}%</div></td>
+      <td data-post-send style="display:${postSend?'':'none'}"><div class="cell num">${status!=='registro' ? `<input class="num" value="${it.venda.toFixed(2).replace('.',',')}">` : ''}</div></td>
+      <td data-post-send style="display:${postSend?'':'none'}"><div class="cell num">${status!=='registro' ? `<input class="num" value="${it.qtdReceb}">` : ''}</div></td>
+      <td data-post-send style="display:${postSend?'':'none'}"><div class="cell center">${status!=='registro' ? diffBadge : ''}</div></td>
+      <td data-post-send style="display:${postSend?'':'none'}"><div class="cell center">${status!=='registro' ? `<input type="checkbox" class="ok-check" ${it.ok?'checked':''}>` : ''}</div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('statItens').textContent = ITEMS.length;
+  document.getElementById('statValor').textContent = fmtBRL(totalValor);
+}
+
+function renderStepper(status){
+  const stepper = document.getElementById('stepper');
+  const hint = document.getElementById('stepHint');
+  const cls = (name) => {
+    if (status === name) return 'current';
+    if (name === 'registro') return status !== 'registro' ? 'locked' : 'registro';
+    if (name === 'pedido_enviado') return status === 'aprovado' ? 'enviado' : (status === 'pedido_enviado' ? 'current' : 'registro');
+    if (name === 'aprovado') return status === 'pedido_enviado' ? 'aprovado' : (status === 'aprovado' ? 'current' : 'locked');
+    return '';
+  };
+  stepper.innerHTML = `
+    <div class="step ${status==='registro' ? 'current' : 'locked'}">
+      <div class="sicon">✎</div>
+      <div><div class="stitle">Registro</div><div class="ssub">Editável</div></div>
+    </div>
+    <div class="step ${status==='pedido_enviado' ? 'current' : (status==='aprovado' ? 'enviado' : 'locked')}">
+      <div class="sicon">✓</div>
+      <div><div class="stitle">Pedido Enviado</div><div class="ssub">${status==='registro' ? 'Bloqueado' : status==='pedido_enviado' ? 'Aguardando aprovação' : 'Concluído'}</div></div>
+    </div>
+    <div class="step ${status==='aprovado' ? 'current' : (status==='pedido_enviado' ? 'aprovado' : 'locked')}">
+      <div class="sicon">📦</div>
+      <div><div class="stitle">Aprovado</div><div class="ssub">${status==='aprovado' ? 'Estoque atualizado' : status==='pedido_enviado' ? 'Clique para aprovar' : 'Bloqueado'}</div></div>
+    </div>`;
+
+  const hints = {
+    registro: 'Preencha os produtos e confirme o envio na aba Recebimento.',
+    pedido_enviado: 'A loja destino confere as quantidades recebidas, preenche o Preço de Venda e marca "Ok" item a item. Ao aprovar, o estoque da Empresa Destino é atualizado automaticamente com as quantidades recebidas.',
+    aprovado: 'Estoque atualizado em 20/08/2026 15:40 por Carlos Lima. Esta etapa não pode ser desfeita.',
+  };
+  hint.textContent = hints[status];
+}
+
+function renderFooterActions(status){
+  const el = document.getElementById('footerActions');
+  if (status === 'registro') {
+    el.innerHTML = `<button class="btn btn-ghost">Cancelar</button><button class="btn btn-primary">✓ Salvar Rascunho</button>`;
+  } else if (status === 'pedido_enviado') {
+    el.innerHTML = `<button class="btn btn-ghost">Fechar</button><button class="btn btn-approve">📦 Aprovar Recebimento</button>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-ghost">Fechar</button>`;
+  }
+}
+
+let currentStatus = 'registro';
+function setStatus(s){
+  currentStatus = s;
+  document.querySelectorAll('[data-status]').forEach(b => b.classList.toggle('on', b.dataset.status === s));
+  renderTable(s);
+  renderStepper(s);
+  renderFooterActions(s);
+}
+function setTab(t){
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('[data-tabbtn]').forEach(b => b.classList.toggle('active', b.dataset.tabbtn === t));
+  document.querySelectorAll('[data-panel]').forEach(p => p.classList.toggle('active', p.dataset.panel === t));
+}
+setStatus('registro');
+</script>
+</body>
+</html>

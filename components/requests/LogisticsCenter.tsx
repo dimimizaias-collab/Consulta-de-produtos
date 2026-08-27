@@ -170,7 +170,7 @@ const notePeriodIso = (note: ReviewNote): string | null => {
 
 type Section = 'notas' | 'distribuicao' | 'dicionario' | 'fornecedores' | 'fabricantes' | 'rascunhos';
 
-export type DistributionManifestStatus = 'registro' | 'pedido_enviado';
+export type DistributionManifestStatus = 'registro' | 'pedido_enviado' | 'aprovado';
 
 export interface DistributionManifest {
   id: string;
@@ -187,6 +187,7 @@ export interface DistributionManifest {
 const DIST_STATUS_META: Record<DistributionManifestStatus, { label: string; fg: string; bg: string; border: string }> = {
   registro:       { label: 'Registro',       fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]', border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30' },
   pedido_enviado: { label: 'Pedido Enviado', fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/10 dark:bg-emerald-500/[0.14]', border: 'border-emerald-500/25 dark:border-emerald-500/35' },
+  aprovado:       { label: 'Aprovado',       fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/15 dark:bg-emerald-500/[0.20]', border: 'border-emerald-500/35 dark:border-emerald-500/45' },
 };
 
 const DIST_TABLE_COLUMNS: { key: string; label: string }[] = [

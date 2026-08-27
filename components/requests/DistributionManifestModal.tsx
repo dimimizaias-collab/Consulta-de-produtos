@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -10,12 +10,22 @@ const MANIFEST_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// Estilo "molde da nota" — mesma barra de cabeçalho amarela contínua + chip por coluna,
+// e célula em duas camadas (td fino + div arredondado) usada na tabela de revisão da nota
+// (app/page.tsx, thBar/lbl/cell). Reaproveitado aqui via classes utilitárias fixas porque
+// este componente não compartilha os `--rn-*` CSS vars do editor de nota.
+const thBarCls = 'bg-[#FFE500] dark:bg-[#FFE500] px-2 h-9 align-middle border-b border-[#D4C000] dark:border-[#C8B800]';
+const thLblCls = 'inline-flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1A1A0E]/55 whitespace-nowrap bg-black/[0.06] border-[1.5px] border-black/10 rounded-full px-3 py-[5px] w-full';
+const tdCls = 'p-[3px] border-b border-[#E0D8BF] dark:border-white/[0.08]';
+const cellCls = 'rounded-[9px] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] h-9 flex items-center px-2.5 overflow-hidden text-[12px] font-semibold text-[#1A1A0E] dark:text-[#F2F0E3] bg-white dark:bg-[#252520]';
+const cellInputCls = 'bg-transparent border-none outline-none w-full h-full font-inherit text-inherit';
+
 export interface DistributionManifestDraft {
   id: string;
   isExisting: boolean;
   manifestNumber: string;
   originCompanyId: string | null;
-  status: 'registro' | 'pedido_enviado';
+  status: 'registro' | 'pedido_enviado' | 'aprovado';
 }
 
 interface Company { id: string; nome_fantasia: string }
@@ -31,12 +41,15 @@ interface ManifestItem {
   sku: string | null;
   ean: string | null;
   qty: number;
+  measure: string;
   costPrice: number;
   salePriceOrigin: number;
   // Preenchidos pela loja destino após o envio — decisão 3-B do plano de Distribuição,
   // substitui o antigo "botão de preço" da nota (pricingByCompany, removido).
   salePriceDestination: number | null;
   verified: boolean;
+  // Quantidade efetivamente recebida — alimenta o badge Falta/Sobra na aprovação.
+  qtyReceived: number | null;
 }
 
 interface DistributionManifestModalProps {
@@ -74,6 +87,9 @@ export function DistributionManifestModal({
   const [isExistingState, setIsExistingState] = useState(manifest.isExisting);
   const [status, setStatus] = useState(manifest.status);
   const editable = status === 'registro';
+  // Pedido Enviado: loja destino confere quantidades/preço/Ok, mas ainda não aprovou.
+  const receiving = status === 'pedido_enviado';
+  const approved = status === 'aprovado';
 
   // ── Aba Recebimento ──────────────────────────────────────────────────────
   const [destinationCompanyId, setDestinationCompanyId] = useState('');
@@ -82,15 +98,19 @@ export function DistributionManifestModal({
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [sentByName, setSentByName] = useState<string | null>(null);
   const [sentAt, setSentAt] = useState<string | null>(null);
+  const [approvedByName, setApprovedByName] = useState<string | null>(null);
+  const [approvedAt, setApprovedAt] = useState<string | null>(null);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     if (!manifest.isExisting) return;
     (async () => {
       const { data } = await supabase
         .from('distribution_manifests')
-        .select('destination_company_id, shipping_date, created_by_name, created_at, sent_by_name, sent_at, status')
+        .select('destination_company_id, shipping_date, created_by_name, created_at, sent_by_name, sent_at, approved_by_name, approved_at, status')
         .eq('id', manifest.id)
         .maybeSingle();
       if (!data) return;
@@ -102,6 +122,8 @@ export function DistributionManifestModal({
       setCreatedAt(data.created_at || null);
       setSentByName(data.sent_by_name || null);
       setSentAt(data.sent_at || null);
+      setApprovedByName(data.approved_by_name || null);
+      setApprovedAt(data.approved_at || null);
       setStatus(data.status);
     })();
   }, [manifest.id, manifest.isExisting]);
@@ -181,7 +203,7 @@ export function DistributionManifestModal({
     (async () => {
       const { data } = await supabase
         .from('distribution_manifest_items')
-        .select('id, product_id, product_name, sku, ean, qty, cost_price, sale_price_origin, sale_price_destination, verified')
+        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, verified, qty_received')
         .eq('manifest_id', manifest.id);
       if (itemsDirtyRef.current) { setLoadingItems(false); return; }
       setItems((data || []).map((r: any) => ({
@@ -191,10 +213,12 @@ export function DistributionManifestModal({
         sku: r.sku,
         ean: r.ean,
         qty: parseFloat(r.qty) || 0,
+        measure: r.measure || 'UN',
         costPrice: parseFloat(r.cost_price) || 0,
         salePriceOrigin: parseFloat(r.sale_price_origin) || 0,
         salePriceDestination: r.sale_price_destination !== null ? parseFloat(r.sale_price_destination) : null,
         verified: !!r.verified,
+        qtyReceived: r.qty_received !== null && r.qty_received !== undefined ? parseFloat(r.qty_received) : null,
       })));
       setLoadingItems(false);
     })();
@@ -264,14 +288,22 @@ export function DistributionManifestModal({
       sku: p.sku,
       ean: p.ean,
       qty,
+      measure: 'UN',
       costPrice: p.costPrice,
       salePriceOrigin: p.salePriceOrigin,
       salePriceDestination: null,
       verified: false,
+      qtyReceived: null,
     }]);
     setSelectedProduct(null);
     setQtyInput('');
     setDuplicatePendingQty(null);
+  };
+
+  // Edição inline de campos do item em Registro (Qtd./Medida) — tabela no molde da nota.
+  const updateItemField = (id: string, patch: Partial<Pick<ManifestItem, 'qty' | 'measure'>>) => {
+    itemsDirtyRef.current = true;
+    setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
   };
 
   const handleConfirmAddItem = () => {
@@ -375,10 +407,12 @@ export function DistributionManifestModal({
             sku: it.sku,
             ean: it.ean,
             qty: it.qty,
+            measure: it.measure,
             cost_price: it.costPrice,
             sale_price_origin: it.salePriceOrigin,
             sale_price_destination: it.salePriceDestination,
             verified: it.verified,
+            qty_received: it.qtyReceived,
           }))
         );
         if (itemsError) throw itemsError;
@@ -439,7 +473,69 @@ export function DistributionManifestModal({
     }
   };
 
+  // Qtd. recebida — alimenta o badge Falta/Sobra, preenchida pela loja destino em Pedido
+  // Enviado, antes de aprovar. Não mexe em estoque (isso só acontece na aprovação).
+  const updateItemReceivedQty = async (itemId: string, qtyReceived: number | null) => {
+    setItems(prev => prev.map(it => it.id === itemId ? { ...it, qtyReceived } : it));
+    await supabase.from('distribution_manifest_items').update({ qty_received: qtyReceived }).eq('id', itemId);
+  };
+
   const canSend = editable && !!destinationCompanyId && items.length > 0;
+  const canApprove = receiving && items.length > 0;
+
+  // Confirmar recebimento — trava definitivamente o manifesto e lança a quantidade recebida
+  // (ou a enviada, se a loja destino não corrigiu) no estoque da Empresa Destino. É a "fase
+  // futura" que distribuicao.sql deixou em aberto: até aqui, product_company_stock.count
+  // nunca era tocado pelo fluxo de Distribuição.
+  const handleApprove = async () => {
+    if (!canApprove || !destinationCompanyId) return;
+    setApproving(true);
+    try {
+      const { data: currentStock } = await supabase
+        .from('product_company_stock')
+        .select('product_id, count')
+        .eq('company_id', destinationCompanyId)
+        .in('product_id', items.map(it => it.productId));
+      const countByProduct: Record<string, number> = {};
+      (currentStock || []).forEach((r: any) => { countByProduct[r.product_id] = parseFloat(r.count) || 0; });
+
+      const nowIso = new Date().toISOString();
+      await Promise.all(items.map(it => {
+        const receivedQty = it.qtyReceived !== null ? it.qtyReceived : it.qty;
+        const nextCount = (countByProduct[it.productId] || 0) + receivedQty;
+        const payload: any = {
+          product_id: it.productId,
+          company_id: destinationCompanyId,
+          count: nextCount,
+          cost_price: it.costPrice,
+          price_received_date: nowIso.slice(0, 10),
+          updated_at: nowIso,
+        };
+        if (it.salePriceDestination !== null) payload.price = it.salePriceDestination;
+        return supabase.from('product_company_stock').upsert(payload, { onConflict: 'product_id,company_id' });
+      }));
+
+      const { error } = await supabase.from('distribution_manifests').update({
+        status: 'aprovado',
+        approved_by_id: colaboradorId || null,
+        approved_by_name: colaboradorNome || null,
+        approved_at: nowIso,
+      }).eq('id', manifest.id);
+      if (error) throw error;
+
+      setStatus('aprovado');
+      setApprovedByName(colaboradorNome || null);
+      setApprovedAt(nowIso);
+      setConfirmApproveOpen(false);
+      setNotification({ type: 'success', message: 'Recebimento aprovado — estoque atualizado.' });
+      onSaved();
+      handleClose();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao aprovar recebimento.' });
+    } finally {
+      setApproving(false);
+    }
+  };
 
   const filteredCompanies = companies.filter(c => !originQuery || c.nome_fantasia.toLowerCase().includes(originQuery.toLowerCase()));
 
@@ -564,9 +660,9 @@ export function DistributionManifestModal({
                 </p>
               </div>
             ) : (
-              <div className="max-w-2xl mx-auto space-y-4">
+              <div className="space-y-4">
                 {editable && (
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 gap-2.5 max-w-3xl">
                     <div className="relative">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
                       <input
@@ -591,7 +687,7 @@ export function DistributionManifestModal({
                 )}
 
                 {editable && (descQuery || eanQuery) && !selectedProduct && (
-                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-xl overflow-hidden">
+                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-xl overflow-hidden max-w-3xl">
                     {searchLoading ? (
                       <div className="px-4 py-3 text-xs font-bold text-on-surface/35">Buscando…</div>
                     ) : searchResults.length > 0 ? (
@@ -619,7 +715,7 @@ export function DistributionManifestModal({
                 )}
 
                 {selectedProduct && (
-                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 relative">
+                  <div className="bg-surface-container-lowest border border-on-surface/10 rounded-2xl p-4 relative max-w-3xl">
                     {isDuplicateOfSelected && (
                       <div className="absolute top-3 right-3 text-[#D81E1E]">
                         <AlertTriangle size={18} />
@@ -708,81 +804,154 @@ export function DistributionManifestModal({
                     <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Carregando produtos…</p>
                   ) : items.length === 0 ? (
                     <p className="text-xs font-bold text-on-surface/30 py-4 text-center">Nenhum produto adicionado ainda.</p>
-                  ) : !editable ? (
-                    // Pedido já enviado — vira tabela somente leitura (trava a edição/exclusão).
+                  ) : (
+                    // Tabela no molde da tabela de revisão da nota (barra de cabeçalho amarela
+                    // contínua + chip por coluna, células em duas camadas) — antes essa lista
+                    // era compacta demais (cards em Registro, tabela simples pós-envio).
                     <div className="border border-on-surface/[0.08] rounded-xl overflow-hidden">
-                      <table className="w-full text-sm">
+                      <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                        <colgroup>
+                          <col style={{ width: 36 }} />
+                          <col style={{ width: 150 }} />
+                          <col />
+                          <col style={{ width: 140 }} />
+                          <col style={{ width: 80 }} />
+                          <col style={{ width: 90 }} />
+                          <col style={{ width: 100 }} />
+                          <col style={{ width: 110 }} />
+                          <col style={{ width: 80 }} />
+                          {!editable && <col style={{ width: 110 }} />}
+                          {!editable && <col style={{ width: 90 }} />}
+                          {!editable && <col style={{ width: 120 }} />}
+                          {!editable && <col style={{ width: 50 }} />}
+                          {editable && <col style={{ width: 40 }} />}
+                        </colgroup>
                         <thead>
-                          <tr className="bg-[#FFEC4D] border-b border-[#E6CE33]">
-                            <th className="px-3 py-2 text-left text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Produto</th>
-                            <th className="px-3 py-2 text-left text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">SKU / EAN</th>
-                            <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Qtd</th>
-                            <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Total</th>
-                            <th className="px-3 py-2 text-right text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Preço de Venda</th>
-                            <th className="px-3 py-2 text-center text-[9.5px] font-black uppercase tracking-wide text-[#1A1A0E]/60">Ok</th>
+                          <tr>
+                            <th className={thBarCls}><div className={thLblCls}>#</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Ident. Interna</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Produto</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>EAN</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Medida</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Qtd. Env.</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Preço Custo</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Valor Total</div></th>
+                            <th className={thBarCls}><div className={thLblCls}>Markup</div></th>
+                            {!editable && <th className={thBarCls}><div className={thLblCls}>Preço Venda</div></th>}
+                            {!editable && <th className={thBarCls}><div className={thLblCls}>Qtd. Receb.</div></th>}
+                            {!editable && <th className={thBarCls}><div className={thLblCls}>Falta / Sobra</div></th>}
+                            {!editable && <th className={thBarCls}><div className={thLblCls}>Ok</div></th>}
+                            {editable && <th className={thBarCls}></th>}
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((it, idx) => (
-                            <tr key={it.id} className={idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40'}>
-                              <td className="px-3 py-2.5 font-bold text-on-surface">{it.productName}</td>
-                              <td className="px-3 py-2.5 font-mono text-[11px] text-on-surface/50">{it.sku || '—'} · {it.ean || '—'}</td>
-                              <td className="px-3 py-2.5 font-mono text-right text-on-surface">{it.qty}</td>
-                              <td className="px-3 py-2.5 font-mono text-right font-black text-on-surface">{fmtBRL(it.qty * it.costPrice)}</td>
-                              <td className="px-3 py-2.5 text-right">
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  defaultValue={it.salePriceDestination !== null ? it.salePriceDestination.toFixed(2).replace('.', ',') : ''}
-                                  placeholder="0,00"
-                                  onBlur={e => {
-                                    const n = parseFloat(e.target.value.replace(',', '.'));
-                                    updateItemPricing(it.id, it.productId, isNaN(n) ? null : n, it.verified);
-                                  }}
-                                  className="w-24 text-right font-mono text-[12px] font-bold bg-white dark:bg-white/[0.06] border border-on-surface/15 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary/40 text-on-surface"
-                                />
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={it.verified}
-                                  onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
-                                  className="w-4 h-4 accent-emerald-600 cursor-pointer"
-                                />
-                              </td>
-                            </tr>
-                          ))}
+                          {items.map((it, idx) => {
+                            const total = it.qty * it.costPrice;
+                            const markup = it.costPrice > 0 ? ((it.salePriceOrigin - it.costPrice) / it.costPrice) * 100 : null;
+                            const diff = it.qtyReceived !== null ? it.qtyReceived - it.qty : null;
+                            return (
+                              <tr key={it.id}>
+                                <td className={tdCls}><div className={cn(cellCls, 'justify-center text-on-surface/35 font-medium')}>{idx + 1}</div></td>
+                                <td className={tdCls}><div className={cn(cellCls, 'text-on-surface/50 font-medium')}>{it.sku || '—'}</div></td>
+                                <td className={tdCls}><div className={cellCls} title={it.productName}><span className="truncate">{it.productName}</span></div></td>
+                                <td className={tdCls}><div className={cn(cellCls, 'font-mono text-[11px] text-on-surface/50')}>{it.ean || '—'}</div></td>
+                                <td className={tdCls}>
+                                  <div className={cn(cellCls, 'justify-center')}>
+                                    {editable ? (
+                                      <input type="text" value={it.measure} onChange={e => updateItemField(it.id, { measure: e.target.value.toUpperCase().slice(0, 6) })}
+                                        className={cn(cellInputCls, 'text-center')} placeholder="UN" />
+                                    ) : it.measure}
+                                  </div>
+                                </td>
+                                <td className={tdCls}>
+                                  <div className={cn(cellCls, 'justify-end font-mono')}>
+                                    {editable ? (
+                                      <input type="number" min="0" value={it.qty} onChange={e => updateItemField(it.id, { qty: parseFloat(e.target.value) || 0 })}
+                                        className={cn(cellInputCls, 'text-right')} />
+                                    ) : it.qty}
+                                  </div>
+                                </td>
+                                <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono text-on-surface/70')}>{fmtBRL(it.costPrice)}</div></td>
+                                <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono font-black')}>{fmtBRL(total)}</div></td>
+                                <td className={tdCls}>
+                                  <div className={cn(cellCls, 'justify-end font-mono font-black', markup === null ? 'text-on-surface/30' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#D81E1E]')}>
+                                    {markup === null ? '—' : `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%`}
+                                  </div>
+                                </td>
+                                {!editable && (
+                                  <td className={tdCls}>
+                                    <div className={cn(cellCls, 'justify-end font-mono')}>
+                                      {receiving ? (
+                                        <input type="text" inputMode="decimal"
+                                          defaultValue={it.salePriceDestination !== null ? it.salePriceDestination.toFixed(2).replace('.', ',') : ''}
+                                          placeholder="0,00"
+                                          onBlur={e => { const n = parseFloat(e.target.value.replace(',', '.')); updateItemPricing(it.id, it.productId, isNaN(n) ? null : n, it.verified); }}
+                                          className={cn(cellInputCls, 'text-right')} />
+                                      ) : it.salePriceDestination !== null ? fmtBRL(it.salePriceDestination) : '—'}
+                                    </div>
+                                  </td>
+                                )}
+                                {!editable && (
+                                  <td className={tdCls}>
+                                    <div className={cn(cellCls, 'justify-end font-mono')}>
+                                      {receiving ? (
+                                        <input type="number" min="0" defaultValue={it.qtyReceived ?? ''} placeholder={String(it.qty)}
+                                          onBlur={e => { const n = parseFloat(e.target.value); updateItemReceivedQty(it.id, isNaN(n) ? null : n); }}
+                                          className={cn(cellInputCls, 'text-right')} />
+                                      ) : it.qtyReceived ?? '—'}
+                                    </div>
+                                  </td>
+                                )}
+                                {!editable && (
+                                  <td className={tdCls}>
+                                    <div className={cn(cellCls, 'justify-center')}>
+                                      {diff === null || diff === 0 ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2 py-0.5">
+                                          <Check size={10} /> {diff === null ? 'A conferir' : 'OK'}
+                                        </span>
+                                      ) : diff < 0 ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#D81E1E] bg-[#D81E1E]/10 border border-[#D81E1E]/25 rounded-full px-2 py-0.5">
+                                          <ArrowDown size={10} /> Falta {Math.abs(diff)}
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-700 dark:text-[#FCD34D] bg-amber-500/10 border border-amber-500/25 rounded-full px-2 py-0.5">
+                                          <ArrowUp size={10} /> Sobra {diff}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
+                                {!editable && (
+                                  <td className={tdCls}>
+                                    <div className={cn(cellCls, 'justify-center')}>
+                                      <input type="checkbox" checked={it.verified} disabled={!receiving}
+                                        onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
+                                        className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
+                                    </div>
+                                  </td>
+                                )}
+                                {editable && (
+                                  <td className={tdCls}>
+                                    <div className={cn(cellCls, 'justify-center border-none bg-transparent p-0')}>
+                                      <button onClick={() => removeItem(it.id)}
+                                        className="w-7 h-7 rounded-lg bg-[#D81E1E]/10 text-[#D81E1E] flex items-center justify-center hover:bg-[#D81E1E]/20 transition-colors">
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {items.map(it => (
-                        <div key={it.id} className="group flex items-center gap-3 bg-surface-container-lowest border border-on-surface/[0.07] rounded-xl px-3.5 py-2.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-bold text-on-surface truncate">{it.productName}</div>
-                            <div className="font-mono text-[10px] text-on-surface/40">{it.sku || '—'} · {it.ean || '—'}</div>
-                          </div>
-                          <span className="font-mono text-[11px] font-bold text-on-surface bg-on-surface/[0.05] px-2.5 py-1 rounded-full shrink-0">{it.qty} un.</span>
-                          <span className="font-mono text-[13px] font-black text-on-surface shrink-0 w-24 text-right">{fmtBRL(it.qty * it.costPrice)}</span>
-                          {editable && (
-                            <button
-                              onClick={() => removeItem(it.id)}
-                              className="w-7 h-7 rounded-lg bg-[#D81E1E]/10 text-[#D81E1E] flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
                     </div>
                   )}
                 </div>
               </div>
             )
           ) : (
-            <div className="max-w-2xl mx-auto space-y-6">
+            <div className="space-y-6">
               <div className="flex gap-7">
                 <div>
                   <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">
@@ -822,17 +991,17 @@ export function DistributionManifestModal({
                 </div>
               </div>
 
-              <div>
+              <div className="max-w-3xl">
                 <div className="text-[10px] font-black uppercase tracking-[0.09em] text-on-surface/35 mb-2.5">Situação</div>
                 <div className="bg-surface-container-lowest border-[1.5px] border-on-surface/[0.08] rounded-2xl p-4">
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl p-3.5 flex items-center gap-2.5 border-2 bg-amber-500/[0.08] border-amber-500/30">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-[#FCD34D] flex items-center justify-center shrink-0">
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className={cn('rounded-2xl p-3.5 flex items-center gap-2.5 border-2', status === 'registro' ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-on-surface/[0.02] border-transparent opacity-55')}>
+                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', status === 'registro' ? 'bg-amber-500/15 text-amber-600 dark:text-[#FCD34D]' : 'bg-on-surface/10 text-on-surface/35')}>
                         <Pencil size={15} />
                       </div>
                       <div>
-                        <div className="text-[12px] font-black text-amber-700 dark:text-[#FCD34D]">Registro</div>
-                        <div className="text-[9.5px] font-bold text-amber-700/70 dark:text-[#FCD34D]/70">Editável</div>
+                        <div className={cn('text-[12px] font-black', status === 'registro' ? 'text-amber-700 dark:text-[#FCD34D]' : 'text-on-surface/35')}>Registro</div>
+                        <div className={cn('text-[9.5px] font-bold', status === 'registro' ? 'text-amber-700/70 dark:text-[#FCD34D]/70' : 'text-on-surface/30')}>Editável</div>
                       </div>
                     </div>
                     <button
@@ -840,26 +1009,48 @@ export function DistributionManifestModal({
                       disabled={!canSend}
                       className={cn(
                         'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-colors',
-                        status === 'pedido_enviado'
+                        status === 'pedido_enviado' || status === 'aprovado'
                           ? 'bg-emerald-500/[0.08] border-emerald-500/30'
                           : canSend
                             ? 'bg-emerald-500/[0.07] border-emerald-500/30 hover:bg-emerald-500/[0.12] cursor-pointer'
                             : 'bg-on-surface/[0.02] border-transparent opacity-55 cursor-not-allowed'
                       )}
                     >
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', (canSend || status === 'pedido_enviado') ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/35')}>
+                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/35')}>
                         <CheckCircle2 size={15} />
                       </div>
                       <div>
-                        <div className={cn('text-[12px] font-black', (canSend || status === 'pedido_enviado') ? 'text-emerald-700 dark:text-emerald-400' : 'text-on-surface/35')}>Pedido Enviado</div>
-                        <div className={cn('text-[9.5px] font-bold', (canSend || status === 'pedido_enviado') ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-on-surface/30')}>
-                          {status === 'pedido_enviado' ? 'Definitivo' : canSend ? 'Clique para confirmar' : 'Bloqueado'}
+                        <div className={cn('text-[12px] font-black', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'text-emerald-700 dark:text-emerald-400' : 'text-on-surface/35')}>Pedido Enviado</div>
+                        <div className={cn('text-[9.5px] font-bold', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-on-surface/30')}>
+                          {status === 'aprovado' ? 'Concluído' : status === 'pedido_enviado' ? 'Aguardando aprovação' : canSend ? 'Clique para confirmar' : 'Bloqueado'}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => canApprove && setConfirmApproveOpen(true)}
+                      disabled={!canApprove}
+                      className={cn(
+                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-colors',
+                        status === 'aprovado'
+                          ? 'bg-emerald-500/[0.08] border-emerald-500/30'
+                          : canApprove
+                            ? 'bg-emerald-500/[0.07] border-emerald-500/30 hover:bg-emerald-500/[0.12] cursor-pointer'
+                            : 'bg-on-surface/[0.02] border-transparent opacity-55 cursor-not-allowed'
+                      )}
+                    >
+                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', (canApprove || status === 'aprovado') ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/35')}>
+                        <Package size={15} />
+                      </div>
+                      <div>
+                        <div className={cn('text-[12px] font-black', (canApprove || status === 'aprovado') ? 'text-emerald-700 dark:text-emerald-400' : 'text-on-surface/35')}>Aprovado</div>
+                        <div className={cn('text-[9.5px] font-bold', (canApprove || status === 'aprovado') ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-on-surface/30')}>
+                          {status === 'aprovado' ? 'Estoque atualizado' : canApprove ? 'Clique para aprovar' : 'Bloqueado'}
                         </div>
                       </div>
                     </button>
                   </div>
 
-                  {status !== 'pedido_enviado' && (
+                  {status === 'registro' && (
                     canSend ? (
                       <div className="mt-3 flex items-start gap-2 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-xl px-3 py-2.5">
                         <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
@@ -874,6 +1065,22 @@ export function DistributionManifestModal({
                       </div>
                     )
                   )}
+                  {status === 'pedido_enviado' && (
+                    <div className="mt-3 flex items-start gap-2 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-xl px-3 py-2.5">
+                      <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-on-surface/55 leading-relaxed">
+                        Confira Qtd. Recebida, Preço de Venda e marque "Ok" item a item na aba Produtos. Aprovar atualiza o estoque da Empresa Destino e não pode ser desfeito.
+                      </p>
+                    </div>
+                  )}
+                  {status === 'aprovado' && (
+                    <div className="mt-3 flex items-start gap-2 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-xl px-3 py-2.5">
+                      <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                        Estoque da Empresa Destino atualizado com as quantidades recebidas.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -885,6 +1092,11 @@ export function DistributionManifestModal({
                   {sentByName && (
                     <p className="text-[11.5px] font-bold text-on-surface/50">
                       Enviado por <b className="text-on-surface font-extrabold">{sentByName}</b> em {fmtDateTimeBR(sentAt)}
+                    </p>
+                  )}
+                  {approvedByName && (
+                    <p className="text-[11.5px] font-bold text-on-surface/50">
+                      Aprovado por <b className="text-on-surface font-extrabold">{approvedByName}</b> em {fmtDateTimeBR(approvedAt)}
                     </p>
                   )}
                 </div>
@@ -928,16 +1140,51 @@ export function DistributionManifestModal({
           )}
         </AnimatePresence>
 
+        {/* Confirmação de aprovação — atualiza estoque da Empresa Destino, irreversível */}
+        <AnimatePresence>
+          {confirmApproveOpen && (
+            <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-[380px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] rounded-[22px] shadow-2xl p-8 pb-7 text-center"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                  <Package size={26} />
+                </div>
+                <div className="text-[15px] font-black text-on-surface mb-1.5">Aprovar recebimento?</div>
+                <p className="text-[12px] font-bold text-on-surface/55 mb-5 leading-relaxed">
+                  O estoque da Empresa Destino será atualizado com as quantidades recebidas e o manifesto ficará travado. Esta ação não pode ser desfeita.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setConfirmApproveOpen(false)} className="flex-1 h-10 rounded-xl border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={approving}
+                    className="flex-1 h-10 rounded-xl bg-emerald-600 text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:bg-emerald-700 active:scale-[0.97] transition-all disabled:opacity-60"
+                  >
+                    {approving ? 'Aprovando…' : 'Aprovar Recebimento'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Footer */}
-        <div className="border-t border-line dark:border-white/[0.07] bg-[#FFF7B0] dark:bg-[#252520] px-6 py-3.5 flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-5">
+        <div className="border-t border-line dark:border-white/[0.07] bg-[#FFF7B0] dark:bg-[#252520] px-6 py-4 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-7">
             <div>
-              <div className="text-[8.5px] font-black uppercase tracking-wider text-[#1A1A0E]/40 dark:text-white/35">Itens</div>
-              <div className="font-mono text-[14px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{items.length}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/45 dark:text-white/35">Itens</div>
+              <div className="font-mono text-[22px] leading-tight font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{items.length}</div>
             </div>
             <div>
-              <div className="text-[8.5px] font-black uppercase tracking-wider text-[#1A1A0E]/40 dark:text-white/35">Valor Total</div>
-              <div className="font-mono text-[14px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{fmtBRL(itemsTotal)}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/45 dark:text-white/35">Valor Total</div>
+              <div className="font-mono text-[22px] leading-tight font-black text-[#1A1A0E] dark:text-[#F2F0E3]">{fmtBRL(itemsTotal)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -945,16 +1192,28 @@ export function DistributionManifestModal({
               onClick={handleClose}
               className="px-4 py-2.5 rounded-xl text-[12.5px] font-bold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/55 dark:text-white/50 border border-black/[0.14] dark:border-white/10 hover:bg-black/[0.12] transition-colors"
             >
-              Cancelar
+              {editable ? 'Cancelar' : 'Fechar'}
             </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving || !editable}
-              className="px-5 py-2.5 rounded-xl text-[12.5px] font-black bg-[#D81E1E] text-white shadow-md shadow-[#D81E1E]/25 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
-            >
-              <CheckCircle2 size={14} />
-              Salvar Rascunho
-            </button>
+            {editable && (
+              <button
+                onClick={handleSaveDraft}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-xl text-[12.5px] font-black bg-[#D81E1E] text-white shadow-md shadow-[#D81E1E]/25 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
+              >
+                <CheckCircle2 size={14} />
+                Salvar Rascunho
+              </button>
+            )}
+            {receiving && (
+              <button
+                onClick={() => canApprove && setConfirmApproveOpen(true)}
+                disabled={!canApprove}
+                className="px-5 py-2.5 rounded-xl text-[12.5px] font-black bg-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60 flex items-center gap-1.5"
+              >
+                <Package size={14} />
+                Aprovar Recebimento
+              </button>
+            )}
           </div>
         </div>
       </motion.div>
