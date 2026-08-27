@@ -149,8 +149,16 @@ export function DistributionManifestModal({
         .select('id')
         .maybeSingle();
       if (!claimed) {
-        const { data: fresh } = await supabase.from('distribution_manifests').select('locked_by_name, locked_at').eq('id', manifest.id).maybeSingle();
-        setLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
+        // Re-checa o dono atual do lock antes de bloquear — se a leitura falhar (RLS/rede
+        // instável) ou o dono já for eu mesmo (lock meu que não foi pego pela condição acima
+        // por alguma falha transitória), não é um conflito real: libera a edição em vez de
+        // travar com um aviso genérico "outra pessoa" sem nome nenhum.
+        const { data: fresh } = await supabase.from('distribution_manifests').select('locked_by_id, locked_by_name, locked_at').eq('id', manifest.id).maybeSingle();
+        if (!fresh?.locked_by_id || fresh.locked_by_id === colaboradorId) {
+          setLockBlockedBy(null);
+        } else {
+          setLockBlockedBy({ name: fresh.locked_by_name || 'outra pessoa', at: fresh.locked_at || null });
+        }
       } else {
         setLockBlockedBy(null);
       }

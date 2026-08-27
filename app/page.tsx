@@ -3439,12 +3439,18 @@ export default function Page() {
       if (claimed) {
         openReviewNoteForEditing(note);
       } else {
-        const { data: fresh } = await supabase.from('review_notes').select('locked_by_name, locked_at').eq('id', note.id).maybeSingle();
+        // Re-checa o dono atual do lock antes de bloquear — se a leitura falhar (RLS/rede
+        // instável) ou o dono já for eu mesmo (lock meu que não foi pego pela condição acima
+        // por alguma falha transitória), não é um conflito real: libera a edição em vez de
+        // travar com um aviso genérico "outra pessoa" sem nome nenhum.
+        const { data: fresh } = await supabase.from('review_notes').select('locked_by_id, locked_by_name, locked_at').eq('id', note.id).maybeSingle();
         // openReviewNoteForEditing reseta noteLockBlockedBy pra null (é o "estado limpo" de
         // abrir qualquer nota) — por isso o aviso de bloqueio precisa ser setado DEPOIS dela,
         // senão a própria função de abrir a nota apaga o aviso que acabamos de mostrar.
         openReviewNoteForEditing(note);
-        setNoteLockBlockedBy({ name: fresh?.locked_by_name || 'outra pessoa', at: fresh?.locked_at || null });
+        if (fresh?.locked_by_id && fresh.locked_by_id !== colaboradorId) {
+          setNoteLockBlockedBy({ name: fresh.locked_by_name || 'outra pessoa', at: fresh.locked_at || null });
+        }
       }
       onOpened?.();
     } finally {
