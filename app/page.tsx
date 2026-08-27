@@ -1933,19 +1933,26 @@ export default function Page() {
       const originCompanyId = note.companyId;
       if (!originCompanyId) throw new Error(EMPRESA_REQUIRED_MSG);
 
-      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number }[]> = {};
+      // Preço Custo do manifesto vem do valor lançado na própria nota (mesma fórmula da
+      // coluna "Preço Custo" da tabela de revisão), não do Estoque & Preço da origem — a
+      // nota costuma ser enviada em Revisão, antes da aprovação que grava esse preço em
+      // product_company_stock, então aquele valor ainda estaria zerado/desatualizado.
+      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number }[]> = {};
       note.items.forEach((item: any, idx: number) => {
         const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
         Object.entries(dist).forEach(([companyId, qty]) => {
           const q = Number(qty) || 0;
           if (q <= 0 || !item.product_id) return;
           if (!byCompany[companyId]) byCompany[companyId] = [];
+          const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+          const costPrice = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
           byCompany[companyId].push({
             productId: item.product_id,
             productName: item.name || item.original_description || 'Produto',
             sku: (viewingNoteSkus[idx] ?? item.sku) || null,
             ean: (viewingNoteEans[idx] ?? item.ean) || null,
             qty: q,
+            costPrice,
           });
         });
       });
@@ -1956,14 +1963,16 @@ export default function Page() {
         return;
       }
 
+      // Preço de Venda de origem continua vindo do Estoque & Preço — é só referência (markup),
+      // não afeta o Preço Custo/Valor Total do manifesto.
       const allProductIds = Array.from(new Set(Object.values(byCompany).flat().map(r => r.productId)));
       const { data: originStock } = await supabase
         .from('product_company_stock')
-        .select('product_id, cost_price, price')
+        .select('product_id, price')
         .eq('company_id', originCompanyId)
         .in('product_id', allProductIds);
-      const stockByProduct: Record<string, { cost_price: number; price: number }> = {};
-      (originStock || []).forEach((r: any) => { stockByProduct[r.product_id] = { cost_price: parseFloat(r.cost_price) || 0, price: parseFloat(r.price) || 0 }; });
+      const stockByProduct: Record<string, { price: number }> = {};
+      (originStock || []).forEach((r: any) => { stockByProduct[r.product_id] = { price: parseFloat(r.price) || 0 }; });
 
       const nowIso = new Date().toISOString();
       const shippingDate = note.receivedDate || nowIso.slice(0, 10);
@@ -1995,7 +2004,7 @@ export default function Page() {
           sku: r.sku,
           ean: r.ean,
           qty: r.qty,
-          cost_price: stockByProduct[r.productId]?.cost_price || 0,
+          cost_price: r.costPrice,
           sale_price_origin: stockByProduct[r.productId]?.price || 0,
         }));
         const { error: itemsError } = await supabase.from('distribution_manifest_items').insert(itemsPayload);
