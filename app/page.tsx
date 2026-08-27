@@ -11636,7 +11636,6 @@ export default function Page() {
                     if (n > 0) cleaned[cid] = n;
                   });
                   const u = [...viewingNoteDistribByCompany]; u[idx] = cleaned; setViewingNoteDistribByCompany(u);
-                  setDistribModalIdx(null);
                   captureSnapshot();
                 };
 
