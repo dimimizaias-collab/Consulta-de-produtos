@@ -110,6 +110,7 @@ export function DistributionManifestModal({
 
   // ── Aba Produtos ─────────────────────────────────────────────────────────
   const [items, setItems] = useState<ManifestItem[]>([]);
+  const itemsDirtyRef = useRef(false);
   const [loadingItems, setLoadingItems] = useState(manifest.isExisting);
   const [descQuery, setDescQuery] = useState('');
   const [eanQuery, setEanQuery] = useState('');
@@ -170,6 +171,11 @@ export function DistributionManifestModal({
   useEffect(() => { acquireLock(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carrega os itens já salvos deste manifesto (edição de um manifesto existente).
+  // itemsDirtyRef evita que essa resposta assíncrona sobrescreva itens que o usuário já
+  // começou a adicionar localmente enquanto o fetch ainda estava em voo — sem essa guarda,
+  // adicionar produtos rápido demais ao reabrir um manifesto existente fazia o fetch (mais
+  // lento) chegar depois e apagar silenciosamente tudo que tinha sido adicionado, voltando
+  // a lista para o que já estava salvo no banco.
   useEffect(() => {
     if (!manifest.isExisting) return;
     (async () => {
@@ -177,6 +183,7 @@ export function DistributionManifestModal({
         .from('distribution_manifest_items')
         .select('id, product_id, product_name, sku, ean, qty, cost_price, sale_price_origin, sale_price_destination, verified')
         .eq('manifest_id', manifest.id);
+      if (itemsDirtyRef.current) { setLoadingItems(false); return; }
       setItems((data || []).map((r: any) => ({
         id: r.id,
         productId: r.product_id,
@@ -249,6 +256,7 @@ export function DistributionManifestModal({
   };
 
   const addItem = (p: SelectedProduct, qty: number) => {
+    itemsDirtyRef.current = true;
     setItems(prev => [...prev, {
       id: crypto.randomUUID(),
       productId: p.id,
@@ -283,6 +291,7 @@ export function DistributionManifestModal({
 
   const confirmDuplicateMerge = () => {
     if (!selectedProduct || duplicatePendingQty === null) return;
+    itemsDirtyRef.current = true;
     setItems(prev => prev.map(it => it.productId === selectedProduct.id ? { ...it, qty: it.qty + duplicatePendingQty } : it));
     setSelectedProduct(null);
     setQtyInput('');
@@ -291,7 +300,10 @@ export function DistributionManifestModal({
 
   const cancelDuplicateMerge = () => setDuplicatePendingQty(null);
 
-  const removeItem = (id: string) => setItems(prev => prev.filter(it => it.id !== id));
+  const removeItem = (id: string) => {
+    itemsDirtyRef.current = true;
+    setItems(prev => prev.filter(it => it.id !== id));
+  };
 
   const itemsTotal = items.reduce((acc, it) => acc + it.qty * it.costPrice, 0);
 
