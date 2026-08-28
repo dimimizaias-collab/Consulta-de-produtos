@@ -3639,9 +3639,24 @@ export default function Page() {
   // estar no item (não em estado efêmero do modal) sobrevive a fechar e reabrir o vínculo.
   const commitItemMotherDraft = (draft: MotherPackageDraft | null) => {
     if (!viewingReviewNote || linkingItemIdx === null) return;
+    const hadNoDraftBefore = !viewingReviewNote.items[linkingItemIdx]?.mother_draft;
     const updated = [...viewingReviewNote.items];
     updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft };
     setViewingReviewNote({ ...viewingReviewNote, items: updated });
+    // O campo "Código EAN" do formulário "Criar Novo Produto" vem pré-preenchido, ao abrir o
+    // vínculo, com o código digitado na coluna EAN da nota — que na etapa "Vincular Produto
+    // Filho" é o código da CAIXA (já capturado no draft.ean acima), não da unidade. Sem isso o
+    // produto filho seria criado com o mesmo EAN da embalagem-mãe por engano.
+    if (draft && noteItemNewEan.trim() && noteItemNewEan.trim() === (draft.ean || '').trim()) {
+      setNoteItemNewEan('');
+    }
+    // Ao entrar no modo travado pela primeira vez (não numa edição posterior do rascunho já
+    // salvo — aí o formulário de criação em andamento não deve ser descartado), começa pela
+    // busca, igual ao mockup aprovado, em vez de manter o estado herdado de antes do Produto
+    // Mãe existir (que podia ter caído direto em "Criar Novo" por falta de match no EAN).
+    if (draft && hadNoDraftBefore) {
+      setNoteItemShowCreate(false);
+    }
   };
 
   // Grava de vez um Produto Mãe pendente assim que QUALQUER caminho de vínculo (produto criado
@@ -11436,6 +11451,39 @@ export default function Page() {
                             </div>
                           </>
                         )}
+                        {/* Alternância Buscar/Criar — só no modo travado (resolveMode) e enquanto
+                            nenhum produto já foi escolhido/está sendo confirmado. Fora do modo
+                            travado, o fluxo original (link "Criar novo produto" dentro da lista de
+                            busca / "← Voltar para busca" no formulário) continua igual. */}
+                        {resolveMode && !noteItemSelectedProduct && (
+                          <div className="flex gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05]">
+                            <button
+                              type="button"
+                              onClick={() => setNoteItemShowCreate(false)}
+                              className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', !noteItemShowCreate ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                            >
+                              <Search size={13} />Buscar Existente
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNoteItemShowCreate(true);
+                                setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
+                                const rowPrice = linkingItemIdx !== null ? viewingNoteSellPrices[linkingItemIdx] : undefined;
+                                if (rowPrice && rowPrice > 0) setNoteItemNewSellPrice(String(rowPrice));
+                                if (linkingItemIdx !== null && viewingReviewNote) {
+                                  const desc = viewingReviewNote.items[linkingItemIdx]?.original_description
+                                    || viewingReviewNote.items[linkingItemIdx]?.description
+                                    || '';
+                                  setNoteItemNewName(desc.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
+                                }
+                              }}
+                              className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemShowCreate ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
+                            >
+                              <Plus size={13} />Criar Novo
+                            </button>
+                          </div>
+                        )}
                         {!noteItemShowCreate ? (
                           <>
                             {/* ── Painel de confirmação com preço de venda ── */}
@@ -11617,6 +11665,9 @@ export default function Page() {
                                     ));
                                   })()}
                                 </div>
+                                {/* No modo travado esse atalho some — a alternância já está no
+                                    segmentado "Buscar Existente/Criar Novo" logo acima. */}
+                                {!resolveMode && (
                                 <button
                                   onClick={() => {
                                     setNoteItemShowCreate(true);
@@ -11636,6 +11687,7 @@ export default function Page() {
                                 >
                                   <Plus size={13} />Criar novo produto
                                 </button>
+                                )}
                               </>
                             )}
                           </>
@@ -11651,12 +11703,16 @@ export default function Page() {
                           );
                           return (
                           <div className="space-y-4">
+                            {/* No modo travado esse atalho some — a alternância já está no
+                                segmentado "Buscar Existente/Criar Novo" acima. */}
+                            {!resolveMode && (
                             <button
                               onClick={() => setNoteItemShowCreate(false)}
                               className="text-xs font-bold text-secondary/70 hover:text-primary transition-colors flex items-center gap-1"
                             >
                               ← Voltar para busca
                             </button>
+                            )}
 
                             {/* Identificação */}
                             <div className={sectionCls}>
