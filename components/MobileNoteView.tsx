@@ -724,8 +724,16 @@ export function MobileNoteView({
     let conversion: any = {};
     if (motherMatch) {
       const mult = Number(motherMatch.unitsPerChild) || 1;
-      const originalQty = updatedItems[activeIdx].original_qty ?? Math.round((updatedItems[activeIdx].qty || 0) / (updatedItems[activeIdx].multiplier || 1));
-      const originalPrice = updatedItems[activeIdx].original_price ?? (updatedItems[activeIdx].price || 0) * (updatedItems[activeIdx].multiplier || 1);
+      // Lê o que está AO VIVO na grade (arrays qtys/itemPrices/multipliers, mesmos usados pelos
+      // helpers qty()/cost()/mult() acima), não updatedItems[activeIdx].qty/price "cru" — este só
+      // é sincronizado de volta ao objeto do item em certos pontos (ex: salvar/aprovar a nota),
+      // podendo estar desatualizado (null/0 numa linha em branco, ou valor anterior à edição)
+      // enquanto o usuário ainda está digitando Qtd./Preço Custo antes de vincular.
+      const liveQty = qtys[activeIdx] ?? updatedItems[activeIdx].qty;
+      const livePrice = itemPrices[activeIdx] ?? updatedItems[activeIdx].price;
+      const liveMultiplier = multipliers[activeIdx] ?? updatedItems[activeIdx].multiplier;
+      const originalQty = updatedItems[activeIdx].original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+      const originalPrice = updatedItems[activeIdx].original_price ?? (livePrice || 0) * (liveMultiplier || 1);
       conversion = {
         multiplier: mult,
         qty: originalQty * mult,

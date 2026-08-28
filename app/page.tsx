@@ -3841,8 +3841,17 @@ export default function Page() {
     let conversion: any = {};
     if (motherMatch) {
       const mult = Number(motherMatch.unitsPerChild) || 1;
-      const originalQty = updatedItems[i].original_qty ?? Math.round((updatedItems[i].qty || 0) / (updatedItems[i].multiplier || 1));
-      const originalPrice = updatedItems[i].original_price ?? (updatedItems[i].price || 0) * (updatedItems[i].multiplier || 1);
+      // Lê o que está AO VIVO na grade (viewingNoteQtys/viewingNoteItemPrices), não o
+      // updatedItems[i].qty/price "cru" — este só é sincronizado de volta ao objeto do item
+      // em certos pontos (ex: salvar/aprovar a nota), então pode estar desatualizado (null/0
+      // numa linha em branco, ou o valor anterior à edição) enquanto o usuário ainda está
+      // digitando Qtd./Preço Custo antes de vincular. Mesmo padrão de fallback usado em todo
+      // o resto da tela (ver cost/displayQty na renderização da tabela).
+      const liveQty = viewingNoteQtys[i] ?? updatedItems[i].qty;
+      const livePrice = viewingNoteItemPrices[i] ?? updatedItems[i].price;
+      const liveMultiplier = viewingNoteMultipliers[i] ?? updatedItems[i].multiplier;
+      const originalQty = updatedItems[i].original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+      const originalPrice = updatedItems[i].original_price ?? (livePrice || 0) * (liveMultiplier || 1);
       conversion = {
         multiplier: mult,
         qty: originalQty * mult,
