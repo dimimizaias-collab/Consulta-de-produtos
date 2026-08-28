@@ -721,10 +721,11 @@ export function DistributionManifestModal({
           </div>
         )}
 
-        {/* Header */}
-        <div className="bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-6 pt-5 shrink-0">
-          <div className="flex items-start gap-3.5 pb-4">
-            <div className="w-[46px] h-[46px] rounded-[14px] bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E] flex items-center justify-center shrink-0 mt-0.5">
+        {/* Header — no molde do editor de Nota (superfície neutra, chip vermelho, título
+            editável), em vez do banner amarelo cheio usado antes só pra tabela/molde. */}
+        <div className="bg-[#FAF7EE] dark:bg-[#252520] border-b border-on-surface/[0.07] px-6 pt-5 shrink-0">
+          <div className="flex items-center gap-3.5 pb-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#D81E1E]/10 dark:bg-[#D81E1E]/[0.18] text-[#D81E1E] flex items-center justify-center shrink-0">
               <Package size={20} />
             </div>
             <div className="flex-1 min-w-0" ref={originRef}>
@@ -737,7 +738,7 @@ export function DistributionManifestModal({
                   onFocus={() => setOriginOpen(true)}
                   placeholder="Selecionar empresa origem…"
                   autoComplete="off"
-                  className="text-xl font-black text-[#1A1A0E] border-b-2 border-[#D81E1E] outline-none bg-transparent w-full placeholder:text-[#1A1A0E]/35 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="text-xl font-black text-on-surface border-b-2 border-[#D81E1E] outline-none bg-transparent w-full placeholder:text-on-surface/30 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <AnimatePresence>
                   {originOpen && editable && (
@@ -764,7 +765,7 @@ export function DistributionManifestModal({
                   )}
                 </AnimatePresence>
               </div>
-              <div className="mt-2 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#1A1A0E]/55 bg-black/[0.06] px-2.5 py-1 rounded-full">
+              <div className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-on-surface/50 bg-on-surface/[0.07] px-2.5 py-1 rounded-lg">
                 {manifest.manifestNumber}
               </div>
             </div>
@@ -772,14 +773,14 @@ export function DistributionManifestModal({
               <button
                 onClick={() => setPdfModalOpen(true)}
                 title="Baixar PDF"
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-on-surface/[0.06] border border-on-surface/10 text-on-surface/45 hover:bg-on-surface/[0.1] transition-colors"
               >
                 <FileText size={16} />
               </button>
             )}
             <button
               onClick={handleClose}
-              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-on-surface/[0.06] border border-on-surface/10 text-on-surface/45 hover:bg-on-surface/[0.1] transition-colors"
             >
               <X size={16} />
             </button>
@@ -791,7 +792,7 @@ export function DistributionManifestModal({
                 onClick={() => setActiveTab(tab)}
                 className={cn(
                   'px-4 py-2.5 text-xs font-black uppercase tracking-wide border-b-[3px] transition-colors',
-                  activeTab === tab ? 'text-[#1A1A0E] border-[#D81E1E]' : 'text-[#1A1A0E]/45 border-transparent'
+                  activeTab === tab ? 'text-on-surface border-[#D81E1E]' : 'text-on-surface/40 border-transparent'
                 )}
               >
                 {tab === 'produtos' ? 'Produtos' : 'Recebimento'}
@@ -1224,8 +1225,11 @@ export function DistributionManifestModal({
               <div className="max-w-3xl">
                 <div className="text-[10px] font-black uppercase tracking-[0.09em] text-on-surface/35 mb-2.5">Situação</div>
                 <div className="bg-surface-container-lowest border-[1.5px] border-on-surface/[0.08] rounded-2xl p-4">
+                  {/* 4 estados possíveis por card: âmbar = etapa atual em andamento; vermelho =
+                      próxima etapa liberada pra clicar (convite de ação, não "já concluído");
+                      opaco/borrado = etapa passada; verde = só quando é de fato "Aprovado". */}
                   <div className="grid grid-cols-3 gap-2.5">
-                    <div className={cn('rounded-2xl p-3.5 flex items-center gap-2.5 border-2', status === 'registro' ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-on-surface/[0.02] border-transparent opacity-55')}>
+                    <div className={cn('rounded-2xl p-3.5 flex items-center gap-2.5 border-2 transition-all', status === 'registro' ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-on-surface/[0.02] border-transparent opacity-50 saturate-50 blur-[0.2px]')}>
                       <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', status === 'registro' ? 'bg-amber-500/15 text-amber-600 dark:text-[#FCD34D]' : 'bg-on-surface/10 text-on-surface/35')}>
                         <Pencil size={15} />
                       </div>
@@ -1238,20 +1242,40 @@ export function DistributionManifestModal({
                       onClick={() => canSend && setConfirmSendOpen(true)}
                       disabled={!canSend}
                       className={cn(
-                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-colors',
-                        status === 'pedido_enviado' || status === 'aprovado'
-                          ? 'bg-emerald-500/[0.08] border-emerald-500/30'
-                          : canSend
-                            ? 'bg-emerald-500/[0.07] border-emerald-500/30 hover:bg-emerald-500/[0.12] cursor-pointer'
-                            : 'bg-on-surface/[0.02] border-transparent opacity-55 cursor-not-allowed'
+                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-all',
+                        status === 'pedido_enviado'
+                          ? 'bg-amber-500/[0.08] border-amber-500/30'
+                          : status === 'aprovado'
+                            ? 'bg-on-surface/[0.02] border-transparent opacity-50 saturate-50 blur-[0.2px]'
+                            : canSend
+                              ? 'bg-[#D81E1E]/[0.06] border-[#D81E1E]/28 hover:bg-[#D81E1E]/[0.11] cursor-pointer'
+                              : 'bg-on-surface/[0.02] border-transparent opacity-50 cursor-not-allowed'
                       )}
                     >
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/35')}>
+                      <div className={cn(
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
+                        status === 'pedido_enviado' ? 'bg-amber-500/15 text-amber-600 dark:text-[#FCD34D]'
+                        : status === 'aprovado' ? 'bg-on-surface/10 text-on-surface/35'
+                        : canSend ? 'bg-[#D81E1E]/15 text-[#D81E1E]'
+                        : 'bg-on-surface/10 text-on-surface/35'
+                      )}>
                         <CheckCircle2 size={15} />
                       </div>
                       <div>
-                        <div className={cn('text-[12px] font-black', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'text-emerald-700 dark:text-emerald-400' : 'text-on-surface/35')}>Pedido Enviado</div>
-                        <div className={cn('text-[9.5px] font-bold', (canSend || status === 'pedido_enviado' || status === 'aprovado') ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-on-surface/30')}>
+                        <div className={cn(
+                          'text-[12px] font-black',
+                          status === 'pedido_enviado' ? 'text-amber-700 dark:text-[#FCD34D]'
+                          : status === 'aprovado' ? 'text-on-surface/35'
+                          : canSend ? 'text-[#D81E1E] dark:text-[#FF6B6B]'
+                          : 'text-on-surface/35'
+                        )}>Pedido Enviado</div>
+                        <div className={cn(
+                          'text-[9.5px] font-bold',
+                          status === 'pedido_enviado' ? 'text-amber-700/70 dark:text-[#FCD34D]/70'
+                          : status === 'aprovado' ? 'text-on-surface/30'
+                          : canSend ? 'text-[#D81E1E]/75 dark:text-[#FF6B6B]/75'
+                          : 'text-on-surface/30'
+                        )}>
                           {status === 'aprovado' ? 'Concluído' : status === 'pedido_enviado' ? 'Aguardando aprovação' : canSend ? 'Clique para confirmar' : 'Bloqueado'}
                         </div>
                       </div>
@@ -1260,20 +1284,35 @@ export function DistributionManifestModal({
                       onClick={() => canApprove && setConfirmApproveOpen(true)}
                       disabled={!canApprove}
                       className={cn(
-                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-colors',
+                        'rounded-2xl p-3.5 flex items-center gap-2.5 border-2 text-left transition-all',
                         status === 'aprovado'
                           ? 'bg-emerald-500/[0.08] border-emerald-500/30'
                           : canApprove
-                            ? 'bg-emerald-500/[0.07] border-emerald-500/30 hover:bg-emerald-500/[0.12] cursor-pointer'
-                            : 'bg-on-surface/[0.02] border-transparent opacity-55 cursor-not-allowed'
+                            ? 'bg-[#D81E1E]/[0.06] border-[#D81E1E]/28 hover:bg-[#D81E1E]/[0.11] cursor-pointer'
+                            : 'bg-on-surface/[0.02] border-transparent opacity-50 cursor-not-allowed'
                       )}
                     >
-                      <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', (canApprove || status === 'aprovado') ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/35')}>
+                      <div className={cn(
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
+                        status === 'aprovado' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : canApprove ? 'bg-[#D81E1E]/15 text-[#D81E1E]'
+                        : 'bg-on-surface/10 text-on-surface/35'
+                      )}>
                         <Package size={15} />
                       </div>
                       <div>
-                        <div className={cn('text-[12px] font-black', (canApprove || status === 'aprovado') ? 'text-emerald-700 dark:text-emerald-400' : 'text-on-surface/35')}>Aprovado</div>
-                        <div className={cn('text-[9.5px] font-bold', (canApprove || status === 'aprovado') ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-on-surface/30')}>
+                        <div className={cn(
+                          'text-[12px] font-black',
+                          status === 'aprovado' ? 'text-emerald-700 dark:text-emerald-400'
+                          : canApprove ? 'text-[#D81E1E] dark:text-[#FF6B6B]'
+                          : 'text-on-surface/35'
+                        )}>Aprovado</div>
+                        <div className={cn(
+                          'text-[9.5px] font-bold',
+                          status === 'aprovado' ? 'text-emerald-700/70 dark:text-emerald-400/70'
+                          : canApprove ? 'text-[#D81E1E]/75 dark:text-[#FF6B6B]/75'
+                          : 'text-on-surface/30'
+                        )}>
                           {status === 'aprovado' ? 'Estoque atualizado' : canApprove ? 'Clique para aprovar' : 'Bloqueado'}
                         </div>
                       </div>
@@ -1299,7 +1338,7 @@ export function DistributionManifestModal({
                     <div className="mt-3 flex items-start gap-2 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-xl px-3 py-2.5">
                       <Info size={13} className="text-on-surface/40 shrink-0 mt-0.5" />
                       <p className="text-[11px] font-bold text-on-surface/55 leading-relaxed">
-                        Confira Qtd. Recebida, Preço de Venda e marque "Ok" item a item na aba Produtos. Aprovar atualiza o estoque da Empresa Destino e não pode ser desfeito.
+                        Confira o Falta/Sobra e o Preço de Venda item a item na aba Produtos. Aprovar atualiza o estoque da Empresa Destino e não pode ser desfeito.
                       </p>
                     </div>
                   )}

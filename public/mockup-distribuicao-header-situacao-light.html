@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Distribuição / Header + Situação (Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F5F1E0;
+    --modal-bg: #FFFFFF;
+    --header-bg: #FAF7EE;
+    --header-border: rgba(26,26,10,0.08);
+    --icon-chip-bg: rgba(216,30,30,0.10);
+    --icon-chip-color: #D81E1E;
+    --title: #1A1A0E;
+    --subtitle: rgba(26,26,10,0.45);
+    --pill-bg: rgba(26,26,10,0.07);
+    --pill-text: rgba(26,26,10,0.50);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(26,26,10,0.08);
+    --primary: #D81E1E;
+    --emerald: #0A7A55;
+    --amber: #92400E;
+    --footer-bg: #FFF7B0;
+    --footer-border: #DDD000;
+    --close-bg: rgba(26,26,10,0.06);
+    --close-border: rgba(26,26,10,0.08);
+    --close-color: rgba(26,26,10,0.40);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--title);
+    display: flex; flex-direction: column; align-items: center; gap: 28px;
+    padding: 40px 16px 60px;
+  }
+  h2.section-title {
+    font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;
+    color: rgba(26,26,10,0.40); margin: 8px 0 -8px;
+  }
+  .modal {
+    width: 100%; max-width: 860px;
+    background: var(--modal-bg);
+    border-radius: 20px;
+    box-shadow: 0 30px 70px rgba(26,26,10,0.16);
+    border: 1px solid rgba(26,26,10,0.07);
+    overflow: hidden;
+  }
+
+  /* ── Header (novo, no molde da Nota: superfície neutra, chip vermelho, título editável) ── */
+  .modal-header {
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+    padding: 22px 26px 0;
+  }
+  .header-top { display: flex; align-items: center; gap: 14px; padding-bottom: 18px; }
+  .icon-chip {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: var(--icon-chip-bg); color: var(--icon-chip-color);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 21px;
+  }
+  .header-fields { flex: 1; min-width: 0; }
+  .title-row { display: flex; align-items: center; gap: 8px; }
+  .origin-title {
+    font-size: 19px; font-weight: 900; color: var(--title);
+    border-bottom: 2px solid transparent;
+  }
+  .edit-pencil { font-size: 12px; color: rgba(26,26,10,0.28); }
+  .subtitle-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .manifest-number {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 800;
+    color: var(--pill-text); background: var(--pill-bg); padding: 4px 10px; border-radius: 8px;
+  }
+  .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--close-bg); border: 1px solid var(--close-border); color: var(--close-color);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+
+  .modal-tabs { display: flex; gap: 2px; }
+  .modal-tab {
+    padding: 10px 16px; font-size: 11.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(26,26,10,0.40); border-bottom: 3px solid transparent;
+  }
+  .modal-tab.active { color: var(--title); border-bottom-color: var(--primary); }
+
+  .modal-body { padding: 26px; }
+
+  /* ── Situação ── */
+  .section-label {
+    font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--subtitle); margin-bottom: 10px;
+  }
+  .situacao-card {
+    background: #FBF8EE; border: 1.5px solid var(--card-border);
+    border-radius: 18px; padding: 16px; margin-bottom: 22px;
+  }
+  .situacao-toggle { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .sit-option {
+    border-radius: 14px; padding: 13px 14px; display: flex; align-items: center; gap: 9px;
+    border: 2px solid transparent; position: relative; overflow: hidden;
+    transition: filter .2s ease, opacity .2s ease;
+  }
+  .sit-option .sit-icon {
+    width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;
+  }
+  .sit-option .sit-text-label { font-size: 12px; font-weight: 900; }
+  .sit-option .sit-text-sub { font-size: 9px; font-weight: 700; opacity: 0.7; margin-top: 1px; }
+
+  /* estado: etapa PASSADA (concluída, mas não é a atual) — opaca + leve blur, sem cor */
+  .sit-option.past {
+    background: rgba(26,26,10,0.025); opacity: 0.5; filter: saturate(0.4) blur(0.3px);
+  }
+  .sit-option.past .sit-icon { background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.35); }
+  .sit-option.past .sit-text-label { color: rgba(26,26,10,0.40); }
+  .sit-option.past .sit-text-sub { color: rgba(26,26,10,0.30); }
+
+  /* estado: etapa ATUAL em andamento (Registro editável / Pedido Enviado em conferência) — âmbar */
+  .sit-option.current-amber { background: rgba(146,64,14,0.08); border-color: rgba(146,64,14,0.32); }
+  .sit-option.current-amber .sit-icon { background: rgba(146,64,14,0.14); color: var(--amber); }
+  .sit-option.current-amber .sit-text-label { color: var(--amber); }
+  .sit-option.current-amber .sit-text-sub { color: var(--amber); }
+
+  /* estado: PRÓXIMA etapa, liberada pra clicar (ação disponível) — vermelho primário, não verde */
+  .sit-option.next-actionable { background: rgba(216,30,30,0.06); border-color: rgba(216,30,30,0.28); cursor: pointer; }
+  .sit-option.next-actionable .sit-icon { background: rgba(216,30,30,0.13); color: var(--primary); }
+  .sit-option.next-actionable .sit-text-label { color: var(--primary); }
+  .sit-option.next-actionable .sit-text-sub { color: var(--primary); }
+
+  /* estado: futura, bloqueada — neutra opaca */
+  .sit-option.locked { background: rgba(26,26,10,0.02); opacity: 0.5; }
+  .sit-option.locked .sit-icon { background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.30); }
+  .sit-option.locked .sit-text-label { color: rgba(26,26,10,0.35); }
+  .sit-option.locked .sit-text-sub { color: rgba(26,26,10,0.28); }
+
+  /* estado: ÚNICO uso de verde — Aprovado, e só quando é de fato o status atual */
+  .sit-option.done-green { background: rgba(10,122,85,0.08); border-color: rgba(10,122,85,0.32); }
+  .sit-option.done-green .sit-icon { background: rgba(10,122,85,0.15); color: var(--emerald); }
+  .sit-option.done-green .sit-text-label { color: var(--emerald); }
+  .sit-option.done-green .sit-text-sub { color: var(--emerald); }
+
+  .hint-note {
+    margin-top: 12px; display: flex; align-items: flex-start; gap: 8px;
+    background: rgba(26,26,10,0.04); border: 1px solid rgba(26,26,10,0.08);
+    border-radius: 12px; padding: 10px 12px; font-size: 11px; font-weight: 700; color: rgba(26,26,10,0.55);
+    line-height: 1.4;
+  }
+  .hint-note.green { background: rgba(10,122,85,0.06); border-color: rgba(10,122,85,0.20); color: var(--emerald); }
+  .hint-note .ico { flex-shrink: 0; font-size: 13px; margin-top: -1px; }
+
+  .example-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(26,26,10,0.45); background: rgba(26,26,10,0.05); padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h2 class="section-title">Header redesenhado — no molde do editor de Nota</h2>
+<div class="modal">
+  <div class="modal-header">
+    <div class="header-top">
+      <div class="icon-chip">📦</div>
+      <div class="header-fields">
+        <div class="title-row">
+          <span class="origin-title">Castelo Real</span>
+          <span class="edit-pencil">✎</span>
+        </div>
+        <div class="subtitle-row">
+          <span class="manifest-number">DIST-000006</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="icon-btn">📄</div>
+        <div class="icon-btn">✕</div>
+      </div>
+    </div>
+    <div class="modal-tabs">
+      <div class="modal-tab">Produtos</div>
+      <div class="modal-tab active">Recebimento</div>
+    </div>
+  </div>
+</div>
+
+<h2 class="section-title">Situação — apenas Aprovado usa verde; etapas anteriores ficam opacas</h2>
+
+<div class="modal" style="max-width:860px;">
+  <div class="modal-body">
+
+    <span class="example-tag">① Status = Registro</span>
+    <div class="situacao-card">
+      <div class="situacao-toggle">
+        <div class="sit-option current-amber">
+          <div class="sit-icon">✎</div>
+          <div><div class="sit-text-label">Registro</div><div class="sit-text-sub">Editável</div></div>
+        </div>
+        <div class="sit-option next-actionable">
+          <div class="sit-icon">✓</div>
+          <div><div class="sit-text-label">Pedido Enviado</div><div class="sit-text-sub">Clique para confirmar</div></div>
+        </div>
+        <div class="sit-option locked">
+          <div class="sit-icon">📦</div>
+          <div><div class="sit-text-label">Aprovado</div><div class="sit-text-sub">Bloqueado</div></div>
+        </div>
+      </div>
+      <div class="hint-note"><span class="ico">ℹ</span><span>Confirmar o envio trava a lista de produtos — esta ação não pode ser desfeita.</span></div>
+    </div>
+
+    <span class="example-tag">② Status = Pedido Enviado — Registro já fica opaco</span>
+    <div class="situacao-card">
+      <div class="situacao-toggle">
+        <div class="sit-option past">
+          <div class="sit-icon">✎</div>
+          <div><div class="sit-text-label">Registro</div><div class="sit-text-sub">Editável</div></div>
+        </div>
+        <div class="sit-option current-amber">
+          <div class="sit-icon">✓</div>
+          <div><div class="sit-text-label">Pedido Enviado</div><div class="sit-text-sub">Aguardando aprovação</div></div>
+        </div>
+        <div class="sit-option next-actionable">
+          <div class="sit-icon">📦</div>
+          <div><div class="sit-text-label">Aprovado</div><div class="sit-text-sub">Clique para aprovar</div></div>
+        </div>
+      </div>
+      <div class="hint-note"><span class="ico">ℹ</span><span>Confira Falta/Sobra, Preço de Venda e o check da coluna Falta/Sobra na aba Produtos.</span></div>
+    </div>
+
+    <span class="example-tag">③ Status = Aprovado — único card verde, Registro e Pedido Enviado opacos</span>
+    <div class="situacao-card">
+      <div class="situacao-toggle">
+        <div class="sit-option past">
+          <div class="sit-icon">✎</div>
+          <div><div class="sit-text-label">Registro</div><div class="sit-text-sub">Editável</div></div>
+        </div>
+        <div class="sit-option past">
+          <div class="sit-icon">✓</div>
+          <div><div class="sit-text-label">Pedido Enviado</div><div class="sit-text-sub">Concluído</div></div>
+        </div>
+        <div class="sit-option done-green">
+          <div class="sit-icon">📦</div>
+          <div><div class="sit-text-label">Aprovado</div><div class="sit-text-sub">Estoque atualizado</div></div>
+        </div>
+      </div>
+      <div class="hint-note green"><span class="ico">✓</span><span>Estoque da Empresa Destino atualizado com as quantidades recebidas.</span></div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
