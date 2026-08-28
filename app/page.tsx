@@ -3649,13 +3649,13 @@ export default function Page() {
   // definir um product_id pro item — sem isso o rascunho salvo na aba "Produto Mãe" ficaria
   // órfão, preso no item, sempre que o usuário terminasse o vínculo por um caminho diferente
   // do de "Criar Novo Produto" (que já resolvia isso antes desta função existir).
-  const persistPendingMotherDraftIfAny = async (draft: MotherPackageDraft | null | undefined, childProductId: string): Promise<string | null> => {
-    if (!draft) return null;
+  const persistPendingMotherDraftIfAny = async (draft: MotherPackageDraft | null | undefined, childProductId: string): Promise<{ id: string | null; error: string | null }> => {
+    if (!draft) return { id: null, error: null };
     try {
-      await saveMotherPackage({ childProductId, draft });
-      return null;
+      const id = await saveMotherPackage({ childProductId, draft });
+      return { id, error: null };
     } catch (err: any) {
-      return err.message || 'Erro ao salvar o Produto Mãe.';
+      return { id: null, error: err.message || 'Erro ao salvar o Produto Mãe.' };
     }
   };
 
@@ -3675,22 +3675,58 @@ export default function Page() {
         .select('id, name, sku, ean, price').single();
       if (error) throw error;
       if (created) {
+        // Produto Mãe definido antes de criar o produto (aba "Produto Mãe") — só é gravado
+        // agora, que já existe um child_product_id pra satisfazer a constraint NOT NULL da tabela.
+        // Persiste ANTES de montar o item pra já termos o id e aplicarmos a conversão de
+        // quantidade/preço (unitsPerChild do próprio rascunho) na mesma tacada — sem isso a
+        // linha ficava com a quantidade/preço "crus" da caixa, sem o fator ×N aplicado.
+        const { id: motherPackageId, error: motherPackageError } = await persistPendingMotherDraftIfAny(pendingMotherDraft, created.id);
         const updatedItems = [...viewingReviewNote.items];
+        const sourceItemBefore = updatedItems[linkingItemIdx];
+        let conversion: any = {};
+        if (pendingMotherDraft && !motherPackageError) {
+          const mult = Number(pendingMotherDraft.unitsPerChild) || 1;
+          const liveQty = viewingNoteQtys[linkingItemIdx] ?? sourceItemBefore.qty;
+          const livePrice = viewingNoteItemPrices[linkingItemIdx] ?? sourceItemBefore.price;
+          const liveMultiplier = viewingNoteMultipliers[linkingItemIdx] ?? sourceItemBefore.multiplier;
+          const originalQty = sourceItemBefore.original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+          const originalPrice = sourceItemBefore.original_price ?? (livePrice || 0) * (liveMultiplier || 1);
+          conversion = {
+            multiplier: mult,
+            qty: originalQty * mult,
+            original_qty: originalQty,
+            price: originalPrice,
+            original_price: originalPrice,
+            mother_package_id: motherPackageId,
+            mother_package_name: pendingMotherDraft.name,
+            mother_package_ean: pendingMotherDraft.ean,
+          };
+        }
         updatedItems[linkingItemIdx] = {
-          ...updatedItems[linkingItemIdx],
+          ...sourceItemBefore,
           name: created.name,
-          sku: created.sku || updatedItems[linkingItemIdx].sku,
-          ean: created.ean || updatedItems[linkingItemIdx].ean,
+          sku: created.sku || sourceItemBefore.sku,
+          ean: created.ean || sourceItemBefore.ean,
           product_id: created.id,
           product_price: 0,
-          status_translation: 'Identificado (SKU/EAN)',
-          mother_draft: null, // consumido abaixo (vira uma linha real em product_mother_packages)
+          status_translation: pendingMotherDraft && !motherPackageError ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
+          // Medida da linha passa a refletir a embalagem-mãe (ex: "Fardo"), já que a
+          // quantidade/preço aqui são os da caixa, não da unidade.
+          unit: pendingMotherDraft && !motherPackageError ? pendingMotherDraft.name : sourceItemBefore.unit,
+          mother_draft: null, // consumido acima (virou uma linha real em product_mother_packages)
+          ...conversion,
         };
         setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
         const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
         const uP = [...viewingNoteSellPrices]; uP[linkingItemIdx] = sellPrice; setViewingNoteSellPrices(uP);
+        if (pendingMotherDraft && !motherPackageError) {
+          const uQ = [...viewingNoteQtys]; uQ[linkingItemIdx] = conversion.qty; setViewingNoteQtys(uQ);
+          const uIP = [...viewingNoteItemPrices]; uIP[linkingItemIdx] = conversion.price; setViewingNoteItemPrices(uIP);
+          const uM = [...viewingNoteMultipliers]; uM[linkingItemIdx] = conversion.multiplier; setViewingNoteMultipliers(uM);
+          const uU = [...viewingNoteUnits]; uU[linkingItemIdx] = pendingMotherDraft.name; setViewingNoteUnits(uU);
+        }
         const extraEanRows = noteItemExtraEans.filter(e => e.ean.trim()).map(e => ({
           product_id: created.id,
           ean: e.ean.trim(),
@@ -3730,9 +3766,6 @@ export default function Page() {
             }
           }
         }
-        // Produto Mãe definido antes de criar o produto (aba "Produto Mãe") — só é gravado
-        // agora, que já existe um child_product_id pra satisfazer a constraint NOT NULL da tabela.
-        const motherPackageError = await persistPendingMotherDraftIfAny(pendingMotherDraft, created.id);
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
         setNoteItemCreateTab('produto');
@@ -3744,7 +3777,7 @@ export default function Page() {
         } else if (extraEanRows.length === 0 || !eanInsertFailed) {
           setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
         }
-        fetchProducts(); // Sincroniza o state global para que o novo produto apareça em buscas imediatamente
+        fetchProducts(); // Sincroniza o state global para que o novo produto (e o EAN da caixa, se houver) apareça em buscas imediatamente
       }
     } catch (err: any) {
       const msg = err.message || '';
@@ -3812,7 +3845,7 @@ export default function Page() {
     setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
     const uS = [...viewingNoteSkus]; uS[idx] = p.sku || ''; setViewingNoteSkus(uS);
     const uE = [...viewingNoteEans]; uE[idx] = p.ean || ''; setViewingNoteEans(uE);
-    const motherPackageError = await persistPendingMotherDraftIfAny(pendingMotherDraft, p.id);
+    const { error: motherPackageError } = await persistPendingMotherDraftIfAny(pendingMotherDraft, p.id);
     setNotification(motherPackageError
       ? { type: 'error', message: `Vinculado via tradução permanente, mas houve erro ao salvar o Produto Mãe: ${motherPackageError}` }
       : { type: 'success', message: `Vinculado via tradução permanente: ${p.name}` });
@@ -3837,9 +3870,38 @@ export default function Page() {
     const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
     const updatedItems = [...viewingReviewNote.items];
     const code = getNoteItemMatchCode(viewingNoteEans[i] ?? updatedItems[i].ean, updatedItems[i].supplier_code);
-    const motherMatch = findMotherPackageByCode(p, code);
+    // Se há um rascunho de Produto Mãe pendente (fluxo "Vincular Produto Filho"), ele manda —
+    // nem precisa bater o EAN, já que acabou de ser definido nesta mesma sessão e ainda não
+    // existe no banco pra um findMotherPackageByCode encontrar.
+    const motherMatch = pendingMotherDraft ? null : findMotherPackageByCode(p, code);
     let conversion: any = {};
-    if (motherMatch) {
+    let motherPackageError: string | null = null;
+    if (pendingMotherDraft) {
+      // Persiste ANTES de montar a conversão pra já termos o id do Produto Mãe — e usa o
+      // unitsPerChild do próprio rascunho, sem depender de um fetchProducts()/match por EAN
+      // que ainda não enxergaria o registro recém-criado.
+      const persisted = await persistPendingMotherDraftIfAny(pendingMotherDraft, p.id);
+      motherPackageError = persisted.error;
+      if (!motherPackageError) {
+        const mult = Number(pendingMotherDraft.unitsPerChild) || 1;
+        const liveQty = viewingNoteQtys[i] ?? updatedItems[i].qty;
+        const livePrice = viewingNoteItemPrices[i] ?? updatedItems[i].price;
+        const liveMultiplier = viewingNoteMultipliers[i] ?? updatedItems[i].multiplier;
+        const originalQty = updatedItems[i].original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+        const originalPrice = updatedItems[i].original_price ?? (livePrice || 0) * (liveMultiplier || 1);
+        conversion = {
+          multiplier: mult,
+          qty: originalQty * mult,
+          original_qty: originalQty,
+          price: originalPrice,
+          original_price: originalPrice,
+          mother_package_id: persisted.id,
+          mother_package_name: pendingMotherDraft.name,
+          mother_package_ean: pendingMotherDraft.ean,
+        };
+        fetchProducts(); // outras linhas da mesma nota já reconhecem este EAN de caixa
+      }
+    } else if (motherMatch) {
       const mult = Number(motherMatch.unitsPerChild) || 1;
       // Lê o que está AO VIVO na grade (viewingNoteQtys/viewingNoteItemPrices), não o
       // updatedItems[i].qty/price "cru" — este só é sincronizado de volta ao objeto do item
@@ -3869,6 +3931,8 @@ export default function Page() {
         mother_package_ean: motherMatch.ean,
       };
     }
+    const converted = !!(conversion.multiplier);
+    const motherLabel = pendingMotherDraft?.name || motherMatch?.motherPackageName || null;
     updatedItems[i] = {
       ...updatedItems[i],
       name: p.name,
@@ -3876,7 +3940,10 @@ export default function Page() {
       ean: p.ean || updatedItems[i].ean,
       product_id: p.id,
       product_price: sellPrice,
-      status_translation: motherMatch ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
+      status_translation: converted ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
+      // Medida da linha passa a refletir a embalagem-mãe (ex: "Fardo"), já que a
+      // quantidade/preço aqui são os da caixa, não da unidade.
+      unit: converted && motherLabel ? motherLabel : updatedItems[i].unit,
       mother_draft: null,
       ...conversion,
     };
@@ -3884,10 +3951,11 @@ export default function Page() {
     const uS = [...viewingNoteSkus]; uS[i] = p.sku || ''; setViewingNoteSkus(uS);
     const uE = [...viewingNoteEans]; uE[i] = p.ean || ''; setViewingNoteEans(uE);
     const uP = [...viewingNoteSellPrices]; uP[i] = sellPrice; setViewingNoteSellPrices(uP);
-    if (motherMatch) {
+    if (converted) {
       const uQ = [...viewingNoteQtys]; uQ[i] = conversion.qty; setViewingNoteQtys(uQ);
       const uIP = [...viewingNoteItemPrices]; uIP[i] = conversion.price; setViewingNoteItemPrices(uIP);
       const uM = [...viewingNoteMultipliers]; uM[i] = conversion.multiplier; setViewingNoteMultipliers(uM);
+      if (motherLabel) { const uU = [...viewingNoteUnits]; uU[i] = motherLabel; setViewingNoteUnits(uU); }
     }
     if (noteItemSaveTranslation) {
       const supplierId = await resolveNoteSupplierId();
@@ -3902,14 +3970,12 @@ export default function Page() {
           setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
         }
       }
-    } else if (motherMatch) {
-      setNotification({ type: 'success', message: `Vinculado via EAN de caixa — quantidade convertida ×${conversion.multiplier}.` });
-    }
-    const motherPackageError = await persistPendingMotherDraftIfAny(pendingMotherDraft, p.id);
-    if (motherPackageError) {
+    } else if (motherPackageError) {
       setNotification({ type: 'error', message: 'Vinculado, mas houve erro ao salvar o Produto Mãe: ' + motherPackageError });
-    } else if (pendingMotherDraft && !noteItemSaveTranslation && !motherMatch) {
-      setNotification({ type: 'success', message: `Vinculado a ${p.name} — Produto Mãe salvo.` });
+    } else if (converted) {
+      setNotification({ type: 'success', message: `Vinculado — quantidade convertida ×${conversion.multiplier}.` });
+    } else {
+      setNotification({ type: 'success', message: `Vinculado a ${p.name}.` });
     }
     setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto');
   };
@@ -3973,7 +4039,7 @@ export default function Page() {
         }
       }
 
-      const motherPackageError = await persistPendingMotherDraftIfAny(pendingMotherDraft, created.id);
+      const { error: motherPackageError } = await persistPendingMotherDraftIfAny(pendingMotherDraft, created.id);
       setNotification(motherPackageError
         ? { type: 'error', message: 'Produto criado e vinculado, mas houve erro ao salvar o Produto Mãe: ' + motherPackageError }
         : { type: 'success', message: 'Produto criado e vinculado com sucesso!' });
@@ -11204,6 +11270,12 @@ export default function Page() {
                 // Produto Mãe pendente deste item — visível/editável nas duas abas (Produto e
                 // Produto Mãe), independente de estar buscando um produto existente ou criando um novo.
                 const itemMotherDraft: MotherPackageDraft | null = linkItem?.mother_draft || null;
+                // Modo travado "Vincular Produto Filho": assim que um Produto Mãe fica pendente
+                // (recém-salvo ou reaberto de uma sessão anterior), o modal trava nessa etapa —
+                // sem seletor de abas — até o filho ser escolhido/criado. Evita o bug de o
+                // usuário preencher as duas abas na mesma sessão e a conversão/vínculo não
+                // serem aplicados (ver confirmNoteItemLink / handleNoteItemCreateAndLink).
+                const resolveMode = !!itemMotherDraft;
                 return (
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
                     <div
@@ -11224,7 +11296,7 @@ export default function Page() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">
-                            {noteItemCreateTab === 'mae' ? 'Produto Mãe' : noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
+                            {resolveMode ? 'Vincular Produto Filho' : noteItemCreateTab === 'mae' ? 'Produto Mãe' : noteItemShowCreate ? 'Criar Novo Produto' : 'Vincular ao Dicionário'}
                           </h2>
                           <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">
                             {linkItem?.original_description || 'Item sem descrição'}
@@ -11277,9 +11349,11 @@ export default function Page() {
                         })()}
 
                         {/* Abas: Produto (buscar existente OU criar novo) e Produto Mãe (caixa/fardo)
-                            — visíveis nos dois modos, em qualquer ordem. O Produto Mãe fica pendente
-                            (item.mother_draft) até algum caminho da aba Produto definir um product_id
-                            pra este item — vincular um já existente ou criar um novo, tanto faz. */}
+                            — só aparecem enquanto não há Produto Mãe pendente. Assim que um rascunho
+                            é salvo, o modal trava no modo "resolver filho" (abaixo) até o vínculo ser
+                            finalizado — nada de alternar de volta pra reconfigurar o Produto Mãe por
+                            aqui (isso vai pelo link "Editar" do card de resumo). */}
+                        {!resolveMode && (
                         <div className="flex gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05]">
                           <button
                             type="button"
@@ -11294,70 +11368,73 @@ export default function Page() {
                             className={cn('relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all', noteItemCreateTab === 'mae' ? 'bg-surface shadow-sm text-on-surface' : 'text-secondary/50 hover:text-secondary/80')}
                           >
                             <Boxes size={13} />Produto Mãe
-                            {itemMotherDraft && <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-[calc(50%-38px)]" />}
                           </button>
                         </div>
+                        )}
 
-                        {noteItemCreateTab === 'mae' ? (
+                        {noteItemCreateTab === 'mae' && !resolveMode ? (
+                          // Só chega aqui sem Produto Mãe pendente ainda (resolveMode cobre o caso
+                          // salvo — ver card de resumo no ramo "produto" abaixo).
                           <div className="space-y-3">
-                            {itemMotherDraft ? (
-                              <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary bg-primary/[0.06] text-left">
-                                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                  <Boxes size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-extrabold text-primary truncate">{itemMotherDraft.name}</p>
-                                  <p className="text-[10px] text-secondary/60 truncate">1 emb. = {itemMotherDraft.unitsPerChild} un{itemMotherDraft.ean ? ` · EAN ${itemMotherDraft.ean}` : ''}</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setNoteItemMotherModalOpen(true)}
-                                  className="text-[10px] font-black text-primary underline shrink-0"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => commitItemMotherDraft(null)}
-                                  title="Remover Produto Mãe"
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
-                                >
-                                  <X size={13} />
-                                </button>
+                            <button
+                              type="button"
+                              onClick={() => setNoteItemMotherModalOpen(true)}
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
+                            >
+                              <div className="w-9 h-9 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-secondary/50 flex items-center justify-center shrink-0">
+                                <Boxes size={16} />
                               </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setNoteItemMotherModalOpen(true)}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-black/[0.14] dark:border-white/[0.14] text-left hover:border-primary/40 transition-all"
-                              >
-                                <div className="w-9 h-9 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] text-secondary/50 flex items-center justify-center shrink-0">
-                                  <Boxes size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-extrabold text-secondary/70">Definir Produto Mãe</p>
-                                  <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Nome, sufixo, EAN e unidades por embalagem</p>
-                                </div>
-                              </button>
-                            )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-extrabold text-secondary/70">Definir Produto Mãe</p>
+                                <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Nome, sufixo, EAN e unidades por embalagem</p>
+                              </div>
+                            </button>
                             <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
                               <Info size={13} className="text-secondary/50 shrink-0 mt-[1px]" />
                               <p className="text-[10.5px] font-semibold text-secondary/65 leading-relaxed">
-                                {itemMotherDraft
-                                  ? 'Salvo, mas ainda pendente: vá até a aba "Produto" e vincule um produto já existente, ou crie um novo, pra finalizar. Até lá, a nota não pode ser aprovada.'
-                                  : 'Pode ser definido antes ou depois do produto — troque de aba a qualquer momento. Depois, na aba "Produto", vincule um produto já existente ou crie um novo pra finalizar.'}
+                                Pode ser definido antes ou depois do produto — troque de aba a qualquer momento. Ao salvar, o vínculo do produto filho é finalizado numa etapa dedicada.
                               </p>
                             </div>
                           </div>
                         ) : (
                         <>
-                        {itemMotherDraft && (
-                          <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-primary/[0.06] border border-dashed border-primary/25">
-                            <Boxes size={13} className="text-primary shrink-0 mt-[1px]" />
-                            <p className="text-[10.5px] font-semibold text-primary/90 leading-relaxed">
-                              Produto Mãe "{itemMotherDraft.name}" já definido — busque um produto existente ou crie um novo abaixo pra finalizar o vínculo dele.
-                            </p>
-                          </div>
+                        {/* Modo travado: resumo do Produto Mãe recém-salvo + contexto do que vai
+                            acontecer ao escolher/criar o filho abaixo (conversão de qtd./preço e
+                            preenchimento da Medida). "Editar" corrige dados errados sem sair daqui —
+                            "Remover" descarta o rascunho e volta ao seletor de abas normal. */}
+                        {resolveMode && itemMotherDraft && (
+                          <>
+                            <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary bg-primary/[0.06] text-left">
+                              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <Boxes size={16} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-extrabold text-primary truncate">Produto Mãe salvo: {itemMotherDraft.name}</p>
+                                <p className="text-[10px] text-secondary/60 truncate">1 emb. = {itemMotherDraft.unitsPerChild} un{itemMotherDraft.ean ? ` · EAN ${itemMotherDraft.ean}` : ''}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setNoteItemMotherModalOpen(true)}
+                                className="text-[10px] font-black text-primary underline shrink-0"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => commitItemMotherDraft(null)}
+                                title="Remover Produto Mãe"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary/50 hover:bg-black/[0.08] dark:hover:bg-white/10 shrink-0"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                            <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-black/[0.12] dark:border-white/[0.12]">
+                              <Info size={13} className="text-secondary/50 shrink-0 mt-[1px]" />
+                              <p className="text-[10.5px] font-semibold text-secondary/70 leading-relaxed">
+                                Agora escolha ou crie o <b className="text-on-surface">produto (unidade)</b> que sai dessa embalagem — isso finaliza o vínculo e converte a quantidade da linha automaticamente (×{itemMotherDraft.unitsPerChild}).
+                              </p>
+                            </div>
+                          </>
                         )}
                         {!noteItemShowCreate ? (
                           <>
@@ -11721,15 +11798,6 @@ export default function Page() {
                                     <p className="text-xs font-bold text-on-surface truncate">{linkItem?.original_description || '—'}</p>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-
-                            {itemMotherDraft && (
-                              <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-primary/[0.06] border border-dashed border-primary/25">
-                                <Boxes size={13} className="text-primary shrink-0 mt-[1px]" />
-                                <p className="text-[10.5px] font-semibold text-primary/90 leading-relaxed">
-                                  Produto Mãe "{itemMotherDraft.name}" já definido — será vinculado a este produto ao criar e vincular.
-                                </p>
                               </div>
                             )}
 

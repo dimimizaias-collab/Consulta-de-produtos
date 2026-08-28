@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Vincular Produto Filho (Dark)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #131310;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px 16px;
+  }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+  .modal {
+    position: relative;
+    width: 100%; max-width: 560px;
+    background: #1E1E18;
+    border-radius: 24px;
+    box-shadow: 0 25px 60px -12px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: 90vh;
+  }
+  .header {
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 14px;
+    background: #FFE500;
+    border-bottom: 1px solid #C8B800;
+    flex-shrink: 0;
+  }
+  .icon-chip {
+    width: 44px; height: 44px; border-radius: 16px;
+    background: rgba(216,30,30,0.16);
+    display: flex; align-items: center; justify-content: center;
+    color: #D81E1E; flex-shrink: 0;
+  }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title { font-weight: 800; font-size: 18px; color: #1A1A0E; line-height: 1.2; }
+  .header-sub { font-size: 12px; font-weight: 700; color: rgba(26,26,10,0.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .close-btn {
+    width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.10); border: 1px solid rgba(0,0,0,0.14);
+    color: rgba(0,0,0,0.55); cursor: pointer;
+  }
+
+  .body { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+  .mae-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 2px solid #D81E1E;
+    background: rgba(216,30,30,0.10);
+  }
+  .mae-icon {
+    width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+    background: rgba(216,30,30,0.18); color: #FF6B6B;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mae-info { flex: 1; min-width: 0; }
+  .mae-name { font-size: 13.5px; font-weight: 800; color: #FF6B6B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mae-meta { font-size: 11px; font-weight: 600; color: rgba(242,240,227,0.55); margin-top: 1px; }
+  .mae-edit { font-size: 10.5px; font-weight: 800; color: #FF6B6B; text-decoration: underline; flex-shrink: 0; cursor: pointer; background: none; border: none; }
+
+  .info-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px; border-radius: 14px;
+    border: 1.5px dashed rgba(242,240,227,0.16);
+    background: rgba(242,240,227,0.03);
+  }
+  .info-banner svg { flex-shrink: 0; margin-top: 1px; color: rgba(242,240,227,0.40); }
+  .info-banner p { font-size: 11.5px; font-weight: 600; color: rgba(242,240,227,0.70); line-height: 1.5; }
+  .info-banner b { color: #F2F0E3; }
+
+  .segmented {
+    display: flex; gap: 6px; padding: 4px; border-radius: 16px;
+    background: rgba(255,255,255,0.05);
+  }
+  .segmented button {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 0; border-radius: 12px; border: none; cursor: pointer;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    background: transparent; color: rgba(242,240,227,0.40);
+    transition: all 0.15s;
+  }
+  .segmented button.active {
+    background: #2B2B24; color: #F2F0E3; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(242,240,227,0.35); }
+  .search-input {
+    width: 100%; padding: 12px 14px 12px 40px; border-radius: 14px;
+    border: 1.5px solid rgba(242,240,227,0.14); background: #252520;
+    font-size: 13px; font-weight: 600; color: #F2F0E3;
+    font-family: inherit;
+  }
+  .search-input::placeholder { color: rgba(242,240,227,0.30); }
+
+  .results { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; }
+  .result-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 11px 12px; border-radius: 14px;
+    border: 1.5px solid rgba(242,240,227,0.09); background: #252520;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .result-item:hover { border-color: #D81E1E; background: rgba(216,30,30,0.08); }
+  .result-item .r-icon {
+    width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+    background: rgba(242,240,227,0.06); color: rgba(242,240,227,0.45);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .result-item .r-info { flex: 1; min-width: 0; }
+  .result-item .r-name { font-size: 12.5px; font-weight: 700; color: #F2F0E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-item .r-meta { font-size: 10.5px; font-weight: 600; color: rgba(242,240,227,0.40); margin-top: 1px; }
+  .result-item .r-arrow { color: rgba(242,240,227,0.25); flex-shrink: 0; }
+
+  .empty-hint { text-align: center; padding: 18px 10px; font-size: 11.5px; font-weight: 600; color: rgba(242,240,227,0.35); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(242,240,227,0.55); }
+  .field input {
+    width: 100%; padding: 11px 14px; border-radius: 12px;
+    border: 1.5px solid rgba(242,240,227,0.12); background: rgba(255,255,255,0.05);
+    font-size: 13px; font-weight: 600; color: #F2F0E3; font-family: inherit;
+  }
+  .field input::placeholder { color: rgba(242,240,227,0.28); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .footer {
+    padding: 18px 24px 22px; flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .btn-primary {
+    width: 100%; padding: 14px; border-radius: 16px; border: none; cursor: pointer;
+    background: #D81E1E; color: #fff; font-weight: 800; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 8px 20px -6px rgba(216,30,30,0.5);
+    font-family: inherit;
+  }
+
+  .caption { text-align: center; font-size: 11px; color: rgba(242,240,227,0.32); font-weight: 700; margin-top: 14px; }
+
+  .panel { display: none; flex-direction: column; gap: 14px; }
+  .panel.active { display: flex; }
+
+  .ean-warning {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: 12px;
+    background: rgba(220,38,38,0.14); border: 1px solid rgba(220,38,38,0.35);
+  }
+  .ean-warning svg { color: #F87171; flex-shrink: 0; }
+  .ean-warning .ew-info { flex: 1; min-width: 0; }
+  .ean-warning .ew-title { font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; color: #F87171; }
+  .ean-warning .ew-name { font-size: 11.5px; font-weight: 700; color: #FCA5A5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ean-warning .ew-use { font-size: 10px; font-weight: 900; color: #F87171; text-decoration: underline; background: none; border: none; cursor: pointer; flex-shrink: 0; }
+  .demo-toggle { font-size: 10px; font-weight: 700; color: rgba(242,240,227,0.32); text-align: right; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="overlay"></div>
+<div class="modal">
+  <div class="header">
+    <div class="icon-chip">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+    </div>
+    <div class="header-text">
+      <div class="header-title">Vincular Produto Filho</div>
+      <div class="header-sub">Papel Higiênico Fofinho 30m — 12un (Fardo)</div>
+    </div>
+    <button class="close-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="body">
+    <div class="mae-card">
+      <div class="mae-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.91 8.84 8.56 2.23a1.93 1.93 0 0 0-1.81 0L3.1 4.13a2.12 2.12 0 0 0-.05 3.69l12.22 6.93a2 2 0 0 0 1.94 0L21 12.51a2.12 2.12 0 0 0-.09-3.67Z"/><path d="M3.09 8.84l12.35-6.61a1.93 1.93 0 0 1 1.81 0l3.65 1.9a2.12 2.12 0 0 1 .1 3.69L8.73 14.75a2 2 0 0 1-1.94 0L3.1 12.51a2.12 2.12 0 0 1-.01-3.67Z"/></svg>
+      </div>
+      <div class="mae-info">
+        <div class="mae-name">Produto Mãe salvo: Fardo 12un</div>
+        <div class="mae-meta">1 emb. = 12 un · EAN 7891234560012</div>
+      </div>
+      <button class="mae-edit">Editar</button>
+    </div>
+
+    <div class="info-banner">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <p>Agora escolha ou crie o <b>produto (unidade)</b> que sai dessa embalagem — isso finaliza o vínculo e converte a quantidade da nota automaticamente (2 fardos × 12 = 24 un).</p>
+    </div>
+
+    <div class="segmented">
+      <button class="active" onclick="showPanel('buscar', this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Buscar Existente
+      </button>
+      <button onclick="showPanel('criar', this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Criar Novo
+      </button>
+    </div>
+
+    <div id="panel-buscar" class="panel active">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="search-input" placeholder="Buscar por nome, SKU ou EAN..." value="papel higi">
+      </div>
+      <div class="results">
+        <div class="result-item">
+          <div class="r-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/></svg>
+          </div>
+          <div class="r-info">
+            <div class="r-name">papel higiênico fofinho 30m</div>
+            <div class="r-meta">SKU 8821 · EAN 7891234560005</div>
+          </div>
+          <svg class="r-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="result-item">
+          <div class="r-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/></svg>
+          </div>
+          <div class="r-info">
+            <div class="r-name">papel higiênico fofinho folha dupla</div>
+            <div class="r-meta">SKU 8822 · sem EAN</div>
+          </div>
+          <svg class="r-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+      </div>
+      <div class="caption">2 produtos encontrados — clique para vincular</div>
+    </div>
+
+    <div id="panel-criar" class="panel">
+      <div class="field">
+        <label>Nome do Produto</label>
+        <input placeholder="papel higiênico fofinho 30m" value="papel higiênico fofinho 30m">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>SKU (opcional)</label>
+          <input placeholder="Gerado automaticamente">
+        </div>
+        <div class="field">
+          <label>EAN (opcional)</label>
+          <input id="ean-input" placeholder="Código de barras da unidade" value="7891234560005" oninput="checkEan()">
+        </div>
+      </div>
+      <div id="ean-warning-slot"></div>
+      <div class="demo-toggle" onclick="toggleDemoEan()">(demonstração) alternar EAN duplicado / livre</div>
+      <div class="field">
+        <label>Preço de Venda (R$)</label>
+        <input placeholder="0,00">
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      Vincular e Finalizar
+    </button>
+  </div>
+</div>
+
+<script>
+  function showPanel(name, btnEl) {
+    document.querySelectorAll('.segmented button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btnEl.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+    const btn = document.querySelector('.btn-primary');
+    btn.lastChild.textContent = name === 'buscar' ? ' Vincular e Finalizar' : ' Criar e Vincular';
+  }
+
+  function checkEan() {
+    const val = document.getElementById('ean-input').value.trim();
+    const slot = document.getElementById('ean-warning-slot');
+    if (val === '7891234560005') {
+      slot.innerHTML = `<div class="ean-warning">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <div class="ew-info">
+          <div class="ew-title">EAN já cadastrado — evite duplicar</div>
+          <div class="ew-name">papel higiênico fofinho 30m</div>
+        </div>
+        <button class="ew-use">Usar este</button>
+      </div>`;
+    } else {
+      slot.innerHTML = '';
+    }
+  }
+  function toggleDemoEan() {
+    const el = document.getElementById('ean-input');
+    el.value = el.value === '7891234560005' ? '' : '7891234560005';
+    checkEan();
+  }
+  checkEan();
+</script>
+
+</body>
+</html>
