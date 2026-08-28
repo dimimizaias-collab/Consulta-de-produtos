@@ -3725,9 +3725,6 @@ export default function Page() {
           product_id: created.id,
           product_price: 0,
           status_translation: pendingMotherDraft && !motherPackageError ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
-          // Medida da linha passa a refletir a embalagem-mãe (ex: "Fardo"), já que a
-          // quantidade/preço aqui são os da caixa, não da unidade.
-          unit: pendingMotherDraft && !motherPackageError ? pendingMotherDraft.name : sourceItemBefore.unit,
           mother_draft: null, // consumido acima (virou uma linha real em product_mother_packages)
           ...conversion,
         };
@@ -3740,7 +3737,6 @@ export default function Page() {
           const uQ = [...viewingNoteQtys]; uQ[linkingItemIdx] = conversion.qty; setViewingNoteQtys(uQ);
           const uIP = [...viewingNoteItemPrices]; uIP[linkingItemIdx] = conversion.price; setViewingNoteItemPrices(uIP);
           const uM = [...viewingNoteMultipliers]; uM[linkingItemIdx] = conversion.multiplier; setViewingNoteMultipliers(uM);
-          const uU = [...viewingNoteUnits]; uU[linkingItemIdx] = pendingMotherDraft.name; setViewingNoteUnits(uU);
         }
         const extraEanRows = noteItemExtraEans.filter(e => e.ean.trim()).map(e => ({
           product_id: created.id,
@@ -3947,7 +3943,6 @@ export default function Page() {
       };
     }
     const converted = !!(conversion.multiplier);
-    const motherLabel = pendingMotherDraft?.name || motherMatch?.motherPackageName || null;
     updatedItems[i] = {
       ...updatedItems[i],
       name: p.name,
@@ -3956,9 +3951,6 @@ export default function Page() {
       product_id: p.id,
       product_price: sellPrice,
       status_translation: converted ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
-      // Medida da linha passa a refletir a embalagem-mãe (ex: "Fardo"), já que a
-      // quantidade/preço aqui são os da caixa, não da unidade.
-      unit: converted && motherLabel ? motherLabel : updatedItems[i].unit,
       mother_draft: null,
       ...conversion,
     };
@@ -3970,7 +3962,6 @@ export default function Page() {
       const uQ = [...viewingNoteQtys]; uQ[i] = conversion.qty; setViewingNoteQtys(uQ);
       const uIP = [...viewingNoteItemPrices]; uIP[i] = conversion.price; setViewingNoteItemPrices(uIP);
       const uM = [...viewingNoteMultipliers]; uM[i] = conversion.multiplier; setViewingNoteMultipliers(uM);
-      if (motherLabel) { const uU = [...viewingNoteUnits]; uU[i] = motherLabel; setViewingNoteUnits(uU); }
     }
     if (noteItemSaveTranslation) {
       const supplierId = await resolveNoteSupplierId();
