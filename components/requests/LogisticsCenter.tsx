@@ -205,8 +205,8 @@ const DIST_TABLE_COLUMNS: { key: string; label: string }[] = [
 
 const TABLE_COLUMNS_BASE: { key: string; label: string }[] = [
   { key: 'status', label: 'Situação' },
+  { key: 'destino', label: 'Destino' },
   { key: 'noteNumber', label: 'Código' },
-  { key: 'fileName', label: 'Arquivo' },
   { key: 'supplierName', label: 'Fornecedor' },
   { key: 'receivedDate', label: 'Data' },
   { key: 'itemCount', label: 'Itens' },
@@ -228,6 +228,15 @@ export const STATUS_META: Record<NoteStatus, { label: string; fg: string; bg: st
   aguardando_recebimento: { label: 'Aguardando Recebimento', fg: 'text-[#B45309] dark:text-[#FCD34D]', bg: 'bg-[#D97706]/10 dark:bg-[#FCD34D]/[0.13]',      border: 'border-[#D97706]/30 dark:border-[#FCD34D]/30', desc: 'Trava adição/remoção de itens até a mercadoria chegar.' },
   revisao:                { label: 'Revisão',                fg: 'text-[#1D4ED8] dark:text-[#60A5FA]', bg: 'bg-[#2563EB]/10 dark:bg-[#60A5FA]/[0.13]',      border: 'border-[#2563EB]/25 dark:border-[#60A5FA]/30', desc: 'Exige data de recebimento. Verificação de itens em curso.' },
   aprovada:                { label: 'Aprovada',                fg: 'text-[#0A7A55] dark:text-[#34D399]', bg: 'bg-emerald-500/10 dark:bg-emerald-500/[0.14]', border: 'border-emerald-500/25 dark:border-emerald-500/35', desc: 'Move a nota para Aprovadas. Ação não pode ser desfeita.' },
+};
+
+// Rótulo curto pra caber no card de Situação da tabela principal (mesmo tamanho da pílula
+// do cabeçalho da coluna) sem quebrar linha ou estourar largura.
+const STATUS_SHORT_LABEL: Record<NoteStatus, string> = {
+  registro:               'Regis.',
+  aguardando_recebimento: 'Aguard.',
+  revisao:                'Revis.',
+  aprovada:                'Aprov.',
 };
 
 export function StatusIcon({ status, size = 13 }: { status: NoteStatus; size?: number }) {
@@ -345,8 +354,13 @@ export function LogisticsCenter({
     setLoadingDistManifests(false);
   };
 
+  // Empresas são buscadas uma vez, independente da aba — a tabela de Notas também usa
+  // companyName() pra exibir a coluna Destino.
   useEffect(() => {
-    if (activeSection === 'distribuicao' && companiesList.length === 0 && !loadingCompanies) fetchCompaniesList();
+    if (companiesList.length === 0 && !loadingCompanies) fetchCompaniesList();
+  }, []);
+
+  useEffect(() => {
     if (activeSection === 'distribuicao' && distributionManifests.length === 0 && !loadingDistManifests) fetchDistributionManifests();
   }, [activeSection]);
 
@@ -513,8 +527,8 @@ export function LogisticsCenter({
   const getColumnValue = (note: ReviewNote, key: string): string => {
     switch (key) {
       case 'status':         return STATUS_META[getNoteStatus(note)].label;
+      case 'destino':        return companyName(note.companyId ?? null);
       case 'noteNumber':     return note.noteNumber || '—';
-      case 'fileName':       return note.fileName || '—';
       case 'supplierName':   return note.supplierName || '—';
       case 'receivedDate':   return note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp;
       case 'itemCount':      return String(note.itemCount);
@@ -1822,10 +1836,16 @@ export function LogisticsCenter({
                         <td className="px-4 py-3.5">
                           <span
                             title={meta.label}
-                            className={cn('w-7 h-7 rounded-lg flex items-center justify-center border', meta.bg, meta.fg, meta.border)}
+                            className={cn('inline-flex items-center gap-1 rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] border-[1.5px] whitespace-nowrap', meta.bg, meta.fg, meta.border)}
                           >
-                            <StatusIcon status={status} />
+                            <StatusIcon status={status} size={11} />
+                            {STATUS_SHORT_LABEL[status]}
                           </span>
+                        </td>
+
+                        {/* Destino */}
+                        <td className="px-4 py-3.5 max-w-[140px]">
+                          <p className="text-xs text-on-surface/60 truncate">{companyName(note.companyId ?? null)}</p>
                         </td>
 
                         {/* Código */}
@@ -1839,14 +1859,9 @@ export function LogisticsCenter({
                           )}
                         </td>
 
-                        {/* Arquivo */}
-                        <td className="px-4 py-3.5 max-w-[180px]">
-                          <p className="text-sm font-semibold text-on-surface truncate">{note.fileName}</p>
-                        </td>
-
                         {/* Fornecedor */}
-                        <td className="px-4 py-3.5 max-w-[140px]">
-                          <p className="text-xs text-on-surface/60 truncate">{note.supplierName || '—'}</p>
+                        <td className="px-4 py-3.5 max-w-[180px]">
+                          <p className="text-sm font-semibold text-on-surface truncate">{note.supplierName || '—'}</p>
                         </td>
 
                         {/* Data (recebimento) */}
