@@ -34,7 +34,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -1530,6 +1530,7 @@ export default function Page() {
         distributionStatus: n.distribution_status ?? null,
         distributionSentAt: n.distribution_sent_at ?? null,
         distributionSentByName: n.distribution_sent_by_name ?? null,
+        originalNfeXml: n.original_nfe_xml ?? null,
       })));
     }
   };
@@ -2732,6 +2733,137 @@ export default function Page() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Traduzidos");
     XLSX.writeFile(wb, "nota_traduzida.xlsx");
+  };
+
+  // Gera uma NFe corrigida a partir do XML original autorizado (SEFAZ), usado como template —
+  // só sobrescreve, por item (casado por EAN e, na falta, por código do fornecedor/cProd):
+  //   • Medida/Quantidade traduzidas na revisão (item.unit / item.qty)
+  //   • Quantidade menos o que foi distribuído para outras lojas (getDistribTotal)
+  //   • Preço Un./Total já com todos os Acréscimos/Descontos da nota embutidos (calcAdjAmounts)
+  // Tudo mais (chave de acesso, CFOP, NCM, emit/dest, protocolo) fica intacto. A assinatura
+  // digital é removida — deixa de bater com o conteúdo assim que qualquer valor muda.
+  const buildCorrectedNfeXml = (originalXmlText: string, items: any[], noteAdjColumns: AdjColumn[]): string => {
+    const doc = new DOMParser().parseFromString(originalXmlText, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('XML original inválido ou corrompido — não foi possível ler.');
+    }
+    const NFE_NS = 'http://www.portalfiscal.inf.br/nfe';
+    const firstChild = (el: Element, tag: string): Element | null => {
+      const found = el.getElementsByTagNameNS(NFE_NS, tag);
+      return found.length > 0 ? found[0] : null;
+    };
+    const setText = (el: Element, tag: string, value: string) => {
+      const node = firstChild(el, tag);
+      if (node) node.textContent = value;
+    };
+    const getNum = (el: Element, tag: string): number => parseFloat(firstChild(el, tag)?.textContent || '0') || 0;
+
+    const dets = Array.from(doc.getElementsByTagNameNS(NFE_NS, 'det'));
+    if (dets.length === 0) throw new Error('XML original não parece ser uma NFe (nenhum item <det> encontrado).');
+
+    let vProdOriginalTotal = 0;
+    let vProdNovoTotal = 0;
+
+    dets.forEach(det => {
+      const prod = firstChild(det, 'prod');
+      if (!prod) return;
+      const ean = firstChild(prod, 'cEAN')?.textContent?.trim();
+      const cProd = firstChild(prod, 'cProd')?.textContent?.trim();
+      const originalVProd = getNum(prod, 'vProd');
+      vProdOriginalTotal += originalVProd;
+
+      const idx = items.findIndex((it: any) =>
+        (ean && ean !== 'SEM GTIN' && it.ean && it.ean === ean) || (cProd && it.sku && it.sku === cProd)
+      );
+      if (idx === -1) {
+        // Sem correspondência na nota revisada — item original fica como está no XML.
+        vProdNovoTotal += originalVProd;
+        return;
+      }
+
+      const item = items[idx];
+      const rawCost = (item.price || 0) / (item.multiplier || 1);
+      const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, noteAdjColumns || []);
+      const adjCost = rawCost - disc + sur;
+      const distribTotal = getDistribTotal(idx, item);
+      const finalQty = Math.max(0, (item.qty || 0) - distribTotal);
+      const finalVProd = adjCost * finalQty;
+      vProdNovoTotal += finalVProd;
+
+      setText(prod, 'qCom', finalQty.toFixed(4));
+      setText(prod, 'qTrib', finalQty.toFixed(4));
+      setText(prod, 'vUnCom', adjCost.toFixed(10));
+      setText(prod, 'vUnTrib', adjCost.toFixed(10));
+      setText(prod, 'vProd', finalVProd.toFixed(2));
+      if (item.unit) {
+        setText(prod, 'uCom', item.unit);
+        setText(prod, 'uTrib', item.unit);
+      }
+    });
+
+    // Totais (total/ICMSTot e cobr/fat) recalculados por diferença — preserva frete/desconto/
+    // outros valores já corretos no XML original sem precisar reproduzir a fórmula da NFe inteira.
+    const delta = vProdNovoTotal - vProdOriginalTotal;
+    const icmsTot = doc.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0];
+    if (icmsTot) {
+      setText(icmsTot, 'vProd', vProdNovoTotal.toFixed(2));
+      setText(icmsTot, 'vNF', (getNum(icmsTot, 'vNF') + delta).toFixed(2));
+    }
+    const fat = doc.getElementsByTagNameNS(NFE_NS, 'fat')[0];
+    if (fat) {
+      setText(fat, 'vOrig', (getNum(fat, 'vOrig') + delta).toFixed(2));
+      setText(fat, 'vLiq', (getNum(fat, 'vLiq') + delta).toFixed(2));
+    }
+    // Parcelas (cobr/dup) e forma de pagamento (pag/detPag) não são redistribuídas — ficam
+    // como no XML original, fora do escopo desta correção (é dado financeiro, não de estoque).
+
+    const signature = doc.getElementsByTagNameNS('http://www.w3.org/2000/09/xmldsig#', 'Signature')[0];
+    signature?.parentNode?.removeChild(signature);
+
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc);
+  };
+
+  const downloadCorrectedNfeXml = () => {
+    if (!viewingReviewNote) return;
+    if (!viewingReviewNote.originalNfeXml) {
+      setNotification({ type: 'error', message: 'Anexe o XML original da nota na aba "Nota Original" antes de baixar.' });
+      setNoteEditorTab('nota_original');
+      return;
+    }
+    try {
+      const items = viewingReviewNote.items.map((item: any, idx: number) => ({
+        ...item,
+        qty: viewingNoteQtys[idx] ?? item.qty,
+        unit: viewingNoteUnits[idx] ?? item.unit,
+        multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+        price: viewingNoteItemPrices[idx] ?? item.price,
+      }));
+      const xml = buildCorrectedNfeXml(viewingReviewNote.originalNfeXml, items, adjColumns);
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nota_${viewingReviewNote.noteNumber || viewingReviewNote.id}_corrigida.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erro ao gerar XML corrigido.' });
+    }
+  };
+
+  const handleAttachOriginalNfeXml = async (file: File) => {
+    if (!viewingReviewNote) return;
+    try {
+      const text = await file.text();
+      if (!text.includes('infNFe')) {
+        setNotification({ type: 'error', message: 'Esse arquivo não parece ser o XML de uma NFe (falta a tag infNFe).' });
+        return;
+      }
+      setViewingReviewNote({ ...viewingReviewNote, originalNfeXml: text });
+      setNotification({ type: 'success', message: 'XML original anexado — clique em Salvar para gravar na nota.' });
+    } catch {
+      setNotification({ type: 'error', message: 'Não foi possível ler o arquivo selecionado.' });
+    }
   };
 
   const generateBarcodeDataUrl = (code: string): string => {
@@ -4193,6 +4325,7 @@ export default function Page() {
       status,
       approved,
       is_draft: false,
+      original_nfe_xml: viewingReviewNote.originalNfeXml || null,
       updated_at: new Date().toISOString(),
     });
     if (saveError) throw saveError;
@@ -9278,6 +9411,13 @@ export default function Page() {
                   >
                     <Download size={16} />
                   </button>
+                  <button
+                    onClick={downloadCorrectedNfeXml}
+                    title={viewingReviewNote.originalNfeXml ? 'Baixar XML corrigido (para importar no PDV)' : 'Anexe o XML original na aba "Nota Original" para poder baixar'}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/18 transition-colors border border-violet-500/15"
+                  >
+                    <FileCode2 size={16} />
+                  </button>
                   <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
                   {(() => {
                     const noteStatus = getNoteStatus(viewingReviewNote);
@@ -9606,6 +9746,48 @@ export default function Page() {
                         Nota Original
                         <span className="normal-case font-semibold text-on-surface/30 tracking-normal">— itens exatamente como vieram na importação, sem conversão de unidade, produto vinculado, preço de venda ou distribuição</span>
                       </p>
+                      <div className="rounded-2xl border p-4 mb-5 flex items-center justify-between gap-4" style={{ borderColor: 'var(--rn-cell-border)', background: 'var(--rn-cell-bg)' }}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', viewingReviewNote.originalNfeXml ? 'bg-emerald-500/15 text-emerald-500' : 'bg-on-surface/[0.06] text-on-surface/40')}>
+                            <FileCode2 size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-on-surface truncate">
+                              {viewingReviewNote.originalNfeXml ? 'XML original da NFe anexado' : 'Nenhum XML original anexado'}
+                            </p>
+                            <p className="text-[10px] font-semibold text-on-surface/40">
+                              {viewingReviewNote.originalNfeXml
+                                ? 'Usado como base para gerar o XML corrigido (botão roxo na barra superior)'
+                                : 'Anexe o XML autorizado pela SEFAZ para poder gerar o XML corrigido pronto para importar no PDV'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-on-surface/[0.06] text-on-surface/60 hover:bg-on-surface/[0.1] cursor-pointer transition-colors">
+                            <Upload size={13} />
+                            {viewingReviewNote.originalNfeXml ? 'Substituir' : 'Anexar XML'}
+                            <input
+                              type="file"
+                              accept=".xml"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) handleAttachOriginalNfeXml(file);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                          {viewingReviewNote.originalNfeXml && (
+                            <button
+                              onClick={() => setViewingReviewNote({ ...viewingReviewNote, originalNfeXml: null })}
+                              title="Remover XML anexado"
+                              className="w-8 h-8 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface/40 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--rn-cell-border)' }}>
                         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                           <thead>

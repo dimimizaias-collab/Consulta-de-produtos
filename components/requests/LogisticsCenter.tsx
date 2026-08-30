@@ -78,6 +78,9 @@ export interface ReviewNote {
   distributionStatus?: 'separacao' | 'distribuicao_enviada' | null;
   distributionSentAt?: string | null;
   distributionSentByName?: string | null;
+  // XML original da NFe (autorizada pela SEFAZ) anexado à nota — usado como template
+  // para gerar um XML corrigido pronto para importar no PDV. Ver botão "Baixar XML".
+  originalNfeXml?: string | null;
 }
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
