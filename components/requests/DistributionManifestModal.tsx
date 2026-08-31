@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -1030,31 +1030,27 @@ export function DistributionManifestModal({
                       <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <colgroup>
                           <col style={{ width: 36 }} />
-                          <col style={{ width: 150 }} />
                           <col />
                           <col style={{ width: 140 }} />
                           <col style={{ width: 80 }} />
-                          <col style={{ width: editable ? 90 : 110 }} />
+                          <col style={{ width: editable ? 90 : 165 }} />
                           <col style={{ width: 100 }} />
                           <col style={{ width: 110 }} />
-                          <col style={{ width: 80 }} />
                           {!editable && <col style={{ width: 110 }} />}
-                          {!editable && <col style={{ width: 130 }} />}
+                          <col style={{ width: 80 }} />
                           {editable && <col style={{ width: 40 }} />}
                         </colgroup>
                         <thead>
                           <tr>
                             <th className={thBarCls}><div className={thLblCls}>#</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Ident. Interna</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Produto</div></th>
                             <th className={thBarCls}><div className={thLblCls}>EAN</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Medida</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Qtd. Env.</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Preço Custo</div></th>
                             <th className={thBarCls}><div className={thLblCls}>Valor Total</div></th>
-                            <th className={thBarCls}><div className={thLblCls}>Markup</div></th>
                             {!editable && <th className={thBarCls}><div className={thLblCls}>Preço Venda</div></th>}
-                            {!editable && <th className={thBarCls}><div className={thLblCls}>Falta / Sobra</div></th>}
+                            <th className={thBarCls}><div className={thLblCls}>Markup</div></th>
                             {editable && <th className={thBarCls}></th>}
                           </tr>
                         </thead>
@@ -1066,10 +1062,16 @@ export function DistributionManifestModal({
                             const markup = it.costPrice > 0 && it.salePriceDestination !== null
                               ? ((it.salePriceDestination - it.costPrice) / it.costPrice) * 100
                               : null;
+                            // Qtd. Env. exibida — some/soma a divergência CONFIRMADA ("Confirmar
+                            // divergência" no modal de Falta/Sobra), mesmo valor que
+                            // getEffectiveReceivedQty aplica no estoque na aprovação. O dado gravado
+                            // (it.qty, a quantidade realmente enviada) nunca é sobrescrito — só a
+                            // exibição muda pra refletir a diferença já confirmada.
+                            const effQty = getEffectiveReceivedQty(it);
+                            const showRecalc = !editable && !!it.discrepancy?.disregarded && effQty !== it.qty;
                             return (
                               <tr key={it.id}>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-center text-on-surface/35 font-medium')}>{idx + 1}</div></td>
-                                <td className={tdCls}><div className={cn(cellCls, 'text-on-surface/50 font-medium')}>{it.sku || '—'}</div></td>
                                 <td className={tdCls}><div className={cellCls} title={it.productName}><span className="truncate">{it.productName}</span></div></td>
                                 <td className={tdCls}><div className={cn(cellCls, 'font-mono text-[11px] text-on-surface/50')}>{it.ean || '—'}</div></td>
                                 <td className={tdCls}>
@@ -1081,44 +1083,61 @@ export function DistributionManifestModal({
                                   </div>
                                 </td>
                                 <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-end font-mono gap-1.5')}>
+                                  <div className={cn(cellCls, 'justify-between font-mono gap-1.5 px-2')}>
                                     {editable ? (
                                       <input type="number" min="0" value={it.qty} onChange={e => updateItemField(it.id, { qty: parseFloat(e.target.value) || 0 })}
                                         className={cn(cellInputCls, 'text-right')} />
                                     ) : (
                                       <>
-                                        <span className="flex items-baseline gap-0.5">
-                                          {it.qty}
-                                          {it.discrepancy && (
-                                            <span className={cn('text-[8px] font-black leading-none', it.discrepancy.type === 'falta' ? 'text-red-500' : 'text-emerald-500')}>
-                                              {it.discrepancy.type === 'falta' ? '●' : '+'}
-                                            </span>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          {/* Botão Falta/Sobra — vira o próprio indicador quando já existe
+                                              um registro; clicar reabre o modal pra editar. */}
+                                          <button
+                                            onClick={() => openDiscrepancyModal(it)}
+                                            title={
+                                              it.discrepancy
+                                                ? (it.discrepancy.type === 'falta'
+                                                    ? (it.discrepancy.missingAll ? 'Falta — não veio (clique para editar)' : `Falta ${it.discrepancy.qty} (clique para editar)`)
+                                                    : `Sobra ${it.discrepancy.qty} (clique para editar)`)
+                                                : 'Registrar Falta/Sobra'
+                                            }
+                                            className={cn(
+                                              'flex items-center justify-center w-5 h-5 rounded-full border-[1.5px] transition-colors shrink-0',
+                                              it.discrepancy?.type === 'falta'
+                                                ? 'text-[#D81E1E] border-[#D81E1E]/40 bg-[#D81E1E]/10 hover:bg-[#D81E1E]/20'
+                                                : it.discrepancy?.type === 'sobra'
+                                                  ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                                  : 'text-on-surface/30 border-on-surface/20 hover:text-on-surface/55 hover:border-on-surface/35'
+                                            )}
+                                          >
+                                            {it.discrepancy?.type === 'falta' ? <ArrowDown size={11} />
+                                              : it.discrepancy?.type === 'sobra' ? <ArrowUp size={11} />
+                                              : <Plus size={11} />}
+                                          </button>
+                                          <span className={cn(
+                                            'font-black',
+                                            showRecalc ? (it.discrepancy!.type === 'falta' ? 'text-[#D81E1E]' : 'text-emerald-600 dark:text-emerald-400') : ''
+                                          )}>
+                                            {effQty}
+                                          </span>
+                                          {showRecalc && (
+                                            <span className="text-[9px] font-bold text-on-surface/30 line-through shrink-0">{it.qty}</span>
                                           )}
-                                        </span>
-                                        {/* Botão Falta/Sobra — mesmo gatilho/modal da coluna Qtd. da nota */}
-                                        <button
-                                          onClick={() => openDiscrepancyModal(it)}
-                                          title={it.discrepancy?.disregarded ? 'Divergência confirmada' : 'Registrar Falta/Sobra'}
-                                          className={cn(
-                                            'relative flex items-center justify-center w-5 h-5 rounded-full transition-colors shrink-0',
-                                            it.discrepancy?.type === 'falta' ? 'text-red-500 dark:text-red-400/90 hover:text-red-600 dark:hover:text-red-300'
-                                            : it.discrepancy?.type === 'sobra' ? 'text-emerald-600 dark:text-emerald-400/90 hover:text-emerald-700 dark:hover:text-emerald-300'
-                                            : 'text-on-surface/25 hover:text-on-surface/50'
-                                          )}
-                                        >
-                                          <AlertTriangle size={11} />
-                                        </button>
+                                        </div>
+                                        {!it.discrepancy && (
+                                          <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Sem divergência — confirmar item">
+                                            <input type="checkbox" checked={it.verified} disabled={!receiving}
+                                              onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
+                                              className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
+                                            {it.verified && <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">OK</span>}
+                                          </label>
+                                        )}
                                       </>
                                     )}
                                   </div>
                                 </td>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono text-on-surface/70')}>{fmtBRL(it.costPrice)}</div></td>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-end font-mono font-black')}>{fmtBRL(total)}</div></td>
-                                <td className={tdCls}>
-                                  <div className={cn(cellCls, 'justify-end font-mono font-black', markup === null ? 'text-on-surface/30' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#D81E1E]')}>
-                                    {markup === null ? '—' : `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%`}
-                                  </div>
-                                </td>
                                 {!editable && (
                                   <td className={tdCls}>
                                     <div className={cn(cellCls, 'justify-end font-mono')}>
@@ -1132,35 +1151,11 @@ export function DistributionManifestModal({
                                     </div>
                                   </td>
                                 )}
-                                {!editable && (
-                                  <td className={tdCls}>
-                                    <div className={cn(cellCls, 'justify-center')}>
-                                      {it.discrepancy ? (
-                                        <button
-                                          onClick={() => openDiscrepancyModal(it)}
-                                          className={cn(
-                                            'inline-flex items-center gap-1 text-[10px] font-black rounded-full px-2 py-0.5 border transition-colors',
-                                            it.discrepancy.type === 'falta'
-                                              ? 'text-[#D81E1E] bg-[#D81E1E]/10 border-[#D81E1E]/25 hover:bg-[#D81E1E]/15'
-                                              : 'text-amber-700 dark:text-[#FCD34D] bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15'
-                                          )}
-                                        >
-                                          {it.discrepancy.type === 'falta' ? <ArrowDown size={10} /> : <ArrowUp size={10} />}
-                                          {it.discrepancy.type === 'falta'
-                                            ? (it.discrepancy.missingAll ? 'Não veio' : `Falta ${it.discrepancy.qty}`)
-                                            : `Sobra ${it.discrepancy.qty}`}
-                                        </button>
-                                      ) : (
-                                        <label className="flex items-center gap-1.5 cursor-pointer" title="Sem divergência — confirmar item">
-                                          <input type="checkbox" checked={it.verified} disabled={!receiving}
-                                            onChange={e => updateItemPricing(it.id, it.productId, it.salePriceDestination, e.target.checked)}
-                                            className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed" />
-                                          {it.verified && <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">OK</span>}
-                                        </label>
-                                      )}
-                                    </div>
-                                  </td>
-                                )}
+                                <td className={tdCls}>
+                                  <div className={cn(cellCls, 'justify-end font-mono font-black', markup === null ? 'text-on-surface/30' : markup >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#D81E1E]')}>
+                                    {markup === null ? '—' : `${markup >= 0 ? '+' : ''}${markup.toFixed(1)}%`}
+                                  </div>
+                                </td>
                                 {editable && (
                                   <td className={tdCls}>
                                     <div className={cn(cellCls, 'justify-center border-none bg-transparent p-0')}>

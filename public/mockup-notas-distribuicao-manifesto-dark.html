@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mockup — Notas · Distribuição · Manifesto · Modo Escuro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&family=DM+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:#141410;
+  min-height:100vh;
+  padding:40px 24px 80px;
+}
+
+:root{
+  --bg:            #1E1E18;
+  --header-bg:     #FFE500;
+  --header-border: #C8B800;
+  --title:         #F2F0E3;
+  --subtitle:      rgba(242,240,227,0.40);
+  --col-bg:        #FFE500;
+  --col-border:    #C8B800;
+  --col-text:      rgba(26,26,10,0.58);
+  --row-even:      #252520;
+  --row-odd:       #1E1E18;
+  --row-hover:     rgba(242,240,227,0.03);
+  --cell-text:     #F2F0E3;
+  --cell-muted:    rgba(242,240,227,0.32);
+  --card-border:   rgba(242,240,227,0.07);
+  --chip-bg:       rgba(242,240,227,0.07);
+  --red:           #D81E1E;
+  --emerald:       #34D399;
+  --amber:         #FCD34D;
+  --blue:          #60A5FA;
+  --gray-fg:       #D8D3C0;
+}
+
+.wrap{ max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:56px; }
+
+.section-label{
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.section-label .num{
+  width:26px;height:26px;border-radius:8px;background:#FFE500;color:#1A1A0E;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;
+}
+.section-label h2{ font-size:15px; font-weight:900; letter-spacing:0.04em; color:var(--title); text-transform:uppercase; }
+.section-label p{ font-size:12px; color:var(--subtitle); font-weight:600; margin-left:4px; }
+
+.card{
+  background: rgba(37,37,32,0.6);
+  border-radius:20px;
+  border:1px solid var(--card-border);
+  overflow:hidden;
+  box-shadow:0 1px 2px rgba(0,0,0,0.3);
+}
+
+table{ width:100%; border-collapse:collapse; font-size:13px; }
+thead tr{ background:var(--col-bg); border-bottom:1px solid var(--col-border); }
+th{
+  padding:12px 12px; text-align:left; white-space:nowrap;
+}
+th span.pill{
+  display:inline-flex; align-items:center; background:rgba(26,26,10,0.08);
+  border-radius:999px; padding:5px 13px; font-size:9px; font-weight:900;
+  text-transform:uppercase; letter-spacing:0.10em; color:var(--col-text);
+  border:1.5px solid rgba(26,26,10,0.12); white-space:nowrap;
+}
+tbody td{ padding:14px 16px; border-right:1px solid rgba(242,240,227,0.03); vertical-align:middle; }
+tbody td:last-child{ border-right:none; }
+tbody tr:nth-child(odd){ background:var(--row-even); }
+tbody tr:nth-child(even){ background:var(--row-odd); }
+tbody tr:hover{ background:var(--row-hover); }
+
+/* status pill (Notas) */
+.status-pill{
+  display:inline-flex; align-items:center; gap:5px; border-radius:999px;
+  padding:5px 13px; font-size:9px; font-weight:900; text-transform:uppercase;
+  letter-spacing:0.10em; border:1.5px solid; white-space:nowrap;
+}
+.status-registro   { background:rgba(255,255,255,0.08); color:var(--gray-fg); border-color:rgba(255,255,255,0.20); }
+.status-aguardando { background:rgba(252,211,77,0.13); color:var(--amber); border-color:rgba(252,211,77,0.30); }
+.status-revisao    { background:rgba(96,165,250,0.13); color:var(--blue); border-color:rgba(96,165,250,0.30); }
+.status-aprovada   { background:rgba(52,211,153,0.14); color:var(--emerald); border-color:rgba(52,211,153,0.35); }
+
+/* status pill (Distribuição — texto completo) */
+.dist-pill{
+  display:inline-flex; align-items:center; gap:6px; border-radius:999px;
+  padding:4px 10px; font-size:10.5px; font-weight:900; text-transform:uppercase;
+  letter-spacing:0.03em; border:1px solid;
+}
+.dist-registro { background:rgba(252,211,77,0.13); color:var(--amber); border-color:rgba(252,211,77,0.30); }
+.dist-enviado  { background:rgba(52,211,153,0.14); color:var(--emerald); border-color:rgba(52,211,153,0.35); }
+
+.chip{ font-size:12px; font-weight:900; background:var(--chip-bg); padding:4px 8px; border-radius:8px; color:var(--cell-text); }
+.mono-bold{ font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:rgba(242,240,227,0.80); }
+.mono-chip{ font-family:'DM Mono',monospace; font-size:12px; font-weight:700; background:var(--chip-bg); padding:4px 8px; border-radius:8px; color:var(--cell-text); }
+.fornecedor{ font-size:13.5px; font-weight:600; color:var(--cell-text); }
+.muted{ color:var(--cell-muted); font-size:12px; font-weight:600; }
+.verified-ok{ font-size:10px; font-weight:900; padding:4px 8px; border-radius:8px; background:rgba(52,211,153,0.14); color:var(--emerald); }
+.verified-pend{ font-size:10px; font-weight:900; padding:4px 8px; border-radius:8px; background:rgba(252,211,77,0.13); color:var(--amber); }
+
+.pencil-btn{
+  width:32px;height:32px;border-radius:12px;background:rgba(216,30,30,0.15);
+  color:var(--red); display:flex; align-items:center; justify-content:center; border:none; cursor:pointer;
+}
+
+/* ── Janela do Manifesto ── */
+.modal-frame{
+  background:var(--bg); border-radius:20px; border:1px solid var(--card-border);
+  overflow:hidden;
+}
+.modal-header{
+  background:var(--header-bg); border-bottom:1.5px solid var(--header-border);
+  padding:16px 24px; display:flex; align-items:center; justify-content:space-between;
+}
+.modal-header h3{ font-size:14px; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; color:#1A1A0E; }
+.modal-header .sub{ font-size:11px; color:rgba(26,26,10,0.60); font-weight:700; margin-top:2px; }
+
+.manifest-table td, .manifest-table th{ padding:11px 14px; }
+.manifest-table th span.pill{ padding:5px 11px; }
+
+.qty-cell{ display:flex; align-items:center; gap:8px; }
+.qty-icon-btn{
+  width:24px;height:24px;border-radius:8px;border:1.5px solid; display:flex;align-items:center;justify-content:center;
+  flex-shrink:0; cursor:pointer; background:transparent;
+}
+.qty-icon-btn.neutral{ border-color:rgba(242,240,227,0.22); color:rgba(242,240,227,0.40); }
+.qty-icon-btn.falta{ border-color:rgba(216,30,30,0.45); background:rgba(216,30,30,0.14); color:#F87171; }
+.qty-icon-btn.sobra{ border-color:rgba(52,211,153,0.45); background:rgba(52,211,153,0.14); color:var(--emerald); }
+.qty-value{ font-family:'DM Mono',monospace; font-size:13px; font-weight:800; }
+.qty-value.neutral{ color:var(--cell-text); }
+.qty-value.falta{ color:#F87171; }
+.qty-value.sobra{ color:var(--emerald); }
+.qty-orig{ font-size:9.5px; font-weight:700; color:rgba(242,240,227,0.30); text-decoration:line-through; margin-left:2px; }
+
+.callout{
+  margin-top:14px; padding:12px 16px; border-radius:14px; background:rgba(96,165,250,0.08);
+  border:1px solid rgba(96,165,250,0.22); font-size:12px; color:#93C5FD; font-weight:600; line-height:1.5;
+}
+.callout b{ font-weight:900; }
+
+.legend{ display:flex; gap:18px; margin-top:14px; flex-wrap:wrap; }
+.legend-item{ display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:rgba(242,240,227,0.55); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══════════════ ABA NOTAS ══════════════ -->
+  <div>
+    <div class="section-label"><span class="num">1</span><h2>Aba Notas — implementado</h2><p>coluna Destino · pílulas de Situação · Fornecedor no lugar de Arquivo</p></div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th><span class="pill">Situação</span></th>
+            <th><span class="pill">Destino</span></th>
+            <th><span class="pill">Código</span></th>
+            <th><span class="pill">Fornecedor</span></th>
+            <th><span class="pill">Data</span></th>
+            <th><span class="pill">Itens</span></th>
+            <th><span class="pill">Verificados</span></th>
+            <th><span class="pill">Total</span></th>
+            <th><span class="pill">Financeiro</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="status-pill status-aprovada">✓ Aprov.</span></td>
+            <td><span class="muted">Loja Centro</span></td>
+            <td><span class="mono-chip">NF-00182</span></td>
+            <td><span class="fornecedor">Distribuidora ABC</span></td>
+            <td><span class="muted">28/08/2026</span></td>
+            <td><span class="chip">42</span></td>
+            <td><span class="verified-ok">42/42</span></td>
+            <td><span class="mono-bold">R$ 8.412,90</span></td>
+            <td><span class="muted">Vinculada</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+          <tr>
+            <td><span class="status-pill status-revisao">◎ Revis.</span></td>
+            <td><span class="muted">Loja Norte</span></td>
+            <td><span class="mono-chip">NF-00183</span></td>
+            <td><span class="fornecedor">Higiplas Comércio</span></td>
+            <td><span class="muted">29/08/2026</span></td>
+            <td><span class="chip">17</span></td>
+            <td><span class="verified-pend">12/17</span></td>
+            <td><span class="mono-bold">R$ 2.150,00</span></td>
+            <td><span class="muted">—</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+          <tr>
+            <td><span class="status-pill status-aguardando">⏱ Aguard.</span></td>
+            <td><span class="muted">Loja Sul</span></td>
+            <td><span class="mono-chip">—</span></td>
+            <td><span class="fornecedor">Emporium Alimentos</span></td>
+            <td><span class="muted">30/08/2026</span></td>
+            <td><span class="chip">9</span></td>
+            <td><span class="verified-pend">0/9</span></td>
+            <td><span class="mono-bold">R$ 970,40</span></td>
+            <td><span class="muted">—</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+          <tr>
+            <td><span class="status-pill status-registro">✎ Regis.</span></td>
+            <td><span class="muted">—</span></td>
+            <td><span class="mono-chip">—</span></td>
+            <td><span class="fornecedor">Casa do Prego Ltda</span></td>
+            <td><span class="muted">31/08/2026</span></td>
+            <td><span class="chip">3</span></td>
+            <td><span class="verified-pend">0/3</span></td>
+            <td><span class="mono-bold">R$ 310,00</span></td>
+            <td><span class="muted">—</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════ ABA DISTRIBUIÇÃO ══════════════ -->
+  <div>
+    <div class="section-label"><span class="num">2</span><h2>Aba Distribuição — implementado</h2><p>Itens/Valor Total no padrão de Notas · manifesto nomeado pelo fornecedor · botão de lápis</p></div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th><span class="pill">Situação</span></th>
+            <th><span class="pill">Manifesto</span></th>
+            <th><span class="pill">Empresa Origem</span></th>
+            <th><span class="pill">Empresa Destino</span></th>
+            <th><span class="pill">Itens</span></th>
+            <th><span class="pill">Valor Total</span></th>
+            <th><span class="pill">Data de Envio</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="dist-pill dist-enviado">Pedido Enviado</span></td>
+            <td><span class="mono-bold">Distribuidora ABC 01</span></td>
+            <td><span class="fornecedor">Loja Centro</span></td>
+            <td><span class="fornecedor">Loja Norte</span></td>
+            <td><span class="chip">14</span></td>
+            <td><span class="mono-bold">R$ 1.240,00</span></td>
+            <td><span class="muted">28/08/2026</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+          <tr>
+            <td><span class="dist-pill dist-enviado">Pedido Enviado</span></td>
+            <td><span class="mono-bold">Distribuidora ABC 02</span></td>
+            <td><span class="fornecedor">Loja Centro</span></td>
+            <td><span class="fornecedor">Loja Sul</span></td>
+            <td><span class="chip">6</span></td>
+            <td><span class="mono-bold">R$ 512,80</span></td>
+            <td><span class="muted">28/08/2026</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+          <tr>
+            <td><span class="dist-pill dist-registro">Registro</span></td>
+            <td><span class="mono-bold">DIST-000012</span></td>
+            <td><span class="fornecedor">Loja Norte</span></td>
+            <td><span class="fornecedor">Loja Sul</span></td>
+            <td><span class="chip">3</span></td>
+            <td><span class="mono-bold">R$ 189,90</span></td>
+            <td><span class="muted">—</span></td>
+            <td><button class="pencil-btn">✎</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <div class="legend-item">🏷️ "Distribuidora ABC 01/02" — manifestos criados a partir da nota (nome do fornecedor + sufixo)</div>
+      <div class="legend-item">🏷️ "DIST-000012" — manifesto criado manualmente (sem fornecedor de origem)</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ JANELA DO MANIFESTO ══════════════ -->
+  <div>
+    <div class="section-label"><span class="num">3</span><h2>Janela do Manifesto — proposta (a implementar)</h2><p>Preço Venda/Markup trocados · Ident. Interna removida · falta/sobra por ícone na Qtd. Env.</p></div>
+    <div class="modal-frame">
+      <div class="modal-header">
+        <div>
+          <h3>Manifesto · Distribuidora ABC 01</h3>
+          <div class="sub">Loja Centro → Loja Norte · Pedido Enviado</div>
+        </div>
+        <div class="sub">14 itens · R$ 1.240,00</div>
+      </div>
+      <table class="manifest-table">
+        <thead>
+          <tr>
+            <th><span class="pill">#</span></th>
+            <th><span class="pill">Produto</span></th>
+            <th><span class="pill">EAN</span></th>
+            <th><span class="pill">Medida</span></th>
+            <th><span class="pill">Qtd. Env.</span></th>
+            <th><span class="pill">Preço Custo</span></th>
+            <th><span class="pill">Valor Total</span></th>
+            <th><span class="pill">Preço Venda</span></th>
+            <th><span class="pill">Markup</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="muted">1</span></td>
+            <td><span class="fornecedor">Detergente Neutro 500ml</span></td>
+            <td><span class="mono-bold">7891234560012</span></td>
+            <td><span class="muted">UN</span></td>
+            <td>
+              <div class="qty-cell">
+                <button class="qty-icon-btn falta" title="Falta registrada — clique pra editar">▼</button>
+                <span class="qty-value falta">2</span>
+                <span class="qty-orig">4</span>
+              </div>
+            </td>
+            <td><span class="mono-bold">R$ 3,20</span></td>
+            <td><span class="mono-bold">R$ 12,80</span></td>
+            <td><span class="mono-bold">R$ 5,49</span></td>
+            <td><span class="mono-bold" style="color:var(--emerald)">+71,6%</span></td>
+          </tr>
+          <tr>
+            <td><span class="muted">2</span></td>
+            <td><span class="fornecedor">Sabão em Pó 1kg</span></td>
+            <td><span class="mono-bold">7891234560029</span></td>
+            <td><span class="muted">UN</span></td>
+            <td>
+              <div class="qty-cell">
+                <button class="qty-icon-btn sobra" title="Sobra registrada — clique pra editar">▲</button>
+                <span class="qty-value sobra">6</span>
+                <span class="qty-orig">4</span>
+              </div>
+            </td>
+            <td><span class="mono-bold">R$ 9,10</span></td>
+            <td><span class="mono-bold">R$ 36,40</span></td>
+            <td><span class="mono-bold">R$ 14,90</span></td>
+            <td><span class="mono-bold" style="color:var(--emerald)">+63,7%</span></td>
+          </tr>
+          <tr>
+            <td><span class="muted">3</span></td>
+            <td><span class="fornecedor">Água Sanitária 1L</span></td>
+            <td><span class="mono-bold">7891234560036</span></td>
+            <td><span class="muted">UN</span></td>
+            <td>
+              <div class="qty-cell">
+                <button class="qty-icon-btn neutral" title="Registrar falta/sobra">+</button>
+                <span class="qty-value neutral">10</span>
+              </div>
+            </td>
+            <td><span class="mono-bold">R$ 4,00</span></td>
+            <td><span class="mono-bold">R$ 40,00</span></td>
+            <td><span class="mono-bold">R$ 6,99</span></td>
+            <td><span class="mono-bold" style="color:var(--emerald)">+74,8%</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="padding:0 24px 20px">
+        <div class="callout">
+          <b>Como funciona:</b> a Qtd. Env. exibida reflete a diferença — item 1 foi enviado com <b>4</b> unidades, registraram falta de <b>2</b>, a célula mostra <b>2</b> em vermelho (o "4" riscado é só indicativo do valor original). O dado gravado da quantidade enviada continua sendo 4; só a exibição muda. O botão à esquerda vira o próprio indicador quando já existe um registro — clicar nele abre a edição da falta/sobra.
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="qty-icon-btn falta" style="width:18px;height:18px;font-size:9px">▼</span> Falta registrada — número recalculado em vermelho</div>
+          <div class="legend-item"><span class="qty-icon-btn sobra" style="width:18px;height:18px;font-size:9px">▲</span> Sobra registrada — número recalculado em verde</div>
+          <div class="legend-item"><span class="qty-icon-btn neutral" style="width:18px;height:18px;font-size:9px">+</span> Sem registro — botão discreto pra abrir</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
