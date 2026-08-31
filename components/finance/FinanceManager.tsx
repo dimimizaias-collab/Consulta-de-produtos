@@ -1963,6 +1963,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     const known = new Set(favorecidos.map(f => f.nome_fiscal.trim().toLowerCase()));
     const groups = new Map<string, { label: string; count: number; total: number; ids: string[] }>();
     for (const t of transactions) {
+      // Parcelas de salário (origem=hr_salario) usam o nome do funcionário como
+      // "favorecido" (ver lib/hrSalarioFinance.ts) — funcionário não é um cadastro de
+      // favorecido/fornecedor, então essas movimentações nunca devem virar pendência aqui.
+      if (t.origem === 'hr_salario') continue;
       const raw = (t.favorecido || '').trim();
       if (!raw) continue;
       const key = raw.toLowerCase();
