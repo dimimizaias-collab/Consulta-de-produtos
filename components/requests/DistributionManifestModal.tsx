@@ -12,6 +12,8 @@ const MANIFEST_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+
 // Estilo "molde da nota" — mesma barra de cabeçalho amarela contínua + chip por coluna,
 // e célula em duas camadas (td fino + div arredondado) usada na tabela de revisão da nota
 // (app/page.tsx, thBar/lbl/cell). Reaproveitado aqui via classes utilitárias fixas porque
@@ -59,6 +61,18 @@ interface ManifestItem {
   // com observação, igual ao fluxo da nota.
   discrepancy: DiscrepancyData;
 }
+
+// Ajuste de VALOR do toggle "Confirmar divergência" — subtrai (falta) ou soma (sobra) o
+// Preço de Custo × quantidade divergente do Valor Total do item. A quantidade (Qtd. Env.
+// exibida e o estoque lançado na aprovação, ver getEffectiveReceivedQty) já é ajustada
+// sempre que a Falta/Sobra é salva, independente deste toggle.
+const getDiscrepancyValueAdjustment = (it: ManifestItem): number => {
+  const d = it.discrepancy;
+  if (!d || !d.disregarded) return 0;
+  const qty = d.type === 'falta' ? (d.missingAll ? it.qty : (d.qty || 0)) : (d.qty || 0);
+  const value = qty * it.costPrice;
+  return d.type === 'falta' ? -value : value;
+};
 
 interface DistributionManifestModalProps {
   manifest: DistributionManifestDraft;
@@ -394,7 +408,7 @@ export function DistributionManifestModal({
     setItems(prev => prev.filter(it => it.id !== id));
   };
 
-  const itemsTotal = items.reduce((acc, it) => acc + it.qty * it.costPrice, 0);
+  const itemsTotal = items.reduce((acc, it) => acc + it.qty * it.costPrice + getDiscrepancyValueAdjustment(it), 0);
 
   const releaseLock = () => {
     if (!isExistingState || !colaboradorId) return;
@@ -548,13 +562,15 @@ export function DistributionManifestModal({
     setDiscrepancyModalItemId(null);
   };
 
-  // Quantidade efetiva recebida — Qtd. Env. ajustada pela divergência confirmada
-  // ("Desconsiderar produto"), usada pra alimentar o estoque da Empresa Destino na aprovação.
-  // Diferente da nota (getEffectiveQty): aqui "sobra" soma à quantidade, não subtrai — faz
-  // sentido pro contexto de recebimento (chegou mais do que foi enviado).
+  // Quantidade efetiva recebida — Qtd. Env. ajustada pela Falta/Sobra registrada, usada pra
+  // alimentar o estoque da Empresa Destino na aprovação. Aplicada sempre que a divergência é
+  // salva, independente do toggle "Confirmar divergência" (que agora só ajusta o Valor Total,
+  // ver getDiscrepancyValueAdjustment). Diferente da nota (getEffectiveQty): aqui "sobra" soma
+  // à quantidade, não subtrai — faz sentido pro contexto de recebimento (chegou mais do que
+  // foi enviado).
   const getEffectiveReceivedQty = (it: ManifestItem): number => {
     const d = it.discrepancy;
-    if (!d || !d.disregarded) return it.qty;
+    if (!d) return it.qty;
     if (d.type === 'falta') return d.missingAll ? 0 : Math.max(0, it.qty - (d.qty || 0));
     return it.qty + (d.qty || 0);
   };
@@ -1056,19 +1072,21 @@ export function DistributionManifestModal({
                         </thead>
                         <tbody>
                           {items.map((it, idx) => {
-                            const total = it.qty * it.costPrice;
+                            // Valor Total — inclui o ajuste de VALOR do toggle "Confirmar
+                            // divergência" (subtrai/soma Preço de Custo × qtd. divergente).
+                            const total = it.qty * it.costPrice + getDiscrepancyValueAdjustment(it);
                             // Markup conectado ao Preço de Venda da loja destino (não mais à origem,
                             // que é "apenas referência") — mesmo cálculo por loja usado na nota.
                             const markup = it.costPrice > 0 && it.salePriceDestination !== null
                               ? ((it.salePriceDestination - it.costPrice) / it.costPrice) * 100
                               : null;
-                            // Qtd. Env. exibida — some/soma a divergência CONFIRMADA ("Confirmar
-                            // divergência" no modal de Falta/Sobra), mesmo valor que
-                            // getEffectiveReceivedQty aplica no estoque na aprovação. O dado gravado
-                            // (it.qty, a quantidade realmente enviada) nunca é sobrescrito — só a
-                            // exibição muda pra refletir a diferença já confirmada.
+                            // Qtd. Env. exibida — já reflete a Falta/Sobra assim que é salva no
+                            // modal (mesmo valor que getEffectiveReceivedQty aplica no estoque na
+                            // aprovação), independente do toggle "Confirmar divergência". O dado
+                            // gravado (it.qty, a quantidade realmente enviada) nunca é sobrescrito —
+                            // só a exibição muda pra refletir a diferença.
                             const effQty = getEffectiveReceivedQty(it);
-                            const showRecalc = !editable && !!it.discrepancy?.disregarded && effQty !== it.qty;
+                            const showRecalc = !editable && !!it.discrepancy && effQty !== it.qty;
                             return (
                               <tr key={it.id}>
                                 <td className={tdCls}><div className={cn(cellCls, 'justify-center text-on-surface/35 font-medium')}>{idx + 1}</div></td>
@@ -1575,8 +1593,9 @@ export function DistributionManifestModal({
                                     onChange={e => setDiscrepancyQty(e.target.value)}
                                     autoFocus
                                     placeholder="0"
+                                    onWheel={blockWheelChange}
                                     className={cn(
-                                      'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all',
+                                      'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden',
                                       'border-black/[0.10] dark:border-white/[0.10]', accentRing
                                     )}
                                   />
@@ -1605,8 +1624,9 @@ export function DistributionManifestModal({
                             onChange={e => setDiscrepancyQty(e.target.value)}
                             autoFocus
                             placeholder="0"
+                            onWheel={blockWheelChange}
                             className={cn(
-                              'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all',
+                              'w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden',
                               'border-black/[0.10] dark:border-white/[0.10]', accentRing
                             )}
                           />
@@ -1641,7 +1661,7 @@ export function DistributionManifestModal({
                         </button>
                       </div>
                       <p className="text-[11px] font-semibold leading-[1.45] text-[#92400E]/85 dark:text-amber-300/75 mt-1.5">
-                        Ajusta a quantidade lançada no estoque da Empresa Destino na aprovação (abate a falta ou soma a sobra à Qtd. Env.).
+                        Ajusta o valor: subtrai (Falta) ou soma (Sobra) o Preço de Custo × quantidade divergente do Valor Total.
                       </p>
                     </div>
 

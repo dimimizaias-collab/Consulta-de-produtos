@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Falta/Sobra v3 (Dark)</title>
+<style>
+  :root {
+    --bg-page: #16160f;
+    --modal-bg: #1E1E18;
+    --header-bg: #FFE500;
+    --header-border: #C8B800;
+    --text: #F2F0E3;
+    --text-muted: rgba(242,240,227,0.40);
+    --card-bg: #252520;
+    --card-border: rgba(242,240,227,0.08);
+    --field-bg: rgba(242,240,227,0.05);
+    --field-border: rgba(242,240,227,0.10);
+    --field-border-old: rgba(216,30,30,0.55);
+    --field-bg-old: rgba(216,30,30,0.10);
+    --red: #D81E1E;
+    --emerald: #34D399;
+    --amber-text: #FCD34D;
+    --amber-bg: rgba(252,211,77,0.14);
+    --amber-bg-on: rgba(252,211,77,0.08);
+    --amber-border-on: rgba(252,211,77,0.30);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", DM Sans, sans-serif;
+    background: var(--bg-page);
+    padding: 40px 20px;
+    color: var(--text);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 40px; }
+  .col { flex: 1; min-width: 340px; }
+  .label-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 12px;
+  }
+  .chip-before { background: rgba(216,30,30,0.18); color: #ff6b6b; }
+  .chip-after { background: rgba(52,211,153,0.16); color: var(--emerald); }
+
+  .modal-card {
+    background: var(--modal-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    max-width: 480px;
+  }
+  .modal-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--header-border);
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+  .field-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px;
+    padding: 16px; display: flex; align-items: center; gap: 20px;
+  }
+  .toggle { width: 36px; height: 20px; border-radius: 999px; position: relative; background: rgba(242,240,227,0.14); flex-shrink: 0; }
+  .toggle .knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px; background: #1A1A0E; box-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  .toggle.on { background: #f59e0b; }
+  .toggle.on .knob { left: 18px; background: #1A1A0E; }
+
+  .qty-field-wrap { flex: 1; min-width: 140px; }
+  .qty-field-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(242,240,227,0.35); margin-bottom: 6px; }
+
+  .qty-input-old {
+    width: 100%;
+    background: var(--field-bg-old);
+    border: 1.5px solid var(--field-border-old);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.2);
+    overflow: hidden;
+  }
+
+  .qty-input-new {
+    width: 100%;
+    background: var(--field-bg);
+    border: 1.5px solid var(--field-border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    outline: none;
+  }
+  .qty-input-new:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(216,30,30,0.2);
+  }
+
+  .divergencia-box { border-radius: 16px; border: 1.5px dashed; padding: 14px 16px; }
+  .divergencia-box.off { border-color: rgba(242,240,227,0.10); background: rgba(242,240,227,0.02); }
+  .divergencia-box.on { border-color: var(--amber-border-on); background: var(--amber-bg-on); }
+  .divergencia-top { display: flex; align-items: center; gap: 10px; }
+  .divergencia-icon { width: 28px; height: 28px; border-radius: 9px; background: var(--amber-bg); color: var(--amber-text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .divergencia-title { font-size: 12.5px; font-weight: 900; color: var(--amber-text); flex: 1; }
+  .divergencia-desc { font-size: 11px; font-weight: 600; line-height: 1.5; color: rgba(252,211,77,0.75); margin: 6px 0 0; }
+
+  .note-banner {
+    background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); border-radius: 14px;
+    padding: 12px 16px; font-size: 12.5px; font-weight: 600; color: #6ee7b7; line-height: 1.5; margin-top: 10px;
+  }
+
+  table.demo { border-collapse: separate; border-spacing: 0 6px; width: 100%; }
+  table.demo th { text-align: left; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(242,240,227,0.4); padding: 0 10px 4px; }
+  table.demo td { padding: 0; }
+  .cell {
+    background: #252520; border: 1.5px solid rgba(242,240,227,0.08); border-radius: 9px;
+    height: 40px; display: flex; align-items: center; padding: 0 10px; gap: 8px;
+  }
+  .qty-old-badge { font-size: 13px; font-weight: 900; display: inline-flex; align-items: center; gap: 3px; }
+  .qty-old-dot { font-size: 8px; font-weight: 900; line-height: 1; }
+  .qty-old-dot.falta { color: #f87171; }
+  .warn-btn { width: 20px; height: 20px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.3); }
+  .warn-btn.falta { color: #f87171; }
+
+  .discrep-btn {
+    width: 20px; height: 20px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid; flex-shrink: 0;
+  }
+  .discrep-btn.falta { color: var(--red); border-color: rgba(216,30,30,0.5); background: rgba(216,30,30,0.16); }
+  .qty-new-value { font-weight: 900; font-size: 13.5px; }
+  .qty-new-value.falta { color: var(--red); }
+  .qty-strike { font-size: 9px; font-weight: 700; color: rgba(242,240,227,0.25); text-decoration: line-through; }
+</style>
+</head>
+<body>
+  <h1>Módulo Falta/Sobra — Ajustes propostos</h1>
+  <div class="sub">Mockup estático (modo escuro) — Distribuição &amp; Nota. Comparação Antes → Depois.</div>
+
+  <div class="row">
+    <div class="col">
+      <span class="label-chip chip-before">Antes</span>
+      <div class="field-card">
+        <div class="qty-field-wrap">
+          <div class="qty-field-label">Qtd. Faltando</div>
+          <input class="qty-input-old" type="number" value="0" />
+        </div>
+      </div>
+      <div class="sub" style="margin-top:8px;">Borda cortada pelo focus ring, setas nativas do input number aparecem.</div>
+    </div>
+    <div class="col">
+      <span class="label-chip chip-after">Depois</span>
+      <div class="field-card">
+        <div class="qty-field-wrap">
+          <div class="qty-field-label">Qtd. Faltando</div>
+          <input class="qty-input-new" type="text" inputmode="numeric" value="0" />
+        </div>
+      </div>
+      <div class="sub" style="margin-top:8px;">Mesmo padrão dos outros campos do modal. Sem setas, sem alterar valor com o scroll do mouse.</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <span class="label-chip chip-before">Antes</span>
+      <div class="modal-card" style="max-width:420px;">
+        <div class="modal-body" style="padding-top:0;">
+          <div class="divergencia-box off">
+            <div class="divergencia-top">
+              <span class="divergencia-icon">⛔</span>
+              <span class="divergencia-title">Confirmar divergência</span>
+              <div class="toggle"><div class="knob"></div></div>
+            </div>
+            <p class="divergencia-desc">Ajusta a quantidade lançada no estoque da Empresa Destino na aprovação (abate a falta ou soma a sobra à Qtd. Env.).</p>
+          </div>
+        </div>
+      </div>
+      <div class="sub" style="margin-top:8px;">Hoje: só ajusta o estoque quando o toggle está ligado — sem toggle, a falta/sobra fica só registrada.</div>
+    </div>
+    <div class="col">
+      <span class="label-chip chip-after">Depois</span>
+      <div class="modal-card" style="max-width:420px;">
+        <div class="modal-body" style="padding-top:0;">
+          <div class="divergencia-box on">
+            <div class="divergencia-top">
+              <span class="divergencia-icon">⛔</span>
+              <span class="divergencia-title">Confirmar divergência</span>
+              <div class="toggle on"><div class="knob"></div></div>
+            </div>
+            <p class="divergencia-desc">Ajusta o valor: subtrai (Falta) ou soma (Sobra) o preço unitário × quantidade divergente do Valor Total.</p>
+          </div>
+          <div class="note-banner">✓ Ao Salvar, a quantidade já é subtraída/somada automaticamente — com ou sem esse toggle.</div>
+        </div>
+      </div>
+      <div class="sub" style="margin-top:8px;">Agora: Salvar já ajusta a quantidade sempre. O toggle passa a controlar só o valor (preço).</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <span class="label-chip chip-before">Antes — Nota (coluna Qtd.)</span>
+      <table class="demo">
+        <tr><th>Qtd.</th></tr>
+        <tr><td>
+          <div class="cell" style="justify-content:center; gap:10px;">
+            <span class="qty-old-badge">12 <span class="qty-old-dot falta">●</span></span>
+            <span class="warn-btn falta">▲</span>
+          </div>
+        </td></tr>
+      </table>
+      <div class="sub" style="margin-top:8px;">Badge numérico + pontinho colorido + ícone de alerta triangular separado.</div>
+    </div>
+    <div class="col">
+      <span class="label-chip chip-after">Depois — Nota (igual Qtd. Env. da Distribuição)</span>
+      <table class="demo">
+        <tr><th>Qtd.</th></tr>
+        <tr><td>
+          <div class="cell" style="gap:8px;">
+            <span class="discrep-btn falta">↓</span>
+            <span class="qty-new-value falta">10</span>
+            <span class="qty-strike">12</span>
+          </div>
+        </td></tr>
+      </table>
+      <div class="sub" style="margin-top:8px;">Mesmo padrão da Distribuição: botão circular colorido (seta) + quantidade efetiva em negrito + quantidade original riscada.</div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -34,7 +34,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -654,6 +654,15 @@ export default function Page() {
     if (!discrepancy || !discrepancy.disregarded) return qty;
     if (discrepancy.type === 'falta' && discrepancy.missingAll) return 0;
     return Math.max(0, qty - (discrepancy.qty || 0));
+  };
+  // Quantidade exibida na coluna Qtd. — sempre reflete a Falta/Sobra registrada assim que o
+  // usuário salva o registro, independente do toggle "Confirmar divergência" (que agora só
+  // ajusta o Valor Total/Markup, ver getEffectiveQty acima). Mesmo padrão visual da coluna
+  // Qtd. Env. da Distribuição (DistributionManifestModal.tsx, getEffectiveReceivedQty).
+  const getDisplayQty = (qty: number, discrepancy: DiscrepancyData | null | undefined): number => {
+    if (!discrepancy) return qty;
+    if (discrepancy.type === 'falta') return discrepancy.missingAll ? 0 : Math.max(0, qty - (discrepancy.qty || 0));
+    return qty + (discrepancy.qty || 0);
   };
   // Divergência "vigente" de um item: usa o estado de edição em tela (viewingNoteDiscrepancies)
   // sempre que ele já cobre esse índice — mesmo quando o valor lá é `null` (== usuário limpou
@@ -10543,7 +10552,7 @@ export default function Page() {
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'center', ...(isRowFocused ? { borderColor: '#DC2626', boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' } : {}) })}>
                               {isDisregarded ? (
-                                <span title="Produto desconsiderado da nota" className="text-amber-600 dark:text-amber-400">
+                                <span title="Divergência confirmada — valor ajustado no total/markup" className="text-amber-600 dark:text-amber-400">
                                   <Ban size={13} strokeWidth={2.4} />
                                 </span>
                               ) : (
@@ -10899,49 +10908,55 @@ export default function Page() {
                                 onBlur={captureSnapshot}
                                 onWheel={blockWheelChange}
                                 className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
-                            ) : (
-                              <span className="text-sm font-black inline-flex items-baseline gap-0.5 px-3 py-1.5 rounded-[9px]" style={{ background: 'var(--rn-cell-inner)', color: 'var(--rn-text)' }}>
-                                {viewingNoteQtys[idx] ?? item.qty}
-                                {(() => {
-                                  const d = getItemDiscrepancy(idx, item);
-                                  if (!d) return null;
-                                  return <span className={cn("text-[8px] font-black leading-none", d.type === 'falta' ? 'text-red-400' : 'text-emerald-400')}>{d.type === 'falta' ? '●' : '+'}</span>;
-                                })()}
-                              </span>
-                            )}
-                            {/* Discrepancy trigger button */}
-                            {(() => {
+                            ) : (() => {
+                              // Mesmo padrão visual da coluna Qtd. Env. da Distribuição: botão
+                              // circular colorido (seta) + quantidade efetiva em negrito + qtd.
+                              // original riscada quando há Falta/Sobra registrada.
                               const d = getItemDiscrepancy(idx, item);
+                              const rawQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                              const effQty = getDisplayQty(rawQty, d);
+                              const showRecalc = !!d && effQty !== rawQty;
                               return (
-                                <button
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    const existing = getItemDiscrepancy(idx, item);
-                                    setDiscrepancyTab(existing?.type ?? 'falta');
-                                    setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
-                                    setDiscrepancyMissingAll(existing?.missingAll ?? false);
-                                    setDiscrepancyObs(existing?.obs ?? '');
-                                    setDiscrepancyDisregarded(existing?.disregarded ?? false);
-                                    setDiscrepancyModalIdx(idx);
-                                  }}
-                                  title={d?.disregarded ? "Produto desconsiderado da nota" : "Registrar divergência"}
-                                  className={cn(
-                                    "relative flex items-center justify-center w-5 h-5 rounded-full transition-all shrink-0",
-                                    d?.disregarded ? "text-amber-500 dark:text-amber-400/90 hover:text-amber-600 dark:hover:text-amber-300"
-                                    : d?.type === 'falta' ? "text-red-500 dark:text-red-400/90 hover:text-red-600 dark:hover:text-red-300"
-                                    : d?.type === 'sobra' ? "text-emerald-600 dark:text-emerald-400/90 hover:text-emerald-700 dark:hover:text-emerald-300"
-                                    : "text-black/25 hover:text-black/50 dark:text-white/20 dark:hover:text-white/50"
+                                <>
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      const existing = getItemDiscrepancy(idx, item);
+                                      setDiscrepancyTab(existing?.type ?? 'falta');
+                                      setDiscrepancyQty(existing && !existing.missingAll ? String(existing.qty || '') : '');
+                                      setDiscrepancyMissingAll(existing?.missingAll ?? false);
+                                      setDiscrepancyObs(existing?.obs ?? '');
+                                      setDiscrepancyDisregarded(existing?.disregarded ?? false);
+                                      setDiscrepancyModalIdx(idx);
+                                    }}
+                                    title={
+                                      d
+                                        ? (d.type === 'falta'
+                                            ? (d.missingAll ? 'Falta — não veio (clique para editar)' : `Falta ${d.qty} (clique para editar)`)
+                                            : `Sobra ${d.qty} (clique para editar)`)
+                                        : 'Registrar Falta/Sobra'
+                                    }
+                                    className={cn(
+                                      "flex items-center justify-center w-5 h-5 rounded-full border-[1.5px] transition-colors shrink-0",
+                                      d?.type === 'falta'
+                                        ? "text-red-500 dark:text-red-400 border-red-500/40 bg-red-500/10 hover:bg-red-500/20"
+                                        : d?.type === 'sobra'
+                                          ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
+                                          : "text-black/30 dark:text-white/25 border-black/20 dark:border-white/20 hover:text-black/55 dark:hover:text-white/55 hover:border-black/35 dark:hover:border-white/35"
+                                    )}
+                                  >
+                                    {d?.type === 'falta' ? <ArrowDown size={11} /> : d?.type === 'sobra' ? <ArrowUp size={11} /> : <Plus size={11} />}
+                                  </button>
+                                  <span className={cn(
+                                    "text-sm font-black",
+                                    showRecalc ? (d!.type === 'falta' ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400") : ""
+                                  )} style={showRecalc ? undefined : { color: 'var(--rn-text)' }}>
+                                    {effQty}
+                                  </span>
+                                  {showRecalc && (
+                                    <span className="text-[9px] font-bold text-black/30 dark:text-white/25 line-through shrink-0">{rawQty}</span>
                                   )}
-                                  style={{ transition: 'color 140ms cubic-bezier(0.23,1,0.32,1)' }}
-                                >
-                                  <AlertTriangle size={11} />
-                                  {d && (
-                                    <span className={cn(
-                                      "absolute -top-px -right-px w-[5px] h-[5px] rounded-full",
-                                      d.disregarded ? 'bg-amber-400 animate-pulse' : d.type === 'falta' ? 'bg-red-400 animate-pulse' : 'bg-emerald-400'
-                                    )} />
-                                  )}
-                                </button>
+                                </>
                               );
                             })()}
                             </div>
@@ -12597,7 +12612,7 @@ export default function Page() {
                                           placeholder="0"
                                           onWheel={blockWheelChange}
                                           className={cn(
-                                            "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                            "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden",
                                             "border-black/[0.10] dark:border-white/[0.10]", accentRing
                                           )}
                                           style={{ transition: 'box-shadow 150ms ease' }}
@@ -12629,7 +12644,7 @@ export default function Page() {
                                   placeholder="0"
                                   onWheel={blockWheelChange}
                                   className={cn(
-                                    "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all",
+                                    "w-full bg-black/[0.035] dark:bg-white/[0.05] border rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#1A1A0E] dark:text-[#f2f0e3] focus:outline-none focus:ring-2 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden",
                                     "border-black/[0.10] dark:border-white/[0.10]", accentRing
                                   )}
                                   style={{ transition: 'box-shadow 150ms ease' }}
@@ -12638,7 +12653,9 @@ export default function Page() {
                             )}
                           </AnimatePresence>
 
-                          {/* Desconsiderar produto */}
+                          {/* Confirmar divergência — agora só ajusta o VALOR (Valor Total/Markup da
+                              nota), não a quantidade. A quantidade exibida na coluna Qtd. já é
+                              ajustada automaticamente ao salvar este registro, com ou sem este toggle. */}
                           <div className={cn(
                             "rounded-2xl border-[1.5px] border-dashed px-4 py-3.5 transition-colors",
                             discrepancyDisregarded
@@ -12649,7 +12666,7 @@ export default function Page() {
                               <span className="w-7 h-7 rounded-[9px] bg-[#92400E]/[0.12] dark:bg-amber-400/[0.14] text-[#92400E] dark:text-amber-300 flex items-center justify-center shrink-0">
                                 <Ban size={14} strokeWidth={2.3} />
                               </span>
-                              <span className="text-[12.5px] font-black text-[#92400E] dark:text-amber-300 flex-1">Desconsiderar produto</span>
+                              <span className="text-[12.5px] font-black text-[#92400E] dark:text-amber-300 flex-1">Confirmar divergência</span>
                               <button
                                 type="button"
                                 onClick={() => setDiscrepancyDisregarded(v => !v)}
@@ -12666,7 +12683,7 @@ export default function Page() {
                               </button>
                             </div>
                             <p className="text-[11px] font-semibold leading-[1.45] text-[#92400E]/85 dark:text-amber-300/75 mt-1.5">
-                              A quantidade informada acima deixa de ser somada no valor total e no markup da nota (quantidade inteira, se "Produto não veio" estiver marcado).
+                              Ajusta o valor: subtrai (Falta) ou soma (Sobra) o preço unitário × quantidade divergente do Valor Total e do Markup da nota.
                             </p>
                           </div>
 
