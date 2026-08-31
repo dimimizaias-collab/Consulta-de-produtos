@@ -2050,6 +2050,7 @@ export function LogisticsCenter({
                           </span>
                         </th>
                       ))}
+                      <th className="px-3 py-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -2076,9 +2077,26 @@ export function LogisticsCenter({
                           <td className="px-4 py-3.5 font-mono text-[12.5px] font-bold text-on-surface">{m.manifestNumber}</td>
                           <td className="px-4 py-3.5 font-semibold text-on-surface">{companyName(m.originCompanyId)}</td>
                           <td className="px-4 py-3.5 font-semibold text-on-surface">{m.destinationCompanyId ? companyName(m.destinationCompanyId) : <span className="text-on-surface/30">—</span>}</td>
-                          <td className="px-4 py-3.5 text-on-surface">{m.itemCount}</td>
-                          <td className="px-4 py-3.5 font-mono text-on-surface">{fmtBRL(m.total)}</td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                              {m.itemCount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span className="text-xs font-bold text-on-surface/70">
+                              {fmtBRL(m.total)}
+                            </span>
+                          </td>
                           <td className="px-4 py-3.5 text-on-surface">{m.shippingDate ? fmtDateBR(m.shippingDate) : <span className="text-on-surface/30">—</span>}</td>
+                          <td className="px-4 py-3.5">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleOpenDistributionManifest(m); }}
+                              title="Ver / editar manifesto"
+                              className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}

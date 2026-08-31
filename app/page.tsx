@@ -1979,7 +1979,10 @@ export default function Page() {
       const shippingDate = note.receivedDate || nowIso.slice(0, 10);
 
       for (const destCompanyId of destCompanyIds) {
-        const { data: manifestNumber, error: rpcError } = await supabase.rpc('get_next_distribution_manifest_number');
+        // Manifestos originados de uma nota usam o nome do Fornecedor + sufixo sequencial
+        // (ex. "Distribuidora ABC 01"), diferente do "DIST-000012" dos manifestos criados
+        // manualmente na aba Distribuição — lá não há fornecedor associado.
+        const { data: manifestNumber, error: rpcError } = await supabase.rpc('get_next_distribution_manifest_number_for_supplier', { p_supplier_name: note.supplierName || null });
         if (rpcError || !manifestNumber) throw new Error('Não foi possível gerar o número do manifesto.');
         const manifestId = crypto.randomUUID();
         const { error: manifestError } = await supabase.from('distribution_manifests').insert({
