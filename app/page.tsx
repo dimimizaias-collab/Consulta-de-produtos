@@ -2775,6 +2775,7 @@ export default function Page() {
 
     let vProdOriginalTotal = 0;
     let vProdNovoTotal = 0;
+    const matchedIdx = new Set<number>();
 
     dets.forEach(det => {
       const prod = firstChild(det, 'prod');
@@ -2792,6 +2793,7 @@ export default function Page() {
         vProdNovoTotal += originalVProd;
         return;
       }
+      matchedIdx.add(idx);
 
       const item = items[idx];
       const rawCost = (item.price || 0) / (item.multiplier || 1);
@@ -2811,6 +2813,48 @@ export default function Page() {
         setText(prod, 'uCom', item.unit);
         setText(prod, 'uTrib', item.unit);
       }
+    });
+
+    // Itens adicionados manualmente na revisão (sem correspondência no XML original importado):
+    // cria novos <det>, clonando o primeiro como modelo (mantém a estrutura de impostos exigida
+    // pelo schema da NFe — os valores fiscais desse bloco clonado são apenas um placeholder,
+    // já que o item não veio na nota original e não temos os dados fiscais reais dele).
+    let lastDet: Element = dets[dets.length - 1];
+    const parent = lastDet.parentNode;
+    let maxNItem = dets.reduce((max, det) => Math.max(max, parseInt(det.getAttribute('nItem') || '0', 10) || 0), 0);
+
+    items.forEach((item: any, idx: number) => {
+      if (matchedIdx.has(idx)) return;
+      const rawCost = (item.price || 0) / (item.multiplier || 1);
+      const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, noteAdjColumns || []);
+      const adjCost = rawCost - disc + sur;
+      const distribTotal = getDistribTotal(idx, item);
+      const finalQty = Math.max(0, (item.qty || 0) - distribTotal);
+      if (finalQty <= 0) return;
+      const finalVProd = adjCost * finalQty;
+      vProdNovoTotal += finalVProd;
+
+      const newDet = dets[0].cloneNode(true) as Element;
+      maxNItem += 1;
+      newDet.setAttribute('nItem', String(maxNItem));
+      const prod = firstChild(newDet, 'prod');
+      if (prod) {
+        setText(prod, 'cProd', item.sku || item.supplier_code || `NOVO${maxNItem}`);
+        setText(prod, 'cEAN', item.ean || 'SEM GTIN');
+        setText(prod, 'cEANTrib', item.ean || 'SEM GTIN');
+        setText(prod, 'xProd', item.name || item.original_description || 'Produto adicionado na revisão');
+        setText(prod, 'qCom', finalQty.toFixed(4));
+        setText(prod, 'qTrib', finalQty.toFixed(4));
+        setText(prod, 'vUnCom', adjCost.toFixed(10));
+        setText(prod, 'vUnTrib', adjCost.toFixed(10));
+        setText(prod, 'vProd', finalVProd.toFixed(2));
+        if (item.unit) {
+          setText(prod, 'uCom', item.unit);
+          setText(prod, 'uTrib', item.unit);
+        }
+      }
+      parent?.insertBefore(newDet, lastDet.nextSibling);
+      lastDet = newDet;
     });
 
     // Totais (total/ICMSTot e cobr/fat) recalculados por diferença — preserva frete/desconto/
