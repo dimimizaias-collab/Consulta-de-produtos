@@ -2059,9 +2059,8 @@ export function LogisticsCenter({
                       return (
                         <tr
                           key={m.id}
-                          onClick={() => handleOpenDistributionManifest(m)}
                           className={cn(
-                            'transition-colors cursor-pointer',
+                            'transition-colors',
                             idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40',
                             'hover:bg-on-surface/[0.03]'
                           )}
@@ -2090,7 +2089,7 @@ export function LogisticsCenter({
                           <td className="px-4 py-3.5 text-on-surface">{m.shippingDate ? fmtDateBR(m.shippingDate) : <span className="text-on-surface/30">—</span>}</td>
                           <td className="px-4 py-3.5">
                             <button
-                              onClick={e => { e.stopPropagation(); handleOpenDistributionManifest(m); }}
+                              onClick={() => handleOpenDistributionManifest(m)}
                               title="Ver / editar manifesto"
                               className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
                             >
