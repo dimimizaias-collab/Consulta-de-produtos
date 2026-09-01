@@ -10501,6 +10501,7 @@ export default function Page() {
                         display: 'flex',
                         alignItems: 'center',
                         overflow: 'hidden',
+                        whiteSpace: 'nowrap',
                         transition: 'border-color 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 120ms cubic-bezier(0.23,1,0.32,1)',
                         ...extra,
                       });
@@ -10873,7 +10874,7 @@ export default function Page() {
                                     </span>
                                   );
                                 })()}
-                                <span className="text-sm font-black" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
+                                <span className="text-sm font-black truncate min-w-0 max-w-[56px]" style={{ color: 'var(--rn-text-muted)' }} title={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
                                 {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
                                   <span className="text-[9px] font-black text-primary/60 leading-none shrink-0">×{viewingNoteMultipliers[idx] ?? item.multiplier}</span>
                                 )}
