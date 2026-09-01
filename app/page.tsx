@@ -857,7 +857,10 @@ export default function Page() {
   // ── Redimensionar colunas da tabela de nota (estilo Excel) ──
   // Larguras customizadas por coluna, chaveadas pelo mesmo nome usado em reviewHiddenCols
   // (ou pelo id da coluna dinâmica de ajuste). Persistidas por navegador — não por nota.
-  const REVIEW_COL_WIDTHS_STORAGE_KEY = 'notaReviewColWidths';
+  // _v2 — a v1 guardava larguras "fantasma": antes do fix de largura da tabela (table-layout:fixed
+  // sem width explícito), arrastar uma coluna salvava um valor no localStorage sem efeito visual
+  // nenhum. Com o fix, esses valores antigos passaram a ser aplicados de verdade e vinham tortos.
+  const REVIEW_COL_WIDTHS_STORAGE_KEY = 'notaReviewColWidths_v2';
   const REVIEW_COL_MIN_WIDTH = 36;
   const REVIEW_COL_DEFAULT_WIDTHS: Record<string, number> = {
     '#': 40, 'Código': 92, 'Produto na Nota': 230, 'Identificação Interna': 190, 'EAN': 150,
