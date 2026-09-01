@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Fix Medida (Light)</title>
+<style>
+  :root{
+    --bg: #FDFAF0;
+    --th-bg: #FFE500;
+    --th-border: #D4C000;
+    --th-chip-bg: rgba(26,26,10,0.05);
+    --th-chip-border: rgba(26,26,10,0.10);
+    --th-fg: rgba(26,26,10,0.55);
+    --row-even: #FFFFFF;
+    --row-odd: #FAF7EE;
+    --cell-border: rgba(224,216,191,0.80);
+    --cell-inner: rgba(0,0,0,0.06);
+    --text-muted: rgba(26,26,10,0.50);
+    --title: #1A1A0E;
+    --card-bg: #FFFFFF;
+    --card-border: #E7E1CC;
+    --label: rgba(26,26,10,0.45);
+    --bad: #D81E1E;
+    --good: #0A7A55;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:40px; background:#EFE9D6;
+    font-family:'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color:var(--title);
+  }
+  h1{ font-size:15px; font-weight:900; letter-spacing:-0.01em; margin:0 0 4px 2px; }
+  .sub{ font-size:12px; font-weight:600; color:var(--label); margin:0 0 26px 2px; }
+  .wrap{ max-width:760px; margin:0 auto; }
+  .row-of-cards{ display:flex; gap:22px; flex-wrap:wrap; }
+  .card{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:20px;
+    padding:20px 22px 22px 22px; flex:1; min-width:300px;
+  }
+  .tag{
+    display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:900;
+    text-transform:uppercase; letter-spacing:0.08em; padding:5px 11px; border-radius:9999px;
+    margin-bottom:14px;
+  }
+  .tag.bad{ background:rgba(216,30,30,0.09); color:var(--bad); }
+  .tag.good{ background:rgba(10,122,85,0.10); color:var(--good); }
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    background:var(--th-bg); border-bottom:1px solid var(--th-border); padding:7px; height:32px; text-align:center;
+  }
+  .th-chip{
+    display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:900;
+    text-transform:uppercase; letter-spacing:0.09em; color:var(--th-fg); background:var(--th-chip-bg);
+    border:1.5px solid var(--th-chip-border); border-radius:9999px; padding:5px 12px;
+  }
+  td{ padding:4px 6px; }
+  tr.row-even{ background:var(--row-even); }
+  tr.row-odd{ background:var(--row-odd); }
+  .cell{ display:flex; align-items:center; justify-content:center; height:38px; }
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:9px;
+    background:var(--cell-inner); font-size:13px; font-weight:900; color:var(--text-muted);
+  }
+  .pill.broken{
+    flex-direction:column; align-items:center; line-height:1.15; gap:0; padding:3px 11px;
+    text-align:center; white-space:normal;
+  }
+  .pill.fixed{
+    max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .note{ margin-top:14px; font-size:11px; color:var(--label); font-weight:600; line-height:1.5; }
+  .note b{ color:var(--title); }
+  .tooltip-demo{ display:flex; align-items:center; gap:8px; margin-top:16px; padding:10px 12px; background:rgba(26,26,10,0.035); border-radius:12px; }
+  .tooltip-box{ background:#1A1A0E; color:#F2F0E3; font-size:10.5px; font-weight:700; padding:5px 9px; border-radius:7px; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Coluna "Medida" — tabela de revisão de Nota</h1>
+  <p class="sub">Antes vs. depois do fix aplicado em app/page.tsx (commit 5296426)</p>
+
+  <div class="row-of-cards">
+
+    <div class="card">
+      <span class="tag bad">Antes — quebrava linha</span>
+      <table>
+        <thead><tr><th><span class="th-chip">Medida</span></th></tr></thead>
+        <tbody>
+          <tr class="row-even"><td><div class="cell"><span class="pill broken"><span>1</span><span>BOX/25</span></span></div></td></tr>
+          <tr class="row-odd"><td><div class="cell"><span class="pill broken"><span>1</span><span>BOX/25</span></span></div></td></tr>
+          <tr class="row-even"><td><div class="cell"><span class="pill broken"><span>1</span><span>BOX/25</span></span></div></td></tr>
+          <tr class="row-odd" style="background:#FFF8D0;"><td><div class="cell"><span class="pill broken"><span>1</span><span>BOX/25</span></span></div></td></tr>
+          <tr class="row-even"><td><div class="cell"><span class="pill broken"><span>1</span><span>BOX/25</span></span></div></td></tr>
+        </tbody>
+      </table>
+      <p class="note">O texto "1 BOX/25" quebrava em duas linhas dentro da pill, empurrando a altura da célula e desalinhando a tabela.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag good">Depois — uma linha só</span>
+      <table>
+        <thead><tr><th><span class="th-chip">Medida</span></th></tr></thead>
+        <tbody>
+          <tr class="row-even"><td><div class="cell"><span class="pill fixed">1 BOX/25</span></div></td></tr>
+          <tr class="row-odd"><td><div class="cell"><span class="pill fixed">1 BOX/25</span></div></td></tr>
+          <tr class="row-even"><td><div class="cell"><span class="pill fixed">1 BOX/25</span></div></td></tr>
+          <tr class="row-odd" style="background:#FFF8D0;"><td><div class="cell"><span class="pill fixed">1 BOX/…</span></div></td></tr>
+          <tr class="row-even"><td><div class="cell"><span class="pill fixed">1 BOX/25</span></div></td></tr>
+        </tbody>
+      </table>
+      <p class="note">Texto trunca com <b>reticências</b> quando não cabe (linha destacada) — altura da célula constante, tabela nunca desalinha.</p>
+      <div class="tooltip-demo">
+        <span class="pill fixed" style="border:1.5px solid rgba(216,30,30,0.4);">1 BOX/…</span>
+        <span style="font-size:11px;color:var(--label);">→ ao passar o mouse:</span>
+        <span class="tooltip-box">1 BOX/25</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

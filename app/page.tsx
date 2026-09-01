@@ -10109,11 +10109,18 @@ export default function Page() {
                 )}
                 style={{ padding: 0 }}
               >
-                <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                {(() => {
+                  // table-layout:fixed só respeita as larguras do <colgroup> quando a <table>
+                  // tem uma largura explícita — sem isso o navegador redistribui o espaço
+                  // proporcionalmente entre as colunas a cada resize, anulando o arrasto
+                  // (é por isso que comprimir/alongar parecia não fazer nada).
+                  const visibleReviewColKeys = (['#', 'Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', ...adjColumns.map(c => c.id), 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as string[])
+                    .filter(key => key === '#' || !reviewHiddenCols.has(key));
+                  const totalReviewTableWidth = visibleReviewColKeys.reduce((sum, key) => sum + reviewColWidthFor(key), 0) + 36;
+                  return (
+                <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: totalReviewTableWidth }}>
                   <colgroup>
-                    {(['#', 'Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', ...adjColumns.map(c => c.id), 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as string[])
-                      .filter(key => key === '#' || !reviewHiddenCols.has(key))
-                      .map(key => (<col key={key} style={{ width: reviewColWidthFor(key) }} />))}
+                    {visibleReviewColKeys.map(key => (<col key={key} style={{ width: reviewColWidthFor(key) }} />))}
                     <col style={{ width: 36 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-10">
@@ -11463,6 +11470,8 @@ export default function Page() {
                     )}
                   </tbody>
                 </table>
+                  );
+                })()}
               </div>
 
               {/* ── Vincular ao Dicionário — Modal separado ────────────────── */}
