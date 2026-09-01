@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Distribuição (Light)</title>
+<style>
+  :root{
+    --bg: #FDFAF0;
+    --header-bg: #FAF7EE;
+    --header-border: rgba(26,26,10,0.07);
+    --chip-bg: rgba(216,30,30,0.10);
+    --chip-fg: #D81E1E;
+    --title: #1A1A0E;
+    --muted: rgba(26,26,10,0.40);
+    --muted-2: rgba(26,26,10,0.50);
+    --pill-bg: rgba(26,26,10,0.07);
+    --close-bg: rgba(26,26,10,0.06);
+    --close-fg: rgba(26,26,10,0.45);
+    --th-bg: #FFE500;
+    --th-border: #D4C000;
+    --th-chip-bg: rgba(0,0,0,0.06);
+    --th-chip-border: rgba(0,0,0,0.10);
+    --th-fg: rgba(26,26,10,0.55);
+    --row-even: #FFFFFF;
+    --row-odd: #FAF7EE;
+    --row-border: #E0D8BF;
+    --row-active-bg: rgba(26,26,10,0.075);
+    --cell-border: #E0D8BF;
+    --cell-bg: #FFFFFF;
+    --cell-text: #1A1A0E;
+    --num-idle: rgba(26,26,10,0.35);
+    --num-active: #D81E1E;
+    --dropdown-bg: #FFFFFF;
+    --dropdown-border: #E7E1CC;
+    --dropdown-hover: rgba(26,26,10,0.05);
+    --accent: #D81E1E;
+    --card-bg: #FFFFFF;
+    --card-border: #E7E1CC;
+    --label: rgba(26,26,10,0.45);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:40px; background:#EFE9D6;
+    font-family:'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color:var(--title);
+  }
+  h2.section{
+    font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.08em;
+    color:rgba(26,26,10,0.55); margin:0 0 14px 2px;
+  }
+  .wrap{ max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:44px; }
+  .row-of-cards{ display:flex; gap:20px; flex-wrap:wrap; }
+  .card{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:20px;
+    padding:0; overflow:hidden; box-shadow: 0 1px 2px rgba(26,26,10,0.04);
+    flex:1; min-width:420px;
+  }
+  .card-label{
+    font-size:10.5px; font-weight:900; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--label); padding:14px 18px 0 18px;
+  }
+  /* ---- Header mockup ---- */
+  .modal-header{
+    background:var(--header-bg); border-bottom:1px solid var(--header-border);
+    padding:18px 20px 14px 20px; margin-top:12px;
+  }
+  .header-row{ display:flex; align-items:center; gap:13px; }
+  .icon-chip{
+    width:44px; height:44px; border-radius:14px; background:var(--chip-bg); color:var(--chip-fg);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .title-block{ flex:1; min-width:0; }
+  .title-line{ display:flex; align-items:center; gap:6px; }
+  .title-text{ font-size:19px; font-weight:900; color:var(--title); letter-spacing:-0.01em; }
+  .pencil-btn{
+    width:24px; height:24px; border-radius:8px; border:none; background:transparent;
+    color:rgba(26,26,10,0.28); display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .pencil-btn:hover{ background:rgba(26,26,10,0.07); color:rgba(26,26,10,0.6); }
+  .sub-pill{
+    display:inline-flex; align-items:center; margin-top:6px; font-family:'DM Mono', monospace;
+    font-size:11px; font-weight:700; color:var(--muted-2); background:var(--pill-bg);
+    padding:4px 10px; border-radius:8px;
+  }
+  .close-btn{
+    width:34px; height:34px; border-radius:10px; background:var(--close-bg); color:var(--close-fg);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid rgba(26,26,10,0.08);
+  }
+  .tabs{ display:flex; gap:4px; margin-top:14px; }
+  .tab{
+    font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;
+    padding:9px 14px 8px 14px; border-bottom:3px solid transparent; color:rgba(26,26,10,0.38);
+  }
+  .tab.active{ color:var(--title); border-color:var(--accent); }
+
+  /* edit mode */
+  .edit-input-wrap{ position:relative; flex:1; max-width:280px; }
+  .edit-input{
+    width:100%; font-size:19px; font-weight:900; color:var(--title); background:transparent;
+    border:none; border-bottom:2px solid var(--accent); outline:none; padding:0 0 3px 0;
+  }
+  .confirm-btn{
+    width:26px; height:26px; border-radius:8px; border:none; background:transparent; color:var(--accent);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .dropdown{
+    position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--dropdown-bg);
+    border:1px solid var(--dropdown-border); border-radius:14px; box-shadow:0 14px 34px rgba(26,26,10,0.16);
+    overflow:hidden; z-index:5; margin:0; padding:5px;
+  }
+  .dropdown li{
+    list-style:none; margin:0; padding:9px 10px; font-size:13px; font-weight:700; color:var(--title);
+    cursor:pointer; display:flex; align-items:center; gap:9px; border-radius:9px;
+    text-align:left; transition:background-color 120ms ease;
+  }
+  .dropdown li + li{ margin-top:1px; }
+  .dropdown li .co-ic{
+    width:24px; height:24px; border-radius:7px; background:rgba(26,26,10,0.06); color:rgba(26,26,10,0.42);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .dropdown li .co-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dropdown li .co-check{ color:var(--accent); flex-shrink:0; display:flex; }
+  .dropdown li:hover{ background:var(--dropdown-hover); }
+  .dropdown li.sel{ background:rgba(216,30,30,0.07); color:var(--accent); }
+  .dropdown li.sel .co-ic{ background:rgba(216,30,30,0.12); color:var(--accent); }
+  .num-line{ display:flex; align-items:center; gap:2px; margin-top:6px; }
+  .num-input{
+    font-size:11.5px; font-weight:700; color:var(--muted-2); background:transparent; border:none;
+    border-bottom:1px solid rgba(26,26,10,0.18); outline:none; width:130px; padding:0 0 2px 0;
+  }
+
+  /* ---- Table mockup ---- */
+  .table-card{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:20px; overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    background:var(--th-bg); border-bottom:1px solid var(--th-border); padding:8px; height:36px;
+  }
+  .th-chip{
+    display:inline-flex; align-items:center; justify-content:center; gap:4px; width:100%;
+    font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:0.09em; color:var(--th-fg);
+    background:var(--th-chip-bg); border:1.5px solid var(--th-chip-border); border-radius:9999px; padding:5px 10px;
+    white-space:nowrap;
+  }
+  td{ padding:3px; border-bottom:1px solid var(--row-border); }
+  tr.row-even{ background:var(--row-even); }
+  tr.row-odd{ background:var(--row-odd); }
+  tr.row-active{ background:var(--row-active-bg); }
+  tr{ transition: background-color 130ms ease; }
+  .cell{
+    border-radius:9px; border:1.5px solid var(--cell-border); background:var(--cell-bg); height:36px;
+    display:flex; align-items:center; padding:0 10px; font-size:12px; font-weight:700; color:var(--cell-text);
+    overflow:hidden; white-space:nowrap;
+  }
+  .cell.active-cell{ border-color:rgba(216,30,30,0.5); box-shadow:0 0 0 3px rgba(216,30,30,0.13); }
+  .cell.num{ justify-content:center; font-weight:600; color:var(--num-idle); border:none; background:transparent; }
+  .cell.num.active{ color:var(--num-active); font-weight:900; }
+  .cell.right{ justify-content:flex-end; font-family:'DM Mono', monospace; }
+  .cell.center{ justify-content:center; }
+  .cell.mono{ font-family:'DM Mono', monospace; font-size:11px; color:rgba(26,26,10,0.5); }
+  .caption{ font-size:11px; color:rgba(26,26,10,0.45); font-weight:600; padding:12px 18px 16px 18px; }
+  .caption b{ color:var(--accent); font-weight:900; }
+  svg{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div>
+    <h2 class="section">1 · Campo "Empresa Origem" — no molde do Fornecedor da Nota</h2>
+    <div class="row-of-cards">
+
+      <div class="card">
+        <div class="card-label">Modo exibição (padrão)</div>
+        <div class="modal-header">
+          <div class="header-row">
+            <div class="icon-chip">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+            </div>
+            <div class="title-block">
+              <div class="title-line">
+                <span class="title-text">Universo do R$1,99</span>
+                <button class="pencil-btn" title="Editar empresa origem">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+              </div>
+              <span class="sub-pill">RIVATEX 01</span>
+            </div>
+            <div class="close-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </div>
+          </div>
+          <div class="tabs">
+            <span class="tab active">Produtos</span>
+            <span class="tab">Recebimento</span>
+          </div>
+        </div>
+        <div class="caption">Título estático + <b>lápis</b> — igual ao nome do fornecedor na Nota. Clique no lápis para editar.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Modo edição (ao clicar no lápis)</div>
+        <div class="modal-header">
+          <div class="header-row">
+            <div class="icon-chip">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+            </div>
+            <div class="title-block">
+              <div class="title-line">
+                <div class="edit-input-wrap">
+                  <input class="edit-input" value="Univer" readonly />
+                  <ul class="dropdown">
+                    <li class="sel">
+                      <span class="co-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1"/></svg></span>
+                      <span class="co-name">Universo do R$1,99</span>
+                      <span class="co-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg></span>
+                    </li>
+                    <li>
+                      <span class="co-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1"/></svg></span>
+                      <span class="co-name">Universo Center</span>
+                    </li>
+                    <li>
+                      <span class="co-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1"/></svg></span>
+                      <span class="co-name">Universo Kids</span>
+                    </li>
+                  </ul>
+                </div>
+                <button class="confirm-btn" title="Confirmar">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>
+                </button>
+              </div>
+              <div class="num-line"><input class="num-input" value="RIVATEX 01" readonly /></div>
+            </div>
+            <div class="close-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </div>
+          </div>
+          <div class="tabs">
+            <span class="tab active">Produtos</span>
+            <span class="tab">Recebimento</span>
+          </div>
+        </div>
+        <div class="caption">Input com sublinhado vermelho + autocomplete + botão de <b>confirmar</b> — mesmo comportamento do combobox de fornecedor.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div>
+    <h2 class="section">2 · Tabela de Itens — linha em uso: fundo cinza discreto + número em vermelho</h2>
+    <div class="table-card">
+      <table>
+        <colgroup>
+          <col style="width:44px" /><col style="width:220px" /><col style="width:110px" />
+          <col style="width:80px" /><col style="width:110px" /><col style="width:110px" />
+          <col style="width:110px" /><col style="width:80px" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th><div class="th-chip">#</div></th>
+            <th><div class="th-chip">Produto</div></th>
+            <th><div class="th-chip">EAN</div></th>
+            <th><div class="th-chip">Medida</div></th>
+            <th><div class="th-chip">Qtd. Env.</div></th>
+            <th><div class="th-chip">Preço Custo</div></th>
+            <th><div class="th-chip">Valor Total</div></th>
+            <th><div class="th-chip">Markup</div></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-even">
+            <td><div class="cell num">1</div></td>
+            <td><div class="cell">Refrigerante Cola 2L</div></td>
+            <td><div class="cell mono">7891000100103</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell right">24</div></td>
+            <td><div class="cell right">R$ 4,90</div></td>
+            <td><div class="cell right">R$ 117,60</div></td>
+            <td><div class="cell right" style="color:#0A7A55">+18,4%</div></td>
+          </tr>
+          <tr class="row-odd row-active">
+            <td><div class="cell num active">2</div></td>
+            <td><div class="cell">Detergente Neutro 500ml</div></td>
+            <td><div class="cell mono">7891000200207</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell right active-cell">18</div></td>
+            <td><div class="cell right">R$ 2,10</div></td>
+            <td><div class="cell right">R$ 37,80</div></td>
+            <td><div class="cell right" style="color:#0A7A55">+22,1%</div></td>
+          </tr>
+          <tr class="row-even">
+            <td><div class="cell num">3</div></td>
+            <td><div class="cell">Sabonete Glicerinado 90g</div></td>
+            <td><div class="cell mono">7891000300301</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell right">40</div></td>
+            <td><div class="cell right">R$ 1,35</div></td>
+            <td><div class="cell right">R$ 54,00</div></td>
+            <td><div class="cell right" style="color:#D81E1E">-4,2%</div></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="caption">Linha 2 simula o estado "em uso" — célula <b>Qtd. Env.</b> com foco (halo vermelho), fundo da linha inteira em cinza bem discreto e número do item (<b>2</b>) em vermelho. Ao sair da linha, tudo volta ao normal.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

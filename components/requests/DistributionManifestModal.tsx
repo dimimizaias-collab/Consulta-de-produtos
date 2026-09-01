@@ -96,7 +96,13 @@ export function DistributionManifestModal({
   const [originCompanyId, setOriginCompanyId] = useState(manifest.originCompanyId || '');
   const [originQuery, setOriginQuery] = useState(companies.find(c => c.id === manifest.originCompanyId)?.nome_fantasia || '');
   const [originOpen, setOriginOpen] = useState(false);
+  // Modo exibição/edição do campo Empresa Origem — mesmo padrão do combobox de Fornecedor
+  // na Nota (título estático + lápis, vira input só ao clicar em editar).
+  const [editingOrigin, setEditingOrigin] = useState(!manifest.originCompanyId);
   const originRef = useRef<HTMLDivElement>(null);
+  // Linha da tabela de itens "em uso" (célula com foco) — fundo cinza discreto + número do
+  // item em vermelho, mesmo sinal visual usado na tabela de revisão da nota.
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'produtos' | 'recebimento'>('produtos');
   const [saving, setSaving] = useState(false);
 
@@ -745,42 +751,70 @@ export function DistributionManifestModal({
               <Package size={20} />
             </div>
             <div className="flex-1 min-w-0" ref={originRef}>
-              <div className="relative">
-                <input
-                  autoFocus={!originCompanyId}
-                  value={originQuery}
-                  disabled={!editable}
-                  onChange={e => { setOriginQuery(e.target.value); setOriginOpen(true); if (!e.target.value) setOriginCompanyId(''); }}
-                  onFocus={() => setOriginOpen(true)}
-                  placeholder="Selecionar empresa origem…"
-                  autoComplete="off"
-                  className="text-xl font-black text-on-surface border-b-2 border-[#D81E1E] outline-none bg-transparent w-full placeholder:text-on-surface/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <AnimatePresence>
-                  {originOpen && editable && (
-                    <motion.ul
-                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                      transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                      className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-line dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto"
+              {editingOrigin ? (
+                <div className="relative">
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={originQuery}
+                      disabled={!editable}
+                      onChange={e => { setOriginQuery(e.target.value); setOriginOpen(true); if (!e.target.value) setOriginCompanyId(''); }}
+                      onFocus={() => setOriginOpen(true)}
+                      placeholder="Selecionar empresa origem…"
+                      autoComplete="off"
+                      className="text-xl font-black text-on-surface border-b-2 border-[#D81E1E] outline-none bg-transparent w-full placeholder:text-on-surface/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                    {originCompanyId && (
+                      <button
+                        onClick={() => { setEditingOrigin(false); setOriginOpen(false); }}
+                        className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors shrink-0" title="Confirmar"
+                      >
+                        <CheckCircle2 size={16} className="text-primary" />
+                      </button>
+                    )}
+                  </div>
+                  <AnimatePresence>
+                    {originOpen && editable && (
+                      <motion.ul
+                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-line dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto p-[5px]"
+                      >
+                        {filteredCompanies.map(c => (
+                          <li
+                            key={c.id}
+                            onMouseDown={() => { setOriginCompanyId(c.id); setOriginQuery(c.nome_fantasia); setOriginOpen(false); }}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm font-semibold text-on-surface hover:bg-on-surface/5 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
+                          >
+                            <span className="truncate">{c.nome_fantasia}</span>
+                            {c.id === originCompanyId && <Check size={14} className="text-[#D81E1E] shrink-0 ml-auto" />}
+                          </li>
+                        ))}
+                        {filteredCompanies.length === 0 && (
+                          <li className="px-2.5 py-2 text-sm text-on-surface/35 italic">Nenhuma loja encontrada</li>
+                        )}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-black text-on-surface truncate">
+                    {companies.find(c => c.id === originCompanyId)?.nome_fantasia || <span className="text-on-surface/30 font-medium">Selecionar empresa origem…</span>}
+                  </h3>
+                  {editable && (
+                    <button
+                      onClick={() => { setEditingOrigin(true); setOriginQuery(companies.find(c => c.id === originCompanyId)?.nome_fantasia || ''); }}
+                      className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60 shrink-0"
+                      title="Editar empresa origem"
                     >
-                      {filteredCompanies.map(c => (
-                        <li
-                          key={c.id}
-                          onMouseDown={() => { setOriginCompanyId(c.id); setOriginQuery(c.nome_fantasia); setOriginOpen(false); }}
-                          className="px-3 py-2.5 text-sm font-semibold text-on-surface hover:bg-on-surface/5 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
-                        >
-                          {c.nome_fantasia}
-                        </li>
-                      ))}
-                      {filteredCompanies.length === 0 && (
-                        <li className="px-3 py-2.5 text-sm text-on-surface/35 italic">Nenhuma loja encontrada</li>
-                      )}
-                    </motion.ul>
+                      <Pencil size={14} />
+                    </button>
                   )}
-                </AnimatePresence>
-              </div>
+                </div>
+              )}
               <div className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-on-surface/50 bg-on-surface/[0.07] px-2.5 py-1 rounded-lg">
                 {manifest.manifestNumber}
               </div>
@@ -1087,9 +1121,15 @@ export function DistributionManifestModal({
                             // só a exibição muda pra refletir a diferença.
                             const effQty = getEffectiveReceivedQty(it);
                             const showRecalc = !editable && !!it.discrepancy && effQty !== it.qty;
+                            const isRowFocused = focusedItemId === it.id;
                             return (
-                              <tr key={it.id}>
-                                <td className={tdCls}><div className={cn(cellCls, 'justify-center text-on-surface/35 font-medium')}>{idx + 1}</div></td>
+                              <tr
+                                key={it.id}
+                                className={cn('transition-colors', isRowFocused && 'bg-on-surface/[0.075] dark:bg-white/[0.065]')}
+                                onFocus={() => setFocusedItemId(it.id)}
+                                onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedItemId(null); }}
+                              >
+                                <td className={tdCls}><div className={cn(cellCls, 'justify-center font-medium', isRowFocused ? 'text-[#D81E1E] font-black' : 'text-on-surface/35')}>{idx + 1}</div></td>
                                 <td className={tdCls}><div className={cellCls} title={it.productName}><span className="truncate">{it.productName}</span></div></td>
                                 <td className={tdCls}><div className={cn(cellCls, 'font-mono text-[11px] text-on-surface/50')}>{it.ean || '—'}</div></td>
                                 <td className={tdCls}>
