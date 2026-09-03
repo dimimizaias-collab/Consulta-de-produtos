@@ -34,7 +34,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -778,6 +778,7 @@ export default function Page() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [noteSupplierMappings, setNoteSupplierMappings] = useState<any[]>([]);
+  const [noteCostHistory, setNoteCostHistory] = useState<Map<string, { price: number; date: string }>>(new Map());
   const [showSupplierProductsModal, setShowSupplierProductsModal] = useState(false);
   const [supplierProductsSearch, setSupplierProductsSearch] = useState('');
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
@@ -3569,6 +3570,37 @@ export default function Page() {
         .then(({ data }) => setNoteSupplierMappings(data || []));
     } else {
       setNoteSupplierMappings([]);
+    }
+    // Índice/UPC (aba Nota Original): busca o preço de custo desse produto na compra
+    // anterior mais recente do mesmo fornecedor, pra comparar com o preço desta nota.
+    setNoteCostHistory(new Map());
+    const currentDateKey = note.receivedDate || (note.createdAt ? note.createdAt.slice(0, 10) : null);
+    if (sidForNote) {
+      supabase.from('review_notes')
+        .select('id, items, received_date, created_at')
+        .eq('supplier_id', sidForNote)
+        .eq('is_draft', false)
+        .neq('id', note.id)
+        .order('created_at', { ascending: false })
+        .limit(150)
+        .then(({ data }) => {
+          if (!data) return;
+          const withDate = data
+            .map((n: any) => ({ items: n.items || [], dateKey: n.received_date || (n.created_at ? String(n.created_at).slice(0, 10) : null) }))
+            .filter((n: any) => n.dateKey && (!currentDateKey || n.dateKey < currentDateKey))
+            .sort((a: any, b: any) => (a.dateKey < b.dateKey ? 1 : a.dateKey > b.dateKey ? -1 : 0));
+          const map = new Map<string, { price: number; date: string }>();
+          for (const n of withDate) {
+            for (const it of n.items) {
+              const code = getNoteItemMatchCode(it.ean, it.supplier_code);
+              const price = it.original_price ?? it.price ?? 0;
+              if (!code || price <= 0) continue;
+              const key = `${code}|${it.unit || ''}`;
+              if (!map.has(key)) map.set(key, { price, date: n.dateKey });
+            }
+          }
+          setNoteCostHistory(map);
+        });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierNames]);
@@ -9762,14 +9794,41 @@ export default function Page() {
                 const rows = (viewingReviewNote.items || []).map((item: any, idx: number) => {
                   const qty = item.original_qty ?? item.qty ?? 0;
                   const price = item.original_price ?? item.price ?? 0;
-                  return { item, idx, qty, price, total: qty * price };
+                  const matchCode = getNoteItemMatchCode(item.ean, item.supplier_code);
+                  const history = matchCode ? noteCostHistory.get(`${matchCode}|${item.unit || ''}`) : undefined;
+                  const cmp: 'up' | 'down' | 'equal' | 'none' = !history || price <= 0
+                    ? 'none'
+                    : Math.abs(price - history.price) < 0.005
+                      ? 'equal'
+                      : price > history.price ? 'up' : 'down';
+                  return { item, idx, qty, price, total: qty * price, cmp, history };
                 });
                 const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+                const indiceBadge = (cmp: 'up' | 'down' | 'equal' | 'none') => {
+                  const meta = {
+                    up:    { bg: 'bg-red-500/10', ic: 'text-red-500 dark:text-red-400', corner: 'bg-red-600', title: 'Preço aumentou em relação à última compra' },
+                    down:  { bg: 'bg-emerald-500/10', ic: 'text-emerald-600 dark:text-emerald-400', corner: 'bg-emerald-600', title: 'Preço diminuiu em relação à última compra' },
+                    equal: { bg: 'bg-[#FFE500]/15', ic: 'text-[#B8A600] dark:text-[#FFE500]', corner: 'bg-[#FFE500]', title: 'Preço igual ao da última compra' },
+                    none:  { bg: 'bg-on-surface/[0.05]', ic: 'text-on-surface/25', corner: 'bg-on-surface/20', title: 'Sem compra anterior desse produto com este fornecedor para comparar' },
+                  }[cmp];
+                  const CornerIcon = cmp === 'up' ? ArrowUp : cmp === 'down' ? ArrowDown : cmp === 'equal' ? Check : Minus;
+                  const cornerIconCls = cmp === 'equal' ? 'text-[#1A1A0E]' : 'text-white';
+                  return (
+                    <div className="flex items-center justify-center">
+                      <div className={cn('relative w-7 h-7 rounded-[9px] flex items-center justify-center', meta.bg)} title={meta.title}>
+                        <DollarSign size={14} className={meta.ic} />
+                        <span className={cn('absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center border-[1.5px] border-[var(--rn-cell-bg)]', meta.corner)}>
+                          <CornerIcon size={8} strokeWidth={3} className={cornerIconCls} />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                };
                 return (
                   <div
                     className="flex-1 overflow-auto p-8 [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
                   >
-                    <div className="max-w-5xl">
+                    <div className="max-w-6xl">
                       <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
                         <ScrollText size={12} />
                         Nota Original
@@ -9840,6 +9899,8 @@ export default function Page() {
                                   { label: 'Qtd.', align: 'center' },
                                   { label: 'Preço Unit.', align: 'right' },
                                   { label: 'Valor Total', align: 'right' },
+                                  { label: 'Índice', align: 'center' },
+                                  { label: 'UPC', align: 'right' },
                                 ];
                                 return cols.map(c => (
                                   <th key={c.label} style={{ ...thBar, paddingLeft: c.label === '#' ? '10px' : thBar.padding }}>
@@ -9852,7 +9913,7 @@ export default function Page() {
                             </tr>
                           </thead>
                           <tbody>
-                            {rows.map(({ item, idx, qty, price, total }, i) => {
+                            {rows.map(({ item, idx, qty, price, total, cmp, history }, i) => {
                               const tdCls = "px-3 py-2.5 text-[12px] font-semibold";
                               return (
                                 <tr key={idx}
@@ -9867,6 +9928,19 @@ export default function Page() {
                                   <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text)' }}>{qty}</td>
                                   <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>{price > 0 ? `R$ ${price.toFixed(2)}` : '-'}</td>
                                   <td className={cn(tdCls, "text-right font-black")} style={{ color: 'var(--rn-text)' }}>{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
+                                  <td className={tdCls}>{indiceBadge(cmp)}</td>
+                                  <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>
+                                    {history ? (
+                                      <>
+                                        <span className="font-bold">{`R$ ${history.price.toFixed(2)}`}</span>
+                                        <span className="block text-[9px] font-bold mt-0.5" style={{ color: 'var(--rn-text-subtle)' }}>
+                                          nota de {history.date.split('-').reverse().join('/')}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span style={{ color: 'var(--rn-text-subtle)' }}>—</span>
+                                    )}
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -9876,6 +9950,7 @@ export default function Page() {
                               <tr style={{ borderTop: '1.5px solid var(--rn-th-border)' }}>
                                 <td colSpan={7} className="px-3 py-2.5 text-[11px] font-black text-right uppercase tracking-wide" style={{ color: 'var(--rn-text-muted)' }}>Total da Nota</td>
                                 <td className="px-3 py-2.5 text-[13px] font-black text-right" style={{ color: 'var(--rn-text)' }}>{`R$ ${grandTotal.toFixed(2)}`}</td>
+                                <td colSpan={2}></td>
                               </tr>
                             </tfoot>
                           )}

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Índice / UPC (Dark)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px;
+    background: #1E1E18;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .eyebrow {
+    font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(242,240,227,0.40); display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .eyebrow .muted { font-weight: 600; text-transform: none; letter-spacing: normal; color: rgba(242,240,227,0.30); }
+
+  .card {
+    border-radius: 16px; overflow: hidden; border: 1px solid rgba(242,240,227,0.06);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 1.5px solid #DCC63D; }
+  th {
+    background: #FFEC4D; padding: 9px 8px; vertical-align: middle; height: 36px; text-align: left;
+  }
+  th.center .lbl, td.center { text-align: center; }
+  th.right .lbl, td.right { text-align: right; }
+  .lbl {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900;
+    letter-spacing: 0.10em; text-transform: uppercase; color: rgba(26,26,10,0.58);
+    background: rgba(26,26,10,0.05); border: 1.5px solid rgba(26,26,10,0.12);
+    border-radius: 9999px; padding: 5px 13px; white-space: nowrap;
+  }
+  th.first { padding-left: 10px; }
+  th.new-col .lbl { background: rgba(216,30,30,0.10); border-color: rgba(216,30,30,0.22); color: #8E1D1D; }
+
+  td { padding: 10px 8px; font-size: 12px; font-weight: 600; color: rgba(242,240,227,0.85); border-bottom: 1px solid rgba(242,240,227,0.06); }
+  tr.row-even td { background: #252520; }
+  tr.row-odd td { background: #1E1E18; }
+  td.mono { font-family: 'DM Mono', monospace; color: rgba(242,240,227,0.50); }
+  td.muted { color: rgba(242,240,227,0.28); }
+  td.total { font-weight: 900; }
+  td.first { padding-left: 10px; text-align: center; color: rgba(242,240,227,0.22); }
+
+  tfoot td { padding: 10px 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(242,240,227,0.50); border-top: 1.5px solid #DCC63D; }
+  tfoot td.grand { font-size: 13px; font-weight: 900; color: rgba(242,240,227,0.85); text-align: right; }
+
+  /* ── Badge composto: dinheiro + selo no canto ── */
+  .idx-cell { display: flex; align-items: center; justify-content: center; }
+  .badge { position: relative; width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .badge svg.money { width: 15px; height: 15px; }
+  .corner { position: absolute; bottom: -3px; right: -3px; width: 14px; height: 14px; border-radius: 999px; display: flex; align-items: center; justify-content: center; border: 1.5px solid #1E1E18; }
+  .corner svg { width: 8px; height: 8px; }
+
+  .badge.up     { background: rgba(216,30,30,0.16); }
+  .badge.up     svg.money { color: #E5484D; }
+  .badge.up     .corner { background: #D81E1E; }
+  .badge.up     .corner svg { color: #fff; }
+
+  .badge.down   { background: rgba(52,211,153,0.14); }
+  .badge.down   svg.money { color: #34D399; }
+  .badge.down   .corner { background: #1E9E6E; }
+  .badge.down   .corner svg { color: #fff; }
+
+  .badge.equal  { background: rgba(255,229,0,0.14); }
+  .badge.equal  svg.money { color: #FFE500; }
+  .badge.equal  .corner { background: #FFE500; }
+  .badge.equal  .corner svg { color: #1A1A0E; }
+
+  .badge.none   { background: rgba(242,240,227,0.05); }
+  .badge.none   svg.money { color: rgba(242,240,227,0.25); }
+  .badge.none   .corner { background: rgba(242,240,227,0.20); }
+  .badge.none   .corner svg { color: #1E1E18; }
+
+  .upc-val { font-weight: 800; }
+  .upc-date { display: block; font-size: 9px; font-weight: 700; color: rgba(242,240,227,0.30); margin-top: 1px; }
+  .upc-empty { color: rgba(242,240,227,0.25); font-weight: 700; }
+
+  .legend { margin-top: 22px; display: flex; gap: 22px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.55); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">
+    ⧉ Nota Original
+    <span class="muted">— itens exatamente como vieram na importação, com as novas colunas Índice e UPC</span>
+  </p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="first center"><span class="lbl">#</span></th>
+          <th><span class="lbl">Código</span></th>
+          <th><span class="lbl">Produto na Nota</span></th>
+          <th><span class="lbl">EAN</span></th>
+          <th class="center"><span class="lbl">Unidade</span></th>
+          <th class="center"><span class="lbl">Qtd.</span></th>
+          <th class="right"><span class="lbl">Preço Unit.</span></th>
+          <th class="right"><span class="lbl">Valor Total</span></th>
+          <th class="center new-col"><span class="lbl">Índice</span></th>
+          <th class="right new-col"><span class="lbl">UPC</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Row 1: aumento -->
+        <tr class="row-even">
+          <td class="first">1</td>
+          <td class="mono">7842</td>
+          <td>caderno univ. brochurao c/d 48fls verde</td>
+          <td class="mono">7891253206515</td>
+          <td class="center">UN</td>
+          <td class="center">24</td>
+          <td class="right">R$ 11,90</td>
+          <td class="right total">R$ 285,60</td>
+          <td>
+            <div class="idx-cell">
+              <div class="badge up" title="Preço aumentou em relação à última compra">
+                <svg class="money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span class="corner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="6 11 12 5 18 11"></polyline></svg></span>
+              </div>
+            </div>
+          </td>
+          <td class="right">
+            <span class="upc-val">R$ 10,50</span>
+            <span class="upc-date">nota de 12/08/2026</span>
+          </td>
+        </tr>
+
+        <!-- Row 2: queda -->
+        <tr class="row-odd">
+          <td class="first">2</td>
+          <td class="mono">7843</td>
+          <td>piranha salao grande color brasnova</td>
+          <td class="mono">7898929813176</td>
+          <td class="center">CX</td>
+          <td class="center">10</td>
+          <td class="right">R$ 18,00</td>
+          <td class="right total">R$ 180,00</td>
+          <td>
+            <div class="idx-cell">
+              <div class="badge down" title="Preço diminuiu em relação à última compra">
+                <svg class="money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span class="corner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="18 13 12 19 6 13"></polyline></svg></span>
+              </div>
+            </div>
+          </td>
+          <td class="right">
+            <span class="upc-val">R$ 21,50</span>
+            <span class="upc-date">nota de 03/07/2026</span>
+          </td>
+        </tr>
+
+        <!-- Row 3: igual -->
+        <tr class="row-even">
+          <td class="first">3</td>
+          <td class="mono">7844</td>
+          <td>arame plastificado 30m 1223 western</td>
+          <td class="mono">7897186004167</td>
+          <td class="center">UN</td>
+          <td class="center">6</td>
+          <td class="right">R$ 12,00</td>
+          <td class="right total">R$ 72,00</td>
+          <td>
+            <div class="idx-cell">
+              <div class="badge equal" title="Preço igual ao da última compra">
+                <svg class="money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span class="corner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+              </div>
+            </div>
+          </td>
+          <td class="right">
+            <span class="upc-val">R$ 12,00</span>
+            <span class="upc-date">nota de 28/06/2026</span>
+          </td>
+        </tr>
+
+        <!-- Row 4: sem histórico -->
+        <tr class="row-odd">
+          <td class="first">4</td>
+          <td class="mono">7845</td>
+          <td>bloco c/1pç anotacao vinil/pvc pto</td>
+          <td class="mono">7894165000312</td>
+          <td class="center">UN</td>
+          <td class="center">50</td>
+          <td class="right">R$ 3,50</td>
+          <td class="right total">R$ 175,00</td>
+          <td>
+            <div class="idx-cell">
+              <div class="badge none" title="Sem compra anterior desse produto com este fornecedor para comparar">
+                <svg class="money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span class="corner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"></line></svg></span>
+              </div>
+            </div>
+          </td>
+          <td class="right"><span class="upc-empty">—</span></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="7">Total da Nota</td>
+          <td class="grand">R$ 712,60</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="badge up" style="width:22px;height:22px;border-radius:8px;"><svg class="money" style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div> Aumentou</div>
+    <div class="legend-item"><div class="badge down" style="width:22px;height:22px;border-radius:8px;"><svg class="money" style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div> Diminuiu</div>
+    <div class="legend-item"><div class="badge equal" style="width:22px;height:22px;border-radius:8px;"><svg class="money" style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div> Igual</div>
+    <div class="legend-item"><div class="badge none" style="width:22px;height:22px;border-radius:8px;"><svg class="money" style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div> Sem histórico</div>
+  </div>
+</div>
+</body>
+</html>
