@@ -13052,12 +13052,22 @@ export default function Page() {
                   new Map(
                     noteSupplierMappings
                       .filter(m => m.internal_product_id)
-                      .map(m => [m.internal_product_id, products.find((p: any) => p.id === m.internal_product_id)])
+                      .map(m => [m.internal_product_id, {
+                        ...(products.find((p: any) => p.id === m.internal_product_id) || {}),
+                        supplier_sku: m.supplier_sku || null,
+                        supplier_description: m.supplier_description || null,
+                      }])
                   ).values()
-                ).filter(Boolean) as any[];
+                ).filter((p: any) => p.id) as any[];
                 const q = supplierProductsSearch.toLowerCase().trim();
                 const filtered = q
-                  ? supplierProducts.filter(p => (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.ean || '').toLowerCase().includes(q))
+                  ? supplierProducts.filter(p =>
+                      (p.name || '').toLowerCase().includes(q) ||
+                      (p.sku || '').toLowerCase().includes(q) ||
+                      (p.ean || '').toLowerCase().includes(q) ||
+                      (p.supplier_sku || '').toLowerCase().includes(q) ||
+                      (p.supplier_description || '').toLowerCase().includes(q)
+                    )
                   : supplierProducts;
                 return (
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
@@ -13092,7 +13102,7 @@ export default function Page() {
                             autoFocus
                             value={supplierProductsSearch}
                             onChange={e => setSupplierProductsSearch(e.target.value)}
-                            placeholder="Buscar por nome, SKU ou EAN..."
+                            placeholder="Buscar por nome, SKU, EAN ou código/descrição do fornecedor..."
                             className="w-full pl-9 pr-3 py-2.5 text-sm font-medium bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:border-primary transition-colors text-slate-800 dark:text-on-surface"
                           />
                         </div>
@@ -13118,6 +13128,9 @@ export default function Page() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-slate-800 dark:text-on-surface truncate">{p.name}</p>
                               <p className="text-[10px] text-slate-400">{p.sku || '—'} · {p.ean || '—'}{p.price > 0 ? ` · R$ ${p.price.toFixed(2).replace('.', ',')}` : ''}</p>
+                              {(p.supplier_sku || p.supplier_description) && (
+                                <p className="text-[10px] text-primary/70 truncate mt-0.5">Fornecedor: {p.supplier_sku || '—'}{p.supplier_description ? ` · ${p.supplier_description}` : ''}</p>
+                              )}
                             </div>
                           </button>
                         ))}
