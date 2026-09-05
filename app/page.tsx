@@ -3529,7 +3529,7 @@ export default function Page() {
     setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
     setViewingNoteMeasureConverted(note.items.map((item: any) => !!item.measureConverted));
-    setViewingNoteQtyPriceEdited(note.items.map(() => false));
+    setViewingNoteQtyPriceEdited(note.items.map((item: any) => !!item.qty_price_manually_edited));
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
     setReviewEditableCols(new Set());
@@ -4400,6 +4400,9 @@ export default function Page() {
       // Selo de "Medida definida por conversão" — precisa ser persistido (não só na tela),
       // senão some ao reabrir a nota mesmo com a unidade/quantidade já convertidas.
       measureConverted: viewingNoteMeasureConverted[idx] ?? item.measureConverted ?? false,
+      // Marca "Qtd./Preço editados à mão" — precisa ser persistido (não só na tela), senão o
+      // aviso de possível conversão duplicada some ao fechar e reabrir a nota mais tarde.
+      qty_price_manually_edited: viewingNoteQtyPriceEdited[idx] ?? item.qty_price_manually_edited ?? false,
       ...((() => { const leg = adjLegacy(); return {
         adj_discount_mode: leg.discountMode,
         adj_discount_applied: leg.discountMode === 'geral' ? leg.discountApplied : null,
