@@ -759,6 +759,11 @@ export default function Page() {
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
   // Marca itens cuja Medida foi definida via "Usar tradução" ou "Adicionar medida" (badge de conversão na célula)
   const [viewingNoteMeasureConverted, setViewingNoteMeasureConverted] = useState<boolean[]>([]);
+  // Marca itens cuja Qtd./Preço Custo foram editados manualmente pelo usuário na grade — usado
+  // pra avisar (em vez de assumir) quando o Produto Mãe é cadastrado depois: se o valor já foi
+  // mexido à mão, não dá pra saber se já está convertido ou se ainda é o bruto da nota. Ver
+  // commitItemMotherDraft e o bloco de conversão em handleNoteItemCreateAndLink/confirmNoteItemLink.
+  const [viewingNoteQtyPriceEdited, setViewingNoteQtyPriceEdited] = useState<boolean[]>([]);
   // product_ids com tradução de medida (supplier_units) já cadastrada — evita abrir o menu Medida
   // com a opção "Usar tradução" quando não há nada pra usar (pula direto pra "Adicionar Medida")
   const [productsWithMeasureTranslation, setProductsWithMeasureTranslation] = useState<Set<string>>(new Set());
@@ -3433,6 +3438,7 @@ export default function Page() {
       viewingNoteUnits: [...viewingNoteUnits],
       viewingNoteMultipliers: [...viewingNoteMultipliers],
       viewingNoteMeasureConverted: [...viewingNoteMeasureConverted],
+      viewingNoteQtyPriceEdited: [...viewingNoteQtyPriceEdited],
       viewingNoteDistribuicao: [...viewingNoteDistribuicao],
       viewingNoteDistribByCompany: viewingNoteDistribByCompany.map(m => ({ ...m })),
       viewingNoteSellPrices: [...viewingNoteSellPrices],
@@ -3448,7 +3454,7 @@ export default function Page() {
     noteHistoryIdxRef.current = newStack.length - 1;
     setCanUndo(noteHistoryIdxRef.current > 0);
     setCanRedo(false);
-  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteMeasureConverted, viewingNoteDistribuicao, viewingNoteDistribByCompany, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
+  }, [viewingReviewNote, viewingNoteEans, viewingNoteSkus, viewingNoteQtys, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteMeasureConverted, viewingNoteQtyPriceEdited, viewingNoteDistribuicao, viewingNoteDistribByCompany, viewingNoteSellPrices, viewingNoteVerified, viewingNoteReviewTimestamps, viewingNoteDiscrepancies, adjColumns]);
 
   const applySnapshot = useCallback((snap: any) => {
     setViewingReviewNote(snap.viewingReviewNote);
@@ -3459,6 +3465,7 @@ export default function Page() {
     setViewingNoteUnits(snap.viewingNoteUnits);
     setViewingNoteMultipliers(snap.viewingNoteMultipliers);
     setViewingNoteMeasureConverted(snap.viewingNoteMeasureConverted ?? []);
+    setViewingNoteQtyPriceEdited(snap.viewingNoteQtyPriceEdited ?? []);
     setViewingNoteDistribuicao(snap.viewingNoteDistribuicao);
     setViewingNoteDistribByCompany(snap.viewingNoteDistribByCompany ?? []);
     setViewingDistribMode([]); // Presets não participam do undo/redo
@@ -3522,6 +3529,7 @@ export default function Page() {
     setViewingNoteUnits(note.items.map((item: any) => item.unit || ''));
     setViewingNoteMultipliers(note.items.map((item: any) => item.multiplier || 1));
     setViewingNoteMeasureConverted(note.items.map((item: any) => !!item.measureConverted));
+    setViewingNoteQtyPriceEdited(note.items.map(() => false));
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
     setReviewEditableCols(new Set());
@@ -3830,11 +3838,14 @@ export default function Page() {
   // nota em edição — sem exigir que o produto filho já exista. Fica só em estado local até o
   // usuário salvar a nota (mesmo comportamento de qualquer outra edição de item aqui), mas por
   // estar no item (não em estado efêmero do modal) sobrevive a fechar e reabrir o vínculo.
-  const commitItemMotherDraft = (draft: MotherPackageDraft | null) => {
+  // `skipConversion`: escolha do usuário no bloco de aviso do modal (só aparece quando
+  // viewingNoteQtyPriceEdited[idx] já era true) — fica junto do rascunho até ser consumida em
+  // handleNoteItemCreateAndLink/confirmNoteItemLink, quando o produto filho finalmente existe.
+  const commitItemMotherDraft = (draft: MotherPackageDraft | null, skipConversion?: boolean) => {
     if (!viewingReviewNote || linkingItemIdx === null) return;
     const hadNoDraftBefore = !viewingReviewNote.items[linkingItemIdx]?.mother_draft;
     const updated = [...viewingReviewNote.items];
-    updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft };
+    updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft, mother_draft_skip_conversion: draft ? !!skipConversion : false };
     setViewingReviewNote({ ...viewingReviewNote, items: updated });
     // O campo "Código EAN" do formulário "Criar Novo Produto" vem pré-preenchido, ao abrir o
     // vínculo, com o código digitado na coluna EAN da nota — que na etapa "Vincular Produto
@@ -3897,18 +3908,33 @@ export default function Page() {
           const liveQty = viewingNoteQtys[linkingItemIdx] ?? sourceItemBefore.qty;
           const livePrice = viewingNoteItemPrices[linkingItemIdx] ?? sourceItemBefore.price;
           const liveMultiplier = viewingNoteMultipliers[linkingItemIdx] ?? sourceItemBefore.multiplier;
-          const originalQty = sourceItemBefore.original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
-          const originalPrice = sourceItemBefore.original_price ?? (livePrice || 0) * (liveMultiplier || 1);
-          conversion = {
-            multiplier: mult,
-            qty: originalQty * mult,
-            original_qty: originalQty,
-            price: originalPrice,
-            original_price: originalPrice,
-            mother_package_id: motherPackageId,
-            mother_package_name: pendingMotherDraft.name,
-            mother_package_ean: pendingMotherDraft.ean,
-          };
+          // Usuário confirmou no modal que a Qtd./Preço já estavam mexidos à mão e já refletem
+          // a unidade do filho — não multiplica de novo, só registra o vínculo com a mãe.
+          if (sourceItemBefore.mother_draft_skip_conversion) {
+            conversion = {
+              multiplier: 1,
+              qty: liveQty,
+              original_qty: liveQty,
+              price: livePrice,
+              original_price: livePrice,
+              mother_package_id: motherPackageId,
+              mother_package_name: pendingMotherDraft.name,
+              mother_package_ean: pendingMotherDraft.ean,
+            };
+          } else {
+            const originalQty = sourceItemBefore.original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+            const originalPrice = sourceItemBefore.original_price ?? (livePrice || 0) * (liveMultiplier || 1);
+            conversion = {
+              multiplier: mult,
+              qty: originalQty * mult,
+              original_qty: originalQty,
+              price: originalPrice,
+              original_price: originalPrice,
+              mother_package_id: motherPackageId,
+              mother_package_name: pendingMotherDraft.name,
+              mother_package_ean: pendingMotherDraft.ean,
+            };
+          }
         }
         updatedItems[linkingItemIdx] = {
           ...sourceItemBefore,
@@ -3919,9 +3945,13 @@ export default function Page() {
           product_price: 0,
           status_translation: pendingMotherDraft && !motherPackageError ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
           mother_draft: null, // consumido acima (virou uma linha real em product_mother_packages)
+          mother_draft_skip_conversion: false, // consumido junto — não deixa resíduo pra próxima edição deste item
           ...conversion,
         };
         setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
+        if (pendingMotherDraft && !motherPackageError) {
+          const uEdited = [...viewingNoteQtyPriceEdited]; uEdited[linkingItemIdx] = false; setViewingNoteQtyPriceEdited(uEdited);
+        }
         const uS = [...viewingNoteSkus]; uS[linkingItemIdx] = created.sku || ''; setViewingNoteSkus(uS);
         const uE = [...viewingNoteEans]; uE[linkingItemIdx] = created.ean || ''; setViewingNoteEans(uE);
         const sellPrice = parseFloat(noteItemNewSellPrice.replace(',', '.')) || 0;
@@ -4091,18 +4121,34 @@ export default function Page() {
         const liveQty = viewingNoteQtys[i] ?? updatedItems[i].qty;
         const livePrice = viewingNoteItemPrices[i] ?? updatedItems[i].price;
         const liveMultiplier = viewingNoteMultipliers[i] ?? updatedItems[i].multiplier;
-        const originalQty = updatedItems[i].original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
-        const originalPrice = updatedItems[i].original_price ?? (livePrice || 0) * (liveMultiplier || 1);
-        conversion = {
-          multiplier: mult,
-          qty: originalQty * mult,
-          original_qty: originalQty,
-          price: originalPrice,
-          original_price: originalPrice,
-          mother_package_id: persisted.id,
-          mother_package_name: pendingMotherDraft.name,
-          mother_package_ean: pendingMotherDraft.ean,
-        };
+        // Usuário confirmou no modal que a Qtd./Preço já estavam mexidos à mão e já refletem
+        // a unidade do filho — não multiplica de novo, só registra o vínculo com a mãe.
+        if (linkItem?.mother_draft_skip_conversion) {
+          conversion = {
+            multiplier: 1,
+            qty: liveQty,
+            original_qty: liveQty,
+            price: livePrice,
+            original_price: livePrice,
+            mother_package_id: persisted.id,
+            mother_package_name: pendingMotherDraft.name,
+            mother_package_ean: pendingMotherDraft.ean,
+          };
+        } else {
+          const originalQty = updatedItems[i].original_qty ?? Math.round((liveQty || 0) / (liveMultiplier || 1));
+          const originalPrice = updatedItems[i].original_price ?? (livePrice || 0) * (liveMultiplier || 1);
+          conversion = {
+            multiplier: mult,
+            qty: originalQty * mult,
+            original_qty: originalQty,
+            price: originalPrice,
+            original_price: originalPrice,
+            mother_package_id: persisted.id,
+            mother_package_name: pendingMotherDraft.name,
+            mother_package_ean: pendingMotherDraft.ean,
+          };
+        }
+        setViewingNoteQtyPriceEdited(prev => { const u = [...prev]; u[i] = false; return u; });
         fetchProducts(); // outras linhas da mesma nota já reconhecem este EAN de caixa
       }
     } else if (motherMatch) {
@@ -4145,6 +4191,7 @@ export default function Page() {
       product_price: sellPrice,
       status_translation: converted ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
       mother_draft: null,
+      mother_draft_skip_conversion: false,
       ...conversion,
     };
     setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
@@ -4275,6 +4322,7 @@ export default function Page() {
     setViewingNoteUnits(prev => [...prev, '']);
     setViewingNoteMultipliers(prev => [...prev, 1]);
     setViewingNoteMeasureConverted(prev => [...prev, false]);
+    setViewingNoteQtyPriceEdited(prev => [...prev, false]);
     setViewingNoteReviewTimestamps(prev => [...prev, null]);
     setViewingNoteDistribuicao(prev => [...prev, '']);
     setViewingNoteDistribByCompany(prev => [...prev, {}]);
@@ -4577,6 +4625,7 @@ export default function Page() {
       setViewingNoteUnits(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
       setViewingNoteMeasureConverted(prev => [...prev, ...blanks.map(() => false)]);
+      setViewingNoteQtyPriceEdited(prev => [...prev, ...blanks.map(() => false)]);
       setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteDistribByCompany(prev => [...prev, ...blanks.map(() => ({}))]);
@@ -4602,6 +4651,7 @@ export default function Page() {
       setViewingNoteUnits(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = v; }); return u; });
     } else if (field === 'qty') {
       setViewingNoteQtys(prev => { const u = [...prev]; values.forEach((v, i) => { u[rowIndex + i] = parseFloat(v) || 0; }); return u; });
+      setViewingNoteQtyPriceEdited(prev => { const u = [...prev]; values.forEach((_, i) => { u[rowIndex + i] = true; }); return u; });
     } else if (field === 'price') {
       // Cola valores de custo por unidade — multiplica pelo fator de conversão da linha
       // (se houver, ex: produto mãe) antes de gravar, pra ficar consistente com o mesmo
@@ -4615,6 +4665,7 @@ export default function Page() {
         });
         return u;
       });
+      setViewingNoteQtyPriceEdited(prev => { const u = [...prev]; values.forEach((_, i) => { u[rowIndex + i] = true; }); return u; });
     }
   };
 
@@ -4651,6 +4702,7 @@ export default function Page() {
       setViewingNoteUnits(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteMultipliers(prev => [...prev, ...blanks.map(() => 1)]);
       setViewingNoteMeasureConverted(prev => [...prev, ...blanks.map(() => false)]);
+      setViewingNoteQtyPriceEdited(prev => [...prev, ...blanks.map(() => false)]);
       setViewingNoteReviewTimestamps(prev => [...prev, ...blanks.map(() => null)]);
       setViewingNoteDistribuicao(prev => [...prev, ...blanks.map(() => '')]);
       setViewingNoteDistribByCompany(prev => [...prev, ...blanks.map(() => ({}))]);
@@ -11002,7 +11054,7 @@ export default function Page() {
                             {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
                               <input type="number" min="0" value={(viewingNoteQtys[idx] ?? item.qty) ?? ''}
                                 data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
-                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = e.target.value === '' ? null : (parseInt(e.target.value) || 0); setViewingNoteQtys(u); }}
+                                onChange={e => { const u = [...viewingNoteQtys]; u[idx] = e.target.value === '' ? null : (parseInt(e.target.value) || 0); setViewingNoteQtys(u); const m = [...viewingNoteQtyPriceEdited]; m[idx] = true; setViewingNoteQtyPriceEdited(m); }}
                                 onKeyDown={tableCellKeyDown('review-note', idx, 3)}
                                 onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
                                 onBlur={captureSnapshot}
@@ -11127,6 +11179,7 @@ export default function Page() {
                                           if (isNaN(newCost)) return;
                                           u[idx] = newCost * mult;
                                           setViewingNoteItemPrices(u);
+                                          const m = [...viewingNoteQtyPriceEdited]; m[idx] = true; setViewingNoteQtyPriceEdited(m);
                                         }}
                                         onKeyDown={tableCellKeyDown('review-note', idx, 4)}
                                         onPaste={e => handleNoteColumnPaste(e, idx, 'price')}
@@ -11165,6 +11218,7 @@ export default function Page() {
                                       if (isNaN(newTotal)) return;
                                       u[idx] = (newTotal / displayQty) * mult;
                                       setViewingNoteItemPrices(u);
+                                      const m = [...viewingNoteQtyPriceEdited]; m[idx] = true; setViewingNoteQtyPriceEdited(m);
                                     }}
                                     onBlur={captureSnapshot}
                                     onWheel={blockWheelChange}
@@ -11424,6 +11478,7 @@ export default function Page() {
                                     setViewingNoteUnits(remove(viewingNoteUnits));
                                     setViewingNoteMultipliers(remove(viewingNoteMultipliers));
                                     setViewingNoteMeasureConverted(remove(viewingNoteMeasureConverted));
+                                    setViewingNoteQtyPriceEdited(remove(viewingNoteQtyPriceEdited));
                                     setViewingNoteReviewTimestamps(remove(viewingNoteReviewTimestamps));
                                     setViewingNoteDistribuicao(remove(viewingNoteDistribuicao));
                                     setViewingNoteDistribByCompany(remove(viewingNoteDistribByCompany));
@@ -12185,7 +12240,10 @@ export default function Page() {
                 initialEan={(linkingItemIdx !== null ? (viewingNoteEans[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.ean) : '') || ''}
                 suppliers={supplierNames}
                 onSaved={() => {}}
-                onStage={draft => commitItemMotherDraft(draft)}
+                onStage={(draft, skipConversion) => commitItemMotherDraft(draft, skipConversion)}
+                showConversionChoice={linkingItemIdx !== null ? !!viewingNoteQtyPriceEdited[linkingItemIdx] : false}
+                currentQty={linkingItemIdx !== null ? (viewingNoteQtys[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.qty ?? null) : null}
+                currentPrice={linkingItemIdx !== null ? (viewingNoteItemPrices[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.price ?? null) : null}
               />
 
               {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}

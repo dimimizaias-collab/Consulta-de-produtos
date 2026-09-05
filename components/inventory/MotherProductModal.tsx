@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, Package, Link as LinkIcon, Info, Image as ImageIcon, Keyboard, Delete } from 'lucide-react';
+import { X, Package, Link as LinkIcon, Info, Image as ImageIcon, Keyboard, Delete, AlertTriangle } from 'lucide-react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
@@ -58,13 +58,22 @@ interface MotherProductModalProps {
   // campos e devolve o rascunho via onStage, pra ser persistido depois (junto com o produto
   // filho) por quem chamou. Usado quando ainda não existe um child_product_id (a tabela exige
   // NOT NULL). Tem prioridade sobre o fluxo normal de salvar.
-  onStage?: (draft: MotherPackageDraft) => void;
+  // Segundo argumento: true quando o usuário escolheu, no aviso abaixo, que a Qtd./Preço já
+  // estavam certos e não devem ser multiplicados de novo por quem consumir o rascunho.
+  onStage?: (draft: MotherPackageDraft, skipConversion: boolean) => void;
   // Pré-preenche o formulário ao reabrir um rascunho já staged (ex: usuário clicou "Editar").
   initialDraft?: MotherPackageDraft | null;
   // Sugestão de EAN pro campo "Código EAN Principal" na primeira abertura (sem editingPackage
   // nem initialDraft ainda) — ex: o código já digitado na coluna EAN da nota, que foi o que
   // levou o usuário a cadastrar esta embalagem.
   initialEan?: string;
+  // true quando a Qtd./Preço Custo da linha da nota já foram editados manualmente pelo usuário
+  // antes deste cadastro — nesse caso não dá pra saber se o valor já está convertido ou ainda é
+  // o bruto da nota, então mostra o aviso abaixo em vez de assumir (só faz sentido em modo staging).
+  showConversionChoice?: boolean;
+  // Qtd./Preço Custo atuais da linha da nota, só para a prévia exibida no aviso acima.
+  currentQty?: number | null;
+  currentPrice?: number | null;
 }
 
 // Grava (insert ou update) um Produto Mãe e sincroniza EANs extras, supplier_units e o
@@ -192,7 +201,7 @@ const SUFFIX_KBD: Record<string, string[][]> = {
 
 const UNITS_KEYS = ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK'];
 
-export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved, onStage, initialDraft, initialEan }: MotherProductModalProps) {
+export function MotherProductModal({ open, onClose, childProductId, childProductName, editingPackage, suppliers, onSaved, onStage, initialDraft, initialEan, showConversionChoice, currentQty, currentPrice }: MotherProductModalProps) {
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
   const [suffix, setSuffix] = useState('');
@@ -207,6 +216,9 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Escolha do usuário no aviso "Qtd./Preço editados manualmente" (só aparece quando
+  // showConversionChoice é true) — falso (converter) é o padrão, mesmo comportamento de sempre.
+  const [skipConversion, setSkipConversion] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { isMobileView } = useViewMode();
@@ -283,6 +295,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
       setUnitsPerChild(''); setSupplierId(''); setLocation(''); setCategory(''); setSubcategory(''); setImage('');
     }
     setError('');
+    setSkipConversion(false);
   }, [open, editingPackage, initialDraft, childProductName, initialEan]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -332,7 +345,7 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
     // Staging: ainda não existe child_product_id (produto filho será criado depois) — só
     // devolve o rascunho pra quem chamou persistir junto com o produto, sem gravar agora.
     if (onStage) {
-      onStage(draft);
+      onStage(draft, showConversionChoice ? skipConversion : false);
       onClose();
       return;
     }
@@ -481,6 +494,44 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
     </AnimatePresence>
   );
 
+  const unitsPerChildNum = Number(unitsPerChild) || 0;
+  const previewQty = currentQty != null && unitsPerChildNum > 0 ? currentQty * unitsPerChildNum : null;
+  const previewPrice = currentPrice != null && unitsPerChildNum > 0 ? currentPrice / unitsPerChildNum : null;
+
+  // Só aparece quando o chamador (fluxo da nota) detecta que o usuário já editou Qtd./Preço
+  // manualmente antes de cadastrar esta embalagem — nos outros casos a conversão continua
+  // automática, sem interromper ninguém.
+  const conversionChoice = showConversionChoice ? (
+    <div className="flex flex-col gap-2.5 bg-amber-500/10 dark:bg-amber-400/[0.08] border border-dashed border-amber-500/40 dark:border-amber-400/30 rounded-xl px-3.5 py-3">
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-relaxed">
+          A Qtd. e o Preço Custo desta linha foram editados manualmente antes deste cadastro. Eles já estão na unidade do produto filho, ou ainda são os valores brutos da nota?
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', !skipConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+          <input type="radio" checked={!skipConversion} onChange={() => setSkipConversion(false)} className="accent-primary shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[11.5px] font-bold text-on-surface">Ainda são valores brutos — converter{unitsPerChildNum > 0 ? ` ×${unitsPerChildNum}` : ''}</span>
+            {previewQty !== null && previewPrice !== null && (
+              <span className="block text-[10px] text-secondary/60 mt-0.5">
+                {currentQty} → {previewQty} · R$ {currentPrice!.toFixed(2)} → R$ {previewPrice.toFixed(2)}
+              </span>
+            )}
+          </span>
+        </label>
+        <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', skipConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+          <input type="radio" checked={skipConversion} onChange={() => setSkipConversion(true)} className="accent-primary shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[11.5px] font-bold text-on-surface">Já são os valores certos — não converter</span>
+            <span className="block text-[10px] text-secondary/60 mt-0.5">Mantém {currentQty ?? '—'} · {currentPrice != null ? `R$ ${currentPrice.toFixed(2)}` : '—'} como está na grade</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  ) : null;
+
   // Renderizado via portal, fora da árvore do <form> da modal Editar/Adicionar Produto —
   // sem isso, Enter num campo de texto aqui dentro submete o formulário do produto (pai)
   // em vez de não fazer nada, fechando a modal de Editar Produto por engano.
@@ -620,6 +671,8 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                   </div>
                 </div>
               </div>
+
+              {conversionChoice}
 
               <div>
                 <div className={mSectionLabelCls}><ImageIcon size={12} className="text-primary" />Imagem</div>
@@ -795,6 +848,8 @@ export function MotherProductModal({ open, onClose, childProductId, childProduct
                   </div>
                 </div>
               </div>
+
+              {conversionChoice}
 
               <div className={sectionCls}>
                 <div className={sectionHeadCls}>
