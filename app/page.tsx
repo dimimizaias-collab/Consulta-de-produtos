@@ -11057,7 +11057,13 @@ export default function Page() {
                               );
                             })()}
                             <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 relative">
+                            {viewingNoteQtyPriceEdited[idx] && (
+                              <span
+                                title="Qtd./Preço editados manualmente — vai avisar antes de converter de novo se cadastrar um Produto Mãe"
+                                className="absolute -top-[3px] -right-[3px] w-[7px] h-[7px] rounded-full bg-amber-500 ring-2 ring-[#FDFAF0] dark:ring-[#1E1E18] z-[3]"
+                              />
+                            )}
                             {(canEditItems || reviewEditableCols.has('Qtd.')) ? (
                               <input type="number" min="0" value={(viewingNoteQtys[idx] ?? item.qty) ?? ''}
                                 data-nav-table="review-note" data-nav-row={idx} data-nav-col={3}
@@ -11145,6 +11151,7 @@ export default function Page() {
                                   style={{
                                     ...cell({ justifyContent: 'flex-end', padding: '0 8px' }),
                                     ...(adjBorder ? { borderColor: adjBorder, boxShadow: adjGlow } : {}),
+                                    position: 'relative',
                                     transition: 'border-color 180ms cubic-bezier(0.23,1,0.32,1), box-shadow 180ms cubic-bezier(0.23,1,0.32,1)',
                                   }}
                                   onFocus={e => {
@@ -11156,6 +11163,12 @@ export default function Page() {
                                     e.currentTarget.style.boxShadow = adjGlow;
                                   }}
                                 >
+                                  {viewingNoteQtyPriceEdited[idx] && (
+                                    <span
+                                      title="Qtd./Preço editados manualmente — vai avisar antes de converter de novo se cadastrar um Produto Mãe"
+                                      className="absolute -top-[3px] -right-[3px] w-[7px] h-[7px] rounded-full bg-amber-500 ring-2 ring-[#FDFAF0] dark:ring-[#1E1E18] z-[3]"
+                                    />
+                                  )}
                                   <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
                                     <span className="text-[10px] font-black shrink-0" style={{ color: hasAdj ? adjValueColor : 'var(--rn-text-muted)' }}>R$</span>
                                     {hasAdj ? (
