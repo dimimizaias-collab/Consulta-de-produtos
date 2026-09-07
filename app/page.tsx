@@ -592,6 +592,12 @@ export default function Page() {
   // ou na inversa, já que o Produto Mãe pode ser salvo (pendente) antes do produto existir.
   const [noteItemCreateTab, setNoteItemCreateTab] = useState<'produto' | 'mae'>('produto');
   const [noteItemMotherModalOpen, setNoteItemMotherModalOpen] = useState(false);
+  // Escolha do usuário no aviso "Qtd./Preço editados manualmente" (mostrado na etapa "Vincular
+  // Produto Filho" quando viewingNoteQtyPriceEdited[linkingItemIdx] é true) — falso (converter)
+  // é o padrão, mesmo comportamento de sempre. Fica fora do item/mother_draft porque o que
+  // importa é o estado MAIS RECENTE da edição, não o que valia quando a mãe foi salva (o
+  // usuário pode editar Qtd./Preço antes OU depois de cadastrar a mãe).
+  const [noteItemSkipMotherConversion, setNoteItemSkipMotherConversion] = useState(false);
   // Produto Mãe salvo pela aba "Produto Mãe" ANTES do produto normal existir fica gravado
   // diretamente em item.mother_draft (dentro de viewingReviewNote.items, JSONB da tabela
   // review_notes) — sobrevive a fechar/reabrir a nota, ao contrário de estado local. A tabela
@@ -3838,14 +3844,11 @@ export default function Page() {
   // nota em edição — sem exigir que o produto filho já exista. Fica só em estado local até o
   // usuário salvar a nota (mesmo comportamento de qualquer outra edição de item aqui), mas por
   // estar no item (não em estado efêmero do modal) sobrevive a fechar e reabrir o vínculo.
-  // `skipConversion`: escolha do usuário no bloco de aviso do modal (só aparece quando
-  // viewingNoteQtyPriceEdited[idx] já era true) — fica junto do rascunho até ser consumida em
-  // handleNoteItemCreateAndLink/confirmNoteItemLink, quando o produto filho finalmente existe.
-  const commitItemMotherDraft = (draft: MotherPackageDraft | null, skipConversion?: boolean) => {
+  const commitItemMotherDraft = (draft: MotherPackageDraft | null) => {
     if (!viewingReviewNote || linkingItemIdx === null) return;
     const hadNoDraftBefore = !viewingReviewNote.items[linkingItemIdx]?.mother_draft;
     const updated = [...viewingReviewNote.items];
-    updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft, mother_draft_skip_conversion: draft ? !!skipConversion : false };
+    updated[linkingItemIdx] = { ...updated[linkingItemIdx], mother_draft: draft };
     setViewingReviewNote({ ...viewingReviewNote, items: updated });
     // O campo "Código EAN" do formulário "Criar Novo Produto" vem pré-preenchido, ao abrir o
     // vínculo, com o código digitado na coluna EAN da nota — que na etapa "Vincular Produto
@@ -3908,9 +3911,10 @@ export default function Page() {
           const liveQty = viewingNoteQtys[linkingItemIdx] ?? sourceItemBefore.qty;
           const livePrice = viewingNoteItemPrices[linkingItemIdx] ?? sourceItemBefore.price;
           const liveMultiplier = viewingNoteMultipliers[linkingItemIdx] ?? sourceItemBefore.multiplier;
-          // Usuário confirmou no modal que a Qtd./Preço já estavam mexidos à mão e já refletem
-          // a unidade do filho — não multiplica de novo, só registra o vínculo com a mãe.
-          if (sourceItemBefore.mother_draft_skip_conversion) {
+          // Usuário confirmou no aviso "Qtd./Preço editados manualmente" (mostrado logo abaixo,
+          // na etapa de escolher/criar o filho) que os valores já refletem a unidade do filho —
+          // não multiplica de novo, só registra o vínculo com a mãe.
+          if (noteItemSkipMotherConversion) {
             conversion = {
               multiplier: 1,
               qty: liveQty,
@@ -3945,7 +3949,6 @@ export default function Page() {
           product_price: 0,
           status_translation: pendingMotherDraft && !motherPackageError ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
           mother_draft: null, // consumido acima (virou uma linha real em product_mother_packages)
-          mother_draft_skip_conversion: false, // consumido junto — não deixa resíduo pra próxima edição deste item
           ...conversion,
         };
         setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
@@ -4057,6 +4060,7 @@ export default function Page() {
     setNoteItemSellPriceInput(sellPrice > 0 ? String(sellPrice) : '');
     setNoteItemShowCreate(q.trim().length > 0 && !hasMatch);
     setNoteItemCreateTab('produto');
+    setNoteItemSkipMotherConversion(false);
   };
 
   // Atalho "Criar e Vincular" da coluna Identificação Interna: mesma checagem de existência do
@@ -4121,9 +4125,10 @@ export default function Page() {
         const liveQty = viewingNoteQtys[i] ?? updatedItems[i].qty;
         const livePrice = viewingNoteItemPrices[i] ?? updatedItems[i].price;
         const liveMultiplier = viewingNoteMultipliers[i] ?? updatedItems[i].multiplier;
-        // Usuário confirmou no modal que a Qtd./Preço já estavam mexidos à mão e já refletem
-        // a unidade do filho — não multiplica de novo, só registra o vínculo com a mãe.
-        if (linkItem?.mother_draft_skip_conversion) {
+        // Usuário confirmou no aviso "Qtd./Preço editados manualmente" (mostrado logo abaixo,
+        // na etapa de escolher/criar o filho) que os valores já refletem a unidade do filho —
+        // não multiplica de novo, só registra o vínculo com a mãe.
+        if (noteItemSkipMotherConversion) {
           conversion = {
             multiplier: 1,
             qty: liveQty,
@@ -4191,7 +4196,6 @@ export default function Page() {
       product_price: sellPrice,
       status_translation: converted ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)',
       mother_draft: null,
-      mother_draft_skip_conversion: false,
       ...conversion,
     };
     setViewingReviewNote({ ...viewingReviewNote, items: updatedItems });
@@ -11800,6 +11804,29 @@ export default function Page() {
                                 Agora escolha ou crie o <b className="text-on-surface">produto (unidade)</b> que sai dessa embalagem — isso finaliza o vínculo e converte a quantidade da linha automaticamente (×{itemMotherDraft.unitsPerChild}).
                               </p>
                             </div>
+                            {/* Só aparece quando a Qtd./Preço desta linha foram editados manualmente
+                                pelo usuário (antes ou depois de cadastrar a mãe) — nos outros casos a
+                                conversão acima acontece automática, sem interromper ninguém. */}
+                            {linkingItemIdx !== null && viewingNoteQtyPriceEdited[linkingItemIdx] && (
+                              <div className="flex flex-col gap-2.5 bg-amber-500/10 dark:bg-amber-400/[0.08] border border-dashed border-amber-500/40 dark:border-amber-400/30 rounded-xl px-3.5 py-3">
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                  <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-relaxed">
+                                    A Qtd. e o Preço Custo desta linha foram editados manualmente. Eles já estão na unidade do produto filho, ou ainda são os valores brutos da nota?
+                                  </p>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', !noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+                                    <input type="radio" checked={!noteItemSkipMotherConversion} onChange={() => setNoteItemSkipMotherConversion(false)} className="accent-primary shrink-0" />
+                                    <span className="block text-[11.5px] font-bold text-on-surface">Ainda são valores brutos — converter ×{itemMotherDraft.unitsPerChild}</span>
+                                  </label>
+                                  <label className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors', noteItemSkipMotherConversion ? 'border-primary bg-primary/10' : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]')}>
+                                    <input type="radio" checked={noteItemSkipMotherConversion} onChange={() => setNoteItemSkipMotherConversion(true)} className="accent-primary shrink-0" />
+                                    <span className="block text-[11.5px] font-bold text-on-surface">Já são os valores certos — não converter</span>
+                                  </label>
+                                </div>
+                              </div>
+                            )}
                           </>
                         )}
                         {/* Alternância Buscar/Criar — só no modo travado (resolveMode) e enquanto
@@ -12243,10 +12270,7 @@ export default function Page() {
                 initialEan={(linkingItemIdx !== null ? (viewingNoteEans[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.ean) : '') || ''}
                 suppliers={supplierNames}
                 onSaved={() => {}}
-                onStage={(draft, skipConversion) => commitItemMotherDraft(draft, skipConversion)}
-                showConversionChoice={linkingItemIdx !== null ? !!viewingNoteQtyPriceEdited[linkingItemIdx] : false}
-                currentQty={linkingItemIdx !== null ? (viewingNoteQtys[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.qty ?? null) : null}
-                currentPrice={linkingItemIdx !== null ? (viewingNoteItemPrices[linkingItemIdx] ?? viewingReviewNote?.items[linkingItemIdx]?.price ?? null) : null}
+                onStage={draft => commitItemMotherDraft(draft)}
               />
 
               {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}
