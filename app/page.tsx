@@ -10279,16 +10279,21 @@ export default function Page() {
                       {/* Cabeçalho igual ao da tabela de Controle Financeiro: barra amarela contínua
                           com um "chip" pill arredondado por coluna, sem divisórias verticais. */}
                       {(() => {
-                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
-                        const thFirst: React.CSSProperties = { ...thBar, paddingLeft: '10px' };
-                        const thLast: React.CSSProperties = { ...thBar, width: '36px' };
+                        // Molde da tabela de Distribuição: barra amarela com padding fino (3px, igual
+                        // ao gap entre células do corpo) e o "chip" preenchendo a coluna inteira com
+                        // cantos quadrados (9px, igual ao raio das células), em vez do pill arredondado
+                        // menor que sobrava dentro de um padding largo.
+                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '3px', boxSizing: 'border-box', verticalAlign: 'middle', height: '42px' };
+                        const thFirst: React.CSSProperties = { ...thBar, paddingLeft: '7px' };
+                        const thLast: React.CSSProperties = { ...thBar, width: '36px', paddingRight: '7px' };
                         const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
-                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '4px',
+                          width: '100%', height: '100%', boxSizing: 'border-box',
                           fontSize: '9px', fontWeight: 900,
                           letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-                          color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
+                          color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, overflow: 'hidden',
                           background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
-                          borderRadius: '9999px', padding: '5px 13px', ...extra,
+                          borderRadius: '9px', padding: '0 10px', ...extra,
                         });
                         // ── Filter helpers (used when reviewFilterActive) ──
                         const colFilterKey: Record<string, string> = {
@@ -10408,7 +10413,7 @@ export default function Page() {
                         return (<>
                           <th style={{ ...thFirst, position: 'relative' }}>
                             <ReviewColResizeHandle colKey="#" />
-                            <div style={lbl({ justifyContent: 'center' })}>
+                            <div style={lbl({ justifyContent: 'center', padding: '0 4px' })}>
                               #
                               {filterBtn('seq')}
                             </div>
@@ -10702,7 +10707,9 @@ export default function Page() {
                           isDisregarded
                             ? "opacity-50 saturate-[0.7] [background-image:repeating-linear-gradient(135deg,rgba(255,229,0,0.16),rgba(255,229,0,0.16)_8px,transparent_8px,transparent_16px)] bg-[#FFF9D6] dark:bg-[#22200f] dark:[background-image:repeating-linear-gradient(135deg,rgba(252,211,77,0.10),rgba(252,211,77,0.10)_8px,transparent_8px,transparent_16px)] hover:opacity-70"
                             : _hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]'
-                            : `${idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'} hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]`
+                            // Molde da Distribuição: sem listra zebra — todas as linhas com o mesmo
+                            // fundo liso, a grade fica só nas bordas arredondadas de cada célula.
+                            : 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]'
                         )}
                           onFocus={() => setReviewFocusedRowIdx(idx)}
                           onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setReviewFocusedRowIdx(null); }}

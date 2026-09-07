@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Mockup — Tabela da Nota no molde da Distribuição (Dark)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #14140f;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .wrap { max-width: 1220px; margin: 0 auto; }
+  .eyebrow {
+    font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(242,240,227,0.40); display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  }
+  .eyebrow .muted { font-weight: 600; text-transform: none; letter-spacing: normal; color: rgba(242,240,227,0.30); }
+
+  .modal { background: #1E1E18; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); }
+
+  /* Header */
+  .modal-head { background: #252520; border-bottom: 1px solid rgba(242,240,227,0.07); padding: 20px 24px 0; }
+  .head-row { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; }
+  .icon-chip { width: 44px; height: 44px; border-radius: 14px; background: rgba(216,30,30,0.16); color: #D81E1E; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon-chip svg { width: 20px; height: 20px; }
+  .head-title { font-size: 19px; font-weight: 900; color: #F2F0E3; margin: 0; }
+  .head-sub { font-size: 11px; font-weight: 700; color: rgba(242,240,227,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .head-actions { margin-left: auto; display: flex; gap: 8px; }
+  .head-btn { width: 34px; height: 34px; border-radius: 10px; background: rgba(242,240,227,0.06); border: 1px solid rgba(242,240,227,0.08); display: flex; align-items: center; justify-content: center; color: rgba(242,240,227,0.40); }
+  .head-btn svg { width: 15px; height: 15px; }
+
+  .tabs { display: flex; gap: 20px; }
+  .tab { padding: 11px 0; font-size: 11.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(242,240,227,0.35); border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 7px; }
+  .tab.active { color: #F2F0E3; border-color: #D81E1E; }
+  .tab .count { background: rgba(242,240,227,0.10); color: rgba(242,240,227,0.55); font-size: 9px; padding: 2px 6px; border-radius: 999px; }
+
+  /* Table area — de borda a borda, sem recuo lateral */
+  .table-area { padding: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  colgroup col.narrow { width: 40px; }
+  colgroup col.action { width: 44px; }
+
+  thead th {
+    background: #FFE500; padding: 3px; height: 42px; vertical-align: middle;
+    border-bottom: 1px solid #C8B800; text-align: left; box-sizing: border-box;
+  }
+  thead th:first-child { padding-left: 7px; }
+  thead th:last-child { padding-right: 7px; }
+  th .th-pill {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    height: 100%; width: 100%; box-sizing: border-box; min-width: 0;
+    font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(26,26,10,0.58); background: rgba(0,0,0,0.08); border: 1.5px solid rgba(0,0,0,0.12);
+    border-radius: 9px; padding: 0 10px; white-space: nowrap; overflow: hidden;
+  }
+  th.al-center .th-pill { padding: 0 6px; }
+  th.al-left .th-pill { justify-content: flex-start; }
+  th.al-right .th-pill { justify-content: flex-end; }
+
+  tbody td { padding: 3px; border-bottom: 1px solid rgba(242,240,227,0.06); box-sizing: border-box; }
+  tbody td:first-child { padding-left: 7px; }
+  tbody td:last-child { padding-right: 7px; }
+  .cell {
+    height: 36px; width: 100%; box-sizing: border-box; border-radius: 9px; border: 1.5px solid rgba(242,240,227,0.08); background: #252520;
+    display: flex; align-items: center; padding: 0 10px; overflow: hidden;
+    font-size: 12px; font-weight: 600; color: rgba(242,240,227,0.90);
+  }
+  .cell.center { justify-content: center; padding: 0 6px; }
+  .cell.right { justify-content: flex-end; }
+  .cell.mono { font-family: 'DM Mono', monospace; color: rgba(242,240,227,0.55); }
+  .cell.total { font-weight: 900; }
+  .cell.no-border { border: none; background: transparent; padding: 0; justify-content: center; }
+  .cell .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seq { font-size: 10px; font-weight: 900; color: rgba(242,240,227,0.30); }
+  tr.focused .cell { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.20); }
+  tr.focused .seq { color: #FF6B6B; }
+  tr:hover .cell:not(.no-border) { background: #2a2a24; }
+
+  .qty-cell { justify-content: space-between; gap: 6px; font-family: 'DM Mono', monospace; }
+  .stepper { width: 18px; height: 18px; border-radius: 999px; border: 1.5px solid rgba(242,240,227,0.22); color: rgba(242,240,227,0.45); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stepper svg { width: 9px; height: 9px; }
+  .qty-val { font-weight: 800; color: #F2F0E3; }
+  .ok-check { width: 15px; height: 15px; accent-color: #34D399; }
+
+  .markup.pos { color: #34D399; }
+  .markup.neg { color: #FF6B6B; }
+  .del-btn { width: 26px; height: 26px; border-radius: 8px; background: rgba(216,30,30,0.16); color: #FF6B6B; display: flex; align-items: center; justify-content: center; }
+  .del-btn svg { width: 13px; height: 13px; }
+
+  /* Footer */
+  .footer { background: #252520; border-top: 1px solid rgba(242,240,227,0.06); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .stats { display: flex; gap: 28px; }
+  .stat-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(242,240,227,0.35); }
+  .stat-value { font-family: 'DM Mono', monospace; font-size: 21px; font-weight: 900; color: #F2F0E3; line-height: 1.2; }
+  .footer-actions { display: flex; gap: 8px; }
+  .btn { border: none; border-radius: 12px; padding: 10px 18px; font-size: 12.5px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+  .btn-ghost { background: rgba(242,240,227,0.07); color: rgba(242,240,227,0.50); border: 1px solid rgba(242,240,227,0.10); }
+  .btn-primary { background: #D81E1E; color: #fff; box-shadow: 0 4px 14px rgba(216,30,30,0.35); }
+  .btn svg { width: 14px; height: 14px; }
+
+  .note { margin-top: 18px; font-size: 11.5px; font-weight: 700; color: rgba(242,240,227,0.35); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">⧉ Nota Fiscal — aba Produtos <span class="muted">redesenhada no molde da tabela de Distribuição (flat, sem zebra, pill headers limpos)</span></p>
+
+  <div class="modal">
+    <div class="modal-head">
+      <div class="head-row">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div>
+          <h3 class="head-title">Papelaria Distribuidora LTDA</h3>
+          <div class="head-sub">NF-e 000.482.910</div>
+        </div>
+        <div class="head-actions">
+          <div class="head-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></div>
+          <div class="head-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Produtos <span class="count">12</span></div>
+        <div class="tab">Nota Original</div>
+        <div class="tab">Recebimento</div>
+        <div class="tab">Financeiro</div>
+      </div>
+    </div>
+
+    <div class="table-area">
+      <table>
+        <colgroup>
+          <col class="narrow" />
+          <col />
+          <col style="width:130px" />
+          <col style="width:70px" />
+          <col style="width:70px" />
+          <col style="width:110px" />
+          <col style="width:120px" />
+          <col style="width:110px" />
+          <col style="width:90px" />
+          <col class="action" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="al-center"><div class="th-pill">#</div></th>
+            <th class="al-left"><div class="th-pill">Produto na Nota</div></th>
+            <th class="al-left"><div class="th-pill">EAN</div></th>
+            <th class="al-center"><div class="th-pill">Medida</div></th>
+            <th class="al-center"><div class="th-pill">Qtd.</div></th>
+            <th class="al-right"><div class="th-pill">Preço Custo</div></th>
+            <th class="al-right"><div class="th-pill">Valor Total</div></th>
+            <th class="al-right"><div class="th-pill">Preço Venda</div></th>
+            <th class="al-right"><div class="th-pill">Markup</div></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="cell center"><span class="seq">1</span></div></td>
+            <td><div class="cell"><span class="truncate">bacia pedicure preta arqplast</span></div></td>
+            <td><div class="cell mono">7908439800075</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell qty-cell"><span class="stepper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="qty-val">8</span></div></td>
+            <td><div class="cell right mono">R$ 5,87</div></td>
+            <td><div class="cell right total mono">R$ 46,96</div></td>
+            <td><div class="cell right mono">R$ 9,90</div></td>
+            <td><div class="cell right total mono markup pos">+68,7%</div></td>
+            <td><div class="cell no-border"><span class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
+          </tr>
+          <tr class="focused">
+            <td><div class="cell center"><span class="seq">2</span></div></td>
+            <td><div class="cell"><span class="truncate">lixeira 9l com click prata arqplast</span></div></td>
+            <td><div class="cell mono">7898919089079</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell qty-cell"><span class="stepper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="qty-val">4</span></div></td>
+            <td><div class="cell right mono">R$ 15,30</div></td>
+            <td><div class="cell right total mono">R$ 61,20</div></td>
+            <td><div class="cell right mono">R$ 24,90</div></td>
+            <td><div class="cell right total mono markup pos">+62,8%</div></td>
+            <td><div class="cell no-border"><span class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
+          </tr>
+          <tr>
+            <td><div class="cell center"><span class="seq">3</span></div></td>
+            <td><div class="cell"><span class="truncate">cesto oval elegance com tampa preto arqplast</span></div></td>
+            <td><div class="cell mono">7908439800914</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell qty-cell"><span class="stepper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="qty-val">2</span></div></td>
+            <td><div class="cell right mono">R$ 29,60</div></td>
+            <td><div class="cell right total mono">R$ 59,20</div></td>
+            <td><div class="cell right mono">—</div></td>
+            <td><div class="cell right total mono markup" style="color:rgba(242,240,227,0.30)">—</div></td>
+            <td><div class="cell no-border"><span class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
+          </tr>
+          <tr>
+            <td><div class="cell center"><span class="seq">4</span></div></td>
+            <td><div class="cell"><span class="truncate">cesto rattan basculada arqplast</span></div></td>
+            <td><div class="cell mono">7908439804110</div></td>
+            <td><div class="cell center">UN</div></td>
+            <td><div class="cell qty-cell"><span class="stepper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="qty-val">2</span></div></td>
+            <td><div class="cell right mono">R$ 40,50</div></td>
+            <td><div class="cell right total mono">R$ 81,00</div></td>
+            <td><div class="cell right mono">R$ 69,90</div></td>
+            <td><div class="cell right total mono markup neg">-30,3%</div></td>
+            <td><div class="cell no-border"><span class="del-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <p class="note">
+    O que mudou em relação à tabela atual da Nota: fundo das linhas ficou liso/branco (sem listras alternadas), os cabeçalhos viraram
+    pills limpas sem ícones de filtro/edição visíveis por padrão (aparecem só no hover — mantém a função sem poluir), e a coluna Qtd.
+    ganhou o mesmo indicador "+" da Distribuição. O rodapé/toolbar da janela de Nota continua exatamente como está hoje — não faz parte
+    desta mudança.
+  </p>
+</div>
+</body>
+</html>
