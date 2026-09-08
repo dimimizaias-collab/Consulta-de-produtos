@@ -744,8 +744,8 @@ export function LogisticsCenter({
 
   return (
     <div className="space-y-4 md:space-y-12">
-      {/* Header */}
-      <div className="relative mb-6 md:mb-14">
+      {/* Header — Desktop: card amarela âncora de marca */}
+      <div className="relative mb-14 hidden md:block">
         <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
           <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
             <ClipboardList size={24} strokeWidth={2} />
