@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 export function LoginForm() {
-  const router = useRouter();
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,6 +24,7 @@ export function LoginForm() {
         const res = await fetch(`/api/usuarios/resolve-login?username=${encodeURIComponent(trimmed)}`);
         if (!res.ok) {
           setError('Nome de usuário ou senha incorretos.');
+          setLoading(false);
           return;
         }
         const data = await res.json();
@@ -35,13 +34,17 @@ export function LoginForm() {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setError('E-mail/usuário ou senha incorretos.');
+        setLoading(false);
         return;
       }
-      router.push('/');
-      router.refresh();
+      // Navegação hard (não router.push/refresh) — o middleware roda no servidor e precisa
+      // do cookie de sessão já anexado à requisição. Com router.push logo em seguida ao
+      // signIn, a navegação client-side às vezes corre na frente da escrita do cookie e o
+      // middleware ainda vê a sessão como anônima, te devolvendo pro /login com os campos
+      // limpos (remount do formulário) — daí a sensação de "precisei tentar de novo".
+      window.location.href = '/';
     } catch {
       setError('Erro ao entrar. Tente novamente.');
-    } finally {
       setLoading(false);
     }
   };
@@ -51,27 +54,33 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[380px] flex flex-col gap-4">
       <div>
-        <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">E-mail ou usuário</label>
+        <label htmlFor="login-username" className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">E-mail ou usuário</label>
         <input
           type="text"
+          name="username"
+          id="login-username"
           value={login}
           onChange={e => setLogin(e.target.value)}
           placeholder="nome@empresa.com ou usuário"
           autoFocus
           autoCapitalize="none"
           autoCorrect="off"
+          autoComplete="username"
           className={field}
         />
       </div>
 
       <div>
-        <label className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">Senha</label>
+        <label htmlFor="login-password" className="text-[10px] font-black text-on-surface/40 uppercase tracking-widest mb-1.5 block">Senha</label>
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
+            name="current-password"
+            id="login-password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Sua senha"
+            autoComplete="current-password"
             className={cn(field, 'pr-12')}
           />
           <button
