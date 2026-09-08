@@ -13683,11 +13683,13 @@ export default function Page() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
+            onClick={() => { releaseNoteLock(); setViewingReviewNote(null); setNoteModeChoiceOpen(false); setConfirmDeleteNote(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
             className="fixed inset-0 z-[210] bg-black/65 flex items-end md:items-center md:justify-center"
           >
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+              onClick={e => e.stopPropagation()}
               className="w-full md:max-w-sm bg-[#161610] md:rounded-3xl rounded-t-3xl border border-white/[0.08] p-5 pb-8 md:pb-6"
             >
               <p className="text-[15px] font-black text-[#f2f0e3] text-center">Como deseja abrir esta nota?</p>
@@ -13723,7 +13725,7 @@ export default function Page() {
                 </div>
               </button>
               <button
-                onClick={() => setNoteModeChoiceOpen(false)}
+                onClick={() => { releaseNoteLock(); setViewingReviewNote(null); setNoteModeChoiceOpen(false); setConfirmDeleteNote(false); resetNoteHistory(); setNoteSupplierMappings([]); }}
                 className="w-full text-center text-[12px] font-bold text-white/35 py-2"
               >
                 Cancelar
