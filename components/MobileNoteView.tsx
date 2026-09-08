@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Calendar, Camera, CheckCircle2,
+  AlertCircle, AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Ban, Boxes, Calendar, Camera, CheckCircle2,
   ChevronRight, Delete, Download, FileText, Filter, Hash, Layers, Link as LinkIcon,
   List, Keyboard, Minus, Package, Pencil, Plus, Ruler, Save, Search, ShieldCheck, Trash2, X, Zap,
 } from 'lucide-react';
@@ -11,6 +11,13 @@ import { cn } from '@/lib/utils';
 import { getNoteStatus, STATUS_META, StatusIcon, type ReviewNote, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import type { EanCodeEntry } from '@/components/shared/EanCodesEditor';
+import { MotherProductModal, saveMotherPackage, type MotherPackageDraft } from '@/components/inventory/MotherProductModal';
+import { supabase } from '@/lib/supabase';
+
+// Mesma forma de dados da Falta/Sobra do desktop (ver DiscrepancyData em app/page.tsx) —
+// gravada direto em item.discrepancy, então o cálculo de estoque na aprovação (que já lê esse
+// campo hoje) funciona igual não importa se o registro veio do mobile ou do desktop.
+type DiscrepancyData = { type: 'falta' | 'sobra'; qty: number; missingAll: boolean; obs: string; disregarded?: boolean } | null;
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -343,11 +350,22 @@ function RealtimeBarcodeScanner({ onScan, onClose }: { onScan: (code: string) =>
 
 // ─── linking panel ────────────────────────────────────────────────────────────
 
-function LinkingPanel({ idx, item, products, onLink, onClose }: {
+function LinkingPanel({ idx, item, products, onLink, onClose, motherDraft, onOpenMotherModal, onRemoveMotherDraft, onCreateAndLink, creating, linkError }: {
   idx: number; item: any; products: any[];
   onLink: (product: any) => void; onClose: () => void;
+  motherDraft: MotherPackageDraft | null;
+  onOpenMotherModal: () => void;
+  onRemoveMotherDraft: () => void;
+  onCreateAndLink: () => void;
+  creating: boolean;
+  linkError: string;
 }) {
+  const [subTab, setSubTab] = useState<'produto' | 'mae'>('produto');
   const [q, setQ] = useState(() => getNoteItemMatchCode(item?.ean, item?.supplier_code));
+  // Modo travado "Vincular Produto Filho": assim que existe um rascunho de Produto Mãe
+  // pendente, o painel trava nessa etapa (sem seletor de abas) até o filho ser escolhido ou
+  // criado — mesmo comportamento do modal desktop (ver resolveMode em app/page.tsx).
+  const resolveMode = !!motherDraft;
   const results = q.trim().length < 2 ? [] : products.filter(p => {
     const s = q.toLowerCase();
     return (
@@ -365,52 +383,131 @@ function LinkingPanel({ idx, item, products, onLink, onClose }: {
       transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
       className="absolute inset-0 z-20 bg-[#141410] flex flex-col"
     >
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/[0.07]">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/[0.07] shrink-0">
         <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.06] text-white/60">
           <X size={18} />
         </button>
         <div>
-          <p className="text-xs font-black text-white/90">Vincular produto</p>
+          <p className="text-xs font-black text-white/90">
+            {resolveMode ? 'Vincular Produto Filho' : subTab === 'mae' ? 'Produto Mãe' : 'Vincular produto'}
+          </p>
           <p className="text-[10px] text-white/35 font-medium truncate max-w-[220px]">{item.original_description || item.description || 'Item ' + (idx + 1)}</p>
         </div>
       </div>
-      <div className="px-4 py-3 border-b border-white/[0.07]">
-        <div className="flex items-center gap-2 bg-white/[0.06] rounded-xl px-3 py-2.5 border border-white/[0.07]">
-          <Search size={14} className="text-white/30 shrink-0" />
-          <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Nome, SKU ou EAN..."
-            className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/25 outline-none font-medium" />
-          {q && <button onClick={() => setQ('')}><X size={13} className="text-white/30" /></button>}
+
+      {!resolveMode && (
+        <div className="flex gap-1.5 p-3 pb-0 shrink-0">
+          <button
+            onClick={() => setSubTab('produto')}
+            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-colors', subTab === 'produto' ? 'bg-white/[0.08] text-[#f2f0e3]' : 'bg-white/[0.03] text-white/35')}
+          >
+            <Package size={13} />Produto
+          </button>
+          <button
+            onClick={() => setSubTab('mae')}
+            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-colors', subTab === 'mae' ? 'bg-white/[0.08] text-[#f2f0e3]' : 'bg-white/[0.03] text-white/35')}
+          >
+            <Boxes size={13} />Produto Mãe
+          </button>
         </div>
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {q.trim().length < 2 ? (
-          <div className="flex flex-col items-center justify-center h-full pb-8 text-white/20">
-            <Search size={32} className="mb-3 opacity-40" />
-            <p className="text-xs font-bold">Digite pelo menos 2 letras</p>
+      )}
+
+      {resolveMode && motherDraft && (
+        <div className="px-4 pt-3 shrink-0">
+          <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-[#D81E1E] bg-[#D81E1E]/[0.08] text-left">
+            <div className="w-9 h-9 rounded-xl bg-[#D81E1E]/15 text-[#f87171] flex items-center justify-center shrink-0">
+              <Boxes size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-[#f87171] truncate">Produto Mãe salvo: {motherDraft.name}</p>
+              <p className="text-[10px] text-white/40 truncate">1 emb. = {motherDraft.unitsPerChild} un{motherDraft.ean ? ` · EAN ${motherDraft.ean}` : ''}</p>
+            </div>
           </div>
-        ) : results.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full pb-8 text-white/20">
-            <p className="text-xs font-bold">Nenhum produto encontrado</p>
+          <div className="flex gap-2 mt-2">
+            <button onClick={onOpenMotherModal} className="text-[10px] font-black text-white/40 bg-white/[0.05] px-2.5 py-1.5 rounded-lg">Editar</button>
+            <button onClick={onRemoveMotherDraft} className="text-[10px] font-black text-white/40 bg-white/[0.05] px-2.5 py-1.5 rounded-lg">Remover</button>
           </div>
-        ) : (
-          <div className="py-2">
-            {results.map(p => (
-              <button key={p.id} onClick={() => onLink(p)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] active:bg-white/[0.07] transition-colors text-left border-b border-white/[0.04]">
-                <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.06] flex items-center justify-center shrink-0 text-white/20 text-xs font-black overflow-hidden">
-                  {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <span>{p.name?.[0]?.toUpperCase() || '?'}</span>}
+        </div>
+      )}
+
+      {(resolveMode || subTab === 'produto') ? (
+        <>
+          <div className="px-4 py-3 border-b border-white/[0.07] shrink-0">
+            <div className="flex items-center gap-2 bg-white/[0.06] rounded-xl px-3 py-2.5 border border-white/[0.07]">
+              <Search size={14} className="text-white/30 shrink-0" />
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+                placeholder={resolveMode ? 'Buscar produto filho...' : 'Nome, SKU ou EAN...'}
+                className="flex-1 bg-transparent text-sm text-[#f2f0e3] placeholder:text-white/25 outline-none font-medium" />
+              {q && <button onClick={() => setQ('')}><X size={13} className="text-white/30" /></button>}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {q.trim().length < 2 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-white/20">
+                <Search size={32} className="mb-3 opacity-40" />
+                <p className="text-xs font-bold">Digite pelo menos 2 letras</p>
+              </div>
+            ) : results.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-white/20">
+                <p className="text-xs font-bold">Nenhum produto encontrado</p>
+              </div>
+            ) : (
+              <div className="py-2">
+                {results.map(p => (
+                  <button key={p.id} onClick={() => onLink(p)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] active:bg-white/[0.07] transition-colors text-left border-b border-white/[0.04]">
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.06] flex items-center justify-center shrink-0 text-white/20 text-xs font-black overflow-hidden">
+                      {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <span>{p.name?.[0]?.toUpperCase() || '?'}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-[#f2f0e3] truncate">{p.name}</p>
+                      <p className="text-[10px] text-white/35 font-medium">{[p.sku, p.ean].filter(Boolean).join(' · ') || 'sem código'}</p>
+                    </div>
+                    <ChevronRight size={14} className="text-white/20 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="p-4 pt-2">
+              <button
+                onClick={onCreateAndLink}
+                disabled={creating}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-white/[0.14] text-left active:border-[#D81E1E]/40 transition-colors disabled:opacity-50"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white/[0.06] text-white/40 flex items-center justify-center shrink-0">
+                  <Plus size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[#f2f0e3] truncate">{p.name}</p>
-                  <p className="text-[10px] text-white/35 font-medium">{[p.sku, p.ean].filter(Boolean).join(' · ') || 'sem código'}</p>
+                  <p className="text-xs font-extrabold text-white/70">{creating ? 'Criando...' : 'Criar novo produto'}</p>
+                  <p className="text-[10px] text-white/35 leading-tight mt-0.5">Se o filho ainda não existe no cadastro</p>
                 </div>
-                <ChevronRight size={14} className="text-white/20 shrink-0" />
               </button>
-            ))}
+              {linkError && <p className="text-[11px] text-[#f87171] font-medium mt-2 px-1">{linkError}</p>}
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="p-4 space-y-3">
+          <button
+            onClick={onOpenMotherModal}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-[#D81E1E]/40 text-left active:bg-white/[0.03] transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#D81E1E]/[0.14] text-[#f87171] flex items-center justify-center shrink-0">
+              <Boxes size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-white/70">Definir Produto Mãe</p>
+              <p className="text-[10px] text-white/35 leading-tight mt-0.5">Nome, sufixo, EAN e unidades por embalagem</p>
+            </div>
+          </button>
+          <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.1]">
+            <AlertCircle size={13} className="text-white/30 shrink-0 mt-[1px]" />
+            <p className="text-[10.5px] font-semibold text-white/40 leading-relaxed">
+              Pode ser definido antes ou depois do produto — troque de aba a qualquer momento. Ao salvar, o vínculo do produto filho é finalizado numa etapa dedicada.
+            </p>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -450,6 +547,17 @@ export function MobileNoteView({
   const isAdmin = mode === 'admin';
   const [scannerOpen, setScannerOpen] = useState(false);
   const [linkingPanel, setLinkingPanel] = useState(false);
+  const [motherModalOpen, setMotherModalOpen] = useState(false);
+  const [linkCreating, setLinkCreating] = useState(false);
+  const [linkError, setLinkError] = useState('');
+
+  // ─── Falta/Sobra (divergência) — sheet inferior, mesmo dado (item.discrepancy) do desktop ──
+  const [discrepancySheetOpen, setDiscrepancySheetOpen] = useState(false);
+  const [discrepancyTab, setDiscrepancyTab] = useState<'falta' | 'sobra'>('falta');
+  const [discrepancyQty, setDiscrepancyQty] = useState('');
+  const [discrepancyMissingAll, setDiscrepancyMissingAll] = useState(false);
+  const [discrepancyObs, setDiscrepancyObs] = useState('');
+  const [discrepancyDisregarded, setDiscrepancyDisregarded] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<'search' | 'venda' | null>(null);
   const [numpadValue, setNumpadValue] = useState('');
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
@@ -709,7 +817,19 @@ export function MobileNoteView({
     setScannerOpen(false);
   }
 
-  function handleLinkProduct(product: any) {
+  async function handleLinkProduct(product: any) {
+    // Produto Mãe pendente deste item (aba "Produto Mãe") — vincular a um produto JÁ EXISTENTE
+    // também precisa gravar a embalagem de vez, senão o rascunho fica órfão (ver mesmo
+    // comportamento em confirmNoteItemLink/app/page.tsx).
+    const pendingMotherDraft: MotherPackageDraft | null = items[activeIdx]?.mother_draft || null;
+    if (pendingMotherDraft) {
+      try {
+        await saveMotherPackage({ childProductId: product.id, draft: pendingMotherDraft });
+      } catch (err: any) {
+        setLinkError(err?.message || 'Erro ao salvar Produto Mãe.');
+        return;
+      }
+    }
     // Preço já preenchido na linha: mantém, sem perguntar. Vazio: continua vazio — o preço
     // cadastrado no dicionário só aparece como sugestão (placeholder) no campo de Preço Venda.
     const existing = sellPrices[activeIdx] ?? items[activeIdx]?.product_price ?? 0;
@@ -757,6 +877,7 @@ export function MobileNoteView({
       ean: product.ean || updatedItems[activeIdx].ean,
       product_price: sellPrice,
       status_translation: motherMatch ? 'Traduzido (Caixa)' : updatedItems[activeIdx].status_translation,
+      mother_draft: null,
       ...conversion,
     };
     setNote({ ...note, items: updatedItems });
@@ -767,10 +888,104 @@ export function MobileNoteView({
       setQtys(prev => { const u = [...prev]; u[activeIdx] = conversion.qty; return u; });
       setItemPrices(prev => { const u = [...prev]; u[activeIdx] = conversion.price; return u; });
     }
+    setLinkError('');
     setLinkingPanel(false);
   }
 
+  // Cria o produto direto (nome do item em minúsculas, preço de venda da linha, EAN do item) e
+  // já vincula — mesmo atalho "criação rápida" do desktop (handleQuickCreateAndLink), sem passar
+  // por uma tela de cadastro completa que o editor mobile de nota não tem hoje.
+  async function handleCreateAndLink() {
+    const item = items[activeIdx];
+    const pendingMotherDraft: MotherPackageDraft | null = item?.mother_draft || null;
+    const name = (item.original_description || item.description || '').trim().toLowerCase();
+    if (!name) {
+      setLinkError('Item sem descrição — não é possível criar o produto automaticamente.');
+      return;
+    }
+    const eanVal = (eans[activeIdx] ?? item.ean ?? '').trim();
+    const price = sellPrices[activeIdx] ?? item.product_price ?? 0;
+    setLinkCreating(true);
+    setLinkError('');
+    try {
+      const { data: created, error } = await supabase.from('products')
+        .insert({ name, sku: null, ean: eanVal || null, count: 0, is_low: true, status: 'Fora de Estoque', price: 0, brand: item.brand || null })
+        .select('id, name, sku, ean, price').single();
+      if (error) throw error;
+      if (pendingMotherDraft) {
+        await saveMotherPackage({ childProductId: created.id, draft: pendingMotherDraft });
+      }
+      const updatedItems = [...items];
+      updatedItems[activeIdx] = {
+        ...updatedItems[activeIdx],
+        name: created.name,
+        sku: created.sku || updatedItems[activeIdx].sku,
+        ean: created.ean || updatedItems[activeIdx].ean,
+        product_id: created.id,
+        product_price: price,
+        status_translation: 'Identificado (SKU/EAN)',
+        mother_draft: null,
+      };
+      setNote({ ...note, items: updatedItems });
+      setSkus(prev => { const u = [...prev]; u[activeIdx] = created.sku || ''; return u; });
+      setEans(prev => { const u = [...prev]; u[activeIdx] = created.ean || ''; return u; });
+      setSellPrices(prev => { const u = [...prev]; u[activeIdx] = price; return u; });
+      setLinkingPanel(false);
+    } catch (err: any) {
+      const msg = err?.message || '';
+      setLinkError(msg.includes('ean') ? 'Este EAN já está cadastrado em outro produto.' : (msg || 'Erro ao criar produto.'));
+    } finally {
+      setLinkCreating(false);
+    }
+  }
+
   const activeItem = items[activeIdx];
+
+  // ─── Produto Mãe pendente / Falta-Sobra — gravados direto no item (item.mother_draft /
+  // item.discrepancy), igual ao desktop, então a aprovação da nota (que já lê os dois campos
+  // hoje) funciona sem qualquer mudança independente de onde o registro foi feito. ──────────
+  const getMotherDraft = (i: number): MotherPackageDraft | null => items[i]?.mother_draft || null;
+  const getDiscrepancy = (i: number): DiscrepancyData => (items[i]?.discrepancy as DiscrepancyData) ?? null;
+
+  function saveMotherDraft(i: number, draft: MotherPackageDraft | null) {
+    const updated = [...items];
+    updated[i] = { ...updated[i], mother_draft: draft };
+    setNote({ ...note, items: updated });
+  }
+
+  function openDiscrepancySheet() {
+    const d = getDiscrepancy(activeIdx);
+    setDiscrepancyTab(d?.type ?? 'falta');
+    setDiscrepancyQty(d && !d.missingAll ? String(d.qty || '') : '');
+    setDiscrepancyMissingAll(d?.type === 'falta' ? !!d.missingAll : false);
+    setDiscrepancyObs(d?.obs ?? '');
+    setDiscrepancyDisregarded(!!d?.disregarded);
+    setDiscrepancySheetOpen(true);
+  }
+
+  function handleSaveDiscrepancy() {
+    const qtyNum = discrepancyMissingAll ? 0 : (parseFloat(discrepancyQty) || 0);
+    const updated = [...items];
+    updated[activeIdx] = {
+      ...updated[activeIdx],
+      discrepancy: {
+        type: discrepancyTab,
+        qty: qtyNum,
+        missingAll: discrepancyTab === 'falta' && discrepancyMissingAll,
+        obs: discrepancyObs.trim(),
+        disregarded: discrepancyDisregarded,
+      },
+    };
+    setNote({ ...note, items: updated });
+    setDiscrepancySheetOpen(false);
+  }
+
+  function handleClearDiscrepancy() {
+    const updated = [...items];
+    updated[activeIdx] = { ...updated[activeIdx], discrepancy: null };
+    setNote({ ...note, items: updated });
+    setDiscrepancySheetOpen(false);
+  }
 
   // ─── avatar / badge helpers ───────────────────────────────────────────────
   function avatarClass(i: number) {
@@ -1610,6 +1825,8 @@ export function MobileNoteView({
                 const hasVariants = itemVariants.length > 0;
                 const desc = item.original_description || item.description || item.name || `Item ${i + 1}`;
                 const isDup = itemHasDupEan(i);
+                const rowDiscrepancy = getDiscrepancy(i);
+                const rowMotherPending = !!item?.mother_draft;
 
                 const parentRow = (
                   <button
@@ -1632,7 +1849,10 @@ export function MobileNoteView({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-black text-[#f2f0e3] truncate leading-tight">{desc}</p>
+                        <p className={cn(
+                          'text-sm font-black truncate leading-tight',
+                          rowDiscrepancy?.type === 'falta' && rowDiscrepancy.missingAll ? 'text-white/40 line-through' : 'text-[#f2f0e3]'
+                        )}>{desc}</p>
                         {hasVariants ? (
                           <span className="text-[9px] font-black text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-md shrink-0">
                             {itemVariants.length} var.
@@ -1653,6 +1873,21 @@ export function MobileNoteView({
                           {isDup && (
                             <span title="EAN repetido nesta nota" className="text-[#f87171]">
                               <AlertTriangle size={12} />
+                            </span>
+                          )}
+                          {rowMotherPending && (
+                            <span title="Produto Mãe pendente — falta criar o produto" className="text-[#f87171]">
+                              <Boxes size={12} />
+                            </span>
+                          )}
+                          {rowDiscrepancy && (
+                            <span
+                              title={rowDiscrepancy.type === 'falta'
+                                ? (rowDiscrepancy.missingAll ? 'Falta — produto não veio' : `Falta ${rowDiscrepancy.qty} registrada`)
+                                : `Sobra ${rowDiscrepancy.qty} registrada`}
+                              className={rowDiscrepancy.type === 'falta' ? 'text-[#f87171]' : 'text-emerald-400'}
+                            >
+                              {rowDiscrepancy.type === 'falta' ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
                             </span>
                           )}
                           <span className={cn(
@@ -2030,6 +2265,44 @@ export function MobileNoteView({
                 </>
               );
 
+              const activeDiscrepancy = getDiscrepancy(activeIdx);
+              const divergenciaSection = (
+                <>
+                  <SectionLabel>Divergência</SectionLabel>
+                  <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4">
+                    {activeDiscrepancy ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-black',
+                          activeDiscrepancy.type === 'falta' ? 'bg-[#D81E1E]/10 text-[#f87171]' : 'bg-emerald-500/10 text-emerald-400'
+                        )}>
+                          {activeDiscrepancy.type === 'falta' ? <ArrowDown size={13} /> : <ArrowUp size={13} />}
+                          {activeDiscrepancy.type === 'falta'
+                            ? (activeDiscrepancy.missingAll ? 'Falta — não veio' : `Falta ${activeDiscrepancy.qty}`)
+                            : `Sobra ${activeDiscrepancy.qty}`}
+                        </span>
+                        <button
+                          onClick={openDiscrepancySheet}
+                          className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors shrink-0"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={openDiscrepancySheet} className="w-full flex items-center gap-3 text-left">
+                        <div className="w-9 h-9 rounded-xl bg-[#D81E1E]/10 border border-[#D81E1E]/20 flex items-center justify-center shrink-0 text-[#f87171]">
+                          <AlertTriangle size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-extrabold text-white/70">Registrar Falta/Sobra</p>
+                          <p className="text-[10px] text-white/35 leading-tight mt-0.5">Item veio a menos, a mais ou não veio</p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </>
+              );
+
               const { disc: activeDisc, sur: activeSur } = calcAdjTotals(cost(activeIdx), qty(activeIdx), activeIdx, adjColumns);
               const activeTotal = (cost(activeIdx) - activeDisc + activeSur) * qty(activeIdx);
 
@@ -2260,9 +2533,9 @@ export function MobileNoteView({
               </div>
 
               {isAdmin ? (
-                <>{precosQuantidadeSection}{identificacaoSection}{rateioSection}{identificacaoInternaSection}</>
+                <>{precosQuantidadeSection}{identificacaoSection}{rateioSection}{identificacaoInternaSection}{divergenciaSection}</>
               ) : (
-                <>{identificacaoSection}{rateioSection}{identificacaoInternaSection}{precosQuantidadeSection}</>
+                <>{identificacaoSection}{rateioSection}{identificacaoInternaSection}{divergenciaSection}{precosQuantidadeSection}</>
               )}
             </div>
               );
@@ -2273,8 +2546,164 @@ export function MobileNoteView({
               {linkingPanel && (
                 <LinkingPanel
                   idx={activeIdx} item={activeItem} products={products}
-                  onLink={handleLinkProduct} onClose={() => setLinkingPanel(false)}
+                  onLink={handleLinkProduct} onClose={() => { setLinkingPanel(false); setLinkError(''); }}
+                  motherDraft={getMotherDraft(activeIdx)}
+                  onOpenMotherModal={() => setMotherModalOpen(true)}
+                  onRemoveMotherDraft={() => saveMotherDraft(activeIdx, null)}
+                  onCreateAndLink={handleCreateAndLink}
+                  creating={linkCreating}
+                  linkError={linkError}
                 />
+              )}
+            </AnimatePresence>
+
+            {/* ── Produto Mãe — mesmo modal (em modo staging) usado no desktop ────── */}
+            <MotherProductModal
+              open={motherModalOpen}
+              onClose={() => setMotherModalOpen(false)}
+              childProductId=""
+              childProductName={activeItem?.original_description || activeItem?.description || 'Novo produto'}
+              editingPackage={null}
+              initialDraft={getMotherDraft(activeIdx)}
+              initialEan={ean(activeIdx)}
+              suppliers={[]}
+              onSaved={() => {}}
+              onStage={draft => saveMotherDraft(activeIdx, draft)}
+            />
+
+            {/* ── Falta/Sobra — sheet inferior ─────────────────────────────────── */}
+            <AnimatePresence>
+              {discrepancySheetOpen && (
+                <>
+                  <motion.div
+                    key="disc-backdrop"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute inset-0 z-40 bg-black/60"
+                    onClick={() => setDiscrepancySheetOpen(false)}
+                  />
+                  <motion.div
+                    key="disc-sheet"
+                    initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden p-5 pb-8"
+                  >
+                    <div className="text-center mb-1">
+                      <p className="text-sm font-black text-[#f2f0e3]">Divergência</p>
+                      <p className="text-[10px] text-white/35 font-medium mt-0.5 truncate">
+                        {activeItem?.original_description || activeItem?.description || `Item ${activeIdx + 1}`}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 mt-4 mb-3.5">
+                      <button
+                        onClick={() => setDiscrepancyTab('falta')}
+                        className={cn(
+                          'flex-1 py-2.5 rounded-xl text-sm font-black transition-colors',
+                          discrepancyTab === 'falta' ? 'bg-[#D81E1E]/15 text-[#f87171] border border-[#D81E1E]/30' : 'bg-white/[0.04] text-white/45 border border-white/[0.09]'
+                        )}
+                      >
+                        Falta
+                      </button>
+                      <button
+                        onClick={() => setDiscrepancyTab('sobra')}
+                        className={cn(
+                          'flex-1 py-2.5 rounded-xl text-sm font-black transition-colors',
+                          discrepancyTab === 'sobra' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-white/[0.04] text-white/45 border border-white/[0.09]'
+                        )}
+                      >
+                        Sobra
+                      </button>
+                    </div>
+
+                    {discrepancyTab === 'falta' ? (
+                      <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3.5 flex items-center gap-3 mb-3.5">
+                        <button type="button" onClick={() => setDiscrepancyMissingAll(v => !v)} className="flex-1 flex items-center gap-2.5 text-left">
+                          <div className={cn('w-9 h-5 rounded-full relative shrink-0 transition-colors', discrepancyMissingAll ? 'bg-[#D81E1E]' : 'bg-white/[0.14]')}>
+                            <span className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all', discrepancyMissingAll ? 'left-4' : 'left-0.5')} />
+                          </div>
+                          <span className="text-xs font-semibold text-white/70">Produto não veio</span>
+                        </button>
+                        {!discrepancyMissingAll && (
+                          <div className="flex-1 min-w-[100px]">
+                            <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1">Qtd. faltando</label>
+                            <input
+                              type="number" min="0" step="1" inputMode="decimal"
+                              value={discrepancyQty}
+                              onChange={e => setDiscrepancyQty(e.target.value)}
+                              onWheel={blockWheelChange}
+                              placeholder="0"
+                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-bold text-[#f2f0e3] outline-none focus:border-[#D81E1E]/60 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3.5 mb-3.5">
+                        <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1">Qtd. sobrando</label>
+                        <input
+                          type="number" min="0" step="1" inputMode="decimal"
+                          value={discrepancyQty}
+                          onChange={e => setDiscrepancyQty(e.target.value)}
+                          onWheel={blockWheelChange}
+                          placeholder="0"
+                          className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-sm font-bold text-[#f2f0e3] outline-none focus:border-emerald-400/60 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden"
+                        />
+                      </div>
+                    )}
+
+                    <div className={cn(
+                      'rounded-2xl border-[1.5px] border-dashed px-4 py-3.5 mb-3.5 transition-colors',
+                      discrepancyDisregarded ? 'border-amber-400/35 bg-amber-400/[0.08]' : 'border-white/[0.1] bg-white/[0.02]'
+                    )}>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-[9px] bg-amber-400/[0.14] text-amber-300 flex items-center justify-center shrink-0">
+                          <Ban size={14} strokeWidth={2.3} />
+                        </span>
+                        <span className="text-[12.5px] font-black text-amber-300 flex-1">Confirmar divergência</span>
+                        <button
+                          type="button"
+                          onClick={() => setDiscrepancyDisregarded(v => !v)}
+                          className={cn('w-9 h-5 rounded-full relative shrink-0 transition-colors', discrepancyDisregarded ? 'bg-amber-400' : 'bg-amber-400/20')}
+                        >
+                          <span className={cn('absolute top-0.5 w-4 h-4 rounded-full shadow transition-all bg-[#1a1a14]', discrepancyDisregarded ? 'left-4 bg-white' : 'left-0.5')} />
+                        </button>
+                      </div>
+                      <p className="text-[11px] font-semibold leading-[1.45] text-amber-300/75 mt-1.5">
+                        Ajusta o valor: subtrai (Falta) ou soma (Sobra) o preço unitário × quantidade divergente do Valor Total e do Markup da nota.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1.5">Observações</label>
+                      <textarea
+                        value={discrepancyObs}
+                        onChange={e => setDiscrepancyObs(e.target.value)}
+                        placeholder="Detalhes adicionais sobre a divergência..."
+                        rows={2}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none focus:border-white/20 resize-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-2.5 mt-4">
+                      <button
+                        onClick={handleClearDiscrepancy}
+                        className="flex-1 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08] text-sm font-bold text-white/45 active:bg-white/10 transition-colors"
+                      >
+                        Limpar
+                      </button>
+                      <button
+                        onClick={handleSaveDiscrepancy}
+                        className={cn(
+                          'flex-1 py-3 rounded-xl text-sm font-black text-white transition-all active:scale-[0.97]',
+                          discrepancyTab === 'falta' ? 'bg-[#D81E1E]' : 'bg-emerald-500'
+                        )}
+                      >
+                        Salvar
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
               )}
             </AnimatePresence>
           </div>

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1500, initial-scale=1.0" />
+<title>Nota Mobile — Produto Mãe + Falta/Sobra (v2)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body { background:#0a0a08; font-family:'DM Sans', system-ui, -apple-system, sans-serif; padding:48px 40px 100px; }
+  h1 { font-size:22px; font-weight:900; color:#f2f0e3; letter-spacing:-.02em; margin-bottom:6px; }
+  .lead { font-size:13px; color:rgba(242,240,227,.5); font-weight:500; margin-bottom:14px; max-width:780px; line-height:1.5; }
+  .rev-note { font-size:11.5px; color:#FCD34D; font-weight:700; background:rgba(252,211,77,.08); border:1px dashed rgba(252,211,77,.3); border-radius:10px; padding:10px 14px; max-width:780px; line-height:1.5; margin-bottom:8px; }
+  .section-title { font-size:13px; font-weight:900; color:#FFE500; text-transform:uppercase; letter-spacing:.1em; margin:40px 0 18px; }
+
+  .board { display:flex; flex-wrap:wrap; gap:32px; align-items:flex-start; }
+  .frame-block { display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .frame-tag { font-size:10.5px; font-weight:900; letter-spacing:.05em; text-transform:uppercase; color:#0a0a08; background:#FFE500; padding:5px 12px; border-radius:50px; text-align:center; }
+  .frame-desc { font-size:10.5px; color:rgba(242,240,227,.45); font-weight:500; max-width:250px; text-align:center; line-height:1.4; }
+  .frame-desc b { color:rgba(242,240,227,.8); }
+
+  .device-frame {
+    width:250px; height:542px; background:#0e0e0a; border-radius:30px; overflow:hidden;
+    box-shadow: 0 0 0 7px #000, 0 0 0 9px #2a2a24, 0 24px 50px rgba(0,0,0,.6);
+    position:relative; display:flex; flex-direction:column;
+  }
+  .statusbar { height:26px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; flex-shrink:0; }
+  .statusbar span { font-size:10px; font-weight:700; color:#f2f0e3; }
+
+  .topbar { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.07); flex-shrink:0; }
+  .back-btn { width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.6); flex-shrink:0; font-size:12px; }
+  .topbar-title { font-size:11px; font-weight:900; color:rgba(255,255,255,.9); }
+  .topbar-sub { font-size:8.5px; color:rgba(255,255,255,.35); font-weight:500; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .body-pad { flex:1; overflow:hidden; padding:12px; display:flex; flex-direction:column; gap:9px; position:relative; }
+
+  .section-label { font-size:8px; font-weight:900; color:rgba(255,255,255,.25); text-transform:uppercase; letter-spacing:.1em; padding:0 2px; }
+  .card { background:#1c1c16; border-radius:14px; border:1px solid rgba(255,255,255,.07); overflow:hidden; }
+  .card-row { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .card-row:last-child { border-bottom:none; }
+  .card-label { font-size:8.5px; font-weight:900; color:rgba(255,255,255,.35); width:44px; flex-shrink:0; text-transform:uppercase; }
+
+  /* item list row — igual ao real (avatar numerado, nome, meta, badges) */
+  .item-row { display:flex; align-items:center; gap:9px; padding:9px 10px; border-bottom:1px solid rgba(255,255,255,.05); border-radius:12px; }
+  .item-row.highlight { background:rgba(255,255,255,.025); }
+  .item-avatar { width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:rgba(255,255,255,.4); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; flex-shrink:0; }
+  .item-main { flex:1; min-width:0; }
+  .item-name { font-size:9.5px; font-weight:900; color:#f2f0e3; line-height:1.25; }
+  .item-name.struck { text-decoration:line-through; text-decoration-color:rgba(255,255,255,.3); opacity:.65; }
+  .item-meta-row { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:2px; }
+  .item-meta { font-size:7.5px; color:rgba(255,255,255,.3); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item-badges { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+  .mini-icon { width:15px; height:15px; border-radius:5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .mini-icon.mae { background:rgba(216,30,30,.16); color:#f87171; }
+  .mini-icon.falta { background:rgba(216,30,30,.16); color:#f87171; }
+  .mini-icon.sobra { background:rgba(52,211,153,.16); color:#34D399; }
+  .stage-badge { font-size:7.5px; font-weight:900; padding:2px 5px; border-radius:5px; }
+  .stage-badge.full { background:rgba(52,211,153,.1); color:#34D399; }
+  .stage-badge.mid { background:rgba(245,158,11,.1); color:#f59e0b; }
+  .stage-badge.low { background:rgba(216,30,30,.1); color:#f87171; }
+  .chevron { color:rgba(255,255,255,.15); font-size:11px; flex-shrink:0; }
+
+  .dashed-cta { border:2px dashed rgba(255,255,255,.14); border-radius:14px; padding:11px; display:flex; align-items:center; gap:9px; }
+  .dashed-cta.hot { border-color:rgba(216,30,30,.4); }
+  .dashed-icon { width:28px; height:28px; border-radius:9px; background:rgba(255,255,255,.06); color:rgba(255,255,255,.4); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .dashed-cta.hot .dashed-icon { background:rgba(216,30,30,.14); color:#f87171; }
+  .dashed-title { font-size:9.5px; font-weight:900; color:rgba(255,255,255,.75); }
+  .dashed-sub { font-size:8px; color:rgba(255,255,255,.35); font-weight:500; margin-top:1px; line-height:1.3; }
+
+  .action-btn-row { display:flex; gap:8px; }
+  .action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px; border-radius:11px; font-size:9.5px; font-weight:900; }
+  .action-btn.primary { background:rgba(216,30,30,.1); border:1px solid rgba(216,30,30,.2); color:#f87171; }
+  .action-btn.neutral { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); color:rgba(255,255,255,.4); }
+
+  .info-box { display:flex; gap:6px; padding:8px 9px; border-radius:10px; background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1); }
+  .info-box svg { flex-shrink:0; margin-top:1px; color:rgba(255,255,255,.35); }
+  .info-box p { font-size:8px; color:rgba(255,255,255,.45); font-weight:600; line-height:1.4; }
+
+  .field-label { font-size:7.5px; font-weight:900; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; display:block; }
+  .field-input { width:100%; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.09); border-radius:10px; padding:9px 10px; font-size:10px; font-weight:700; color:#f2f0e3; }
+  .field-input.placeholder { color:rgba(255,255,255,.22); font-weight:500; }
+  .field-row { display:flex; gap:8px; }
+  .field-row > div { flex:1; min-width:0; }
+
+  .summary-card { border:2px solid #D81E1E; background:rgba(216,30,30,.08); border-radius:14px; padding:10px; display:flex; align-items:center; gap:9px; }
+  .summary-icon { width:28px; height:28px; border-radius:9px; background:rgba(216,30,30,.16); color:#f87171; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .summary-name { font-size:9.5px; font-weight:900; color:#f87171; }
+  .summary-sub { font-size:8px; color:rgba(255,255,255,.4); font-weight:600; margin-top:1px; }
+  .summary-actions { display:flex; gap:4px; margin-left:auto; }
+  .summary-mini-btn { font-size:7.5px; font-weight:800; color:rgba(255,255,255,.4); padding:3px 6px; border-radius:6px; background:rgba(255,255,255,.06); }
+
+  .search-bar { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.07); border-radius:11px; padding:8px 10px; }
+  .search-bar svg { color:rgba(255,255,255,.3); flex-shrink:0; }
+  .search-bar span.ph { font-size:9px; color:rgba(255,255,255,.25); font-weight:500; }
+
+  .tabs-row { display:flex; gap:1.5px; padding:3px; border-radius:12px; background:rgba(255,255,255,.05); }
+  .tab-btn { flex:1; padding:8px; border-radius:9px; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; text-align:center; display:flex; align-items:center; justify-content:center; gap:4px; }
+  .tab-btn.active { background:#1c1c16; color:#f2f0e3; }
+  .tab-btn.inactive { color:rgba(255,255,255,.35); }
+  .tab-btn.active.falta { color:#f87171; }
+  .tab-btn.active.sobra { color:#34D399; }
+
+  .toggle-row { display:flex; align-items:center; gap:8px; background:#161610; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:9px 10px; }
+  .toggle-label { font-size:9px; font-weight:700; color:rgba(255,255,255,.65); flex:1; }
+  .toggle-switch { width:26px; height:15px; border-radius:50px; position:relative; flex-shrink:0; }
+  .toggle-switch.on { background:#D81E1E; }
+  .toggle-switch.off { background:rgba(255,255,255,.14); }
+  .toggle-switch .knob { position:absolute; top:1.5px; width:12px; height:12px; border-radius:50%; background:#fff; }
+  .toggle-switch.on .knob { left:13px; }
+  .toggle-switch.off .knob { left:1.5px; }
+
+  .amber-box { border-radius:12px; border:1.5px dashed rgba(252,211,77,.35); background:rgba(252,211,77,.06); padding:9px 10px; }
+  .amber-row { display:flex; align-items:center; gap:7px; }
+  .amber-icon { width:20px; height:20px; border-radius:6px; background:rgba(252,211,77,.16); color:#FCD34D; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .amber-title { font-size:8.5px; font-weight:900; color:#FCD34D; flex:1; }
+
+  .sheet-footer { display:flex; gap:7px; margin-top:auto; padding-top:8px; }
+  .sheet-btn { flex:1; padding:9px; border-radius:11px; font-size:9.5px; font-weight:900; text-align:center; }
+  .sheet-btn.cancel { background:rgba(255,255,255,.06); color:rgba(255,255,255,.45); }
+  .sheet-btn.save.falta { background:#D81E1E; color:#fff; }
+  .sheet-btn.save.sobra { background:#059669; color:#fff; }
+
+  .dim-overlay { position:absolute; inset:0; background:rgba(0,0,0,.5); z-index:5; }
+
+  .pill-inline { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:8px; font-size:9px; font-weight:900; }
+  .pill-inline.falta { background:rgba(216,30,30,.12); color:#f87171; }
+  .pill-inline.sobra { background:rgba(52,211,153,.12); color:#34D399; }
+</style>
+</head>
+<body>
+  <h1>Nota Mobile — Produto Mãe antes do Filho &amp; Falta/Sobra (revisado)</h1>
+  <p class="lead">O editor mobile de nota (MobileNoteView) só permite buscar/vincular um produto existente hoje. Estes mockups mostram os dois fluxos que faltam. Visual segue o modo escuro full-screen já usado no editor de nota.</p>
+  <p class="rev-note">Revisão: os botões "Vincular" e "Registrar Falta/Sobra" agora ficam como campos dentro da aba <b>Detalhe</b> (não na lista de Itens, pra não poluir a tela). Na aba Itens, cada linha só mostra um ícone pequeno de aviso — a ação em si acontece só depois de entrar no item.</p>
+
+  <div class="section-title">Fluxo 1 — Produto Mãe antes do Produto Filho</div>
+  <div class="board">
+
+    <div class="frame-block">
+      <span class="frame-tag">1 · Detalhe — Identificação Interna</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Item 3 de 22</div><div class="topbar-sub">(TERRA MARROM) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <span class="section-label">Identificação Interna</span>
+          <div class="card" style="padding:11px;">
+            <p style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;margin-bottom:9px;">Não vinculado</p>
+            <div class="action-btn-row">
+              <div class="action-btn primary">🔗 Vincular</div>
+              <div class="action-btn neutral">≡ Vários</div>
+            </div>
+          </div>
+          <span class="section-label">Preços &amp; Quantidade</span>
+          <div class="card" style="opacity:.35;height:70px;"></div>
+        </div>
+      </div>
+      <p class="frame-desc">É aqui que "Vincular" já mora hoje. Ele abre o mesmo painel de sempre — agora com a aba <b>Produto Mãe</b> ao lado.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">2 · Painel Vincular — abas</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">✕</div>
+          <div><div class="topbar-title">Vincular Produto</div><div class="topbar-sub">(TERRA MARROM) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <div class="tabs-row">
+            <div class="tab-btn active">Produto</div>
+            <div class="tab-btn inactive">Produto Mãe</div>
+          </div>
+          <div class="search-bar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="ph">Nome, SKU ou EAN...</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,.2);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span style="font-size:8.5px;font-weight:700;">Digite pelo menos 2 letras</span>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Painel abre em tela cheia como já acontece hoje — só ganhou a segunda aba.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">3 · Aba Produto Mãe (vazia)</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">✕</div>
+          <div><div class="topbar-title">Produto Mãe</div><div class="topbar-sub">(TERRA MARROM) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <div class="tabs-row">
+            <div class="tab-btn inactive">Produto</div>
+            <div class="tab-btn active">Produto Mãe</div>
+          </div>
+          <div class="dashed-cta hot" style="margin-top:6px;">
+            <div class="dashed-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+            <div>
+              <div class="dashed-title">Definir Produto Mãe</div>
+              <div class="dashed-sub">Nome, sufixo, EAN e<br>unidades por embalagem</div>
+            </div>
+          </div>
+          <div class="info-box">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <p>Pode ser definido antes ou depois do produto — troque de aba a qualquer momento.</p>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Botão tracejado igual ao desktop. Toque abre o formulário em tela cheia.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">4 · Formulário do Produto Mãe</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Definir Produto Mãe</div><div class="topbar-sub">Caixa, fardo ou pacote fechado</div></div>
+        </div>
+        <div class="body-pad">
+          <div>
+            <span class="field-label">Nome do produto</span>
+            <div class="field-input">Terra Marrom 1kg</div>
+          </div>
+          <div>
+            <span class="field-label">Sufixo (opcional)</span>
+            <div class="field-input">Fardo</div>
+          </div>
+          <div class="field-row">
+            <div>
+              <span class="field-label">EAN principal</span>
+              <div class="field-input placeholder">7891234500012</div>
+            </div>
+            <div>
+              <span class="field-label">Unid. por embalagem</span>
+              <div class="field-input">30</div>
+            </div>
+          </div>
+          <div class="info-box">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <p>Nome final: "Terra Marrom 1kg Fardo" — assim aparece no estoque depois de criado.</p>
+          </div>
+          <div class="sheet-footer">
+            <div class="sheet-btn cancel">Cancelar</div>
+            <div class="sheet-btn save falta" style="background:#D81E1E;">Salvar</div>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Mesmos 4 campos do modal desktop, empilhados em coluna única pro mobile.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">5 · Modo travado: Vincular Filho</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">✕</div>
+          <div><div class="topbar-title">Vincular Produto Filho</div><div class="topbar-sub">(TERRA MARROM) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <div class="summary-card">
+            <div class="summary-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+            <div style="min-width:0;">
+              <div class="summary-name">Produto Mãe salvo: Terra Marrom 1kg Fardo</div>
+              <div class="summary-sub">1 emb. = 30 un · EAN 7891234500012</div>
+            </div>
+          </div>
+          <div class="summary-actions" style="margin:-4px 0 2px;">
+            <span class="summary-mini-btn">Editar</span>
+            <span class="summary-mini-btn">Remover</span>
+          </div>
+          <div class="search-bar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="ph">Buscar produto filho...</span>
+          </div>
+          <div class="dashed-cta">
+            <div class="dashed-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div><div class="dashed-title">Criar novo produto</div><div class="dashed-sub">Se o filho ainda não existe no cadastro</div></div>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Sem abas — trava nesse modo até o filho ser escolhido ou criado, igual ao desktop.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">6 · Aba Itens — só o indicador</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Itens</div><div class="topbar-sub">22 produtos</div></div>
+        </div>
+        <div class="body-pad" style="padding:0;">
+          <div class="item-row highlight">
+            <div class="item-avatar">3</div>
+            <div class="item-main">
+              <div class="item-name">(TERRA MARROM) 1KG FD C/ 30</div>
+              <div class="item-meta-row">
+                <span class="item-meta">Cód. 7 · 30 un</span>
+                <span class="item-badges">
+                  <span class="mini-icon mae" title="Produto Mãe pendente">📦</span>
+                  <span class="stage-badge low">1/3</span>
+                </span>
+              </div>
+            </div>
+            <span class="chevron">›</span>
+          </div>
+          <div class="item-row">
+            <div class="item-avatar">4</div>
+            <div class="item-main">
+              <div class="item-name">(TERRA VERMELHA) 1KG C/30</div>
+              <div class="item-meta-row">
+                <span class="item-meta">Cód. 9 · 30 un</span>
+                <span class="item-badges"><span class="stage-badge low">0/3</span></span>
+              </div>
+            </div>
+            <span class="chevron">›</span>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Só um ícone de pacote vermelho ao lado do badge "X/3" — a linha inteira já é clicável e leva pro Detalhe.</p>
+    </div>
+
+  </div>
+
+  <div class="section-title">Fluxo 2 — Registro de Falta / Sobra</div>
+  <div class="board">
+
+    <div class="frame-block">
+      <span class="frame-tag">1 · Detalhe — campo Divergência</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Item 1 de 22</div><div class="topbar-sub">(TERRA AMARELA) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <span class="section-label">Preços &amp; Quantidade</span>
+          <div class="card">
+            <div class="card-row"><span class="card-label">Qtd.</span><span style="font-size:11px;font-weight:900;color:#f2f0e3;">30</span></div>
+            <div class="card-row"><span class="card-label">Custo</span><span style="font-size:11px;font-weight:900;color:#f2f0e3;font-family:monospace;">2,3400</span></div>
+          </div>
+          <span class="section-label">Divergência</span>
+          <div class="card" style="padding:11px;">
+            <div class="dashed-cta hot" style="padding:9px;">
+              <div class="dashed-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+              <div><div class="dashed-title">Registrar Falta/Sobra</div><div class="dashed-sub">Item veio a menos, a mais ou não veio</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Novo campo dentro do Detalhe, logo abaixo de Preços &amp; Quantidade — mesmo lugar onde "Vincular" já vive.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">2 · Sheet — aba Falta</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="body-pad" style="padding:0;position:relative;">
+          <div class="dim-overlay"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;z-index:10;background:#161610;border-top:1px solid rgba(255,255,255,.08);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:9px;">
+            <div style="text-align:center;">
+              <p style="font-size:11px;font-weight:900;color:#f2f0e3;">Divergência</p>
+              <p style="font-size:8.5px;color:rgba(255,255,255,.35);font-weight:600;margin-top:1px;">(TERRA AMARELA) 1KG FD C/30</p>
+            </div>
+            <div class="tabs-row">
+              <div class="tab-btn active falta">Falta</div>
+              <div class="tab-btn inactive">Sobra</div>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Produto não veio</span>
+              <div class="toggle-switch off"><div class="knob"></div></div>
+            </div>
+            <div>
+              <span class="field-label">Qtd. faltando</span>
+              <div class="field-input">3</div>
+            </div>
+            <div class="amber-box">
+              <div class="amber-row">
+                <div class="amber-icon">⛔</div>
+                <span class="amber-title">Confirmar divergência</span>
+                <div class="toggle-switch off" style="background:rgba(252,211,77,.25);"><div class="knob" style="background:#1a1a14;"></div></div>
+              </div>
+            </div>
+            <div class="sheet-footer" style="padding-top:2px;">
+              <div class="sheet-btn cancel">Limpar</div>
+              <div class="sheet-btn save falta">Salvar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Sheet inferior — mesmo padrão dos sheets de numpad/unidade já usados no editor de nota mobile.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">3 · Sheet — aba Sobra</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="body-pad" style="padding:0;position:relative;">
+          <div class="dim-overlay"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;z-index:10;background:#161610;border-top:1px solid rgba(255,255,255,.08);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:9px;">
+            <div style="text-align:center;">
+              <p style="font-size:11px;font-weight:900;color:#f2f0e3;">Divergência</p>
+              <p style="font-size:8.5px;color:rgba(255,255,255,.35);font-weight:600;margin-top:1px;">(TERRA AMARELA) 1KG FD C/30</p>
+            </div>
+            <div class="tabs-row">
+              <div class="tab-btn inactive">Falta</div>
+              <div class="tab-btn active sobra">Sobra</div>
+            </div>
+            <div>
+              <span class="field-label">Qtd. sobrando</span>
+              <div class="field-input">2</div>
+            </div>
+            <div>
+              <span class="field-label">Observações</span>
+              <div class="field-input placeholder" style="height:44px;">Detalhes adicionais...</div>
+            </div>
+            <div class="sheet-footer" style="padding-top:2px;">
+              <div class="sheet-btn cancel">Limpar</div>
+              <div class="sheet-btn save sobra">Salvar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Sem o toggle "não veio" (exclusivo de Falta) — troca a cor de acento pra verde.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">4 · Detalhe — divergência salva</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Item 1 de 22</div><div class="topbar-sub">(TERRA AMARELA) 1KG FD C/30</div></div>
+        </div>
+        <div class="body-pad">
+          <span class="section-label">Preços &amp; Quantidade</span>
+          <div class="card">
+            <div class="card-row"><span class="card-label">Qtd.</span><span style="font-size:11px;font-weight:900;color:#f2f0e3;">27</span><span style="font-size:8px;color:rgba(255,255,255,.3);">(30 na nota)</span></div>
+          </div>
+          <span class="section-label">Divergência</span>
+          <div class="card" style="padding:11px;display:flex;align-items:center;gap:9px;">
+            <span class="pill-inline falta">↓ Falta 3</span>
+            <span style="margin-left:auto;font-size:8.5px;font-weight:800;color:rgba(255,255,255,.35);">Editar</span>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Campo vira um resumo compacto clicável — mesmo padrão do "Vincular" → "Alterar" quando já preenchido.</p>
+    </div>
+
+    <div class="frame-block">
+      <span class="frame-tag">5 · Aba Itens — só o indicador</span>
+      <div class="device-frame">
+        <div class="statusbar"><span>9:41</span></div>
+        <div class="topbar">
+          <div class="back-btn">‹</div>
+          <div><div class="topbar-title">Itens</div><div class="topbar-sub">22 produtos</div></div>
+        </div>
+        <div class="body-pad" style="padding:0;">
+          <div class="item-row highlight">
+            <div class="item-avatar" style="background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.2);color:#34D399;">1</div>
+            <div class="item-main">
+              <div class="item-name struck">(TERRA AMARELA) 1 KG FD C/30</div>
+              <div class="item-meta-row">
+                <span class="item-meta">Cód. 5 · 30 un</span>
+                <span class="item-badges">
+                  <span class="mini-icon falta" title="Falta 3 registrada">↓</span>
+                  <span class="stage-badge full">3/3</span>
+                </span>
+              </div>
+            </div>
+            <span class="chevron">›</span>
+          </div>
+          <div class="item-row">
+            <div class="item-avatar" style="background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.2);color:#34D399;">2</div>
+            <div class="item-main">
+              <div class="item-name">(TERRA BRANCA) 700G FD C/ 30</div>
+              <div class="item-meta-row">
+                <span class="item-meta">Cód. 10 · 30 un</span>
+                <span class="item-badges">
+                  <span class="mini-icon sobra" title="Sobra 2 registrada">↑</span>
+                  <span class="stage-badge full">3/3</span>
+                </span>
+              </div>
+            </div>
+            <span class="chevron">›</span>
+          </div>
+        </div>
+      </div>
+      <p class="frame-desc">Setinha vermelha (falta) ou verde (sobra) ao lado do badge de etapas; nome riscado quando "não veio".</p>
+    </div>
+
+  </div>
+</body>
+</html>
