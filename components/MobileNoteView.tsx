@@ -356,12 +356,17 @@ function LinkingPanel({ idx, item, products, onLink, onClose, motherDraft, onOpe
   motherDraft: MotherPackageDraft | null;
   onOpenMotherModal: () => void;
   onRemoveMotherDraft: () => void;
-  onCreateAndLink: () => void;
+  onCreateAndLink: (name: string, eanVal: string) => void;
   creating: boolean;
   linkError: string;
 }) {
   const [subTab, setSubTab] = useState<'produto' | 'mae'>('produto');
   const [q, setQ] = useState(() => getNoteItemMatchCode(item?.ean, item?.supplier_code));
+  // Nome/EAN do produto filho a ser criado — editáveis pelo usuário (antes disso o filho era
+  // criado direto com a descrição bruta do item, sem chance de edição, e ficava idêntico ao
+  // que tivesse sido digitado no rascunho do Produto Mãe).
+  const [childName, setChildName] = useState(() => item?.original_description || item?.description || '');
+  const [childEan, setChildEan] = useState(() => getNoteItemMatchCode(item?.ean, item?.supplier_code) || item?.ean || '');
   // Modo travado "Vincular Produto Filho": assim que existe um rascunho de Produto Mãe
   // pendente, o painel trava nessa etapa (sem seletor de abas) até o filho ser escolhido ou
   // criado — mesmo comportamento do modal desktop (ver resolveMode em app/page.tsx).
@@ -469,19 +474,36 @@ function LinkingPanel({ idx, item, products, onLink, onClose, motherDraft, onOpe
               </div>
             )}
             <div className="p-4 pt-2">
-              <button
-                onClick={onCreateAndLink}
-                disabled={creating}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed border-white/[0.14] text-left active:border-[#D81E1E]/40 transition-colors disabled:opacity-50"
-              >
-                <div className="w-9 h-9 rounded-xl bg-white/[0.06] text-white/40 flex items-center justify-center shrink-0">
-                  <Plus size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-extrabold text-white/70">{creating ? 'Criando...' : 'Criar novo produto'}</p>
-                  <p className="text-[10px] text-white/35 leading-tight mt-0.5">Se o filho ainda não existe no cadastro</p>
-                </div>
-              </button>
+              <div className="rounded-2xl border-2 border-dashed border-white/[0.14] p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-white/35 px-0.5">
+                  {resolveMode ? 'Novo produto filho' : 'Novo produto'}
+                </p>
+                <input
+                  value={childName}
+                  onChange={e => setChildName(e.target.value)}
+                  placeholder="Nome do produto"
+                  className="w-full bg-white/[0.06] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 outline-none font-medium border border-white/[0.07]"
+                />
+                <input
+                  value={childEan}
+                  onChange={e => setChildEan(e.target.value)}
+                  placeholder="EAN (opcional)"
+                  className="w-full bg-white/[0.06] rounded-xl px-3 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/25 outline-none font-medium border border-white/[0.07]"
+                />
+                <button
+                  onClick={() => onCreateAndLink(childName, childEan)}
+                  disabled={creating || !childName.trim()}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.05] text-left active:bg-white/[0.08] transition-colors disabled:opacity-50"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white/40 flex items-center justify-center shrink-0">
+                    <Plus size={15} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-extrabold text-white/70">{creating ? 'Criando...' : 'Criar e vincular'}</p>
+                    <p className="text-[10px] text-white/35 leading-tight mt-0.5">Se o filho ainda não existe no cadastro</p>
+                  </div>
+                </button>
+              </div>
               {linkError && <p className="text-[11px] text-[#f87171] font-medium mt-2 px-1">{linkError}</p>}
             </div>
           </div>
@@ -892,18 +914,17 @@ export function MobileNoteView({
     setLinkingPanel(false);
   }
 
-  // Cria o produto direto (nome do item em minúsculas, preço de venda da linha, EAN do item) e
-  // já vincula — mesmo atalho "criação rápida" do desktop (handleQuickCreateAndLink), sem passar
-  // por uma tela de cadastro completa que o editor mobile de nota não tem hoje.
-  async function handleCreateAndLink() {
+  // Cria o produto filho com nome/EAN informados pelo usuário no painel (editáveis, para não
+  // colidir com o que foi digitado no rascunho do Produto Mãe) e já vincula ao item da nota.
+  async function handleCreateAndLink(nameInput: string, eanInput: string) {
     const item = items[activeIdx];
     const pendingMotherDraft: MotherPackageDraft | null = item?.mother_draft || null;
-    const name = (item.original_description || item.description || '').trim().toLowerCase();
+    const name = (nameInput || item.original_description || item.description || '').trim().toLowerCase();
     if (!name) {
-      setLinkError('Item sem descrição — não é possível criar o produto automaticamente.');
+      setLinkError('Informe o nome do produto para criá-lo.');
       return;
     }
-    const eanVal = (eans[activeIdx] ?? item.ean ?? '').trim();
+    const eanVal = (eanInput ?? eans[activeIdx] ?? item.ean ?? '').trim();
     const price = sellPrices[activeIdx] ?? item.product_price ?? 0;
     setLinkCreating(true);
     setLinkError('');
