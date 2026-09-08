@@ -38,10 +38,18 @@ export function LoginForm() {
         return;
       }
       // Navegação hard (não router.push/refresh) — o middleware roda no servidor e precisa
-      // do cookie de sessão já anexado à requisição. Com router.push logo em seguida ao
-      // signIn, a navegação client-side às vezes corre na frente da escrita do cookie e o
-      // middleware ainda vê a sessão como anônima, te devolvendo pro /login com os campos
-      // limpos (remount do formulário) — daí a sensação de "precisei tentar de novo".
+      // do cookie de sessão já anexado à requisição.
+      //
+      // No Safari (iOS confirmado em produção) isso ainda falhava mesmo com a troca acima:
+      // o signInWithPassword grava a sessão via document.cookie de forma síncrona/aguardada,
+      // mas o WebKit tem um bug conhecido onde, se a navegação começa na mesma tarefa em que
+      // os cookies acabaram de ser escritos, ele às vezes inicia a requisição antes de
+      // persistir a gravação no disco. O middleware então não vê a sessão, redireciona de
+      // volta pro /login, e o formulário remonta do zero (campos em branco, sem erro nenhum
+      // — exatamente o sintoma relatado). Empurrar a navegação pro próximo tick dá tempo do
+      // Safari terminar de gravar os cookies antes da navegação começar. Não tem custo
+      // perceptível (é um único login) e não afeta Chrome/Firefox, que já funcionavam.
+      await new Promise(resolve => setTimeout(resolve, 50));
       window.location.href = '/';
     } catch {
       setError('Erro ao entrar. Tente novamente.');
