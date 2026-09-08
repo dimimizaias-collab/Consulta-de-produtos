@@ -573,6 +573,16 @@ export function MobileNoteView({
   const [linkCreating, setLinkCreating] = useState(false);
   const [linkError, setLinkError] = useState('');
 
+  // ─── Editar Produto vinculado — sheet inferior, abre ao tocar no nome em verde ──
+  // (necessário pra corrigir EAN/nome errados aplicados ao produto filho, ex.: pelo
+  // atalho de criação rápida antes de ter campos editáveis)
+  const [productEditOpen, setProductEditOpen] = useState(false);
+  const [productEditName, setProductEditName] = useState('');
+  const [productEditSku, setProductEditSku] = useState('');
+  const [productEditEan, setProductEditEan] = useState('');
+  const [productEditSaving, setProductEditSaving] = useState(false);
+  const [productEditError, setProductEditError] = useState('');
+
   // ─── Falta/Sobra (divergência) — sheet inferior, mesmo dado (item.discrepancy) do desktop ──
   const [discrepancySheetOpen, setDiscrepancySheetOpen] = useState(false);
   const [discrepancyTab, setDiscrepancyTab] = useState<'falta' | 'sobra'>('falta');
@@ -957,6 +967,49 @@ export function MobileNoteView({
       setLinkError(msg.includes('ean') ? 'Este EAN já está cadastrado em outro produto.' : (msg || 'Erro ao criar produto.'));
     } finally {
       setLinkCreating(false);
+    }
+  }
+
+  function openProductEdit() {
+    const item = items[activeIdx];
+    if (!item?.product_id) return;
+    setProductEditName(item.name || '');
+    setProductEditSku(item.sku || skus[activeIdx] || '');
+    setProductEditEan(item.ean || eans[activeIdx] || '');
+    setProductEditError('');
+    setProductEditOpen(true);
+  }
+
+  // Corrige diretamente o cadastro do produto vinculado (nome/SKU/EAN) — inclusive o EAN
+  // gravado errado no filho pelo antigo atalho de criação rápida sem edição.
+  async function handleSaveProductEdit() {
+    const item = items[activeIdx];
+    if (!item?.product_id) return;
+    const name = productEditName.trim();
+    if (!name) {
+      setProductEditError('Informe o nome do produto.');
+      return;
+    }
+    const skuVal = productEditSku.trim();
+    const eanVal = productEditEan.trim();
+    setProductEditSaving(true);
+    setProductEditError('');
+    try {
+      const { error } = await supabase.from('products')
+        .update({ name, sku: skuVal || null, ean: eanVal || null })
+        .eq('id', item.product_id);
+      if (error) throw error;
+      const updatedItems = [...items];
+      updatedItems[activeIdx] = { ...updatedItems[activeIdx], name, sku: skuVal, ean: eanVal };
+      setNote({ ...note, items: updatedItems });
+      setSkus(prev => { const u = [...prev]; u[activeIdx] = skuVal; return u; });
+      setEans(prev => { const u = [...prev]; u[activeIdx] = eanVal; return u; });
+      setProductEditOpen(false);
+    } catch (err: any) {
+      const msg = err?.message || '';
+      setProductEditError(msg.includes('ean') ? 'Este EAN já está cadastrado em outro produto.' : (msg || 'Erro ao salvar produto.'));
+    } finally {
+      setProductEditSaving(false);
     }
   }
 
@@ -2252,16 +2305,27 @@ export function MobileNoteView({
                   <div className="mx-4 mb-3 bg-[#1c1c16] rounded-2xl border border-white/[0.07] p-4">
                     {!!activeItem.product_id && activeItem.name ? (
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          onClick={openProductEdit}
+                          className="flex items-center gap-2 min-w-0 text-left"
+                        >
                           <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
                           <p className="text-sm font-bold text-emerald-400 truncate">{activeItem.name}</p>
-                        </div>
-                        <button
-                          onClick={() => setLinkingPanel(true)}
-                          className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors shrink-0"
-                        >
-                          Alterar
                         </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={openProductEdit}
+                            className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setLinkingPanel(true)}
+                            className="text-[10px] font-black text-white/35 border border-white/[0.07] px-2.5 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors"
+                          >
+                            Alterar
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div>
@@ -2721,6 +2785,81 @@ export function MobileNoteView({
                         )}
                       >
                         Salvar
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* ── Editar Produto — sheet inferior ──────────────────────────────── */}
+            <AnimatePresence>
+              {productEditOpen && (
+                <>
+                  <motion.div
+                    key="prodedit-backdrop"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute inset-0 z-40 bg-black/60"
+                    onClick={() => setProductEditOpen(false)}
+                  />
+                  <motion.div
+                    key="prodedit-sheet"
+                    initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute bottom-0 left-0 right-0 z-50 bg-[#161610] border-t border-white/[0.08] rounded-t-3xl overflow-hidden p-5 pb-8"
+                  >
+                    <div className="text-center mb-4">
+                      <p className="text-sm font-black text-[#f2f0e3]">Editar Produto</p>
+                      <p className="text-[10px] text-white/35 font-medium mt-0.5 truncate">
+                        {activeItem?.original_description || activeItem?.description || `Item ${activeIdx + 1}`}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1.5">Nome</label>
+                        <input
+                          value={productEditName}
+                          onChange={e => setProductEditName(e.target.value)}
+                          placeholder="Nome do produto"
+                          className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none focus:border-white/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1.5">SKU</label>
+                        <input
+                          value={productEditSku}
+                          onChange={e => setProductEditSku(e.target.value)}
+                          placeholder="SKU (opcional)"
+                          className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none focus:border-white/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-extrabold uppercase tracking-wide text-white/35 mb-1.5">EAN</label>
+                        <input
+                          value={productEditEan}
+                          onChange={e => setProductEditEan(e.target.value)}
+                          placeholder="EAN (opcional)"
+                          className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-3.5 py-2.5 text-sm text-[#f2f0e3] placeholder:text-white/20 outline-none focus:border-white/20"
+                        />
+                      </div>
+                      {productEditError && <p className="text-[11px] text-[#f87171] font-medium px-0.5">{productEditError}</p>}
+                    </div>
+
+                    <div className="flex gap-2.5 mt-5">
+                      <button
+                        onClick={() => setProductEditOpen(false)}
+                        className="flex-1 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08] text-sm font-bold text-white/45 active:bg-white/10 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveProductEdit}
+                        disabled={productEditSaving || !productEditName.trim()}
+                        className="flex-1 py-3 rounded-xl text-sm font-black text-white bg-emerald-500 transition-all active:scale-[0.97] disabled:opacity-50"
+                      >
+                        {productEditSaving ? 'Salvando...' : 'Salvar'}
                       </button>
                     </div>
                   </motion.div>
