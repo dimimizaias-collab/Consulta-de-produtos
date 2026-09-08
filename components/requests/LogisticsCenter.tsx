@@ -30,6 +30,7 @@ import {
   Eye,
   Maximize2,
   Truck,
+  MoreVertical,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -392,6 +393,19 @@ export function LogisticsCenter({
   const [confirmApproveId, setConfirmApproveId]      = useState<string | null>(null);
   const [linkingNote, setLinkingNote]                = useState<ReviewNote | null>(null);
   const [noteSearch, setNoteSearch]                  = useState('');
+
+  // Header mobile solto (estilo WhatsApp/Inventory) — menu de ações rápidas
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setShowMobileMenu(false);
+      }
+    }
+    if (showMobileMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMobileMenu]);
 
   // ── Calendário (mesmo padrão do Controle Financeiro) ──────────────────
   const today = useMemo(() => new Date(), []);
@@ -788,37 +802,58 @@ export function LogisticsCenter({
       {/* ── MOBILE LAYOUT ─────────────────────────────────────────────────── */}
       <div className="md:hidden space-y-4">
 
-        {/* Mobile action buttons — 2 col grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={onManualNoteClick}
-            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform"
-          >
-            <div className="w-full h-[6px] bg-[#1A1A0E] dark:bg-white/40 shrink-0" />
-            <div className="p-3 flex flex-col gap-2.5">
-              <div className="w-9 h-9 rounded-[10px] bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] flex items-center justify-center text-[#1A1A0E] dark:text-[#F2F0E3]">
-                <FileText size={18} />
-              </div>
-              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Inserir<br/>Manualmente</span>
-            </div>
-          </button>
+        {/* Header solto — estilo WhatsApp/Inventory, sem moldura amarela */}
+        <div className="flex items-center justify-between">
+          <div className="relative" ref={mobileMenuRef}>
+            <button
+              onClick={() => setShowMobileMenu(v => !v)}
+              title="Mais opções"
+              className="w-[38px] h-[38px] rounded-full bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] border border-[#1A1A0E]/[0.08] dark:border-white/[0.08] flex items-center justify-center text-[#1A1A0E] dark:text-[#F2F0E3] active:scale-95 transition-transform"
+            >
+              <MoreVertical size={18} />
+            </button>
+            <AnimatePresence>
+              {showMobileMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute left-0 top-[calc(100%+8px)] z-50 min-w-[200px] rounded-2xl border border-[#E0D8BF] dark:border-white/[0.1] bg-[#FDFAF0] dark:bg-[#252520] shadow-xl shadow-black/10 dark:shadow-black/30 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setShowMobileMenu(false); onManualNoteClick(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#1A1A0E]/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+                  >
+                    <FileText size={14} className="text-[#D81E1E]" />
+                    Inserir Manualmente
+                  </button>
+                  <div className="mx-3 h-px bg-[#1A1A0E]/[0.06] dark:bg-white/[0.06]" />
+                  <button
+                    onClick={() => { setShowMobileMenu(false); onImportClick(); }}
+                    disabled={importing}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[#1A1A0E]/[0.04] dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+                  >
+                    <Download size={14} className="text-[#D81E1E]" />
+                    Executar Importação
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <button
-            onClick={onImportClick}
-            disabled={importing}
-            className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[20px] overflow-hidden flex flex-col active:scale-[0.97] transition-transform disabled:opacity-50"
+            onClick={onManualNoteClick}
+            title="Inserir Manualmente"
+            className="w-[38px] h-[38px] rounded-full bg-[#D81E1E] text-white flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-[#D81E1E]/25"
           >
-            <div className="w-full h-[6px] bg-primary shrink-0" />
-            <div className="p-3 flex flex-col gap-2.5">
-              <div className="w-9 h-9 rounded-[10px] bg-primary/10 flex items-center justify-center text-primary">
-                <Download size={18} />
-              </div>
-              <span className="text-xs font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Executar<br/>Importação</span>
-            </div>
+            <Plus size={19} />
           </button>
         </div>
 
-        {/* Mobile tabs */}
+        <h1 className="text-[32px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-[1.05]">Entrada de Mercadoria</h1>
+
+        {/* Abas — pills sólidas, mesmo padrão do Inventory */}
         <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
           {([
             { key: 'notas'  as const, label: 'Notas',  count: reviewNotes.length },
@@ -832,10 +867,10 @@ export function LogisticsCenter({
               key={tab.key}
               onClick={() => setActiveSection(tab.key)}
               className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-[7px] rounded-full text-[11px] font-black tracking-[0.04em] transition-all',
+                'flex-shrink-0 flex items-center gap-1.5 px-[17px] py-[9px] rounded-full text-[11px] font-extrabold uppercase tracking-wide border transition-colors active:scale-[0.97]',
                 activeSection === tab.key
-                  ? 'bg-[#FFE500] text-[#1A1A0E]'
-                  : 'bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] text-[#1A1A0E]/45 dark:text-white/35'
+                  ? 'bg-[#1A1A0E] text-[#FFE500] border-transparent dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                  : 'bg-[#1A1A0E]/[0.055] text-[#1A1A0E]/55 dark:bg-white/[0.055] dark:text-white/50 border-[#1A1A0E]/[0.08] dark:border-white/[0.08]'
               )}
             >
               {tab.label}
@@ -843,7 +878,7 @@ export function LogisticsCenter({
                 <span className={cn(
                   'text-[9px] font-black px-1.5 py-0.5 rounded-full',
                   activeSection === tab.key
-                    ? 'bg-[#1A1A0E]/15 text-[#1A1A0E]'
+                    ? 'bg-white/20 text-inherit'
                     : 'bg-[#1A1A0E]/10 dark:bg-white/10 text-[#1A1A0E]/40 dark:text-white/35'
                 )}>
                   {tab.count}
@@ -854,8 +889,32 @@ export function LogisticsCenter({
         </div>
 
         {activeSection === 'notas' && (<>
-          {/* Mobile search */}
-          <div className="relative flex items-center gap-2 bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3.5 py-2.5">
+          {/* Ações rápidas */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onManualNoteClick}
+              className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-3.5 flex items-center gap-2.5 active:scale-[0.97] transition-transform"
+            >
+              <div className="w-[34px] h-[34px] rounded-[10px] bg-[#1A1A0E]/[0.07] dark:bg-white/[0.07] flex items-center justify-center text-[#1A1A0E] dark:text-[#F2F0E3] shrink-0">
+                <FileText size={16} />
+              </div>
+              <span className="text-[11.5px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Inserir<br/>Manualmente</span>
+            </button>
+
+            <button
+              onClick={onImportClick}
+              disabled={importing}
+              className="bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-[18px] p-3.5 flex items-center gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-50"
+            >
+              <div className="w-[34px] h-[34px] rounded-[10px] bg-[#D81E1E]/10 flex items-center justify-center text-[#D81E1E] shrink-0">
+                <Download size={16} />
+              </div>
+              <span className="text-[11.5px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight tracking-tight text-left">Executar<br/>Importação</span>
+            </button>
+          </div>
+
+          {/* Busca */}
+          <div className="relative flex items-center gap-2 bg-[#FAF7EE] dark:bg-[#252520] border border-[#1A1A0E]/[0.06] dark:border-white/[0.06] rounded-2xl px-3.5 py-2.5">
             <Search size={14} className="text-[#1A1A0E]/28 dark:text-white/25 shrink-0" />
             <input
               type="text"
@@ -871,10 +930,16 @@ export function LogisticsCenter({
             )}
           </div>
 
-          {/* Mobile section label */}
-          <p className="text-[10px] font-black text-[#1A1A0E]/35 dark:text-white/25 uppercase tracking-[0.14em] px-0.5">
-            {visibleNotes.length} nota{visibleNotes.length !== 1 ? 's' : ''}
-          </p>
+          {/* Contador — mesmo padrão da linha "Produtos cadastrados" do Inventory */}
+          <div className="flex items-center justify-between pb-2.5 border-b border-[#1A1A0E]/[0.08] dark:border-white/[0.08]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-[28px] h-[28px] rounded-[9px] bg-[#D81E1E]/10 dark:bg-[#D81E1E]/[0.13] flex items-center justify-center text-[#D81E1E]">
+                <FileText size={14} />
+              </div>
+              <span className="text-[13px] font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3]">Notas na fila</span>
+            </div>
+            <span className="text-[13px] font-black text-[#1A1A0E]/45 dark:text-white/45">{visibleNotes.length}</span>
+          </div>
 
           {/* Mobile notes list */}
           {visibleNotes.length === 0 ? (

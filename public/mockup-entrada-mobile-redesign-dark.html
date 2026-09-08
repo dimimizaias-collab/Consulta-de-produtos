@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=390, initial-scale=1.0" />
+<title>Entrada de Mercadoria — Redesign Mobile (Dark)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body {
+    background:#0F0F0B; font-family:'DM Sans', system-ui, -apple-system, sans-serif;
+    display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:32px 16px 64px;
+  }
+  .caption { position:fixed; top:12px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:rgba(242,240,227,.4); }
+
+  .device-frame {
+    width:390px; min-height:844px; background:#1E1E18; border-radius:44px; overflow:hidden;
+    box-shadow: 0 0 0 10px #000, 0 0 0 12px #2A2A24, 0 40px 80px rgba(0,0,0,.6);
+    display:flex; flex-direction:column; position:relative;
+  }
+
+  .status-bar { background:#1E1E18; height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; flex-shrink:0; }
+  .status-time { font-size:15px; font-weight:700; color:#F2F0E3; }
+  .status-icons { display:flex; gap:6px; align-items:center; }
+
+  .scroll-body { padding:8px 20px 110px; display:flex; flex-direction:column; gap:16px; flex:1; overflow-y:auto; }
+
+  .top-row { display:flex; align-items:center; justify-content:space-between; }
+  .icon-btn {
+    width:38px; height:38px; border-radius:50%; background:rgba(242,240,227,.07); border:1px solid rgba(242,240,227,.08);
+    display:flex; align-items:center; justify-content:center; color:#F2F0E3; flex-shrink:0; position:relative;
+  }
+  .icon-btn.primary { background:#D81E1E; color:#fff; box-shadow:0 6px 16px rgba(216,30,30,.35); border:none; }
+  .top-actions { display:flex; align-items:center; gap:8px; }
+
+  .page-title { font-size:32px; font-weight:900; color:#F2F0E3; letter-spacing:-0.03em; line-height:1.05; margin-top:14px; }
+
+  .tabs-row { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin-top:2px; }
+  .tabs-row::-webkit-scrollbar { display:none; }
+  .tab-pill {
+    flex-shrink:0; padding:9px 17px; border-radius:50px; font-size:11px; font-weight:800; letter-spacing:.03em;
+    text-transform:uppercase; white-space:nowrap; border:1px solid transparent; display:flex; align-items:center; gap:6px;
+  }
+  .tab-pill.active { background:#FFE500; color:#1A1A0E; }
+  .tab-pill.inactive { background:rgba(242,240,227,.055); color:rgba(242,240,227,.5); border-color:rgba(242,240,227,.08); }
+  .tab-badge { font-size:9px; font-weight:900; padding:1px 5px; border-radius:50px; }
+  .tab-pill.active .tab-badge { background:rgba(26,26,14,.15); color:#1A1A0E; }
+  .tab-pill.inactive .tab-badge { background:rgba(242,240,227,.10); color:rgba(242,240,227,.45); }
+
+  .action-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .action-btn { background:#252520; border:1.5px solid rgba(242,240,227,.08); border-radius:18px; padding:13px; display:flex; align-items:center; gap:10px; }
+  .action-icon { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .action-btn.manual .action-icon { background:rgba(242,240,227,.07); color:#F2F0E3; }
+  .action-btn.import .action-icon { background:rgba(216,30,30,.13); color:#D81E1E; }
+  .action-label { font-size:11.5px; font-weight:900; color:#F2F0E3; line-height:1.15; letter-spacing:-0.01em; }
+
+  .search-bar { display:flex; align-items:center; gap:9px; background:#252520; border:1px solid rgba(242,240,227,.06); border-radius:16px; padding:11px 8px 11px 15px; }
+  .search-bar svg { color:rgba(242,240,227,.30); flex-shrink:0; }
+  .search-bar input { border:none; outline:none; background:transparent; font-size:13.5px; font-weight:500; color:#F2F0E3; flex:1; min-width:0; }
+  .search-bar input::placeholder { color:rgba(242,240,227,.30); }
+  .filter-chip { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:rgba(242,240,227,.4); flex-shrink:0; }
+
+  .count-row { display:flex; align-items:center; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid rgba(242,240,227,.08); }
+  .count-left { display:flex; align-items:center; gap:9px; }
+  .count-icon { width:28px; height:28px; border-radius:9px; background:rgba(216,30,30,.13); color:#f87171; display:flex; align-items:center; justify-content:center; }
+  .count-label { font-size:13px; font-weight:800; color:#F2F0E3; }
+  .count-value { font-size:13px; font-weight:900; color:rgba(242,240,227,.45); }
+
+  .note-list { display:flex; flex-direction:column; gap:8px; }
+  .note-card { background:#252520; border:1px solid rgba(242,240,227,.08); border-radius:20px; padding:13px; display:flex; align-items:center; gap:12px; }
+  .note-avatar { width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .note-avatar.registro   { background:rgba(242,240,227,.08); color:#D8D3C0; }
+  .note-avatar.aguardando { background:rgba(252,211,77,.13); color:#FCD34D; }
+  .note-avatar.revisao    { background:rgba(96,165,250,.13); color:#60A5FA; }
+  .note-avatar.aprovada   { background:rgba(52,211,153,.15); color:#34D399; }
+  .note-content { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .note-title { font-size:12px; font-weight:900; color:#F2F0E3; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .note-meta { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:500; color:rgba(242,240,227,.4); overflow:hidden; }
+  .note-meta span:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .note-meta-sep { color:rgba(242,240,227,.18); flex-shrink:0; }
+  .note-chip { align-self:flex-start; background:rgba(242,240,227,.06); border-radius:6px; padding:2px 8px; font-size:10.5px; font-weight:700; color:rgba(242,240,227,.5); font-family:'DM Mono','Courier New',monospace; letter-spacing:.03em; }
+  .note-actions { display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between; gap:8px; flex-shrink:0; align-self:stretch; padding:1px 0; }
+  .count-badge { font-size:12px; font-weight:900; padding:4px 10px; border-radius:50px; white-space:nowrap; }
+  .count-badge.partial { background:#D97706; color:#fff; }
+  .count-badge.full { background:rgba(52,211,153,.20); color:#34D399; }
+  .approve-btn { width:28px; height:28px; border-radius:50%; background:rgba(52,211,153,.15); color:#34D399; border:none; display:flex; align-items:center; justify-content:center; }
+  .view-btn { width:28px; height:28px; border-radius:50%; background:rgba(242,240,227,.06); color:rgba(242,240,227,.35); border:none; display:flex; align-items:center; justify-content:center; }
+
+  .section-label { font-size:10px; font-weight:800; color:rgba(242,240,227,.3); letter-spacing:.14em; text-transform:uppercase; padding:2px 2px 0; }
+
+  .bottom-nav { position:absolute; bottom:0; left:0; right:0; padding:8px 10px 20px; background:linear-gradient(to top, #1E1E18 60%, transparent); }
+  .nav-pill { display:flex; align-items:center; background:#2E2E28; border:1.5px solid rgba(242,240,227,.07); border-radius:28px; padding:4px; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; flex:1; padding:6px 2px; border-radius:22px; }
+  .nav-item.active { background:rgba(216,30,30,.15); }
+  .nav-item svg { width:17px; height:17px; }
+  .nav-item svg.i { color:rgba(242,240,227,.30); }
+  .nav-item svg.a { color:#D81E1E; }
+  .nav-label { font-size:7px; font-weight:900; letter-spacing:.02em; text-transform:uppercase; line-height:1; margin-top:1px; }
+  .nav-label.i { color:rgba(242,240,227,.30); }
+  .nav-label.a { color:#D81E1E; }
+</style>
+</head>
+<body>
+<div class="caption">Redesign — Dark</div>
+<div class="device-frame">
+
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2F0E3" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="#F2F0E3"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2F0E3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 10v4"/><rect x="3" y="8" width="12" height="8" rx="1" fill="#F2F0E3" stroke="none"/></svg>
+    </div>
+  </div>
+
+  <div class="scroll-body">
+
+    <div class="top-row">
+      <div class="icon-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </div>
+      <div class="top-actions">
+        <div class="icon-btn">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </div>
+        <div class="icon-btn primary">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-title">Entrada de<br>Mercadoria</div>
+
+    <div class="tabs-row">
+      <div class="tab-pill active">Notas <span class="tab-badge">4</span></div>
+      <div class="tab-pill inactive">Distribuição <span class="tab-badge">2</span></div>
+      <div class="tab-pill inactive">Dicionário</div>
+      <div class="tab-pill inactive">Fornecedores</div>
+      <div class="tab-pill inactive">Fabricantes</div>
+      <div class="tab-pill inactive">Rascunhos <span class="tab-badge">1</span></div>
+    </div>
+
+    <div class="action-grid">
+      <div class="action-btn manual">
+        <div class="action-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        </div>
+        <div class="action-label">Inserir<br>Manualmente</div>
+      </div>
+      <div class="action-btn import">
+        <div class="action-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="action-label">Executar<br>Importação</div>
+      </div>
+    </div>
+
+    <div class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input placeholder="Buscar por fornecedor, EAN, código…" />
+      <div class="filter-chip">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </div>
+    </div>
+
+    <div class="count-row">
+      <div class="count-left">
+        <div class="count-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        </div>
+        <span class="count-label">Notas na fila</span>
+      </div>
+      <span class="count-value">4</span>
+    </div>
+
+    <div class="section-label">Em revisão</div>
+    <div class="note-list">
+
+      <div class="note-card">
+        <div class="note-avatar revisao">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="note-content">
+          <div class="note-title">Distribuidora Sul — 03/06/2026</div>
+          <div class="note-meta"><span>Distribuidora Sul Ltda</span><span class="note-meta-sep">·</span><span>03/06 14:32</span></div>
+          <div class="note-chip">NF-e 001234</div>
+        </div>
+        <div class="note-actions">
+          <span class="count-badge partial">08/12</span>
+          <button class="approve-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="note-card">
+        <div class="note-avatar aguardando">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="note-content">
+          <div class="note-title">Atacado Norte — 03/06/2026</div>
+          <div class="note-meta"><span>Atacado Norte S.A.</span><span class="note-meta-sep">·</span><span>03/06 11:05</span></div>
+          <div class="note-chip">NF-e 005678</div>
+        </div>
+        <div class="note-actions">
+          <span class="count-badge full">05/05</span>
+          <button class="approve-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="note-card">
+        <div class="note-avatar registro">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div class="note-content">
+          <div class="note-title" style="color:rgba(242,240,227,.4); font-style:italic; text-transform:none;">Sem número — Ontem</div>
+          <div class="note-meta"><span>—</span><span class="note-meta-sep">·</span><span>02/06 09:14</span></div>
+          <div class="note-chip">lista_manual_compras.csv</div>
+        </div>
+        <div class="note-actions">
+          <span class="count-badge partial">00/07</span>
+          <button class="approve-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:2px;">Aprovadas</div>
+    <div class="note-list">
+      <div class="note-card">
+        <div class="note-avatar aprovada">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        </div>
+        <div class="note-content">
+          <div class="note-title">Mercado Central — 03/06/2026</div>
+          <div class="note-meta"><span>Mercado Central Ltda</span><span class="note-meta-sep">·</span><span>03/06 08:50</span></div>
+          <div class="note-chip">NF-e 003321</div>
+        </div>
+        <div class="note-actions">
+          <span class="count-badge full">10/10</span>
+          <button class="view-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-pill">
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span class="nav-label i">Dashboard</span></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span class="nav-label i">Estoque</span></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="nav-label i">Requis.</span></div>
+      <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="a"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg><span class="nav-label a">Entrada</span></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3v4M8 3v4M2 11h20"/></svg><span class="nav-label i">Finanças</span></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nav-label i">RH</span></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="i"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93A10 10 0 0 1 19.07 19.07"/></svg><span class="nav-label i">Config.</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
