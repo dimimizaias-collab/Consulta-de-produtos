@@ -4445,6 +4445,47 @@ export default function Page() {
       updated_at: new Date().toISOString(),
     });
     if (saveError) throw saveError;
+    // Espelha os códigos adicionais digitados no item da nota para product_ean_codes —
+    // sem isso o produto vinculado (item.product_id) fica com o código só dentro do JSON
+    // da nota, e o desktop (que lê exclusivamente product_ean_codes) nunca enxerga o código
+    // adicionado pelo mobile. Só insere o que falta (nunca apaga): a nota não é dona de
+    // todos os códigos do produto, que também pode ganhar códigos via editor desktop.
+    const extraEansByProduct = new Map<string, EanCodeEntry[]>();
+    for (const item of updatedItems) {
+      const pid = (item as any).product_id;
+      const entries = ((item as any).extraEans as EanCodeEntry[] | undefined) ?? [];
+      if (!pid || entries.length === 0) continue;
+      extraEansByProduct.set(pid, [...(extraEansByProduct.get(pid) ?? []), ...entries]);
+    }
+    if (extraEansByProduct.size > 0) {
+      const productIds = Array.from(extraEansByProduct.keys());
+      const { data: existingRows } = await supabase
+        .from('product_ean_codes')
+        .select('product_id, ean')
+        .in('product_id', productIds);
+      const existingByProduct = new Map<string, Set<string>>();
+      for (const row of existingRows ?? []) {
+        const set = existingByProduct.get(row.product_id) ?? new Set<string>();
+        set.add(row.ean.trim().toLowerCase());
+        existingByProduct.set(row.product_id, set);
+      }
+      const rowsToInsert: { product_id: string; ean: string; description: string | null }[] = [];
+      const seen = new Set<string>();
+      for (const [productId, entries] of extraEansByProduct) {
+        const existing = existingByProduct.get(productId) ?? new Set<string>();
+        for (const entry of entries) {
+          const ean = entry.ean?.trim();
+          if (!ean) continue;
+          const key = `${productId}:${ean.toLowerCase()}`;
+          if (existing.has(ean.toLowerCase()) || seen.has(key)) continue;
+          seen.add(key);
+          rowsToInsert.push({ product_id: productId, ean, description: entry.description?.trim() || null });
+        }
+      }
+      if (rowsToInsert.length > 0) {
+        await supabase.from('product_ean_codes').insert(rowsToInsert);
+      }
+    }
     const nextNote: ReviewNote = {
       ...viewingReviewNote, items: updatedItems, verifiedCount: updatedVerifiedCount, itemCount: updatedItems.length, status, approved,
     };
