@@ -801,6 +801,11 @@ export default function Page() {
   const [reviewMeasureUnit, setReviewMeasureUnit] = useState('');
   const [reviewMeasureMultiplier, setReviewMeasureMultiplier] = useState('');
   const [reviewSavingMeasure, setReviewSavingMeasure] = useState(false);
+  // Seletor de tradução — abre quando "Usar tradução" encontra mais de uma conversão
+  // cadastrada (supplier_units) para o produto vinculado, em vez de aplicar a primeira cega.
+  const [translationChoiceIdx, setTranslationChoiceIdx] = useState<number | null>(null);
+  const [translationChoiceOptions, setTranslationChoiceOptions] = useState<{ id: string; unit_name: string; multiplier: number }[]>([]);
+  const [translationChoiceSelectedId, setTranslationChoiceSelectedId] = useState<string | null>(null);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
   const [editingNoteHeader, setEditingNoteHeader] = useState(false);
   // ── Aba Produtos/Recebimento + Situação de Entrada ──
@@ -3393,6 +3398,26 @@ export default function Page() {
     }
   };
 
+  // Aplica de fato a conversão de unidade escolhida (direto, ou via seletor de tradução).
+  const applyUnitConversion = useCallback((idx: number, conv: { unit_name: string; multiplier: number }) => {
+    if (!viewingReviewNote) return;
+    const item = viewingReviewNote.items[idx];
+    const mult = Number(conv.multiplier);
+    const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
+    const newQty = originalQty * mult;
+    // Mesmo tratamento de "Adicionar medida": divide o preço pelo multiplicador e reseta pra 1,
+    // senão a célula de Preço Custo (ligada direto ao preço bruto) fica com o valor antigo na tela.
+    const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
+    const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
+    const u = [...viewingNoteUnits]; u[idx] = conv.unit_name; setViewingNoteUnits(u);
+    const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
+    const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
+    const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
+    const c = [...viewingNoteMeasureConverted]; c[idx] = true; setViewingNoteMeasureConverted(c);
+    setNotification({ type: 'success', message: `Tradução aplicada: ×${mult}` });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingReviewNote, viewingNoteItemPrices, viewingNoteUnits, viewingNoteMultipliers, viewingNoteQtys, viewingNoteMeasureConverted]);
+
   const handleReviewUseTranslation = async (idx: number) => {
     if (!viewingReviewNote) return;
     const item = viewingReviewNote.items[idx];
@@ -3411,26 +3436,36 @@ export default function Page() {
         setNotification({ type: 'error', message: 'Nenhuma tradução cadastrada para este produto. Use "Adicionar medida".' });
         return;
       }
-      const conv = data[0];
-      const mult = Number(conv.multiplier);
-      const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
-      const newQty = originalQty * mult;
-      // Mesmo tratamento de "Adicionar medida": divide o preço pelo multiplicador e reseta pra 1,
-      // senão a célula de Preço Custo (ligada direto ao preço bruto) fica com o valor antigo na tela.
-      const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
-      const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
-      const u = [...viewingNoteUnits]; u[idx] = conv.unit_name; setViewingNoteUnits(u);
-      const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
-      const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
-      const q = [...viewingNoteQtys]; q[idx] = newQty; setViewingNoteQtys(q);
-      const c = [...viewingNoteMeasureConverted]; c[idx] = true; setViewingNoteMeasureConverted(c);
-      setNotification({ type: 'success', message: `Tradução aplicada: ×${mult}` });
+      if (data.length === 1) {
+        applyUnitConversion(idx, data[0]);
+        return;
+      }
+      // Mais de uma conversão cadastrada pro produto — não dá pra saber sozinho qual
+      // embalagem esta nota está usando, então pede pro usuário escolher.
+      setTranslationChoiceOptions(data);
+      setTranslationChoiceSelectedId(data[0].id);
+      setTranslationChoiceIdx(idx);
     } catch {
       setNotification({ type: 'error', message: 'Erro ao buscar traduções.' });
     } finally {
       setReviewLoadingUnitIdx(null);
     }
   };
+
+  const confirmTranslationChoice = useCallback(() => {
+    if (translationChoiceIdx === null) return;
+    const conv = translationChoiceOptions.find(o => o.id === translationChoiceSelectedId);
+    if (conv) applyUnitConversion(translationChoiceIdx, conv);
+    setTranslationChoiceIdx(null);
+    setTranslationChoiceOptions([]);
+    setTranslationChoiceSelectedId(null);
+  }, [translationChoiceIdx, translationChoiceOptions, translationChoiceSelectedId, applyUnitConversion]);
+
+  const cancelTranslationChoice = useCallback(() => {
+    setTranslationChoiceIdx(null);
+    setTranslationChoiceOptions([]);
+    setTranslationChoiceSelectedId(null);
+  }, []);
 
   // ── Undo / Redo ─────────────────────────────────────────────────────────────
   const captureSnapshot = useCallback(() => {
@@ -13836,6 +13871,12 @@ export default function Page() {
             onResetMultiplier={(idx) => { const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m); const c = [...viewingNoteMeasureConverted]; c[idx] = false; setViewingNoteMeasureConverted(c); }}
             loadingUnitIdx={reviewLoadingUnitIdx}
             savingMeasure={reviewSavingMeasure}
+            translationChoiceIdx={translationChoiceIdx}
+            translationChoiceOptions={translationChoiceOptions}
+            translationChoiceSelectedId={translationChoiceSelectedId}
+            onSelectTranslationChoice={setTranslationChoiceSelectedId}
+            onConfirmTranslationChoice={confirmTranslationChoice}
+            onCancelTranslationChoice={cancelTranslationChoice}
           />
         )}
       </AnimatePresence>
@@ -14130,6 +14171,111 @@ export default function Page() {
                   Manual
                 </button>
               </motion.div>
+            );
+          })()}
+        </AnimatePresence>,
+        document.body,
+      )}
+
+      {/* ── Escolher Tradução (desktop) — quando o produto vinculado tem mais de uma
+           conversão cadastrada, "Usar tradução" abre este modal em vez de aplicar a
+           primeira cega. Mesma posição/padrão visual do modal "Criar e Vincular". ── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {translationChoiceIdx !== null && !isMobileView && viewingReviewNote && (() => {
+            const idx = translationChoiceIdx;
+            const item = viewingReviewNote.items[idx];
+            const originalQty = item?.original_qty ?? Math.round((item?.qty ?? 0) / (item?.multiplier || 1));
+            return (
+              <div className="fixed inset-0 z-[195] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={cancelTranslationChoice} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                  transition={{ duration: 0.18 }}
+                  className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-[440px] flex flex-col overflow-hidden max-h-[86vh] border border-black/10 dark:border-white/[0.08]"
+                >
+                  <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
+                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                      <Zap size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Escolher tradução</h2>
+                      <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">
+                        {item?.original_description || item?.description || item?.name || `Item ${idx + 1}`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={cancelTranslationChoice}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6 pt-5 space-y-3 min-h-0">
+                    <p className="text-xs font-semibold text-secondary/60 leading-relaxed">
+                      Este produto tem <span className="font-black text-on-surface">{translationChoiceOptions.length} conversões</span> cadastradas.
+                      Selecione a que corresponde à embalagem desta nota e confirme abaixo.
+                    </p>
+                    {translationChoiceOptions.map(opt => {
+                      const selected = opt.id === translationChoiceSelectedId;
+                      const previewQty = Math.round(originalQty * Number(opt.multiplier) * 100) / 100;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setTranslationChoiceSelectedId(opt.id)}
+                          className={cn(
+                            'w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl border-[1.5px] text-left transition-colors',
+                            selected
+                              ? 'border-primary bg-primary/[0.05] shadow-[0_0_0_3px_rgba(216,30,30,0.10)]'
+                              : 'border-black/[0.10] dark:border-white/[0.08] bg-white dark:bg-white/[0.03] hover:border-primary/35'
+                          )}
+                        >
+                          <div className={cn(
+                            'w-[50px] h-[50px] rounded-2xl flex flex-col items-center justify-center shrink-0',
+                            selected ? 'bg-primary/10 text-primary' : 'bg-black/[0.05] dark:bg-white/[0.05] text-on-surface'
+                          )}>
+                            <span className="text-[13px] font-black">{opt.unit_name}</span>
+                            <span className="text-[10px] font-extrabold opacity-65 font-mono mt-0.5">×{opt.multiplier}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-extrabold text-on-surface">
+                              {opt.unit_name} com {opt.multiplier} unidade{Number(opt.multiplier) === 1 ? '' : 's'}
+                            </p>
+                            <p className="text-[10.5px] font-bold text-secondary/50 mt-1 font-mono">
+                              {originalQty} {opt.unit_name} → <span className="text-secondary/80">{previewQty} UN</span>
+                            </p>
+                          </div>
+                          <div className={cn(
+                            'w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 text-[12px] font-black',
+                            selected ? 'border-primary bg-primary text-white' : 'border-black/15 dark:border-white/15 text-transparent'
+                          )}>
+                            {selected && '✓'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-6 pb-6 pt-4 flex gap-2.5 border-t border-black/[0.06] dark:border-white/[0.06] shrink-0">
+                    <button
+                      onClick={cancelTranslationChoice}
+                      className="flex-1 py-3 rounded-xl bg-black/[0.06] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-secondary/70 text-xs font-black hover:bg-black/[0.1] dark:hover:bg-white/[0.1] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={confirmTranslationChoice}
+                      disabled={!translationChoiceSelectedId}
+                      className="flex-[1.6] py-3 rounded-xl bg-primary text-white text-xs font-black hover:bg-primary/90 transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                    >
+                      <Check size={14} />Confirmar tradução
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
             );
           })()}
         </AnimatePresence>,

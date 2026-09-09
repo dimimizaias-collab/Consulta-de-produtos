@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Seletor de Tradução (Dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page-bg:#0f0f0c;
+    --phone-bg:#000;
+
+    --note-bg:#0d0d0d;
+    --note-text:#f2f0e3;
+
+    /* Sheet — paleta "Editar Produto" dark (amarelo continua âncora de marca) */
+    --sheet-bg:#1E1E18;
+    --header-bg:#252520;
+    --header-border:rgba(242,240,227,0.07);
+    --icon-chip-bg:rgba(216,30,30,0.13);
+    --icon-chip-color:#D81E1E;
+    --title:#F2F0E3;
+    --subtitle:rgba(242,240,227,0.55);
+    --muted:rgba(242,240,227,0.28);
+
+    --card-bg:#252520;
+    --card-border:rgba(242,240,227,0.08);
+    --card-text:#F2F0E3;
+    --card-muted:rgba(242,240,227,0.35);
+
+    --badge-bg:rgba(242,240,227,0.06);
+    --badge-text:#F2F0E3;
+
+    --accent:#D81E1E;
+
+    --cancel-bg:rgba(242,240,227,0.07);
+    --cancel-text:rgba(242,240,227,0.50);
+    --cancel-border:rgba(242,240,227,0.10);
+
+    --handle:rgba(242,240,227,0.18);
+
+    --yellow:#FFE500;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--page-bg);
+    font-family:'DM Sans',sans-serif;
+    display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap;
+    padding:40px 20px;
+  }
+  .caption{
+    text-align:center; color:#f2f0e3; font-weight:800; font-size:12px; letter-spacing:.06em; text-transform:uppercase; opacity:.5; margin-bottom:14px;
+  }
+  .phone{
+    width:390px; height:780px; background:var(--phone-bg); border-radius:52px; padding:14px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.05) inset;
+    position:relative;
+  }
+  .screen{
+    width:100%; height:100%; border-radius:40px; overflow:hidden; position:relative;
+    background:var(--note-bg);
+  }
+  .notch{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    width:120px; height:26px; background:#000; border-radius:16px; z-index:50;
+  }
+
+  .note-bg{
+    position:absolute; inset:0; padding:70px 20px 20px;
+    color:var(--note-text); filter:blur(1px) brightness(.55);
+  }
+  .note-bg .field-label{ font-size:9px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:rgba(242,240,227,.3); margin-bottom:6px; }
+  .note-bg .field-value{ font-size:14px; font-weight:800; margin-bottom:22px; }
+  .note-bg .unit-row{
+    display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+    border-radius:16px; padding:14px 16px;
+  }
+  .note-bg .unit-row .zap-chip{
+    width:34px; height:34px; border-radius:10px; background:rgba(245,158,11,.15); display:flex; align-items:center; justify-content:center; color:#fbbf24; flex-shrink:0;
+  }
+
+  .backdrop{
+    position:absolute; inset:0; background:rgba(0,0,0,.65); z-index:60;
+  }
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:70;
+    background:var(--sheet-bg);
+    border-radius:28px 28px 0 0;
+    box-shadow:0 -20px 50px rgba(0,0,0,.5);
+    max-height:88%;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+    border-top:1px solid var(--header-border);
+  }
+  .handle{
+    width:36px; height:4px; border-radius:99px; background:var(--handle); margin:10px auto 2px;
+  }
+  .sheet-header{
+    background:var(--header-bg);
+    border-bottom:1px solid var(--header-border);
+    padding:14px 18px 16px;
+    display:flex; align-items:flex-start; gap:12px;
+  }
+  .icon-chip{
+    width:38px; height:38px; border-radius:12px; background:var(--icon-chip-bg); color:var(--icon-chip-color);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;
+  }
+  .header-text{ flex:1; min-width:0; }
+  .eyebrow{ font-size:9.5px; font-weight:900; letter-spacing:.09em; text-transform:uppercase; color:var(--yellow); margin-bottom:3px; }
+  .header-title{ font-size:15px; font-weight:900; color:var(--title); letter-spacing:-.01em; margin-bottom:4px; }
+  .supplier-desc{
+    font-size:11.5px; font-weight:700; color:rgba(242,240,227,.75);
+    background:rgba(242,240,227,.08); border-radius:8px; padding:4px 8px; display:inline-block;
+    font-family:'DM Mono',monospace; letter-spacing:.01em; line-height:1.4;
+  }
+  .close-btn{
+    width:30px; height:30px; border-radius:99px; background:rgba(242,240,227,.08); border:1px solid rgba(242,240,227,.10);
+    color:rgba(242,240,227,.45); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px; font-weight:700;
+  }
+
+  .sheet-body{
+    padding:16px 16px 6px; overflow-y:auto; flex:1;
+  }
+  .hint{
+    font-size:11px; color:var(--muted); font-weight:600; line-height:1.5; margin:0 2px 14px;
+  }
+  .hint b{ color:var(--title); font-weight:800; }
+
+  .option-card{
+    background:var(--card-bg); border:1.5px solid var(--card-border); border-radius:18px;
+    padding:14px 14px; margin-bottom:10px;
+    display:flex; align-items:center; gap:12px;
+    position:relative;
+  }
+  .option-card.selected{
+    border-color:var(--accent); box-shadow:0 0 0 3px rgba(216,30,30,.18);
+    background:linear-gradient(0deg, rgba(216,30,30,.06), rgba(216,30,30,.06)), var(--card-bg);
+  }
+  .unit-badge{
+    width:52px; height:52px; border-radius:14px; background:var(--badge-bg); color:var(--badge-text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .option-card.selected .unit-badge{ background:rgba(216,30,30,.16); color:#f87171; }
+  .unit-badge .u-name{ font-size:13px; font-weight:900; letter-spacing:.01em; }
+  .unit-badge .u-mult{ font-size:10px; font-weight:800; opacity:.65; font-family:'DM Mono',monospace; margin-top:1px; }
+
+  .option-info{ flex:1; min-width:0; }
+  .option-title{ font-size:13px; font-weight:800; color:var(--card-text); margin-bottom:3px; }
+  .option-sub{ font-size:10.5px; font-weight:600; color:var(--card-muted); font-family:'DM Mono',monospace; line-height:1.4;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .option-preview{
+    font-size:10px; font-weight:700; color:var(--card-muted); margin-top:5px;
+  }
+  .option-preview b{ color:var(--card-text); font-weight:800; }
+
+  .check-circle{
+    width:22px; height:22px; border-radius:99px; border:2px solid var(--card-border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .option-card.selected .check-circle{ border-color:var(--accent); background:var(--accent); color:#fff; font-size:12px; font-weight:900; }
+
+  .sheet-footer{
+    padding:12px 16px 20px; border-top:1px solid var(--card-border); background:var(--sheet-bg);
+    display:flex; gap:10px;
+  }
+  .cancel-btn{
+    flex:1; padding:13px; border-radius:16px; background:var(--cancel-bg); border:1px solid var(--cancel-border);
+    color:var(--cancel-text); font-size:12.5px; font-weight:800; text-align:center;
+  }
+  .confirm-btn{
+    flex:1.4; padding:13px; border-radius:16px; background:var(--accent); border:1px solid var(--accent);
+    color:#fff; font-size:12.5px; font-weight:800; text-align:center;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    box-shadow:0 8px 20px rgba(216,30,30,.35);
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <p class="caption">Modo escuro — com seleção</p>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="note-bg">
+        <div class="field-label">Unidade &amp; Medida</div>
+        <div class="field-value">ARROZ TIPO 1 FD C/6UN</div>
+        <div class="unit-row">
+          <div class="zap-chip">⚡</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;">Usar tradução</div>
+            <div style="font-size:10px;opacity:.5;font-weight:600;">Aplicar medida já cadastrada</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <div class="handle"></div>
+        <div class="sheet-header">
+          <div class="icon-chip">⚡</div>
+          <div class="header-text">
+            <div class="eyebrow">Escolher tradução</div>
+            <div class="header-title">Mais de uma medida cadastrada</div>
+            <div class="supplier-desc">"ARROZ TIPO 1 FD C/6UN"</div>
+          </div>
+          <div class="close-btn">✕</div>
+        </div>
+
+        <div class="sheet-body">
+          <p class="hint">Este produto tem <b>2 conversões</b> cadastradas. Toque para selecionar a que corresponde à embalagem desta nota e confirme abaixo.</p>
+
+          <div class="option-card selected">
+            <div class="unit-badge"><span class="u-name">FD</span><span class="u-mult">×6</span></div>
+            <div class="option-info">
+              <div class="option-title">Fardo com 6 unidades</div>
+              <div class="option-sub">"ARROZ TIPO 1 FD C/6UN"</div>
+              <div class="option-preview">12 FD → <b>72 UN</b></div>
+            </div>
+            <div class="check-circle">✓</div>
+          </div>
+
+          <div class="option-card">
+            <div class="unit-badge"><span class="u-name">CX</span><span class="u-mult">×12</span></div>
+            <div class="option-info">
+              <div class="option-title">Caixa com 12 unidades</div>
+              <div class="option-sub">"ARROZ TIPO 1 CX C/12UN"</div>
+              <div class="option-preview">12 CX → <b>144 UN</b></div>
+            </div>
+            <div class="check-circle"></div>
+          </div>
+        </div>
+
+        <div class="sheet-footer">
+          <div class="cancel-btn">Cancelar</div>
+          <div class="confirm-btn">✓ Confirmar tradução</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

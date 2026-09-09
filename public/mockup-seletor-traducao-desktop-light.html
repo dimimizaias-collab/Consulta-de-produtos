@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Seletor de Tradução Desktop (Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page-bg:#f2ede0;
+
+    --table-bg:#FDFAF0;
+    --table-header-bg:#FFE500;
+    --table-header-text:rgba(26,26,10,.62);
+    --table-border:#E0D8BF;
+    --table-row-even:#FFFFFF;
+    --table-row-odd:#FAF7EE;
+    --table-text:#1A1A0E;
+    --table-muted:rgba(26,26,10,.4);
+
+    /* Modal — mesmo padrão do "Criar e Vincular" / "Editar Produto" */
+    --modal-bg:#F0E7CC;
+    --header-bg:#FFE500;
+    --header-border:#D4C000;
+    --icon-chip-bg:rgba(26,26,10,0.09);
+    --icon-chip-color:#1A1A0E;
+    --title:#1A1A0E;
+    --subtitle:rgba(26,26,10,0.55);
+    --muted:rgba(26,26,10,0.40);
+
+    --card-bg:#FFFFFF;
+    --card-border:#E0D8BF;
+    --card-text:#1A1A0E;
+    --card-muted:rgba(26,26,10,0.40);
+    --badge-bg:rgba(26,26,10,0.06);
+    --badge-text:#1A1A0E;
+    --accent:#D81E1E;
+    --cancel-bg:rgba(26,26,10,0.08);
+    --cancel-text:rgba(26,26,10,0.60);
+    --cancel-border:rgba(26,26,10,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--page-bg);
+    font-family:'DM Sans',sans-serif;
+    padding:50px 40px;
+  }
+  .caption{
+    text-align:center; color:#1A1A0E; font-weight:800; font-size:12px; letter-spacing:.06em; text-transform:uppercase; opacity:.45; margin-bottom:18px;
+  }
+  .stage{ max-width:1040px; margin:0 auto; position:relative; }
+
+  /* ── tabela de revisão (fundo) ─────────────────────────────── */
+  .table-card{
+    background:var(--table-bg); border:1px solid var(--table-border); border-radius:20px; overflow:hidden;
+    box-shadow:0 20px 50px rgba(0,0,0,.12);
+  }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  thead th{
+    background:var(--table-header-bg); color:var(--table-header-text); text-transform:uppercase; font-size:10px; font-weight:900; letter-spacing:.05em;
+    padding:11px 14px; text-align:left; border-bottom:1px solid #D4C000;
+  }
+  tbody td{ padding:12px 14px; color:var(--table-text); border-bottom:1px solid var(--table-border); font-weight:600; }
+  tbody tr:nth-child(even){ background:var(--table-row-even); }
+  tbody tr:nth-child(odd){ background:var(--table-row-odd); }
+  .muted{ color:var(--table-muted); font-weight:500; }
+  .medida-cell{ position:relative; display:flex; align-items:center; gap:6px; }
+  .medida-pill{
+    display:inline-flex; align-items:center; gap:6px; background:rgba(26,26,10,.05); border:1px solid var(--table-border);
+    border-radius:9px; padding:5px 9px; font-family:'DM Mono',monospace; font-size:11.5px; font-weight:700;
+  }
+  .medida-trigger{
+    width:22px; height:22px; border-radius:6px; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 10px rgba(216,30,30,.3);
+  }
+
+  /* ── Backdrop + Modal centralizado (mesma posição do "Criar e Vincular") ── */
+  .backdrop{
+    position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(3px); z-index:60;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .modal{
+    width:100%; max-width:440px; background:var(--modal-bg); border:1px solid rgba(0,0,0,.10);
+    border-radius:24px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,.35);
+    display:flex; flex-direction:column; max-height:86vh;
+  }
+  .modal-header{
+    background:var(--header-bg); border-bottom:1px solid var(--header-border);
+    padding:20px 24px; display:flex; align-items:center; gap:14px;
+  }
+  .icon-chip{
+    width:44px; height:44px; border-radius:16px; background:var(--icon-chip-bg); color:var(--icon-chip-color);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .header-text{ flex:1; min-width:0; }
+  .header-title{ font-size:18px; font-weight:900; color:var(--title); letter-spacing:-.01em; margin-bottom:2px; }
+  .header-sub{ font-size:12px; font-weight:700; color:rgba(26,26,10,.55); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .close-btn{
+    width:36px; height:36px; border-radius:12px; background:rgba(26,26,10,.08); border:1px solid rgba(26,26,10,.10);
+    color:rgba(26,26,10,.50); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px; font-weight:700;
+  }
+
+  .modal-body{ padding:20px 24px 6px; overflow-y:auto; }
+  .hint{ font-size:12px; color:var(--muted); font-weight:600; line-height:1.55; margin:0 0 16px; }
+  .hint b{ color:var(--title); font-weight:800; }
+
+  .option-card{
+    background:var(--card-bg); border:1.5px solid var(--card-border); border-radius:16px;
+    padding:14px; margin-bottom:10px; display:flex; align-items:center; gap:13px; cursor:pointer;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .option-card:hover{ border-color:rgba(216,30,30,.35); }
+  .option-card.selected{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(216,30,30,.12); }
+  .unit-badge{
+    width:50px; height:50px; border-radius:14px; background:var(--badge-bg); color:var(--badge-text);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .option-card.selected .unit-badge{ background:rgba(216,30,30,.10); color:var(--accent); }
+  .unit-badge .u-name{ font-size:13px; font-weight:900; }
+  .unit-badge .u-mult{ font-size:10px; font-weight:800; opacity:.65; font-family:'DM Mono',monospace; margin-top:1px; }
+  .option-info{ flex:1; min-width:0; }
+  .option-title{ font-size:13px; font-weight:800; color:var(--card-text); margin-bottom:3px; }
+  .option-sub{ font-size:10.5px; font-weight:600; color:var(--card-muted); font-family:'DM Mono',monospace;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .option-preview{ font-size:10px; font-weight:700; color:var(--card-muted); margin-top:5px; }
+  .option-preview b{ color:var(--card-text); font-weight:800; }
+  .check-circle{
+    width:22px; height:22px; border-radius:99px; border:2px solid var(--card-border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+  }
+  .option-card.selected .check-circle{ border-color:var(--accent); background:var(--accent); color:#fff; font-weight:900; }
+
+  .modal-footer{
+    padding:16px 24px 22px; display:flex; gap:10px; border-top:1px solid rgba(0,0,0,.06); margin-top:8px;
+  }
+  .cancel-btn{
+    flex:1; padding:12px; border-radius:12px; background:var(--cancel-bg); border:1px solid var(--cancel-border);
+    color:var(--cancel-text); font-size:12.5px; font-weight:800; text-align:center; cursor:pointer;
+  }
+  .confirm-btn{
+    flex:1.6; padding:12px; border-radius:12px; background:var(--accent); border:1px solid var(--accent);
+    color:#fff; font-size:12.5px; font-weight:800; text-align:center; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    box-shadow:0 8px 20px rgba(216,30,30,.28);
+  }
+</style>
+</head>
+<body>
+  <p class="caption">Desktop · Modo claro — mesma posição do modal "Criar e Vincular"</p>
+  <div class="stage">
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:26px">#</th>
+            <th>Descrição do Fornecedor</th>
+            <th>SKU</th>
+            <th>Medida</th>
+            <th>Qtd.</th>
+            <th>Preço</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="muted">1</td>
+            <td>FEIJÃO CARIOCA TIPO 1 PCT</td>
+            <td class="muted">7788</td>
+            <td><span class="medida-pill">UN</span></td>
+            <td>40</td>
+            <td>R$ 4,80</td>
+          </tr>
+          <tr>
+            <td class="muted">2</td>
+            <td style="font-weight:800;">ARROZ TIPO 1 FD C/6UN</td>
+            <td class="muted">4521</td>
+            <td class="medida-cell">
+              <span class="medida-pill">FD <span style="opacity:.4">×1</span></span>
+              <span class="medida-trigger">⚡</span>
+            </td>
+            <td>12</td>
+            <td>R$ 58,00</td>
+          </tr>
+          <tr>
+            <td class="muted">3</td>
+            <td>REFRIGERANTE COLA 2L CX</td>
+            <td class="muted">9903</td>
+            <td><span class="medida-pill">CX ×12</span></td>
+            <td>8</td>
+            <td>R$ 96,00</td>
+          </tr>
+          <tr>
+            <td class="muted">4</td>
+            <td>ÓLEO DE SOJA 900ML</td>
+            <td class="muted">1187</td>
+            <td><span class="medida-pill">UN</span></td>
+            <td>60</td>
+            <td>R$ 7,20</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="icon-chip">⚡</div>
+        <div class="header-text">
+          <div class="header-title">Escolher tradução</div>
+          <div class="header-sub">ARROZ TIPO 1 FD C/6UN</div>
+        </div>
+        <div class="close-btn">✕</div>
+      </div>
+      <div class="modal-body">
+        <p class="hint">Este produto tem <b>2 conversões</b> cadastradas. Selecione a que corresponde à embalagem desta nota e confirme abaixo.</p>
+
+        <div class="option-card">
+          <div class="unit-badge"><span class="u-name">FD</span><span class="u-mult">×6</span></div>
+          <div class="option-info">
+            <div class="option-title">Fardo com 6 unidades</div>
+            <div class="option-sub">"ARROZ TIPO 1 FD C/6UN"</div>
+            <div class="option-preview">12 FD → <b>72 UN</b></div>
+          </div>
+          <div class="check-circle"></div>
+        </div>
+
+        <div class="option-card selected">
+          <div class="unit-badge"><span class="u-name">CX</span><span class="u-mult">×12</span></div>
+          <div class="option-info">
+            <div class="option-title">Caixa com 12 unidades</div>
+            <div class="option-sub">"ARROZ TIPO 1 CX C/12UN"</div>
+            <div class="option-preview">12 CX → <b>144 UN</b></div>
+          </div>
+          <div class="check-circle">✓</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="cancel-btn">Cancelar</div>
+        <div class="confirm-btn">✓ Confirmar tradução</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

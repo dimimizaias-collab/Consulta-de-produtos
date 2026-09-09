@@ -146,6 +146,14 @@ interface MobileNoteViewProps {
   onResetMultiplier: (idx: number) => void;
   loadingUnitIdx?: number | null;
   savingMeasure?: boolean;
+
+  /** Seletor de tradução — abre quando o produto vinculado tem mais de uma conversão cadastrada */
+  translationChoiceIdx?: number | null;
+  translationChoiceOptions?: { id: string; unit_name: string; multiplier: number }[];
+  translationChoiceSelectedId?: string | null;
+  onSelectTranslationChoice?: (id: string) => void;
+  onConfirmTranslationChoice?: () => void;
+  onCancelTranslationChoice?: () => void;
 }
 
 type Tab = 'itens' | 'detalhe' | 'resumo';
@@ -551,6 +559,8 @@ export function MobileNoteView({
   extraEans, setExtraEans,
   onUseTranslation, onSaveMeasure, onResetMultiplier,
   loadingUnitIdx = null, savingMeasure = false,
+  translationChoiceIdx = null, translationChoiceOptions = [], translationChoiceSelectedId = null,
+  onSelectTranslationChoice, onConfirmTranslationChoice, onCancelTranslationChoice,
 }: MobileNoteViewProps) {
   const [tab, setTab] = useState<Tab>('itens');
   const [noteEditorTab, setNoteEditorTab] = useState<'produtos' | 'recebimento'>('produtos');
@@ -1277,6 +1287,115 @@ export function MobileNoteView({
                   </div>
                 </div>
               )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── ESCOLHER TRADUÇÃO (sheet) — quando o produto vinculado tem mais de uma
+           conversão cadastrada, "Usar tradução" abre este seletor em vez de aplicar
+           a primeira cega. Tocar num card só seleciona; a conversão só é aplicada
+           ao confirmar. ─────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {translationChoiceIdx === activeIdx && (
+          <motion.div
+            key="translation-choice-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-40 bg-black/60"
+            onClick={onCancelTranslationChoice}
+          />
+        )}
+        {translationChoiceIdx === activeIdx && (
+          <motion.div
+            key="translation-choice-sheet"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute bottom-0 left-0 right-0 z-50 bg-[#1E1E18] border-t border-white/[0.07] rounded-t-3xl overflow-hidden max-h-[88%] flex flex-col"
+          >
+            <div className="w-9 h-1 rounded-full bg-white/[0.18] mx-auto mt-2.5 mb-0.5 shrink-0" />
+            <div className="shrink-0 bg-[#252520] border-b border-white/[0.07] px-4 pt-3.5 pb-4 flex items-start gap-3">
+              <div className="w-[38px] h-[38px] rounded-xl bg-[#D81E1E]/[0.13] text-[#D81E1E] flex items-center justify-center shrink-0 mt-0.5">
+                <Zap size={17} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[9.5px] font-black text-[#FFE500] uppercase tracking-wider mb-0.5">Escolher tradução</p>
+                <p className="text-[15px] font-black text-[#f2f0e3] leading-tight mb-1">Mais de uma medida cadastrada</p>
+                <p className="inline-block text-[11px] font-bold text-white/75 bg-white/[0.08] rounded-lg px-2 py-1 font-mono truncate max-w-full">
+                  "{activeItem?.original_description || activeItem?.description || activeItem?.name || `Item ${activeIdx + 1}`}"
+                </p>
+              </div>
+              <button
+                onClick={onCancelTranslationChoice}
+                className="w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white/[0.08] text-white/45 active:bg-white/[0.14] transition-colors shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-2">
+              <p className="text-[11px] text-white/30 font-semibold leading-relaxed mb-3 mx-0.5">
+                Este produto tem <span className="text-[#f2f0e3] font-black">{translationChoiceOptions.length} conversões</span> cadastradas.
+                Toque para selecionar a que corresponde à embalagem desta nota e confirme abaixo.
+              </p>
+              {translationChoiceOptions.map(opt => {
+                const selected = opt.id === translationChoiceSelectedId;
+                const item = activeItem;
+                const originalQty = item?.original_qty ?? Math.round((item?.qty ?? 0) / (item?.multiplier || 1));
+                const previewQty = Math.round(originalQty * Number(opt.multiplier) * 100) / 100;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => onSelectTranslationChoice?.(opt.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl border-[1.5px] text-left transition-colors mb-2.5 last:mb-0',
+                      selected ? 'border-[#D81E1E] bg-[#D81E1E]/[0.06]' : 'border-white/[0.08] bg-[#252520] active:bg-white/[0.05]'
+                    )}
+                  >
+                    <div className={cn(
+                      'w-[52px] h-[52px] rounded-2xl flex flex-col items-center justify-center shrink-0',
+                      selected ? 'bg-[#D81E1E]/[0.16] text-[#f87171]' : 'bg-white/[0.06] text-[#f2f0e3]'
+                    )}>
+                      <span className="text-[13px] font-black">{opt.unit_name}</span>
+                      <span className="text-[10px] font-extrabold opacity-65 font-mono mt-0.5">×{opt.multiplier}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-extrabold text-[#f2f0e3]">
+                        {opt.unit_name} com {opt.multiplier} unidade{Number(opt.multiplier) === 1 ? '' : 's'}
+                      </p>
+                      <p className="text-[10px] font-bold text-white/35 mt-1 font-mono">
+                        {originalQty} {opt.unit_name} → <span className="text-white/60">{previewQty} UN</span>
+                      </p>
+                    </div>
+                    <div className={cn(
+                      'w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 text-[11px] font-black',
+                      selected ? 'border-[#D81E1E] bg-[#D81E1E] text-white' : 'border-white/[0.18] text-transparent'
+                    )}>
+                      {selected && '✓'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="shrink-0 flex gap-2.5 px-4 pt-3 pb-7 border-t border-white/[0.06]">
+              <button
+                onClick={onCancelTranslationChoice}
+                className="flex-1 py-3 rounded-2xl bg-white/[0.07] border border-white/[0.1] text-white/50 text-[12.5px] font-black active:bg-white/[0.12] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={onConfirmTranslationChoice}
+                disabled={!translationChoiceSelectedId}
+                className="flex-[1.4] py-3 rounded-2xl bg-[#D81E1E] text-white text-[12.5px] font-black active:scale-[0.98] transition-transform disabled:opacity-40"
+              >
+                ✓ Confirmar tradução
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
