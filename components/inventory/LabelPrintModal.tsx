@@ -24,7 +24,7 @@ const TOTAL      = COLS * ROWS; // 65
 // Elgin L42 Pro — etiqueta térmica em bobina contínua (uma etiqueta por vez,
 // sem grid de blocos de folha)
 const ELGIN_LABEL_W = 105; // mm
-const ELGIN_LABEL_H = 30;  // mm
+const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (não 30mm)
 
 type LabelType = 'estoque' | 'prateleira';
 type PrinterType = 'sheet' | 'elgin';
