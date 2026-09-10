@@ -34,13 +34,30 @@ const HALF_LAYOUT: CellLayout = {
   preco:   { x: 28.5, y: 11,  w: 19.5, h: 10.5 },
 };
 
-// Fatores de tamanho de fonte (relativos à altura de cada caixa, em mm) —
-// os mesmos usados no editor visual, pra reproduzir fielmente o que foi aprovado.
-const FONT_FACTOR = { nome: 0.5, ref: 0.62, rs: 0.72, preco: 0.86, barcodeNum: 0.20 };
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
 
+// REF é um código curto de referência — nunca o EAN inteiro (13 dígitos não
+// cabem na caixa e quebravam a linha, embolando com o código de barras).
 function productRef(product: any): string {
-  return product?.sku || product?.ean || '0000';
+  if (product?.sku) return product.sku;
+  if (product?.ean) return String(product.ean).slice(-4);
+  return '0000';
+}
+
+// Mede o texto de verdade (canvas) e devolve o maior font-size (em "unidades
+// da caixa", mm no print / px na prévia) que ainda cabe na largura disponível
+// — sem isso, textos maiores que a caixa (ex: preço "123,45") saem cortados
+// em vez de encolher, que foi o bug visto na impressão real.
+let fitMeasureCanvas: HTMLCanvasElement | null = null;
+function fitFontSize(text: string, maxWidth: number, maxHeight: number, weight: number | string, family: string): number {
+  if (typeof document === 'undefined' || !text) return maxHeight;
+  if (!fitMeasureCanvas) fitMeasureCanvas = document.createElement('canvas');
+  const ctx = fitMeasureCanvas.getContext('2d');
+  if (!ctx) return maxHeight;
+  const probe = 100;
+  ctx.font = `${weight} ${probe}px ${family}`;
+  const measured = ctx.measureText(text).width || probe;
+  return Math.max(1, Math.min(maxWidth * (probe / measured), maxHeight));
 }
 
 const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
@@ -57,25 +74,36 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
     ...extra,
   });
   const code = product.ean || product.sku || '';
+  const nomeText = product.name || '—';
+  const refText = `REF ${productRef(product)}`;
+  const priceText = formatPrice(product.price ?? 0);
+
+  const nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
+  const nomeSize = fitFontSize(nomeText, layout.nome.w * PREVIEW_PX_PER_MM, nomeMaxH * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const refSize = fitFontSize(refText, layout.ref.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace");
+  const rsSize = fitFontSize('R$', layout.rs.w * PREVIEW_PX_PER_MM, layout.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const precoSize = fitFontSize(priceText, layout.preco.w * PREVIEW_PX_PER_MM, layout.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const bcNumSize = code ? fitFontSize(code, layout.barcode.w * PREVIEW_PX_PER_MM, layout.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+
   return (
     <>
-      <div style={box(layout.nome, { fontSize: layout.nome.h * FONT_FACTOR.nome * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden' })}>
-        {product.name}
+      <div style={box(layout.nome, { fontSize: nomeSize, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' })}>
+        {nomeText}
       </div>
-      <div style={box(layout.ref, { fontSize: layout.ref.h * FONT_FACTOR.ref * PREVIEW_PX_PER_MM, fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'rgba(20,20,0,.6)' })}>
-        REF {productRef(product)}
+      <div style={box(layout.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
+        {refText}
       </div>
       <div style={box(layout.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
         <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
         {code && (
-          <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: layout.barcode.h * FONT_FACTOR.barcodeNum * PREVIEW_PX_PER_MM, flexShrink: 0 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: bcNumSize, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
             {code}
           </div>
         )}
       </div>
-      <div style={box(layout.rs, { fontSize: layout.rs.h * FONT_FACTOR.rs * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400' })}>R$</div>
-      <div style={box(layout.preco, { fontSize: layout.preco.h * FONT_FACTOR.preco * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', textAlign: 'right', lineHeight: 0.85 })}>
-        {formatPrice(product.price ?? 0)}
+      <div style={box(layout.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap' })}>R$</div>
+      <div style={box(layout.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', textAlign: 'right', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden' })}>
+        {priceText}
       </div>
     </>
   );
@@ -210,15 +238,29 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     }
     const boxStyle = (p: ElPos) => `left:${(p.x + offsetX).toFixed(2)}mm; top:${p.y.toFixed(2)}mm; width:${p.w.toFixed(2)}mm; height:${p.h.toFixed(2)}mm;`;
 
+    const nomeText = product.name || '—';
+    const refText = `REF ${productRef(product)}`;
+    const priceText = formatPrice(product.price ?? 0);
+
+    // Altura útil do nome limitada até onde o REF começa — a caixa do nome
+    // aprovada no editor é mais alta que isso (previa 2 linhas), mas como o
+    // nome agora é 1 linha só, isso evita que ele desça e sobreponha o REF.
+    const nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
+    const nomeSize = fitFontSize(nomeText, layout.nome.w, nomeMaxH, 800, 'Arial, Helvetica, sans-serif');
+    const refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 700, "'Courier New', monospace");
+    const rsSize = fitFontSize('R$', layout.rs.w, layout.rs.h, 800, 'Arial, Helvetica, sans-serif');
+    const precoSize = fitFontSize(priceText, layout.preco.w, layout.preco.h, 800, 'Arial, Helvetica, sans-serif');
+    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
+
     return `
-      <div class="cell-el nome" style="${boxStyle(layout.nome)} font-size:${(layout.nome.h * FONT_FACTOR.nome).toFixed(2)}mm;">${escapeHtml(product.name || '—')}</div>
-      <div class="cell-el ref" style="${boxStyle(layout.ref)} font-size:${(layout.ref.h * FONT_FACTOR.ref).toFixed(2)}mm;">REF ${escapeHtml(productRef(product))}</div>
+      <div class="cell-el nome" style="${boxStyle(layout.nome)} font-size:${nomeSize.toFixed(2)}mm;">${escapeHtml(nomeText)}</div>
+      <div class="cell-el ref" style="${boxStyle(layout.ref)} font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
       <div class="cell-el barcode" style="${boxStyle(layout.barcode)}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
-        ${code ? `<div class="bc-num" style="font-size:${(layout.barcode.h * FONT_FACTOR.barcodeNum).toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
+        ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
       </div>
-      <div class="cell-el rs" style="${boxStyle(layout.rs)} font-size:${(layout.rs.h * FONT_FACTOR.rs).toFixed(2)}mm;">R$</div>
-      <div class="cell-el preco" style="${boxStyle(layout.preco)} font-size:${(layout.preco.h * FONT_FACTOR.preco).toFixed(2)}mm;">${escapeHtml(formatPrice(product.price ?? 0))}</div>
+      <div class="cell-el rs" style="${boxStyle(layout.rs)} font-size:${rsSize.toFixed(2)}mm;">R$</div>
+      <div class="cell-el preco" style="${boxStyle(layout.preco)} font-size:${precoSize.toFixed(2)}mm;">${escapeHtml(priceText)}</div>
     `;
   };
 
@@ -256,13 +298,13 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
           page-break-after: always; overflow: hidden;
         }
         .elgin-label:last-child { page-break-after: auto; }
-        .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; }
-        .cell-el.nome { font-weight: 800; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .cell-el.nome { font-weight: 800; }
         .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; }
         .cell-el.preco { font-weight: 800; text-align: right; line-height: 0.85; }
-        .cell-el.barcode { display: flex; flex-direction: column; }
+        .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
         .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
-        .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; }
+        .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       </style></head>
       <body>${labelsHtml}</body></html>
     `);
