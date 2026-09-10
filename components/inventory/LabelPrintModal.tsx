@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Tag, Printer, Plus, ChevronDown, Lock, LayoutList } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateBarcodeDataUrl, formatPrice } from './labelPrintUtils';
+import { generateBarcodeDataUrl } from './labelPrintUtils';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -35,6 +35,12 @@ const HALF_LAYOUT: CellLayout = {
 };
 
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
+
+// Só o número, sem "R$" — o símbolo já tem sua própria caixa na etiqueta
+// (formatPrice do labelPrintUtils inclui o símbolo, por isso não é usado aqui).
+function formatPriceValue(value: number): string {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // REF é um código curto de referência — nunca o EAN inteiro (13 dígitos não
 // cabem na caixa e quebravam a linha, embolando com o código de barras).
@@ -76,7 +82,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   const code = product.ean || product.sku || '';
   const nomeText = product.name || '—';
   const refText = `REF ${productRef(product)}`;
-  const priceText = formatPrice(product.price ?? 0);
+  const priceText = formatPriceValue(product.price ?? 0);
 
   const nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
   const nomeSize = fitFontSize(nomeText, layout.nome.w * PREVIEW_PX_PER_MM, nomeMaxH * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
@@ -240,7 +246,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
     const nomeText = product.name || '—';
     const refText = `REF ${productRef(product)}`;
-    const priceText = formatPrice(product.price ?? 0);
+    const priceText = formatPriceValue(product.price ?? 0);
 
     // Altura útil do nome limitada até onde o REF começa — a caixa do nome
     // aprovada no editor é mais alta que isso (previa 2 linhas), mas como o
