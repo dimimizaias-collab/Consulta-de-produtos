@@ -21,7 +21,21 @@ const COLS       = 5;
 const ROWS       = 13;
 const TOTAL      = COLS * ROWS; // 65
 
+// Elgin L42 Pro — etiqueta térmica em bobina contínua (uma etiqueta por vez,
+// sem grid de blocos de folha)
+const ELGIN_LABEL_W = 105; // mm
+const ELGIN_LABEL_H = 30;  // mm
+
 type LabelType = 'estoque' | 'prateleira';
+type PrinterType = 'sheet' | 'elgin';
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 interface Selection {
   qty: number;
@@ -49,6 +63,7 @@ const emptyExtraFields = (): ExtraFields => ({
 
 export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
+  const [printerType, setPrinterType] = useState<PrinterType>('sheet');
   const [search, setSearch] = useState('');
   // map productId → { qty, type, codeField }
   const [selections, setSelections] = useState<Record<string, Selection>>({});
@@ -152,6 +167,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
   const handleClose = () => {
     setStep(1);
+    setPrinterType('sheet');
     setSearch('');
     setSelections({});
     setUsedBlocks(new Set());
@@ -189,6 +205,61 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     }
 
     doc.save('etiquetas.pdf');
+  };
+
+  // Imprime na Elgin L42 Pro (etiqueta térmica em bobina contínua) via driver do
+  // Windows: abre uma janela com uma etiqueta HTML por página, no tamanho exato
+  // configurado na impressora (@page), e chama window.print(). Não usa o grid de
+  // blocos de folha — cada etiqueta sai avulsa, uma atrás da outra na bobina.
+  const buildElginLabelHtml = (entry: { product: any; type: LabelType; codeField: CodeField }): string => {
+    const { product, type, codeField } = entry;
+    const code = codeField === 'sku'
+      ? (product.sku || product.ean || '')
+      : (product.ean || product.sku || '');
+    const extraLines = buildExtraLines(product);
+    let bcDataUrl = '';
+    if (code) {
+      try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* skip barcode on error */ }
+    }
+
+    return `
+      <div class="elgin-label">
+        <div class="name">${escapeHtml(product.name || '—')}</div>
+        ${type === 'prateleira' ? `<div class="price">${escapeHtml(formatPrice(product.price ?? 0))}</div>` : ''}
+        ${extraLines.length > 0 ? `<div class="extra">${extraLines.map(l => `<span>${escapeHtml(l)}</span>`).join('')}</div>` : ''}
+        ${bcDataUrl ? `<img class="barcode" src="${bcDataUrl}" />` : ''}
+        ${code ? `<div class="code">${escapeHtml(code)}</div>` : ''}
+      </div>
+    `;
+  };
+
+  const printElgin = () => {
+    const labelsHtml = labelQueue.map(buildElginLabelHtml).join('');
+    const win = window.open('', '_blank', 'width=500,height=400');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Etiquetas Elgin L42 Pro</title>
+      <style>
+        @page { size: ${ELGIN_LABEL_W}mm ${ELGIN_LABEL_H}mm; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; }
+        .elgin-label {
+          width: ${ELGIN_LABEL_W}mm; height: ${ELGIN_LABEL_H}mm; padding: 2mm 3mm;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          page-break-after: always; overflow: hidden;
+        }
+        .elgin-label:last-child { page-break-after: auto; }
+        .name { font-size: 11pt; font-weight: 700; text-align: center; color: #141414; max-width: 100%; }
+        .price { font-size: 16pt; font-weight: 900; color: #141414; margin-top: 1mm; }
+        .extra { font-size: 7pt; font-weight: 600; color: #3c3c3c; text-align: center; display: flex; flex-direction: column; gap: 0.3mm; margin-top: 1mm; }
+        .barcode { width: 70mm; height: 10mm; margin-top: 1mm; }
+        .code { font-family: 'Courier New', monospace; font-size: 7pt; color: #3c3c3c; margin-top: 0.5mm; }
+      </style></head>
+      <body>${labelsHtml}</body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 300);
   };
 
   // Monta as linhas de informação adicional. Fabricante, CNPJ, Composição e Validade
@@ -350,6 +421,28 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
             {step === 1 && (
               <>
                 <div className="flex-1 overflow-y-auto px-7 py-5 flex flex-col gap-4 min-h-0">
+                  {/* Printer type */}
+                  <div className="flex items-center gap-1 p-1 bg-on-surface/[0.06] rounded-2xl">
+                    <button
+                      onClick={() => setPrinterType('sheet')}
+                      className={cn(
+                        'flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all',
+                        printerType === 'sheet' ? 'bg-on-surface text-surface-container shadow-sm' : 'text-on-surface/40 hover:text-on-surface/70'
+                      )}
+                    >
+                      Folha A4 (PDF)
+                    </button>
+                    <button
+                      onClick={() => setPrinterType('elgin')}
+                      className={cn(
+                        'flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all',
+                        printerType === 'elgin' ? 'bg-on-surface text-surface-container shadow-sm' : 'text-on-surface/40 hover:text-on-surface/70'
+                      )}
+                    >
+                      Elgin L42 Pro
+                    </button>
+                  </div>
+
                   {/* Search */}
                   <div className="relative">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface/30 pointer-events-none" />
@@ -584,14 +677,25 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                     >
                       Cancelar
                     </button>
-                    <button
-                      onClick={() => setStep(2)}
-                      disabled={selectedIds.length === 0}
-                      className="h-10 px-6 rounded-2xl bg-on-surface text-surface-container text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30 hover:opacity-80 transition-all active:scale-95"
-                    >
-                      Próximo
-                      <ChevronRight size={14} />
-                    </button>
+                    {printerType === 'elgin' ? (
+                      <button
+                        onClick={printElgin}
+                        disabled={selectedIds.length === 0}
+                        className="h-10 px-6 rounded-2xl bg-on-surface text-surface-container text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30 hover:opacity-80 transition-all active:scale-95"
+                      >
+                        <Printer size={14} />
+                        Imprimir
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setStep(2)}
+                        disabled={selectedIds.length === 0}
+                        className="h-10 px-6 rounded-2xl bg-on-surface text-surface-container text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30 hover:opacity-80 transition-all active:scale-95"
+                      >
+                        Próximo
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
