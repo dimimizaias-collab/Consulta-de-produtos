@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Layout Etiqueta de Gôndola — Dark</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif; background:#131310; display:flex; flex-direction:column; align-items:center; gap:48px; min-height:100vh; padding:40px 16px 100px;}
+
+  .analysis{width:100%; max-width:900px; background:#1E1E18; border:1px solid rgba(242,240,227,0.08); border-radius:20px; padding:22px 26px;}
+  .analysis h3{font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; color:#F2F0E3; margin-bottom:10px;}
+  .analysis ul{list-style:none; display:flex; flex-direction:column; gap:7px;}
+  .analysis li{font-size:12.5px; font-weight:600; color:rgba(242,240,227,0.60); line-height:1.5; padding-left:16px; position:relative;}
+  .analysis li::before{content:'→'; position:absolute; left:0; color:#D81E1E; font-weight:900;}
+  .analysis b{color:#F2F0E3; font-weight:800;}
+
+  .diagram-title{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.14em; color:rgba(242,240,227,0.45); text-align:center;}
+
+  /* Diagram scaffold */
+  .diagram{position:relative; width:840px; padding:56px 40px 30px;}
+  .dim-row{position:absolute; top:0; left:40px; right:40px; display:flex; align-items:center; font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:#5BC4DD;}
+  .dim-row .line{flex:1; height:1px; background:#5BC4DD; position:relative;}
+  .dim-row .line::before,.dim-row .line::after{content:''; position:absolute; top:-4px; width:1px; height:9px; background:#5BC4DD;}
+  .dim-row .line::before{left:0;} .dim-row .line::after{right:0;}
+  .dim-label{padding:0 8px; white-space:nowrap;}
+
+  .notch-dims{position:absolute; top:26px; left:40px; right:40px; display:flex; font-family:'DM Mono',monospace; font-size:10.5px; font-weight:700; color:#5BC4DD;}
+  .notch-dims .seg{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .notch-dims .seg .line{width:100%; height:1px; background:#5BC4DD; position:relative;}
+  .notch-dims .seg .line::before,.notch-dims .seg .line::after{content:''; position:absolute; top:-3px; width:1px; height:7px; background:#5BC4DD;}
+  .notch-dims .seg .line::before{left:0;} .notch-dims .seg .line::after{right:0;}
+  .notch-dims .n10{width:80px;} .notch-dims .n15{width:120px;} .notch-dims .gap{flex:1;}
+
+  .height-dim{position:absolute; right:0; top:56px; bottom:30px; width:34px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-size:11px; font-weight:700; color:#5BC4DD;}
+  .height-dim .line{width:1px; flex:1; background:#5BC4DD; position:relative;}
+  .height-dim .line::before,.height-dim .line::after{content:''; position:absolute; left:-4px; width:9px; height:1px; background:#5BC4DD;}
+  .height-dim .line::before{top:0;} .height-dim .line::after{bottom:0;}
+  .height-dim span{writing-mode:vertical-rl; margin:6px 0;}
+
+  /* Label body — mantém sempre amarelo/preto (cor do papel pré-impresso, não do tema do app) */
+  .label-wrap{position:relative; margin-top:56px;}
+  .label{position:relative; background:#FFE500; border-radius:4px; overflow:visible; box-shadow:0 10px 34px rgba(0,0,0,0.5);}
+  .perf{position:absolute; left:-6px; right:-6px; height:0; border-top:1.5px dashed rgba(26,26,10,0.55);}
+  .perf.top{top:0;} .perf.bottom{bottom:0;}
+  .notch{position:absolute; width:26px; height:12px; background:#131310; border-radius:0 0 13px 13px; }
+  .notch.bottom{border-radius:13px 13px 0 0;}
+  .notch.top{top:-1px;}
+  .notch.bottom{bottom:-1px;}
+
+  /* FULL label content */
+  .label-full{width:740px; height:212px;}
+  .full-content{position:absolute; inset:0; display:flex; align-items:stretch; padding:14px 20px;}
+  .full-left{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between;}
+  .full-name{font-size:22px; font-weight:800; color:#141400; line-height:1.15; letter-spacing:-0.01em;}
+  .full-ref{font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:rgba(20,20,0,0.55); margin-top:3px;}
+  .full-barcode-block{display:flex; flex-direction:column; gap:2px;}
+  .full-barcode{height:46px; background:repeating-linear-gradient(90deg,#141400 0 2.4px, transparent 2.4px 5.4px); width:290px;}
+  .full-barcode-num{font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:#141400; letter-spacing:0.28em; text-align:center;}
+  .full-divider{width:1.5px; background:rgba(20,20,0,0.18); margin:4px 18px;}
+  .full-right{width:220px; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; justify-content:center;}
+  .full-rs{font-size:15px; font-weight:800; color:#141400; align-self:flex-end;}
+  .full-price{font-size:64px; font-weight:900; color:#141400; line-height:0.85; letter-spacing:-0.02em;}
+
+  /* HALF label content */
+  .label-half{width:740px; height:212px;}
+  .half-cut{position:absolute; top:6px; bottom:6px; left:50%; width:0; border-left:1.5px dashed rgba(20,20,0,0.45); transform:translateX(-0.75px);}
+  .half-content{position:absolute; inset:0; display:flex;}
+  .half-cell{flex:1; min-width:0; display:flex; flex-direction:column; padding:12px 16px;}
+  .half-cell.right{align-items:flex-end;}
+  .half-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px; width:100%;}
+  .half-name-block{min-width:0;}
+  .half-name{font-size:14px; font-weight:800; color:#141400; line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .half-ref{font-family:'DM Mono',monospace; font-size:9.5px; font-weight:700; color:rgba(20,20,0,0.55); margin-top:2px;}
+  .half-price-block{flex-shrink:0; text-align:right;}
+  .half-rs{font-size:10px; font-weight:800; color:#141400;}
+  .half-price{font-size:30px; font-weight:900; color:#141400; line-height:0.85;}
+  .half-bottom{margin-top:auto; display:flex; flex-direction:column; gap:2px;}
+  .half-barcode{height:26px; width:100%; background:repeating-linear-gradient(90deg,#141400 0 1.6px, transparent 1.6px 3.6px);}
+  .half-barcode-num{font-family:'DM Mono',monospace; font-size:9px; font-weight:700; color:#141400; letter-spacing:0.14em; text-align:center;}
+
+  .caption{font-size:11px; font-weight:600; color:rgba(242,240,227,0.35); text-align:center; margin-top:14px; max-width:600px;}
+</style>
+</head>
+<body>
+
+  <div class="analysis">
+    <h3>Correções aplicadas em relação aos prints de referência</h3>
+    <ul>
+      <li><b>Hierarquia:</b> nome e REF alinhados ao mesmo início vertical do código de barras (margem esquerda única), em vez de flutuarem soltos — cria uma coluna de conteúdo consistente.</li>
+      <li><b>Separação:</b> um filete vertical sutil separa a coluna de dados (nome/REF/código) da coluna de preço, evitando que o "5,00" pareça colado no código de barras como nos prints originais.</li>
+      <li><b>Preço:</b> centralizado verticalmente na altura toda da etiqueta (não só ao lado do código de barras) — fica mais parecido com etiqueta de gôndola de mercado de verdade.</li>
+      <li><b>Código de barras:</b> aumentado e com "zona de silêncio" (respiro) nas laterais — no print original ele encostava quase na borda, prejudicando a leitura no leitor.</li>
+      <li><b>Metade:</b> não é o mesmo layout espremido — nome quebra em até 2 linhas com reticências, preço proporcionalmente menor mas ainda dominante, código de barras com largura mínima garantida pra continuar escaneável.</li>
+      <li><b>Corte central:</b> uma linha pontilhada indica visualmente onde a etiqueta será destacada em duas — reforça que são 2 produtos independentes num mesmo disparo de impressão.</li>
+    </ul>
+  </div>
+
+  <div>
+    <p class="diagram-title">Etiqueta Inteira — corrigida</p>
+    <div class="diagram">
+      <div class="dim-row"><div class="line"></div><span class="dim-label">105 mm</span><div class="line"></div></div>
+      <div class="notch-dims">
+        <div class="seg n10"><div class="line"></div><span>10mm</span></div>
+        <div class="seg gap"></div>
+        <div class="seg n15"><div class="line"></div><span>15mm</span></div>
+        <div class="seg gap"></div>
+        <div class="seg n10"><div class="line"></div><span>10mm</span></div>
+      </div>
+      <div class="height-dim"><div class="line"></div><span>30,15 mm</span></div>
+
+      <div class="label-wrap">
+        <div class="label label-full">
+          <div class="perf top"></div>
+          <div class="perf bottom"></div>
+          <div class="notch top" style="left:20px;"></div>
+          <div class="notch top" style="left:357px; width:36px;"></div>
+          <div class="notch top" style="right:20px;"></div>
+          <div class="notch bottom" style="left:20px;"></div>
+          <div class="notch bottom" style="left:357px; width:36px;"></div>
+          <div class="notch bottom" style="right:20px;"></div>
+
+          <div class="full-content">
+            <div class="full-left">
+              <div>
+                <div class="full-name">COCA COLA ORIGINAL 350ML</div>
+                <div class="full-ref">REF 0000</div>
+              </div>
+              <div class="full-barcode-block">
+                <div class="full-barcode"></div>
+                <div class="full-barcode-num">8 99197 91020 5</div>
+              </div>
+            </div>
+            <div class="full-divider"></div>
+            <div class="full-right">
+              <div class="full-rs">R$</div>
+              <div class="full-price">5,00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="caption">Coluna esquerda (nome + REF + código de barras) e coluna direita (preço) alinhadas na mesma grade — preço centralizado na altura total.</p>
+  </div>
+
+  <div>
+    <p class="diagram-title">Etiqueta Meia — corrigida (2 produtos independentes)</p>
+    <div class="diagram">
+      <div class="dim-row"><div class="line"></div><span class="dim-label">105 mm</span><div class="line"></div></div>
+      <div class="notch-dims">
+        <div class="seg n10"><div class="line"></div><span>10mm</span></div>
+        <div class="seg gap"></div>
+        <div class="seg n15"><div class="line"></div><span>15mm — corte</span></div>
+        <div class="seg gap"></div>
+        <div class="seg n10"><div class="line"></div><span>10mm</span></div>
+      </div>
+      <div class="height-dim"><div class="line"></div><span>30,15 mm</span></div>
+
+      <div class="label-wrap">
+        <div class="label label-half">
+          <div class="perf top"></div>
+          <div class="perf bottom"></div>
+          <div class="notch top" style="left:20px;"></div>
+          <div class="notch top" style="left:357px; width:36px;"></div>
+          <div class="notch top" style="right:20px;"></div>
+          <div class="notch bottom" style="left:20px;"></div>
+          <div class="notch bottom" style="left:357px; width:36px;"></div>
+          <div class="notch bottom" style="right:20px;"></div>
+          <div class="half-cut"></div>
+
+          <div class="half-content">
+            <div class="half-cell">
+              <div class="half-top">
+                <div class="half-name-block">
+                  <div class="half-name">Refrigerante Guaraná Lata 350ml</div>
+                  <div class="half-ref">REF 0457</div>
+                </div>
+                <div class="half-price-block">
+                  <div class="half-rs">R$</div>
+                  <div class="half-price">3,49</div>
+                </div>
+              </div>
+              <div class="half-bottom">
+                <div class="half-barcode"></div>
+                <div class="half-barcode-num">7891234500011</div>
+              </div>
+            </div>
+            <div class="half-cell right" style="align-items:stretch;">
+              <div class="half-top">
+                <div class="half-name-block">
+                  <div class="half-name">Água Mineral s/Gás 500ml</div>
+                  <div class="half-ref">REF 0312</div>
+                </div>
+                <div class="half-price-block">
+                  <div class="half-rs">R$</div>
+                  <div class="half-price">2,00</div>
+                </div>
+              </div>
+              <div class="half-bottom">
+                <div class="half-barcode"></div>
+                <div class="half-barcode-num">7891234512345</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="caption">Mesma hierarquia da etiqueta inteira, só que compacta — nome quebra em 2 linhas se precisar, preço menor porém ainda em destaque, corte central pontilhado.</p>
+  </div>
+
+</body>
+</html>

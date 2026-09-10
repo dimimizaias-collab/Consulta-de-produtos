@@ -12,6 +12,90 @@ const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTar
 // sem grid de blocos de folha). Este módulo é dedicado exclusivamente a essa impressora.
 const ELGIN_LABEL_W = 105; // mm
 const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (não 30mm)
+const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
+
+interface ElPos { x: number; y: number; w: number; h: number }
+interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos }
+
+// Posições definidas no editor visual de layout (mm, origem no canto superior
+// esquerdo de cada etiqueta/metade). Ver conversa de design da etiqueta de gôndola.
+const FULL_LAYOUT: CellLayout = {
+  nome:    { x: 3,    y: 3,   w: 99,   h: 8.5 },
+  ref:     { x: 3,    y: 8,   w: 30,   h: 5   },
+  barcode: { x: 3,    y: 14.5, w: 51,  h: 10  },
+  rs:      { x: 63.5, y: 7.5, w: 5.5,  h: 5   },
+  preco:   { x: 68,   y: 8,   w: 34,   h: 17  },
+};
+const HALF_LAYOUT: CellLayout = {
+  nome:    { x: 3,    y: 4.5, w: 47.5, h: 6.5 },
+  ref:     { x: 3,    y: 8.5, w: 26,   h: 4   },
+  barcode: { x: 3,    y: 13.5, w: 23,  h: 9.5 },
+  rs:      { x: 27,   y: 10,  w: 6,    h: 4   },
+  preco:   { x: 28.5, y: 11,  w: 19.5, h: 10.5 },
+};
+
+// Fatores de tamanho de fonte (relativos à altura de cada caixa, em mm) —
+// os mesmos usados no editor visual, pra reproduzir fielmente o que foi aprovado.
+const FONT_FACTOR = { nome: 0.5, ref: 0.62, rs: 0.72, preco: 0.86, barcodeNum: 0.20 };
+const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
+
+function productRef(product: any): string {
+  return product?.sku || product?.ean || '0000';
+}
+
+const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
+const SAMPLE_HALF_A = { name: 'Refrigerante Guaraná Lata 350ml', sku: '0457', ean: '7891234500011', price: 3.49 };
+const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', ean: '7891234512345', price: 2 };
+
+function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
+  const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
+    position: 'absolute',
+    left: `${((p.x + offsetXMm) / ELGIN_LABEL_W) * 100}%`,
+    top: `${(p.y / ELGIN_LABEL_H) * 100}%`,
+    width: `${(p.w / ELGIN_LABEL_W) * 100}%`,
+    height: `${(p.h / ELGIN_LABEL_H) * 100}%`,
+    ...extra,
+  });
+  const code = product.ean || product.sku || '';
+  return (
+    <>
+      <div style={box(layout.nome, { fontSize: layout.nome.h * FONT_FACTOR.nome * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden' })}>
+        {product.name}
+      </div>
+      <div style={box(layout.ref, { fontSize: layout.ref.h * FONT_FACTOR.ref * PREVIEW_PX_PER_MM, fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'rgba(20,20,0,.6)' })}>
+        REF {productRef(product)}
+      </div>
+      <div style={box(layout.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
+        <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
+        {code && (
+          <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: layout.barcode.h * FONT_FACTOR.barcodeNum * PREVIEW_PX_PER_MM, flexShrink: 0 }}>
+            {code}
+          </div>
+        )}
+      </div>
+      <div style={box(layout.rs, { fontSize: layout.rs.h * FONT_FACTOR.rs * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400' })}>R$</div>
+      <div style={box(layout.preco, { fontSize: layout.preco.h * FONT_FACTOR.preco * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', textAlign: 'right', lineHeight: 0.85 })}>
+        {formatPrice(product.price ?? 0)}
+      </div>
+    </>
+  );
+}
+
+function LabelPreview({ variant, items }: { variant: 'full' | 'half'; items: any[] }) {
+  return (
+    <div className="relative w-full rounded-xl overflow-hidden bg-[#FFE500] shadow-inner" style={{ aspectRatio: `${ELGIN_LABEL_W} / ${ELGIN_LABEL_H}` }}>
+      {variant === 'full' ? (
+        <LabelPreviewCell product={items[0]} layout={FULL_LAYOUT} offsetXMm={0} />
+      ) : (
+        <>
+          <LabelPreviewCell product={items[0]} layout={HALF_LAYOUT} offsetXMm={0} />
+          <LabelPreviewCell product={items[1]} layout={HALF_LAYOUT} offsetXMm={HALF_OFFSET_X} />
+          <div className="absolute top-0 bottom-0 border-l border-dashed border-black/30 pointer-events-none" style={{ left: '50%' }} />
+        </>
+      )}
+    </div>
+  );
+}
 
 type LabelTemplate = 'gondola' | 'produto';
 type LabelSize = 'full' | 'half';
@@ -60,6 +144,13 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const queueList = useMemo(() => Object.entries(queue), [queue]);
   const totalLabels = useMemo(() => queueList.reduce((acc, [, e]) => acc + e.qty, 0), [queueList]);
 
+  // Amostras pra prévia — usa o primeiro produto real de cada tamanho na fila,
+  // caindo pra um exemplo genérico quando ainda não tem nada adicionado.
+  const previewFull = useMemo(() => queueList.find(([, e]) => e.size === 'full')?.[1]?.product ?? SAMPLE_FULL, [queueList]);
+  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => e.product), [queueList]);
+  const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
+  const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
+
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -107,40 +198,51 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     onClose();
   };
 
-  // Imprime na Elgin L42 Pro (etiqueta térmica em bobina contínua) via driver do
-  // Windows: abre uma janela com uma etiqueta HTML por página, no tamanho exato
-  // configurado no driver (@page), e chama window.print(). Cada etiqueta traz
-  // nome, preço, código de barras e EAN/SKU — os dois sempre, sem escolha.
-  // A opção "Metade" ainda não tem layout próprio (chega em uma próxima etapa);
-  // por ora imprime no mesmo layout da etiqueta inteira.
-  const buildElginLabelHtml = (entry: QueueEntry): string => {
-    const { product } = entry;
+  // Uma etiqueta "Inteira" = 1 produto ocupando os 105mm. Uma etiqueta "Metade"
+  // ocupa só a esquerda (0–52,5mm) ou a direita (52,5–105mm) de um disparo de
+  // 105mm — duas etiquetas Metade sempre são pareadas num mesmo disparo físico
+  // (se sobrar uma sozinha, ela sai com a metade direita em branco).
+  const buildCellHtml = (product: any, layout: CellLayout, offsetX: number): string => {
     const code = product.ean || product.sku || '';
     let bcDataUrl = '';
     if (code) {
       try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* skip barcode on error */ }
     }
-    const codeLines: string[] = [];
-    if (product.ean) codeLines.push(`EAN ${product.ean}`);
-    if (product.sku) codeLines.push(`SKU ${product.sku}`);
+    const boxStyle = (p: ElPos) => `left:${(p.x + offsetX).toFixed(2)}mm; top:${p.y.toFixed(2)}mm; width:${p.w.toFixed(2)}mm; height:${p.h.toFixed(2)}mm;`;
 
     return `
-      <div class="elgin-label">
-        <div class="name">${escapeHtml(product.name || '—')}</div>
-        <div class="price">${escapeHtml(formatPrice(product.price ?? 0))}</div>
-        ${bcDataUrl ? `<img class="barcode" src="${bcDataUrl}" />` : ''}
-        ${codeLines.length > 0 ? `<div class="codes">${codeLines.map(l => `<span>${escapeHtml(l)}</span>`).join('')}</div>` : ''}
+      <div class="cell-el nome" style="${boxStyle(layout.nome)} font-size:${(layout.nome.h * FONT_FACTOR.nome).toFixed(2)}mm;">${escapeHtml(product.name || '—')}</div>
+      <div class="cell-el ref" style="${boxStyle(layout.ref)} font-size:${(layout.ref.h * FONT_FACTOR.ref).toFixed(2)}mm;">REF ${escapeHtml(productRef(product))}</div>
+      <div class="cell-el barcode" style="${boxStyle(layout.barcode)}">
+        ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
+        ${code ? `<div class="bc-num" style="font-size:${(layout.barcode.h * FONT_FACTOR.barcodeNum).toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
       </div>
+      <div class="cell-el rs" style="${boxStyle(layout.rs)} font-size:${(layout.rs.h * FONT_FACTOR.rs).toFixed(2)}mm;">R$</div>
+      <div class="cell-el preco" style="${boxStyle(layout.preco)} font-size:${(layout.preco.h * FONT_FACTOR.preco).toFixed(2)}mm;">${escapeHtml(formatPrice(product.price ?? 0))}</div>
     `;
   };
 
   const printElgin = () => {
     if (template !== 'gondola' || totalLabels === 0) return;
-    const flatQueue: QueueEntry[] = [];
+
+    const fullUnits: any[] = [];
+    const halfUnits: any[] = [];
     queueList.forEach(([, entry]) => {
-      for (let i = 0; i < entry.qty; i++) flatQueue.push(entry);
+      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(entry.product);
     });
-    const labelsHtml = flatQueue.map(buildElginLabelHtml).join('');
+
+    const pages: string[] = fullUnits.map(product =>
+      `<div class="elgin-label">${buildCellHtml(product, FULL_LAYOUT, 0)}</div>`
+    );
+    for (let i = 0; i < halfUnits.length; i += 2) {
+      const left = halfUnits[i];
+      const right = halfUnits[i + 1];
+      pages.push(
+        `<div class="elgin-label">${buildCellHtml(left, HALF_LAYOUT, 0)}${right ? buildCellHtml(right, HALF_LAYOUT, HALF_OFFSET_X) : ''}</div>`
+      );
+    }
+
+    const labelsHtml = pages.join('');
     const win = window.open('', '_blank', 'width=500,height=400');
     if (!win) return;
     win.document.write(`
@@ -150,16 +252,17 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; }
         .elgin-label {
-          width: ${ELGIN_LABEL_W}mm; height: ${ELGIN_LABEL_H}mm; padding: 2mm 3mm;
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          position: relative; width: ${ELGIN_LABEL_W}mm; height: ${ELGIN_LABEL_H}mm;
           page-break-after: always; overflow: hidden;
         }
         .elgin-label:last-child { page-break-after: auto; }
-        .name { font-size: 11pt; font-weight: 700; text-align: center; color: #141414; max-width: 100%; }
-        .price { font-size: 16pt; font-weight: 900; color: #141414; margin-top: 1mm; }
-        .codes { display: flex; gap: 6mm; margin-top: 1mm; }
-        .codes span { font-family: 'Courier New', monospace; font-size: 7pt; color: #3c3c3c; }
-        .barcode { width: 70mm; height: 9mm; margin-top: 1mm; }
+        .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; }
+        .cell-el.nome { font-weight: 800; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; }
+        .cell-el.preco { font-weight: 800; text-align: right; line-height: 0.85; }
+        .cell-el.barcode { display: flex; flex-direction: column; }
+        .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
+        .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; }
       </style></head>
       <body>${labelsHtml}</body></html>
     `);
@@ -439,18 +542,17 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
               {activeTab === 'visualizacao' && (
                 <>
-                  <div>
-                    <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">
-                      Prévia — {TEMPLATE_LABELS[template]}
-                    </span>
-                    <div
-                      className="w-full max-w-[420px] mx-auto rounded-2xl border-2 border-dashed border-black/[0.16] dark:border-white/[0.14] bg-white dark:bg-[#252520] flex flex-col items-center justify-center gap-1 py-6"
-                      style={{ aspectRatio: `${ELGIN_LABEL_W} / ${ELGIN_LABEL_H}` }}
-                    >
-                      <p className="text-[12px] font-extrabold text-secondary/45">Layout ainda não configurado</p>
-                      <p className="text-[10px] font-semibold text-secondary/32">o design da etiqueta chega em uma próxima etapa</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
+                      <LabelPreview variant="full" items={[previewFull]} />
+                      <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{ELGIN_LABEL_W} × {ELGIN_LABEL_H}mm</p>
                     </div>
-                    <p className="text-center font-mono text-[11px] font-bold text-secondary/45 mt-2">{ELGIN_LABEL_W} × {ELGIN_LABEL_H}mm</p>
+                    <div>
+                      <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
+                      <LabelPreview variant="half" items={[previewHalfA, previewHalfB]} />
+                      <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
+                    </div>
                   </div>
 
                   <div>
