@@ -4,7 +4,7 @@ export type CodeField = 'ean' | 'sku';
 
 export function generateBarcodeDataUrl(code: string): string {
   const canvas = document.createElement('canvas');
-  JsBarcode(canvas, code, { format: 'CODE128', displayValue: false, width: 1.5, height: 50, margin: 0 });
+  JsBarcode(canvas, code, { format: 'CODE128', displayValue: false, width: 1.5, height: 50, margin: 0, background: 'transparent' });
   return canvas.toDataURL('image/png');
 }
 

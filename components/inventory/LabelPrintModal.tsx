@@ -26,15 +26,15 @@ const FULL_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2.9,  w: 81,   h: 4.1  },
   ref:     { x: 3,    y: 7.4,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
-  rs:      { x: 60,   y: 8.7,  w: 4.6,  h: 4.35 },
+  rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
   preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
 };
 const HALF_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 4,    w: 46,  h: 2.7 },
   ref:     { x: 3,    y: 7.4,  w: 21,  h: 2   },
   barcode: { x: 3,    y: 15.8, w: 21,  h: 9.3 },
-  rs:      { x: 24.6, y: 11.2, w: 3.7, h: 2.9 },
-  preco:   { x: 28.5, y: 15.1, w: 21, h: 10 },
+  rs:      { x: 24.7, y: 15.1, w: 3.5, h: 3   },
+  preco:   { x: 28.5, y: 15.1, w: 21,  h: 10  },
 };
 
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
