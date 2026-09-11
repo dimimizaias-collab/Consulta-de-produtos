@@ -24,18 +24,23 @@ interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco
 // preço), medidas em % da largura/altura do rótulo e convertidas pra mm.
 const FULL_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2.9,  w: 81,   h: 4.1  },
-  ref:     { x: 3,    y: 7.4,  w: 34,   h: 2.5  },
+  ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
   rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
   preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
 };
 const HALF_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 4,    w: 46,  h: 2.7 },
-  ref:     { x: 3,    y: 7.4,  w: 21,  h: 2   },
+  ref:     { x: 3,    y: 8.2,  w: 21,  h: 2   },
   barcode: { x: 3,    y: 15.8, w: 21,  h: 9.3 },
   rs:      { x: 24.7, y: 15.1, w: 3.5, h: 3   },
   preco:   { x: 28.5, y: 15.1, w: 21,  h: 10  },
 };
+
+// Quanto o nome pode subir e usar da margem livre acima dele quando precisar
+// de 2 linhas (nunca mais perto da borda/picote do que isso).
+const NOME_GAP_MM = 0.3;
+const NOME_MIN_TOP_MM = 1.3;
 
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
 
@@ -58,6 +63,11 @@ function productRef(product: any): string {
 // — sem isso, textos maiores que a caixa (ex: preço "123,45") saem cortados
 // em vez de encolher, que foi o bug visto na impressão real.
 let fitMeasureCanvas: HTMLCanvasElement | null = null;
+// Margem de segurança: a fonte final fica ~6% mais estreita do que o cálculo
+// exato indicaria, absorvendo pequenas diferenças de métrica entre a fonte
+// medida aqui e a realmente usada pela impressora — sem isso um preço podia
+// sair cortado/reticências na impressão real mesmo "cabendo" no cálculo.
+const FIT_SAFETY = 0.94;
 function fitFontSize(text: string, maxWidth: number, maxHeight: number, weight: number | string, family: string): number {
   if (typeof document === 'undefined' || !text) return maxHeight;
   if (!fitMeasureCanvas) fitMeasureCanvas = document.createElement('canvas');
@@ -66,7 +76,34 @@ function fitFontSize(text: string, maxWidth: number, maxHeight: number, weight: 
   const probe = 100;
   ctx.font = `${weight} ${probe}px ${family}`;
   const measured = ctx.measureText(text).width || probe;
-  return Math.max(1, Math.min(maxWidth * (probe / measured), maxHeight));
+  return Math.max(1, Math.min(maxWidth * FIT_SAFETY * (probe / measured), maxHeight));
+}
+
+// Decide se o nome fica melhor numa linha só ou quebrado em 2 — compara o
+// tamanho de fonte que cada opção permitiria e escolhe a maior (mais legível).
+// Nomes curtos sempre vencem numa linha só; nomes longos, que numa linha só
+// ficariam espremidos bem pequenos, passam a quebrar em 2 linhas usando
+// também a margem livre acima do nome, sem nunca invadir o REF por baixo.
+interface NomeFit { fontSizeMm: number; yMm: number; hMm: number; twoLines: boolean }
+function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
+  const w = layout.nome.w;
+  const y = layout.nome.y;
+  const refY = layout.ref.y;
+  const singleMaxH = Math.max(1, refY - y - NOME_GAP_MM);
+  const oneLineSize = fitFontSize(text, w, singleMaxH, weight, family);
+
+  const bottom = refY - NOME_GAP_MM;
+  const maxAvailableH = Math.max(singleMaxH, bottom - NOME_MIN_TOP_MM);
+  const twoLineEstimate = fitFontSize(text, w * 1.7, 9999, weight, family);
+  const heightCap = maxAvailableH / (2 * 1.05);
+  const twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
+
+  if (twoLineSize > oneLineSize * 1.15) {
+    const blockH = twoLineSize * 1.05 * 2;
+    const yMm = Math.max(NOME_MIN_TOP_MM, bottom - blockH);
+    return { fontSizeMm: twoLineSize, yMm, hMm: blockH, twoLines: true };
+  }
+  return { fontSizeMm: oneLineSize, yMm: y, hMm: singleMaxH, twoLines: false };
 }
 
 const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
@@ -87,8 +124,8 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   const refText = `REF ${productRef(product)}`;
   const priceText = formatPriceValue(product.price ?? 0);
 
-  const nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
-  const nomeSize = fitFontSize(nomeText, layout.nome.w * PREVIEW_PX_PER_MM, nomeMaxH * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const nomeFit = fitNomeLayout(nomeText, layout, 800, 'DM Sans, sans-serif');
+  const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
   const refSize = fitFontSize(refText, layout.ref.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', layout.rs.w * PREVIEW_PX_PER_MM, layout.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const precoSize = fitFontSize(priceText, layout.preco.w * PREVIEW_PX_PER_MM, layout.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
@@ -96,7 +133,12 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
 
   return (
     <>
-      <div style={box(layout.nome, { fontSize: nomeSize, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' })}>
+      <div style={box(nomeBox, {
+        fontSize: nomeFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden',
+        ...(nomeFit.twoLines
+          ? { whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties
+          : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
+      })}>
         {nomeText}
       </div>
       <div style={box(layout.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
@@ -251,18 +293,20 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     const refText = `REF ${productRef(product)}`;
     const priceText = formatPriceValue(product.price ?? 0);
 
-    // Altura útil do nome limitada até onde o REF começa — a caixa do nome
-    // aprovada no editor é mais alta que isso (previa 2 linhas), mas como o
-    // nome agora é 1 linha só, isso evita que ele desça e sobreponha o REF.
-    const nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
-    const nomeSize = fitFontSize(nomeText, layout.nome.w, nomeMaxH, 800, 'Arial, Helvetica, sans-serif');
+    // Nome cabe numa linha se der; senão quebra em 2 linhas e sobe pra usar a
+    // margem livre acima dele, sem nunca invadir o REF por baixo.
+    const nomeFit = fitNomeLayout(nomeText, layout, 800, 'Arial, Helvetica, sans-serif');
+    const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
+    const nomeWrapStyle = nomeFit.twoLines
+      ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
+      : '';
     const refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 700, "'Courier New', monospace");
     const rsSize = fitFontSize('R$', layout.rs.w, layout.rs.h, 800, 'Arial, Helvetica, sans-serif');
     const precoSize = fitFontSize(priceText, layout.preco.w, layout.preco.h, 800, 'Arial, Helvetica, sans-serif');
     const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
 
     return `
-      <div class="cell-el nome" style="${boxStyle(layout.nome)} font-size:${nomeSize.toFixed(2)}mm;">${escapeHtml(nomeText)}</div>
+      <div class="cell-el nome" style="${nomeBoxStyle} font-size:${nomeFit.fontSizeMm.toFixed(2)}mm; ${nomeWrapStyle}">${escapeHtml(nomeText)}</div>
       <div class="cell-el ref" style="${boxStyle(layout.ref)} font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
       <div class="cell-el barcode" style="${boxStyle(layout.barcode)}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}

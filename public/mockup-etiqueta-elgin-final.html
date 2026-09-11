@@ -17,7 +17,10 @@
 <div class="caption">Etiqueta Inteira — 105 × 28mm</div>
 <div id="full" class="label"></div>
 
-<div class="caption">Etiqueta Metade — 105 × 28mm (2 produtos independentes)</div>
+<div class="caption">Etiqueta Inteira — nome longo (2 linhas) + preço grande</div>
+<div id="full-long" class="label"></div>
+
+<div class="caption">Etiqueta Metade — 105 × 28mm (2 produtos independentes, um com nome longo)</div>
 <div id="half" class="label"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
@@ -25,17 +28,19 @@
 (function () {
   var SCALE = 8; // px por mm
   var W_MM = 105, H_MM = 28, HALF_OFFSET = 52.5;
+  var NOME_GAP_MM = 0.3, NOME_MIN_TOP_MM = 1.3;
+  var FIT_SAFETY = 0.94;
 
   var FULL_LAYOUT = {
     nome:    { x: 3,    y: 2.9,  w: 81,   h: 4.1  },
-    ref:     { x: 3,    y: 7.4,  w: 34,   h: 2.5  },
+    ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
     barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
     rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
     preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
   };
   var HALF_LAYOUT = {
     nome:    { x: 3,    y: 4,    w: 46,  h: 2.7 },
-    ref:     { x: 3,    y: 7.4,  w: 21,  h: 2   },
+    ref:     { x: 3,    y: 8.2,  w: 21,  h: 2   },
     barcode: { x: 3,    y: 15.8, w: 21,  h: 9.3 },
     rs:      { x: 24.7, y: 15.1, w: 3.5, h: 3   },
     preco:   { x: 28.5, y: 15.1, w: 21,  h: 10  },
@@ -57,7 +62,26 @@
     var probe = 100;
     ctx.font = weight + ' ' + probe + 'px ' + family;
     var measured = ctx.measureText(text).width || probe;
-    return Math.max(1, Math.min(maxWidthMm * (probe / measured), maxHeightMm));
+    return Math.max(1, Math.min(maxWidthMm * FIT_SAFETY * (probe / measured), maxHeightMm));
+  }
+
+  function fitNomeLayout(text, layout, weight, family) {
+    var w = layout.nome.w, y = layout.nome.y, refY = layout.ref.y;
+    var singleMaxH = Math.max(1, refY - y - NOME_GAP_MM);
+    var oneLineSize = fitFontSize(text, w, singleMaxH, weight, family);
+
+    var bottom = refY - NOME_GAP_MM;
+    var maxAvailableH = Math.max(singleMaxH, bottom - NOME_MIN_TOP_MM);
+    var twoLineEstimate = fitFontSize(text, w * 1.7, 9999, weight, family);
+    var heightCap = maxAvailableH / (2 * 1.05);
+    var twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
+
+    if (twoLineSize > oneLineSize * 1.15) {
+      var blockH = twoLineSize * 1.05 * 2;
+      var yMm = Math.max(NOME_MIN_TOP_MM, bottom - blockH);
+      return { fontSizeMm: twoLineSize, yMm: yMm, hMm: blockH, twoLines: true };
+    }
+    return { fontSizeMm: oneLineSize, yMm: y, hMm: singleMaxH, twoLines: false };
   }
 
   function barcodeDataUrl(code) {
@@ -66,8 +90,8 @@
     return c.toDataURL('image/png');
   }
 
-  function boxStyle(p, offsetX) {
-    return 'left:' + ((p.x + offsetX) * SCALE) + 'px; top:' + (p.y * SCALE) + 'px; width:' + (p.w * SCALE) + 'px; height:' + (p.h * SCALE) + 'px;';
+  function boxStyle(x, y, w, h, offsetX) {
+    return 'left:' + ((x + offsetX) * SCALE) + 'px; top:' + (y * SCALE) + 'px; width:' + (w * SCALE) + 'px; height:' + (h * SCALE) + 'px;';
   }
 
   function buildCellHtml(product, layout, offsetX) {
@@ -77,39 +101,49 @@
     var refText = 'REF ' + productRef(product);
     var priceText = formatPriceValue(product.price || 0);
 
-    var nomeMaxH = Math.max(1, layout.ref.y - layout.nome.y - 0.3);
-    var nomeSize = fitFontSize(nomeText, layout.nome.w, nomeMaxH, 800, 'Arial, Helvetica, sans-serif') * SCALE;
+    var nomeFit = fitNomeLayout(nomeText, layout, 800, 'Arial, Helvetica, sans-serif');
     var refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 700, "'Courier New', monospace") * SCALE;
     var rsSize = fitFontSize('R$', layout.rs.w, layout.rs.h, 800, 'Arial, Helvetica, sans-serif') * SCALE;
     var precoSize = fitFontSize(priceText, layout.preco.w, layout.preco.h, 800, 'Arial, Helvetica, sans-serif') * SCALE;
     var bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.3, 700, "'Courier New', monospace") * SCALE : 0;
 
+    var nomeWrap = nomeFit.twoLines
+      ? 'white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;'
+      : '';
+
     var html = '';
-    html += '<div class="cell-el nome" style="' + boxStyle(layout.nome, offsetX) + 'font-size:' + nomeSize + 'px;">' + nomeText + '</div>';
-    html += '<div class="cell-el ref" style="' + boxStyle(layout.ref, offsetX) + 'font-size:' + refSize + 'px;">' + refText + '</div>';
-    html += '<div class="cell-el barcode" style="' + boxStyle(layout.barcode, offsetX) + '">';
+    html += '<div class="cell-el nome" style="' + boxStyle(layout.nome.x, nomeFit.yMm, layout.nome.w, nomeFit.hMm, offsetX) + 'font-size:' + (nomeFit.fontSizeMm * SCALE) + 'px;' + nomeWrap + '">' + nomeText + '</div>';
+    html += '<div class="cell-el ref" style="' + boxStyle(layout.ref.x, layout.ref.y, layout.ref.w, layout.ref.h, offsetX) + 'font-size:' + refSize + 'px;">' + refText + '</div>';
+    html += '<div class="cell-el barcode" style="' + boxStyle(layout.barcode.x, layout.barcode.y, layout.barcode.w, layout.barcode.h, offsetX) + '">';
     if (bcDataUrl) html += '<img class="bc-img" src="' + bcDataUrl + '" />';
     if (code) html += '<div class="bc-num" style="font-size:' + bcNumSize + 'px;">' + code + '</div>';
     html += '</div>';
-    html += '<div class="cell-el rs" style="' + boxStyle(layout.rs, offsetX) + 'font-size:' + rsSize + 'px;">R$</div>';
-    html += '<div class="cell-el preco" style="' + boxStyle(layout.preco, offsetX) + 'font-size:' + precoSize + 'px;">' + priceText + '</div>';
+    html += '<div class="cell-el rs" style="' + boxStyle(layout.rs.x, layout.rs.y, layout.rs.w, layout.rs.h, offsetX) + 'font-size:' + rsSize + 'px;">R$</div>';
+    html += '<div class="cell-el preco" style="' + boxStyle(layout.preco.x, layout.preco.y, layout.preco.w, layout.preco.h, offsetX) + 'font-size:' + precoSize + 'px;">' + priceText + '</div>';
     return html;
   }
 
-  var fullEl = document.getElementById('full');
-  fullEl.style.width = (W_MM * SCALE) + 'px';
-  fullEl.style.height = (H_MM * SCALE) + 'px';
-  fullEl.innerHTML = buildCellHtml(
+  function mount(id, w) {
+    var el = document.getElementById(id);
+    el.style.width = (W_MM * SCALE) + 'px';
+    el.style.height = (H_MM * SCALE) + 'px';
+    return el;
+  }
+
+  mount('full').innerHTML = buildCellHtml(
     { name: 'Refrigerante Cola Lata 350ml', sku: '0142', ean: '7891234567890', price: 5.49 },
     FULL_LAYOUT, 0
   );
 
-  var halfEl = document.getElementById('half');
-  halfEl.style.width = (W_MM * SCALE) + 'px';
-  halfEl.style.height = (H_MM * SCALE) + 'px';
+  mount('full-long').innerHTML = buildCellHtml(
+    { name: 'Biscoito Recheado Chocolate com Avelã Premium 200g', ean: '7891234500999', price: 189.9 },
+    FULL_LAYOUT, 0
+  );
+
+  var halfEl = mount('half');
   halfEl.innerHTML =
-    buildCellHtml({ name: 'Água Tônica Rosé 220ml', sku: '4600', ean: '7891234512345', price: 3.29 }, HALF_LAYOUT, 0) +
-    buildCellHtml({ name: 'Cerveja Puro Malte 350ml', sku: '2871', ean: '7891234598765', price: 6.9 }, HALF_LAYOUT, HALF_OFFSET) +
+    buildCellHtml({ name: 'Refrigerante Guaraná Antarctica Zero Açúcar Lata 350ml', sku: '4600', ean: '7891234512345', price: 3.29 }, HALF_LAYOUT, 0) +
+    buildCellHtml({ name: 'Cerveja Puro Malte 350ml', sku: '2871', ean: '7891234598765', price: 26.9 }, HALF_LAYOUT, HALF_OFFSET) +
     '<div class="cut-line" style="left:' + (W_MM / 2 * SCALE) + 'px;"></div>';
 })();
 </script>
