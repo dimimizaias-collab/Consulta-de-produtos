@@ -9594,7 +9594,7 @@ export default function Page() {
                           qty: viewingNoteQtys[idx] ?? item.qty,
                           unit: viewingNoteUnits[idx] ?? item.unit,
                           multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
-                          distribuicao: viewingNoteDistribuicao[idx] !== undefined && viewingNoteDistribuicao[idx] !== '' ? parseInt(viewingNoteDistribuicao[idx]) || null : (item.distribuicao ?? null),
+                          distribuicao: getDistribTotal(idx, item) || null,
                           discrepancy: getItemDiscrepancy(idx, item),
                         })),
                         adj: adjColumns,
