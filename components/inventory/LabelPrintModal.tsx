@@ -153,7 +153,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
         )}
       </div>
       <div style={box(layout.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
-      <div style={box(layout.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' })}>
+      <div style={box(layout.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
         {priceText}
       </div>
     </>
@@ -355,7 +355,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
         .cell-el.nome { font-weight: 800; }
         .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; }
         .cell-el.rs { display: flex; align-items: flex-start; justify-content: flex-end; }
-        .cell-el.preco { font-weight: 800; line-height: 0.85; display: flex; align-items: flex-end; justify-content: flex-end; }
+        .cell-el.preco { font-weight: 800; line-height: 0.85; display: flex; align-items: center; justify-content: flex-end; }
         .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
         .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
         .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
