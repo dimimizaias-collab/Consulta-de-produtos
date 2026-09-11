@@ -17,21 +17,25 @@ const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
 interface ElPos { x: number; y: number; w: number; h: number }
 interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos }
 
-// Posições definidas no editor visual de layout (mm, origem no canto superior
-// esquerdo de cada etiqueta/metade). Ver conversa de design da etiqueta de gôndola.
+// Posições em mm, origem no canto superior esquerdo de cada etiqueta/metade.
+// Reformuladas a partir de um relatório DevExpress de referência (Gondola
+// L105 A30.repx) de um modelo já usado pelo usuário: nome ocupa a largura
+// toda no topo (1 linha), o código fica logo abaixo sem sobrepor nada, o
+// código de barras vem em seguida com um respiro pequeno, e o preço fica bem
+// mais próximo do código de barras (não perto do nome, como estava antes).
 const FULL_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 3,   w: 99,   h: 8.5 },
-  ref:     { x: 3,    y: 8,   w: 30,   h: 5   },
-  barcode: { x: 3,    y: 14.5, w: 51,  h: 10  },
-  rs:      { x: 63.5, y: 7.5, w: 5.5,  h: 5   },
-  preco:   { x: 68,   y: 8,   w: 34,   h: 17  },
+  nome:    { x: 3, y: 1.5, w: 99, h: 5.5 },
+  ref:     { x: 3, y: 7.7, w: 32, h: 6   },
+  barcode: { x: 3, y: 16.5, w: 50, h: 9  },
+  rs:      { x: 54, y: 13, w: 7,  h: 5   },
+  preco:   { x: 62, y: 12.5, w: 42, h: 14 },
 };
 const HALF_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 4.5, w: 47.5, h: 6.5 },
-  ref:     { x: 3,    y: 8.5, w: 26,   h: 4   },
-  barcode: { x: 3,    y: 13.5, w: 23,  h: 9.5 },
-  rs:      { x: 27,   y: 10,  w: 6,    h: 4   },
-  preco:   { x: 28.5, y: 11,  w: 19.5, h: 10.5 },
+  nome:    { x: 1.5, y: 1.5, w: 47, h: 4.5 },
+  ref:     { x: 1.5, y: 6.5, w: 22, h: 4.5 },
+  barcode: { x: 1.5, y: 12.5, w: 24, h: 7  },
+  rs:      { x: 27,  y: 9.5,  w: 5,  h: 4  },
+  preco:   { x: 32,  y: 9,    w: 18, h: 11 },
 };
 
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
