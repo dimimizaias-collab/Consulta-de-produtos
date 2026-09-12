@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Tag, Printer, Plus, ChevronDown, Lock, LayoutList } from 'lucide-react';
+import { X, Search, Tag, Printer, Plus, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateBarcodeDataUrl } from './labelPrintUtils';
+import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -180,6 +180,34 @@ function LabelPreview({ variant, items }: { variant: 'full' | 'half'; items: any
   );
 }
 
+// Ícones do toggle Inteira/Metade da Etiqueta de Produto — deixam claro que
+// aqui o corte é horizontal (a Gôndola corta vertical e não usa ícone).
+function IconWholeSquare({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="2" y="2" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+function IconHalfHorizontal({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="2" y="2" width="12" height="12" rx="2" />
+      <line x1="2" y1="8" x2="14" y2="8" />
+    </svg>
+  );
+}
+
+// Campos digitados na hora da impressão (valem pra todas as etiquetas do
+// lote) — exclusivos da Etiqueta de Produto.
+const EXTRA_INFO_FIELDS: { key: string; label: string; placeholder: string }[] = [
+  { key: 'marca', label: 'Marca', placeholder: 'ex: Nitron' },
+  { key: 'fabricante', label: 'Fabricante', placeholder: 'ex: Nitron Ind. LTDA' },
+  { key: 'cnpj', label: 'CNPJ', placeholder: 'ex: 12.345.678/0001-90' },
+  { key: 'composicao', label: 'Composição', placeholder: 'ex: Plástico ABS' },
+  { key: 'validade', label: 'Validade', placeholder: 'ex: 12/2026' },
+];
+
 type LabelTemplate = 'gondola' | 'produto';
 type LabelSize = 'full' | 'half';
 type Tab = 'selecao' | 'visualizacao';
@@ -223,6 +251,20 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState<Record<string, QueueEntry>>({});
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+
+  // Informações adicionais — exclusivas da Etiqueta de Produto. Os valores são
+  // digitados na hora da impressão e valem pra todas as etiquetas do lote.
+  const [extraInfoOn, setExtraInfoOn] = useState(false);
+  const [extraChecked, setExtraChecked] = useState<Record<string, boolean>>({});
+  const [extraValues, setExtraValues] = useState<Record<string, string>>({});
+
+  const toggleExtraField = useCallback((key: string) => {
+    setExtraChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const setExtraValue = useCallback((key: string, value: string) => {
+    setExtraValues(prev => ({ ...prev, [key]: key === 'cnpj' ? formatCNPJ(value) : value }));
+  }, []);
 
   const queueList = useMemo(() => Object.entries(queue), [queue]);
   const totalLabels = useMemo(() => queueList.reduce((acc, [, e]) => acc + e.qty, 0), [queueList]);
@@ -278,6 +320,9 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     setSearch('');
     setQueue({});
     setDrafts({});
+    setExtraInfoOn(false);
+    setExtraChecked({});
+    setExtraValues({});
     onClose();
   };
 
@@ -370,8 +415,6 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     win.focus();
     setTimeout(() => { win.print(); }, 300);
   };
-
-  const extraFieldNames = ['Marca', 'Fabricante', 'CNPJ', 'Composição', 'Validade'];
 
   return (
     <AnimatePresence>
@@ -478,7 +521,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                               className="w-full text-left px-4 py-3 text-[13px] font-bold text-on-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors flex items-center justify-between"
                             >
                               {TEMPLATE_LABELS.produto}
-                              <span className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-black/[0.06] dark:bg-white/[0.08] text-secondary/60">Em breve</span>
+                              <span className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-primary/10 text-primary">Adesiva 40×40mm</span>
                             </button>
                           </motion.div>
                         )}
@@ -486,174 +529,225 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
                     </div>
                   </div>
 
-                  {template === 'gondola' ? (
-                    <>
-                      {/* Busca */}
-                      <div>
-                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Buscar produto</span>
-                        <div className="relative">
-                          <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary/40 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Buscar por nome, SKU ou EAN…"
-                            className="w-full h-[42px] pl-10 pr-4 bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-2xl text-[13px] font-semibold text-on-surface placeholder:text-secondary/40 outline-none focus:border-primary/50 transition-colors"
-                          />
-                        </div>
-                      </div>
+                  {/* Busca */}
+                  <div>
+                    <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Buscar produto</span>
+                    <div className="relative">
+                      <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary/40 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="Buscar por nome, SKU ou EAN…"
+                        className="w-full h-[42px] pl-10 pr-4 bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-2xl text-[13px] font-semibold text-on-surface placeholder:text-secondary/40 outline-none focus:border-primary/50 transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                      {/* Resultados */}
-                      {search.trim() === '' ? (
-                        <p className="text-center text-[12px] font-semibold text-secondary/40 py-2">
-                          Busque um produto pra adicionar à fila de impressão.
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          {searchResults.map(product => {
-                            const draft = getDraft(product.id);
-                            return (
-                              <div key={product.id} className="flex items-center gap-3 p-3 rounded-2xl border border-black/[0.10] dark:border-white/[0.08] bg-white dark:bg-[#252520]">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] font-bold text-on-surface truncate">{product.name}</p>
-                                  <p className="text-[10.5px] font-mono text-secondary/45 mt-0.5">
-                                    {product.ean && `EAN ${product.ean}`}
-                                    {product.ean && product.sku && ' · '}
-                                    {product.sku && `SKU ${product.sku}`}
-                                    {!product.ean && !product.sku && 'Sem código'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <div className="flex bg-black/[0.06] dark:bg-white/[0.07] rounded-lg p-0.5 gap-0.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => setDraftSize(product.id, 'full')}
-                                      className={cn(
-                                        'px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
-                                        draft.size === 'full'
-                                          ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
-                                          : 'text-secondary/50 hover:text-on-surface'
-                                      )}
-                                    >
-                                      Inteira
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setDraftSize(product.id, 'half')}
-                                      className={cn(
-                                        'px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
-                                        draft.size === 'half'
-                                          ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
-                                          : 'text-secondary/50 hover:text-on-surface'
-                                      )}
-                                    >
-                                      Metade
-                                    </button>
-                                  </div>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    value={draft.qty}
-                                    onWheel={blockWheelChange}
-                                    onChange={e => {
-                                      const val = parseInt(e.target.value);
-                                      setDraftQty(product.id, val > 0 ? val : 1);
-                                    }}
-                                    className="w-11 h-[34px] border border-black/[0.14] dark:border-white/[0.14] rounded-lg text-center text-[13px] font-extrabold text-on-surface bg-transparent outline-none focus:border-primary/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => confirmAdd(product)}
-                                    className="w-[34px] h-[34px] rounded-lg bg-[#1A1A0E] dark:bg-[#FFE500] text-[#FFE500] dark:text-[#1A1A0E] flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity active:scale-95"
-                                    title="Adicionar à fila"
-                                  >
-                                    <Plus size={15} strokeWidth={2.5} />
-                                  </button>
-                                </div>
+                  {/* Resultados */}
+                  {search.trim() === '' ? (
+                    <p className="text-center text-[12px] font-semibold text-secondary/40 py-2">
+                      Busque um produto pra adicionar à fila de impressão.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {searchResults.map(product => {
+                        const draft = getDraft(product.id);
+                        return (
+                          <div key={product.id} className="flex items-center gap-3 p-3 rounded-2xl border border-black/[0.10] dark:border-white/[0.08] bg-white dark:bg-[#252520]">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-bold text-on-surface truncate">{product.name}</p>
+                              <p className="text-[10.5px] font-mono text-secondary/45 mt-0.5">
+                                {product.ean && `EAN ${product.ean}`}
+                                {product.ean && product.sku && ' · '}
+                                {product.sku && `SKU ${product.sku}`}
+                                {!product.ean && !product.sku && 'Sem código'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex bg-black/[0.06] dark:bg-white/[0.07] rounded-lg p-0.5 gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setDraftSize(product.id, 'full')}
+                                  className={cn(
+                                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                    draft.size === 'full'
+                                      ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                      : 'text-secondary/50 hover:text-on-surface'
+                                  )}
+                                >
+                                  {template === 'produto' && <IconWholeSquare size={12} />}
+                                  Inteira
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDraftSize(product.id, 'half')}
+                                  title={template === 'produto' ? 'Meia etiqueta — corte horizontal (40×20mm)' : undefined}
+                                  className={cn(
+                                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                    draft.size === 'half'
+                                      ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                      : 'text-secondary/50 hover:text-on-surface'
+                                  )}
+                                >
+                                  {template === 'produto' && <IconHalfHorizontal size={12} />}
+                                  Metade
+                                </button>
                               </div>
-                            );
-                          })}
+                              <input
+                                type="number"
+                                min={1}
+                                value={draft.qty}
+                                onWheel={blockWheelChange}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  setDraftQty(product.id, val > 0 ? val : 1);
+                                }}
+                                className="w-11 h-[34px] border border-black/[0.14] dark:border-white/[0.14] rounded-lg text-center text-[13px] font-extrabold text-on-surface bg-transparent outline-none focus:border-primary/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => confirmAdd(product)}
+                                className="w-[34px] h-[34px] rounded-lg bg-[#1A1A0E] dark:bg-[#FFE500] text-[#FFE500] dark:text-[#1A1A0E] flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity active:scale-95"
+                                title="Adicionar à fila"
+                              >
+                                <Plus size={15} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
 
-                          {searchResults.length === 0 && (
-                            <p className="text-center text-[12px] font-semibold text-secondary/35 py-4">
-                              Nenhum produto encontrado.
-                            </p>
-                          )}
-
-                          {queueList.length > 0 && (
-                            <p className="text-center text-[10.5px] font-semibold text-secondary/35 pt-1">
-                              Produtos já adicionados à fila somem daqui — veja e ajuste em "Visualização"
-                            </p>
-                          )}
-                        </div>
+                      {searchResults.length === 0 && (
+                        <p className="text-center text-[12px] font-semibold text-secondary/35 py-4">
+                          Nenhum produto encontrado.
+                        </p>
                       )}
 
-                      {/* Resumo da fila */}
                       {queueList.length > 0 && (
+                        <p className="text-center text-[10.5px] font-semibold text-secondary/35 pt-1">
+                          Produtos já adicionados à fila somem daqui — veja e ajuste em "Visualização"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {template === 'produto' && (
+                    <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5 -mt-2">
+                      <IconHalfHorizontal size={11} />
+                      Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
+                    </p>
+                  )}
+
+                  {/* Informações adicionais — exclusivas da Etiqueta de Produto */}
+                  {template === 'produto' && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55">Informações adicionais</span>
                         <button
                           type="button"
-                          onClick={() => setActiveTab('visualizacao')}
-                          className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFE500]/30 dark:bg-[#FFE500]/10 border border-[#D4C000] dark:border-[#FFE500]/30 transition-colors hover:bg-[#FFE500]/40 dark:hover:bg-[#FFE500]/[0.15]"
+                          onClick={() => setExtraInfoOn(v => !v)}
+                          className={cn('relative w-9 h-5 rounded-full transition-colors', extraInfoOn ? 'bg-primary' : 'bg-black/15 dark:bg-white/15')}
                         >
-                          <span className="text-[12px] font-extrabold text-on-surface">
-                            <b>{queueList.length}</b> produto{queueList.length !== 1 ? 's' : ''} na fila · <b>{totalLabels}</b> etiqueta{totalLabels !== 1 ? 's' : ''}
-                          </span>
-                          <span className="text-[11px] font-extrabold text-on-surface underline underline-offset-2">Ver na Visualização</span>
+                          <span className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all', extraInfoOn ? 'left-[18px]' : 'left-0.5')} />
                         </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {/* Placeholder — modelo Etiqueta de Produto ainda não configurado */}
-                      <div className="border-2 border-dashed border-black/[0.14] dark:border-white/[0.12] rounded-[20px] p-8 flex flex-col items-center gap-2.5 text-center bg-white/40 dark:bg-white/[0.02]">
-                        <div className="w-[52px] h-[52px] rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                          <LayoutList size={24} />
-                        </div>
-                        <p className="text-sm font-extrabold text-on-surface">Modelo em configuração</p>
-                        <p className="text-[12px] font-semibold text-secondary/55 max-w-[340px] leading-relaxed">
-                          A etiqueta de produto (pra colar direto no item) ainda será configurada — tamanho, campos e layout chegam em uma próxima etapa.
-                        </p>
                       </div>
-
-                      {/* Informações adicionais — exclusivas deste modelo */}
-                      <div>
-                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">
-                          Informações adicionais <span className="normal-case font-bold tracking-normal">(exclusivo deste modelo)</span>
-                        </span>
-                        <div className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-black/[0.10] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.02] opacity-50">
+                      {extraInfoOn && (
+                        <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-[#D4C000] dark:border-[#FFE500]/25 bg-[#FFE500]/[0.12] dark:bg-[#FFE500]/[0.06]">
+                          <p className="text-[10.5px] font-semibold text-secondary/60 leading-relaxed -mt-0.5">
+                            Além de descrição, REF e código de barras, inclua os campos abaixo — os valores digitados valem pra todas as etiquetas desta impressão.
+                          </p>
                           <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {extraFieldNames.map(name => (
-                              <div key={name} className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded-md border-2 border-black/20 dark:border-white/20" />
-                                <span className="text-[11px] font-semibold text-secondary/60">{name}</span>
-                              </div>
+                            {EXTRA_INFO_FIELDS.map(field => (
+                              <button
+                                key={field.key}
+                                type="button"
+                                onClick={() => toggleExtraField(field.key)}
+                                className="flex items-center gap-2"
+                              >
+                                <div className={cn(
+                                  'w-[18px] h-[18px] rounded-md flex items-center justify-center flex-shrink-0 transition-colors',
+                                  extraChecked[field.key] ? 'bg-[#1A1A0E] dark:bg-[#FFE500]' : 'border-2 border-black/20 dark:border-white/20'
+                                )}>
+                                  {extraChecked[field.key] && <Check size={11} strokeWidth={3} className="text-[#FFE500] dark:text-[#1A1A0E]" />}
+                                </div>
+                                <span className={cn('text-[11.5px] font-semibold', extraChecked[field.key] ? 'text-on-surface' : 'text-secondary/60')}>{field.label}</span>
+                              </button>
                             ))}
                           </div>
-                          <p className="text-[10.5px] font-semibold text-secondary/45 flex items-center gap-1.5">
-                            <Lock size={12} />
-                            Liberado apenas quando o modelo "Etiqueta de Produto" estiver configurado
-                          </p>
+                          {EXTRA_INFO_FIELDS.some(f => extraChecked[f.key]) && (
+                            <div className="flex flex-wrap gap-2">
+                              {EXTRA_INFO_FIELDS.filter(f => extraChecked[f.key]).map(field => (
+                                <div key={field.key} className="flex-1 min-w-[150px]">
+                                  <label className="block text-[9px] font-extrabold uppercase tracking-wide text-secondary/45 mb-1">{field.label}</label>
+                                  <input
+                                    value={extraValues[field.key] ?? ''}
+                                    onChange={e => setExtraValue(field.key, e.target.value)}
+                                    placeholder={field.placeholder}
+                                    maxLength={field.key === 'cnpj' ? 18 : undefined}
+                                    className="w-full h-9 px-3 bg-white dark:bg-[#252520] border border-black/[0.10] dark:border-white/[0.10] rounded-xl text-[12.5px] font-semibold text-on-surface outline-none focus:border-primary/50 transition-colors"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Resumo da fila */}
+                  {queueList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('visualizacao')}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFE500]/30 dark:bg-[#FFE500]/10 border border-[#D4C000] dark:border-[#FFE500]/30 transition-colors hover:bg-[#FFE500]/40 dark:hover:bg-[#FFE500]/[0.15]"
+                    >
+                      <span className="text-[12px] font-extrabold text-on-surface">
+                        <b>{queueList.length}</b> produto{queueList.length !== 1 ? 's' : ''} na fila · <b>{totalLabels}</b> etiqueta{totalLabels !== 1 ? 's' : ''}
+                      </span>
+                      <span className="text-[11px] font-extrabold text-on-surface underline underline-offset-2">Ver na Visualização</span>
+                    </button>
                   )}
                 </>
               )}
 
               {activeTab === 'visualizacao' && (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
-                      <LabelPreview variant="full" items={[previewFull]} />
-                      <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{ELGIN_LABEL_W} × {ELGIN_LABEL_H}mm</p>
+                  {template === 'gondola' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
+                        <LabelPreview variant="full" items={[previewFull]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{ELGIN_LABEL_W} × {ELGIN_LABEL_H}mm</p>
+                      </div>
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
+                        <LabelPreview variant="half" items={[previewHalfA, previewHalfB]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
-                      <LabelPreview variant="half" items={[previewHalfA, previewHalfB]} />
-                      <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {(ELGIN_LABEL_W / 2).toFixed(1)} × {ELGIN_LABEL_H}mm</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
+                        <div className="w-full aspect-square rounded-2xl border-2 border-dashed border-black/[0.16] dark:border-white/[0.14] bg-white dark:bg-[#252520] flex flex-col items-center justify-center gap-1">
+                          <p className="text-[12px] font-extrabold text-secondary/45">Layout ainda não configurado</p>
+                          <p className="text-[10px] font-semibold text-secondary/32">chega numa próxima etapa</p>
+                        </div>
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">40 × 40mm</p>
+                      </div>
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
+                        <div className="w-full aspect-square rounded-2xl border-2 border-dashed border-black/[0.16] dark:border-white/[0.14] bg-white dark:bg-[#252520] flex flex-col gap-1 overflow-hidden">
+                          <div className="flex-1 flex items-center justify-center text-[10px] font-bold text-secondary/40">40 × 20mm</div>
+                          <div className="h-px bg-black/10 dark:bg-white/10 border-t border-dashed border-black/20 dark:border-white/20" />
+                          <div className="flex-1 flex items-center justify-center text-[10px] font-bold text-secondary/40">40 × 20mm</div>
+                        </div>
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × 40 × 20mm</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div>
                     <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Produtos selecionados para impressão</span>
