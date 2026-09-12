@@ -29,14 +29,16 @@ const FULL_LAYOUT: CellLayout = {
   rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
   preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
 };
-// Todo o conteúdo 3mm mais para cima em relação à extração original —
-// pedido do usuário depois de ver o teste impresso.
+// Conteúdo 2mm mais para cima que a extração original (3mm pra cima, depois
+// 1mm de volta pra baixo) e a distância entre o REF e o bloco de baixo
+// (código de barras/R$/preço) reduzida pra no máximo 3mm — pedidos do
+// usuário depois de ver os testes impressos.
 const HALF_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 1,    w: 46,  h: 2.7 },
-  ref:     { x: 3,    y: 5.2,  w: 21,  h: 2   },
-  barcode: { x: 3,    y: 12.8, w: 21,  h: 9.3 },
-  rs:      { x: 24.7, y: 12.1, w: 3.5, h: 3   },
-  preco:   { x: 28.5, y: 12.1, w: 21,  h: 10  },
+  nome:    { x: 3,    y: 2,    w: 46,  h: 2.7 },
+  ref:     { x: 3,    y: 6.2,  w: 21,  h: 2   },
+  barcode: { x: 3,    y: 11.2, w: 21,  h: 9.3 },
+  rs:      { x: 24.7, y: 11.2, w: 3.5, h: 3   },
+  preco:   { x: 28.5, y: 11.2, w: 21,  h: 10  },
 };
 
 // Quanto o nome pode subir e usar da margem livre acima dele quando precisar
@@ -128,7 +130,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
 
   const nomeFit = fitNomeLayout(nomeText, layout, 800, 'DM Sans, sans-serif');
   const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
-  const refSize = fitFontSize(refText, layout.ref.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace");
+  const refSize = fitFontSize(refText, layout.ref.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', layout.rs.w * PREVIEW_PX_PER_MM, layout.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const precoSize = fitFontSize(priceText, layout.preco.w * PREVIEW_PX_PER_MM, layout.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const bcNumSize = code ? fitFontSize(code, layout.barcode.w * PREVIEW_PX_PER_MM, layout.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
@@ -143,7 +145,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
       })}>
         {nomeText}
       </div>
-      <div style={box(layout.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
+      <div style={box(layout.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
         {refText}
       </div>
       <div style={box(layout.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
@@ -302,7 +304,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     const nomeWrapStyle = nomeFit.twoLines
       ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
       : '';
-    const refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 700, "'Courier New', monospace");
+    const refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 900, "'Courier New', monospace");
     const rsSize = fitFontSize('R$', layout.rs.w, layout.rs.h, 800, 'Arial, Helvetica, sans-serif');
     const precoSize = fitFontSize(priceText, layout.preco.w, layout.preco.h, 800, 'Arial, Helvetica, sans-serif');
     const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
@@ -355,7 +357,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
         .elgin-label:last-child { page-break-after: auto; }
         .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .cell-el.nome { font-weight: 800; }
-        .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; }
+        .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 900; color: #3c3c3c; }
         .cell-el.rs { display: flex; align-items: flex-start; justify-content: flex-end; }
         .cell-el.preco { font-weight: 800; line-height: 0.85; display: flex; align-items: center; justify-content: flex-end; }
         .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
