@@ -1,0 +1,212 @@
+<title>Etiqueta de Produto — Mockup Final</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#dcdcdc; font-family:Arial,Helvetica,sans-serif; display:flex; flex-direction:column; align-items:center; gap:36px; padding:40px 16px 80px;}
+  .caption{font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.08em; text-align:center;}
+  .label{position:relative; background:#FFFFFF; box-shadow:0 8px 24px rgba(0,0,0,0.25); border-radius:2px; border:1px solid #ccc;}
+  .cell-el{position:absolute; color:#141400; font-weight:700; line-height:1.05; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+  .cell-el.descricao{font-weight:800; text-align:center;}
+  .cell-el.ref{font-family:'Courier New',monospace; font-weight:900; color:#3c3c3c; text-align:center;}
+  .cell-el.info{font-family:'Courier New',monospace; font-weight:900; color:#3c3c3c; display:flex; align-items:center; justify-content:center;}
+  .cell-el.info b{font-weight:900;}
+  .cell-el.barcode{display:flex; flex-direction:column; white-space:normal;}
+  .bc-img{flex:1 1 auto; width:100%; min-height:0; object-fit:fill;}
+  .bc-num{font-family:'Courier New',monospace; font-weight:700; color:#3c3c3c; text-align:center; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .half-wrap{display:flex; flex-direction:column; gap:0;}
+  .cut-line{position:absolute; left:0; right:0; height:0; border-top:2px dashed rgba(20,20,0,0.5);}
+</style>
+
+<div class="caption">Etiqueta Inteira — 40 × 40mm — COM Informações Adicionais<br>(Fabricante, CNPJ, Composição, Validade marcados)</div>
+<div id="full-info" class="label"></div>
+
+<div class="caption">Etiqueta Inteira — 40 × 40mm — mínima (Informações Adicionais desligado)<br>nome longo → quebra em 2 linhas</div>
+<div id="full-min" class="label"></div>
+
+<div class="caption">Etiqueta Metade — 40 × 20mm × 2 (corte horizontal) — sempre mínima</div>
+<div id="half-wrap" class="half-wrap"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script>
+(function () {
+  var SCALE = 9; // px por mm
+  var FIT_SAFETY = 0.94;
+  var DESC_GAP_MM = 0.3, DESC_MIN_TOP_MM = 1.6, DESC_TWO_LINE_BIAS = 1.15;
+
+  // Extraído por análise de pixels das imagens de referência do usuário (legenda de cores)
+  var FULL_MIN = { // 40x40mm, sem informações adicionais
+    descricao: { x: 2.2, y: 6.44, w: 35.6, h: 7.2 },
+    ref:       { x: 2.2, y: 14.24, w: 13.47, h: 2.71 },
+    barcode:   { x: 2.2, y: 18.98, w: 35.6, h: 14.92 },
+  };
+  var FULL_INFO = { // 40x40mm, com informações adicionais
+    descricao: { x: 2.2, y: 2.71, w: 35.6, h: 3.98 },
+    ref:       { x: 2.2, y: 7.71, w: 13.47, h: 2.63 },
+    infoBlockY: 11.86, infoBlockBottom: 23.48, // dividido entre N campos marcados
+    barcode:   { x: 2.2, y: 25.0, w: 35.6, h: 12.54 },
+  };
+  var HALF = { // 40x20mm, sempre mínima
+    descricao: { x: 1.95, y: 1.95, w: 36.1, h: 4.24 },
+    ref:       { x: 1.95, y: 6.53, w: 13.73, h: 1.61 },
+    barcode:   { x: 1.95, y: 9.32, w: 36.1, h: 8.73 },
+  };
+
+  var fitCanvas = document.createElement('canvas');
+  function fitFontSize(text, maxWidthMm, maxHeightMm, weight, family) {
+    if (!text) return maxHeightMm;
+    var ctx = fitCanvas.getContext('2d');
+    var probe = 100;
+    ctx.font = weight + ' ' + probe + 'px ' + family;
+    var measured = ctx.measureText(text).width || probe;
+    return Math.max(1, Math.min(maxWidthMm * FIT_SAFETY * (probe / measured), maxHeightMm));
+  }
+
+  function fitDescLayout(text, box, nextY, weight, family) {
+    var w = box.w, y = box.y;
+    var singleMaxH = Math.max(1, nextY - y - DESC_GAP_MM);
+    var oneLineSize = fitFontSize(text, w, singleMaxH, weight, family);
+
+    var bottom = nextY - DESC_GAP_MM;
+    var maxAvailableH = Math.max(singleMaxH, bottom - DESC_MIN_TOP_MM);
+    var twoLineEstimate = fitFontSize(text, w * 1.85, 9999, weight, family);
+    var heightCap = maxAvailableH / (2 * 1.05);
+    var twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
+
+    if (twoLineSize > oneLineSize * DESC_TWO_LINE_BIAS) {
+      var blockH = twoLineSize * 1.05 * 2;
+      var yMm = Math.max(DESC_MIN_TOP_MM, bottom - blockH);
+      return { fontSizeMm: twoLineSize, yMm: yMm, hMm: blockH, twoLines: true };
+    }
+    return { fontSizeMm: oneLineSize, yMm: y, hMm: singleMaxH, twoLines: false };
+  }
+
+  function barcodeDataUrl(code) {
+    var c = document.createElement('canvas');
+    JsBarcode(c, code, { format: 'CODE128', displayValue: false, width: 1.3, height: 50, margin: 0, background: 'transparent' });
+    return c.toDataURL('image/png');
+  }
+
+  function boxStyle(x, y, w, h) {
+    return 'left:' + (x * SCALE) + 'px; top:' + (y * SCALE) + 'px; width:' + (w * SCALE) + 'px; height:' + (h * SCALE) + 'px;';
+  }
+
+  function productRef(p) {
+    if (p.sku) return p.sku;
+    if (p.ean) return String(p.ean).slice(-4);
+    return '0000';
+  }
+
+  // --- Etiqueta mínima (com ou sem "nextY" custom, usada por Inteira-min e Metade) ---
+  function buildMinCell(product, layout) {
+    var code = product.ean || product.sku || '';
+    var bcDataUrl = code ? barcodeDataUrl(code) : '';
+    var descText = product.name || '—';
+    var refText = 'REF ' + productRef(product);
+
+    var descFit = fitDescLayout(descText, layout.descricao, layout.ref.y, 800, 'Arial, Helvetica, sans-serif');
+    var refSize = fitFontSize(refText, layout.descricao.w, layout.ref.h, 900, "'Courier New', monospace") * SCALE;
+    var bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") * SCALE : 0;
+
+    var descWrap = descFit.twoLines
+      ? 'white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;'
+      : '';
+
+    var html = '';
+    html += '<div class="cell-el descricao" style="' + boxStyle(layout.descricao.x, descFit.yMm, layout.descricao.w, descFit.hMm) + 'font-size:' + (descFit.fontSizeMm * SCALE) + 'px;' + descWrap + '">' + descText + '</div>';
+    html += '<div class="cell-el ref" style="' + boxStyle(layout.descricao.x, layout.ref.y, layout.descricao.w, layout.ref.h) + 'font-size:' + refSize + 'px;">' + refText + '</div>';
+    html += '<div class="cell-el barcode" style="' + boxStyle(layout.barcode.x, layout.barcode.y, layout.barcode.w, layout.barcode.h) + '">';
+    if (bcDataUrl) html += '<img class="bc-img" src="' + bcDataUrl + '" />';
+    if (code) html += '<div class="bc-num" style="font-size:' + bcNumSize + 'px;">' + code + '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // --- Etiqueta Inteira com Informações Adicionais ---
+  function buildFullInfoCell(product, extraFields) {
+    var layout = FULL_INFO;
+    var code = product.ean || product.sku || '';
+    var bcDataUrl = code ? barcodeDataUrl(code) : '';
+    var descText = product.name || '—';
+    var refText = 'REF ' + productRef(product);
+
+    var descFit = fitDescLayout(descText, layout.descricao, layout.ref.y, 800, 'Arial, Helvetica, sans-serif');
+    var refSizeMm = fitFontSize(refText, layout.descricao.w, layout.ref.h, 900, "'Courier New', monospace");
+    var refSize = refSizeMm * SCALE;
+    var bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") * SCALE : 0;
+
+    var descWrap = descFit.twoLines
+      ? 'white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;'
+      : '';
+
+    var html = '';
+    html += '<div class="cell-el descricao" style="' + boxStyle(layout.descricao.x, descFit.yMm, layout.descricao.w, descFit.hMm) + 'font-size:' + (descFit.fontSizeMm * SCALE) + 'px;' + descWrap + '">' + descText + '</div>';
+    html += '<div class="cell-el ref" style="' + boxStyle(layout.descricao.x, layout.ref.y, layout.descricao.w, layout.ref.h) + 'font-size:' + refSize + 'px;">' + refText + '</div>';
+
+    // Bloco de informações adicionais: altura total fixa, dividida entre N campos marcados.
+    // Mesma fonte da REF (Courier New, 900) 2px menor, IGUAL para todas as linhas
+    // (usa o menor tamanho entre as linhas para que a mais longa também caiba), centralizada verticalmente.
+    var n = extraFields.length;
+    var blockTop = layout.infoBlockY, blockBottom = layout.infoBlockBottom;
+    var totalH = blockBottom - blockTop;
+    var rowGap = 0.35;
+    var rowH = (totalH - rowGap * (n - 1)) / n;
+    var infoSizePx = Math.max(1, refSize - 2);
+    extraFields.forEach(function (f) {
+      var text = f.label + ': ' + f.value;
+      var maxPx = fitFontSize(text, layout.descricao.w, rowH, 900, "'Courier New', monospace") * SCALE;
+      infoSizePx = Math.min(infoSizePx, maxPx);
+    });
+    extraFields.forEach(function (f, i) {
+      var rowY = blockTop + i * (rowH + rowGap);
+      html += '<div class="cell-el info" style="' + boxStyle(layout.descricao.x, rowY, layout.descricao.w, rowH) + 'font-size:' + infoSizePx + 'px;"><b>' + f.label + ':</b> ' + f.value + '</div>';
+    });
+
+    html += '<div class="cell-el barcode" style="' + boxStyle(layout.barcode.x, layout.barcode.y, layout.barcode.w, layout.barcode.h) + '">';
+    if (bcDataUrl) html += '<img class="bc-img" src="' + bcDataUrl + '" />';
+    if (code) html += '<div class="bc-num" style="font-size:' + bcNumSize + 'px;">' + code + '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function mount(id, wMm, hMm) {
+    var el = document.getElementById(id);
+    el.style.width = (wMm * SCALE) + 'px';
+    el.style.height = (hMm * SCALE) + 'px';
+    return el;
+  }
+
+  mount('full-info', 40, 40).innerHTML = buildFullInfoCell(
+    { name: 'Detergente Neutro 500ml', sku: '0847', ean: '7891234500847', price: 3.99 },
+    [
+      { label: 'Fabricante', value: 'Nitron Ltda' },
+      { label: 'CNPJ', value: '12.345.678/0001-90' },
+      { label: 'Composição', value: 'Tensoativos aniônicos' },
+      { label: 'Validade', value: '12/2027' },
+    ]
+  );
+
+  mount('full-min', 40, 40).innerHTML = buildMinCell(
+    { name: 'porta sabao liquido fiat preto 500ml nitron', sku: '5328', ean: '7896779655328', price: 12 },
+    FULL_MIN
+  );
+
+  var halfWrapEl = document.getElementById('half-wrap');
+  var halfContainer = document.createElement('div');
+  halfContainer.className = 'label';
+  halfContainer.style.width = (40 * SCALE) + 'px';
+  halfContainer.style.height = (40 * SCALE) + 'px';
+  halfContainer.style.position = 'relative';
+  var topHalf = document.createElement('div');
+  topHalf.style.position = 'absolute'; topHalf.style.top = '0'; topHalf.style.left = '0'; topHalf.style.width = '100%'; topHalf.style.height = (20 * SCALE) + 'px';
+  topHalf.innerHTML = buildMinCell({ name: 'porta oleo italia preto nitron', sku: '6012', ean: '7996779646012', price: 10 }, HALF);
+  var botHalf = document.createElement('div');
+  botHalf.style.position = 'absolute'; botHalf.style.top = (20 * SCALE) + 'px'; botHalf.style.left = '0'; botHalf.style.width = '100%'; botHalf.style.height = (20 * SCALE) + 'px';
+  botHalf.innerHTML = buildMinCell({ name: 'esponja dupla face 3un', sku: '2201', ean: '7896779622010', price: 4.5 }, HALF);
+  var cutLine = document.createElement('div');
+  cutLine.className = 'cut-line';
+  cutLine.style.top = (20 * SCALE) + 'px';
+  halfContainer.appendChild(topHalf);
+  halfContainer.appendChild(botHalf);
+  halfContainer.appendChild(cutLine);
+  halfWrapEl.appendChild(halfContainer);
+})();
+</script>
