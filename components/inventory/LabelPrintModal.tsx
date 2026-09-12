@@ -23,18 +23,20 @@ interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco
 // #ff66c4 nome, #ff5757 ref, #5e17eb código de barras, #ffbd59 R$, #7ed957
 // preço), medidas em % da largura/altura do rótulo e convertidas pra mm.
 const FULL_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 2.9,  w: 81,   h: 4.1  },
+  nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
   ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
   rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
   preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
 };
+// Todo o conteúdo 3mm mais para cima em relação à extração original —
+// pedido do usuário depois de ver o teste impresso.
 const HALF_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 4,    w: 46,  h: 2.7 },
-  ref:     { x: 3,    y: 8.2,  w: 21,  h: 2   },
-  barcode: { x: 3,    y: 15.8, w: 21,  h: 9.3 },
-  rs:      { x: 24.7, y: 15.1, w: 3.5, h: 3   },
-  preco:   { x: 28.5, y: 15.1, w: 21,  h: 10  },
+  nome:    { x: 3,    y: 1,    w: 46,  h: 2.7 },
+  ref:     { x: 3,    y: 5.2,  w: 21,  h: 2   },
+  barcode: { x: 3,    y: 12.8, w: 21,  h: 9.3 },
+  rs:      { x: 24.7, y: 12.1, w: 3.5, h: 3   },
+  preco:   { x: 28.5, y: 12.1, w: 21,  h: 10  },
 };
 
 // Quanto o nome pode subir e usar da margem livre acima dele quando precisar
@@ -94,11 +96,11 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
 
   const bottom = refY - NOME_GAP_MM;
   const maxAvailableH = Math.max(singleMaxH, bottom - NOME_MIN_TOP_MM);
-  const twoLineEstimate = fitFontSize(text, w * 1.7, 9999, weight, family);
+  const twoLineEstimate = fitFontSize(text, w * 1.85, 9999, weight, family);
   const heightCap = maxAvailableH / (2 * 1.05);
   const twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
 
-  if (twoLineSize > oneLineSize * 1.15) {
+  if (twoLineSize > oneLineSize * 1.05) {
     const blockH = twoLineSize * 1.05 * 2;
     const yMm = Math.max(NOME_MIN_TOP_MM, bottom - blockH);
     return { fontSizeMm: twoLineSize, yMm, hMm: blockH, twoLines: true };

@@ -33,18 +33,18 @@
   var FIT_SAFETY = 0.94;
 
   var FULL_LAYOUT = {
-    nome:    { x: 3,    y: 2.9,  w: 81,   h: 4.1  },
+    nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
     ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
     barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
     rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
     preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
   };
   var HALF_LAYOUT = {
-    nome:    { x: 3,    y: 4,    w: 46,  h: 2.7 },
-    ref:     { x: 3,    y: 8.2,  w: 21,  h: 2   },
-    barcode: { x: 3,    y: 15.8, w: 21,  h: 9.3 },
-    rs:      { x: 24.7, y: 15.1, w: 3.5, h: 3   },
-    preco:   { x: 28.5, y: 15.1, w: 21,  h: 10  },
+    nome:    { x: 3,    y: 1,    w: 46,  h: 2.7 },
+    ref:     { x: 3,    y: 5.2,  w: 21,  h: 2   },
+    barcode: { x: 3,    y: 12.8, w: 21,  h: 9.3 },
+    rs:      { x: 24.7, y: 12.1, w: 3.5, h: 3   },
+    preco:   { x: 28.5, y: 12.1, w: 21,  h: 10  },
   };
 
   function productRef(p) {
@@ -73,11 +73,11 @@
 
     var bottom = refY - NOME_GAP_MM;
     var maxAvailableH = Math.max(singleMaxH, bottom - NOME_MIN_TOP_MM);
-    var twoLineEstimate = fitFontSize(text, w * 1.7, 9999, weight, family);
+    var twoLineEstimate = fitFontSize(text, w * 1.85, 9999, weight, family);
     var heightCap = maxAvailableH / (2 * 1.05);
     var twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
 
-    if (twoLineSize > oneLineSize * 1.15) {
+    if (twoLineSize > oneLineSize * 1.05) {
       var blockH = twoLineSize * 1.05 * 2;
       var yMm = Math.max(NOME_MIN_TOP_MM, bottom - blockH);
       return { fontSizeMm: twoLineSize, yMm: yMm, hMm: blockH, twoLines: true };
@@ -137,14 +137,14 @@
   );
 
   mount('full-long').innerHTML = buildCellHtml(
-    { name: 'Biscoito Recheado Chocolate com Avelã Premium 200g', ean: '7891234500999', price: 189.9 },
+    { name: 'porta sabao liquido fiat preto 500ml nitron', sku: '5328', ean: '7896779655328', price: 12 },
     FULL_LAYOUT, 0
   );
 
   var halfEl = mount('half');
   halfEl.innerHTML =
-    buildCellHtml({ name: 'Refrigerante Guaraná Antarctica Zero Açúcar Lata 350ml', sku: '4600', ean: '7891234512345', price: 3.29 }, HALF_LAYOUT, 0) +
-    buildCellHtml({ name: 'Cerveja Puro Malte 350ml', sku: '2871', ean: '7891234598765', price: 26.9 }, HALF_LAYOUT, HALF_OFFSET) +
+    buildCellHtml({ name: 'porta oleo italia preto nitron', sku: '6012', ean: '7996779646012', price: 10 }, HALF_LAYOUT, 0) +
+    buildCellHtml({ name: 'porta oleo italia preto nitron', sku: '6012', ean: '7996779646012', price: 10 }, HALF_LAYOUT, HALF_OFFSET) +
     '<div class="cut-line" style="left:' + (W_MM / 2 * SCALE) + 'px;"></div>';
 })();
 </script>
