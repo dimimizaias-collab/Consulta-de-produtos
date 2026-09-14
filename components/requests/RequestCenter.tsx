@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Info,
   BarChart3,
+  Printer,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
@@ -658,9 +659,92 @@ export function RequestCenter({
           const requestedChanges = JSON.parse(request.requested_changes);
           const isBulkProducts = requestedChanges.is_bulk_products;
           const isTask = requestedChanges.is_task;
+          const isPrintQueue = requestedChanges.is_print_queue;
           const isProductAlteration = requestedChanges.is_product_alteration;
-          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask && !isProductAlteration;
+          const isNewProduct = requestedChanges.is_new_product && !isBulkProducts && !isTask && !isPrintQueue && !isProductAlteration;
           const productData = isNewProduct ? requestedChanges : request.products;
+
+          // ── Print Queue card — pedido remoto de impressão de etiquetas
+          // (enviado pelo módulo "Fila de Impressão" no botão Mobile). "Ver /
+          // Ajustar" e "Imprimir" abrem a tela de Etiquetas em Inventory já
+          // carregada com esses itens — dali sai a impressão de verdade, que
+          // remove este card da lista de pendentes. ──
+          if (isPrintQueue) {
+            const items: any[] = requestedChanges.items || [];
+            const count = requestedChanges.count ?? items.reduce((acc, it) => acc + (it.qty || 0), 0);
+            const templateLabel = requestedChanges.template === 'produto' ? 'Produto' : 'Gôndola';
+            return (
+              <motion.div layout key={request.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                onClick={() => selectionMode && toggleSelect(request.id)}
+                className={cn('relative bg-surface-container-lowest rounded-[1.5rem] border border-on-surface/[0.04] hover:border-primary/20 shadow-md shadow-on-surface/[0.03] overflow-hidden flex flex-col group transition-all',
+                  selectionMode && 'cursor-pointer', selectedIds.has(request.id) && 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest')}>
+                {selectionMode && (
+                  <div className={cn('absolute top-3 right-3 z-10 w-6 h-6 rounded-lg border-[1.5px] flex items-center justify-center shadow-sm transition-all',
+                    selectedIds.has(request.id) ? 'bg-primary border-primary text-white' : 'bg-surface-container-lowest border-on-surface/20 text-transparent')}>
+                    <Check size={14} />
+                  </div>
+                )}
+                <div className="p-5 flex-1 space-y-3">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 shrink-0 group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+                      <Printer size={22} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest bg-primary text-white inline-block mb-1">
+                        Impressão
+                      </span>
+                      <h3 className="text-sm font-black text-on-surface truncate leading-tight group-hover:text-primary transition-colors">
+                        Fila de Impressão
+                      </h3>
+                      <p className="text-[9px] font-bold text-on-surface/30 uppercase tracking-widest">
+                        {items.length} produto{items.length !== 1 ? 's' : ''} · {count} etiqueta{count !== 1 ? 's' : ''} · {templateLabel}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 text-[8px] font-black text-primary/40 uppercase tracking-widest bg-primary/5 px-2 py-1 rounded-full shrink-0">
+                      <Clock size={10} />
+                      Pendente
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 bg-surface-container-low/30 px-3 py-2 rounded-xl border border-on-surface/[0.03] max-h-28 overflow-y-auto">
+                    {items.slice(0, 5).map((item: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 text-[11px] py-0.5">
+                        <span className="flex-1 min-w-0 truncate font-bold text-on-surface/80">
+                          {item.name || item.ean || item.sku || <span className="text-on-surface/30 italic">Sem descrição</span>}
+                        </span>
+                        <span className={cn(
+                          'text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0',
+                          item.size === 'half' ? 'bg-primary/10 text-primary' : 'bg-on-surface/[0.06] text-on-surface/45'
+                        )}>
+                          {item.size === 'half' ? 'Metade' : 'Inteira'} ×{item.qty}
+                        </span>
+                      </div>
+                    ))}
+                    {items.length > 5 && (
+                      <p className="text-[9px] text-on-surface/35 italic pt-1 border-t border-on-surface/[0.04]">
+                        +{items.length - 5} mais...
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 bg-surface-container-low/20 border-t border-on-surface/[0.03] flex gap-2">
+                  <button onClick={() => onEditRequest(request)}
+                    className="flex-1 h-9 bg-surface-container-lowest border border-on-surface/10 text-on-surface/70 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface hover:text-surface-container transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    <Edit2 size={12} /> Ver
+                  </button>
+                  <button onClick={() => onEditRequest(request)}
+                    className="flex-1 h-9 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-on-surface transition-all flex items-center justify-center gap-1.5 shadow-md shadow-primary/20">
+                    <Printer size={13} /> Imprimir
+                  </button>
+                  <button onClick={() => onDeleteRequest(request.id)}
+                    className="w-9 h-9 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all border border-red-100/50">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          }
 
           // ── Task card ──
           if (isTask) {

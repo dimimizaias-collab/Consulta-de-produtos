@@ -29,6 +29,12 @@ import { useViewMode } from '@/lib/view-mode';
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
 
+interface PrintQueuePreload {
+  requestId: string;
+  template: 'gondola' | 'produto';
+  queue: { product: any; qty: number; size: 'full' | 'half' }[];
+}
+
 interface InventoryManagerProps {
   products: any[];
   loading: boolean;
@@ -45,6 +51,11 @@ interface InventoryManagerProps {
   onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
   setShowStockUpdateChoiceModal: (val: boolean) => void;
+  // Abre a tela de Etiquetas já carregada com a fila de um pedido pendente
+  // da Central de Requisições (Fila de Impressão enviada remotamente).
+  printQueuePreload?: PrintQueuePreload | null;
+  onPrintQueueConsumed?: () => void;
+  onPrintQueuePrinted?: (requestId: string) => void;
 }
 
 export function InventoryManager({
@@ -62,13 +73,28 @@ export function InventoryManager({
   onStockUpdate,
   onOpenMobileBulkTable,
   stockFileInputRef,
-  setShowStockUpdateChoiceModal
+  setShowStockUpdateChoiceModal,
+  printQueuePreload,
+  onPrintQueueConsumed,
+  onPrintQueuePrinted,
 }: InventoryManagerProps) {
   const { isMobileView, toggleMode } = useViewMode();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'produtos' | 'estoque'>('produtos');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
+  const [labelModalPreload, setLabelModalPreload] = useState<PrintQueuePreload | null>(null);
+
+  // Pedido de impressão vindo da Central de Requisições — abre a tela de
+  // Etiquetas já carregada com a fila desse pedido.
+  useEffect(() => {
+    if (printQueuePreload) {
+      setLabelModalPreload(printQueuePreload);
+      setShowLabelModal(true);
+      onPrintQueueConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printQueuePreload]);
   const [showPlacaModal, setShowPlacaModal] = useState(false);
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -660,8 +686,11 @@ export function InventoryManager({
 
       <LabelPrintModal
         isOpen={showLabelModal}
-        onClose={() => setShowLabelModal(false)}
+        onClose={() => { setShowLabelModal(false); setLabelModalPreload(null); }}
         products={products}
+        initialQueue={labelModalPreload?.queue}
+        initialTemplate={labelModalPreload?.template}
+        onPrinted={labelModalPreload ? () => { onPrintQueuePrinted?.(labelModalPreload.requestId); setLabelModalPreload(null); } : undefined}
       />
       <PlacaPrintModal
         isOpen={showPlacaModal}

@@ -26,6 +26,7 @@ import { MobileNoteView, type EanVariant } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
+import { FilaImpressaoModal, type PrintQueueSubmission } from '@/components/inventory/FilaImpressaoModal';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
@@ -460,6 +461,12 @@ export default function Page() {
   const [showMobileTypeModal, setShowMobileTypeModal] = useState(false);
   const [showMobileBulkTable, setShowMobileBulkTable] = useState(false);
   const [showMobileTaskPage, setShowMobileTaskPage] = useState(false);
+  const [showFilaImpressaoModal, setShowFilaImpressaoModal] = useState(false);
+  const [printQueuePreload, setPrintQueuePreload] = useState<{
+    requestId: string;
+    template: 'gondola' | 'produto';
+    queue: { product: any; qty: number; size: 'full' | 'half' }[];
+  } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
   const [bulkDraftUnderReview, setBulkDraftUnderReview] = useState<any>(null);
@@ -1630,6 +1637,28 @@ export default function Page() {
     if (error) throw error;
     await fetchRequests();
     setNotification({ type: 'success', message: 'Tarefa enviada para Requisições!' });
+  };
+
+  const handleSendPrintQueue = async (payload: PrintQueueSubmission) => {
+    const { error } = await supabase.from('requests').insert([{
+      product_id: null,
+      requested_changes: JSON.stringify({
+        is_print_queue: true,
+        template: payload.template,
+        items: payload.items,
+        count: payload.items.reduce((acc, item) => acc + item.qty, 0),
+      }),
+      status: 'pending',
+    }]);
+    if (error) throw error;
+    await fetchRequests();
+    setNotification({ type: 'success', message: 'Pedido de impressão enviado para Requisições!' });
+  };
+
+  const handlePrintQueuePrinted = async (requestId: string) => {
+    const { error } = await supabase.from('requests').delete().eq('id', requestId);
+    if (error) throw error;
+    await fetchRequests();
   };
 
   const handleSaveReviewProgress = async (rows: any[]) => {
@@ -5591,6 +5620,9 @@ export default function Page() {
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
                   setShowStockUpdateChoiceModal={setShowStockUpdateChoiceModal}
+                  printQueuePreload={printQueuePreload}
+                  onPrintQueueConsumed={() => setPrintQueuePreload(null)}
+                  onPrintQueuePrinted={handlePrintQueuePrinted}
                 />
             ) : activeTab === 'Requisições' ? (
                 <RequestCenter
@@ -5607,7 +5639,18 @@ export default function Page() {
                   }}
                   onEditRequest={(request) => {
                     const changes = JSON.parse(request.requested_changes);
-                    if (changes.is_task) {
+                    if (changes.is_print_queue) {
+                      setPrintQueuePreload({
+                        requestId: request.id,
+                        template: changes.template || 'gondola',
+                        queue: (changes.items || []).map((item: any) => ({
+                          product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.price },
+                          qty: item.qty,
+                          size: item.size,
+                        })),
+                      });
+                      setActiveTab('Inventory');
+                    } else if (changes.is_task) {
                       setTaskDetailRequest(request);
                       setTaskDetailData(changes);
                       setShowTaskDetailModal(true);
@@ -8116,6 +8159,15 @@ export default function Page() {
         onClose={() => setShowMobileTypeModal(false)}
         onSelectConferencia={() => { setShowMobileTypeModal(false); setShowMobileBulkTable(true); }}
         onSelectTarefas={() => { setShowMobileTypeModal(false); setShowMobileTaskPage(true); }}
+        onSelectFilaImpressao={() => { setShowMobileTypeModal(false); setShowFilaImpressaoModal(true); }}
+      />
+
+      {/* Fila de Impressão — pedido remoto de impressão de etiquetas */}
+      <FilaImpressaoModal
+        isOpen={showFilaImpressaoModal}
+        onClose={() => setShowFilaImpressaoModal(false)}
+        products={products}
+        onSubmit={handleSendPrintQueue}
       />
 
       {/* Mobile Task Page */}

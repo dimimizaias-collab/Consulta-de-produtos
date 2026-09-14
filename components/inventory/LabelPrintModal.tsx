@@ -1,28 +1,28 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Tag, Printer, Plus, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
 
-const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+export const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
 // Elgin L42 Pro — etiqueta térmica em bobina contínua (uma etiqueta por vez,
 // sem grid de blocos de folha). Este módulo é dedicado exclusivamente a essa impressora.
-const ELGIN_LABEL_W = 105; // mm
-const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (não 30mm)
-const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
+export const ELGIN_LABEL_W = 105; // mm
+export const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (não 30mm)
+export const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
 
-interface ElPos { x: number; y: number; w: number; h: number }
-interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos }
+export interface ElPos { x: number; y: number; w: number; h: number }
+export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos }
 
 // Posições em mm, origem no canto superior esquerdo de cada etiqueta/metade.
 // Extraídas por análise de pixel de um par de imagens de referência fornecidas
 // pelo usuário (retângulos coloridos delimitando cada elemento — legenda:
 // #ff66c4 nome, #ff5757 ref, #5e17eb código de barras, #ffbd59 R$, #7ed957
 // preço), medidas em % da largura/altura do rótulo e convertidas pra mm.
-const FULL_LAYOUT: CellLayout = {
+export const FULL_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
   ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
@@ -33,7 +33,7 @@ const FULL_LAYOUT: CellLayout = {
 // 1mm de volta pra baixo) e a distância entre o REF e o bloco de baixo
 // (código de barras/R$/preço) reduzida pra no máximo 3mm — pedidos do
 // usuário depois de ver os testes impressos.
-const HALF_LAYOUT: CellLayout = {
+export const HALF_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2,    w: 46,  h: 2.7 },
   ref:     { x: 3,    y: 6.2,  w: 21,  h: 2   },
   barcode: { x: 3,    y: 11.2, w: 21,  h: 9.3 },
@@ -50,28 +50,28 @@ const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105
 // produtos sem etiqueta / com etiqueta danificada ou código ilegível. Metade
 // corta HORIZONTAL (duas de 40x20mm empilhadas) — diferente da Gôndola, que
 // corta vertical.
-const PRODUTO_LABEL_SIZE = 40; // mm — lado da etiqueta Inteira / folha impressa da Metade
-const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada metade
+export const PRODUTO_LABEL_SIZE = 40; // mm — lado da etiqueta Inteira / folha impressa da Metade
+export const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada metade
 
-interface ProdutoLayout { descricao: ElPos; ref: ElPos; barcode: ElPos }
-interface ProdutoInfoLayout extends ProdutoLayout { infoBlockY: number; infoBlockBottom: number }
+export interface ProdutoLayout { descricao: ElPos; ref: ElPos; barcode: ElPos }
+export interface ProdutoInfoLayout extends ProdutoLayout { infoBlockY: number; infoBlockBottom: number }
 
 // Posições em mm extraídas por análise de pixel de 3 imagens de referência do
 // usuário (retângulos coloridos — legenda: #cb6ce6 descrição, #ff751f
 // REF/SKU, #004aad fabricante, #1800ad CNPJ, #c1ff72 composição, #ff5757
 // validade, #ff3131 código de barras).
-const PRODUTO_FULL_MIN: ProdutoLayout = { // 40x40mm, sem informações adicionais
+export const PRODUTO_FULL_MIN: ProdutoLayout = { // 40x40mm, sem informações adicionais
   descricao: { x: 2.2, y: 6.44, w: 35.6, h: 7.2 },
   ref:       { x: 2.2, y: 14.24, w: 35.6, h: 2.71 },
   barcode:   { x: 2.2, y: 18.98, w: 35.6, h: 14.92 },
 };
-const PRODUTO_FULL_INFO: ProdutoInfoLayout = { // 40x40mm, com informações adicionais
+export const PRODUTO_FULL_INFO: ProdutoInfoLayout = { // 40x40mm, com informações adicionais
   descricao: { x: 2.2, y: 2.71, w: 35.6, h: 3.98 },
   ref:       { x: 2.2, y: 7.71, w: 35.6, h: 2.63 },
   infoBlockY: 11.86, infoBlockBottom: 23.48, // dividido igualmente entre os N campos marcados
   barcode:   { x: 2.2, y: 25.0, w: 35.6, h: 12.54 },
 };
-const PRODUTO_HALF: ProdutoLayout = { // 40x20mm, sempre mínima (sem espaço pra informações extras)
+export const PRODUTO_HALF: ProdutoLayout = { // 40x20mm, sempre mínima (sem espaço pra informações extras)
   descricao: { x: 1.95, y: 1.95, w: 36.1, h: 4.24 },
   ref:       { x: 1.95, y: 6.53, w: 36.1, h: 1.61 },
   barcode:   { x: 1.95, y: 9.32, w: 36.1, h: 8.73 },
@@ -83,13 +83,13 @@ const INFO_FONT_DELTA_MM = 2 * PX_TO_MM;
 
 // Só o número, sem "R$" — o símbolo já tem sua própria caixa na etiqueta
 // (formatPrice do labelPrintUtils inclui o símbolo, por isso não é usado aqui).
-function formatPriceValue(value: number): string {
+export function formatPriceValue(value: number): string {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // REF é um código curto de referência — nunca o EAN inteiro (13 dígitos não
 // cabem na caixa e quebravam a linha, embolando com o código de barras).
-function productRef(product: any): string {
+export function productRef(product: any): string {
   if (product?.sku) return product.sku;
   if (product?.ean) return String(product.ean).slice(-4);
   return '0000';
@@ -205,9 +205,9 @@ function fitDescricaoLayout(text: string, box: ElPos, nextY: number, weight: num
   return { fontSizeMm: oneLineSize, yMm: y, hMm: singleMaxH, twoLines: false };
 }
 
-const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
-const SAMPLE_HALF_A = { name: 'Refrigerante Guaraná Lata 350ml', sku: '0457', ean: '7891234500011', price: 3.49 };
-const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', ean: '7891234512345', price: 2 };
+export const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
+export const SAMPLE_HALF_A = { name: 'Refrigerante Guaraná Lata 350ml', sku: '0457', ean: '7891234500011', price: 3.49 };
+export const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', ean: '7891234512345', price: 2 };
 
 function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
   const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -260,7 +260,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   );
 }
 
-function LabelPreview({ variant, items }: { variant: 'full' | 'half'; items: any[] }) {
+export function LabelPreview({ variant, items }: { variant: 'full' | 'half'; items: any[] }) {
   return (
     <div className="relative w-full rounded-xl overflow-hidden bg-[#FFE500] shadow-inner" style={{ aspectRatio: `${ELGIN_LABEL_W} / ${ELGIN_LABEL_H}` }}>
       {variant === 'full' ? (
@@ -385,7 +385,7 @@ function ProdutoInfoPreviewCell({ product, extraFields }: { product: any; extraF
   );
 }
 
-function ProdutoPreviewFull({ product, extraFields }: { product: any; extraFields: { label: string; value: string }[] }) {
+export function ProdutoPreviewFull({ product, extraFields }: { product: any; extraFields: { label: string; value: string }[] }) {
   return (
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
       {extraFields.length > 0
@@ -395,7 +395,7 @@ function ProdutoPreviewFull({ product, extraFields }: { product: any; extraField
   );
 }
 
-function ProdutoPreviewHalf({ items }: { items: any[] }) {
+export function ProdutoPreviewHalf({ items }: { items: any[] }) {
   return (
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
       <ProdutoPreviewCell product={items[0]} layout={PRODUTO_HALF} offsetYMm={0} />
@@ -407,14 +407,14 @@ function ProdutoPreviewHalf({ items }: { items: any[] }) {
 
 // Ícones do toggle Inteira/Metade da Etiqueta de Produto — deixam claro que
 // aqui o corte é horizontal (a Gôndola corta vertical e não usa ícone).
-function IconWholeSquare({ size = 12 }: { size?: number }) {
+export function IconWholeSquare({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="2" y="2" width="12" height="12" rx="2" />
     </svg>
   );
 }
-function IconHalfHorizontal({ size = 12 }: { size?: number }) {
+export function IconHalfHorizontal({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="2" y="2" width="12" height="12" rx="2" />
@@ -433,11 +433,11 @@ const EXTRA_INFO_FIELDS: { key: string; label: string; placeholder: string }[] =
   { key: 'validade', label: 'Validade', placeholder: 'ex: 12/2026' },
 ];
 
-type LabelTemplate = 'gondola' | 'produto';
-type LabelSize = 'full' | 'half';
+export type LabelTemplate = 'gondola' | 'produto';
+export type LabelSize = 'full' | 'half';
 type Tab = 'selecao' | 'visualizacao';
 
-interface QueueEntry {
+export interface QueueEntry {
   product: any;
   qty: number;
   size: LabelSize;
@@ -452,6 +452,15 @@ interface LabelPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   products: any[];
+  // Preenche a fila já pronta ao abrir — usado quando o modal é aberto a
+  // partir de um pedido pendente na Central de Requisições (Fila de
+  // Impressão enviada remotamente), pulando direto pra Visualização.
+  initialQueue?: QueueEntry[];
+  initialTemplate?: LabelTemplate;
+  // Chamado assim que o usuário dispara a impressão de verdade (antes do
+  // diálogo de impressão do navegador) — usado pra marcar o pedido de
+  // origem como concluído.
+  onPrinted?: () => void;
 }
 
 function escapeHtml(value: string): string {
@@ -462,20 +471,33 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
+export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
   gondola: 'Etiqueta de Gôndola',
   produto: 'Etiqueta de Produto',
 };
 
 const emptyDraft = (): Draft => ({ qty: 1, size: 'full' });
 
-export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalProps) {
+export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted }: LabelPrintModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
   const [template, setTemplate] = useState<LabelTemplate>('gondola');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState<Record<string, QueueEntry>>({});
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+
+  // Ao abrir já com uma fila pronta (pedido vindo da Central de Requisições),
+  // carrega ela e pula direto pra Visualização em vez da Seleção vazia.
+  useEffect(() => {
+    if (isOpen && initialQueue && initialQueue.length > 0) {
+      const seeded: Record<string, QueueEntry> = {};
+      initialQueue.forEach(entry => { seeded[entry.product.id] = entry; });
+      setQueue(seeded);
+      if (initialTemplate) setTemplate(initialTemplate);
+      setActiveTab('visualizacao');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Informações adicionais — exclusivas da Etiqueta de Produto. Os valores são
   // digitados na hora da impressão e valem pra todas as etiquetas do lote.
@@ -605,6 +627,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
   const printElgin = () => {
     if (template !== 'gondola' || totalLabels === 0) return;
+    onPrinted?.();
 
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
@@ -735,6 +758,7 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
 
   const printProduto = () => {
     if (template !== 'produto' || totalLabels === 0) return;
+    onPrinted?.();
 
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
