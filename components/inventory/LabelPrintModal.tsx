@@ -164,18 +164,24 @@ function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
 // acima dele é pequena demais pra render de verdade). Se mesmo assim
 // sobrarem mais de 2 linhas, o CSS de line-clamp corta o excedente com "…".
 interface NomeFit { fontSizeMm: number; hMm: number; twoLines: boolean; extraH: number }
+// Na Metade a fonte do nome no tamanho "padrão" (cheio da caixa) fica volumosa
+// pro espaço pequeno da etiqueta — reduz um passo só nela, mantendo a caixa
+// (e portanto a posição do REF/código de barras/preço abaixo) do mesmo
+// tamanho, só o texto fica menor dentro dela.
+const HALF_NOME_SCALE = 0.88;
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
+  const scale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : 1;
   const w = layout.nome.w;
   const singleMaxH = Math.max(1, layout.ref.y - layout.nome.y - NOME_GAP_MM);
   const fitsOneLine = measureTextWidth(text, singleMaxH, weight, family) <= w * FIT_SAFETY;
   if (fitsOneLine) {
-    return { fontSizeMm: singleMaxH, hMm: singleMaxH, twoLines: false, extraH: 0 };
+    return { fontSizeMm: singleMaxH * scale, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
 
   const standardSize = maxTwoLineNomeSize(layout);
   const blockH = standardSize * 1.05 * 2;
   const extraH = Math.max(0, blockH - layout.nome.h);
-  return { fontSizeMm: standardSize, hMm: blockH, twoLines: true, extraH };
+  return { fontSizeMm: standardSize * scale, hMm: blockH, twoLines: true, extraH };
 }
 
 // Mesma lógica de fitNomeLayout, generalizada pra qualquer caixa (usada pela
