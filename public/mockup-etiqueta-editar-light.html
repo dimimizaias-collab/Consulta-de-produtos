@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Editar Etiqueta — Mockup (Light)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=DM+Mono:wght@400;500;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          primary: '#D81E1E',
+          'primary-deep': '#A30E0E',
+          'brand-yellow': '#FFE500',
+          background: '#FFFCEC',
+          surface: '#ffffff',
+          'surface-container': '#FAF6E6',
+          'on-surface': '#1A1208',
+          secondary: '#4A3F2E',
+          line: '#E9DFC2',
+        },
+        fontFamily: {
+          sans: ['DM Sans', 'sans-serif'],
+          mono: ['DM Mono', 'monospace'],
+          manrope: ['Manrope', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: 'DM Sans', sans-serif; }
+  .font-manrope { font-family: 'Manrope', sans-serif; }
+  .font-mono { font-family: 'DM Mono', monospace; }
+</style>
+</head>
+<body class="bg-[#E2DDD3]">
+
+  <div class="p-10 max-w-[1200px] mx-auto">
+    <h1 class="font-manrope text-2xl font-extrabold text-black/80 mb-1">Editar Etiqueta — Mockup · Light</h1>
+    <p class="text-sm font-semibold text-black/40 mb-10">Botão de lápis nos cards da aba Visualização (Etiquetas e Fila de Impressão) + janela de edição por item.</p>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- 1. Cards — LabelPrintModal (badge fixo Inteira/Metade + ×qtd) -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="mb-12">
+      <span class="text-[11px] font-black uppercase tracking-[0.16em] text-black/40">1 · Card — tela de Etiquetas (LabelPrintModal)</span>
+      <div class="mt-3 max-w-xl flex flex-col gap-2">
+
+        <!-- normal -->
+        <div class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-black/[0.08] bg-white">
+          <span class="flex-1 min-w-0 text-[12.5px] font-bold text-on-surface truncate">Refrigerante Guaraná Antarctica Lata 350ml</span>
+          <span class="text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0 text-secondary/60 bg-black/[0.06]">Inteira</span>
+          <span class="font-mono text-[11px] font-extrabold text-secondary/60 bg-black/[0.06] px-2 py-0.5 rounded-full flex-shrink-0">×2</span>
+          <button class="w-[26px] h-[26px] rounded-lg bg-black/[0.05] text-secondary/60 flex items-center justify-center flex-shrink-0" title="Editar etiqueta">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
+          <button class="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0" title="Remover">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- editado -->
+        <div class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-[#D4C000] bg-[#FFE500]/[0.10]">
+          <span class="flex-1 min-w-0 flex items-center gap-1.5">
+            <span class="min-w-0 text-[12.5px] font-bold text-on-surface truncate">Água Mineral s/Gás 500ml</span>
+            <span class="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#D4C000]/25 text-[#7A6A00]">Editado</span>
+          </span>
+          <span class="text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0 text-primary bg-primary/10">1/2</span>
+          <span class="font-mono text-[11px] font-extrabold text-secondary/60 bg-black/[0.06] px-2 py-0.5 rounded-full flex-shrink-0">×1</span>
+          <button class="relative w-[26px] h-[26px] rounded-lg bg-[#1A1A0E]/[0.08] text-[#1A1A0E] flex items-center justify-center flex-shrink-0" title="Editar etiqueta (personalizada)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-white"></span>
+          </button>
+          <button class="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0" title="Remover">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- 2. Cards — FilaImpressaoModal (toggle + stepper inline) -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="mb-12">
+      <span class="text-[11px] font-black uppercase tracking-[0.16em] text-black/40">2 · Card — Fila de Impressão (toggle + stepper editáveis)</span>
+      <div class="mt-3 max-w-xl flex flex-col gap-2">
+
+        <!-- normal -->
+        <div class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-black/[0.08] bg-white">
+          <span class="flex-1 min-w-0 text-[12.5px] font-bold text-on-surface truncate">Detergente Neutro Concentrado Ypê 500ml</span>
+          <div class="flex bg-black/[0.06] rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+            <button class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide bg-[#1A1A0E] text-[#FFE500]">Inteira</button>
+            <button class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide text-secondary/50">Metade</button>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button class="w-6 h-6 rounded-md bg-black/[0.06] text-secondary/60 flex items-center justify-center font-black text-xs">–</button>
+            <span class="w-8 text-center text-[11px] font-extrabold text-on-surface">4</span>
+            <button class="w-6 h-6 rounded-md bg-black/[0.06] text-secondary/60 flex items-center justify-center font-black text-xs">+</button>
+          </div>
+          <button class="w-[26px] h-[26px] rounded-lg bg-black/[0.05] text-secondary/60 flex items-center justify-center flex-shrink-0" title="Editar etiqueta">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
+          <button class="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0" title="Remover">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- editado -->
+        <div class="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-[#D4C000] bg-[#FFE500]/[0.10]">
+          <span class="flex-1 min-w-0 flex items-center gap-1.5">
+            <span class="min-w-0 text-[12.5px] font-bold text-on-surface truncate">Refrigerante Guaraná Antarctica Lata 350ml Sabor Tradicional</span>
+            <span class="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#D4C000]/25 text-[#7A6A00]">Editado</span>
+          </span>
+          <div class="flex bg-black/[0.06] rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+            <button class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide bg-[#1A1A0E] text-[#FFE500]">Inteira</button>
+            <button class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide text-secondary/50">Metade</button>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button class="w-6 h-6 rounded-md bg-black/[0.06] text-secondary/60 flex items-center justify-center font-black text-xs">–</button>
+            <span class="w-8 text-center text-[11px] font-extrabold text-on-surface">2</span>
+            <button class="w-6 h-6 rounded-md bg-black/[0.06] text-secondary/60 flex items-center justify-center font-black text-xs">+</button>
+          </div>
+          <button class="relative w-[26px] h-[26px] rounded-lg bg-[#1A1A0E]/[0.08] text-[#1A1A0E] flex items-center justify-center flex-shrink-0" title="Editar etiqueta (personalizada)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-white"></span>
+          </button>
+          <button class="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0" title="Remover">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- 3. Janela de edição -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section>
+      <span class="text-[11px] font-black uppercase tracking-[0.16em] text-black/40">3 · Janela "Editar etiqueta"</span>
+      <div class="mt-3 w-full max-w-md bg-[#F0E7CC] rounded-3xl shadow-2xl overflow-hidden border border-black/10">
+
+        <!-- Header -->
+        <div class="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000]">
+          <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] text-[#1A1A0E]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Editar etiqueta</h2>
+            <p class="text-xs font-bold text-[#1A1A0E]/55 mt-0.5">Vale só pra esta impressão — não altera o produto cadastrado</p>
+          </div>
+          <button class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+          <div>
+            <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Descrição</span>
+            <input value="Refrigerante Guaraná Antarctica 350ml" class="w-full h-[44px] px-4 bg-white border-[1.5px] border-primary/40 rounded-2xl text-[13px] font-semibold text-on-surface outline-none" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">REF / SKU</span>
+              <input value="0457" class="w-full h-[44px] px-4 bg-white border-[1.5px] border-black/[0.14] rounded-2xl text-[13px] font-mono font-bold text-on-surface outline-none" />
+            </div>
+            <div>
+              <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Preço</span>
+              <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-secondary/50">R$</span>
+                <input value="3,49" class="w-full h-[44px] pl-10 pr-4 bg-white border-[1.5px] border-primary/40 rounded-2xl text-[13px] font-bold text-on-surface outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Código de barras (EAN)</span>
+            <input value="7891234500011" class="w-full h-[44px] px-4 bg-white border-[1.5px] border-black/[0.14] rounded-2xl text-[13px] font-mono font-bold text-on-surface outline-none tracking-wide" />
+            <p class="text-[10px] font-semibold text-secondary/40 mt-1.5">Usado pro código de barras e pro número mostrado embaixo dele na etiqueta.</p>
+          </div>
+
+          <p class="text-[10px] font-semibold text-secondary/40 flex items-center gap-1.5 pt-1">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Campos em <span class="text-primary font-bold">vermelho</span> foram alterados do valor original do produto.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 pb-6 pt-1 flex items-center gap-3">
+          <button class="text-[11px] font-extrabold text-secondary/60 hover:text-primary transition-colors flex items-center gap-1.5 mr-auto">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+            Restaurar padrão
+          </button>
+          <button class="bg-black/[0.06] text-secondary font-bold py-3 px-5 rounded-2xl">Cancelar</button>
+          <button class="bg-primary text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Salvar
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Tag, Printer, Plus, ChevronDown, Check } from 'lucide-react';
+import { X, Search, Tag, Printer, Plus, ChevronDown, Check, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
+import { LabelEditModal } from './LabelEditModal';
 
 export const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -443,10 +444,27 @@ export type LabelTemplate = 'gondola' | 'produto';
 export type LabelSize = 'full' | 'half';
 type Tab = 'selecao' | 'visualizacao';
 
+// Sobrescreve, só pra etiqueta impressa (nunca o produto cadastrado), a
+// descrição/REF/EAN/preço de um item da fila — editado pelo botão de lápis
+// na Visualização. Chave ausente = usa o valor do produto normalmente.
+export interface LabelOverrides {
+  name?: string;
+  sku?: string;
+  ean?: string;
+  price?: number;
+}
+
 export interface QueueEntry {
   product: any;
   qty: number;
   size: LabelSize;
+  overrides?: LabelOverrides;
+}
+
+// Produto "efetivo" pra renderizar/imprimir — aplica as sobrescritas por
+// cima dos dados reais do produto, sem tocar no objeto original.
+export function effectiveLabelProduct(entry: QueueEntry): any {
+  return entry.overrides ? { ...entry.product, ...entry.overrides } : entry.product;
 }
 
 interface Draft {
@@ -534,8 +552,11 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
   // Amostras pra prévia — usa o primeiro produto real de cada tamanho na fila,
   // caindo pra um exemplo genérico quando ainda não tem nada adicionado.
-  const previewFull = useMemo(() => queueList.find(([, e]) => e.size === 'full')?.[1]?.product ?? SAMPLE_FULL, [queueList]);
-  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => e.product), [queueList]);
+  const previewFull = useMemo(() => {
+    const entry = queueList.find(([, e]) => e.size === 'full')?.[1];
+    return entry ? effectiveLabelProduct(entry) : SAMPLE_FULL;
+  }, [queueList]);
+  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
   const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
   const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
 
@@ -580,6 +601,15 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     });
   }, []);
 
+  // Item com o "Editar etiqueta" (lápis) aberto — sobrescreve descrição/REF/
+  // EAN/preço só pra impressão, sem tocar no produto cadastrado.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingEntry = editingId ? queue[editingId] : null;
+
+  const setEntryOverrides = useCallback((id: string, overrides: LabelOverrides) => {
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], overrides: Object.keys(overrides).length > 0 ? overrides : undefined } } : prev));
+  }, []);
+
   const handleClose = () => {
     setActiveTab('selecao');
     setTemplate('gondola');
@@ -590,6 +620,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     setExtraInfoOn(false);
     setExtraChecked({});
     setExtraValues({});
+    setEditingId(null);
     onClose();
   };
 
@@ -642,7 +673,8 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
     queueList.forEach(([, entry]) => {
-      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(entry.product);
+      const product = effectiveLabelProduct(entry);
+      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(product);
     });
 
     const pages: string[] = fullUnits.map(product =>
@@ -773,7 +805,8 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
     queueList.forEach(([, entry]) => {
-      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(entry.product);
+      const product = effectiveLabelProduct(entry);
+      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(product);
     });
 
     const pages: string[] = fullUnits.map(product =>
@@ -1157,25 +1190,49 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       </p>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        {queueList.map(([id, entry]) => (
-                          <div key={id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]">
-                            <span className="flex-1 min-w-0 text-[12.5px] font-bold text-on-surface truncate">{entry.product.name}</span>
-                            <span className={cn(
-                              'text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0',
-                              entry.size === 'half' ? 'text-primary bg-primary/10' : 'text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08]'
+                        {queueList.map(([id, entry]) => {
+                          const edited = !!entry.overrides;
+                          const effective = effectiveLabelProduct(entry);
+                          return (
+                            <div key={id} className={cn(
+                              'flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border',
+                              edited ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.10] dark:bg-[#FFE500]/[0.06]' : 'border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]'
                             )}>
-                              {entry.size === 'half' ? '1/2' : 'Inteira'}
-                            </span>
-                            <span className="font-mono text-[11px] font-extrabold text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08] px-2 py-0.5 rounded-full flex-shrink-0">×{entry.qty}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeFromQueue(id)}
-                              className="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 hover:bg-primary/20 transition-colors"
-                            >
-                              <X size={12} strokeWidth={2.5} />
-                            </button>
-                          </div>
-                        ))}
+                              <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                                <span className="min-w-0 text-[12.5px] font-bold text-on-surface truncate">{effective.name}</span>
+                                {edited && (
+                                  <span className="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#D4C000]/25 dark:bg-[#FFE500]/20 text-[#7A6A00] dark:text-[#FFE500]">Editado</span>
+                                )}
+                              </span>
+                              <span className={cn(
+                                'text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0',
+                                entry.size === 'half' ? 'text-primary bg-primary/10' : 'text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08]'
+                              )}>
+                                {entry.size === 'half' ? '1/2' : 'Inteira'}
+                              </span>
+                              <span className="font-mono text-[11px] font-extrabold text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08] px-2 py-0.5 rounded-full flex-shrink-0">×{entry.qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingId(id)}
+                                title={edited ? 'Editar etiqueta (personalizada)' : 'Editar etiqueta'}
+                                className={cn(
+                                  'relative w-[26px] h-[26px] rounded-lg flex items-center justify-center flex-shrink-0 transition-colors',
+                                  edited ? 'bg-[#1A1A0E]/[0.08] dark:bg-white/[0.10] text-[#1A1A0E] dark:text-on-surface' : 'bg-black/[0.05] dark:bg-white/[0.06] text-secondary/60 hover:text-on-surface'
+                                )}
+                              >
+                                <Pencil size={13} />
+                                {edited && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-white dark:border-[#1E1E18]" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeFromQueue(id)}
+                                className="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 hover:bg-primary/20 transition-colors"
+                              >
+                                <X size={12} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1205,6 +1262,15 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
               </div>
             </div>
           </motion.div>
+
+          <LabelEditModal
+            isOpen={!!editingEntry}
+            product={editingEntry?.product}
+            overrides={editingEntry?.overrides}
+            onSave={overrides => { if (editingId) setEntryOverrides(editingId, overrides); }}
+            onRestore={() => { if (editingId) setEntryOverrides(editingId, {}); }}
+            onClose={() => setEditingId(null)}
+          />
         </div>
       )}
     </AnimatePresence>

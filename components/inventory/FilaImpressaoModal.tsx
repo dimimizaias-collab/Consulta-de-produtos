@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Printer, Plus, Minus, ChevronDown, Send } from 'lucide-react';
+import { X, Search, Printer, Plus, Minus, ChevronDown, Send, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   ELGIN_LABEL_W, ELGIN_LABEL_H,
@@ -11,9 +11,10 @@ import {
   IconWholeSquare, IconHalfHorizontal,
   TEMPLATE_LABELS,
   SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B,
-  blockWheelChange,
-  type LabelTemplate, type LabelSize, type QueueEntry,
+  blockWheelChange, effectiveLabelProduct,
+  type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
 } from './LabelPrintModal';
+import { LabelEditModal } from './LabelEditModal';
 
 // Fila de Impressão — mesma tela de Seleção/Visualização da Etiquetas, mas em
 // vez de imprimir na hora, empacota a fila e manda como uma requisição
@@ -65,8 +66,11 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
   const queueList = useMemo(() => Object.entries(queue), [queue]);
   const totalLabels = useMemo(() => queueList.reduce((acc, [, e]) => acc + e.qty, 0), [queueList]);
 
-  const previewFull = useMemo(() => queueList.find(([, e]) => e.size === 'full')?.[1]?.product ?? SAMPLE_FULL, [queueList]);
-  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => e.product), [queueList]);
+  const previewFull = useMemo(() => {
+    const entry = queueList.find(([, e]) => e.size === 'full')?.[1];
+    return entry ? effectiveLabelProduct(entry) : SAMPLE_FULL;
+  }, [queueList]);
+  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
   const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
   const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
 
@@ -122,6 +126,15 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
     setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], size } } : prev));
   }, []);
 
+  // Item com o "Editar etiqueta" (lápis) aberto — sobrescreve descrição/REF/
+  // EAN/preço só pra esta impressão, sem tocar no produto cadastrado.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingEntry = editingId ? queue[editingId] : null;
+
+  const setEntryOverrides = useCallback((id: string, overrides: LabelOverrides) => {
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], overrides: Object.keys(overrides).length > 0 ? overrides : undefined } } : prev));
+  }, []);
+
   const handleClose = () => {
     setActiveTab('selecao');
     setTemplate('gondola');
@@ -130,6 +143,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
     setQueue({});
     setDrafts({});
     setSubmitting(false);
+    setEditingId(null);
     onClose();
   };
 
@@ -139,15 +153,18 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
     try {
       await onSubmit({
         template,
-        items: queueList.map(([, entry]) => ({
-          product_id: entry.product.id,
-          name: entry.product.name || '—',
-          sku: entry.product.sku || null,
-          ean: entry.product.ean || null,
-          price: entry.product.price ?? null,
-          qty: entry.qty,
-          size: entry.size,
-        })),
+        items: queueList.map(([, entry]) => {
+          const effective = effectiveLabelProduct(entry);
+          return {
+            product_id: entry.product.id,
+            name: effective.name || '—',
+            sku: effective.sku || null,
+            ean: effective.ean || null,
+            price: effective.price ?? null,
+            qty: entry.qty,
+            size: entry.size,
+          };
+        }),
       });
       handleClose();
     } finally {
@@ -435,9 +452,20 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                       </p>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        {queueList.map(([id, entry]) => (
-                          <div key={id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]">
-                            <span className="flex-1 min-w-0 text-[12.5px] font-bold text-on-surface truncate">{entry.product.name}</span>
+                        {queueList.map(([id, entry]) => {
+                          const edited = !!entry.overrides;
+                          const effective = effectiveLabelProduct(entry);
+                          return (
+                          <div key={id} className={cn(
+                            'flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border',
+                            edited ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.10] dark:bg-[#FFE500]/[0.06]' : 'border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]'
+                          )}>
+                            <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                              <span className="min-w-0 text-[12.5px] font-bold text-on-surface truncate">{effective.name}</span>
+                              {edited && (
+                                <span className="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#D4C000]/25 dark:bg-[#FFE500]/20 text-[#7A6A00] dark:text-[#FFE500]">Editado</span>
+                              )}
+                            </span>
 
                             <div className="flex bg-black/[0.06] dark:bg-white/[0.07] rounded-lg p-0.5 gap-0.5 flex-shrink-0">
                               <button
@@ -499,13 +527,26 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
 
                             <button
                               type="button"
+                              onClick={() => setEditingId(id)}
+                              title={edited ? 'Editar etiqueta (personalizada)' : 'Editar etiqueta'}
+                              className={cn(
+                                'relative w-[26px] h-[26px] rounded-lg flex items-center justify-center flex-shrink-0 transition-colors',
+                                edited ? 'bg-[#1A1A0E]/[0.08] dark:bg-white/[0.10] text-[#1A1A0E] dark:text-on-surface' : 'bg-black/[0.05] dark:bg-white/[0.06] text-secondary/60 hover:text-on-surface'
+                              )}
+                            >
+                              <Pencil size={13} />
+                              {edited && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-white dark:border-[#1E1E18]" />}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => removeFromQueue(id)}
                               className="w-[26px] h-[26px] rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 hover:bg-primary/20 transition-colors"
                             >
                               <X size={12} strokeWidth={2.5} />
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -535,6 +576,15 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
               </div>
             </div>
           </motion.div>
+
+          <LabelEditModal
+            isOpen={!!editingEntry}
+            product={editingEntry?.product}
+            overrides={editingEntry?.overrides}
+            onSave={overrides => { if (editingId) setEntryOverrides(editingId, overrides); }}
+            onRestore={() => { if (editingId) setEntryOverrides(editingId, {}); }}
+            onClose={() => setEditingId(null)}
+          />
         </div>
       )}
     </AnimatePresence>
