@@ -2631,11 +2631,27 @@ export default function Page() {
       setNotification({ type: 'success', message: 'Produto atualizado com sucesso!' });
       setEditStatus('success');
 
+      // Atualiza o snapshot de referência pra próxima edição (sem essa modal) comparar
+      // contra o que acabou de ser salvo, não contra o estado de antes desta gravação.
+      setOriginalProductSnapshot({
+        name: productToUpdate.name,
+        sku: productToUpdate.sku,
+        price: editPrice,
+        count: editCount,
+        location: productToUpdate.location || '',
+        ean: productToUpdate.ean || '',
+        category: productToUpdate.category || '',
+        subcategory: productToUpdate.subcategory || '',
+        brand: productToUpdate.brand || '',
+        status: productToUpdate.status || '',
+        min_stock: productToUpdate.min_stock ?? null,
+      });
+
+      fetchProducts();
+      fetchRequests();
+
       setTimeout(() => {
-        setShowEditModal(false);
         setEditStatus('idle');
-        fetchProducts();
-        fetchRequests();
         setNotification(null);
       }, 1500);
 
