@@ -550,8 +550,12 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
   const getDraft = useCallback((id: string) => drafts[id] ?? emptyDraft(), [drafts]);
 
+  // Sem clamp automático aqui — o campo precisa poder ficar vazio (qty 0,
+  // tratado como "vazio" na exibição) enquanto o usuário digita um número
+  // novo, senão nunca dá pra apagar o "1" sem antes digitar o dígito na
+  // frente dele. O mínimo de 1 é garantido no blur e ao confirmar o item.
   const setDraftQty = useCallback((id: string, qty: number) => {
-    setDrafts(prev => ({ ...prev, [id]: { ...getDraft(id), qty: Math.max(1, qty) } }));
+    setDrafts(prev => ({ ...prev, [id]: { ...getDraft(id), qty } }));
   }, [getDraft]);
 
   const setDraftSize = useCallback((id: string, size: LabelSize) => {
@@ -560,7 +564,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
   const confirmAdd = useCallback((product: any) => {
     const draft = getDraft(product.id);
-    setQueue(prev => ({ ...prev, [product.id]: { product, qty: draft.qty, size: draft.size } }));
+    setQueue(prev => ({ ...prev, [product.id]: { product, qty: Math.max(1, draft.qty), size: draft.size } }));
     setDrafts(prev => {
       const next = { ...prev };
       delete next[product.id];
@@ -997,12 +1001,15 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                               <input
                                 type="number"
                                 min={1}
-                                value={draft.qty}
+                                value={draft.qty === 0 ? '' : draft.qty}
                                 onWheel={blockWheelChange}
                                 onChange={e => {
-                                  const val = parseInt(e.target.value);
-                                  setDraftQty(product.id, val > 0 ? val : 1);
+                                  const raw = e.target.value;
+                                  if (raw === '') { setDraftQty(product.id, 0); return; }
+                                  const val = parseInt(raw);
+                                  if (!Number.isNaN(val)) setDraftQty(product.id, val);
                                 }}
+                                onBlur={() => { if (getDraft(product.id).qty < 1) setDraftQty(product.id, 1); }}
                                 className="w-11 h-[34px] border border-black/[0.14] dark:border-white/[0.14] rounded-lg text-center text-[13px] font-extrabold text-on-surface bg-transparent outline-none focus:border-primary/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <button

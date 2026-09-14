@@ -81,8 +81,12 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
 
   const getDraft = useCallback((id: string) => drafts[id] ?? emptyDraft(), [drafts]);
 
+  // Sem clamp automático aqui — o campo precisa poder ficar vazio (qty 0,
+  // tratado como "vazio" na exibição) enquanto o usuário digita um número
+  // novo, senão nunca dá pra apagar o "1" sem antes digitar o dígito na
+  // frente dele. O mínimo de 1 é garantido no blur e ao confirmar o item.
   const setDraftQty = useCallback((id: string, qty: number) => {
-    setDrafts(prev => ({ ...prev, [id]: { ...getDraft(id), qty: Math.max(1, qty) } }));
+    setDrafts(prev => ({ ...prev, [id]: { ...getDraft(id), qty } }));
   }, [getDraft]);
 
   const setDraftSize = useCallback((id: string, size: LabelSize) => {
@@ -91,7 +95,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
 
   const confirmAdd = useCallback((product: any) => {
     const draft = getDraft(product.id);
-    setQueue(prev => ({ ...prev, [product.id]: { product, qty: draft.qty, size: draft.size } }));
+    setQueue(prev => ({ ...prev, [product.id]: { product, qty: Math.max(1, draft.qty), size: draft.size } }));
     setDrafts(prev => {
       const next = { ...prev };
       delete next[product.id];
@@ -108,9 +112,10 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
   }, []);
 
   // Edição inline na Visualização — quantidade e modelo de cada item já
-  // adicionado à fila, sem precisar voltar pra Seleção.
+  // adicionado à fila, sem precisar voltar pra Seleção. Mesmo raciocínio do
+  // setDraftQty: sem clamp automático pra não travar o campo ao apagar.
   const updateQueueQty = useCallback((id: string, qty: number) => {
-    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], qty: Math.max(1, qty) } } : prev));
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], qty } } : prev));
   }, []);
 
   const updateQueueSize = useCallback((id: string, size: LabelSize) => {
@@ -331,12 +336,15 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                               <input
                                 type="number"
                                 min={1}
-                                value={draft.qty}
+                                value={draft.qty === 0 ? '' : draft.qty}
                                 onWheel={blockWheelChange}
                                 onChange={e => {
-                                  const val = parseInt(e.target.value);
-                                  setDraftQty(product.id, val > 0 ? val : 1);
+                                  const raw = e.target.value;
+                                  if (raw === '') { setDraftQty(product.id, 0); return; }
+                                  const val = parseInt(raw);
+                                  if (!Number.isNaN(val)) setDraftQty(product.id, val);
                                 }}
+                                onBlur={() => { if (getDraft(product.id).qty < 1) setDraftQty(product.id, 1); }}
                                 className="w-11 h-[34px] border border-black/[0.14] dark:border-white/[0.14] rounded-lg text-center text-[13px] font-extrabold text-on-surface bg-transparent outline-none focus:border-primary/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <button
@@ -461,7 +469,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 type="button"
-                                onClick={() => updateQueueQty(id, entry.qty - 1)}
+                                onClick={() => updateQueueQty(id, Math.max(1, entry.qty - 1))}
                                 className="w-6 h-6 rounded-md bg-black/[0.06] dark:bg-white/[0.07] text-secondary/60 flex items-center justify-center hover:text-on-surface transition-colors"
                               >
                                 <Minus size={11} strokeWidth={2.5} />
@@ -469,12 +477,15 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                               <input
                                 type="number"
                                 min={1}
-                                value={entry.qty}
+                                value={entry.qty === 0 ? '' : entry.qty}
                                 onWheel={blockWheelChange}
                                 onChange={e => {
-                                  const val = parseInt(e.target.value);
-                                  updateQueueQty(id, val > 0 ? val : 1);
+                                  const raw = e.target.value;
+                                  if (raw === '') { updateQueueQty(id, 0); return; }
+                                  const val = parseInt(raw);
+                                  if (!Number.isNaN(val)) updateQueueQty(id, val);
                                 }}
+                                onBlur={() => { if (entry.qty < 1) updateQueueQty(id, 1); }}
                                 className="w-8 h-6 text-center text-[11px] font-extrabold text-on-surface bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <button
