@@ -41,10 +41,8 @@ const HALF_LAYOUT: CellLayout = {
   preco:   { x: 28.5, y: 11.2, w: 21,  h: 10  },
 };
 
-// Quanto o nome pode subir e usar da margem livre acima dele quando precisar
-// de 2 linhas (nunca mais perto da borda/picote do que isso).
+// Respiro entre o nome e o REF logo abaixo dele.
 const NOME_GAP_MM = 0.3;
-const NOME_MIN_TOP_MM = 1.3;
 
 const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105mm)
 
@@ -118,31 +116,66 @@ function fitFontSize(text: string, maxWidth: number, maxHeight: number, weight: 
   return Math.max(1, Math.min(maxWidth * FIT_SAFETY * (probe / measured), maxHeight));
 }
 
-// Decide se o nome fica melhor numa linha só ou quebrado em 2 — compara o
-// tamanho de fonte que cada opção permitiria e escolhe a maior (mais legível).
-// Nomes curtos sempre vencem numa linha só; nomes longos, que numa linha só
-// ficariam espremidos bem pequenos, passam a quebrar em 2 linhas usando
-// também a margem livre acima do nome, sem nunca invadir o REF por baixo.
-interface NomeFit { fontSizeMm: number; yMm: number; hMm: number; twoLines: boolean }
+// Largura real do texto num tamanho de fonte específico — usado pra decidir
+// se o nome cabe numa linha só, em vez de deduzir isso indiretamente.
+function measureTextWidth(text: string, fontSize: number, weight: number | string, family: string): number {
+  if (typeof document === 'undefined' || !text) return 0;
+  if (!fitMeasureCanvas) fitMeasureCanvas = document.createElement('canvas');
+  const ctx = fitMeasureCanvas.getContext('2d');
+  if (!ctx) return 0;
+  ctx.font = `${weight} ${fontSize}px ${family}`;
+  return ctx.measureText(text).width;
+}
+
+// Quanto o REF/código de barras/R$/preço podem descer sem passar do fim da
+// etiqueta — usado pra saber o maior tamanho de fonte que o nome pode usar
+// em 2 linhas empurrando esses elementos pra baixo (em vez de encolher).
+const NOME_BOTTOM_SAFETY_MM = 0.5;
+function maxTwoLineNomeSize(layout: CellLayout): number {
+  const lowestBottom = Math.max(
+    layout.ref.y + layout.ref.h,
+    layout.barcode.y + layout.barcode.h,
+    layout.rs.y + layout.rs.h,
+    layout.preco.y + layout.preco.h,
+  );
+  const availableDown = Math.max(0, ELGIN_LABEL_H - NOME_BOTTOM_SAFETY_MM - lowestBottom);
+  const maxBlockH = layout.nome.h + availableDown;
+  return maxBlockH / (2 * 1.05);
+}
+
+// Desloca REF/código de barras/R$/preço pra baixo em `dy` mm — usado quando
+// o nome precisa de 2 linhas, preservando a distância original entre o nome
+// e o REF (que fica igual, só que mais embaixo).
+function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
+  if (dy <= 0) return layout;
+  return {
+    nome: layout.nome,
+    ref: { ...layout.ref, y: layout.ref.y + dy },
+    barcode: { ...layout.barcode, y: layout.barcode.y + dy },
+    rs: { ...layout.rs, y: layout.rs.y + dy },
+    preco: { ...layout.preco, y: layout.preco.y + dy },
+  };
+}
+
+// O nome sempre usa o mesmo tamanho de fonte (não encolhe conforme o texto
+// fica mais comprido). Se ele não couber numa linha, quebra em 2 linhas —
+// nesse mesmo tamanho — e os elementos abaixo (REF/código de barras/R$/
+// preço) descem pra abrir espaço, em vez do nome subir pra cima (a margem
+// acima dele é pequena demais pra render de verdade). Se mesmo assim
+// sobrarem mais de 2 linhas, o CSS de line-clamp corta o excedente com "…".
+interface NomeFit { fontSizeMm: number; hMm: number; twoLines: boolean; extraH: number }
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
   const w = layout.nome.w;
-  const y = layout.nome.y;
-  const refY = layout.ref.y;
-  const singleMaxH = Math.max(1, refY - y - NOME_GAP_MM);
-  const oneLineSize = fitFontSize(text, w, singleMaxH, weight, family);
-
-  const bottom = refY - NOME_GAP_MM;
-  const maxAvailableH = Math.max(singleMaxH, bottom - NOME_MIN_TOP_MM);
-  const twoLineEstimate = fitFontSize(text, w * 1.85, 9999, weight, family);
-  const heightCap = maxAvailableH / (2 * 1.05);
-  const twoLineSize = Math.max(1, Math.min(twoLineEstimate, heightCap));
-
-  if (twoLineSize > oneLineSize * 1.05) {
-    const blockH = twoLineSize * 1.05 * 2;
-    const yMm = Math.max(NOME_MIN_TOP_MM, bottom - blockH);
-    return { fontSizeMm: twoLineSize, yMm, hMm: blockH, twoLines: true };
+  const singleMaxH = Math.max(1, layout.ref.y - layout.nome.y - NOME_GAP_MM);
+  const fitsOneLine = measureTextWidth(text, singleMaxH, weight, family) <= w * FIT_SAFETY;
+  if (fitsOneLine) {
+    return { fontSizeMm: singleMaxH, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
-  return { fontSizeMm: oneLineSize, yMm: y, hMm: singleMaxH, twoLines: false };
+
+  const standardSize = maxTwoLineNomeSize(layout);
+  const blockH = standardSize * 1.05 * 2;
+  const extraH = Math.max(0, blockH - layout.nome.h);
+  return { fontSizeMm: standardSize, hMm: blockH, twoLines: true, extraH };
 }
 
 // Mesma lógica de fitNomeLayout, generalizada pra qualquer caixa (usada pela
@@ -151,7 +184,8 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
 const DESCRICAO_GAP_MM = 0.3;
 const DESCRICAO_MIN_TOP_MM = 1.6;
 const DESCRICAO_TWO_LINE_BIAS = 1.15;
-function fitDescricaoLayout(text: string, box: ElPos, nextY: number, weight: number | string, family: string): NomeFit {
+interface DescricaoFit { fontSizeMm: number; yMm: number; hMm: number; twoLines: boolean }
+function fitDescricaoLayout(text: string, box: ElPos, nextY: number, weight: number | string, family: string): DescricaoFit {
   const w = box.w;
   const y = box.y;
   const singleMaxH = Math.max(1, nextY - y - DESCRICAO_GAP_MM);
@@ -190,11 +224,12 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   const priceText = formatPriceValue(product.price ?? 0);
 
   const nomeFit = fitNomeLayout(nomeText, layout, 800, 'DM Sans, sans-serif');
-  const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
-  const refSize = fitFontSize(refText, layout.ref.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
-  const rsSize = fitFontSize('R$', layout.rs.w * PREVIEW_PX_PER_MM, layout.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
-  const precoSize = fitFontSize(priceText, layout.preco.w * PREVIEW_PX_PER_MM, layout.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
-  const bcNumSize = code ? fitFontSize(code, layout.barcode.w * PREVIEW_PX_PER_MM, layout.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const nomeBox: ElPos = { x: layout.nome.x, y: layout.nome.y, w: layout.nome.w, h: nomeFit.hMm };
+  const shifted = shiftLayoutDown(layout, nomeFit.extraH);
+  const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
+  const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const precoSize = fitFontSize(priceText, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
+  const bcNumSize = code ? fitFontSize(code, shifted.barcode.w * PREVIEW_PX_PER_MM, shifted.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
 
   return (
     <>
@@ -206,10 +241,10 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
       })}>
         {nomeText}
       </div>
-      <div style={box(layout.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
+      <div style={box(shifted.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
         {refText}
       </div>
-      <div style={box(layout.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
+      <div style={box(shifted.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
         <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
         {code && (
           <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: bcNumSize, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
@@ -217,8 +252,8 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
           </div>
         )}
       </div>
-      <div style={box(layout.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
-      <div style={box(layout.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
+      <div style={box(shifted.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
+      <div style={box(shifted.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
         {priceText}
       </div>
     </>
@@ -542,27 +577,29 @@ export function LabelPrintModal({ isOpen, onClose, products }: LabelPrintModalPr
     const refText = `REF ${productRef(product)}`;
     const priceText = formatPriceValue(product.price ?? 0);
 
-    // Nome cabe numa linha se der; senão quebra em 2 linhas e sobe pra usar a
-    // margem livre acima dele, sem nunca invadir o REF por baixo.
+    // Nome cabe numa linha se der, sempre no mesmo tamanho de fonte; senão
+    // quebra em 2 linhas nesse mesmo tamanho e os elementos abaixo (REF/
+    // código de barras/R$/preço) descem pra abrir espaço.
     const nomeFit = fitNomeLayout(nomeText, layout, 800, 'Arial, Helvetica, sans-serif');
-    const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
+    const shifted = shiftLayoutDown(layout, nomeFit.extraH);
+    const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${layout.nome.y.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
     const nomeWrapStyle = nomeFit.twoLines
       ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
       : '';
-    const refSize = fitFontSize(refText, layout.ref.w, layout.ref.h, 900, "'Courier New', monospace");
-    const rsSize = fitFontSize('R$', layout.rs.w, layout.rs.h, 800, 'Arial, Helvetica, sans-serif');
-    const precoSize = fitFontSize(priceText, layout.preco.w, layout.preco.h, 800, 'Arial, Helvetica, sans-serif');
-    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
+    const refSize = fitFontSize(refText, shifted.ref.w, shifted.ref.h, 900, "'Courier New', monospace");
+    const rsSize = fitFontSize('R$', shifted.rs.w, shifted.rs.h, 800, 'Arial, Helvetica, sans-serif');
+    const precoSize = fitFontSize(priceText, shifted.preco.w, shifted.preco.h, 800, 'Arial, Helvetica, sans-serif');
+    const bcNumSize = code ? fitFontSize(code, shifted.barcode.w, shifted.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
 
     return `
       <div class="cell-el nome" style="${nomeBoxStyle} font-size:${nomeFit.fontSizeMm.toFixed(2)}mm; ${nomeWrapStyle}">${escapeHtml(nomeText)}</div>
-      <div class="cell-el ref" style="${boxStyle(layout.ref)} font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
-      <div class="cell-el barcode" style="${boxStyle(layout.barcode)}">
+      <div class="cell-el ref" style="${boxStyle(shifted.ref)} font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
+      <div class="cell-el barcode" style="${boxStyle(shifted.barcode)}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
         ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
       </div>
-      <div class="cell-el rs" style="${boxStyle(layout.rs)} font-size:${rsSize.toFixed(2)}mm;">R$</div>
-      <div class="cell-el preco" style="${boxStyle(layout.preco)} font-size:${precoSize.toFixed(2)}mm;">${escapeHtml(priceText)}</div>
+      <div class="cell-el rs" style="${boxStyle(shifted.rs)} font-size:${rsSize.toFixed(2)}mm;">R$</div>
+      <div class="cell-el preco" style="${boxStyle(shifted.preco)} font-size:${precoSize.toFixed(2)}mm;">${escapeHtml(priceText)}</div>
     `;
   };
 
