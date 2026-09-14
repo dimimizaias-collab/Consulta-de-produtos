@@ -19,6 +19,7 @@ interface ProductCardProps {
   category?: string;
   subcategory?: string;
   brand?: string;
+  manufacturer_id?: string | null;
   isLow?: boolean;
   hasMotherPackages?: boolean;
   onEdit?: (product: any) => void;
@@ -54,9 +55,9 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
 
 export const ProductCard = memo(function ProductCard({
   id, sku, name, image, status, count, location, price, ean,
-  category, subcategory, brand, isLow, hasMotherPackages, onEdit, onViewMotherPackages,
+  category, subcategory, brand, manufacturer_id, isLow, hasMotherPackages, onEdit, onViewMotherPackages,
 }: ProductCardProps) {
-  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, isLow };
+  const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, manufacturer_id, isLow };
 
   const categoryChain = [category, subcategory].filter(Boolean).join(' › ');
   const subtitleParts = [ean, brand, categoryChain].filter(Boolean);
