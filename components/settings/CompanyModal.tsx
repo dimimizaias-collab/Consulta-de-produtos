@@ -12,6 +12,15 @@ export interface Company {
   cnpj: string;
   address: string;
   logo: string | null;
+  ie: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  municipio: string | null;
+  municipio_ibge: string | null;
+  uf: string | null;
 }
 
 interface CompanyModalProps {
@@ -32,7 +41,10 @@ function formatCnpj(value: string) {
     .slice(0, 18);
 }
 
-const emptyForm = { razao_social: '', nome_fantasia: '', cnpj: '', address: '', logo: '' };
+const emptyForm = {
+  razao_social: '', nome_fantasia: '', cnpj: '', address: '', logo: '',
+  ie: '', cep: '', logradouro: '', numero: '', complemento: '', bairro: '', municipio: '', municipio_ibge: '', uf: '',
+};
 
 export function CompanyModal({ open, company, onClose, onSaved, onDeleted }: CompanyModalProps) {
   const [form, setForm] = useState(emptyForm);
@@ -50,6 +62,15 @@ export function CompanyModal({ open, company, onClose, onSaved, onDeleted }: Com
         cnpj: company.cnpj,
         address: company.address,
         logo: company.logo || '',
+        ie: company.ie || '',
+        cep: company.cep || '',
+        logradouro: company.logradouro || '',
+        numero: company.numero || '',
+        complemento: company.complemento || '',
+        bairro: company.bairro || '',
+        municipio: company.municipio || '',
+        municipio_ibge: company.municipio_ibge || '',
+        uf: company.uf || '',
       } : emptyForm);
       setConfirmDelete(false);
     }
@@ -191,6 +212,108 @@ export function CompanyModal({ open, company, onClose, onSaved, onDeleted }: Com
               rows={2}
               className={cn(field, 'resize-none')}
             />
+          </div>
+
+          <SectionTitle>Dados Fiscais</SectionTitle>
+          <p className="text-[11px] font-medium text-on-surface/40 -mt-2">
+            Opcional — só necessário para gerar XML de NFe (ex: transferência entre lojas na Distribuição).
+          </p>
+          <div>
+            <FieldLabel icon={<Hash size={11} />}>Inscrição Estadual</FieldLabel>
+            <input
+              type="text"
+              value={form.ie}
+              onChange={e => setForm(prev => ({ ...prev, ie: e.target.value }))}
+              placeholder="000.000.000.000"
+              className={field}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <FieldLabel>CEP</FieldLabel>
+              <input
+                type="text"
+                value={form.cep}
+                onChange={e => setForm(prev => ({ ...prev, cep: e.target.value }))}
+                placeholder="00000-000"
+                className={field}
+              />
+            </div>
+            <div>
+              <FieldLabel>UF</FieldLabel>
+              <input
+                type="text"
+                value={form.uf}
+                onChange={e => setForm(prev => ({ ...prev, uf: e.target.value.toUpperCase().slice(0, 2) }))}
+                placeholder="SP"
+                maxLength={2}
+                className={field}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2.5">
+            <div>
+              <FieldLabel>Logradouro</FieldLabel>
+              <input
+                type="text"
+                value={form.logradouro}
+                onChange={e => setForm(prev => ({ ...prev, logradouro: e.target.value }))}
+                placeholder="Rua/Av."
+                className={field}
+              />
+            </div>
+            <div className="w-24">
+              <FieldLabel>Número</FieldLabel>
+              <input
+                type="text"
+                value={form.numero}
+                onChange={e => setForm(prev => ({ ...prev, numero: e.target.value }))}
+                placeholder="123"
+                className={field}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <FieldLabel>Bairro</FieldLabel>
+              <input
+                type="text"
+                value={form.bairro}
+                onChange={e => setForm(prev => ({ ...prev, bairro: e.target.value }))}
+                className={field}
+              />
+            </div>
+            <div>
+              <FieldLabel>Complemento</FieldLabel>
+              <input
+                type="text"
+                value={form.complemento}
+                onChange={e => setForm(prev => ({ ...prev, complemento: e.target.value }))}
+                className={field}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2.5">
+            <div>
+              <FieldLabel>Município</FieldLabel>
+              <input
+                type="text"
+                value={form.municipio}
+                onChange={e => setForm(prev => ({ ...prev, municipio: e.target.value }))}
+                className={field}
+              />
+            </div>
+            <div className="w-32">
+              <FieldLabel icon={<Hash size={11} />}>Cód. IBGE</FieldLabel>
+              <input
+                type="text"
+                value={form.municipio_ibge}
+                onChange={e => setForm(prev => ({ ...prev, municipio_ibge: e.target.value.replace(/\D/g, '').slice(0, 7) }))}
+                placeholder="3550308"
+                title="Código IBGE do município (7 dígitos) — consulte em ibge.gov.br/explica/codigos-dos-municipios.php"
+                className={cn(field, 'font-mono')}
+              />
+            </div>
           </div>
         </div>
 

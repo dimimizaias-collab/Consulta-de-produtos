@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, Ban, Plus } from 'lucide-react';
+import { Package, X, CheckCircle2, RefreshCw, Search, Zap, AlertTriangle, Trash2, Pencil, Info, ArrowDown, ArrowUp, Check, Download, FileText, FileCode2, Ban, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,36 @@ import autoTable from 'jspdf-autotable';
 const MANIFEST_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Código IBGE da UF (tag <cUF> da NFe) — necessário no cabeçalho e para decidir
+// CFOP 5152 (mesma UF) vs 6152 (UF diferente) na transferência entre lojas.
+const UF_TO_CUF: Record<string, string> = {
+  AC: '12', AL: '27', AM: '13', AP: '16', BA: '29', CE: '23', DF: '53', ES: '32', GO: '52',
+  MA: '21', MG: '31', MS: '50', MT: '51', PA: '15', PB: '25', PE: '26', PI: '22', PR: '41',
+  RJ: '33', RN: '24', RO: '11', RR: '14', RS: '43', SC: '42', SE: '28', SP: '35', TO: '17',
+};
+
+const escapeXml = (s: string | null | undefined) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+const onlyDigits = (s: string | null | undefined) => (s || '').replace(/\D/g, '');
+
+interface CompanyFiscalData {
+  id: string;
+  razao_social: string;
+  nome_fantasia: string;
+  cnpj: string;
+  ie: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  municipio: string | null;
+  municipio_ibge: string | null;
+  uf: string | null;
+}
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -134,6 +164,8 @@ export function DistributionManifestModal({
   const [approving, setApproving] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [xmlModalOpen, setXmlModalOpen] = useState(false);
+  const [generatingXml, setGeneratingXml] = useState(false);
 
   // Modal de Falta/Sobra — mesmo fluxo do modal de divergência da nota (app/page.tsx),
   // acionado pelo botão na coluna Qtd. Env. da tabela de itens.
@@ -646,6 +678,233 @@ export function DistributionManifestModal({
     }
   };
 
+  // Gera um XML que emula uma NFe de transferência entre as duas lojas do manifesto —
+  // emitente = loja origem, destinatário = loja destino, itens = exatamente o que foi
+  // ENVIADO neste manifesto (Qtd. Env., preço de custo da origem), não a quantidade
+  // recebida/corrigida depois. NÃO é um documento fiscal autorizado (sem assinatura, sem
+  // protocolo da SEFAZ, chave de acesso zerada) — serve só para importar no PDV da loja
+  // destino como registro da entrada. CFOP e tributação (CSOSN 400 do Simples Nacional)
+  // usam um padrão de "transferência entre estabelecimentos"; confirme com o contador
+  // antes de usar isso como se fosse uma nota fiscal de verdade.
+  const generateDistributionXml = async () => {
+    if (!originCompanyId || !destinationCompanyId) return;
+    setGeneratingXml(true);
+    try {
+      const { data: companyRows, error: companyErr } = await supabase
+        .from('companies')
+        .select('id, razao_social, nome_fantasia, cnpj, ie, cep, logradouro, numero, complemento, bairro, municipio, municipio_ibge, uf')
+        .in('id', [originCompanyId, destinationCompanyId]);
+      if (companyErr) throw companyErr;
+      const origin = (companyRows || []).find((c: any) => c.id === originCompanyId) as CompanyFiscalData | undefined;
+      const dest = (companyRows || []).find((c: any) => c.id === destinationCompanyId) as CompanyFiscalData | undefined;
+      if (!origin || !dest) throw new Error('Não foi possível carregar os dados das empresas.');
+
+      const missingFieldsFor = (c: CompanyFiscalData, label: string) => {
+        const missing: string[] = [];
+        if (!c.cnpj) missing.push('CNPJ');
+        if (!c.ie) missing.push('Inscrição Estadual');
+        if (!c.logradouro) missing.push('Logradouro');
+        if (!c.numero) missing.push('Número');
+        if (!c.bairro) missing.push('Bairro');
+        if (!c.municipio) missing.push('Município');
+        if (!c.municipio_ibge) missing.push('Código IBGE do Município');
+        if (!c.uf || !UF_TO_CUF[c.uf]) missing.push('UF');
+        if (!c.cep) missing.push('CEP');
+        return missing.length > 0 ? `${label} (${c.nome_fantasia}): ${missing.join(', ')}` : null;
+      };
+      const missingMsgs = [missingFieldsFor(origin, 'Loja Origem'), missingFieldsFor(dest, 'Loja Destino')].filter(Boolean);
+      if (missingMsgs.length > 0) {
+        throw new Error(`Complete os dados fiscais em Configurações > Empresas antes de gerar o XML — ${missingMsgs.join(' | ')}.`);
+      }
+
+      const productIds = Array.from(new Set(items.map(it => it.productId)));
+      const { data: productsData } = await supabase.from('products').select('id, ncm').in('id', productIds);
+      const ncmByProduct = new Map<string, string | null>((productsData || []).map((p: any) => [p.id, p.ncm]));
+      const missingNcm = items.filter(it => !ncmByProduct.get(it.productId));
+      if (missingNcm.length > 0) {
+        const names = missingNcm.slice(0, 5).map(it => it.productName).join(', ');
+        const rest = missingNcm.length > 5 ? ` e mais ${missingNcm.length - 5}` : '';
+        throw new Error(`Preencha o NCM destes produtos antes de gerar o XML (Estoque > editar produto): ${names}${rest}.`);
+      }
+
+      // Número da NFe simulada — sequência global dedicada (get_next_distribution_manifest_nfe_number),
+      // gravada uma única vez no manifesto. Não reaproveita manifest_number: o formato
+      // "Fornecedor NN" reinicia a contagem por fornecedor e não é único globalmente.
+      let nfeNumber: number;
+      const { data: manifestRow } = await supabase.from('distribution_manifests').select('nfe_number').eq('id', manifest.id).maybeSingle();
+      if (manifestRow?.nfe_number) {
+        nfeNumber = manifestRow.nfe_number;
+      } else {
+        const { data: nextNum, error: seqErr } = await supabase.rpc('get_next_distribution_manifest_nfe_number');
+        if (seqErr || !nextNum) throw new Error('Não foi possível gerar o número da NFe.');
+        nfeNumber = nextNum;
+        await supabase.from('distribution_manifests').update({ nfe_number: nfeNumber }).eq('id', manifest.id);
+      }
+
+      const sameUf = origin.uf === dest.uf;
+      const cfop = sameUf ? '5152' : '6152';
+      const cUF = UF_TO_CUF[origin.uf as string];
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      // Horário de Brasília fixo (-03:00) — o Brasil não observa mais horário de verão desde 2019.
+      const dhEmit = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}-03:00`;
+
+      const enderBlock = (c: CompanyFiscalData, tag: 'enderEmit' | 'enderDest') => `      <${tag}>
+        <xLgr>${escapeXml(c.logradouro)}</xLgr>
+        <nro>${escapeXml(c.numero)}</nro>${c.complemento ? `\n        <xCpl>${escapeXml(c.complemento)}</xCpl>` : ''}
+        <xBairro>${escapeXml(c.bairro)}</xBairro>
+        <cMun>${escapeXml(c.municipio_ibge)}</cMun>
+        <xMun>${escapeXml(c.municipio)}</xMun>
+        <UF>${escapeXml(c.uf)}</UF>
+        <CEP>${onlyDigits(c.cep)}</CEP>
+        <cPais>1058</cPais>
+        <xPais>Brasil</xPais>
+      </${tag}>`;
+
+      let vProdTotal = 0;
+      const detXml = items.map((it, idx) => {
+        const ncm = ncmByProduct.get(it.productId) || '';
+        const vProd = it.qty * it.costPrice;
+        vProdTotal += vProd;
+        const ean = it.ean || 'SEM GTIN';
+        const unit = it.measure || 'UN';
+        return `    <det nItem="${idx + 1}">
+      <prod>
+        <cProd>${escapeXml(it.sku || it.productId)}</cProd>
+        <cEAN>${escapeXml(ean)}</cEAN>
+        <xProd>${escapeXml(it.productName)}</xProd>
+        <NCM>${escapeXml(ncm)}</NCM>
+        <CFOP>${cfop}</CFOP>
+        <uCom>${escapeXml(unit)}</uCom>
+        <qCom>${it.qty.toFixed(4)}</qCom>
+        <vUnCom>${it.costPrice.toFixed(10)}</vUnCom>
+        <vProd>${vProd.toFixed(2)}</vProd>
+        <cEANTrib>${escapeXml(ean)}</cEANTrib>
+        <uTrib>${escapeXml(unit)}</uTrib>
+        <qTrib>${it.qty.toFixed(4)}</qTrib>
+        <vUnTrib>${it.costPrice.toFixed(10)}</vUnTrib>
+        <indTot>1</indTot>
+      </prod>
+      <imposto>
+        <ICMS>
+          <ICMSSN400>
+            <orig>0</orig>
+            <CSOSN>400</CSOSN>
+          </ICMSSN400>
+        </ICMS>
+        <PIS>
+          <PISOutr>
+            <CST>49</CST>
+            <vBC>0.00</vBC>
+            <pPIS>0.0000</pPIS>
+            <vPIS>0.00</vPIS>
+          </PISOutr>
+        </PIS>
+        <COFINS>
+          <COFINSOutr>
+            <CST>49</CST>
+            <vBC>0.00</vBC>
+            <pCOFINS>0.0000</pCOFINS>
+            <vCOFINS>0.00</vCOFINS>
+          </COFINSOutr>
+        </COFINS>
+      </imposto>
+    </det>`;
+      }).join('\n');
+
+      // Chave de acesso zerada de propósito (não foi autorizada pela SEFAZ) — cDV
+      // também zerado para bater com o último dígito da chave. tpAmb=2 (homologação)
+      // reforça que este não é um documento de produção/autorizado de verdade.
+      const chaveZerada = '0'.repeat(44);
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe${chaveZerada}" versao="4.00">
+    <ide>
+      <cUF>${cUF}</cUF>
+      <cNF>00000000</cNF>
+      <natOp>Transferencia de mercadorias entre estabelecimentos</natOp>
+      <mod>55</mod>
+      <serie>900</serie>
+      <nNF>${nfeNumber}</nNF>
+      <dhEmit>${dhEmit}</dhEmit>
+      <tpNF>1</tpNF>
+      <idDest>${sameUf ? '1' : '2'}</idDest>
+      <cMunFG>${escapeXml(origin.municipio_ibge)}</cMunFG>
+      <tpImp>1</tpImp>
+      <tpEmis>1</tpEmis>
+      <cDV>0</cDV>
+      <tpAmb>2</tpAmb>
+      <finNFe>1</finNFe>
+      <indFinal>0</indFinal>
+      <indPres>9</indPres>
+      <procEmi>0</procEmi>
+      <verProc>1.0</verProc>
+    </ide>
+    <emit>
+      <CNPJ>${onlyDigits(origin.cnpj)}</CNPJ>
+      <xNome>${escapeXml(origin.razao_social)}</xNome>
+      <xFant>${escapeXml(origin.nome_fantasia)}</xFant>
+${enderBlock(origin, 'enderEmit')}
+      <IE>${onlyDigits(origin.ie)}</IE>
+      <CRT>1</CRT>
+    </emit>
+    <dest>
+      <CNPJ>${onlyDigits(dest.cnpj)}</CNPJ>
+      <xNome>${escapeXml(dest.razao_social)}</xNome>
+${enderBlock(dest, 'enderDest')}
+      <indIEDest>1</indIEDest>
+      <IE>${onlyDigits(dest.ie)}</IE>
+    </dest>
+${detXml}
+    <total>
+      <ICMSTot>
+        <vBC>0.00</vBC>
+        <vICMS>0.00</vICMS>
+        <vICMSDeson>0.00</vICMSDeson>
+        <vFCP>0.00</vFCP>
+        <vBCST>0.00</vBCST>
+        <vST>0.00</vST>
+        <vFCPST>0.00</vFCPST>
+        <vFCPSTRet>0.00</vFCPSTRet>
+        <vProd>${vProdTotal.toFixed(2)}</vProd>
+        <vFrete>0.00</vFrete>
+        <vSeg>0.00</vSeg>
+        <vDesc>0.00</vDesc>
+        <vII>0.00</vII>
+        <vIPI>0.00</vIPI>
+        <vIPIDevol>0.00</vIPIDevol>
+        <vPIS>0.00</vPIS>
+        <vCOFINS>0.00</vCOFINS>
+        <vOutro>0.00</vOutro>
+        <vNF>${vProdTotal.toFixed(2)}</vNF>
+      </ICMSTot>
+    </total>
+    <transp>
+      <modFrete>9</modFrete>
+    </transp>
+    <infAdic>
+      <infCpl>DOCUMENTO SEM VALOR FISCAL - gerado internamente para simular NFe de transferencia entre lojas a partir do manifesto de distribuicao ${escapeXml(manifest.manifestNumber)}. Nao foi autorizado pela SEFAZ.</infCpl>
+    </infAdic>
+  </infNFe>
+</NFe>`;
+
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Distribuicao_${manifest.manifestNumber}_NFe.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setXmlModalOpen(false);
+      setNotification({ type: 'success', message: 'XML gerado — lembre-se: não é um documento fiscal autorizado pela SEFAZ.' });
+    } catch (err: any) {
+      console.error('Erro ao gerar XML de distribuição:', err);
+      setNotification({ type: 'error', message: err.message || 'Erro ao gerar XML.' });
+    } finally {
+      setGeneratingXml(false);
+    }
+  };
+
   // Confirmar recebimento — trava definitivamente o manifesto e lança a quantidade recebida
   // (ou a enviada, se a loja destino não corrigiu) no estoque da Empresa Destino. É a "fase
   // futura" que distribuicao.sql deixou em aberto: até aqui, product_company_stock.count
@@ -826,6 +1085,15 @@ export function DistributionManifestModal({
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-on-surface/[0.06] border border-on-surface/10 text-on-surface/45 hover:bg-on-surface/[0.1] transition-colors"
               >
                 <FileText size={16} />
+              </button>
+            )}
+            {!editable && items.length > 0 && destinationCompanyId && (
+              <button
+                onClick={() => setXmlModalOpen(true)}
+                title="Baixar XML (simula NFe de transferência)"
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/15 text-violet-500 hover:bg-violet-500/18 transition-colors"
+              >
+                <FileCode2 size={16} />
               </button>
             )}
             <button
@@ -1789,6 +2057,60 @@ export function DistributionManifestModal({
                   >
                     <Download size={13} />
                     {generatingPdf ? 'Gerando…' : 'Baixar PDF'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Baixar XML de transferência (emula NFe, emitente = loja origem) */}
+        <AnimatePresence>
+          {xmlModalOpen && (
+            <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-[400px] mx-4 bg-white dark:bg-[#252520] border border-line dark:border-white/[0.08] rounded-[22px] shadow-2xl p-8 pb-7 text-center"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-violet-500/10 text-violet-500 flex items-center justify-center mx-auto mb-4">
+                  <FileCode2 size={26} />
+                </div>
+                <div className="text-[15px] font-black text-on-surface mb-1.5">Baixar XML de transferência</div>
+                <p className="text-[12px] font-bold text-on-surface/55 mb-4 leading-relaxed">
+                  Gera um XML no formato de NFe com a loja origem como emitente e as quantidades enviadas neste manifesto, para importar no PDV da loja destino.
+                </p>
+                <div className="text-left text-[11px] font-semibold leading-relaxed text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3.5 py-3 mb-5 flex items-start gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <span>Não é um documento fiscal autorizado pela SEFAZ (sem assinatura, sem protocolo, chave zerada) — só para uso interno entre as lojas. Confirme com o contador antes de tratar isso como NFe de verdade.</span>
+                </div>
+                <div className="text-left space-y-1.5 mb-5 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-xl px-3.5 py-3">
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Emitente</span>
+                    <span className="font-black text-on-surface truncate ml-2">{companies.find(c => c.id === originCompanyId)?.nome_fantasia || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Destinatário</span>
+                    <span className="font-black text-on-surface truncate ml-2">{companies.find(c => c.id === destinationCompanyId)?.nome_fantasia || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-on-surface/50">Itens</span>
+                    <span className="font-black text-on-surface">{items.length}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setXmlModalOpen(false)} className="flex-1 h-10 rounded-xl border-[1.5px] border-on-surface/15 text-on-surface/55 text-[12.5px] font-bold hover:bg-on-surface/[0.04] transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={generateDistributionXml}
+                    disabled={generatingXml}
+                    className="flex-1 h-10 rounded-xl bg-violet-500 text-white text-[12.5px] font-black flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-60"
+                  >
+                    <Download size={13} />
+                    {generatingXml ? 'Gerando…' : 'Baixar XML'}
                   </button>
                 </div>
               </motion.div>

@@ -2609,6 +2609,7 @@ export default function Page() {
         ...(isPrimaryCompanySelected ? { count: editCount, price: editPrice } : {}),
         location: editingProduct.location,
         ean: editingProduct.ean || '',
+        ncm: editingProduct.ncm || null,
         category: editingProduct.category || '',
         subcategory: editingProduct.subcategory || '',
         brand: editedManufacturer?.name || '',
@@ -6162,6 +6163,11 @@ export default function Page() {
                             <span className={rowLabelCls}>EAN</span>
                             <span className={cn(rowValueCls, 'font-mono tracking-wide', !editingProduct.ean && 'text-secondary/35 font-semibold')}>{editingProduct.ean || 'Não definido'}</span>
                           </div>
+                          <div className={rowCls}>
+                            <div className={rowIconCls}><Hash size={12} /></div>
+                            <span className={rowLabelCls}>NCM</span>
+                            <span className={cn(rowValueCls, 'font-mono tracking-wide', !editingProduct.ncm && 'text-secondary/35 font-semibold')}>{editingProduct.ncm || 'Não definido'}</span>
+                          </div>
                         </>
                       ) : (
                         <>
@@ -6207,6 +6213,17 @@ export default function Page() {
                               />
                               <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
                             </div>
+                          </div>
+                          <div className={fieldRowCls}>
+                            <label className={fieldLabelCls}>NCM</label>
+                            <input
+                              type="text"
+                              value={editingProduct.ncm || ''}
+                              onChange={(e) => setEditingProduct({...editingProduct, ncm: e.target.value.replace(/\D/g, '').slice(0, 8)})}
+                              className={cn(inputCls, 'font-mono')}
+                              placeholder="00000000"
+                              title="Código fiscal do produto (8 dígitos) — necessário para gerar XML de NFe válido"
+                            />
                           </div>
                         </>
                       )}
