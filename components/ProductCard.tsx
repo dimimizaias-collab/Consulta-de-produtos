@@ -4,7 +4,7 @@ import { useState, useMemo, memo } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn, getDirectImageUrl } from '@/lib/utils';
-import { Edit2, Tag, Package, MapPin, Hash, Barcode, ImageOff, LayoutGrid } from 'lucide-react';
+import { Edit2, Printer, Tag, Package, MapPin, Hash, Barcode, ImageOff, LayoutGrid } from 'lucide-react';
 
 interface ProductCardProps {
   id?: string;
@@ -24,6 +24,7 @@ interface ProductCardProps {
   hasMotherPackages?: boolean;
   onEdit?: (product: any) => void;
   onViewMotherPackages?: (product: any) => void;
+  onSendToPrintQueue?: (product: any) => void;
 }
 
 function ProductImage({ src, alt }: { src: string; alt: string }) {
@@ -55,7 +56,7 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
 
 export const ProductCard = memo(function ProductCard({
   id, sku, name, image, status, count, location, price, ean,
-  category, subcategory, brand, manufacturer_id, isLow, hasMotherPackages, onEdit, onViewMotherPackages,
+  category, subcategory, brand, manufacturer_id, isLow, hasMotherPackages, onEdit, onViewMotherPackages, onSendToPrintQueue,
 }: ProductCardProps) {
   const product = { id, sku, name, image, status, count, location, price, ean, category, subcategory, brand, manufacturer_id, isLow };
 
@@ -125,6 +126,17 @@ export const ProductCard = memo(function ProductCard({
             title="Produto Filho — tem embalagem(ns) Produto Mãe cadastrada(s). Ao escanear a caixa, o estoque deste produto é atualizado."
           >
             <Package size={11} />
+          </button>
+        )}
+
+        {/* Send to print queue button */}
+        {onSendToPrintQueue && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSendToPrintQueue?.(product); }}
+            className="absolute top-3.5 right-[52px] w-[30px] h-[30px] rounded-full bg-on-surface/[0.07] border-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,background-color] hover:bg-primary z-10"
+            title="Enviar para fila de impressão"
+          >
+            <Printer size={13} className="text-on-surface/55 group-hover:text-white transition-colors" strokeWidth={2} />
           </button>
         )}
 

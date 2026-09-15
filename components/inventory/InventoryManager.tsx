@@ -47,6 +47,10 @@ interface InventoryManagerProps {
   onEdit: (product: any) => void;
   motherChildProductIds?: Set<string>;
   onViewMotherPackages?: (product: any) => void;
+  // Botão de impressora nos cards — manda o produto pra dentro de uma
+  // requisição pendente de impressão (Requisições), acumulando com outros
+  // produtos já enviados até alguém imprimir aquele pedido.
+  onSendToPrintQueue?: (product: any) => void;
   onStockUpdate: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenMobileBulkTable: () => void;
   stockFileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -75,6 +79,7 @@ export function InventoryManager({
   onEdit,
   motherChildProductIds,
   onViewMotherPackages,
+  onSendToPrintQueue,
   onStockUpdate,
   onOpenMobileBulkTable,
   stockFileInputRef,
@@ -649,6 +654,7 @@ export function InventoryManager({
                       onEdit={onEdit}
                       hasMotherPackages={!!(product.id && motherChildProductIds?.has(product.id))}
                       onViewMotherPackages={onViewMotherPackages}
+                      onSendToPrintQueue={onSendToPrintQueue}
                     />
                   </div>
                 );

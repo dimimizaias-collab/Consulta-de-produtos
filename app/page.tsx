@@ -26,7 +26,7 @@ import { MobileNoteView, type EanVariant } from '@/components/MobileNoteView';
 import { MobileBulkTable } from '@/components/inventory/MobileBulkTable';
 import { MobileTypeModal } from '@/components/tasks/MobileTypeModal';
 import { MobileTaskPage, type TaskDraft } from '@/components/tasks/MobileTaskPage';
-import { FilaImpressaoModal, type PrintQueueSubmission } from '@/components/inventory/FilaImpressaoModal';
+import { FilaImpressaoModal, type PrintQueueSubmission, type PrintQueueItem } from '@/components/inventory/FilaImpressaoModal';
 import { EanProblemButton, type EanProblem } from '@/components/shared/EanProblemButton';
 import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesEditor';
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
@@ -35,7 +35,7 @@ import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturer
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign } from 'lucide-react';
+  ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign, Printer } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -959,6 +959,7 @@ export default function Page() {
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [showRequestConfirmModal, setShowRequestConfirmModal] = useState<{ show: boolean, requestId: string | null }>({ show: false, requestId: null });
+  const [productToSendPrintQueue, setProductToSendPrintQueue] = useState<any | null>(null);
   const [isNewRequest, setIsNewRequest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -1678,6 +1679,64 @@ export default function Page() {
     if (error) throw error;
     await fetchRequests();
     setNotification({ type: 'success', message: 'Pedido de impressão salvo!' });
+  };
+
+  // Botão de impressora no card do produto (Inventory) — manda o produto pra
+  // dentro de uma requisição de impressão pendente. Se já existir uma fila
+  // pendente (enviada por qualquer usuário), o produto entra nela — todos os
+  // produtos enviados ficam juntos até alguém imprimir aquele pedido; senão
+  // cria uma nova requisição só com esse produto.
+  const handleSendProductToPrintQueue = async (product: any) => {
+    const existing = requests.find(r => {
+      if (r.status !== 'pending') return false;
+      try {
+        return !!JSON.parse(r.requested_changes || '{}').is_print_queue;
+      } catch { return false; }
+    });
+
+    const newItem: PrintQueueItem = {
+      product_id: product.id,
+      name: product.name || '—',
+      sku: product.sku || null,
+      ean: product.ean || null,
+      price: product.price ?? null,
+      qty: 1,
+      size: 'full',
+    };
+
+    if (existing) {
+      const changes = JSON.parse(existing.requested_changes);
+      const items: PrintQueueItem[] = changes.items || [];
+      const idx = items.findIndex((it: any) => it.product_id === product.id);
+      const nextItems = idx >= 0
+        ? items.map((it: any, i: number) => (i === idx ? { ...it, qty: (it.qty || 0) + 1 } : it))
+        : [...items, newItem];
+      const { error } = await supabase.from('requests')
+        .update({
+          requested_changes: JSON.stringify({
+            ...changes,
+            items: nextItems,
+            count: nextItems.reduce((acc: number, it: any) => acc + (it.qty || 0), 0),
+          }),
+        })
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('requests').insert([{
+        product_id: null,
+        requested_changes: JSON.stringify({
+          is_print_queue: true,
+          template: 'gondola',
+          items: [newItem],
+          count: 1,
+        }),
+        status: 'pending',
+      }]);
+      if (error) throw error;
+    }
+
+    await fetchRequests();
+    setNotification({ type: 'success', message: 'Produto enviado para a fila de impressão!' });
   };
 
   const handleSaveReviewProgress = async (rows: any[]) => {
@@ -5651,6 +5710,7 @@ export default function Page() {
                   onEdit={openEditModal}
                   motherChildProductIds={motherChildProductIds}
                   onViewMotherPackages={(product) => openEditModal(product, 'mae')}
+                  onSendToPrintQueue={(product) => setProductToSendPrintQueue(product)}
                   onStockUpdate={handleStockUpdate}
                   onOpenMobileBulkTable={() => setShowMobileTypeModal(true)}
                   stockFileInputRef={stockFileInputRef}
@@ -7448,6 +7508,54 @@ export default function Page() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Send to Print Queue Confirmation Modal */}
+      <AnimatePresence>
+        {productToSendPrintQueue && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProductToSendPrintQueue(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white dark:bg-[#252520] rounded-2xl shadow-2xl p-6 text-center"
+            >
+              <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <Printer size={32} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-on-surface mb-2">Enviar para Impressão</h3>
+              <p className="text-sm text-slate-500 dark:text-on-surface/60 mb-6 font-medium">
+                Enviar <span className="font-bold">{productToSendPrintQueue.name}</span> para a fila de impressão em Requisições?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setProductToSendPrintQueue(null)}
+                  className="flex-1 bg-slate-100 dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-white/[0.11] transition-colors"
+                >
+                  Não
+                </button>
+                <button
+                  onClick={async () => {
+                    const product = productToSendPrintQueue;
+                    setProductToSendPrintQueue(null);
+                    await handleSendProductToPrintQueue(product);
+                  }}
+                  className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
+                >
+                  Sim
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showAddModal && (() => {
           const sectionLabelCls = 'flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mx-1 mb-2';
