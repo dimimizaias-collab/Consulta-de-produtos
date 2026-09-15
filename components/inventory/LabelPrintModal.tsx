@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Tag, Printer, Plus, Minus, ChevronDown, Check, Pencil } from 'lucide-react';
+import { X, Search, Tag, Printer, Plus, Minus, ChevronDown, Check, Pencil, Send, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
 import { LabelEditModal } from './LabelEditModal';
@@ -485,6 +485,18 @@ interface LabelPrintModalProps {
   // diálogo de impressão do navegador) — usado pra marcar o pedido de
   // origem como concluído.
   onPrinted?: () => void;
+  // Id do pedido pendente que preencheu a fila (veio da Central de
+  // Requisições) — presente só quando o modal foi aberto a partir de um
+  // pedido existente. Habilita o botão "Salvar", que grava a fila atualizada
+  // de volta nesse mesmo pedido (sem imprimir), pra quem criou ou outra
+  // pessoa poder voltar depois e completar/ajustar os itens.
+  requestId?: string;
+  onSaveQueue?: (requestId: string, payload: PrintQueueSubmission) => Promise<void> | void;
+  // Manda a fila atual como um novo pedido pendente de impressão, sem
+  // imprimir na hora — mesmo destino da Fila de Impressão, só que disparado
+  // direto deste módulo padrão. Só faz sentido pra uma fila nova (sem
+  // requestId), então some quando o modal já foi aberto a partir de um pedido.
+  onSendQueue?: (payload: PrintQueueSubmission) => Promise<void> | void;
 }
 
 function escapeHtml(value: string): string {
@@ -500,9 +512,27 @@ export const TEMPLATE_LABELS: Record<LabelTemplate, string> = {
   produto: 'Etiqueta de Produto',
 };
 
+// Payload de um pedido remoto de impressão (Fila de Impressão / botão
+// "Enviar" deste módulo) — mandado como requisição pendente, sem imprimir na
+// hora. Compartilhado entre este módulo e a Fila de Impressão.
+export interface PrintQueueItem {
+  product_id: string;
+  name: string;
+  sku: string | null;
+  ean: string | null;
+  price: number | null;
+  qty: number;
+  size: LabelSize;
+}
+
+export interface PrintQueueSubmission {
+  template: LabelTemplate;
+  items: PrintQueueItem[];
+}
+
 const emptyDraft = (): Draft => ({ qty: 1, size: 'full' });
 
-export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted }: LabelPrintModalProps) {
+export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted, requestId, onSaveQueue, onSendQueue }: LabelPrintModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
   const [template, setTemplate] = useState<LabelTemplate>('gondola');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
@@ -633,6 +663,50 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     setExtraValues({});
     setEditingId(null);
     onClose();
+  };
+
+  const buildQueueSubmission = (): PrintQueueSubmission => ({
+    template,
+    items: queueList.map(([, entry]) => {
+      const effective = effectiveLabelProduct(entry);
+      return {
+        product_id: entry.product.id,
+        name: effective.name || '—',
+        sku: effective.sku || null,
+        ean: effective.ean || null,
+        price: effective.price ?? null,
+        qty: entry.qty,
+        size: entry.size,
+      };
+    }),
+  });
+
+  const [savingQueue, setSavingQueue] = useState(false);
+  const [sendingQueue, setSendingQueue] = useState(false);
+
+  // Grava a fila atual de volta no pedido pendente de origem, sem imprimir —
+  // pra quem criou (ou outra pessoa) poder voltar depois e completar os itens.
+  const handleSaveQueue = async () => {
+    if (!requestId || !onSaveQueue || totalLabels === 0 || savingQueue) return;
+    setSavingQueue(true);
+    try {
+      await onSaveQueue(requestId, buildQueueSubmission());
+    } finally {
+      setSavingQueue(false);
+    }
+  };
+
+  // Manda a fila atual como um novo pedido pendente (mesmo destino da Fila
+  // de Impressão), sem imprimir na hora.
+  const handleSendQueue = async () => {
+    if (!onSendQueue || totalLabels === 0 || sendingQueue) return;
+    setSendingQueue(true);
+    try {
+      await onSendQueue(buildQueueSubmission());
+      handleClose();
+    } finally {
+      setSendingQueue(false);
+    }
   };
 
   // Uma etiqueta "Inteira" = 1 produto ocupando os 105mm. Uma etiqueta "Metade"
@@ -1311,6 +1385,28 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                 >
                   Cancelar
                 </button>
+                {requestId && onSaveQueue && (
+                  <button
+                    type="button"
+                    onClick={handleSaveQueue}
+                    disabled={totalLabels === 0 || savingQueue}
+                    className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-on-surface font-bold py-3 rounded-2xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Save size={15} />
+                    {savingQueue ? 'Salvando…' : 'Salvar'}
+                  </button>
+                )}
+                {!requestId && onSendQueue && (
+                  <button
+                    type="button"
+                    onClick={handleSendQueue}
+                    disabled={totalLabels === 0 || sendingQueue}
+                    className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-on-surface font-bold py-3 rounded-2xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Send size={15} />
+                    {sendingQueue ? 'Enviando…' : 'Enviar'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => (template === 'gondola' ? printElgin() : printProduto())}

@@ -19,7 +19,7 @@ import {
   MoreVertical,
   Monitor,
 } from 'lucide-react';
-import { LabelPrintModal } from './LabelPrintModal';
+import { LabelPrintModal, type PrintQueueSubmission } from './LabelPrintModal';
 import { PlacaPrintModal } from './PlacaPrintModal';
 import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -56,6 +56,11 @@ interface InventoryManagerProps {
   printQueuePreload?: PrintQueuePreload | null;
   onPrintQueueConsumed?: () => void;
   onPrintQueuePrinted?: (requestId: string) => void;
+  // Salva a fila atual de volta no pedido pendente de origem (sem imprimir)
+  // e manda a fila atual como um novo pedido pendente — ambos usados pelos
+  // botões "Salvar"/"Enviar" do módulo padrão de Etiquetas.
+  onPrintQueueSaved?: (requestId: string, payload: PrintQueueSubmission) => Promise<void> | void;
+  onSendPrintQueue?: (payload: PrintQueueSubmission) => Promise<void> | void;
 }
 
 export function InventoryManager({
@@ -77,6 +82,8 @@ export function InventoryManager({
   printQueuePreload,
   onPrintQueueConsumed,
   onPrintQueuePrinted,
+  onPrintQueueSaved,
+  onSendPrintQueue,
 }: InventoryManagerProps) {
   const { isMobileView, toggleMode } = useViewMode();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'produtos' | 'estoque'>('produtos');
@@ -691,6 +698,9 @@ export function InventoryManager({
         initialQueue={labelModalPreload?.queue}
         initialTemplate={labelModalPreload?.template}
         onPrinted={labelModalPreload ? () => { onPrintQueuePrinted?.(labelModalPreload.requestId); setLabelModalPreload(null); } : undefined}
+        requestId={labelModalPreload?.requestId}
+        onSaveQueue={onPrintQueueSaved}
+        onSendQueue={onSendPrintQueue}
       />
       <PlacaPrintModal
         isOpen={showPlacaModal}

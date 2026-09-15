@@ -13,6 +13,7 @@ import {
   SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B,
   blockWheelChange, effectiveLabelProduct,
   type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
+  type PrintQueueItem, type PrintQueueSubmission,
 } from './LabelPrintModal';
 import { LabelEditModal } from './LabelEditModal';
 
@@ -23,20 +24,7 @@ import { LabelEditModal } from './LabelEditModal';
 // adicionais" da Etiqueta de Produto — esses campos são preenchidos na hora
 // da impressão, não no pedido remoto.
 
-export interface PrintQueueItem {
-  product_id: string;
-  name: string;
-  sku: string | null;
-  ean: string | null;
-  price: number | null;
-  qty: number;
-  size: LabelSize;
-}
-
-export interface PrintQueueSubmission {
-  template: LabelTemplate;
-  items: PrintQueueItem[];
-}
+export type { PrintQueueItem, PrintQueueSubmission };
 
 interface Draft {
   qty: number;

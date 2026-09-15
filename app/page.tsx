@@ -1661,6 +1661,25 @@ export default function Page() {
     await fetchRequests();
   };
 
+  // Grava a fila (possivelmente com itens adicionados/ajustados) de volta no
+  // pedido pendente de origem, sem imprimir — pra quem criou ou outra pessoa
+  // poder voltar depois e completar os itens antes de mandar pra impressão.
+  const handleSavePrintQueue = async (requestId: string, payload: PrintQueueSubmission) => {
+    const { error } = await supabase.from('requests')
+      .update({
+        requested_changes: JSON.stringify({
+          is_print_queue: true,
+          template: payload.template,
+          items: payload.items,
+          count: payload.items.reduce((acc, item) => acc + item.qty, 0),
+        }),
+      })
+      .eq('id', requestId);
+    if (error) throw error;
+    await fetchRequests();
+    setNotification({ type: 'success', message: 'Pedido de impressão salvo!' });
+  };
+
   const handleSaveReviewProgress = async (rows: any[]) => {
     if (!bulkDraftUnderReview) return;
     const items = rows.map((r: any, idx: number) => ({
@@ -5639,6 +5658,8 @@ export default function Page() {
                   printQueuePreload={printQueuePreload}
                   onPrintQueueConsumed={() => setPrintQueuePreload(null)}
                   onPrintQueuePrinted={handlePrintQueuePrinted}
+                  onPrintQueueSaved={handleSavePrintQueue}
+                  onSendPrintQueue={handleSendPrintQueue}
                 />
             ) : activeTab === 'Requisições' ? (
                 <RequestCenter
