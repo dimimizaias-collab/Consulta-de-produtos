@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Search, Tag, Printer, Plus, ChevronDown, Check, Pencil } from 'lucide-react';
+import { X, Search, Tag, Printer, Plus, Minus, ChevronDown, Check, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
 import { LabelEditModal } from './LabelEditModal';
@@ -599,6 +599,17 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       delete next[id];
       return next;
     });
+  }, []);
+
+  // Edição inline na Visualização — quantidade e modelo de cada item já
+  // adicionado à fila, sem precisar voltar pra Seleção. Mesmo raciocínio do
+  // setDraftQty: sem clamp automático pra não travar o campo ao apagar.
+  const updateQueueQty = useCallback((id: string, qty: number) => {
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], qty } } : prev));
+  }, []);
+
+  const updateQueueSize = useCallback((id: string, size: LabelSize) => {
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], size } } : prev));
   }, []);
 
   // Item com o "Editar etiqueta" (lápis) aberto — sobrescreve descrição/REF/
@@ -1204,13 +1215,63 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   <span className="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#D4C000]/25 dark:bg-[#FFE500]/20 text-[#7A6A00] dark:text-[#FFE500]">Editado</span>
                                 )}
                               </span>
-                              <span className={cn(
-                                'text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0',
-                                entry.size === 'half' ? 'text-primary bg-primary/10' : 'text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08]'
-                              )}>
-                                {entry.size === 'half' ? '1/2' : 'Inteira'}
-                              </span>
-                              <span className="font-mono text-[11px] font-extrabold text-secondary/60 bg-black/[0.06] dark:bg-white/[0.08] px-2 py-0.5 rounded-full flex-shrink-0">×{entry.qty}</span>
+                              <div className="flex bg-black/[0.06] dark:bg-white/[0.07] rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQueueSize(id, 'full')}
+                                  className={cn(
+                                    'px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                    entry.size === 'full'
+                                      ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                      : 'text-secondary/50 hover:text-on-surface'
+                                  )}
+                                >
+                                  Inteira
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQueueSize(id, 'half')}
+                                  className={cn(
+                                    'px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                    entry.size === 'half'
+                                      ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                      : 'text-secondary/50 hover:text-on-surface'
+                                  )}
+                                >
+                                  Metade
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQueueQty(id, Math.max(1, entry.qty - 1))}
+                                  className="w-6 h-6 rounded-md bg-black/[0.06] dark:bg-white/[0.07] text-secondary/60 flex items-center justify-center hover:text-on-surface transition-colors"
+                                >
+                                  <Minus size={11} strokeWidth={2.5} />
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={entry.qty === 0 ? '' : entry.qty}
+                                  onWheel={blockWheelChange}
+                                  onChange={e => {
+                                    const raw = e.target.value;
+                                    if (raw === '') { updateQueueQty(id, 0); return; }
+                                    const val = parseInt(raw);
+                                    if (!Number.isNaN(val)) updateQueueQty(id, val);
+                                  }}
+                                  onBlur={() => { if (entry.qty < 1) updateQueueQty(id, 1); }}
+                                  className="w-8 h-6 text-center text-[11px] font-extrabold text-on-surface bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateQueueQty(id, entry.qty + 1)}
+                                  className="w-6 h-6 rounded-md bg-black/[0.06] dark:bg-white/[0.07] text-secondary/60 flex items-center justify-center hover:text-on-surface transition-colors"
+                                >
+                                  <Plus size={11} strokeWidth={2.5} />
+                                </button>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(id)}
