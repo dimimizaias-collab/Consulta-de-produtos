@@ -1755,13 +1755,24 @@ export function LogisticsCenter({
             </button>
 
             {activeSection === 'notas' && (
-              <button
-                onClick={onManualNoteClick}
-                title="Criar Manifesto"
-                className="ml-auto w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
-              >
-                <Plus size={16} />
-              </button>
+              <>
+                <button
+                  onClick={onImportClick}
+                  disabled={importing}
+                  title="Importar Nota (XML da NFe ou Planilha/CSV)"
+                  className="ml-auto flex items-center gap-2 px-3.5 h-9 rounded-xl text-xs font-bold bg-surface-container-lowest border border-on-surface/[0.06] text-on-surface/70 hover:bg-on-surface/5 active:scale-[0.97] transition-all disabled:opacity-50"
+                >
+                  <FileUp size={14} />
+                  Importar Nota
+                </button>
+                <button
+                  onClick={onManualNoteClick}
+                  title="Criar Manifesto"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+                >
+                  <Plus size={16} />
+                </button>
+              </>
             )}
           </div>
 
