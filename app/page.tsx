@@ -496,6 +496,10 @@ export default function Page() {
   const [noteSearchResults, setNoteSearchResults] = useState<any[]>([]);
   const [isProcessingNote, setIsProcessingNote] = useState(false);
   const noteFileInputRef = useRef<HTMLInputElement>(null);
+  // Separado do noteFileInputRef (planilha/CSV) — este é só para o XML da NFe usado como base
+  // para montar a nota (diferente do "Anexar XML" da aba Nota Original, que só serve para
+  // gravar a correção numa nota que já existe, sem repopular os itens).
+  const noteXmlInputRef = useRef<HTMLInputElement>(null);
 
   // Supplier Dictionary states
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
@@ -523,6 +527,9 @@ export default function Page() {
   const [reviewNotes, setReviewNotes] = useState<ReviewNote[]>([]);
   const [currentNfTimestamp, setCurrentNfTimestamp] = useState('');
   const [currentNfFileName, setCurrentNfFileName] = useState('');
+  // XML original da NFe, quando a nota é importada direto de um XML autorizado — vai para
+  // original_nfe_xml ao aprovar, então "Baixar XML corrigido" já funciona sem precisar anexar de novo.
+  const [pendingNfOriginalXml, setPendingNfOriginalXml] = useState<string | null>(null);
   const [viewingReviewNote, setViewingReviewNote] = useState<ReviewNote | null>(null);
   const [viewingNoteSellPrices, setViewingNoteSellPrices] = useState<number[]>([]);
   const [viewingNoteVerified, setViewingNoteVerified] = useState<boolean[]>([]);
@@ -2992,6 +2999,61 @@ export default function Page() {
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc);
   };
 
+  // Lê um XML de NFe (autorizado pela SEFAZ, solto ou dentro de um nfeProc) e extrai os itens
+  // + dados de cabeçalho, para popular a tela de revisão de nota automaticamente — mesmo fluxo
+  // usado hoje pela importação de planilha (handleNoteImportExcel). O casamento com o cadastro
+  // interno é feito depois, pelo mesmo critério de EAN/SKU/mapeamento; o que não bater fica
+  // "Não Encontrado" e o usuário corrige na revisão, como em qualquer importação.
+  const parseNfeXmlToRows = (xmlText: string) => {
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('XML inválido ou corrompido — não foi possível ler.');
+    }
+    const NFE_NS = 'http://www.portalfiscal.inf.br/nfe';
+    const firstChild = (el: Element, tag: string): Element | null => {
+      const found = el.getElementsByTagNameNS(NFE_NS, tag);
+      return found.length > 0 ? found[0] : null;
+    };
+    const getText = (el: Element | null, tag: string): string => {
+      if (!el) return '';
+      return (firstChild(el, tag)?.textContent || '').trim();
+    };
+
+    const dets = Array.from(doc.getElementsByTagNameNS(NFE_NS, 'det'));
+    if (dets.length === 0) throw new Error('XML não parece ser uma NFe (nenhum item <det> encontrado).');
+
+    const rows = dets.map(det => {
+      const prod = firstChild(det, 'prod');
+      if (!prod) return null;
+      const ean = getText(prod, 'cEAN');
+      const qty = parseFloat(getText(prod, 'qCom').replace(',', '.')) || 0;
+      const vProd = parseFloat(getText(prod, 'vProd').replace(',', '.')) || 0;
+      const vUnCom = parseFloat(getText(prod, 'vUnCom').replace(',', '.')) || (qty > 0 ? vProd / qty : 0);
+      return {
+        ean: (ean && ean.toUpperCase() !== 'SEM GTIN') ? ean : '',
+        sku: getText(prod, 'cProd'),
+        description: getText(prod, 'xProd'),
+        unit: getText(prod, 'uCom'),
+        qty,
+        price: vUnCom,
+      };
+    }).filter((r): r is { ean: string; sku: string; description: string; unit: string; qty: number; price: number } => !!r && r.qty > 0);
+
+    const infNFe = doc.getElementsByTagNameNS(NFE_NS, 'infNFe')[0] || null;
+    const ide = infNFe ? firstChild(infNFe, 'ide') : null;
+    const emit = infNFe ? firstChild(infNFe, 'emit') : null;
+    const infProt = doc.getElementsByTagNameNS(NFE_NS, 'infProt')[0] || null;
+    const idAttr = infNFe?.getAttribute('Id') || '';
+
+    return {
+      rows,
+      noteNumber: getText(ide, 'nNF'),
+      accessKey: getText(infProt, 'chNFe') || idAttr.replace(/^NFe/i, ''),
+      supplierName: getText(emit, 'xFant') || getText(emit, 'xNome'),
+      supplierCnpj: getText(emit, 'CNPJ'),
+    };
+  };
+
   const downloadCorrectedNfeXml = () => {
     if (!viewingReviewNote) return;
     if (!viewingReviewNote.originalNfeXml) {
@@ -3487,6 +3549,7 @@ export default function Page() {
         accessKey: nfAccessKey || undefined,
         supplierName: nfSupplierName || undefined,
         supplierId: selectedImportSupplierId || null,
+        originalNfeXml: pendingNfOriginalXml || undefined,
       };
       await supabase.from('review_notes').insert({
         id: newNote.id,
@@ -3499,6 +3562,7 @@ export default function Page() {
         access_key: nfAccessKey || null,
         supplier_name: nfSupplierName || null,
         supplier_id: selectedImportSupplierId || null,
+        original_nfe_xml: pendingNfOriginalXml || null,
       });
       setReviewNotes(prev => [newNote, ...prev]);
       setShowApproveNfConfirm(false);
@@ -3511,6 +3575,7 @@ export default function Page() {
       setNfAccessKey('');
       setNfItemDistribuicao([]);
       setNfDistribMode([]);
+      setPendingNfOriginalXml(null);
       setNotification({ type: 'success', message: `Nota aprovada: ${updatedCount} itens atualizados no estoque.` });
       fetchProducts();
     } catch (err: any) {
@@ -5110,6 +5175,152 @@ export default function Page() {
     reader.onload = async (event) => {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
+
+        const isXmlFile = file.name.toLowerCase().endsWith('.xml');
+        const xmlTextPeek = isXmlFile ? new TextDecoder('utf-8').decode(data) : '';
+        const isNfeXml = isXmlFile && /<\s*infNFe[\s>]/i.test(xmlTextPeek);
+
+        if (isXmlFile && !isNfeXml) {
+          throw new Error('Esse arquivo não parece ser o XML de uma NFe (falta a tag <infNFe>).');
+        }
+
+        if (isNfeXml) {
+          // Nota importada direto do XML autorizado pela SEFAZ — extrai itens e cabeçalho da NFe
+          // e roda o mesmo casamento com o cadastro interno (SKU/EAN/mapeamento/Produto Mãe) que
+          // a importação de planilha usa mais abaixo. O que não bater fica "Não Encontrado" e o
+          // usuário corrige na tela de revisão, como em qualquer importação.
+          const parsedNfe = parseNfeXmlToRows(xmlTextPeek);
+          if (parsedNfe.rows.length === 0) throw new Error('Nenhum item com quantidade válida encontrado no XML da NFe.');
+
+          const normalizeNfe = (s: string) => s ? String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "").trim() : "";
+
+          const { data: currentProductsNfe } = await supabase.from('products').select('*');
+          const { data: extraEanRowsNfe } = await supabase.from('product_ean_codes').select('ean, product_id');
+          const eanToProductIdNfe = buildEanToProductId(currentProductsNfe || [], extraEanRowsNfe || []);
+          const { data: unitConversionsNfe } = await supabase.from('supplier_units').select('*');
+
+          // Se nenhum fornecedor foi escolhido manualmente na importação, tenta casar o emitente
+          // do XML (xFant/xNome) com o cadastro interno de fornecedores.
+          let effectiveSupplierId = selectedImportSupplierId;
+          if (!effectiveSupplierId && parsedNfe.supplierName) {
+            const targetName = normalizeNfe(parsedNfe.supplierName);
+            const matchedSupplier = supplierNames.find((s: any) => normalizeNfe(s.name || '') === targetName || normalizeNfe(s.nome_fantasia || '') === targetName);
+            if (matchedSupplier) effectiveSupplierId = matchedSupplier.id;
+          }
+
+          let mappingQueryNfe = supabase.from('supplier_mappings').select('*');
+          if (effectiveSupplierId) {
+            mappingQueryNfe = mappingQueryNfe.eq('supplier_id', effectiveSupplierId);
+          }
+          const { data: filterMappingsNfe } = await mappingQueryNfe;
+
+          const { data: motherPackagesNfe } = await supabase.from('product_mother_packages').select('*');
+          const { data: motherExtraEansNfe } = await supabase.from('product_mother_package_ean_codes').select('ean, mother_package_id');
+          const motherEanToPackageNfe = new Map<string, any>();
+          (motherPackagesNfe || []).forEach((mp: any) => { if (mp.ean) motherEanToPackageNfe.set(mp.ean, mp); });
+          (motherExtraEansNfe || []).forEach((row: any) => {
+            const mp = (motherPackagesNfe || []).find((m: any) => m.id === row.mother_package_id);
+            if (mp) motherEanToPackageNfe.set(row.ean, mp);
+          });
+          const motherPackageByIdNfe = new Map<string, any>((motherPackagesNfe || []).map((mp: any) => [mp.id, mp]));
+
+          const processedItemsNfe: any[] = [];
+
+          for (const { ean: finalEan, sku, description, unit, qty, price } of parsedNfe.rows) {
+            const motherPackage = finalEan ? motherEanToPackageNfe.get(finalEan) : undefined;
+            const finalEanProductId = finalEan ? eanToProductIdNfe.get(finalEan) : undefined;
+            let product = motherPackage
+              ? currentProductsNfe?.find(p => p.id === motherPackage.child_product_id)
+              : currentProductsNfe?.find(p => (sku && p.sku === sku) || (finalEanProductId && p.id === finalEanProductId));
+            let statusTranslation = motherPackage ? 'Traduzido (Caixa)' : 'Identificado (SKU/EAN)';
+            let verified = !!product;
+            let motherMatch = motherPackage || null;
+
+            if (!product) {
+              let mapping = filterMappingsNfe?.find(m => sku && m.supplier_sku === sku);
+              if (!mapping && description) {
+                const normDesc = normalizeNfe(description);
+                mapping = filterMappingsNfe?.find(m => normalizeNfe(m.supplier_description || "") === normDesc);
+                if (!mapping) {
+                  mapping = filterMappingsNfe?.find(m => {
+                    const normMap = normalizeNfe(m.supplier_description || "");
+                    return normMap.length > 5 && normDesc.includes(normMap);
+                  });
+                }
+              }
+              if (mapping?.mother_package_id) {
+                const mp = motherPackageByIdNfe.get(mapping.mother_package_id);
+                if (mp) {
+                  product = currentProductsNfe?.find(p => p.id === mp.child_product_id);
+                  if (product) {
+                    statusTranslation = 'Traduzido (Caixa)';
+                    verified = true;
+                    motherMatch = mp;
+                  }
+                }
+              } else if (mapping) {
+                product = currentProductsNfe?.find(p => p.id === mapping.internal_product_id);
+                if (product) {
+                  statusTranslation = 'Traduzido';
+                  verified = true;
+                }
+              }
+            }
+
+            if (!verified) statusTranslation = 'Não Encontrado';
+
+            let multiplier = 1;
+            if (motherMatch) {
+              multiplier = Number(motherMatch.units_per_child) || 1;
+            } else if (product && unit) {
+              const conversion = unitConversionsNfe?.find(c => c.product_id === product?.id && normalizeNfe(c.unit_name) === normalizeNfe(unit));
+              if (conversion) multiplier = Number(conversion.multiplier);
+            }
+
+            const finalQty = qty * multiplier;
+            const rawPrice = isNaN(price) ? 0 : price;
+
+            processedItemsNfe.push({
+              sku: product?.sku || sku || '',
+              ean: finalEan || product?.ean || '',
+              name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
+              original_description: description,
+              unit: unit || 'UN',
+              multiplier,
+              qty: finalQty,
+              original_qty: qty,
+              price: rawPrice,
+              original_price: rawPrice,
+              product_price: product?.price || 0,
+              status_translation: statusTranslation,
+              product_id: product?.id,
+              verified: verified,
+              mother_package_id: motherMatch?.id || null,
+              mother_package_name: motherMatch?.name || null,
+              mother_package_ean: motherMatch?.ean || null,
+            });
+          }
+
+          setPendingNfItems(processedItemsNfe);
+          setNfItemPrices(processedItemsNfe.map((i: any) => i.price || 0));
+          setNfItemSellPrices(processedItemsNfe.map((i: any) => i.product_price || 0));
+          setNfItemVerified(processedItemsNfe.map((i: any) => !!i.verified));
+          setNfItemEans([]);
+          setNfItemSkus([]);
+          setNfItemQtys([]);
+          setNfEditableCols(new Set());
+          setPendingNfOriginalXml(xmlTextPeek);
+          if (parsedNfe.noteNumber) setNfNoteNumber(prev => prev || parsedNfe.noteNumber);
+          if (parsedNfe.accessKey) setNfAccessKey(prev => prev || parsedNfe.accessKey);
+          if (effectiveSupplierId) setSelectedImportSupplierId(effectiveSupplierId);
+          setShowNfDigitalizadaModal(true);
+          setNotification({ type: 'success', message: `Nota digitalizada: ${processedItemsNfe.length} itens processados.` });
+          setImporting(false);
+          if (noteFileInputRef.current) noteFileInputRef.current.value = '';
+          return;
+        }
+
+        setPendingNfOriginalXml(null);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -8925,7 +9136,7 @@ export default function Page() {
                 <p className="text-sm text-slate-500 font-medium">Selecione o fornecedor da nota para tradução automática de descrições. O fornecedor é <span className="font-bold text-slate-700">opcional</span> — sem ele, o sistema identificará produtos via SKU ou EAN.</p>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-secondary uppercase tracking-widest">Fornecedor</label>
-                  <select 
+                  <select
                     value={selectedImportSupplierId}
                     onChange={(e) => setSelectedImportSupplierId(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold"
@@ -8936,15 +9147,18 @@ export default function Page() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={downloadNoteTemplate}
-                    className="w-full bg-slate-100 text-slate-600 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                <div className="space-y-2.5">
+                  <button
+                    onClick={() => {
+                      setShowImportSupplierModal(false);
+                      noteXmlInputRef.current?.click();
+                    }}
+                    className="w-full bg-violet-500 text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-violet-500/20"
                   >
-                    <Download size={20} />
-                    Baixar Modelo
+                    <FileCode2 size={20} />
+                    Importar XML da NFe
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowImportSupplierModal(false);
                       noteFileInputRef.current?.click();
@@ -8952,7 +9166,14 @@ export default function Page() {
                     className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                   >
                     <FileUp size={20} />
-                    Prosseguir
+                    Importar Planilha / CSV
+                  </button>
+                  <button
+                    onClick={downloadNoteTemplate}
+                    className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Download size={18} />
+                    Baixar Modelo de Planilha
                   </button>
                 </div>
               </div>
@@ -9528,6 +9749,7 @@ export default function Page() {
                     setNfAccessKey('');
                     setNfItemDistribuicao([]);
                     setNfDistribMode([]);
+                    setPendingNfOriginalXml(null);
                   }}
                   className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                 >
@@ -14083,7 +14305,14 @@ export default function Page() {
         type="file"
         ref={noteFileInputRef}
         onChange={handleNoteImportExcel}
-        accept=".xml,.csv,.xlsx,.xls"
+        accept=".csv,.xlsx,.xls"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={noteXmlInputRef}
+        onChange={handleNoteImportExcel}
+        accept=".xml"
         className="hidden"
       />
 
