@@ -170,6 +170,11 @@ interface NomeFit { fontSizeMm: number; hMm: number; twoLines: boolean; extraH: 
 // (e portanto a posição do REF/código de barras/preço abaixo) do mesmo
 // tamanho, só o texto fica menor dentro dela.
 const HALF_NOME_SCALE = 0.88;
+// Na Inteira a 1 linha já cabe folgada (caixa de 99mm de largura), então só
+// reduz um passo quando a descrição é longa o bastante pra precisar de 2
+// linhas — mesmo tratamento que a Metade já usa (nunca encolhe continuamente
+// conforme o texto cresce, só um passo fixo).
+const FULL_NOME_TWO_LINE_SCALE = 0.88;
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
   const scale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : 1;
   const w = layout.nome.w;
@@ -179,10 +184,11 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
     return { fontSizeMm: singleMaxH * scale, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
 
+  const twoLineScale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : FULL_NOME_TWO_LINE_SCALE;
   const standardSize = maxTwoLineNomeSize(layout);
   const blockH = standardSize * 1.05 * 2;
   const extraH = Math.max(0, blockH - layout.nome.h);
-  return { fontSizeMm: standardSize * scale, hMm: blockH, twoLines: true, extraH };
+  return { fontSizeMm: standardSize * twoLineScale, hMm: blockH, twoLines: true, extraH };
 }
 
 // Mesma lógica de fitNomeLayout, generalizada pra qualquer caixa (usada pela
