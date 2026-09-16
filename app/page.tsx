@@ -12454,6 +12454,9 @@ export default function Page() {
                                           const existing = viewingNoteSellPrices[i] ?? viewingReviewNote!.items[i]?.product_price;
                                           setNoteItemSelectedProduct(p);
                                           setNoteItemSellPriceInput(existing && existing > 0 ? String(existing) : '');
+                                          // Produto já existe no dicionário — marca a tradução permanente
+                                          // por padrão, já que é o caso mais comum (só falta o Enter pra vincular).
+                                          setNoteItemSaveTranslation(true);
                                         }}
                                         className="w-full text-left px-3 py-3 rounded-xl hover:bg-primary/5 transition-colors flex items-center gap-3 group border border-transparent hover:border-primary/10"
                                       >
