@@ -28,7 +28,17 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getSession() decodifica o JWT do cookie localmente (sem round-trip pro
+  // Supabase Auth). getUser() faz uma chamada de rede pra validar o token a
+  // cada request — e nesse ambiente (middleware roda em Edge Runtime) essa
+  // chamada estava falhando de forma consistente mesmo com um login recém
+  // bem-sucedido e cookie válido, jogando o usuário de volta pro /login sem
+  // erro nenhum. Os dados continuam protegidos: qualquer leitura/escrita via
+  // RLS valida a assinatura do JWT no Postgres, então um cookie adulterado
+  // não passa de qualquer forma — getSession() aqui só decide se deixa a
+  // navegação passar, não é a camada de segurança.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const isLoginPath = request.nextUrl.pathname.startsWith('/login');
 
