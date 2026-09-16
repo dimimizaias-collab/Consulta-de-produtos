@@ -159,30 +159,42 @@ function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
 }
 
 // O nome sempre usa o mesmo tamanho de fonte (não encolhe conforme o texto
-// fica mais comprido). Se ele não couber numa linha, quebra em 2 linhas —
-// nesse mesmo tamanho — e os elementos abaixo (REF/código de barras/R$/
-// preço) descem pra abrir espaço, em vez do nome subir pra cima (a margem
-// acima dele é pequena demais pra render de verdade). Se mesmo assim
-// sobrarem mais de 2 linhas, o CSS de line-clamp corta o excedente com "…".
-interface NomeFit { fontSizeMm: number; hMm: number; twoLines: boolean; extraH: number }
+// fica mais comprido). Se ele não couber numa linha, quebra em 2 linhas. Se
+// mesmo assim sobrarem mais de 2 linhas, o CSS de line-clamp corta o
+// excedente com "…".
+interface NomeFit { fontSizeMm: number; yMm: number; hMm: number; twoLines: boolean; extraH: number }
 // Na Metade a fonte do nome no tamanho "padrão" (cheio da caixa) fica volumosa
 // pro espaço pequeno da etiqueta — reduz um passo só nela, mantendo a caixa
 // (e portanto a posição do REF/código de barras/preço abaixo) do mesmo
-// tamanho, só o texto fica menor dentro dela.
+// tamanho, só o texto fica menor dentro dela. Na Metade, quando precisa de 2
+// linhas, os elementos abaixo (REF/código de barras/R$/preço) descem pra
+// abrir espaço.
 const HALF_NOME_SCALE = 0.88;
+// Na Inteira, quando precisa de 2 linhas, sobe o texto pra cima (até essa
+// margem mínima do topo da etiqueta) em vez de empurrar REF/código de
+// barras/preço pra baixo — mantém esses elementos exatamente onde estão.
+const FULL_NOME_TOP_SAFETY_MM = 0.5;
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
   const scale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : 1;
   const w = layout.nome.w;
-  const singleMaxH = Math.max(1, layout.ref.y - layout.nome.y - NOME_GAP_MM);
+  const bottom = layout.ref.y - NOME_GAP_MM;
+  const singleMaxH = Math.max(1, bottom - layout.nome.y);
   const fitsOneLine = measureTextWidth(text, singleMaxH, weight, family) <= w * FIT_SAFETY;
   if (fitsOneLine) {
-    return { fontSizeMm: singleMaxH * scale, hMm: singleMaxH, twoLines: false, extraH: 0 };
+    return { fontSizeMm: singleMaxH * scale, yMm: layout.nome.y, hMm: singleMaxH, twoLines: false, extraH: 0 };
+  }
+
+  if (layout === FULL_LAYOUT) {
+    const maxAvailableH = Math.max(singleMaxH, bottom - FULL_NOME_TOP_SAFETY_MM);
+    const standardSize = maxAvailableH / (2 * 1.05);
+    const blockH = standardSize * 1.05 * 2;
+    return { fontSizeMm: standardSize, yMm: bottom - blockH, hMm: blockH, twoLines: true, extraH: 0 };
   }
 
   const standardSize = maxTwoLineNomeSize(layout);
   const blockH = standardSize * 1.05 * 2;
   const extraH = Math.max(0, blockH - layout.nome.h);
-  return { fontSizeMm: standardSize * scale, hMm: blockH, twoLines: true, extraH };
+  return { fontSizeMm: standardSize * scale, yMm: layout.nome.y, hMm: blockH, twoLines: true, extraH };
 }
 
 // Mesma lógica de fitNomeLayout, generalizada pra qualquer caixa (usada pela
@@ -231,7 +243,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
   const priceText = formatPriceValue(product.price ?? 0);
 
   const nomeFit = fitNomeLayout(nomeText, layout, 800, 'DM Sans, sans-serif');
-  const nomeBox: ElPos = { x: layout.nome.x, y: layout.nome.y, w: layout.nome.w, h: nomeFit.hMm };
+  const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
   const shifted = shiftLayoutDown(layout, nomeFit.extraH);
   const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
@@ -725,12 +737,11 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const refText = `REF ${productRef(product)}`;
     const priceText = formatPriceValue(product.price ?? 0);
 
-    // Nome cabe numa linha se der, sempre no mesmo tamanho de fonte; senão
-    // quebra em 2 linhas nesse mesmo tamanho e os elementos abaixo (REF/
-    // código de barras/R$/preço) descem pra abrir espaço.
+    // Nome cabe numa linha se der; senão quebra em 2 linhas — na Inteira sobe
+    // pra cima, na Metade empurra REF/código de barras/R$/preço pra baixo.
     const nomeFit = fitNomeLayout(nomeText, layout, 800, 'Arial, Helvetica, sans-serif');
     const shifted = shiftLayoutDown(layout, nomeFit.extraH);
-    const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${layout.nome.y.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
+    const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
     const nomeWrapStyle = nomeFit.twoLines
       ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
       : '';
