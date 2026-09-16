@@ -1,21 +1,27 @@
 import type {NextConfig} from 'next';
 import withPWA from '@ducanh2912/next-pwa';
-import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-// Hash curto do commit, gravado no bundle em tempo de build (não em runtime) —
-// serve pra conferir visualmente (rodapé) se o deploy no ar corresponde ao
-// último commit enviado, sem precisar de um número de versão bumpado à mão.
-let buildSha = 'dev';
+// Número de versão gravado no bundle em tempo de build — serve pra conferir
+// (rodapé do app) se o deploy no ar corresponde ao último commit enviado.
+//
+// Já tentamos pegar o hash do commit via `git rev-parse` no build, mas o
+// Coolify não inclui a pasta .git no contexto de build (caiu sempre no
+// fallback "dev", nunca mudava). Um arquivo versionado no próprio repo,
+// bumpado manualmente a cada commit relevante, não depende de git estar
+// disponível no ambiente de build.
+let buildVersion = '?';
 try {
-  buildSha = execSync('git rev-parse --short HEAD').toString().trim();
+  buildVersion = readFileSync(join(__dirname, 'BUILD_VERSION'), 'utf-8').trim();
 } catch {
-  // sem .git disponível (ex.: build fora de um checkout) — mantém 'dev'
+  // arquivo ausente — mantém '?'
 }
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_BUILD_SHA: buildSha,
+    NEXT_PUBLIC_APP_VERSION: buildVersion,
   },
   eslint: {
     ignoreDuringBuilds: true,

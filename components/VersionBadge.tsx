@@ -1,8 +1,8 @@
 export function VersionBadge() {
-  const sha = process.env.NEXT_PUBLIC_BUILD_SHA || 'dev';
+  const version = process.env.NEXT_PUBLIC_APP_VERSION || '?';
   return (
-    <span className="fixed bottom-1.5 right-2 z-50 text-[9px] font-mono text-on-surface/25 pointer-events-none select-none">
-      {sha}
+    <span className="fixed top-1.5 right-2 z-[60] text-[10px] font-mono font-semibold text-on-surface/40 pointer-events-none select-none">
+      v{version}
     </span>
   );
 }
