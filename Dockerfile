@@ -11,6 +11,7 @@ RUN npm config set fetch-retry-mintimeout 20000 && \
     npm ci
 
 FROM base AS builder
+RUN apk add --no-cache git
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

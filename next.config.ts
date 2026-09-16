@@ -1,8 +1,22 @@
 import type {NextConfig} from 'next';
 import withPWA from '@ducanh2912/next-pwa';
+import { execSync } from 'node:child_process';
+
+// Hash curto do commit, gravado no bundle em tempo de build (não em runtime) —
+// serve pra conferir visualmente (rodapé) se o deploy no ar corresponde ao
+// último commit enviado, sem precisar de um número de versão bumpado à mão.
+let buildSha = 'dev';
+try {
+  buildSha = execSync('git rev-parse --short HEAD').toString().trim();
+} catch {
+  // sem .git disponível (ex.: build fora de um checkout) — mantém 'dev'
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: buildSha,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import { Manrope, Inter, DM_Mono } from 'next/font/google';
 import { Providers } from './providers';
+import { VersionBadge } from '@/components/VersionBadge';
 import './globals.css';
 
 const manrope = Manrope({
@@ -61,6 +62,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <Providers>
           {children}
         </Providers>
+        <VersionBadge />
       </body>
     </html>
   );
