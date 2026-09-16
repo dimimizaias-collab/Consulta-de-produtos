@@ -5303,6 +5303,7 @@ export default function Page() {
 
       processedItems.push({
         sku: product?.sku || sku || '',
+        supplier_code: sku || '',
         ean: finalEan || product?.ean || '',
         name: verified ? (product?.name || 'Não Identificado') : (description || 'Sem Descrição'),
         original_description: description,
