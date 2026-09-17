@@ -465,7 +465,7 @@ export default function Page() {
   const [printQueuePreload, setPrintQueuePreload] = useState<{
     requestId: string;
     template: 'gondola' | 'produto';
-    queue: { product: any; qty: number; size: 'full' | 'half' }[];
+    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple' }[];
   } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);

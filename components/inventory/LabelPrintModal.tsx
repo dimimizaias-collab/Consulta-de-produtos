@@ -78,6 +78,17 @@ export const PRODUTO_HALF: ProdutoLayout = { // 40x20mm, sempre mínima (sem esp
   barcode:   { x: 1.95, y: 9.32, w: 36.1, h: 8.73 },
 };
 
+// Etiqueta de Produto — Código de Barras: divide a folha 40x40mm em 3 faixas
+// horizontais de ~13.3mm, cada uma dedicada só ao código de barras (sem
+// descrição/REF) — pra quando o objetivo é só ter 3 códigos de barras
+// avulsos pra colar, não uma etiqueta descritiva completa.
+export interface ProdutoBarcodeLayout { barcode: ElPos }
+export const PRODUTO_THIRD_H = PRODUTO_LABEL_SIZE / 3; // ~13.33mm — altura de cada faixa
+const PRODUTO_THIRD_MARGIN_Y = 1.3;
+export const PRODUTO_THIRD: ProdutoBarcodeLayout = {
+  barcode: { x: 2.2, y: PRODUTO_THIRD_MARGIN_Y, w: 35.6, h: PRODUTO_THIRD_H - PRODUTO_THIRD_MARGIN_Y * 2 },
+};
+
 const PX_TO_MM = 25.4 / 96;
 // Informações adicionais usam a mesma fonte da REF, 2px menores.
 const INFO_FONT_DELTA_MM = 2 * PX_TO_MM;
@@ -227,6 +238,7 @@ function fitDescricaoLayout(text: string, box: ElPos, nextY: number, weight: num
 export const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean: '899197910205', price: 5 };
 export const SAMPLE_HALF_A = { name: 'Refrigerante Guaraná Lata 350ml', sku: '0457', ean: '7891234500011', price: 3.49 };
 export const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', ean: '7891234512345', price: 2 };
+export const SAMPLE_TRIPLE_C = { name: 'Suco de Uva Integral 1L', sku: '0891', ean: '7891234598765', price: 8.9 };
 
 function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
   const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -424,6 +436,42 @@ export function ProdutoPreviewHalf({ items }: { items: any[] }) {
   );
 }
 
+function ProdutoBarcodePreviewCell({ product, offsetYMm }: { product: any; offsetYMm: number }) {
+  const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
+    position: 'absolute',
+    left: `${(p.x / PRODUTO_LABEL_SIZE) * 100}%`,
+    top: `${((p.y + offsetYMm) / PRODUTO_LABEL_SIZE) * 100}%`,
+    width: `${(p.w / PRODUTO_LABEL_SIZE) * 100}%`,
+    height: `${(p.h / PRODUTO_LABEL_SIZE) * 100}%`,
+    ...extra,
+  });
+  const code = product.ean || product.sku || '';
+  const bcNumSize = code ? fitFontSize(code, PRODUTO_THIRD.barcode.w * PREVIEW_PX_PER_MM, PRODUTO_THIRD.barcode.h * 0.22 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+
+  return (
+    <div style={box(PRODUTO_THIRD.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
+      <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
+      {code && (
+        <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: bcNumSize, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+          {code}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProdutoPreviewTriple({ items }: { items: any[] }) {
+  return (
+    <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
+      <ProdutoBarcodePreviewCell product={items[0]} offsetYMm={0} />
+      <ProdutoBarcodePreviewCell product={items[1]} offsetYMm={PRODUTO_THIRD_H} />
+      <ProdutoBarcodePreviewCell product={items[2]} offsetYMm={PRODUTO_THIRD_H * 2} />
+      <div className="absolute left-0 right-0 border-t border-dashed border-black/30 pointer-events-none" style={{ top: `${(100 / 3).toFixed(4)}%` }} />
+      <div className="absolute left-0 right-0 border-t border-dashed border-black/30 pointer-events-none" style={{ top: `${(200 / 3).toFixed(4)}%` }} />
+    </div>
+  );
+}
+
 // Ícones do toggle Inteira/Metade da Etiqueta de Produto — deixam claro que
 // aqui o corte é horizontal (a Gôndola corta vertical e não usa ícone).
 export function IconWholeSquare({ size = 12 }: { size?: number }) {
@@ -441,6 +489,15 @@ export function IconHalfHorizontal({ size = 12 }: { size?: number }) {
     </svg>
   );
 }
+export function IconTriple({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="2" y="2" width="12" height="12" rx="2" />
+      <line x1="2" y1="6" x2="14" y2="6" />
+      <line x1="2" y1="10" x2="14" y2="10" />
+    </svg>
+  );
+}
 
 // Campos digitados na hora da impressão (valem pra todas as etiquetas do
 // lote) — exclusivos da Etiqueta de Produto.
@@ -453,7 +510,9 @@ const EXTRA_INFO_FIELDS: { key: string; label: string; placeholder: string }[] =
 ];
 
 export type LabelTemplate = 'gondola' | 'produto';
-export type LabelSize = 'full' | 'half';
+// 'triple' é exclusivo da Etiqueta de Produto — divide a folha 40x40mm em 3
+// faixas dedicadas só a código de barras (sem descrição/REF).
+export type LabelSize = 'full' | 'half' | 'triple';
 type Tab = 'selecao' | 'visualizacao';
 
 // Sobrescreve, só pra etiqueta impressa (nunca o produto cadastrado), a
@@ -601,6 +660,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
   const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
   const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
+  const previewTripleItems = useMemo(() => queueList.filter(([, e]) => e.size === 'triple').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
+  const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
+  const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
+  const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -894,15 +957,38 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     `;
   };
 
+  // Etiqueta de Produto — Código de Barras: faixa dedicada só ao código de
+  // barras, sem descrição/REF (offset desloca a 2ª/3ª faixa pra baixo dentro
+  // da folha 40x40 impressa).
+  const buildProdutoBarcodeCellHtml = (product: any, offsetY: number): string => {
+    const code = product.ean || product.sku || '';
+    let bcDataUrl = '';
+    if (code) {
+      try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* skip barcode on error */ }
+    }
+    const layout = PRODUTO_THIRD;
+    const boxStyle = `left:${layout.barcode.x.toFixed(2)}mm; top:${(layout.barcode.y + offsetY).toFixed(2)}mm; width:${layout.barcode.w.toFixed(2)}mm; height:${layout.barcode.h.toFixed(2)}mm;`;
+    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
+
+    return `
+      <div class="cell-el barcode" style="${boxStyle}">
+        ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
+        ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
+      </div>
+    `;
+  };
+
   const printProduto = () => {
     if (template !== 'produto' || totalLabels === 0) return;
     onPrinted?.();
 
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
+    const tripleUnits: any[] = [];
     queueList.forEach(([, entry]) => {
       const product = effectiveLabelProduct(entry);
-      for (let i = 0; i < entry.qty; i++) (entry.size === 'half' ? halfUnits : fullUnits).push(product);
+      const target = entry.size === 'half' ? halfUnits : entry.size === 'triple' ? tripleUnits : fullUnits;
+      for (let i = 0; i < entry.qty; i++) target.push(product);
     });
 
     const pages: string[] = fullUnits.map(product =>
@@ -917,6 +1003,14 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       const bottom = halfUnits[i + 1];
       pages.push(
         `<div class="produto-label">${buildProdutoCellHtml(top, PRODUTO_HALF, 0)}${bottom ? buildProdutoCellHtml(bottom, PRODUTO_HALF, PRODUTO_HALF_H) : ''}</div>`
+      );
+    }
+    for (let i = 0; i < tripleUnits.length; i += 3) {
+      const a = tripleUnits[i];
+      const b = tripleUnits[i + 1];
+      const c = tripleUnits[i + 2];
+      pages.push(
+        `<div class="produto-label">${buildProdutoBarcodeCellHtml(a, 0)}${b ? buildProdutoBarcodeCellHtml(b, PRODUTO_THIRD_H) : ''}${c ? buildProdutoBarcodeCellHtml(c, PRODUTO_THIRD_H * 2) : ''}</div>`
       );
     }
 
@@ -1126,6 +1220,22 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   {template === 'produto' && <IconHalfHorizontal size={12} />}
                                   Metade
                                 </button>
+                                {template === 'produto' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDraftSize(product.id, 'triple')}
+                                    title="3 códigos de barras — divide a etiqueta em 3 faixas, cada uma só com o código de barras"
+                                    className={cn(
+                                      'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                      draft.size === 'triple'
+                                        ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                        : 'text-secondary/50 hover:text-on-surface'
+                                    )}
+                                  >
+                                    <IconTriple size={12} />
+                                    Código
+                                  </button>
+                                )}
                               </div>
                               <input
                                 type="number"
@@ -1169,10 +1279,16 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                   )}
 
                   {template === 'produto' && (
-                    <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5 -mt-2">
-                      <IconHalfHorizontal size={11} />
-                      Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
-                    </p>
+                    <div className="flex flex-col items-center gap-1 -mt-2">
+                      <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
+                        <IconHalfHorizontal size={11} />
+                        Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
+                      </p>
+                      <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
+                        <IconTriple size={11} />
+                        Código divide em 3 faixas, cada uma só com o código de barras
+                      </p>
+                    </div>
                   )}
 
                   {/* Informações adicionais — exclusivas da Etiqueta de Produto */}
@@ -1264,7 +1380,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
                         <ProdutoPreviewFull product={previewFull} extraFields={extraFieldsFilled} />
@@ -1274,6 +1390,11 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
                         <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} />
                         <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {PRODUTO_LABEL_SIZE} × {PRODUTO_HALF_H}mm</p>
+                      </div>
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Código</span>
+                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">3 × {PRODUTO_LABEL_SIZE} × {PRODUTO_THIRD_H.toFixed(1)}mm</p>
                       </div>
                     </div>
                   )}
@@ -1325,6 +1446,20 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                 >
                                   Metade
                                 </button>
+                                {template === 'produto' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQueueSize(id, 'triple')}
+                                    className={cn(
+                                      'px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                      entry.size === 'triple'
+                                        ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                        : 'text-secondary/50 hover:text-on-surface'
+                                    )}
+                                  >
+                                    Código
+                                  </button>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1 flex-shrink-0">

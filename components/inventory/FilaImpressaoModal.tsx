@@ -6,11 +6,11 @@ import { X, Search, Printer, Plus, Minus, ChevronDown, Send, Pencil } from 'luci
 import { cn } from '@/lib/utils';
 import {
   ELGIN_LABEL_W, ELGIN_LABEL_H,
-  PRODUTO_LABEL_SIZE, PRODUTO_HALF_H,
-  LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf,
-  IconWholeSquare, IconHalfHorizontal,
+  PRODUTO_LABEL_SIZE, PRODUTO_HALF_H, PRODUTO_THIRD_H,
+  LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf, ProdutoPreviewTriple,
+  IconWholeSquare, IconHalfHorizontal, IconTriple,
   TEMPLATE_LABELS,
-  SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B,
+  SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B, SAMPLE_TRIPLE_C,
   blockWheelChange, effectiveLabelProduct,
   type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
   type PrintQueueItem, type PrintQueueSubmission,
@@ -61,6 +61,10 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
   const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
   const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
   const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
+  const previewTripleItems = useMemo(() => queueList.filter(([, e]) => e.size === 'triple').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
+  const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
+  const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
+  const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -337,6 +341,22 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   {template === 'produto' && <IconHalfHorizontal size={12} />}
                                   Metade
                                 </button>
+                                {template === 'produto' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDraftSize(product.id, 'triple')}
+                                    title="3 códigos de barras — divide a etiqueta em 3 faixas, cada uma só com o código de barras"
+                                    className={cn(
+                                      'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                      draft.size === 'triple'
+                                        ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                        : 'text-secondary/50 hover:text-on-surface'
+                                    )}
+                                  >
+                                    <IconTriple size={12} />
+                                    Código
+                                  </button>
+                                )}
                               </div>
                               <input
                                 type="number"
@@ -380,10 +400,16 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                   )}
 
                   {template === 'produto' && (
-                    <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5 -mt-2">
-                      <IconHalfHorizontal size={11} />
-                      Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
-                    </p>
+                    <div className="flex flex-col items-center gap-1 -mt-2">
+                      <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
+                        <IconHalfHorizontal size={11} />
+                        Metade corta a etiqueta ao meio na horizontal (duas de 40×20mm)
+                      </p>
+                      <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
+                        <IconTriple size={11} />
+                        Código divide em 3 faixas, cada uma só com o código de barras
+                      </p>
+                    </div>
                   )}
 
                   {/* Resumo da fila */}
@@ -418,7 +444,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
                         <ProdutoPreviewFull product={previewFull} extraFields={[]} />
@@ -428,6 +454,11 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
                         <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} />
                         <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {PRODUTO_LABEL_SIZE} × {PRODUTO_HALF_H}mm</p>
+                      </div>
+                      <div>
+                        <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Código</span>
+                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">3 × {PRODUTO_LABEL_SIZE} × {PRODUTO_THIRD_H.toFixed(1)}mm</p>
                       </div>
                     </div>
                   )}
@@ -480,6 +511,20 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                               >
                                 Metade
                               </button>
+                              {template === 'produto' && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateQueueSize(id, 'triple')}
+                                  className={cn(
+                                    'px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
+                                    entry.size === 'triple'
+                                      ? 'bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]'
+                                      : 'text-secondary/50 hover:text-on-surface'
+                                  )}
+                                >
+                                  Código
+                                </button>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1 flex-shrink-0">

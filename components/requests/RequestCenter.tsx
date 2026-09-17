@@ -714,9 +714,9 @@ export function RequestCenter({
                         </span>
                         <span className={cn(
                           'text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0',
-                          item.size === 'half' ? 'bg-primary/10 text-primary' : 'bg-on-surface/[0.06] text-on-surface/45'
+                          item.size === 'half' || item.size === 'triple' ? 'bg-primary/10 text-primary' : 'bg-on-surface/[0.06] text-on-surface/45'
                         )}>
-                          {item.size === 'half' ? 'Metade' : 'Inteira'} ×{item.qty}
+                          {item.size === 'half' ? 'Metade' : item.size === 'triple' ? 'Código' : 'Inteira'} ×{item.qty}
                         </span>
                       </div>
                     ))}

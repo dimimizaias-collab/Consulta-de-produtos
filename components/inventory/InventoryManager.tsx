@@ -32,7 +32,7 @@ import { ProductCard } from '@/components/ProductCard';
 interface PrintQueuePreload {
   requestId: string;
   template: 'gondola' | 'produto';
-  queue: { product: any; qty: number; size: 'full' | 'half' }[];
+  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple' }[];
 }
 
 interface InventoryManagerProps {
