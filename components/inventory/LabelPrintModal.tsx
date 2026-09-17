@@ -85,8 +85,11 @@ export const PRODUTO_HALF: ProdutoLayout = { // 40x20mm, sempre mínima (sem esp
 export interface ProdutoBarcodeLayout { barcode: ElPos }
 export const PRODUTO_THIRD_H = PRODUTO_LABEL_SIZE / 3; // ~13.33mm — altura de cada faixa
 const PRODUTO_THIRD_MARGIN_Y = 1.3;
+// Altura do código reduzida pra 1/3 do que caberia na faixa inteira —
+// centralizado verticalmente no espaço que sobra.
+const PRODUTO_THIRD_BARCODE_H = (PRODUTO_THIRD_H - PRODUTO_THIRD_MARGIN_Y * 2) / 3;
 export const PRODUTO_THIRD: ProdutoBarcodeLayout = {
-  barcode: { x: 2.2, y: PRODUTO_THIRD_MARGIN_Y, w: 35.6, h: PRODUTO_THIRD_H - PRODUTO_THIRD_MARGIN_Y * 2 },
+  barcode: { x: 2.2, y: (PRODUTO_THIRD_H - PRODUTO_THIRD_BARCODE_H) / 2, w: 35.6, h: PRODUTO_THIRD_BARCODE_H },
 };
 
 const PX_TO_MM = 25.4 / 96;
