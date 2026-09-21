@@ -637,7 +637,22 @@ export default function Page() {
   // Adj column states (multiple discount/surcharge columns)
   type AdjType = 'pct' | 'fixed' | 'fixed_total';
   type AdjMode = 'none' | 'geral' | 'individual';
-  type AdjColumn = { id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual'; geralValue: number; geralType: AdjType; individualType: AdjType; items: string[] };
+  type FiscalKey = 'ipi' | 'icms_st' | 'fcp_st' | 'ii' | 'frete' | 'seguro' | 'outras' | 'desconto' | 'icms_deson';
+  type AdjColumn = { id: string; name: string; kind: 'desconto' | 'acrescimo'; mode: 'geral' | 'individual'; geralValue: number; geralType: AdjType; individualType: AdjType; items: string[]; fiscal?: FiscalKey };
+  // Custos da NFe que compõem o vNF por fora do valor dos produtos (ICMS/PIS/COFINS normais já
+  // estão embutidos no preço e ficam de fora; vICMSSTRet também — não é cobrado nesta nota).
+  // `scope` = onde a tag mora dentro do <det>; `totalTag` = tag equivalente em <ICMSTot>.
+  const FISCAL_COL_DEFS: { key: FiscalKey; name: string; kind: 'desconto' | 'acrescimo'; scope: 'prod' | 'det'; tag: string; totalTag: string }[] = [
+    { key: 'ipi', name: 'IPI', kind: 'acrescimo', scope: 'det', tag: 'vIPI', totalTag: 'vIPI' },
+    { key: 'icms_st', name: 'ICMS ST', kind: 'acrescimo', scope: 'det', tag: 'vICMSST', totalTag: 'vST' },
+    { key: 'fcp_st', name: 'FCP ST', kind: 'acrescimo', scope: 'det', tag: 'vFCPST', totalTag: 'vFCPST' },
+    { key: 'ii', name: 'Imp. Importação', kind: 'acrescimo', scope: 'det', tag: 'vII', totalTag: 'vII' },
+    { key: 'frete', name: 'Frete', kind: 'acrescimo', scope: 'prod', tag: 'vFrete', totalTag: 'vFrete' },
+    { key: 'seguro', name: 'Seguro', kind: 'acrescimo', scope: 'prod', tag: 'vSeg', totalTag: 'vSeg' },
+    { key: 'outras', name: 'Outras Despesas', kind: 'acrescimo', scope: 'prod', tag: 'vOutro', totalTag: 'vOutro' },
+    { key: 'desconto', name: 'Desconto NF', kind: 'desconto', scope: 'prod', tag: 'vDesc', totalTag: 'vDesc' },
+    { key: 'icms_deson', name: 'ICMS Desonerado', kind: 'desconto', scope: 'det', tag: 'vICMSDeson', totalTag: 'vICMSDeson' },
+  ];
   type AdjColDialog = { kind: 'desconto' | 'acrescimo'; name: string; method: 'geral' | 'individual' | null; geralValue: string; geralType: AdjType; individualType: AdjType };
   const [adjColumns, setAdjColumns] = useState<AdjColumn[]>([]);
   const [adjColDialog, setAdjColDialog] = useState<AdjColDialog | null>(null);
@@ -658,6 +673,20 @@ export default function Page() {
       if (col.kind === 'desconto') disc += amt; else sur += amt;
     }
     return { disc, sur };
+  };
+  // Impostos importados do XML (IPI / ICMS ST) entram como colunas de Acréscimo marcadas com
+  // `fiscal`, valor total do item (fixed_total). Este helper devolve só a parte fiscal por
+  // unidade — usado onde o custo é gravado (estoque/manifesto), sem tocar nos demais ajustes.
+  const calcFiscalPerUnit = (cols: AdjColumn[] | null | undefined, idx: number, qty: number): number => {
+    const units = qty > 0 ? qty : 0;
+    if (units === 0) return 0;
+    let total = 0;
+    for (const col of cols || []) {
+      if (!col.fiscal) continue;
+      const v = parseFloat(col.items[idx] ?? '');
+      if (!isNaN(v) && v > 0) total += col.kind === 'desconto' ? -v : v;
+    }
+    return total / units;
   };
   // Quantidade efetiva de um item pra fins de total/markup da nota. Marcar "Falta"/"Sobra"
   // sozinho é só registro/aviso — não altera o cálculo. Só quando o usuário ativa
@@ -1833,6 +1862,11 @@ export default function Page() {
     );
     if (priceCandidates.length === 0 && !hasExtraWork) return;
 
+    // IPI / ICMS ST importados do XML (colunas de Acréscimo `fiscal`, guardadas no 1º item) —
+    // somam no custo gravado por loja para o Preço Custo refletir o custo real da mercadoria.
+    const noteFiscalCols: AdjColumn[] = ((note.items?.[0] as any)?.adj_columns_full || []).filter((c: any) => c.fiscal);
+    const fiscalPerUnit = (item: any): number =>
+      noteFiscalCols.length === 0 ? 0 : calcFiscalPerUnit(noteFiscalCols, (note.items || []).indexOf(item), parseFloat(item.qty) || 0);
     const noteReceivedDate = note.receivedDate || null;
     const companyId = note.companyId || null;
     const alreadyAppliedStock = !!note.stockAppliedAt;
@@ -1868,7 +1902,7 @@ export default function Page() {
             // sempre sobrescreve com o último custo recebido (ver Etapa 1/6 do plano de
             // Distribuição). Coluna separada de price_received_date por precaução, ainda que
             // hoje os dois sempre venham do mesmo evento de aprovação de nota.
-            cost_price: item.price || 0,
+            cost_price: (item.price || 0) + fiscalPerUnit(item),
             cost_received_date: noteReceivedDate,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'product_id,company_id' });
@@ -1959,7 +1993,7 @@ export default function Page() {
               count: nextCount,
               // Custo por loja também propaga pra quem recebeu via distribuição — mesmo valor
               // usado no snapshot do manifesto (Etapa 6 do plano de Distribuição).
-              cost_price: item.price || 0,
+              cost_price: (item.price || 0) + fiscalPerUnit(item),
               cost_received_date: noteReceivedDate,
               updated_at: new Date().toISOString(),
             };
@@ -2082,7 +2116,8 @@ export default function Page() {
           if (q <= 0 || !item.product_id) return;
           if (!byCompany[companyId]) byCompany[companyId] = [];
           const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
-          const costPrice = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
+          const costPrice = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult
+            + calcFiscalPerUnit(adjColumns, idx, viewingNoteQtys[idx] ?? item.qty ?? 0);
           byCompany[companyId].push({
             productId: item.product_id,
             productName: item.name || item.original_description || 'Produto',
@@ -2895,7 +2930,9 @@ export default function Page() {
   // só sobrescreve, por item (casado por EAN e, na falta, por código do fornecedor/cProd):
   //   • Medida/Quantidade traduzidas na revisão (item.unit / item.qty)
   //   • Quantidade menos o que foi distribuído para outras lojas (getDistribTotal)
-  //   • Preço Un./Total já com todos os Acréscimos/Descontos da nota embutidos (calcAdjAmounts)
+  //   • Preço Un./Total já com os Acréscimos/Descontos da nota embutidos (calcAdjAmounts) —
+  //     EXCETO as colunas fiscais (IPI/ICMS ST importados do XML): esses impostos já estão no
+  //     XML original (vIPI/vICMSST/vNF), então somar de novo duplicaria o valor.
   // Tudo mais (chave de acesso, CFOP, NCM, emit/dest, protocolo) fica intacto. A assinatura
   // digital é removida — deixa de bater com o conteúdo assim que qualquer valor muda.
   const buildCorrectedNfeXml = (originalXmlText: string, items: any[], noteAdjColumns: AdjColumn[]): string => {
@@ -2940,7 +2977,7 @@ export default function Page() {
 
     items.forEach((item: any, idx: number) => {
       const rawCost = (item.price || 0) / (item.multiplier || 1);
-      const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, noteAdjColumns || []);
+      const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, (noteAdjColumns || []).filter(c => !c.fiscal));
       const adjCost = rawCost - disc + sur;
       const distribTotal = getDistribTotal(idx, item);
       const finalQty = Math.max(0, (item.qty || 0) - distribTotal);
@@ -3016,13 +3053,20 @@ export default function Page() {
     const dets = Array.from(doc.getElementsByTagNameNS(NFE_NS, 'det'));
     if (dets.length === 0) throw new Error('XML não parece ser uma NFe (nenhum item <det> encontrado).');
 
-    const rows = dets.map(det => {
+    const num = (s: string) => parseFloat(s.replace(',', '.')) || 0;
+    const icmsTot = doc.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0] || null;
+
+    const allRows = dets.map(det => {
       const prod = firstChild(det, 'prod');
       if (!prod) return null;
       const ean = getText(prod, 'cEAN');
-      const qty = parseFloat(getText(prod, 'qCom').replace(',', '.')) || 0;
-      const vProd = parseFloat(getText(prod, 'vProd').replace(',', '.')) || 0;
-      const vUnCom = parseFloat(getText(prod, 'vUnCom').replace(',', '.')) || (qty > 0 ? vProd / qty : 0);
+      const qty = num(getText(prod, 'qCom'));
+      const vProd = num(getText(prod, 'vProd'));
+      const vUnCom = num(getText(prod, 'vUnCom')) || (qty > 0 ? vProd / qty : 0);
+      // Custos do item (total do item, não unitário): frete/seguro/outras/desconto ficam em
+      // <prod>; IPI, ICMS ST, FCP ST, II e ICMS desonerado ficam em <imposto>, dentro de <det>.
+      const taxes = {} as Record<FiscalKey, number>;
+      for (const def of FISCAL_COL_DEFS) taxes[def.key] = num(getText(def.scope === 'prod' ? prod : det, def.tag));
       return {
         ean: (ean && ean.toUpperCase() !== 'SEM GTIN') ? ean : '',
         sku: getText(prod, 'cProd'),
@@ -3030,8 +3074,36 @@ export default function Page() {
         unit: getText(prod, 'uCom'),
         qty,
         price: vUnCom,
+        vProd,
+        taxes,
       };
-    }).filter((r): r is { ean: string; sku: string; description: string; unit: string; qty: number; price: number } => !!r && r.qty > 0);
+    }).filter((r): r is NonNullable<typeof r> => !!r);
+
+    // Rateio: quando o total da nota (ICMSTot) é maior que a soma do que veio por item — caso
+    // típico de frete/outras despesas lançados só no total — o que sobrou é dividido entre os
+    // itens proporcionalmente ao valor (vProd) de cada um, em centavos; o resto do
+    // arredondamento vai para o último item, para a soma bater exato com o total da nota.
+    if (icmsTot) {
+      const weights = allRows.map(r => r.vProd);
+      const wSum = weights.reduce((a, b) => a + b, 0);
+      for (const def of FISCAL_COL_DEFS) {
+        const itemSum = allRows.reduce((a, r) => a + r.taxes[def.key], 0);
+        const remainderCents = Math.round((num(getText(icmsTot, def.totalTag)) - itemSum) * 100);
+        if (remainderCents <= 0 || allRows.length === 0) continue;
+        const shares = weights.map(w => Math.floor(remainderCents * (wSum > 0 ? w / wSum : 1 / allRows.length)));
+        shares[shares.length - 1] += remainderCents - shares.reduce((a, b) => a + b, 0);
+        allRows.forEach((r, i) => { r.taxes[def.key] = Math.round((r.taxes[def.key] + shares[i] / 100) * 100) / 100; });
+      }
+    }
+
+    // Conferência com o vNF: valor dos produtos + custos por fora − descontos tem que fechar
+    // com o total da nota. Se não fechar, sobra algum custo que não estamos lendo.
+    const nfTotal = icmsTot ? num(getText(icmsTot, 'vNF')) : 0;
+    const computedTotal = allRows.reduce((acc, r) => acc + r.vProd + FISCAL_COL_DEFS.reduce(
+      (s, def) => s + (def.kind === 'desconto' ? -r.taxes[def.key] : r.taxes[def.key]), 0), 0);
+    const totalsDiff = icmsTot ? Math.round((computedTotal - nfTotal) * 100) / 100 : 0;
+
+    const rows = allRows.filter(r => r.qty > 0);
 
     const infNFe = doc.getElementsByTagNameNS(NFE_NS, 'infNFe')[0] || null;
     const ide = infNFe ? firstChild(infNFe, 'ide') : null;
@@ -3041,6 +3113,8 @@ export default function Page() {
 
     return {
       rows,
+      nfTotal,
+      totalsDiff,
       noteNumber: getText(ide, 'nNF'),
       accessKey: getText(infProt, 'chNFe') || idAttr.replace(/^NFe/i, ''),
       supplierName: getText(emit, 'xFant') || getText(emit, 'xNome'),
@@ -3121,6 +3195,27 @@ export default function Page() {
 
       const processedItems = await buildProcessedNoteItems(parsed.rows, effectiveSupplierId);
 
+      // IPI e ICMS ST viram colunas de Acréscimo (valor total do item, dividido pela Qtd. no
+      // custo unitário) — só criadas se ao menos um item do XML tiver o imposto. `fiscal`
+      // distingue essas colunas das criadas à mão (o XML corrigido não as soma de novo).
+      // Vão no 1º item (adj_columns_full), que é de onde a nota restaura as colunas ao abrir.
+      const fiscalCols: AdjColumn[] = FISCAL_COL_DEFS
+        .filter(def => parsed.rows.some(r => r.taxes[def.key] > 0))
+        .map(def => ({
+          id: `fiscal-${def.key}`,
+          name: def.name,
+          kind: def.kind,
+          mode: 'individual' as const,
+          geralValue: 0,
+          geralType: 'pct' as AdjType,
+          individualType: 'fixed_total' as AdjType,
+          items: parsed.rows.map(r => (r.taxes[def.key] > 0 ? r.taxes[def.key].toFixed(2) : '')),
+          fiscal: def.key,
+        }));
+      if (fiscalCols.length > 0 && processedItems.length > 0) {
+        processedItems[0] = { ...processedItems[0], adj_columns_full: fiscalCols };
+      }
+
       const updatedNote: ReviewNote = {
         ...viewingReviewNote,
         items: processedItems,
@@ -3133,7 +3228,11 @@ export default function Page() {
         supplierName: viewingReviewNote.supplierName || matchedSupplierName || parsed.supplierName || undefined,
       };
       openReviewNoteForEditing(updatedNote);
-      setNotification({ type: 'success', message: `Nota preenchida com ${processedItems.length} item(ns) do XML — revise e salve.` });
+      if (Math.abs(parsed.totalsDiff) > 0.01) {
+        setNotification({ type: 'error', message: `Nota preenchida com ${processedItems.length} item(ns), mas o custo lido do XML difere do total da nota (vNF R$ ${parsed.nfTotal.toFixed(2)}) em R$ ${parsed.totalsDiff.toFixed(2)} — algum custo do XML não foi lido. Confira antes de salvar.` });
+      } else {
+        setNotification({ type: 'success', message: `Nota preenchida com ${processedItems.length} item(ns) do XML — revise e salve.` });
+      }
     } catch (err: any) {
       console.error('Erro ao usar XML como molde:', err);
       setNotification({ type: 'error', message: err.message || 'Erro ao processar o XML.' });
