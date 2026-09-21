@@ -26,6 +26,9 @@ const escapeXml = (s: string | null | undefined) => String(s ?? '')
 
 const onlyDigits = (s: string | null | undefined) => (s || '').replace(/\D/g, '');
 
+// NCM usado no XML de transferência para produtos sem NCM cadastrado.
+const DEFAULT_NCM = '39241000';
+
 interface CompanyFiscalData {
   id: string;
   razao_social: string;
@@ -720,12 +723,6 @@ export function DistributionManifestModal({
       const productIds = Array.from(new Set(items.map(it => it.productId)));
       const { data: productsData } = await supabase.from('products').select('id, ncm').in('id', productIds);
       const ncmByProduct = new Map<string, string | null>((productsData || []).map((p: any) => [p.id, p.ncm]));
-      const missingNcm = items.filter(it => !ncmByProduct.get(it.productId));
-      if (missingNcm.length > 0) {
-        const names = missingNcm.slice(0, 5).map(it => it.productName).join(', ');
-        const rest = missingNcm.length > 5 ? ` e mais ${missingNcm.length - 5}` : '';
-        throw new Error(`Preencha o NCM destes produtos antes de gerar o XML (Estoque > editar produto): ${names}${rest}.`);
-      }
 
       // Número da NFe simulada — sequência global dedicada (get_next_distribution_manifest_nfe_number),
       // gravada uma única vez no manifesto. Não reaproveita manifest_number: o formato
@@ -763,7 +760,9 @@ export function DistributionManifestModal({
 
       let vProdTotal = 0;
       const detXml = items.map((it, idx) => {
-        const ncm = ncmByProduct.get(it.productId) || '';
+        // Produto sem NCM cadastrado usa o NCM genérico padrão (artigos de plástico p/ uso
+        // doméstico) em vez de bloquear a geração do XML de transferência.
+        const ncm = ncmByProduct.get(it.productId) || DEFAULT_NCM;
         const vProd = it.qty * it.costPrice;
         vProdTotal += vProd;
         const ean = it.ean || 'SEM GTIN';
