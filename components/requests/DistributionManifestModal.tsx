@@ -879,8 +879,9 @@ export function DistributionManifestModal({
       }).join('\n');
 
       // Chave de acesso zerada de propósito (não foi autorizada pela SEFAZ) — cDV
-      // também zerado para bater com o último dígito da chave. tpAmb=2 (homologação)
-      // reforça que este não é um documento de produção/autorizado de verdade.
+      // também zerado para bater com o último dígito da chave. tpAmb=1 (produção): o PDV
+      // recusa importar nota marcada como homologação ("Nota Fiscal emitida em Ambiente de
+      // Homologação"). O aviso de que não é documento autorizado fica no infCpl e no modal.
       const chaveZerada = '0'.repeat(44);
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
@@ -899,7 +900,7 @@ export function DistributionManifestModal({
       <tpImp>1</tpImp>
       <tpEmis>1</tpEmis>
       <cDV>0</cDV>
-      <tpAmb>2</tpAmb>
+      <tpAmb>1</tpAmb>
       <finNFe>1</finNFe>
       <indFinal>0</indFinal>
       <indPres>9</indPres>
