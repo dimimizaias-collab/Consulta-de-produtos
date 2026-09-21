@@ -198,10 +198,10 @@ function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
 }
 
 // Metade: depois de calcular o tamanho/quebra do nome (com a geometria
-// original), o REF sobe 3mm e código de barras/R$/preço sobem 2mm. O REF só
+// original), o REF sobe 2mm e código de barras/R$/preço sobem 2mm. O REF só
 // sobe quando o nome ocupa 2 linhas — com o nome em 1 linha não há espaço
 // livre acima dele (o nome termina 0,3mm antes do REF).
-const HALF_REF_LIFT_MM = 3;
+const HALF_REF_LIFT_MM = 2;
 const HALF_BLOCK_LIFT_MM = 2;
 function liftHalfLayout(layout: CellLayout, shifted: CellLayout, twoLines: boolean): CellLayout {
   if (layout !== HALF_LAYOUT) return shifted;
