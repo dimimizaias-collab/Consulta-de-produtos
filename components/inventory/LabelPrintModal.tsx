@@ -236,7 +236,9 @@ const FULL_NOME_TOP_SAFETY_MM = 0.5;
 // realmente precisam de 2 linhas mantêm o tamanho/posição de antes, senão
 // bateriam no REF.
 const FULL_NOME_ONE_LINE_BUMP_MM = 0.353; // 1pt
-const FULL_NOME_ONE_LINE_DROP_MM = 2;
+const FULL_NOME_ONE_LINE_DROP_MM = 1;
+// Na Inteira, nome de 1 linha (qualquer tamanho) fica 1mm acima da posição base.
+const FULL_NOME_ONE_LINE_RAISE_MM = 1;
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
   const scale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : 1;
   const w = layout.nome.w;
@@ -244,7 +246,8 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
   const singleMaxH = Math.max(1, bottom - layout.nome.y);
   const fitsOneLine = measureTextWidth(text, singleMaxH, weight, family) <= w * FIT_SAFETY;
   if (fitsOneLine) {
-    return { fontSizeMm: singleMaxH * scale, yMm: layout.nome.y, hMm: singleMaxH, twoLines: false, extraH: 0 };
+    const raise = layout === FULL_LAYOUT ? FULL_NOME_ONE_LINE_RAISE_MM : 0;
+    return { fontSizeMm: singleMaxH * scale, yMm: layout.nome.y - raise, hMm: singleMaxH, twoLines: false, extraH: 0 };
   }
 
   if (layout === FULL_LAYOUT) {
