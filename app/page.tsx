@@ -2109,8 +2109,14 @@ export default function Page() {
       // nota costuma ser enviada em Revisão, antes da aprovação que grava esse preço em
       // product_company_stock, então aquele valor ainda estaria zerado/desatualizado.
       const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number }[]> = {};
+      // Itens com quantidade distribuída mas sem produto vinculado ("Não Encontrado") não
+      // têm como virar linha de manifesto — antes eram descartados em silêncio.
+      const unlinkedWithDist: string[] = [];
       note.items.forEach((item: any, idx: number) => {
         const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
+        if (!item.product_id && Object.values(dist).some(q => (Number(q) || 0) > 0)) {
+          unlinkedWithDist.push(item.name || item.original_description || `Item ${idx + 1}`);
+        }
         Object.entries(dist).forEach(([companyId, qty]) => {
           const q = Number(qty) || 0;
           if (q <= 0 || !item.product_id) return;
@@ -2128,6 +2134,13 @@ export default function Page() {
           });
         });
       });
+
+      if (unlinkedWithDist.length > 0) {
+        const names = unlinkedWithDist.slice(0, 5).join(', ');
+        const rest = unlinkedWithDist.length > 5 ? ` e mais ${unlinkedWithDist.length - 5}` : '';
+        setNotification({ type: 'error', message: `${unlinkedWithDist.length} item(ns) com distribuição ainda não estão vinculados a um produto do sistema (Não Encontrado): ${names}${rest}. Vincule ou cadastre esses produtos antes de enviar.` });
+        return;
+      }
 
       const destCompanyIds = Object.keys(byCompany);
       if (destCompanyIds.length === 0) {
