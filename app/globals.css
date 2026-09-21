@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Fonte da descrição das etiquetas de Gôndola (ver LabelPrintModal). */
+@font-face {
+  font-family: 'Arimo';
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Arimo-VariableFont_wght.ttf') format('truetype');
+}
+
 /* Tailwind v4: por padrão dark: usa prefers-color-scheme.
    Redefinimos para usar a classe .dark no <html>,
    controlada pelo toggle de tema da aplicação. */

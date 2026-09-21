@@ -16,7 +16,7 @@ export const ELGIN_LABEL_H = 28;  // mm — etiqueta de gôndola real medida (n�
 export const HALF_OFFSET_X = ELGIN_LABEL_W / 2; // 52.5mm — onde começa a 2ª metade
 
 export interface ElPos { x: number; y: number; w: number; h: number }
-export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos }
+export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos; preco: ElPos; data: ElPos }
 
 // Posições em mm, origem no canto superior esquerdo de cada etiqueta/metade.
 // Extraídas por análise de pixel de um par de imagens de referência fornecidas
@@ -27,8 +27,10 @@ export const FULL_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
   ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
-  rs:      { x: 60.3, y: 11.8, w: 5,    h: 4.5  },
-  preco:   { x: 65.6, y: 11.8, w: 35.3, h: 13.4 },
+  // R$/preço 2mm mais acima pra abrir espaço à linha "Data de Impressão".
+  rs:      { x: 60.3, y: 9.8,  w: 5,    h: 4.5  },
+  preco:   { x: 65.6, y: 9.8,  w: 35.3, h: 13.4 },
+  data:    { x: 60.3, y: 23.6, w: 41,   h: 2.6  },
 };
 // Conteúdo 2mm mais para cima que a extração original (3mm pra cima, depois
 // 1mm de volta pra baixo) e a distância entre o REF e o bloco de baixo
@@ -38,9 +40,30 @@ export const HALF_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2,    w: 46,  h: 2.7 },
   ref:     { x: 3,    y: 6.2,  w: 21,  h: 2   },
   barcode: { x: 3,    y: 11.2, w: 21,  h: 9.3 },
-  rs:      { x: 24.7, y: 11.2, w: 3.5, h: 3   },
-  preco:   { x: 28.5, y: 11.2, w: 21,  h: 10  },
+  // R$/preço 1,5mm mais acima pra abrir espaço à linha "Data de Impressão".
+  rs:      { x: 24.7, y: 9.7,  w: 3.5, h: 3   },
+  preco:   { x: 28.5, y: 9.7,  w: 21,  h: 10  },
+  data:    { x: 24.2, y: 20,   w: 27.5, h: 2  },
 };
+
+// Descrição da etiqueta de Gôndola: sempre em MAIÚSCULO, Arimo negrito. O
+// arquivo da fonte vai junto no app (public/fonts) pra impressão não depender
+// da fonte instalada no computador; @font-face está em globals.css e na janela
+// de impressão.
+export const NOME_FONT_FAMILY = "Arimo, Arial, Helvetica, sans-serif";
+export const NOME_FONT_WEIGHT = 700;
+export const ARIMO_FONT_URL = '/fonts/Arimo-VariableFont_wght.ttf';
+export function ensureArimoLoaded(): Promise<unknown> {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve();
+  return document.fonts.load(`${NOME_FONT_WEIGHT} 16px Arimo`).catch(() => undefined);
+}
+function useArimoReady(): void {
+  const [, setReady] = useState(false);
+  useEffect(() => { let alive = true; ensureArimoLoaded().then(() => { if (alive) setReady(true); }); return () => { alive = false; }; }, []);
+}
+export function dataImpressaoText(): string {
+  return `Data de Impressão - ${new Date().toLocaleDateString('pt-BR')}`;
+}
 
 // Respiro entre o nome e o REF logo abaixo dele.
 const NOME_GAP_MM = 0.3;
@@ -152,6 +175,7 @@ function maxTwoLineNomeSize(layout: CellLayout): number {
     layout.barcode.y + layout.barcode.h,
     layout.rs.y + layout.rs.h,
     layout.preco.y + layout.preco.h,
+    layout.data.y + layout.data.h,
   );
   const availableDown = Math.max(0, ELGIN_LABEL_H - NOME_BOTTOM_SAFETY_MM - lowestBottom);
   const maxBlockH = layout.nome.h + availableDown;
@@ -169,6 +193,7 @@ function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
     barcode: { ...layout.barcode, y: layout.barcode.y + dy },
     rs: { ...layout.rs, y: layout.rs.y + dy },
     preco: { ...layout.preco, y: layout.preco.y + dy },
+    data: { ...layout.data, y: layout.data.y + dy },
   };
 }
 
@@ -244,6 +269,7 @@ export const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', 
 export const SAMPLE_TRIPLE_C = { name: 'Suco de Uva Integral 1L', sku: '0891', ean: '7891234598765', price: 8.9 };
 
 function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
+  useArimoReady();
   const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
     position: 'absolute',
     left: `${((p.x + offsetXMm) / ELGIN_LABEL_W) * 100}%`,
@@ -253,22 +279,24 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
     ...extra,
   });
   const code = product.ean || product.sku || '';
-  const nomeText = product.name || '—';
+  const nomeText = (product.name || '—').toUpperCase();
   const refText = `REF ${productRef(product)}`;
   const priceText = formatPriceValue(product.price ?? 0);
+  const dataText = dataImpressaoText();
 
-  const nomeFit = fitNomeLayout(nomeText, layout, 800, 'DM Sans, sans-serif');
+  const nomeFit = fitNomeLayout(nomeText, layout, NOME_FONT_WEIGHT, NOME_FONT_FAMILY);
   const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
   const shifted = shiftLayoutDown(layout, nomeFit.extraH);
   const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const precoSize = fitFontSize(priceText, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const bcNumSize = code ? fitFontSize(code, shifted.barcode.w * PREVIEW_PX_PER_MM, shifted.barcode.h * 0.3 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const dataSize = fitFontSize(dataText, shifted.data.w * PREVIEW_PX_PER_MM, shifted.data.h * PREVIEW_PX_PER_MM, 400, 'DM Sans, sans-serif');
 
   return (
     <>
       <div style={box(nomeBox, {
-        fontSize: nomeFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden',
+        fontFamily: NOME_FONT_FAMILY, fontSize: nomeFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: NOME_FONT_WEIGHT, color: '#141400', lineHeight: 1.05, overflow: 'hidden', textAlign: 'left',
         ...(nomeFit.twoLines
           ? { whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties
           : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
@@ -289,6 +317,9 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
       <div style={box(shifted.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
       <div style={box(shifted.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
         {priceText}
+      </div>
+      <div style={box(shifted.data, { fontSize: dataSize, color: '#3c3c3c', whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' })}>
+        {dataText}
       </div>
     </>
   );
@@ -799,13 +830,14 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }
     const boxStyle = (p: ElPos) => `left:${(p.x + offsetX).toFixed(2)}mm; top:${p.y.toFixed(2)}mm; width:${p.w.toFixed(2)}mm; height:${p.h.toFixed(2)}mm;`;
 
-    const nomeText = product.name || '—';
+    const nomeText = (product.name || '—').toUpperCase();
     const refText = `REF ${productRef(product)}`;
     const priceText = formatPriceValue(product.price ?? 0);
+    const dataText = dataImpressaoText();
 
     // Nome cabe numa linha se der; senão quebra em 2 linhas — na Inteira sobe
     // pra cima, na Metade empurra REF/código de barras/R$/preço pra baixo.
-    const nomeFit = fitNomeLayout(nomeText, layout, 800, 'Arial, Helvetica, sans-serif');
+    const nomeFit = fitNomeLayout(nomeText, layout, NOME_FONT_WEIGHT, NOME_FONT_FAMILY);
     const shifted = shiftLayoutDown(layout, nomeFit.extraH);
     const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
     const nomeWrapStyle = nomeFit.twoLines
@@ -815,6 +847,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const rsSize = fitFontSize('R$', shifted.rs.w, shifted.rs.h, 800, 'Arial, Helvetica, sans-serif');
     const precoSize = fitFontSize(priceText, shifted.preco.w, shifted.preco.h, 800, 'Arial, Helvetica, sans-serif');
     const bcNumSize = code ? fitFontSize(code, shifted.barcode.w, shifted.barcode.h * 0.3, 700, "'Courier New', monospace") : 0;
+    const dataSize = fitFontSize(dataText, shifted.data.w, shifted.data.h, 400, 'Arial, Helvetica, sans-serif');
 
     return `
       <div class="cell-el nome" style="${nomeBoxStyle} font-size:${nomeFit.fontSizeMm.toFixed(2)}mm; ${nomeWrapStyle}">${escapeHtml(nomeText)}</div>
@@ -825,12 +858,19 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       </div>
       <div class="cell-el rs" style="${boxStyle(shifted.rs)} font-size:${rsSize.toFixed(2)}mm;">R$</div>
       <div class="cell-el preco" style="${boxStyle(shifted.preco)} font-size:${precoSize.toFixed(2)}mm;">${escapeHtml(priceText)}</div>
+      <div class="cell-el data" style="${boxStyle(shifted.data)} font-size:${dataSize.toFixed(2)}mm;">${escapeHtml(dataText)}</div>
     `;
   };
 
-  const printElgin = () => {
+  const printElgin = async () => {
     if (template !== 'gondola' || totalLabels === 0) return;
     onPrinted?.();
+
+    // Abre a janela antes de qualquer await (senão o navegador bloqueia o popup)
+    // e garante o Arimo carregado antes de medir os textos.
+    const win = window.open('', '_blank', 'width=500,height=400');
+    if (!win) return;
+    await ensureArimoLoaded();
 
     const fullUnits: any[] = [];
     const halfUnits: any[] = [];
@@ -851,11 +891,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }
 
     const labelsHtml = pages.join('');
-    const win = window.open('', '_blank', 'width=500,height=400');
-    if (!win) return;
     win.document.write(`
       <html><head><title>Etiquetas Elgin L42 Pro</title>
       <style>
+        @font-face { font-family: 'Arimo'; font-weight: 400 700; src: url('${window.location.origin}${ARIMO_FONT_URL}') format('truetype'); }
         @page { size: ${ELGIN_LABEL_W}mm ${ELGIN_LABEL_H}mm; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, Helvetica, sans-serif; }
@@ -865,7 +904,8 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         }
         .elgin-label:last-child { page-break-after: auto; }
         .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .cell-el.nome { font-weight: 800; }
+        .cell-el.nome { font-family: ${NOME_FONT_FAMILY}; font-weight: ${NOME_FONT_WEIGHT}; text-align: left; }
+        .cell-el.data { font-weight: 400; color: #3c3c3c; display: flex; align-items: center; justify-content: center; }
         .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 900; color: #3c3c3c; }
         .cell-el.rs { display: flex; align-items: flex-start; justify-content: flex-end; }
         .cell-el.preco { font-weight: 800; line-height: 0.85; display: flex; align-items: center; justify-content: flex-end; }
@@ -877,7 +917,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     `);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 300);
+    const doPrint = () => { win.print(); };
+    (win.document.fonts?.load(`${NOME_FONT_WEIGHT} 16px Arimo`) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => setTimeout(doPrint, 300));
   };
 
   // Etiqueta de Produto — mínima (Inteira sem informações adicionais, ou
