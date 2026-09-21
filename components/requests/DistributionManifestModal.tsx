@@ -45,7 +45,37 @@ interface CompanyFiscalData {
   uf: string | null;
 }
 
-const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
+// Emitente do XML de transferência quando o manifesto veio de uma nota: o fornecedor real,
+// lido do bloco <emit> do XML original da nota (a tabela de fornecedores não guarda endereço/IE).
+interface EmitterFiscalData extends CompanyFiscalData { crt: string }
+
+const parseEmitterFromNfeXml = (xmlText: string): EmitterFiscalData => {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) throw new Error('O XML original da nota está inválido ou corrompido.');
+  const NS = 'http://www.portalfiscal.inf.br/nfe';
+  const emit = doc.getElementsByTagNameNS(NS, 'emit')[0];
+  if (!emit) throw new Error('O XML original da nota não tem o bloco <emit> do fornecedor.');
+  const ender = emit.getElementsByTagNameNS(NS, 'enderEmit')[0] || null;
+  const t = (el: Element | null, tag: string) => (el?.getElementsByTagNameNS(NS, tag)[0]?.textContent || '').trim();
+  return {
+    id: 'supplier',
+    razao_social: t(emit, 'xNome'),
+    nome_fantasia: t(emit, 'xFant') || t(emit, 'xNome'),
+    cnpj: t(emit, 'CNPJ') || t(emit, 'CPF'),
+    ie: t(emit, 'IE'),
+    cep: t(ender, 'CEP'),
+    logradouro: t(ender, 'xLgr'),
+    numero: t(ender, 'nro'),
+    complemento: t(ender, 'xCpl') || null,
+    bairro: t(ender, 'xBairro'),
+    municipio: t(ender, 'xMun'),
+    municipio_ibge: t(ender, 'cMun'),
+    uf: t(ender, 'UF'),
+    crt: t(emit, 'CRT') || '3',
+  };
+};
+
+const blockWheelChange =(e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
 // Estilo "molde da nota" — mesma barra de cabeçalho amarela contínua + chip por coluna,
 // e célula em duas camadas (td fino + div arredondado) usada na tabela de revisão da nota
@@ -169,6 +199,20 @@ export function DistributionManifestModal({
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [xmlModalOpen, setXmlModalOpen] = useState(false);
   const [generatingXml, setGeneratingXml] = useState(false);
+  // Fornecedor da nota de origem (emitente do XML) — só para exibir no modal de download.
+  const [xmlSupplierName, setXmlSupplierName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!xmlModalOpen) return;
+    let cancelled = false;
+    setXmlSupplierName(null);
+    (async () => {
+      const { data: m } = await supabase.from('distribution_manifests').select('source_note_id').eq('id', manifest.id).maybeSingle();
+      if (!m?.source_note_id) return;
+      const { data: n } = await supabase.from('review_notes').select('supplier_name').eq('id', m.source_note_id).maybeSingle();
+      if (!cancelled) setXmlSupplierName(n?.supplier_name || null);
+    })();
+    return () => { cancelled = true; };
+  }, [xmlModalOpen, manifest.id]);
 
   // Modal de Falta/Sobra — mesmo fluxo do modal de divergência da nota (app/page.tsx),
   // acionado pelo botão na coluna Qtd. Env. da tabela de itens.
@@ -715,7 +759,21 @@ export function DistributionManifestModal({
         if (!c.cep) missing.push('CEP');
         return missing.length > 0 ? `${label} (${c.nome_fantasia}): ${missing.join(', ')}` : null;
       };
-      const missingMsgs = [missingFieldsFor(origin, 'Loja Origem'), missingFieldsFor(dest, 'Loja Destino')].filter(Boolean);
+      // Emitente = fornecedor real da nota que originou o manifesto (uma loja não consegue
+      // importar no PDV uma NF emitida por outra loja). Manifestos criados à mão, sem nota de
+      // origem, não têm fornecedor — nesse caso continua a loja origem como emitente.
+      const { data: manifestMeta } = await supabase.from('distribution_manifests').select('source_note_id').eq('id', manifest.id).maybeSingle();
+      let supplierEmit: EmitterFiscalData | null = null;
+      if (manifestMeta?.source_note_id) {
+        const { data: noteRow } = await supabase.from('review_notes').select('supplier_name, original_nfe_xml').eq('id', manifestMeta.source_note_id).maybeSingle();
+        if (!noteRow?.original_nfe_xml) {
+          throw new Error(`Este manifesto veio de uma nota${noteRow?.supplier_name ? ` do fornecedor ${noteRow.supplier_name}` : ''} sem o XML original anexado. Anexe o XML na aba "Nota Original" da nota (ou use "Usar como Molde") para gerar o XML com o fornecedor como emitente.`);
+        }
+        supplierEmit = parseEmitterFromNfeXml(noteRow.original_nfe_xml);
+      }
+      const emitter: EmitterFiscalData = supplierEmit ?? { ...origin, crt: '1' };
+
+      const missingMsgs = [missingFieldsFor(emitter, supplierEmit ? 'Fornecedor (XML da nota)' : 'Loja Origem'), missingFieldsFor(dest, 'Loja Destino')].filter(Boolean);
       if (missingMsgs.length > 0) {
         throw new Error(`Complete os dados fiscais em Configurações > Empresas antes de gerar o XML — ${missingMsgs.join(' | ')}.`);
       }
@@ -738,9 +796,21 @@ export function DistributionManifestModal({
         await supabase.from('distribution_manifests').update({ nfe_number: nfeNumber }).eq('id', manifest.id);
       }
 
-      const sameUf = origin.uf === dest.uf;
-      const cfop = sameUf ? '5152' : '6152';
-      const cUF = UF_TO_CUF[origin.uf as string];
+      const sameUf = emitter.uf === dest.uf;
+      // Fornecedor como emitente = venda de mercadoria adquirida (5102/6102); sem fornecedor
+      // (manifesto manual) continua o CFOP de transferência entre estabelecimentos.
+      const cfop = supplierEmit ? (sameUf ? '5102' : '6102') : (sameUf ? '5152' : '6152');
+      const cUF = UF_TO_CUF[emitter.uf as string];
+      // ICMSSN400 só existe para emitente do Simples (CRT 1/2); regime normal usa ICMS40 (CST 41).
+      const icmsXml = (emitter.crt === '1' || emitter.crt === '2')
+        ? `<ICMSSN400>
+            <orig>0</orig>
+            <CSOSN>400</CSOSN>
+          </ICMSSN400>`
+        : `<ICMS40>
+            <orig>0</orig>
+            <CST>41</CST>
+          </ICMS40>`;
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       // Horário de Brasília fixo (-03:00) — o Brasil não observa mais horário de verão desde 2019.
@@ -786,10 +856,7 @@ export function DistributionManifestModal({
       </prod>
       <imposto>
         <ICMS>
-          <ICMSSN400>
-            <orig>0</orig>
-            <CSOSN>400</CSOSN>
-          </ICMSSN400>
+          ${icmsXml}
         </ICMS>
         <PIS>
           <PISOutr>
@@ -821,14 +888,14 @@ export function DistributionManifestModal({
     <ide>
       <cUF>${cUF}</cUF>
       <cNF>00000000</cNF>
-      <natOp>Transferencia de mercadorias entre estabelecimentos</natOp>
+      <natOp>${supplierEmit ? 'Venda de mercadoria adquirida' : 'Transferencia de mercadorias entre estabelecimentos'}</natOp>
       <mod>55</mod>
       <serie>900</serie>
       <nNF>${nfeNumber}</nNF>
       <dhEmit>${dhEmit}</dhEmit>
       <tpNF>1</tpNF>
       <idDest>${sameUf ? '1' : '2'}</idDest>
-      <cMunFG>${escapeXml(origin.municipio_ibge)}</cMunFG>
+      <cMunFG>${escapeXml(emitter.municipio_ibge)}</cMunFG>
       <tpImp>1</tpImp>
       <tpEmis>1</tpEmis>
       <cDV>0</cDV>
@@ -840,12 +907,12 @@ export function DistributionManifestModal({
       <verProc>1.0</verProc>
     </ide>
     <emit>
-      <CNPJ>${onlyDigits(origin.cnpj)}</CNPJ>
-      <xNome>${escapeXml(origin.razao_social)}</xNome>
-      <xFant>${escapeXml(origin.nome_fantasia)}</xFant>
-${enderBlock(origin, 'enderEmit')}
-      <IE>${onlyDigits(origin.ie)}</IE>
-      <CRT>1</CRT>
+      <CNPJ>${onlyDigits(emitter.cnpj)}</CNPJ>
+      <xNome>${escapeXml(emitter.razao_social)}</xNome>
+      <xFant>${escapeXml(emitter.nome_fantasia)}</xFant>
+${enderBlock(emitter, 'enderEmit')}
+      <IE>${onlyDigits(emitter.ie)}</IE>
+      <CRT>${emitter.crt}</CRT>
     </emit>
     <dest>
       <CNPJ>${onlyDigits(dest.cnpj)}</CNPJ>
@@ -882,7 +949,7 @@ ${detXml}
       <modFrete>9</modFrete>
     </transp>
     <infAdic>
-      <infCpl>DOCUMENTO SEM VALOR FISCAL - gerado internamente para simular NFe de transferencia entre lojas a partir do manifesto de distribuicao ${escapeXml(manifest.manifestNumber)}. Nao foi autorizado pela SEFAZ.</infCpl>
+      <infCpl>DOCUMENTO SEM VALOR FISCAL - gerado internamente para simular NFe ${supplierEmit ? 'do fornecedor' : 'de transferencia entre lojas'} a partir do manifesto de distribuicao ${escapeXml(manifest.manifestNumber)}. Nao foi autorizado pela SEFAZ.</infCpl>
     </infAdic>
   </infNFe>
 </NFe>`;
@@ -2079,7 +2146,7 @@ ${detXml}
                 </div>
                 <div className="text-[15px] font-black text-on-surface mb-1.5">Baixar XML de transferência</div>
                 <p className="text-[12px] font-bold text-on-surface/55 mb-4 leading-relaxed">
-                  Gera um XML no formato de NFe com a loja origem como emitente e as quantidades enviadas neste manifesto, para importar no PDV da loja destino.
+                  Gera um XML no formato de NFe com o fornecedor da nota como emitente (ou a loja origem, se o manifesto não veio de uma nota) e as quantidades enviadas neste manifesto, para importar no PDV da loja destino.
                 </p>
                 <div className="text-left text-[11px] font-semibold leading-relaxed text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3.5 py-3 mb-5 flex items-start gap-2">
                   <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -2088,7 +2155,7 @@ ${detXml}
                 <div className="text-left space-y-1.5 mb-5 bg-on-surface/[0.03] border border-on-surface/[0.08] rounded-xl px-3.5 py-3">
                   <div className="flex items-center justify-between text-[12px]">
                     <span className="font-bold text-on-surface/50">Emitente</span>
-                    <span className="font-black text-on-surface truncate ml-2">{companies.find(c => c.id === originCompanyId)?.nome_fantasia || '—'}</span>
+                    <span className="font-black text-on-surface truncate ml-2">{xmlSupplierName || companies.find(c => c.id === originCompanyId)?.nome_fantasia || '—'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[12px]">
                     <span className="font-bold text-on-surface/50">Destinatário</span>
