@@ -27,9 +27,9 @@ export const FULL_LAYOUT: CellLayout = {
   nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
   ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
-  // R$/preço 2mm mais acima pra abrir espaço à linha "Data de Impressão".
-  rs:      { x: 60.3, y: 9.8,  w: 5,    h: 4.5  },
-  preco:   { x: 65.6, y: 9.8,  w: 35.3, h: 13.4 },
+  // R$/preço mais acima e à esquerda pra abrir espaço à linha "Data de Impressão".
+  rs:      { x: 58.3, y: 6.8,  w: 5,    h: 4.5  },
+  preco:   { x: 63.6, y: 6.8,  w: 35.3, h: 13.4 },
   data:    { x: 60.3, y: 23.6, w: 41,   h: 2.6  },
 };
 // Conteúdo 2mm mais para cima que a extração original (3mm pra cima, depois
@@ -43,7 +43,7 @@ export const HALF_LAYOUT: CellLayout = {
   // R$/preço 1,5mm mais acima pra abrir espaço à linha "Data de Impressão".
   rs:      { x: 24.7, y: 9.7,  w: 3.5, h: 3   },
   preco:   { x: 28.5, y: 9.7,  w: 21,  h: 10  },
-  data:    { x: 24.2, y: 20,   w: 27.5, h: 2  },
+  data:    { x: 14.2, y: 20,   w: 27.5, h: 2  },
 };
 
 // Descrição da etiqueta de Gôndola: sempre em MAIÚSCULO, Arimo negrito. O
@@ -213,6 +213,13 @@ const HALF_NOME_SCALE = 0.88;
 // margem mínima do topo da etiqueta) em vez de empurrar REF/código de
 // barras/preço pra baixo — mantém esses elementos exatamente onde estão.
 const FULL_NOME_TOP_SAFETY_MM = 0.5;
+// Quando o nome (que já saiu menor que o tamanho cheio por não caber em 1 linha
+// no tamanho cheio) ainda cabe numa linha só na Inteira, ele sobe 1 tamanho
+// (1pt) e desce 2mm — antes ficava colado no topo da etiqueta. Nomes que
+// realmente precisam de 2 linhas mantêm o tamanho/posição de antes, senão
+// bateriam no REF.
+const FULL_NOME_ONE_LINE_BUMP_MM = 0.353; // 1pt
+const FULL_NOME_ONE_LINE_DROP_MM = 2;
 function fitNomeLayout(text: string, layout: CellLayout, weight: number | string, family: string): NomeFit {
   const scale = layout === HALF_LAYOUT ? HALF_NOME_SCALE : 1;
   const w = layout.nome.w;
@@ -227,6 +234,12 @@ function fitNomeLayout(text: string, layout: CellLayout, weight: number | string
     const maxAvailableH = Math.max(singleMaxH, bottom - FULL_NOME_TOP_SAFETY_MM);
     const standardSize = maxAvailableH / (2 * 1.05);
     const blockH = standardSize * 1.05 * 2;
+    const bumpedSize = standardSize + FULL_NOME_ONE_LINE_BUMP_MM;
+    if (measureTextWidth(text, bumpedSize, weight, family) <= w * FIT_SAFETY) {
+      const oneLineH = bumpedSize * 1.05;
+      const yMm = Math.max(FULL_NOME_TOP_SAFETY_MM, bottom - blockH) + FULL_NOME_ONE_LINE_DROP_MM;
+      return { fontSizeMm: bumpedSize, yMm, hMm: oneLineH, twoLines: false, extraH: 0 };
+    }
     return { fontSizeMm: standardSize, yMm: bottom - blockH, hMm: blockH, twoLines: true, extraH: 0 };
   }
 
@@ -315,7 +328,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
         )}
       </div>
       <div style={box(shifted.rs, { fontSize: rsSize, fontWeight: 800, color: '#141400', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' })}>R$</div>
-      <div style={box(shifted.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
+      <div style={box(shifted.preco, { fontSize: precoSize, fontWeight: 800, color: '#141400', lineHeight: 0.85, whiteSpace: 'nowrap', overflow: 'visible', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' })}>
         {priceText}
       </div>
       <div style={box(shifted.data, { fontSize: dataSize, color: '#3c3c3c', whiteSpace: 'nowrap', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' })}>
@@ -908,7 +921,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         .cell-el.data { font-weight: 400; color: #3c3c3c; display: flex; align-items: center; justify-content: center; }
         .cell-el.ref { font-family: 'Courier New', monospace; font-weight: 900; color: #3c3c3c; }
         .cell-el.rs { display: flex; align-items: flex-start; justify-content: flex-end; }
-        .cell-el.preco { font-weight: 800; line-height: 0.85; display: flex; align-items: center; justify-content: flex-end; }
+        .cell-el.preco { font-weight: 800; line-height: 0.85; overflow: visible; display: flex; align-items: center; justify-content: flex-end; }
         .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
         .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
         .bc-num { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
