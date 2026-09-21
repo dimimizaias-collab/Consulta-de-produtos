@@ -28,8 +28,8 @@ export const FULL_LAYOUT: CellLayout = {
   ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
   barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
   // R$/preço mais acima e à esquerda pra abrir espaço à linha "Data de Impressão".
-  rs:      { x: 58.3, y: 6.8,  w: 5,    h: 4.5  },
-  preco:   { x: 63.6, y: 6.8,  w: 35.3, h: 13.4 },
+  rs:      { x: 60.3, y: 7.8,  w: 5,    h: 4.5  },
+  preco:   { x: 63.6, y: 7.8,  w: 35.3, h: 13.4 },
   data:    { x: 60.3, y: 23.6, w: 41,   h: 2.6  },
 };
 // Conteúdo 2mm mais para cima que a extração original (3mm pra cima, depois
@@ -197,6 +197,23 @@ function shiftLayoutDown(layout: CellLayout, dy: number): CellLayout {
   };
 }
 
+// Metade: depois de calcular o tamanho/quebra do nome (com a geometria
+// original), o REF sobe 3mm e código de barras/R$/preço sobem 2mm. O REF só
+// sobe quando o nome ocupa 2 linhas — com o nome em 1 linha não há espaço
+// livre acima dele (o nome termina 0,3mm antes do REF).
+const HALF_REF_LIFT_MM = 3;
+const HALF_BLOCK_LIFT_MM = 2;
+function liftHalfLayout(layout: CellLayout, shifted: CellLayout, twoLines: boolean): CellLayout {
+  if (layout !== HALF_LAYOUT) return shifted;
+  return {
+    ...shifted,
+    ref: { ...shifted.ref, y: shifted.ref.y - (twoLines ? HALF_REF_LIFT_MM : 0) },
+    barcode: { ...shifted.barcode, y: shifted.barcode.y - HALF_BLOCK_LIFT_MM },
+    rs: { ...shifted.rs, y: shifted.rs.y - HALF_BLOCK_LIFT_MM },
+    preco: { ...shifted.preco, y: shifted.preco.y - HALF_BLOCK_LIFT_MM },
+  };
+}
+
 // O nome sempre usa o mesmo tamanho de fonte (não encolhe conforme o texto
 // fica mais comprido). Se ele não couber numa linha, quebra em 2 linhas. Se
 // mesmo assim sobrarem mais de 2 linhas, o CSS de line-clamp corta o
@@ -299,7 +316,7 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
 
   const nomeFit = fitNomeLayout(nomeText, layout, NOME_FONT_WEIGHT, NOME_FONT_FAMILY);
   const nomeBox: ElPos = { x: layout.nome.x, y: nomeFit.yMm, w: layout.nome.w, h: nomeFit.hMm };
-  const shifted = shiftLayoutDown(layout, nomeFit.extraH);
+  const shifted = liftHalfLayout(layout, shiftLayoutDown(layout, nomeFit.extraH), nomeFit.twoLines);
   const refSize = fitFontSize(refText, shifted.ref.w * PREVIEW_PX_PER_MM, shifted.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
   const rsSize = fitFontSize('R$', shifted.rs.w * PREVIEW_PX_PER_MM, shifted.rs.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
   const precoSize = fitFontSize(priceText, shifted.preco.w * PREVIEW_PX_PER_MM, shifted.preco.h * PREVIEW_PX_PER_MM, 800, 'DM Sans, sans-serif');
@@ -851,7 +868,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     // Nome cabe numa linha se der; senão quebra em 2 linhas — na Inteira sobe
     // pra cima, na Metade empurra REF/código de barras/R$/preço pra baixo.
     const nomeFit = fitNomeLayout(nomeText, layout, NOME_FONT_WEIGHT, NOME_FONT_FAMILY);
-    const shifted = shiftLayoutDown(layout, nomeFit.extraH);
+    const shifted = liftHalfLayout(layout, shiftLayoutDown(layout, nomeFit.extraH), nomeFit.twoLines);
     const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
     const nomeWrapStyle = nomeFit.twoLines
       ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
