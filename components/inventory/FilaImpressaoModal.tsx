@@ -452,7 +452,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                       </div>
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
-                        <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} />
+                        <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} extraFields={[]} />
                         <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {PRODUTO_LABEL_SIZE} × {PRODUTO_HALF_H}mm</p>
                       </div>
                       <div>
