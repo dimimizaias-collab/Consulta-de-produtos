@@ -165,6 +165,44 @@ function measureTextWidth(text: string, fontSize: number, weight: number | strin
   return ctx.measureText(text).width;
 }
 
+// Quebra o texto em até `maxLines` linhas medindo a largura real (canvas),
+// e não com -webkit-line-clamp — o line-clamp calcula sua própria altura de
+// recorte a partir da line-height renderizada, que na impressão real pode
+// sair menor que a estimativa em mm usada pro tamanho da caixa (1.05), sobrando
+// espaço onde uma 3ª linha inteira (ou pedaço dela) aparece por cima do que
+// vem embaixo em vez de ficar escondida. Pré-calculando as linhas aqui, o
+// HTML impresso nunca contém uma 3ª linha pra vazar.
+function wrapToLines(text: string, maxWidth: number, fontSize: number, weight: number | string, family: string, maxLines: number): string[] {
+  if (typeof document === 'undefined' || !text) return [text];
+  const safeWidth = maxWidth * FIT_SAFETY;
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [''];
+
+  const lines: string[][] = [[]];
+  for (const word of words) {
+    const line = lines[lines.length - 1];
+    const attempt = [...line, word].join(' ');
+    if (line.length === 0 || measureTextWidth(attempt, fontSize, weight, family) <= safeWidth) {
+      line.push(word);
+    } else {
+      lines.push([word]);
+    }
+  }
+
+  if (lines.length <= maxLines) return lines.map(l => l.join(' '));
+
+  const kept = lines.slice(0, maxLines).map(l => [...l]);
+  const overflowWords = lines.slice(maxLines).flat();
+  const lastLine = kept[maxLines - 1];
+  lastLine.push(...overflowWords);
+  while (lastLine.length > 1 && measureTextWidth(`${lastLine.join(' ')}…`, fontSize, weight, family) > safeWidth) {
+    lastLine.pop();
+  }
+  const result = kept.slice(0, maxLines - 1).map(l => l.join(' '));
+  result.push(`${lastLine.join(' ')}…`);
+  return result;
+}
+
 // Quanto o REF/código de barras/R$/preço podem descer sem passar do fim da
 // etiqueta — usado pra saber o maior tamanho de fonte que o nome pode usar
 // em 2 linhas empurrando esses elementos pra baixo (em vez de encolher).
@@ -331,10 +369,12 @@ function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout
       <div style={box(nomeBox, {
         fontFamily: NOME_FONT_FAMILY, fontSize: nomeFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: NOME_FONT_WEIGHT, color: '#141400', lineHeight: 1.05, overflow: 'hidden', textAlign: 'left',
         ...(nomeFit.twoLines
-          ? { whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties
+          ? { whiteSpace: 'pre-line' } as React.CSSProperties
           : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
       })}>
-        {nomeText}
+        {nomeFit.twoLines
+          ? wrapToLines(nomeText, layout.nome.w, nomeFit.fontSizeMm, NOME_FONT_WEIGHT, NOME_FONT_FAMILY, 2).join('\n')
+          : nomeText}
       </div>
       <div style={box(shifted.ref, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden' })}>
         {refText}
@@ -397,10 +437,12 @@ function ProdutoPreviewCell({ product, layout, offsetYMm }: { product: any; layo
       <div style={box(descBox, {
         fontSize: descFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden', textAlign: 'center',
         ...(descFit.twoLines
-          ? { whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties
+          ? { whiteSpace: 'pre-line' } as React.CSSProperties
           : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
       })}>
-        {descText}
+        {descFit.twoLines
+          ? wrapToLines(descText, layout.descricao.w, descFit.fontSizeMm, 800, 'DM Sans, sans-serif', 2).join('\n')
+          : descText}
       </div>
       <div style={box({ x: layout.descricao.x, y: layout.ref.y, w: layout.descricao.w, h: layout.ref.h }, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'center' })}>
         {refText}
@@ -455,10 +497,12 @@ function ProdutoInfoPreviewCell({ product, extraFields }: { product: any; extraF
       <div style={box(descBox, {
         fontSize: descFit.fontSizeMm * PREVIEW_PX_PER_MM, fontWeight: 800, color: '#141400', lineHeight: 1.05, overflow: 'hidden', textAlign: 'center',
         ...(descFit.twoLines
-          ? { whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties
+          ? { whiteSpace: 'pre-line' } as React.CSSProperties
           : { whiteSpace: 'nowrap', textOverflow: 'ellipsis' }),
       })}>
-        {descText}
+        {descFit.twoLines
+          ? wrapToLines(descText, layout.descricao.w, descFit.fontSizeMm, 800, 'DM Sans, sans-serif', 2).join('\n')
+          : descText}
       </div>
       <div style={box({ x: layout.descricao.x, y: layout.ref.y, w: layout.descricao.w, h: layout.ref.h }, { fontSize: refSize, fontFamily: "'DM Mono', monospace", fontWeight: 900, color: 'rgba(20,20,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'center' })}>
         {refText}
@@ -873,9 +917,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const nomeFit = fitNomeLayout(nomeText, layout, NOME_FONT_WEIGHT, NOME_FONT_FAMILY);
     const shifted = liftHalfLayout(layout, shiftLayoutDown(layout, nomeFit.extraH), nomeFit.twoLines);
     const nomeBoxStyle = `left:${(layout.nome.x + offsetX).toFixed(2)}mm; top:${nomeFit.yMm.toFixed(2)}mm; width:${layout.nome.w.toFixed(2)}mm; height:${nomeFit.hMm.toFixed(2)}mm;`;
-    const nomeWrapStyle = nomeFit.twoLines
-      ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
-      : '';
+    const nomeDisplayText = nomeFit.twoLines
+      ? wrapToLines(nomeText, layout.nome.w, nomeFit.fontSizeMm, NOME_FONT_WEIGHT, NOME_FONT_FAMILY, 2).join('\n')
+      : nomeText;
+    const nomeWrapStyle = nomeFit.twoLines ? 'white-space: pre-line;' : '';
     const refSize = fitFontSize(refText, shifted.ref.w, shifted.ref.h, 900, "'Courier New', monospace");
     const rsSize = fitFontSize('R$', shifted.rs.w, shifted.rs.h, 800, 'Arial, Helvetica, sans-serif');
     const precoSize = fitFontSize(priceText, shifted.preco.w, shifted.preco.h, 800, 'Arial, Helvetica, sans-serif');
@@ -883,7 +928,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const dataSize = fitFontSize(dataText, shifted.data.w, shifted.data.h, 400, 'Arial, Helvetica, sans-serif');
 
     return `
-      <div class="cell-el nome" style="${nomeBoxStyle} font-size:${nomeFit.fontSizeMm.toFixed(2)}mm; ${nomeWrapStyle}">${escapeHtml(nomeText)}</div>
+      <div class="cell-el nome" style="${nomeBoxStyle} font-size:${nomeFit.fontSizeMm.toFixed(2)}mm; ${nomeWrapStyle}">${escapeHtml(nomeDisplayText)}</div>
       <div class="cell-el ref" style="${boxStyle(shifted.ref)} font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
       <div class="cell-el barcode" style="${boxStyle(shifted.barcode)}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
@@ -972,14 +1017,15 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
     const descFit = fitDescricaoLayout(descText, layout.descricao, layout.ref.y, 800, 'Arial, Helvetica, sans-serif');
     const descBoxStyle = `left:${layout.descricao.x.toFixed(2)}mm; top:${(descFit.yMm + offsetY).toFixed(2)}mm; width:${layout.descricao.w.toFixed(2)}mm; height:${descFit.hMm.toFixed(2)}mm;`;
-    const descWrapStyle = descFit.twoLines
-      ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
-      : '';
+    const descDisplayText = descFit.twoLines
+      ? wrapToLines(descText, layout.descricao.w, descFit.fontSizeMm, 800, 'Arial, Helvetica, sans-serif', 2).join('\n')
+      : descText;
+    const descWrapStyle = descFit.twoLines ? 'white-space: pre-line;' : '';
     const refSize = fitFontSize(refText, layout.descricao.w, layout.ref.h, 900, "'Courier New', monospace");
     const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
 
     return `
-      <div class="cell-el descricao" style="${descBoxStyle} font-size:${descFit.fontSizeMm.toFixed(2)}mm; ${descWrapStyle}">${escapeHtml(descText)}</div>
+      <div class="cell-el descricao" style="${descBoxStyle} font-size:${descFit.fontSizeMm.toFixed(2)}mm; ${descWrapStyle}">${escapeHtml(descDisplayText)}</div>
       <div class="cell-el ref" style="left:${layout.descricao.x.toFixed(2)}mm; top:${(layout.ref.y + offsetY).toFixed(2)}mm; width:${layout.descricao.w.toFixed(2)}mm; height:${layout.ref.h.toFixed(2)}mm; font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
       <div class="cell-el barcode" style="${boxStyle(layout.barcode)}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
@@ -1003,9 +1049,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
 
     const descFit = fitDescricaoLayout(descText, layout.descricao, layout.ref.y, 800, 'Arial, Helvetica, sans-serif');
     const descBoxStyle = `left:${layout.descricao.x.toFixed(2)}mm; top:${descFit.yMm.toFixed(2)}mm; width:${layout.descricao.w.toFixed(2)}mm; height:${descFit.hMm.toFixed(2)}mm;`;
-    const descWrapStyle = descFit.twoLines
-      ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;'
-      : '';
+    const descDisplayText = descFit.twoLines
+      ? wrapToLines(descText, layout.descricao.w, descFit.fontSizeMm, 800, 'Arial, Helvetica, sans-serif', 2).join('\n')
+      : descText;
+    const descWrapStyle = descFit.twoLines ? 'white-space: pre-line;' : '';
     const refSize = fitFontSize(refText, layout.descricao.w, layout.ref.h, 900, "'Courier New', monospace");
     const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
 
@@ -1026,7 +1073,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }).join('');
 
     return `
-      <div class="cell-el descricao" style="${descBoxStyle} font-size:${descFit.fontSizeMm.toFixed(2)}mm; ${descWrapStyle}">${escapeHtml(descText)}</div>
+      <div class="cell-el descricao" style="${descBoxStyle} font-size:${descFit.fontSizeMm.toFixed(2)}mm; ${descWrapStyle}">${escapeHtml(descDisplayText)}</div>
       <div class="cell-el ref" style="left:${layout.descricao.x.toFixed(2)}mm; top:${layout.ref.y.toFixed(2)}mm; width:${layout.descricao.w.toFixed(2)}mm; height:${layout.ref.h.toFixed(2)}mm; font-size:${refSize.toFixed(2)}mm;">${escapeHtml(refText)}</div>
       ${infoRows}
       <div class="cell-el barcode" style="${`left:${layout.barcode.x.toFixed(2)}mm; top:${layout.barcode.y.toFixed(2)}mm; width:${layout.barcode.w.toFixed(2)}mm; height:${layout.barcode.h.toFixed(2)}mm;`}">
