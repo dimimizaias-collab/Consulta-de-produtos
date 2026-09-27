@@ -6,7 +6,7 @@ import { X, Search, Tag, Printer, Plus, Minus, ChevronDown, Check, Pencil, Send,
 import { cn } from '@/lib/utils';
 import { generateBarcodeDataUrl } from './labelPrintUtils';
 import { LabelEditModal } from './LabelEditModal';
-import { LabelInfoModal, resolveLabelInfo, hasLabelInfo, LABEL_INFO_FIELDS, type LabelInfoConfig } from './LabelInfoModal';
+import { LabelInfoModal, resolveLabelInfo, hasLabelInfo, LABEL_INFO_FIELDS, type LabelInfoConfig, type ProductCadastroPatch } from './LabelInfoModal';
 import type { Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
 import { supabase } from '@/lib/supabase';
 
@@ -909,6 +909,10 @@ interface LabelPrintModalProps {
   // direto deste módulo padrão. Só faz sentido pra uma fila nova (sem
   // requestId), então some quando o modal já foi aberto a partir de um pedido.
   onSendQueue?: (payload: PrintQueueSubmission) => Promise<void> | void;
+  // Chamado quando o módulo de Informações adicionais grava algo no cadastro
+  // do produto (fabricante vinculado / composição) — pra tela atualizar a
+  // lista de produtos em memória.
+  onProductUpdated?: (productId: string, patch: ProductCadastroPatch) => void;
 }
 
 function escapeHtml(value: string): string {
@@ -945,7 +949,7 @@ export interface PrintQueueSubmission {
 
 const emptyDraft = (): Draft => ({ qty: 1, size: 'full' });
 
-export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted, requestId, onSaveQueue, onSendQueue }: LabelPrintModalProps) {
+export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initialTemplate, onPrinted, requestId, onSaveQueue, onSendQueue, onProductUpdated }: LabelPrintModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('selecao');
   const [template, setTemplate] = useState<LabelTemplate>('gondola');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
@@ -990,7 +994,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   // Alterações salvas no cadastro pelo módulo de informações (fabricante
   // vinculado / composição) — aplicadas por cima do produto até a lista de
   // produtos da tela ser recarregada.
-  const [productPatches, setProductPatches] = useState<Record<string, { manufacturer_id?: string | null; composicao?: string | null }>>({});
+  const [productPatches, setProductPatches] = useState<Record<string, ProductCadastroPatch>>({});
   const productsById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
   const cadastroProduct = useCallback((entry: QueueEntry) => ({
     ...entry.product,
@@ -2001,7 +2005,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
             config={infoEntry?.info}
             manufacturers={manufacturers}
             onManufacturerSaved={upsertManufacturer}
-            onProductUpdated={(productId, patch) => setProductPatches(prev => ({ ...prev, [productId]: { ...prev[productId], ...patch } }))}
+            onProductUpdated={(productId, patch) => {
+              setProductPatches(prev => ({ ...prev, [productId]: { ...prev[productId], ...patch } }));
+              onProductUpdated?.(productId, patch);
+            }}
             onSave={info => { if (infoId) setEntryInfo(infoId, info); }}
             onClose={() => setInfoId(null)}
           />

@@ -20,7 +20,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import { LabelPrintModal, type PrintQueueSubmission } from './LabelPrintModal';
-import type { LabelInfoConfig } from './LabelInfoModal';
+import type { LabelInfoConfig, ProductCadastroPatch } from './LabelInfoModal';
 import { PlacaPrintModal } from './PlacaPrintModal';
 import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -66,6 +66,7 @@ interface InventoryManagerProps {
   // botões "Salvar"/"Enviar" do módulo padrão de Etiquetas.
   onPrintQueueSaved?: (requestId: string, payload: PrintQueueSubmission) => Promise<void> | void;
   onSendPrintQueue?: (payload: PrintQueueSubmission) => Promise<void> | void;
+  onProductUpdated?: (productId: string, patch: ProductCadastroPatch) => void;
 }
 
 export function InventoryManager({
@@ -90,6 +91,7 @@ export function InventoryManager({
   onPrintQueuePrinted,
   onPrintQueueSaved,
   onSendPrintQueue,
+  onProductUpdated,
 }: InventoryManagerProps) {
   const { isMobileView, toggleMode } = useViewMode();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'produtos' | 'estoque'>('produtos');
@@ -708,6 +710,7 @@ export function InventoryManager({
         requestId={labelModalPreload?.requestId}
         onSaveQueue={onPrintQueueSaved}
         onSendQueue={onSendPrintQueue}
+        onProductUpdated={onProductUpdated}
       />
       <PlacaPrintModal
         isOpen={showPlacaModal}

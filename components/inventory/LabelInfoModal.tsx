@@ -31,6 +31,25 @@ const MISSING_TEXT: Record<LabelInfoKey, string> = {
   validade: '',
 };
 
+// Campos do cadastro do produto que este módulo grava — repassados pra quem
+// mantém a lista de produtos em memória, senão o cadastro aberto depois
+// mostraria (e regravaria) o valor antigo.
+export interface ProductCadastroPatch {
+  manufacturer_id?: string | null;
+  brand?: string;
+  composicao?: string | null;
+  updated_at?: string;
+}
+
+// Grava no cadastro e confirma que a linha foi de fato alterada — um UPDATE
+// barrado por RLS não devolve erro, só zero linhas.
+async function updateProduct(productId: string, patch: ProductCadastroPatch): Promise<string | null> {
+  const { data, error } = await supabase.from('products').update(patch).eq('id', productId).select('id');
+  if (error) return error.message || 'Erro ao salvar no cadastro.';
+  if (!data || data.length === 0) return 'Não foi possível salvar no cadastro (sem permissão ou produto não encontrado).';
+  return null;
+}
+
 export function hasLabelInfo(config: LabelInfoConfig | undefined): boolean {
   return !!config && Object.keys(config).length > 0;
 }
@@ -85,7 +104,7 @@ interface LabelInfoModalProps {
   config?: LabelInfoConfig;
   manufacturers: Manufacturer[];
   onManufacturerSaved: (m: Manufacturer) => void;
-  onProductUpdated: (productId: string, patch: { manufacturer_id?: string | null; composicao?: string | null }) => void;
+  onProductUpdated: (productId: string, patch: ProductCadastroPatch) => void;
   onSave: (config: LabelInfoConfig) => void;
   onClose: () => void;
 }
@@ -363,8 +382,8 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
             manufacturers={manufacturers}
             onManufacturerSaved={onManufacturerSaved}
             onClose={() => setPicker(null)}
-            onSaved={manufacturerId => {
-              onProductUpdated(product.id, { manufacturer_id: manufacturerId });
+            onSaved={patch => {
+              onProductUpdated(product.id, patch);
               markSaved(['fabricante', 'cnpj']);
             }}
           />
@@ -372,8 +391,8 @@ export function LabelInfoModal({ isOpen, product, subtitle, config, manufacturer
             isOpen={picker === 'composicao'}
             product={product}
             onClose={() => setPicker(null)}
-            onSaved={composicao => {
-              onProductUpdated(product.id, { composicao });
+            onSaved={patch => {
+              onProductUpdated(product.id, patch);
               markSaved(['composicao']);
             }}
           />
@@ -446,7 +465,7 @@ function highlight(text: string, q: string) {
 }
 
 function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacturerSaved, onClose, onSaved }: {
-  isOpen: boolean; product: any; manufacturers: Manufacturer[]; onManufacturerSaved: (m: Manufacturer) => void; onClose: () => void; onSaved: (manufacturerId: string) => void;
+  isOpen: boolean; product: any; manufacturers: Manufacturer[]; onManufacturerSaved: (m: Manufacturer) => void; onClose: () => void; onSaved: (patch: ProductCadastroPatch) => void;
 }) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -477,10 +496,12 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
     if (!selectedId || saving) return;
     setSaving(true);
     setError('');
-    const { error: dbError } = await supabase.from('products').update({ manufacturer_id: selectedId }).eq('id', product.id);
+    // brand espelha o nome do fabricante, igual ao salvar pelo cadastro do produto.
+    const patch: ProductCadastroPatch = { manufacturer_id: selectedId, brand: selected?.name || '', updated_at: new Date().toISOString() };
+    const err = await updateProduct(product.id, patch);
     setSaving(false);
-    if (dbError) { setError(dbError.message || 'Erro ao salvar no cadastro.'); return; }
-    onSaved(selectedId);
+    if (err) { setError(err); return; }
+    onSaved(patch);
     onClose();
   };
 
@@ -590,7 +611,7 @@ function ManufacturerPickerModal({ isOpen, product, manufacturers, onManufacture
 }
 
 function CompositionModal({ isOpen, product, onClose, onSaved }: {
-  isOpen: boolean; product: any; onClose: () => void; onSaved: (composicao: string) => void;
+  isOpen: boolean; product: any; onClose: () => void; onSaved: (patch: ProductCadastroPatch) => void;
 }) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -608,10 +629,11 @@ function CompositionModal({ isOpen, product, onClose, onSaved }: {
     if (!trimmed || saving) return;
     setSaving(true);
     setError('');
-    const { error: dbError } = await supabase.from('products').update({ composicao: trimmed }).eq('id', product.id);
+    const patch: ProductCadastroPatch = { composicao: trimmed, updated_at: new Date().toISOString() };
+    const err = await updateProduct(product.id, patch);
     setSaving(false);
-    if (dbError) { setError(dbError.message || 'Erro ao salvar no cadastro.'); return; }
-    onSaved(trimmed);
+    if (err) { setError(err); return; }
+    onSaved(patch);
     onClose();
   };
 

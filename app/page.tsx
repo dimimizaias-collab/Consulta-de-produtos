@@ -5966,6 +5966,7 @@ export default function Page() {
                   onPrintQueuePrinted={handlePrintQueuePrinted}
                   onPrintQueueSaved={handleSavePrintQueue}
                   onSendPrintQueue={handleSendPrintQueue}
+                  onProductUpdated={(productId, patch) => setProducts(prev => prev.map(p => (p.id === productId ? { ...p, ...patch } : p)))}
                 />
             ) : activeTab === 'Requisições' ? (
                 <RequestCenter
