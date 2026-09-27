@@ -80,21 +80,7 @@ export const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada
 export interface ProdutoLayout { descricao: ElPos; ref: ElPos; barcode: ElPos }
 export interface ProdutoInfoLayout extends ProdutoLayout { infoBlockY: number; infoBlockBottom: number }
 
-// Posições em mm extraídas por análise de pixel de 3 imagens de referência do
-// usuário (retângulos coloridos — legenda: #cb6ce6 descrição, #ff751f
-// REF/SKU, #004aad fabricante, #1800ad CNPJ, #c1ff72 composição, #ff5757
-// validade, #ff3131 código de barras).
-export const PRODUTO_FULL_MIN: ProdutoLayout = { // 40x40mm, sem informações adicionais
-  descricao: { x: 2.2, y: 6.44, w: 35.6, h: 7.2 },
-  ref:       { x: 2.2, y: 14.24, w: 35.6, h: 2.71 },
-  barcode:   { x: 2.2, y: 18.98, w: 35.6, h: 14.92 },
-};
-export const PRODUTO_FULL_INFO: ProdutoInfoLayout = { // 40x40mm, com informações adicionais
-  descricao: { x: 2.2, y: 2.71, w: 35.6, h: 3.98 },
-  ref:       { x: 2.2, y: 7.71, w: 35.6, h: 2.63 },
-  infoBlockY: 11.86, infoBlockBottom: 23.48, // dividido igualmente entre os N campos marcados
-  barcode:   { x: 2.2, y: 25.0, w: 35.6, h: 12.54 },
-};
+// A Inteira (40x40mm) usa um layout fixo próprio — ver PRODUTO_FULL_SPEC.
 // Metade: descrição com 2mm de recuo lateral (cabe mais caractere que o
 // recuo original de 1,95mm) e código de barras 3mm mais baixo (a etiqueta
 // inteira de 20mm de altura não precisa de uma faixa tão alta quanto a
@@ -142,7 +128,8 @@ function halfInfoLayout(layout: ProdutoInfoLayout, texts: string[], refSize: num
   for (let i = 0; i < n; i += PRODUTO_HALF_INFO_PER_ROW) rows.push(texts.slice(i, i + PRODUTO_HALF_INFO_PER_ROW));
   // Folga pequena na largura pra diferença de métrica entre a medição e a impressão.
   const widthMm = (t: string, size: number) => (measureTextWidth(t, size, weight, family) / scale) * 1.06;
-  let size = Math.min(refSize, PRODUTO_HALF_INFO_ROW_H * scale);
+  const rowH = PRODUTO_HALF_INFO_ROW_H;
+  let size = Math.min(refSize, rowH * scale);
   rows.forEach(row => {
     const rowW = row.reduce((a, t) => a + widthMm(t, size), 0) + gap * (row.length - 1);
     if (rowW > layout.descricao.w) size *= layout.descricao.w / rowW;
@@ -151,10 +138,10 @@ function halfInfoLayout(layout: ProdutoInfoLayout, texts: string[], refSize: num
   const boxes: ElPos[] = [];
   rows.forEach((row, r) => {
     let x = layout.descricao.x;
-    const y = top + r * (PRODUTO_HALF_INFO_ROW_H + PRODUTO_HALF_INFO_ROW_GAP_MM);
-    row.forEach(t => { const w = widthMm(t, size); boxes.push({ x, y, w, h: PRODUTO_HALF_INFO_ROW_H }); x += w + gap; });
+    const y = top + r * (rowH + PRODUTO_HALF_INFO_ROW_GAP_MM);
+    row.forEach(t => { const w = widthMm(t, size); boxes.push({ x, y, w, h: rowH }); x += w + gap; });
   });
-  const blockBottom = top + rows.length * PRODUTO_HALF_INFO_ROW_H + Math.max(0, rows.length - 1) * PRODUTO_HALF_INFO_ROW_GAP_MM;
+  const blockBottom = top + rows.length * rowH + Math.max(0, rows.length - 1) * PRODUTO_HALF_INFO_ROW_GAP_MM;
   const bcY = blockBottom + PRODUTO_HALF_INFO_BARCODE_GAP_MM;
   const barcode = { ...layout.barcode, y: bcY, h: Math.max(3, PRODUTO_HALF_INFO_BARCODE_BOTTOM - bcY) };
   return { size, boxes, barcode };
@@ -199,9 +186,9 @@ export function titleCasePt(text: string): string {
     )).join('-');
   }).join(' ');
 }
-function produtoDescText(product: any, layout: ProdutoLayout): string {
+function produtoDescText(product: any): string {
   const name = product.name || '—';
-  return isProdutoHalf(layout) ? titleCasePt(name) : name;
+  return titleCasePt(name);
 }
 // Metade usa 1mm de respiro entre a descrição e a REF (em vez do 0,3mm
 // padrão da Inteira) — na etiqueta de 20mm de altura o padrão apertado
@@ -214,10 +201,11 @@ const PRODUTO_HALF_DESCRICAO_GAP_MM = 1;
 // avulsos pra colar, não uma etiqueta descritiva completa.
 export interface ProdutoBarcodeLayout { barcode: ElPos }
 export const PRODUTO_THIRD_H = PRODUTO_LABEL_SIZE / 3; // ~13.33mm — altura de cada faixa
-const PRODUTO_THIRD_MARGIN_Y = 1.3;
-// Altura do código reduzida pra 1/3 do que caberia na faixa inteira —
-// centralizado verticalmente no espaço que sobra.
-const PRODUTO_THIRD_BARCODE_H = (PRODUTO_THIRD_H - PRODUTO_THIRD_MARGIN_Y * 2) / 3;
+// Barras com 1cm de altura e numeração no mesmo tamanho (e mesma distância
+// de 1mm das barras) da Metade; o bloco (barras + número) fica centralizado
+// verticalmente na faixa.
+const PRODUTO_THIRD_BARS_H = 10;
+const PRODUTO_THIRD_BARCODE_H = PRODUTO_THIRD_BARS_H + PRODUTO_HALF_BC_NUM_GAP_MM + PRODUTO_HALF_BC_NUM_MM * 1.05;
 export const PRODUTO_THIRD: ProdutoBarcodeLayout = {
   barcode: { x: 2.2, y: (PRODUTO_THIRD_H - PRODUTO_THIRD_BARCODE_H) / 2, w: 35.6, h: PRODUTO_THIRD_BARCODE_H },
 };
@@ -445,22 +433,28 @@ function fitDescricaoLayout(text: string, box: ElPos, nextY: number, weight: num
 const PRODUTO_HALF_DESCRICAO_BUMP_MM = 0.5 * PT_MM;
 function fitProdutoDescricao(text: string, layout: ProdutoLayout): DescricaoFit {
   const fit = fitDescricaoLayout(text, layout.descricao, layout.ref.y, NOME_FONT_WEIGHT, NOME_FONT_FAMILY, descricaoGapFor(layout));
-  if (!isProdutoHalf(layout)) return fit;
   let size = fit.fontSizeMm + PRODUTO_HALF_DESCRICAO_BUMP_MM;
   if (!fit.twoLines) size = Math.min(size, fitFontSize(text, layout.descricao.w, 9999, NOME_FONT_WEIGHT, NOME_FONT_FAMILY) / FIT_SAFETY * 0.99);
-  size = Math.max(fit.fontSizeMm, size);
+  // Em 2 linhas, recua o aumento (e, se preciso, o próprio tamanho) até o
+  // texto caber inteiro nas 2 linhas, sem reticências.
+  if (fit.twoLines) {
+    const cut = (sz: number) => wrapToLines(text, layout.descricao.w, sz, NOME_FONT_WEIGHT, NOME_FONT_FAMILY, 2).some(l => l.endsWith('…'));
+    while (size > fit.fontSizeMm * 0.75 && cut(size)) size -= 0.05;
+  } else {
+    size = Math.max(fit.fontSizeMm, size);
+  }
   if (!fit.twoLines) return { ...fit, fontSizeMm: size, hMm: Math.max(fit.hMm, size * 1.05) };
   const hMm = size * 1.05 * 2;
   return { ...fit, fontSizeMm: size, yMm: Math.max(DESCRICAO_MIN_TOP_MM, fit.yMm + fit.hMm - hMm), hMm };
 }
 function descricaoGapFor(layout: ProdutoLayout): number {
-  return isProdutoHalf(layout) ? PRODUTO_HALF_DESCRICAO_GAP_MM : DESCRICAO_GAP_MM;
+  return PRODUTO_HALF_DESCRICAO_GAP_MM;
 }
 // REF da Metade fica logo abaixo do texto da descrição — com a descrição em
 // 1 linha a caixa dela é mais alta que o texto, então a REF sobe até ele.
 const PRODUTO_HALF_REF_GAP_MM = 0.4;
 function produtoRefY(layout: ProdutoLayout, descFit: DescricaoFit): number {
-  if (!isProdutoHalf(layout) || descFit.twoLines) return layout.ref.y;
+  if (descFit.twoLines) return layout.ref.y;
   return Math.min(layout.ref.y, descFit.yMm + descFit.fontSizeMm * 1.05 + PRODUTO_HALF_REF_GAP_MM);
 }
 // REF da Metade: Arimo, alinhada à esquerda logo abaixo da descrição.
@@ -561,7 +555,7 @@ function ProdutoPreviewCell({ product, layout, offsetYMm }: { product: any; layo
     ...extra,
   });
   const code = product.ean || product.sku || '';
-  const descText = produtoDescText(product, layout);
+  const descText = produtoDescText(product);
   const refText = `REF ${productRef(product)}`;
   const half = isProdutoHalf(layout);
 
@@ -570,7 +564,7 @@ function ProdutoPreviewCell({ product, layout, offsetYMm }: { product: any; layo
   const refSize = half
     ? fitFontSize(refText, layout.descricao.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, NOME_FONT_WEIGHT, NOME_FONT_FAMILY)
     : fitFontSize(refText, layout.descricao.w * PREVIEW_PX_PER_MM, layout.ref.h * PREVIEW_PX_PER_MM, 900, "'DM Mono', monospace");
-  const bcNumSize = code ? fitFontSize(code, layout.barcode.w * PREVIEW_PX_PER_MM, (half ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const bcNumSize = code ? fitFontSize(code, layout.barcode.w * PREVIEW_PX_PER_MM, (isProdutoHalf(layout) ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
 
   return (
     <>
@@ -610,7 +604,7 @@ function ProdutoInfoPreviewCell({ product, layout, extraFields, offsetYMm = 0 }:
     ...extra,
   });
   const code = product.ean || product.sku || '';
-  const descText = produtoDescText(product, layout);
+  const descText = produtoDescText(product);
   const refText = `REF ${productRef(product)}`;
   const half = isProdutoHalf(layout);
   const infoFamily = half ? NOME_FONT_FAMILY : "'DM Mono', monospace";
@@ -633,7 +627,7 @@ function ProdutoInfoPreviewCell({ product, layout, extraFields, offsetYMm = 0 }:
     ? halfInfoLayout(layout, infoTexts, refSize, refY, infoWeight, infoFamily, PREVIEW_PX_PER_MM)
     : null;
   const barcodeBox = halfInfo ? halfInfo.barcode : layout.barcode;
-  const bcNumSize = code ? fitFontSize(code, barcodeBox.w * PREVIEW_PX_PER_MM, (half ? PRODUTO_HALF_BC_NUM_MM : barcodeBox.h * 0.22) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const bcNumSize = code ? fitFontSize(code, barcodeBox.w * PREVIEW_PX_PER_MM, (isProdutoHalf(layout) ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22) * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
   const infoBoxes: ElPos[] = halfInfo
     ? halfInfo.boxes
     : extraFields.map((_, i) => ({ x: layout.descricao.x, y: layout.infoBlockY + i * (rowH + rowGap), w: layout.descricao.w, h: rowH }));
@@ -675,15 +669,99 @@ function ProdutoInfoPreviewCell({ product, layout, extraFields, offsetYMm = 0 }:
   );
 }
 
+// Etiqueta de Produto Inteira — layout FIXO (medidas do usuário, em mm):
+// cada elemento tem posição e tamanho de fonte próprios, que não mudam com o
+// tamanho da descrição nem com a presença de informações adicionais. Texto
+// que não cabe é cortado com "…" em vez de encolher.
+export const MONTASER_FONT_FAMILY = "'Montaser Arabic', Arimo, Arial, Helvetica, sans-serif";
+const PRODUTO_FULL_SPEC = {
+  descricao: { x: 1.79, y: 2.23, w: 36.42, h: 6.96 },
+  descricaoFontMm: 8 * PT_MM,
+  ref: { x: 1.79, y: 10.35, w: 36.42, h: 2.4 },
+  refFontMm: 6 * PT_MM,
+  info: { x: 1.79, y: 15.53, w: 36.02, rowH: 2, maxY: 23.8 }, // um campo por linha
+  infoFontMm: 5 * PT_MM,
+  barcode: { x: 2.18, y: 30.05, w: 35.63, h: 5.95 },
+  bcNum: { x: 1.79, y: 36.79, w: 36.42, h: 2 },
+};
+const PRODUTO_FULL_DESC_WEIGHT = 400;
+const PRODUTO_FULL_REF_WEIGHT = 700;
+const PRODUTO_FULL_INFO_MAX_ROWS = Math.floor((PRODUTO_FULL_SPEC.info.maxY - PRODUTO_FULL_SPEC.info.y) / PRODUTO_FULL_SPEC.info.rowH + 1e-6);
+
+interface ProdutoFullContent { descLines: string[]; refText: string; infoRows: { label: string; value: string; y: number }[]; code: string; bcNumMm: number }
+function produtoFullContent(product: any, extraFields: { label: string; value: string }[]): ProdutoFullContent {
+  const s = PRODUTO_FULL_SPEC;
+  const maxDescLines = Math.max(1, Math.floor(s.descricao.h / (s.descricaoFontMm * 1.05)));
+  const descLines = wrapToLines(produtoDescText(product), s.descricao.w, s.descricaoFontMm, PRODUTO_FULL_DESC_WEIGHT, MONTASER_FONT_FAMILY, maxDescLines);
+  const infoRows = extraFields.slice(0, PRODUTO_FULL_INFO_MAX_ROWS).map((f, i) => ({ ...f, y: s.info.y + i * s.info.rowH }));
+  const code = product.ean || product.sku || '';
+  const bcNumMm = code ? fitFontSize(code, s.bcNum.w, s.bcNum.h * 0.9, 700, "'Courier New', monospace") : 0;
+  return { descLines, refText: `REF ${productRef(product)}`, infoRows, code, bcNumMm };
+}
+
 export function ProdutoPreviewFull({ product, extraFields }: { product: any; extraFields: { label: string; value: string }[] }) {
+  useArimoReady();
+  const s = PRODUTO_FULL_SPEC;
+  const c = produtoFullContent(product, extraFields);
+  const px = (mm: number) => mm * PREVIEW_PX_PER_MM;
+  const box = (x: number, y: number, w: number, h: number, extra?: React.CSSProperties): React.CSSProperties => ({
+    position: 'absolute',
+    left: `${(x / PRODUTO_LABEL_SIZE) * 100}%`, top: `${(y / PRODUTO_LABEL_SIZE) * 100}%`,
+    width: `${(w / PRODUTO_LABEL_SIZE) * 100}%`, height: `${(h / PRODUTO_LABEL_SIZE) * 100}%`,
+    overflow: 'hidden', ...extra,
+  });
+  const line: React.CSSProperties = { whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'left' };
   return (
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
-      {extraFields.length > 0
-        ? <ProdutoInfoPreviewCell product={product} layout={PRODUTO_FULL_INFO} extraFields={extraFields} />
-        : <ProdutoPreviewCell product={product} layout={PRODUTO_FULL_MIN} offsetYMm={0} />}
+      <div style={box(s.descricao.x, s.descricao.y, s.descricao.w, s.descricao.h, { fontFamily: MONTASER_FONT_FAMILY, fontWeight: PRODUTO_FULL_DESC_WEIGHT, fontSize: px(s.descricaoFontMm), lineHeight: 1.05, color: '#141400', whiteSpace: 'pre-line', textAlign: 'left' })}>
+        {c.descLines.join('\n')}
+      </div>
+      <div style={box(s.ref.x, s.ref.y, s.ref.w, s.ref.h, { ...line, fontFamily: MONTASER_FONT_FAMILY, fontWeight: PRODUTO_FULL_REF_WEIGHT, fontSize: px(s.refFontMm), lineHeight: `${px(s.ref.h)}px`, color: '#141400' })}>
+        {c.refText}
+      </div>
+      {c.infoRows.map(r => (
+        <div key={r.label} style={box(s.info.x, r.y, s.info.w, s.info.rowH, { ...line, fontFamily: MONTASER_FONT_FAMILY, fontSize: px(s.infoFontMm), lineHeight: `${px(s.info.rowH)}px`, color: '#141400' })}>
+          <b>{r.label}:</b>&nbsp;{r.value}
+        </div>
+      ))}
+      <div style={box(s.barcode.x, s.barcode.y, s.barcode.w, s.barcode.h, { background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' })} />
+      {c.code && (
+        <div style={box(s.bcNum.x, s.bcNum.y, s.bcNum.w, s.bcNum.h, { fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: px(c.bcNumMm), lineHeight: `${px(s.bcNum.h)}px`, whiteSpace: 'nowrap' })}>
+          {c.code}
+        </div>
+      )}
     </div>
   );
 }
+
+// HTML de impressão da Inteira (mesmas medidas da prévia).
+function buildProdutoFullHtml(product: any, extraFields: { label: string; value: string }[]): string {
+  const s = PRODUTO_FULL_SPEC;
+  const c = produtoFullContent(product, extraFields);
+  const pos = (x: number, y: number, w: number, h: number) => `left:${x.toFixed(2)}mm; top:${y.toFixed(2)}mm; width:${w.toFixed(2)}mm; height:${h.toFixed(2)}mm;`;
+  let bcDataUrl = '';
+  if (c.code) {
+    try { bcDataUrl = generateBarcodeDataUrl(c.code); } catch { /* sem código de barras se falhar */ }
+  }
+  const info = c.infoRows.map(r =>
+    `<div class="pf pf-info" style="${pos(s.info.x, r.y, s.info.w, s.info.rowH)} line-height:${s.info.rowH}mm;"><b>${escapeHtml(r.label)}:</b>&nbsp;${escapeHtml(r.value)}</div>`
+  ).join('');
+  return `
+    <div class="pf pf-desc" style="${pos(s.descricao.x, s.descricao.y, s.descricao.w, s.descricao.h)}">${escapeHtml(c.descLines.join('\n'))}</div>
+    <div class="pf pf-ref" style="${pos(s.ref.x, s.ref.y, s.ref.w, s.ref.h)} line-height:${s.ref.h}mm;">${escapeHtml(c.refText)}</div>
+    ${info}
+    ${bcDataUrl ? `<img class="pf-bc" src="${bcDataUrl}" style="${pos(s.barcode.x, s.barcode.y, s.barcode.w, s.barcode.h)}" />` : ''}
+    ${c.code ? `<div class="pf pf-bcnum" style="${pos(s.bcNum.x, s.bcNum.y, s.bcNum.w, s.bcNum.h)} line-height:${s.bcNum.h}mm; font-size:${c.bcNumMm.toFixed(2)}mm;">${escapeHtml(c.code)}</div>` : ''}
+  `;
+}
+const PRODUTO_FULL_PRINT_CSS = `
+  .pf { position: absolute; overflow: hidden; color: #141400; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
+  .pf-desc { font-family: ${MONTASER_FONT_FAMILY}; font-weight: ${PRODUTO_FULL_DESC_WEIGHT}; font-size: ${PRODUTO_FULL_SPEC.descricaoFontMm.toFixed(3)}mm; line-height: 1.05; white-space: pre-line; }
+  .pf-ref { font-family: ${MONTASER_FONT_FAMILY}; font-weight: ${PRODUTO_FULL_REF_WEIGHT}; font-size: ${PRODUTO_FULL_SPEC.refFontMm.toFixed(3)}mm; }
+  .pf-info { font-family: ${MONTASER_FONT_FAMILY}; font-weight: 400; font-size: ${PRODUTO_FULL_SPEC.infoFontMm.toFixed(3)}mm; }
+  .pf-bc { position: absolute; object-fit: fill; }
+  .pf-bcnum { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; }
+`;
 
 export function ProdutoPreviewHalf({ items, extraFields }: { items: any[]; extraFields: { label: string; value: string }[] }) {
   return (
@@ -714,10 +792,10 @@ function ProdutoBarcodePreviewCell({ product, offsetYMm }: { product: any; offse
     ...extra,
   });
   const code = product.ean || product.sku || '';
-  const bcNumSize = code ? fitFontSize(code, PRODUTO_THIRD.barcode.w * PREVIEW_PX_PER_MM, PRODUTO_THIRD.barcode.h * 0.22 * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
+  const bcNumSize = code ? fitFontSize(code, PRODUTO_THIRD.barcode.w * PREVIEW_PX_PER_MM, PRODUTO_HALF_BC_NUM_MM * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
 
   return (
-    <div style={box(PRODUTO_THIRD.barcode, { display: 'flex', flexDirection: 'column', gap: 1 })}>
+    <div style={box(PRODUTO_THIRD.barcode, { display: 'flex', flexDirection: 'column', gap: PRODUTO_HALF_BC_NUM_GAP_MM * PREVIEW_PX_PER_MM })}>
       <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
       {code && (
         <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: bcNumSize, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
@@ -1169,7 +1247,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }
     const boxStyle = (p: ElPos) => `left:${p.x.toFixed(2)}mm; top:${(p.y + offsetY).toFixed(2)}mm; width:${p.w.toFixed(2)}mm; height:${p.h.toFixed(2)}mm;`;
 
-    const descText = produtoDescText(product, layout);
+    const descText = produtoDescText(product);
     const refText = `REF ${productRef(product)}`;
     const half = isProdutoHalf(layout);
 
@@ -1182,7 +1260,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     const refSize = half
       ? fitFontSize(refText, layout.descricao.w, layout.ref.h, NOME_FONT_WEIGHT, NOME_FONT_FAMILY)
       : fitFontSize(refText, layout.descricao.w, layout.ref.h, 900, "'Courier New', monospace");
-    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, half ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
+    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, isProdutoHalf(layout) ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
 
     return `
       <div class="cell-el descricao${half ? ' metade' : ''}" style="${descBoxStyle} font-size:${descFit.fontSizeMm.toFixed(2)}mm; ${descWrapStyle}">${escapeHtml(descDisplayText)}</div>
@@ -1203,7 +1281,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     if (code) {
       try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* skip barcode on error */ }
     }
-    const descText = produtoDescText(product, layout);
+    const descText = produtoDescText(product);
     const refText = `REF ${productRef(product)}`;
     const half = isProdutoHalf(layout);
     const infoFamily = half ? NOME_FONT_FAMILY : "'Courier New', monospace";
@@ -1228,7 +1306,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       ? halfInfoLayout(layout, infoTexts, refSize, refY, infoWeight, infoFamily, 1)
       : null;
     const bc = halfInfo ? halfInfo.barcode : layout.barcode;
-    const bcNumSize = code ? fitFontSize(code, bc.w, half ? PRODUTO_HALF_BC_NUM_MM : bc.h * 0.22, 700, "'Courier New', monospace") : 0;
+    const bcNumSize = code ? fitFontSize(code, bc.w, isProdutoHalf(layout) ? PRODUTO_HALF_BC_NUM_MM : layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
     const infoBoxes: ElPos[] = halfInfo
       ? halfInfo.boxes
       : extraFields.map((_, i) => ({ x: layout.descricao.x, y: layout.infoBlockY + i * (rowH + rowGap), w: layout.descricao.w, h: rowH }));
@@ -1265,10 +1343,10 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     }
     const layout = PRODUTO_THIRD;
     const boxStyle = `left:${layout.barcode.x.toFixed(2)}mm; top:${(layout.barcode.y + offsetY).toFixed(2)}mm; width:${layout.barcode.w.toFixed(2)}mm; height:${layout.barcode.h.toFixed(2)}mm;`;
-    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, layout.barcode.h * 0.22, 700, "'Courier New', monospace") : 0;
+    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, PRODUTO_HALF_BC_NUM_MM, 700, "'Courier New', monospace") : 0;
 
     return `
-      <div class="cell-el barcode" style="${boxStyle}">
+      <div class="cell-el barcode metade" style="${boxStyle}">
         ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
         ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
       </div>
@@ -1296,11 +1374,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     });
 
     const pages: string[] = fullUnits.map(product =>
-      `<div class="produto-label">${
-        extraFieldsFilled.length > 0
-          ? buildProdutoInfoCellHtml(product, PRODUTO_FULL_INFO, 0, extraFieldsFilled)
-          : buildProdutoCellHtml(product, PRODUTO_FULL_MIN, 0)
-      }</div>`
+      `<div class="produto-label">${buildProdutoFullHtml(product, extraFieldsFilled)}</div>`
     );
     for (let i = 0; i < halfUnits.length; i += 2) {
       const top = halfUnits[i];
@@ -1343,6 +1417,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         .cell-el.info.metade { font-family: ${NOME_FONT_FAMILY}; font-weight: ${NOME_FONT_WEIGHT}; justify-content: flex-start; }
         .cell-el.info.metade b { font-weight: inherit; }
         .cell-el.barcode.metade .bc-num { margin-top: ${PRODUTO_HALF_BC_NUM_GAP_MM}mm; }
+        ${PRODUTO_FULL_PRINT_CSS}
         .corte { position: absolute; left: 0; top: 0; width: ${PRODUTO_LABEL_SIZE}mm; height: ${PRODUTO_LABEL_SIZE}mm; pointer-events: none; }
         .cell-el.barcode { display: flex; flex-direction: column; white-space: normal; }
         .bc-img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: fill; }
