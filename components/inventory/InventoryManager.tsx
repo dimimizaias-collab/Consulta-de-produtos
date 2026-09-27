@@ -20,6 +20,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import { LabelPrintModal, type PrintQueueSubmission } from './LabelPrintModal';
+import type { LabelInfoConfig } from './LabelInfoModal';
 import { PlacaPrintModal } from './PlacaPrintModal';
 import { EstoqueManager } from './estoque/EstoqueManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,7 +33,7 @@ import { ProductCard } from '@/components/ProductCard';
 interface PrintQueuePreload {
   requestId: string;
   template: 'gondola' | 'produto';
-  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple' }[];
+  queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig }[];
 }
 
 interface InventoryManagerProps {

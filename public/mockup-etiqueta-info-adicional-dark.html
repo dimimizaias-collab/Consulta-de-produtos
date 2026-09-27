@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Informações adicionais por produto</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#EDE4C6; --modal:#F0E7CC; --surface:#FFFFFF; --surface2:#FAF7EE; --dropdown:#FFFFFF;
+  --text:#1A1A0E; --muted:rgba(26,26,10,.45); --faint:rgba(26,26,10,.30);
+  --border:rgba(26,26,10,.10); --border2:rgba(26,26,10,.14);
+  --chip:rgba(26,26,10,.06); --chip-h:rgba(26,26,10,.10);
+  --sel-bg:rgba(255,229,0,.14); --sel-border:#D4C000;
+  --seg-on-bg:#1A1A0E; --seg-on-fg:#FFE500;
+  --red:#D81E1E; --red-bg:rgba(200,26,26,.05); --red-border:rgba(216,30,30,.55); --red-text:#B91818;
+  --green:#0A7A55; --green-bg:rgba(10,122,85,.08);
+  --icon-bg:rgba(26,26,10,.09); --icon-fg:#1A1A0E;
+  --backdrop:rgba(0,0,0,.40);
+}
+[data-theme="dark"]{
+  --page:#141410; --modal:#1E1E18; --surface:#252520; --surface2:#1E1E18; --dropdown:#2E2E28;
+  --text:#F2F0E3; --muted:rgba(242,240,227,.40); --faint:rgba(242,240,227,.25);
+  --border:rgba(242,240,227,.08); --border2:rgba(242,240,227,.14);
+  --chip:rgba(242,240,227,.07); --chip-h:rgba(242,240,227,.11);
+  --sel-bg:rgba(255,229,0,.06); --sel-border:rgba(255,229,0,.30);
+  --seg-on-bg:#FFE500; --seg-on-fg:#1A1A0E;
+  --red-bg:rgba(216,30,30,.08); --red-text:#F87171;
+  --green:#34D399; --green-bg:rgba(52,211,153,.10);
+  --icon-bg:rgba(216,30,30,.16); --icon-fg:#D81E1E;
+  --backdrop:rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--page);color:var(--text);padding:32px 16px 64px;-webkit-font-smoothing:antialiased}
+.board{max-width:1500px;margin:0 auto}
+.board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+.board-head h1{font-family:Manrope;font-weight:800;font-size:22px}
+.board-head p{font-size:13px;color:var(--muted);margin-top:4px;max-width:720px;line-height:1.5}
+.theme-btn{font:800 11px 'DM Sans';text-transform:uppercase;letter-spacing:.05em;padding:9px 14px;border-radius:12px;border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(560px,1fr));gap:36px 28px}
+@media (max-width:620px){.grid{grid-template-columns:1fr}}
+.frame-label{display:flex;gap:10px;align-items:baseline;margin-bottom:10px}
+.frame-label b{font:900 11px 'DM Mono';background:#FFE500;color:#1A1A0E;padding:3px 8px;border-radius:7px}
+.frame-label span{font-size:13px;font-weight:700}
+.frame-note{font-size:11.5px;color:var(--muted);margin:-4px 0 10px;line-height:1.45}
+.stage{position:relative;border-radius:28px;overflow:hidden;background:var(--backdrop);padding:22px;min-height:200px}
+
+/* ===== Modal base ===== */
+.modal{background:var(--modal);border-radius:24px;border:1px solid var(--border);box-shadow:0 25px 50px -12px rgba(0,0,0,.35);overflow:hidden;animation:pop .2s cubic-bezier(.23,1,.32,1)}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.mh{background:#FFE500;border-bottom:1px solid #D4C000;padding:16px 20px;display:flex;align-items:center;gap:12px}
+[data-theme="dark"] .mh.sub{background:#252520;border-color:rgba(242,240,227,.07)}
+[data-theme="dark"] .mh.sub .ttl{color:#F2F0E3}
+[data-theme="dark"] .mh.sub .sttl{color:rgba(242,240,227,.35)}
+[data-theme="dark"] .mh.sub .x{background:rgba(242,240,227,.06);border-color:rgba(242,240,227,.08);color:rgba(242,240,227,.4)}
+.ic{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:var(--icon-bg);color:var(--icon-fg);flex-shrink:0}
+.mh:not(.sub) .ic{background:rgba(26,26,10,.09);color:#1A1A0E}
+[data-theme="dark"] .mh:not(.sub) .ic{background:rgba(216,30,30,.16);color:#D81E1E}
+.ttl{font:800 16px Manrope;color:#1A1A0E;line-height:1.2}
+.sttl{font-size:11.5px;font-weight:700;color:rgba(26,26,10,.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.x{margin-left:auto;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:rgba(26,26,10,.08);border:1px solid rgba(26,26,10,.10);color:rgba(26,26,10,.5);flex-shrink:0;cursor:pointer;transition:transform .15s}
+.x:active{transform:scale(.93)}
+.tabs{display:flex;gap:20px;padding:10px 20px 0;border-bottom:1px solid var(--border)}
+.tab{font:800 11px 'DM Sans';text-transform:uppercase;letter-spacing:.04em;padding:9px 2px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:6px;align-items:center}
+.tab.on{color:var(--red);border-color:var(--red)}
+.tab .n{background:rgba(216,30,30,.10);color:var(--red);border-radius:99px;padding:2px 6px;font-size:10px;font-weight:900}
+.mb{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.sec{font:800 10.5px 'DM Sans';text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.mf{padding:4px 20px 20px;display:flex;gap:10px}
+.btn{flex:1;font:700 13.5px 'DM Sans';padding:12px;border-radius:16px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s,opacity .15s}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:var(--chip);color:var(--muted)}
+.btn.primary{background:var(--red);color:#fff;box-shadow:0 8px 18px -6px rgba(216,30,30,.45)}
+
+/* ===== Queue rows ===== */
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface)}
+.row-wrap{border-radius:16px;border:1px solid var(--border);background:var(--surface);overflow:hidden}
+.row-wrap.has-info{border-color:var(--sel-border);background:var(--sel-bg)}
+.row-wrap .row{border:none;background:transparent;border-radius:0}
+.name{flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{display:flex;background:var(--chip);border-radius:9px;padding:2px;gap:2px;flex-shrink:0}
+.seg span{font:900 9px 'DM Sans';text-transform:uppercase;letter-spacing:.04em;padding:5px 7px;border-radius:7px;color:var(--faint)}
+.seg span.on{background:var(--seg-on-bg);color:var(--seg-on-fg)}
+.qty{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.qty i{width:22px;height:22px;border-radius:6px;background:var(--chip);display:grid;place-items:center;font-style:normal;font-size:12px;color:var(--muted)}
+.qty b{width:22px;text-align:center;font-size:11px;font-weight:800}
+.sq{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;background:var(--chip);color:var(--muted)}
+.sq.del{background:rgba(216,30,30,.10);color:var(--red)}
+
+/* info toggle */
+.info-tg{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:3px 4px 3px 8px;border-radius:9px;background:var(--chip);cursor:pointer;border:1px solid transparent}
+.info-tg .lbl{font:900 9px 'DM Sans';text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.sw{position:relative;width:28px;height:16px;border-radius:99px;background:rgba(26,26,10,.18);transition:background .15s}
+[data-theme="dark"] .sw{background:rgba(242,240,227,.16)}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .18s cubic-bezier(.23,1,.32,1)}
+.info-tg.on{border-color:var(--sel-border);background:var(--sel-bg)}
+.info-tg.on .lbl{color:var(--text)}
+.info-tg.on .sw{background:var(--red)}
+.info-tg.on .sw::after{transform:translateX(12px)}
+.info-summary{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px 12px;align-items:center}
+.pill{font-size:10.5px;font-weight:700;padding:4px 8px;border-radius:8px;background:var(--surface);border:1px solid var(--border);display:flex;gap:5px;align-items:center;max-width:100%}
+.pill em{font-style:normal;font:900 8.5px 'DM Sans';text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.pill .v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.pill.m{border-style:dashed}
+.pill.warn{border-color:var(--red-border);color:var(--red-text);background:var(--red-bg)}
+.edit-link{font:800 10.5px 'DM Sans';color:var(--text);text-decoration:underline;text-underline-offset:2px;margin-left:auto;cursor:pointer}
+.hint{font-size:10.5px;font-weight:600;color:var(--faint);text-align:center}
+
+/* ===== Info cards ===== */
+.icard{border-radius:16px;border:1.5px solid var(--border);background:var(--surface);transition:border-color .13s,background .13s;overflow:hidden}
+.icard.sel{border-color:var(--sel-border);background:var(--sel-bg)}
+.icard.miss{border-color:var(--red-border)}
+.ihead{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}
+.chk{width:18px;height:18px;border-radius:6px;border:2px solid var(--border2);flex-shrink:0;display:grid;place-items:center}
+.icard.sel .chk{background:var(--seg-on-bg);border-color:var(--seg-on-bg);color:var(--seg-on-fg)}
+.ititle{font-size:13px;font-weight:800}
+.isub{font-size:10.5px;font-weight:600;color:var(--muted);margin-top:1px}
+.src{margin-left:auto;display:flex;background:var(--chip);border-radius:9px;padding:2px;gap:2px;flex-shrink:0}
+.src span{font:900 9px 'DM Sans';text-transform:uppercase;letter-spacing:.04em;padding:5px 8px;border-radius:7px;color:var(--faint);display:flex;align-items:center;gap:4px;cursor:pointer}
+.src span.on{background:var(--seg-on-bg);color:var(--seg-on-fg)}
+.src span.dis{opacity:.4;cursor:not-allowed}
+.ibody{padding:0 12px 12px 40px;display:flex;gap:8px;align-items:stretch}
+.field{flex:1;min-width:0;min-height:36px;border-radius:10px;border:1.5px solid #E0D8BF;background:var(--surface);display:flex;align-items:center;padding:7px 11px;font-size:12.5px;font-weight:600;gap:8px}
+[data-theme="dark"] .field{border-color:rgba(242,240,227,.08)}
+.field.ro{background:var(--surface2);color:var(--text)}
+.field.ro .lock{margin-left:auto;color:var(--faint);flex-shrink:0}
+.field.mono{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.02em}
+.field.edit{border-color:var(--red);box-shadow:0 0 0 3px rgba(216,30,30,.15)}
+.field.edit::after{content:'';width:1.5px;height:15px;background:var(--red);margin-left:-6px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.field.miss{border-color:var(--red-border);background:var(--red-bg);color:var(--red-text);font-weight:700}
+.field.area{align-items:flex-start;line-height:1.45}
+.addbtn{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:0 11px;border-radius:10px;background:var(--red);color:#fff;font:800 11px 'DM Sans';border:none;cursor:pointer;white-space:nowrap}
+.addbtn:active{transform:scale(.97)}
+.tagline{font-size:10px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:4px;padding:0 12px 10px 40px;margin-top:-4px}
+.tagline.m{color:var(--muted)}
+.linked{display:flex;gap:6px;align-items:center;font-size:10.5px;font-weight:600;color:var(--muted);padding:9px 12px;border-radius:12px;background:var(--chip)}
+
+/* ===== sub modal ===== */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.submodal{position:relative;max-width:400px;margin:40px auto 0}
+.search{height:40px;border-radius:14px;border:1.5px solid var(--red);box-shadow:0 0 0 3px rgba(216,30,30,.15);background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;font-weight:600}
+.search .ph{color:var(--text)}
+.plus{width:40px;height:40px;border-radius:14px;flex-shrink:0;background:var(--seg-on-bg);color:var(--seg-on-fg);display:grid;place-items:center;border:none;cursor:pointer}
+.list{border-radius:14px;border:1px solid var(--border);background:var(--dropdown);overflow:hidden}
+.opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.opt:last-child{border-bottom:none}
+.opt.on{background:var(--sel-bg)}
+.opt .radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0}
+.opt.on .radio{border:5px solid var(--red)}
+.opt .nm{font-size:12.5px;font-weight:700}
+.opt .cn{font:500 10.5px 'DM Mono';color:var(--muted);margin-top:1px}
+.opt .cn.none{font-family:'DM Sans';font-weight:700;color:var(--red-text)}
+.opt mark{background:rgba(255,229,0,.55);color:inherit;border-radius:3px;padding:0 1px}
+[data-theme="dark"] .opt mark{background:rgba(255,229,0,.25)}
+.textarea{min-height:96px;border-radius:14px;border:1.5px solid var(--red);box-shadow:0 0 0 3px rgba(216,30,30,.15);background:var(--surface);padding:11px 13px;font-size:13px;font-weight:600;line-height:1.5}
+.counter{font:500 10px 'DM Mono';color:var(--faint);text-align:right;margin-top:-8px}
+.info-box{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5;padding:10px 12px;border-radius:12px;background:var(--chip);display:flex;gap:8px}
+.date{display:flex;gap:6px;align-items:center}
+.date .field{flex:0 0 auto}
+.qchip{font:800 10px 'DM Sans';padding:6px 9px;border-radius:9px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.qchip.on{background:var(--seg-on-bg);color:var(--seg-on-fg)}
+svg{display:block}
+</style>
+</head>
+<body>
+<div class="board">
+  <div class="board-head">
+    <div>
+      <h1>Etiqueta de Produto — Informações adicionais por produto</h1>
+      <p>Fabricante e CNPJ vêm do fabricante vinculado ao produto; Composição do cadastro; Validade é informada na hora da impressão. "Marca" sai da lista. As informações deixam de ser globais (aba Seleção) e passam a ser configuradas por produto, na aba Visualização.</p>
+    </div>
+    <button class="theme-btn" onclick="const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Alternar claro / escuro</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- ================= 1 ================= -->
+    <section>
+      <div class="frame-label"><b>01</b><span>Aba Visualização — interruptor "Info" por produto</span></div>
+      <p class="frame-note">Cada linha ganha o interruptor <b>Info</b>. Ligado → abre o módulo (tela 02). Após salvar, a linha mostra o resumo do que vai na etiqueta e "Editar" reabre o módulo. Desligar remove as infos só daquela etiqueta. Só aparece no modelo Etiqueta de Produto e fica desabilitado em "Código".</p>
+      <div class="stage">
+        <div class="modal">
+          <div class="mh">
+            <div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42z"/><circle cx="7" cy="7" r="1.5"/></svg></div>
+            <div><div class="ttl">Etiquetas</div><div class="sttl">Elgin L42 Pro Full — impressão térmica</div></div>
+            <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="tabs"><div class="tab">Seleção</div><div class="tab on">Visualização <span class="n">7</span></div></div>
+          <div class="mb">
+            <div class="sec">Produtos selecionados para impressão</div>
+
+            <div class="row-wrap has-info">
+              <div class="row">
+                <span class="name">Garrafa Térmica Inox 500ml Nitron</span>
+                <div class="seg"><span class="on">Inteira</span><span>Metade</span><span>Código</span></div>
+                <div class="qty"><i>−</i><b>3</b><i>+</i></div>
+                <div class="info-tg on"><span class="lbl">Info</span><span class="sw"></span></div>
+                <div class="sq"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                <div class="sq del"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+              </div>
+              <div class="info-summary">
+                <span class="pill"><em>Fab.</em><span class="v">Nitron Ind. LTDA</span></span>
+                <span class="pill"><em>CNPJ</em><span class="v" style="font-family:'DM Mono';font-size:10px">12.345.678/0001-90</span></span>
+                <span class="pill m"><em>Val.</em><span class="v">12/2027</span></span>
+                <span class="edit-link">Editar</span>
+              </div>
+            </div>
+
+            <div class="row">
+              <span class="name">Copo Acrílico Colorido 300ml</span>
+              <div class="seg"><span>Inteira</span><span class="on">Metade</span><span>Código</span></div>
+              <div class="qty"><i>−</i><b>2</b><i>+</i></div>
+              <div class="info-tg"><span class="lbl">Info</span><span class="sw"></span></div>
+              <div class="sq"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+              <div class="sq del"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            </div>
+
+            <div class="row">
+              <span class="name">Pote Hermético 1L Tampa Click</span>
+              <div class="seg"><span>Inteira</span><span>Metade</span><span class="on">Código</span></div>
+              <div class="qty"><i>−</i><b>2</b><i>+</i></div>
+              <div class="info-tg" style="opacity:.35;cursor:not-allowed" title="Modelo Código não tem informações adicionais"><span class="lbl">Info</span><span class="sw"></span></div>
+              <div class="sq"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+              <div class="sq del"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            </div>
+            <p class="hint">Ligue "Info" pra escolher Fabricante, CNPJ, Composição e Validade de cada etiqueta</p>
+          </div>
+          <div class="mf">
+            <button class="btn ghost">Cancelar</button>
+            <button class="btn primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>Imprimir 7 etiquetas</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 2 ================= -->
+    <section>
+      <div class="frame-label"><b>02</b><span>Módulo de Informações adicionais — produto com cadastro completo</span></div>
+      <p class="frame-note">Clicar no card marca/desmarca e revela o campo abaixo. À direita, <b>Cadastro</b> (valor do produto, somente leitura) ou <b>Manual</b> (texto livre só pra esta etiqueta, não altera o cadastro). Fabricante e CNPJ saem do fabricante vinculado. Validade é sempre manual.</p>
+      <div class="stage">
+        <div class="modal" style="max-width:520px;margin:0 auto">
+          <div class="mh sub">
+            <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+            <div style="min-width:0"><div class="ttl">Informações adicionais</div><div class="sttl">Garrafa Térmica Inox 500ml Nitron · Inteira ×3</div></div>
+            <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="mb" style="gap:10px">
+            <div class="linked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8l6 4V8l6 4V4h8v16Z"/></svg>Fabricante vinculado: <b style="color:var(--text)">Nitron Ind. LTDA</b></div>
+
+            <!-- Fabricante sel cadastro -->
+            <div class="icard sel">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">Fabricante</div></div>
+                <div class="src"><span class="on">Cadastro</span><span>Manual</span></div>
+              </div>
+              <div class="ibody"><div class="field ro">Nitron Ind. LTDA<svg class="lock" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div></div>
+            </div>
+
+            <!-- CNPJ sel manual -->
+            <div class="icard sel">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">CNPJ</div></div>
+                <div class="src"><span>Cadastro</span><span class="on">Manual</span></div>
+              </div>
+              <div class="ibody"><div class="field mono edit">12.345.678/0001-90</div></div>
+              <div class="tagline m">Vale só pra esta etiqueta — o cadastro continua 12.345.678/0001-90</div>
+            </div>
+
+            <!-- Composição not selected -->
+            <div class="icard">
+              <div class="ihead">
+                <div class="chk"></div>
+                <div><div class="ititle">Composição</div><div class="isub">Aço inox 304, polipropileno</div></div>
+              </div>
+            </div>
+
+            <!-- Validade sel -->
+            <div class="icard sel">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">Validade</div><div class="isub">Informada na hora da impressão</div></div>
+                <div class="src"><span class="dis">Cadastro</span><span class="on">Manual</span></div>
+              </div>
+              <div class="ibody date">
+                <div class="field mono" style="width:110px">12/2027</div>
+                <span class="qchip">+6m</span><span class="qchip on">+1a</span><span class="qchip">+2a</span><span class="qchip">Indet.</span>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <button class="btn ghost">Cancelar</button>
+            <button class="btn primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Salvar na etiqueta</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 3 ================= -->
+    <section>
+      <div class="frame-label"><b>03</b><span>Módulo — produto com informações faltando</span></div>
+      <p class="frame-note">Sem dado no cadastro, o campo aparece em vermelho e "Cadastro" mostra o botão <b>Adicionar</b>. O usuário pode também trocar pra "Manual" e digitar só pra esta etiqueta. Fabricante e CNPJ abrem o mesmo módulo (tela 04), já que ambos vêm do fabricante.</p>
+      <div class="stage">
+        <div class="modal" style="max-width:520px;margin:0 auto">
+          <div class="mh sub">
+            <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+            <div style="min-width:0"><div class="ttl">Informações adicionais</div><div class="sttl">Copo Acrílico Colorido 300ml · Metade ×2</div></div>
+            <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="mb" style="gap:10px">
+            <div class="linked" style="color:var(--red-text);background:var(--red-bg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Produto sem fabricante vinculado</div>
+
+            <div class="icard sel miss">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">Fabricante</div></div>
+                <div class="src"><span class="on">Cadastro</span><span>Manual</span></div>
+              </div>
+              <div class="ibody">
+                <div class="field miss">Sem fabricante no cadastro</div>
+                <button class="addbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+              </div>
+            </div>
+
+            <div class="icard sel miss">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">CNPJ</div></div>
+                <div class="src"><span class="on">Cadastro</span><span>Manual</span></div>
+              </div>
+              <div class="ibody">
+                <div class="field miss">Sem CNPJ no cadastro</div>
+                <button class="addbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+              </div>
+            </div>
+
+            <div class="icard sel miss">
+              <div class="ihead">
+                <div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div><div class="ititle">Composição</div></div>
+                <div class="src"><span class="on">Cadastro</span><span>Manual</span></div>
+              </div>
+              <div class="ibody">
+                <div class="field miss">Sem composição no cadastro</div>
+                <button class="addbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+              </div>
+            </div>
+
+            <div class="icard">
+              <div class="ihead">
+                <div class="chk"></div>
+                <div><div class="ititle">Validade</div><div class="isub">Informada na hora da impressão</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <button class="btn ghost">Cancelar</button>
+            <button class="btn primary" style="opacity:.4;cursor:not-allowed"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Salvar na etiqueta</button>
+          </div>
+        </div>
+        <p class="hint" style="color:rgba(255,255,255,.7);margin-top:10px">Salvar fica desabilitado enquanto algum campo marcado estiver vazio</p>
+      </div>
+    </section>
+
+    <!-- ================= 4 ================= -->
+    <section>
+      <div class="frame-label"><b>04</b><span>Adicionar Fabricante ao cadastro (Fabricante / CNPJ)</span></div>
+      <p class="frame-note">Busca entre os fabricantes já cadastrados (nome ou CNPJ). O <b>+</b> abre o cadastro de fabricante existente (AddManufacturerModal) e, ao criar, já volta selecionado. Salvar vincula o fabricante ao produto — preenche Fabricante e CNPJ de uma vez.</p>
+      <div class="stage" style="min-height:560px">
+        <div class="modal" style="max-width:520px;margin:0 auto;filter:saturate(.8)">
+          <div class="mh sub"><div class="ic"></div><div><div class="ttl">Informações adicionais</div><div class="sttl">Copo Acrílico Colorido 300ml</div></div></div>
+          <div class="mb"><div class="icard sel miss"><div class="ihead"><div class="ititle">Fabricante</div></div></div><div class="icard sel miss"><div class="ihead"><div class="ititle">CNPJ</div></div></div><div style="height:160px"></div></div>
+        </div>
+        <div class="dim"></div>
+        <div style="position:absolute;inset:0;padding:22px">
+          <div class="modal submodal">
+            <div class="mh sub">
+              <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8l6 4V8l6 4V4h8v16Z"/></svg></div>
+              <div style="min-width:0"><div class="ttl">Vincular fabricante</div><div class="sttl">Copo Acrílico Colorido 300ml</div></div>
+              <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            </div>
+            <div class="mb">
+              <div style="display:flex;gap:8px">
+                <div class="search" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:var(--faint)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="ph">acri</span></div>
+                <button class="plus" title="Cadastrar novo fabricante"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+              <div class="list">
+                <div class="opt on"><span class="radio"></span><div><div class="nm"><mark>Acri</mark>lart Utilidades LTDA</div><div class="cn">98.765.432/0001-10</div></div></div>
+                <div class="opt"><span class="radio"></span><div><div class="nm">Plast<mark>acri</mark>l Indústria</div><div class="cn">45.111.222/0001-33</div></div></div>
+                <div class="opt"><span class="radio"></span><div><div class="nm"><mark>Acri</mark>mex Comércio</div><div class="cn none">Sem CNPJ cadastrado</div></div></div>
+              </div>
+              <div class="info-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>O fabricante será vinculado ao cadastro do produto. Fabricante e CNPJ da etiqueta passam a usar esses dados.</div>
+            </div>
+            <div class="mf">
+              <button class="btn ghost">Cancelar</button>
+              <button class="btn primary">Salvar no cadastro</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 5 ================= -->
+    <section>
+      <div class="frame-label"><b>05</b><span>Adicionar Composição ao cadastro</span></div>
+      <p class="frame-note">Mesmo campo de Composição do cadastro do produto. Salvar grava em <code>products.composicao</code> e o card volta preenchido e com "Cadastro" selecionado.</p>
+      <div class="stage" style="min-height:440px">
+        <div class="modal" style="max-width:520px;margin:0 auto;filter:saturate(.8)">
+          <div class="mh sub"><div class="ic"></div><div><div class="ttl">Informações adicionais</div><div class="sttl">Copo Acrílico Colorido 300ml</div></div></div>
+          <div class="mb"><div class="icard sel miss"><div class="ihead"><div class="ititle">Composição</div></div></div><div style="height:200px"></div></div>
+        </div>
+        <div class="dim"></div>
+        <div style="position:absolute;inset:0;padding:22px">
+          <div class="modal submodal">
+            <div class="mh sub">
+              <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 .9 1.5h14.2A1 1 0 0 0 20 19l-6-10V3"/></svg></div>
+              <div style="min-width:0"><div class="ttl">Composição</div><div class="sttl">Copo Acrílico Colorido 300ml</div></div>
+              <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            </div>
+            <div class="mb">
+              <div class="sec" style="margin-bottom:-6px">Composição</div>
+              <div class="textarea">Poliestireno cristal (PS), pigmentos atóxicos<span style="display:inline-block;width:1.5px;height:15px;background:var(--red);vertical-align:-2px;animation:blink 1s steps(1) infinite"></span></div>
+              <div class="counter">45 caracteres</div>
+            </div>
+            <div class="mf">
+              <button class="btn ghost">Cancelar</button>
+              <button class="btn primary">Salvar no cadastro</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 6 ================= -->
+    <section>
+      <div class="frame-label"><b>06</b><span>De volta ao módulo — após salvar no cadastro</span></div>
+      <p class="frame-note">Os campos que estavam vermelhos agora aparecem preenchidos com o selo verde "Salvo no cadastro". Um clique em <b>Salvar na etiqueta</b> fecha e aplica ao produto na fila.</p>
+      <div class="stage">
+        <div class="modal" style="max-width:520px;margin:0 auto">
+          <div class="mh sub">
+            <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+            <div style="min-width:0"><div class="ttl">Informações adicionais</div><div class="sttl">Copo Acrílico Colorido 300ml · Metade ×2</div></div>
+            <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          </div>
+          <div class="mb" style="gap:10px">
+            <div class="linked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8l6 4V8l6 4V4h8v16Z"/></svg>Fabricante vinculado: <b style="color:var(--text)">Acrilart Utilidades LTDA</b></div>
+            <div class="icard sel">
+              <div class="ihead"><div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div><div class="ititle">Fabricante</div><div class="src"><span class="on">Cadastro</span><span>Manual</span></div></div>
+              <div class="ibody"><div class="field ro">Acrilart Utilidades LTDA</div></div>
+              <div class="tagline"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Salvo no cadastro</div>
+            </div>
+            <div class="icard sel">
+              <div class="ihead"><div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div><div class="ititle">CNPJ</div><div class="src"><span class="on">Cadastro</span><span>Manual</span></div></div>
+              <div class="ibody"><div class="field ro mono">98.765.432/0001-10</div></div>
+              <div class="tagline"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Salvo no cadastro</div>
+            </div>
+            <div class="icard sel">
+              <div class="ihead"><div class="chk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div><div class="ititle">Composição</div><div class="src"><span class="on">Cadastro</span><span>Manual</span></div></div>
+              <div class="ibody"><div class="field ro area">Poliestireno cristal (PS), pigmentos atóxicos</div></div>
+              <div class="tagline"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Salvo no cadastro</div>
+            </div>
+            <div class="icard"><div class="ihead"><div class="chk"></div><div><div class="ititle">Validade</div><div class="isub">Informada na hora da impressão</div></div></div></div>
+          </div>
+          <div class="mf">
+            <button class="btn ghost">Cancelar</button>
+            <button class="btn primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Salvar na etiqueta</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

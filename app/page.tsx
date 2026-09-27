@@ -7,6 +7,7 @@ import { NotificationsPage, type AppNotification } from '@/components/Notificati
 import { FeaturedProduct } from '@/components/FeaturedProduct';
 import { ProductCard } from '@/components/ProductCard';
 import { InventoryManager } from '@/components/inventory/InventoryManager';
+import type { LabelInfoConfig } from '@/components/inventory/LabelInfoModal';
 import { ProductBulkTable } from '@/components/inventory/ProductBulkTable';
 import { RequestCenter } from '@/components/requests/RequestCenter';
 import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailModal';
@@ -465,7 +466,7 @@ export default function Page() {
   const [printQueuePreload, setPrintQueuePreload] = useState<{
     requestId: string;
     template: 'gondola' | 'produto';
-    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple' }[];
+    queue: { product: any; qty: number; size: 'full' | 'half' | 'triple'; info?: LabelInfoConfig }[];
   } | null>(null);
   const [bulkDrafts, setBulkDrafts] = useState<any[]>([]);
   const [showBulkDraftReviewModal, setShowBulkDraftReviewModal] = useState(false);
@@ -5989,6 +5990,7 @@ export default function Page() {
                           product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.price },
                           qty: item.qty,
                           size: item.size,
+                          info: item.info,
                         })),
                       });
                       setActiveTab('Inventory');

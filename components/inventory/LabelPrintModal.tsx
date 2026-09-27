@@ -4,8 +4,11 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Tag, Printer, Plus, Minus, ChevronDown, Check, Pencil, Send, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateBarcodeDataUrl, formatCNPJ } from './labelPrintUtils';
+import { generateBarcodeDataUrl } from './labelPrintUtils';
 import { LabelEditModal } from './LabelEditModal';
+import { LabelInfoModal, resolveLabelInfo, hasLabelInfo, LABEL_INFO_FIELDS, type LabelInfoConfig } from './LabelInfoModal';
+import type { Manufacturer } from '@/components/manufacturers/AddManufacturerModal';
+import { supabase } from '@/lib/supabase';
 
 export const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -763,20 +766,19 @@ const PRODUTO_FULL_PRINT_CSS = `
   .pf-bcnum { font-family: 'Courier New', monospace; font-weight: 700; color: #3c3c3c; text-align: center; }
 `;
 
-export function ProdutoPreviewHalf({ items, extraFields }: { items: any[]; extraFields: { label: string; value: string }[] }) {
+// extraFields é por item (cada metade leva as informações adicionais do seu
+// próprio produto) — item sem entrada/vazio usa o layout mínimo.
+export function ProdutoPreviewHalf({ items, extraFields }: { items: any[]; extraFields: { label: string; value: string }[][] }) {
+  const cell = (i: number, offsetYMm: number) => {
+    const fields = extraFields[i] ?? [];
+    return fields.length > 0
+      ? <ProdutoInfoPreviewCell product={items[i]} layout={PRODUTO_HALF_INFO} extraFields={fields} offsetYMm={offsetYMm} />
+      : <ProdutoPreviewCell product={items[i]} layout={PRODUTO_HALF} offsetYMm={offsetYMm} />;
+  };
   return (
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
-      {extraFields.length > 0 ? (
-        <>
-          <ProdutoInfoPreviewCell product={items[0]} layout={PRODUTO_HALF_INFO} extraFields={extraFields} offsetYMm={0} />
-          <ProdutoInfoPreviewCell product={items[1]} layout={PRODUTO_HALF_INFO} extraFields={extraFields} offsetYMm={PRODUTO_HALF_H} />
-        </>
-      ) : (
-        <>
-          <ProdutoPreviewCell product={items[0]} layout={PRODUTO_HALF} offsetYMm={0} />
-          <ProdutoPreviewCell product={items[1]} layout={PRODUTO_HALF} offsetYMm={PRODUTO_HALF_H} />
-        </>
-      )}
+      {cell(0, 0)}
+      {cell(1, PRODUTO_HALF_H)}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${PRODUTO_LABEL_SIZE} ${PRODUTO_LABEL_SIZE}`} dangerouslySetInnerHTML={{ __html: CORTE_LINE_SVG_INNER }} />
     </div>
   );
@@ -845,16 +847,6 @@ export function IconTriple({ size = 12 }: { size?: number }) {
   );
 }
 
-// Campos digitados na hora da impressão (valem pra todas as etiquetas do
-// lote) — exclusivos da Etiqueta de Produto.
-const EXTRA_INFO_FIELDS: { key: string; label: string; placeholder: string }[] = [
-  { key: 'marca', label: 'Marca', placeholder: 'ex: Nitron' },
-  { key: 'fabricante', label: 'Fabricante', placeholder: 'ex: Nitron Ind. LTDA' },
-  { key: 'cnpj', label: 'CNPJ', placeholder: 'ex: 12.345.678/0001-90' },
-  { key: 'composicao', label: 'Composição', placeholder: 'ex: Plástico ABS' },
-  { key: 'validade', label: 'Validade', placeholder: 'ex: 12/2026' },
-];
-
 export type LabelTemplate = 'gondola' | 'produto';
 // 'triple' é exclusivo da Etiqueta de Produto — divide a folha 40x40mm em 3
 // faixas dedicadas só a código de barras (sem descrição/REF).
@@ -876,6 +868,9 @@ export interface QueueEntry {
   qty: number;
   size: LabelSize;
   overrides?: LabelOverrides;
+  // Informações adicionais (Fabricante/CNPJ/Composição/Validade) desta
+  // etiqueta — só na Etiqueta de Produto, Inteira ou Metade.
+  info?: LabelInfoConfig;
 }
 
 // Produto "efetivo" pra renderizar/imprimir — aplica as sobrescritas por
@@ -940,6 +935,7 @@ export interface PrintQueueItem {
   price: number | null;
   qty: number;
   size: LabelSize;
+  info?: LabelInfoConfig;
 }
 
 export interface PrintQueueSubmission {
@@ -970,42 +966,58 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Informações adicionais — exclusivas da Etiqueta de Produto. Os valores são
-  // digitados na hora da impressão e valem pra todas as etiquetas do lote.
-  const [extraInfoOn, setExtraInfoOn] = useState(false);
-  const [extraChecked, setExtraChecked] = useState<Record<string, boolean>>({});
-  const [extraValues, setExtraValues] = useState<Record<string, string>>({});
-
-  const toggleExtraField = useCallback((key: string) => {
-    setExtraChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  // Informações adicionais — por produto, exclusivas da Etiqueta de Produto.
+  // Fabricante/CNPJ vêm do fabricante vinculado ao produto e Composição do
+  // cadastro; por isso precisa da lista de fabricantes e do produto completo
+  // (a fila vinda de um pedido remoto só traz id/nome/sku/ean/preço).
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+    supabase.from('manufacturers').select('*').order('name').then(({ data }) => {
+      if (alive && data) setManufacturers(data as Manufacturer[]);
+    });
+    return () => { alive = false; };
+  }, [isOpen]);
+  const manufacturersById = useMemo(() => new Map(manufacturers.map(m => [m.id, m])), [manufacturers]);
+  const upsertManufacturer = useCallback((m: Manufacturer) => {
+    setManufacturers(prev => {
+      const next = prev.some(x => x.id === m.id) ? prev.map(x => (x.id === m.id ? m : x)) : [...prev, m];
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    });
   }, []);
 
-  const setExtraValue = useCallback((key: string, value: string) => {
-    setExtraValues(prev => ({ ...prev, [key]: key === 'cnpj' ? formatCNPJ(value) : value }));
-  }, []);
+  // Alterações salvas no cadastro pelo módulo de informações (fabricante
+  // vinculado / composição) — aplicadas por cima do produto até a lista de
+  // produtos da tela ser recarregada.
+  const [productPatches, setProductPatches] = useState<Record<string, { manufacturer_id?: string | null; composicao?: string | null }>>({});
+  const productsById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const cadastroProduct = useCallback((entry: QueueEntry) => ({
+    ...entry.product,
+    ...(productsById.get(entry.product.id) ?? {}),
+    ...(productPatches[entry.product.id] ?? {}),
+  }), [productsById, productPatches]);
 
-  // Campos de "Informações adicionais" marcados e preenchidos — só entram na
-  // etiqueta Inteira; se nenhum estiver marcado/preenchido, cai no layout
-  // mínimo mesmo com o toggle ligado.
-  const extraFieldsFilled = useMemo(() => (
-    extraInfoOn
-      ? EXTRA_INFO_FIELDS.filter(f => extraChecked[f.key] && (extraValues[f.key] ?? '').trim() !== '')
-          .map(f => ({ label: f.label, value: (extraValues[f.key] ?? '').trim() }))
-      : []
-  ), [extraInfoOn, extraChecked, extraValues]);
+  // Campos preenchidos que entram na etiqueta deste item (vazio = layout mínimo).
+  const labelInfoFor = useCallback((entry: QueueEntry) => {
+    if (template !== 'produto' || entry.size === 'triple' || !hasLabelInfo(entry.info)) return [];
+    const base = cadastroProduct(entry);
+    return resolveLabelInfo(entry.info, base, manufacturersById.get(base.manufacturer_id));
+  }, [template, cadastroProduct, manufacturersById]);
+  const labelFieldsFor = useCallback((entry: QueueEntry) => labelInfoFor(entry).map(({ label, value }) => ({ label, value })), [labelInfoFor]);
 
   const queueList = useMemo(() => Object.entries(queue), [queue]);
   const totalLabels = useMemo(() => queueList.reduce((acc, [, e]) => acc + e.qty, 0), [queueList]);
 
   // Amostras pra prévia — usa o primeiro produto real de cada tamanho na fila,
   // caindo pra um exemplo genérico quando ainda não tem nada adicionado.
-  const previewFull = useMemo(() => {
-    const entry = queueList.find(([, e]) => e.size === 'full')?.[1];
-    return entry ? effectiveLabelProduct(entry) : SAMPLE_FULL;
-  }, [queueList]);
-  const previewHalfItems = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
-  const previewHalfA = previewHalfItems[0] ?? SAMPLE_HALF_A;
-  const previewHalfB = previewHalfItems[1] ?? SAMPLE_HALF_B;
+  const previewFullEntry = useMemo(() => queueList.find(([, e]) => e.size === 'full')?.[1], [queueList]);
+  const previewFull = previewFullEntry ? effectiveLabelProduct(previewFullEntry) : SAMPLE_FULL;
+  const previewFullFields = previewFullEntry ? labelFieldsFor(previewFullEntry) : [];
+  const previewHalfEntries = useMemo(() => queueList.filter(([, e]) => e.size === 'half').map(([, e]) => e), [queueList]);
+  const previewHalfA = previewHalfEntries[0] ? effectiveLabelProduct(previewHalfEntries[0]) : SAMPLE_HALF_A;
+  const previewHalfB = previewHalfEntries[1] ? effectiveLabelProduct(previewHalfEntries[1]) : SAMPLE_HALF_B;
+  const previewHalfFields = previewHalfEntries.slice(0, 2).map(e => labelFieldsFor(e));
   const previewTripleItems = useMemo(() => queueList.filter(([, e]) => e.size === 'triple').map(([, e]) => effectiveLabelProduct(e)), [queueList]);
   const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
@@ -1072,6 +1084,21 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], overrides: Object.keys(overrides).length > 0 ? overrides : undefined } } : prev));
   }, []);
 
+  // Item com o módulo de Informações adicionais aberto (interruptor "Info").
+  const [infoId, setInfoId] = useState<string | null>(null);
+  const infoEntry = infoId ? queue[infoId] : null;
+
+  const setEntryInfo = useCallback((id: string, info: LabelInfoConfig | undefined) => {
+    setQueue(prev => (prev[id] ? { ...prev, [id]: { ...prev[id], info: hasLabelInfo(info) ? info : undefined } } : prev));
+  }, []);
+
+  // Ligar abre o módulo (só fica ligado se salvar); desligar remove as
+  // informações só desta etiqueta.
+  const toggleEntryInfo = (id: string, entry: QueueEntry) => {
+    if (hasLabelInfo(entry.info)) setEntryInfo(id, undefined);
+    else setInfoId(id);
+  };
+
   const handleClose = () => {
     setActiveTab('selecao');
     setTemplate('gondola');
@@ -1079,10 +1106,9 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     setSearch('');
     setQueue({});
     setDrafts({});
-    setExtraInfoOn(false);
-    setExtraChecked({});
-    setExtraValues({});
     setEditingId(null);
+    setInfoId(null);
+    setProductPatches({});
     onClose();
   };
 
@@ -1098,6 +1124,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         price: effective.price ?? null,
         qty: entry.qty,
         size: entry.size,
+        ...(hasLabelInfo(entry.info) ? { info: entry.info } : {}),
       };
     }),
   });
@@ -1364,24 +1391,29 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
     if (!win) return;
     await ensureArimoLoaded();
 
-    const fullUnits: any[] = [];
-    const halfUnits: any[] = [];
+    // Cada unidade leva as informações adicionais do seu próprio produto.
+    type Unit = { product: any; fields: { label: string; value: string }[] };
+    const fullUnits: Unit[] = [];
+    const halfUnits: Unit[] = [];
     const tripleUnits: any[] = [];
     queueList.forEach(([, entry]) => {
       const product = effectiveLabelProduct(entry);
-      const target = entry.size === 'half' ? halfUnits : entry.size === 'triple' ? tripleUnits : fullUnits;
-      for (let i = 0; i < entry.qty; i++) target.push(product);
+      const fields = labelFieldsFor(entry);
+      for (let i = 0; i < entry.qty; i++) {
+        if (entry.size === 'triple') tripleUnits.push(product);
+        else (entry.size === 'half' ? halfUnits : fullUnits).push({ product, fields });
+      }
     });
 
-    const pages: string[] = fullUnits.map(product =>
-      `<div class="produto-label">${buildProdutoFullHtml(product, extraFieldsFilled)}</div>`
+    const pages: string[] = fullUnits.map(u =>
+      `<div class="produto-label">${buildProdutoFullHtml(u.product, u.fields)}</div>`
     );
+    const cellHtml = (u: Unit, offsetY: number) => (u.fields.length > 0
+      ? buildProdutoInfoCellHtml(u.product, PRODUTO_HALF_INFO, offsetY, u.fields)
+      : buildProdutoCellHtml(u.product, PRODUTO_HALF, offsetY));
     for (let i = 0; i < halfUnits.length; i += 2) {
       const top = halfUnits[i];
       const bottom = halfUnits[i + 1];
-      const cellHtml = extraFieldsFilled.length > 0
-        ? (product: any, offsetY: number) => buildProdutoInfoCellHtml(product, PRODUTO_HALF_INFO, offsetY, extraFieldsFilled)
-        : (product: any, offsetY: number) => buildProdutoCellHtml(product, PRODUTO_HALF, offsetY);
       pages.push(
         `<div class="produto-label">${cellHtml(top, 0)}${bottom ? cellHtml(bottom, PRODUTO_HALF_H) : ''}<svg class="corte" viewBox="0 0 ${PRODUTO_LABEL_SIZE} ${PRODUTO_LABEL_SIZE}">${CORTE_LINE_SVG_INNER}</svg></div>`
       );
@@ -1681,63 +1713,6 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                     </div>
                   )}
 
-                  {/* Informações adicionais — exclusivas da Etiqueta de Produto */}
-                  {template === 'produto' && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55">Informações adicionais</span>
-                        <button
-                          type="button"
-                          onClick={() => setExtraInfoOn(v => !v)}
-                          className={cn('relative w-9 h-5 rounded-full transition-colors', extraInfoOn ? 'bg-primary' : 'bg-black/15 dark:bg-white/15')}
-                        >
-                          <span className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all', extraInfoOn ? 'left-[18px]' : 'left-0.5')} />
-                        </button>
-                      </div>
-                      {extraInfoOn && (
-                        <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-[#D4C000] dark:border-[#FFE500]/25 bg-[#FFE500]/[0.12] dark:bg-[#FFE500]/[0.06]">
-                          <p className="text-[10.5px] font-semibold text-secondary/60 leading-relaxed -mt-0.5">
-                            Além de descrição, REF e código de barras, inclua os campos abaixo — os valores digitados valem pra todas as etiquetas desta impressão.
-                          </p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {EXTRA_INFO_FIELDS.map(field => (
-                              <button
-                                key={field.key}
-                                type="button"
-                                onClick={() => toggleExtraField(field.key)}
-                                className="flex items-center gap-2"
-                              >
-                                <div className={cn(
-                                  'w-[18px] h-[18px] rounded-md flex items-center justify-center flex-shrink-0 transition-colors',
-                                  extraChecked[field.key] ? 'bg-[#1A1A0E] dark:bg-[#FFE500]' : 'border-2 border-black/20 dark:border-white/20'
-                                )}>
-                                  {extraChecked[field.key] && <Check size={11} strokeWidth={3} className="text-[#FFE500] dark:text-[#1A1A0E]" />}
-                                </div>
-                                <span className={cn('text-[11.5px] font-semibold', extraChecked[field.key] ? 'text-on-surface' : 'text-secondary/60')}>{field.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                          {EXTRA_INFO_FIELDS.some(f => extraChecked[f.key]) && (
-                            <div className="flex flex-wrap gap-2">
-                              {EXTRA_INFO_FIELDS.filter(f => extraChecked[f.key]).map(field => (
-                                <div key={field.key} className="flex-1 min-w-[150px]">
-                                  <label className="block text-[9px] font-extrabold uppercase tracking-wide text-secondary/45 mb-1">{field.label}</label>
-                                  <input
-                                    value={extraValues[field.key] ?? ''}
-                                    onChange={e => setExtraValue(field.key, e.target.value)}
-                                    placeholder={field.placeholder}
-                                    maxLength={field.key === 'cnpj' ? 18 : undefined}
-                                    className="w-full h-9 px-3 bg-white dark:bg-[#252520] border border-black/[0.10] dark:border-white/[0.10] rounded-xl text-[12.5px] font-semibold text-on-surface outline-none focus:border-primary/50 transition-colors"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {/* Resumo da fila */}
                   {queueList.length > 0 && (
                     <button
@@ -1773,12 +1748,12 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Inteira</span>
-                        <ProdutoPreviewFull product={previewFull} extraFields={extraFieldsFilled} />
+                        <ProdutoPreviewFull product={previewFull} extraFields={previewFullFields} />
                         <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{PRODUTO_LABEL_SIZE} × {PRODUTO_LABEL_SIZE}mm</p>
                       </div>
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Metade</span>
-                        <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} extraFields={extraFieldsFilled} />
+                        <ProdutoPreviewHalf items={[previewHalfA, previewHalfB]} extraFields={previewHalfFields} />
                         <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">2 × {PRODUTO_LABEL_SIZE} × {PRODUTO_HALF_H}mm</p>
                       </div>
                       <div>
@@ -1800,11 +1775,16 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                         {queueList.map(([id, entry]) => {
                           const edited = !!entry.overrides;
                           const effective = effectiveLabelProduct(entry);
+                          const infoAvailable = template === 'produto' && entry.size !== 'triple';
+                          const infoOn = infoAvailable && hasLabelInfo(entry.info);
+                          const infoRows = infoOn ? labelInfoFor(entry) : [];
+                          const infoMissing = infoOn ? LABEL_INFO_FIELDS.filter(f => entry.info?.[f.key] && !infoRows.some(r => r.key === f.key)) : [];
                           return (
                             <div key={id} className={cn(
-                              'flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border',
-                              edited ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.10] dark:bg-[#FFE500]/[0.06]' : 'border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]'
+                              'rounded-2xl border overflow-hidden',
+                              edited || infoOn ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.10] dark:bg-[#FFE500]/[0.06]' : 'border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#252520]'
                             )}>
+                            <div className="flex items-center gap-3 px-3.5 py-2.5">
                               <span className="flex-1 min-w-0 flex items-center gap-1.5">
                                 <span className="min-w-0 text-[12.5px] font-bold text-on-surface truncate">{effective.name}</span>
                                 {edited && (
@@ -1882,6 +1862,25 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   <Plus size={11} strokeWidth={2.5} />
                                 </button>
                               </div>
+                              {template === 'produto' && (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={infoOn}
+                                  disabled={!infoAvailable}
+                                  onClick={() => toggleEntryInfo(id, entry)}
+                                  title={infoAvailable ? 'Informações adicionais desta etiqueta' : 'O modelo Código não tem informações adicionais'}
+                                  className={cn(
+                                    'flex items-center gap-1.5 pl-2 pr-1 py-[3px] rounded-[9px] border flex-shrink-0 transition-colors disabled:opacity-35 disabled:cursor-not-allowed',
+                                    infoOn ? 'border-[#D4C000] dark:border-[#FFE500]/30 bg-[#FFE500]/[0.14] dark:bg-[#FFE500]/[0.06]' : 'border-transparent bg-black/[0.06] dark:bg-white/[0.07]'
+                                  )}
+                                >
+                                  <span className={cn('text-[9px] font-black uppercase tracking-wide', infoOn ? 'text-on-surface' : 'text-secondary/60')}>Info</span>
+                                  <span className={cn('relative w-7 h-4 rounded-full transition-colors duration-150', infoOn ? 'bg-primary' : 'bg-black/[0.18] dark:bg-white/[0.16]')}>
+                                    <span className={cn('absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-[180ms] ease-[cubic-bezier(0.23,1,0.32,1)]', infoOn && 'translate-x-3')} />
+                                  </span>
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setEditingId(id)}
@@ -1901,6 +1900,36 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                               >
                                 <X size={12} strokeWidth={2.5} />
                               </button>
+                            </div>
+                            {infoOn && (
+                              <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-2.5 -mt-0.5">
+                                {infoRows.map(r => {
+                                  const short = LABEL_INFO_FIELDS.find(f => f.key === r.key)?.short ?? r.label;
+                                  return (
+                                    <span key={r.key} className={cn(
+                                      'max-w-full flex items-center gap-1.5 px-2 py-1 rounded-lg border bg-white dark:bg-[#252520] text-[10.5px] font-bold text-on-surface',
+                                      r.manual ? 'border-dashed border-black/20 dark:border-white/20' : 'border-black/10 dark:border-white/[0.08]'
+                                    )}>
+                                      <em className="not-italic text-[8.5px] font-black uppercase tracking-wide text-secondary/50">{short}</em>
+                                      <span className={cn('truncate max-w-[170px]', r.key === 'cnpj' && "font-['DM_Mono',monospace] text-[10px]")}>{r.value}</span>
+                                    </span>
+                                  );
+                                })}
+                                {infoMissing.map(f => (
+                                  <span key={f.key} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-[rgba(216,30,30,0.55)] bg-[rgba(200,26,26,0.05)] dark:bg-[rgba(216,30,30,0.08)] text-[10.5px] font-bold text-[#B91818] dark:text-red-400">
+                                    <em className="not-italic text-[8.5px] font-black uppercase tracking-wide">{f.short}</em>
+                                    sem dado
+                                  </span>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setInfoId(id)}
+                                  className="ml-auto text-[10.5px] font-extrabold text-on-surface underline underline-offset-2 hover:text-primary transition-colors"
+                                >
+                                  Editar
+                                </button>
+                              </div>
+                            )}
                             </div>
                           );
                         })}
@@ -1963,6 +1992,18 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
             onSave={overrides => { if (editingId) setEntryOverrides(editingId, overrides); }}
             onRestore={() => { if (editingId) setEntryOverrides(editingId, {}); }}
             onClose={() => setEditingId(null)}
+          />
+
+          <LabelInfoModal
+            isOpen={!!infoEntry}
+            product={infoEntry ? cadastroProduct(infoEntry) : null}
+            subtitle={infoEntry ? `${effectiveLabelProduct(infoEntry).name} · ${infoEntry.size === 'half' ? 'Metade' : 'Inteira'} ×${infoEntry.qty}` : undefined}
+            config={infoEntry?.info}
+            manufacturers={manufacturers}
+            onManufacturerSaved={upsertManufacturer}
+            onProductUpdated={(productId, patch) => setProductPatches(prev => ({ ...prev, [productId]: { ...prev[productId], ...patch } }))}
+            onSave={info => { if (infoId) setEntryInfo(infoId, info); }}
+            onClose={() => setInfoId(null)}
           />
         </div>
       )}
