@@ -687,7 +687,7 @@ const PRODUTO_FULL_SPEC = {
   barcode: { x: 2.18, y: 30.05, w: 35.63, h: 5.95 },
   bcNum: { x: 1.79, y: 36.79, w: 36.42, h: 2 },
 };
-const PRODUTO_FULL_DESC_WEIGHT = 400;
+const PRODUTO_FULL_DESC_WEIGHT = 700; // descrição da Inteira em negrito
 const PRODUTO_FULL_REF_WEIGHT = 700;
 const PRODUTO_FULL_INFO_MAX_ROWS = Math.floor((PRODUTO_FULL_SPEC.info.maxY - PRODUTO_FULL_SPEC.info.y) / PRODUTO_FULL_SPEC.info.rowH + 1e-6);
 
