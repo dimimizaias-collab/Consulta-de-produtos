@@ -6,11 +6,11 @@ import { X, Search, Printer, Plus, Minus, ChevronDown, Send, Pencil } from 'luci
 import { cn } from '@/lib/utils';
 import {
   ELGIN_LABEL_W, ELGIN_LABEL_H,
-  PRODUTO_LABEL_SIZE, PRODUTO_HALF_H, PRODUTO_THIRD_H,
+  PRODUTO_LABEL_SIZE, PRODUTO_HALF_H, PRODUTO_CODIGO_COUNT,
   LabelPreview, ProdutoPreviewFull, ProdutoPreviewHalf, ProdutoPreviewTriple,
   IconWholeSquare, IconHalfHorizontal, IconTriple,
   TEMPLATE_LABELS,
-  SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B, SAMPLE_TRIPLE_C,
+  SAMPLE_FULL, SAMPLE_HALF_A, SAMPLE_HALF_B, SAMPLE_TRIPLE_C, SAMPLE_TRIPLE_D,
   blockWheelChange, effectiveLabelProduct,
   type LabelTemplate, type LabelSize, type QueueEntry, type LabelOverrides,
   type PrintQueueItem, type PrintQueueSubmission,
@@ -65,6 +65,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
   const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
   const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
+  const previewTripleD = previewTripleItems[3] ?? SAMPLE_TRIPLE_D;
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -345,7 +346,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                                   <button
                                     type="button"
                                     onClick={() => setDraftSize(product.id, 'triple')}
-                                    title="3 códigos de barras — divide a etiqueta em 3 faixas, cada uma só com o código de barras"
+                                    title="4 códigos de barras — só o código de barras, 4 por etiqueta"
                                     className={cn(
                                       'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
                                       draft.size === 'triple'
@@ -407,7 +408,7 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                       </p>
                       <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
                         <IconTriple size={11} />
-                        Código divide em 3 faixas, cada uma só com o código de barras
+                        Código imprime 4 códigos de barras por etiqueta, sem descrição
                       </p>
                     </div>
                   )}
@@ -457,8 +458,8 @@ export function FilaImpressaoModal({ isOpen, onClose, products, onSubmit }: Fila
                       </div>
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Código</span>
-                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC]} />
-                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">3 × {PRODUTO_LABEL_SIZE} × {PRODUTO_THIRD_H.toFixed(1)}mm</p>
+                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC, previewTripleD]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{PRODUTO_CODIGO_COUNT} códigos · {PRODUTO_LABEL_SIZE} × {PRODUTO_LABEL_SIZE}mm</p>
                       </div>
                     </div>
                   )}

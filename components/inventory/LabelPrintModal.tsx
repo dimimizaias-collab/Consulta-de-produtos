@@ -80,12 +80,9 @@ const PREVIEW_PX_PER_MM = 4; // escala de referência da prévia (~420px pra 105
 export const PRODUTO_LABEL_SIZE = 40; // mm — lado da etiqueta Inteira / folha impressa da Metade
 export const PRODUTO_HALF_H = PRODUTO_LABEL_SIZE / 2; // 20mm — altura de cada metade
 
-// A Inteira e a Metade usam layouts fixos próprios — ver PRODUTO_FULL_SPEC e
-// PRODUTO_HALF_SPEC. A numeração/respiro do código de barras abaixo vale pro
-// modelo Código (3 faixas).
+// A Inteira, a Metade e o Código usam layouts fixos próprios — ver
+// PRODUTO_FULL_SPEC, PRODUTO_HALF_SPEC e PRODUTO_CODIGO_SPEC.
 const PT_MM = 0.3528; // 1pt em mm
-const PRODUTO_HALF_BC_NUM_MM = 1.07 + PT_MM;
-const PRODUTO_HALF_BC_NUM_GAP_MM = 1; // numeração 1mm abaixo das barras
 
 // Linha de corte pontilhada (0,5mm) no meio da folha 40x40 da Metade — em
 // coordenadas mm (viewBox 0 0 40 40), usada igual na prévia e na impressão.
@@ -127,20 +124,6 @@ function produtoDescText(product: any): string {
   const name = product.name || '—';
   return titleCasePt(name);
 }
-// Etiqueta de Produto — Código de Barras: divide a folha 40x40mm em 3 faixas
-// horizontais de ~13.3mm, cada uma dedicada só ao código de barras (sem
-// descrição/REF) — pra quando o objetivo é só ter 3 códigos de barras
-// avulsos pra colar, não uma etiqueta descritiva completa.
-export interface ProdutoBarcodeLayout { barcode: ElPos }
-export const PRODUTO_THIRD_H = PRODUTO_LABEL_SIZE / 3; // ~13.33mm — altura de cada faixa
-// Barras com 1cm de altura e numeração no mesmo tamanho (e mesma distância
-// de 1mm das barras) da Metade; o bloco (barras + número) fica centralizado
-// verticalmente na faixa.
-const PRODUTO_THIRD_BARS_H = 10;
-const PRODUTO_THIRD_BARCODE_H = PRODUTO_THIRD_BARS_H + PRODUTO_HALF_BC_NUM_GAP_MM + PRODUTO_HALF_BC_NUM_MM * 1.05;
-export const PRODUTO_THIRD: ProdutoBarcodeLayout = {
-  barcode: { x: 2.2, y: (PRODUTO_THIRD_H - PRODUTO_THIRD_BARCODE_H) / 2, w: 35.6, h: PRODUTO_THIRD_BARCODE_H },
-};
 
 // Só o número, sem "R$" — o símbolo já tem sua própria caixa na etiqueta
 // (formatPrice do labelPrintUtils inclui o símbolo, por isso não é usado aqui).
@@ -334,6 +317,7 @@ export const SAMPLE_FULL = { name: 'COCA COLA ORIGINAL 350ML', sku: '0000', ean:
 export const SAMPLE_HALF_A = { name: 'Refrigerante Guaraná Lata 350ml', sku: '0457', ean: '7891234500011', price: 3.49 };
 export const SAMPLE_HALF_B = { name: 'Água Mineral s/Gás 500ml', sku: '0312', ean: '7891234512345', price: 2 };
 export const SAMPLE_TRIPLE_C = { name: 'Suco de Uva Integral 1L', sku: '0891', ean: '7891234598765', price: 8.9 };
+export const SAMPLE_TRIPLE_D = { name: 'Biscoito Recheado Chocolate 140g', sku: '0623', ean: '7891234587654', price: 3.29 };
 
 function LabelPreviewCell({ product, layout, offsetXMm }: { product: any; layout: CellLayout; offsetXMm: number }) {
   useArimoReady();
@@ -618,38 +602,74 @@ export function ProdutoPreviewHalf({ items, extraFields }: { items: any[]; extra
   );
 }
 
-function ProdutoBarcodePreviewCell({ product, offsetYMm }: { product: any; offsetYMm: number }) {
-  const box = (p: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
+// Etiqueta de Produto Código — layout FIXO: 4 códigos de barras por folha
+// 40x40mm, sem descrição/REF (medidas do usuário, em mm). O 1º e o último têm
+// posição dada; os do meio ficam igualmente espaçados entre eles.
+export const PRODUTO_CODIGO_COUNT = 4;
+const PRODUTO_CODIGO_SPEC = {
+  barcode: { x: 2.18, w: 35.63, h: 5.95, firstY: 1.45, lastY: 30.65 },
+  bcNum: { x: 1.79, w: 36.42, h: 2, firstY: 8.2, lastY: 37.4 },
+};
+export const PRODUTO_CODIGO_STEP_H = (PRODUTO_CODIGO_SPEC.barcode.lastY - PRODUTO_CODIGO_SPEC.barcode.firstY) / (PRODUTO_CODIGO_COUNT - 1);
+function codigoPos(index: number) {
+  const s = PRODUTO_CODIGO_SPEC;
+  const t = index / (PRODUTO_CODIGO_COUNT - 1);
+  return {
+    barcode: { x: s.barcode.x, y: s.barcode.firstY + (s.barcode.lastY - s.barcode.firstY) * t, w: s.barcode.w, h: s.barcode.h },
+    bcNum: { x: s.bcNum.x, y: s.bcNum.firstY + (s.bcNum.lastY - s.bcNum.firstY) * t, w: s.bcNum.w, h: s.bcNum.h },
+  };
+}
+function codigoNumSizeMm(code: string): number {
+  return code ? fitFontSize(code, PRODUTO_CODIGO_SPEC.bcNum.w, PRODUTO_CODIGO_SPEC.bcNum.h * 0.9, 700, "'Courier New', monospace") : 0;
+}
+
+function ProdutoCodigoPreviewCell({ product, index }: { product: any; index: number }) {
+  const p = codigoPos(index);
+  const px = (mm: number) => mm * PREVIEW_PX_PER_MM;
+  const box = (b: ElPos, extra?: React.CSSProperties): React.CSSProperties => ({
     position: 'absolute',
-    left: `${(p.x / PRODUTO_LABEL_SIZE) * 100}%`,
-    top: `${((p.y + offsetYMm) / PRODUTO_LABEL_SIZE) * 100}%`,
-    width: `${(p.w / PRODUTO_LABEL_SIZE) * 100}%`,
-    height: `${(p.h / PRODUTO_LABEL_SIZE) * 100}%`,
-    ...extra,
+    left: `${(b.x / PRODUTO_LABEL_SIZE) * 100}%`, top: `${(b.y / PRODUTO_LABEL_SIZE) * 100}%`,
+    width: `${(b.w / PRODUTO_LABEL_SIZE) * 100}%`, height: `${(b.h / PRODUTO_LABEL_SIZE) * 100}%`,
+    overflow: 'hidden', ...extra,
   });
   const code = product.ean || product.sku || '';
-  const bcNumSize = code ? fitFontSize(code, PRODUTO_THIRD.barcode.w * PREVIEW_PX_PER_MM, PRODUTO_HALF_BC_NUM_MM * PREVIEW_PX_PER_MM, 700, "'DM Mono', monospace") : 0;
-
   return (
-    <div style={box(PRODUTO_THIRD.barcode, { display: 'flex', flexDirection: 'column', gap: PRODUTO_HALF_BC_NUM_GAP_MM * PREVIEW_PX_PER_MM })}>
-      <div style={{ flex: 1, minHeight: 0, background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' }} />
+    <>
+      <div style={box(p.barcode, { background: 'repeating-linear-gradient(90deg,#141400 0 2px, transparent 2px 4.4px)' })} />
       {code && (
-        <div style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: bcNumSize, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+        <div style={box(p.bcNum, { fontFamily: "'DM Mono', monospace", fontWeight: 700, color: '#3c3c3c', textAlign: 'center', fontSize: px(codigoNumSizeMm(code)), lineHeight: `${px(p.bcNum.h)}px`, whiteSpace: 'nowrap' })}>
           {code}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
+// HTML de impressão de um dos 4 códigos da folha (mesmas medidas da prévia).
+function buildProdutoCodigoHtml(product: any, index: number): string {
+  const p = codigoPos(index);
+  const code = product.ean || product.sku || '';
+  const pos = (b: ElPos) => `left:${b.x.toFixed(2)}mm; top:${b.y.toFixed(2)}mm; width:${b.w.toFixed(2)}mm; height:${b.h.toFixed(2)}mm;`;
+  let bcDataUrl = '';
+  if (code) {
+    try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* sem código de barras se falhar */ }
+  }
+  return `
+    ${bcDataUrl ? `<img class="pf-bc" src="${bcDataUrl}" style="${pos(p.barcode)}" />` : ''}
+    ${code ? `<div class="pf pf-bcnum" style="${pos(p.bcNum)} line-height:${p.bcNum.h}mm; font-size:${codigoNumSizeMm(code).toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
+  `;
+}
+
 export function ProdutoPreviewTriple({ items }: { items: any[] }) {
+  // Separadores da prévia no meio do vão entre um código (número incluso) e o próximo.
+  const s = PRODUTO_CODIGO_SPEC;
+  const gapMid = (s.bcNum.firstY + s.bcNum.h + s.barcode.firstY + PRODUTO_CODIGO_STEP_H) / 2;
   return (
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white shadow-inner border border-black/10">
-      <ProdutoBarcodePreviewCell product={items[0]} offsetYMm={0} />
-      <ProdutoBarcodePreviewCell product={items[1]} offsetYMm={PRODUTO_THIRD_H} />
-      <ProdutoBarcodePreviewCell product={items[2]} offsetYMm={PRODUTO_THIRD_H * 2} />
-      <div className="absolute left-0 right-0 border-t border-dashed border-black/30 pointer-events-none" style={{ top: `${(100 / 3).toFixed(4)}%` }} />
-      <div className="absolute left-0 right-0 border-t border-dashed border-black/30 pointer-events-none" style={{ top: `${(200 / 3).toFixed(4)}%` }} />
+      {Array.from({ length: PRODUTO_CODIGO_COUNT }, (_, i) => items[i] && <ProdutoCodigoPreviewCell key={i} product={items[i]} index={i} />)}
+      {Array.from({ length: PRODUTO_CODIGO_COUNT - 1 }, (_, i) => (
+        <div key={i} className="absolute left-0 right-0 border-t border-dashed border-black/30 pointer-events-none" style={{ top: `${(((gapMid + i * PRODUTO_CODIGO_STEP_H) / PRODUTO_LABEL_SIZE) * 100).toFixed(4)}%` }} />
+      ))}
     </div>
   );
 }
@@ -675,15 +695,16 @@ export function IconTriple({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="2" y="2" width="12" height="12" rx="2" />
-      <line x1="2" y1="6" x2="14" y2="6" />
-      <line x1="2" y1="10" x2="14" y2="10" />
+      <line x1="2" y1="5" x2="14" y2="5" />
+      <line x1="2" y1="8" x2="14" y2="8" />
+      <line x1="2" y1="11" x2="14" y2="11" />
     </svg>
   );
 }
 
 export type LabelTemplate = 'gondola' | 'produto';
-// 'triple' é exclusivo da Etiqueta de Produto — divide a folha 40x40mm em 3
-// faixas dedicadas só a código de barras (sem descrição/REF).
+// 'triple' (modelo Código) é exclusivo da Etiqueta de Produto — 4 códigos de
+// barras por folha 40x40mm (sem descrição/REF). Nome mantido pelas filas salvas.
 export type LabelSize = 'full' | 'half' | 'triple';
 type Tab = 'selecao' | 'visualizacao';
 
@@ -860,6 +881,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
   const previewTripleA = previewTripleItems[0] ?? SAMPLE_HALF_A;
   const previewTripleB = previewTripleItems[1] ?? SAMPLE_HALF_B;
   const previewTripleC = previewTripleItems[2] ?? SAMPLE_TRIPLE_C;
+  const previewTripleD = previewTripleItems[3] ?? SAMPLE_TRIPLE_D;
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -1101,27 +1123,6 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
       .then(() => setTimeout(doPrint, 300));
   };
 
-  // Etiqueta de Produto — Código de Barras: faixa dedicada só ao código de
-  // barras, sem descrição/REF (offset desloca a 2ª/3ª faixa pra baixo dentro
-  // da folha 40x40 impressa).
-  const buildProdutoBarcodeCellHtml = (product: any, offsetY: number): string => {
-    const code = product.ean || product.sku || '';
-    let bcDataUrl = '';
-    if (code) {
-      try { bcDataUrl = generateBarcodeDataUrl(code); } catch { /* skip barcode on error */ }
-    }
-    const layout = PRODUTO_THIRD;
-    const boxStyle = `left:${layout.barcode.x.toFixed(2)}mm; top:${(layout.barcode.y + offsetY).toFixed(2)}mm; width:${layout.barcode.w.toFixed(2)}mm; height:${layout.barcode.h.toFixed(2)}mm;`;
-    const bcNumSize = code ? fitFontSize(code, layout.barcode.w, PRODUTO_HALF_BC_NUM_MM, 700, "'Courier New', monospace") : 0;
-
-    return `
-      <div class="cell-el barcode metade" style="${boxStyle}">
-        ${bcDataUrl ? `<img class="bc-img" src="${bcDataUrl}" />` : ''}
-        ${code ? `<div class="bc-num" style="font-size:${bcNumSize.toFixed(2)}mm;">${escapeHtml(code)}</div>` : ''}
-      </div>
-    `;
-  };
-
   const printProduto = async () => {
     if (template !== 'produto' || totalLabels === 0) return;
     onPrinted?.();
@@ -1158,13 +1159,9 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         `<div class="produto-label">${cellHtml(top, 0)}${bottom ? cellHtml(bottom, PRODUTO_HALF_H) : ''}<svg class="corte" viewBox="0 0 ${PRODUTO_LABEL_SIZE} ${PRODUTO_LABEL_SIZE}">${CORTE_LINE_SVG_INNER}</svg></div>`
       );
     }
-    for (let i = 0; i < tripleUnits.length; i += 3) {
-      const a = tripleUnits[i];
-      const b = tripleUnits[i + 1];
-      const c = tripleUnits[i + 2];
-      pages.push(
-        `<div class="produto-label">${buildProdutoBarcodeCellHtml(a, 0)}${b ? buildProdutoBarcodeCellHtml(b, PRODUTO_THIRD_H) : ''}${c ? buildProdutoBarcodeCellHtml(c, PRODUTO_THIRD_H * 2) : ''}</div>`
-      );
+    for (let i = 0; i < tripleUnits.length; i += PRODUTO_CODIGO_COUNT) {
+      const sheet = tripleUnits.slice(i, i + PRODUTO_CODIGO_COUNT);
+      pages.push(`<div class="produto-label">${sheet.map((product, k) => buildProdutoCodigoHtml(product, k)).join('')}</div>`);
     }
 
     const labelsHtml = pages.join('');
@@ -1181,7 +1178,6 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
         }
         .produto-label:last-child { page-break-after: auto; }
         .cell-el { position: absolute; color: #141400; font-weight: 700; line-height: 1.05; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .cell-el.barcode.metade .bc-num { margin-top: ${PRODUTO_HALF_BC_NUM_GAP_MM}mm; }
         ${PRODUTO_FULL_PRINT_CSS}
         ${PRODUTO_HALF_PRINT_CSS}
         .corte { position: absolute; left: 0; top: 0; width: ${PRODUTO_LABEL_SIZE}mm; height: ${PRODUTO_LABEL_SIZE}mm; pointer-events: none; }
@@ -1380,7 +1376,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                                   <button
                                     type="button"
                                     onClick={() => setDraftSize(product.id, 'triple')}
-                                    title="3 códigos de barras — divide a etiqueta em 3 faixas, cada uma só com o código de barras"
+                                    title="4 códigos de barras — só o código de barras, 4 por etiqueta"
                                     className={cn(
                                       'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wide transition-all',
                                       draft.size === 'triple'
@@ -1442,7 +1438,7 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       </p>
                       <p className="text-center text-[10px] font-semibold text-secondary/40 flex items-center justify-center gap-1.5">
                         <IconTriple size={11} />
-                        Código divide em 3 faixas, cada uma só com o código de barras
+                        Código imprime 4 códigos de barras por etiqueta, sem descrição
                       </p>
                     </div>
                   )}
@@ -1492,8 +1488,8 @@ export function LabelPrintModal({ isOpen, onClose, products, initialQueue, initi
                       </div>
                       <div>
                         <span className="block text-[10.5px] font-extrabold uppercase tracking-wide text-secondary/55 mb-2">Prévia — Código</span>
-                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC]} />
-                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">3 × {PRODUTO_LABEL_SIZE} × {PRODUTO_THIRD_H.toFixed(1)}mm</p>
+                        <ProdutoPreviewTriple items={[previewTripleA, previewTripleB, previewTripleC, previewTripleD]} />
+                        <p className="text-center font-mono text-[10.5px] font-bold text-secondary/40 mt-2">{PRODUTO_CODIGO_COUNT} códigos · {PRODUTO_LABEL_SIZE} × {PRODUTO_LABEL_SIZE}mm</p>
                       </div>
                     </div>
                   )}
