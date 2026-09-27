@@ -1,5 +1,5 @@
 import type {NextConfig} from 'next';
-import withPWA from '@ducanh2912/next-pwa';
+import withPWA, { runtimeCaching as defaultRuntimeCaching } from '@ducanh2912/next-pwa';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -248,4 +248,18 @@ export default withPWA({
   // injetado no bundle do service worker — todo fetch de "/" lança "ReferenceError" no
   // SW. Desliga essa regra específica; não afeta o restante do PWA (offline, install...).
   dynamicStartUrl: false,
+  // Não guarda "/" no cache do SW. Com dynamicStartUrl desligado, o next-pwa
+  // precacheava "/" de forma estática na instalação do SW — que acontece sem
+  // sessão, então o que ficava salvo era o HTML da tela de login (o middleware
+  // redireciona "/" pro /login). Precache é cache-first, então todo acesso a "/"
+  // depois do login recebia a tela de login do cache: "login voltando vazio"
+  // em todos os dispositivos. "/" depende da sessão e precisa vir do servidor.
+  cacheStartUrl: false,
+  workboxOptions: {
+    // Remove a regra padrão "apis" (NetworkFirst com cache) — respostas de /api
+    // dependem de quem está logado e não podem ser servidas do cache (ex.:
+    // aparelho compartilhado na loja mostrando dado de outro usuário). Sem regra,
+    // as chamadas de /api vão sempre direto pra rede.
+    runtimeCaching: defaultRuntimeCaching.filter(entry => entry.options?.cacheName !== 'apis'),
+  },
 })(nextConfig);
