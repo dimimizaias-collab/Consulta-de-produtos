@@ -58,9 +58,11 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
             sem erro), já que ele nunca chega a se auto-atualizar em alguns navegadores.
             v2: o precache antigo guardou swe-worker-*.js como HTML (era redirecionado pro
             /login pelo middleware); como o nome do arquivo tem hash fixo, o Workbox nunca
-            revalida essa entrada — só descartando o cache inteiro. Bumpar a flag quando
+            revalida essa entrada — só descartando o cache inteiro.
+            v3: mesma coisa com a fonte Arimo das etiquetas (fonts/ passava pelo middleware).
+            Bumpar a flag quando
             for preciso forçar essa limpeza de novo. */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var FLAG='sw-cleanup-v2';if(localStorage.getItem(FLAG))return;if(!('serviceWorker' in navigator)){localStorage.setItem(FLAG,'1');return;}navigator.serviceWorker.getRegistrations().then(function(regs){if(!regs.length){localStorage.setItem(FLAG,'1');return;}Promise.all(regs.map(function(r){return r.unregister();})).then(function(){return ('caches' in window)?caches.keys().then(function(keys){return Promise.all(keys.map(function(k){return caches.delete(k);}));}):null;}).then(function(){localStorage.setItem(FLAG,'1');window.location.reload();});}).catch(function(){localStorage.setItem(FLAG,'1');});}catch(e){}})();` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var FLAG='sw-cleanup-v3';if(localStorage.getItem(FLAG))return;if(!('serviceWorker' in navigator)){localStorage.setItem(FLAG,'1');return;}navigator.serviceWorker.getRegistrations().then(function(regs){if(!regs.length){localStorage.setItem(FLAG,'1');return;}Promise.all(regs.map(function(r){return r.unregister();})).then(function(){return ('caches' in window)?caches.keys().then(function(keys){return Promise.all(keys.map(function(k){return caches.delete(k);}));}):null;}).then(function(){localStorage.setItem(FLAG,'1');window.location.reload();});}).catch(function(){localStorage.setItem(FLAG,'1');});}catch(e){}})();` }} />
       </head>
       <body suppressHydrationWarning className="font-inter">
         <Providers>
