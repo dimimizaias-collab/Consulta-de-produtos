@@ -2122,9 +2122,9 @@ export default function Page() {
           const q = Number(qty) || 0;
           if (q <= 0 || !item.product_id) return;
           if (!byCompany[companyId]) byCompany[companyId] = [];
-          // Mesmo custo unitário do XML corrigido da nota padrão (buildCorrectedNfeXml):
-          // Descontos/Acréscimos manuais + rateio fiscal por unidade — assim padrão +
-          // distribuições fecham com o total da nota real.
+          // Custo unitário real da nota: Descontos/Acréscimos manuais + rateio fiscal por
+          // unidade (IPI/ST/frete...). Registro interno — o XML corrigido da nota não desconta
+          // a distribuição, então os dois não precisam fechar entre si.
           const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
           const itemQty = viewingNoteQtys[idx] ?? item.qty ?? 0;
           const rawCost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
@@ -2947,13 +2947,11 @@ export default function Page() {
 
   // Gera uma NFe corrigida a partir do XML original autorizado (SEFAZ), usado como template —
   // só sobrescreve, por item (casado por EAN e, na falta, por código do fornecedor/cProd):
-  //   • Medida/Quantidade traduzidas na revisão (item.unit / item.qty)
-  //   • Quantidade menos o que foi distribuído para outras lojas (getDistribTotal)
+  //   • Medida/Quantidade traduzidas na revisão (item.unit / item.qty) — quantidade cheia,
+  //     a Distribuição para outras lojas NÃO é descontada aqui
   //   • Preço Un./Total já com os Acréscimos/Descontos da nota embutidos (calcAdjAmounts) —
   //     EXCETO as colunas fiscais (IPI/ICMS ST importados do XML): esses impostos já estão no
   //     XML original (vIPI/vICMSST/vNF), então somar de novo duplicaria o valor.
-  //   • Totais fiscais (vIPI/vST/vFrete/vDesc...) e vNF sem a parte proporcional das unidades
-  //     distribuídas — essa parte vai embutida no custo do XML de distribuição.
   // Tudo mais (chave de acesso, CFOP, NCM, emit/dest, protocolo) fica intacto. A assinatura
   // digital é removida — deixa de bater com o conteúdo assim que qualquer valor muda.
   const buildCorrectedNfeXml = (originalXmlText: string, items: any[], noteAdjColumns: AdjColumn[]): string => {
@@ -2995,24 +2993,12 @@ export default function Page() {
     let vProdNovoTotal = 0;
     let nItem = 0;
     let lastInserted: Node | null = null;
-    // Parte fiscal (IPI/ST/frete/desconto NF...) das unidades que foram para outras lojas —
-    // já vai embutida no Preço Custo do XML de distribuição, então sai dos totais desta nota.
-    const fiscalCols = (noteAdjColumns || []).filter(c => c.fiscal);
-    const distribFiscal: Partial<Record<FiscalKey, number>> = {};
 
     items.forEach((item: any, idx: number) => {
       const rawCost = (item.price || 0) / (item.multiplier || 1);
       const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, (noteAdjColumns || []).filter(c => !c.fiscal));
       const adjCost = rawCost - disc + sur;
-      const distribTotal = getDistribTotal(idx, item);
-      if (distribTotal > 0 && (item.qty || 0) > 0) {
-        const shareRatio = Math.min(distribTotal, item.qty) / item.qty;
-        fiscalCols.forEach(col => {
-          const v = parseFloat(col.items[idx] ?? '');
-          if (!isNaN(v) && v > 0) distribFiscal[col.fiscal!] = (distribFiscal[col.fiscal!] || 0) + v * shareRatio;
-        });
-      }
-      const finalQty = Math.max(0, (item.qty || 0) - distribTotal);
+      const finalQty = Math.max(0, item.qty || 0);
       if (finalQty <= 0) return;
       const finalVProd = adjCost * finalQty;
       vProdNovoTotal += finalVProd;
@@ -3043,14 +3029,7 @@ export default function Page() {
     // Totais (total/ICMSTot e cobr/fat) recalculados por diferença — preserva frete/desconto/
     // outros valores já corretos no XML original sem precisar reproduzir a fórmula da NFe inteira.
     const icmsTot = doc.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0];
-    let fiscalDelta = 0;
-    for (const def of FISCAL_COL_DEFS) {
-      const amt = Math.round((distribFiscal[def.key] || 0) * 100) / 100;
-      if (amt <= 0) continue;
-      fiscalDelta += def.kind === 'desconto' ? amt : -amt;
-      if (icmsTot) setText(icmsTot, def.totalTag, Math.max(0, getNum(icmsTot, def.totalTag) - amt).toFixed(2));
-    }
-    const delta = vProdNovoTotal - vProdOriginalTotal + fiscalDelta;
+    const delta = vProdNovoTotal - vProdOriginalTotal;
     if (icmsTot) {
       setText(icmsTot, 'vProd', vProdNovoTotal.toFixed(2));
       setText(icmsTot, 'vNF', (getNum(icmsTot, 'vNF') + delta).toFixed(2));
