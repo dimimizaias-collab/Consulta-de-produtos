@@ -255,6 +255,9 @@ export default withPWA({
   // depois do login recebia a tela de login do cache: "login voltando vazio"
   // em todos os dispositivos. "/" depende da sessão e precisa vir do servidor.
   cacheStartUrl: false,
+  // Arquivos de public/ que não fazem parte do app (mockups de design, modelos,
+  // testes) ficam fora do precache — eram ~280 downloads a cada instalação do SW.
+  publicExcludes: ['!noprecache/**/*', '!mockup-*.html', '!label-templates/**/*', '!uploads/**/*', '!ref-*.png'],
   workboxOptions: {
     // Remove a regra padrão "apis" (NetworkFirst com cache) — respostas de /api
     // dependem de quem está logado e não podem ser servidas do cache (ex.:

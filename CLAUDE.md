@@ -45,3 +45,14 @@ Se for um novo app:
 
 #### 6. Validação
 Acessar a URL final com HTTPS e confirmar se o site está online.
+
+## Login + PWA — regras que não podem ser quebradas
+
+O login "voltando vazio" (recorrente até set/2026) era causado pelo **service worker**, não por cookie/middleware: o SW se instala na tela de login (sem sessão), e tudo que ele precacheia e passa pelo middleware é salvo como o HTML do `/login`. Ver commit `9ab2e52`.
+
+- **Não** reativar `cacheStartUrl` nem mexer em `dynamicStartUrl` no `next.config.ts` — "/" depende da sessão e precisa vir sempre do servidor.
+- **Não** cachear `/api/*` no service worker (regra `apis` removida de propósito).
+- Arquivo novo em `public/` que o app usa (fonte, imagem, script) → precisa estar excluído do `matcher` em `middleware.ts`. Arquivo que o app não usa (mockups, testes) → `publicExcludes` no `next.config.ts`.
+- `npm run build` roda `scripts/check-pwa.mjs`, que falha o build se alguma dessas regras for violada. Não remover do script de build; se falhar, corrigir a config em vez de desligar a checagem.
+- Se precisar forçar todos os navegadores a descartarem o SW/cache antigo, bumpar a flag `sw-cleanup-vN` em `app/layout.tsx`.
+- Ao investigar bug de login, olhar primeiro o cache do navegador (`caches.keys()`, conteúdo do precache, `performance.getEntriesByType('navigation')[0].workerStart > 0`) antes de mexer em cookie/middleware.
