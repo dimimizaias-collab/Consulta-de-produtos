@@ -964,7 +964,7 @@ export default function Page() {
   // colunas ocultas e reexibi-la manualmente.
   const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set(['Marca']));
   const [showHideColsModal, setShowHideColsModal] = useState(false);
-  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as const;
+  const REVIEW_HIDEABLE_COLS = ['Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', 'Preço Venda', 'Markup', 'Ok', 'Revisão', 'Distribuição'] as const;
 
   // ── Redimensionar colunas da tabela de nota (estilo Excel) ──
   // Larguras customizadas por coluna, chaveadas pelo mesmo nome usado em reviewHiddenCols
@@ -977,7 +977,7 @@ export default function Page() {
   const REVIEW_COL_DEFAULT_WIDTHS: Record<string, number> = {
     '#': 40, 'Código': 92, 'Produto na Nota': 230, 'Identificação Interna': 190, 'EAN': 150,
     'Marca': 110, 'Medida': 92, 'Qtd.': 72, 'Preço Custo': 100, 'Valor Total': 100,
-    'Preço Venda': 100, 'Markup': 80, 'Status': 120, 'Ok': 56, 'Revisão': 76, 'Distribuição': 100,
+    'Preço Venda': 100, 'Markup': 80, 'Ok': 56, 'Revisão': 76, 'Distribuição': 100,
   };
   const [reviewColWidths, setReviewColWidths] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -11169,7 +11169,7 @@ export default function Page() {
                   // tem uma largura explícita — sem isso o navegador redistribui o espaço
                   // proporcionalmente entre as colunas a cada resize, anulando o arrasto
                   // (é por isso que comprimir/alongar parecia não fazer nada).
-                  const visibleReviewColKeys = (['#', 'Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', ...adjColumns.map(c => c.id), 'Preço Venda', 'Markup', 'Status', 'Ok', 'Revisão', 'Distribuição'] as string[])
+                  const visibleReviewColKeys = (['#', 'Código', 'Produto na Nota', 'Identificação Interna', 'EAN', 'Marca', 'Medida', 'Qtd.', 'Preço Custo', 'Valor Total', ...adjColumns.map(c => c.id), 'Preço Venda', 'Markup', 'Ok', 'Revisão', 'Distribuição'] as string[])
                     .filter(key => key === '#' || !reviewHiddenCols.has(key));
                   const totalReviewTableWidth = visibleReviewColKeys.reduce((sum, key) => sum + reviewColWidthFor(key), 0) + 36;
                   return (
@@ -11476,17 +11476,6 @@ export default function Page() {
                               {filterBtn('markup')}
                             </div>
                             {renderFilterDropdown('markup')}
-                          </th>
-                          )}
-                          {/* Status — with filter */}
-                          {!reviewHiddenCols.has('Status') && (
-                          <th style={{ ...thBar, position: 'relative' }}>
-                            <ReviewColResizeHandle colKey="Status" />
-                            <div style={lbl()}>
-                              <span>Status</span>
-                              {filterBtn('status')}
-                            </div>
-                            {renderFilterDropdown('status')}
                           </th>
                           )}
                           {!reviewHiddenCols.has('Ok') && (
@@ -11865,32 +11854,37 @@ export default function Page() {
                           {/* Medida — unidade/multiplicador, junto com Usar tradução / Adicionar medida */}
                           {!reviewHiddenCols.has('Medida') && (
                           <td style={{ ...tdP, position: 'relative' }}>
-                            <div style={cell({ justifyContent: 'center', overflow: 'visible', padding: '4px 6px' })}>
-                            {(canEditItems || reviewEditableCols.has('Medida')) ? (
-                              <div className="relative flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                                {viewingNoteMeasureConverted[idx] && (
-                                  <span
-                                    className="absolute -top-[5px] -left-[3px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-amber-200/90 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]"
-                                    title="Medida definida por conversão (tradução ou medida cadastrada)"
-                                  >
-                                    <ArrowLeftRight size={8} strokeWidth={3} />
-                                  </span>
-                                )}
-                                {(() => {
-                                  const distribQty = getDistribTotal(idx, item);
-                                  if (distribQty <= 0) return null;
-                                  return (
+                            {/* Ícones de conversão/distribuição ficam no canto esquerdo, dentro da célula;
+                                a medida ocupa o resto centralizada. */}
+                            <div style={cell({ padding: '0 4px', gap: '4px' })}>
+                            {(() => {
+                              const distribQty = getDistribTotal(idx, item);
+                              const converted = !!viewingNoteMeasureConverted[idx];
+                              if (!converted && distribQty <= 0) return null;
+                              return (
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  {converted && (
                                     <span
-                                      className={cn(
-                                        'absolute -top-[5px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]',
-                                        viewingNoteMeasureConverted[idx] ? 'left-[9px]' : '-left-[3px]'
-                                      )}
+                                  className="w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-amber-200/90 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300"
+                                  title="Medida definida por conversão (tradução ou medida cadastrada)"
+                                >
+                                  <ArrowLeftRight size={8} strokeWidth={3} />
+                                </span>
+                                  )}
+                                  {distribQty > 0 && (
+                                    <span
+                                      className="w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300"
                                       title={`Distribuído para outra loja (${distribQty} un.)`}
                                     >
                                       <Truck size={8} strokeWidth={3} />
                                     </span>
-                                  );
-                                })()}
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            <div className="flex-1 min-w-0 flex items-center justify-center">
+                            {(canEditItems || reviewEditableCols.has('Medida')) ? (
+                              <div className="flex items-center gap-0.5 min-w-0" onClick={e => e.stopPropagation()}>
                                 <input
                                   type="text"
                                   value={viewingNoteUnits[idx] ?? item.unit ?? ''}
@@ -11899,7 +11893,7 @@ export default function Page() {
                                   onKeyDown={tableCellKeyDown('review-note', idx, 2)}
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'unit')}
                                   onBlur={captureSnapshot}
-                                  className="w-12 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-1 text-xs font-medium text-center transition-colors"
+                                  className="w-10 min-w-0 bg-transparent border-b border-transparent hover:border-white/20 focus:border-primary/50 outline-none py-0.5 px-0.5 text-xs font-medium text-center transition-colors"
                                   style={{ color: 'var(--rn-text-muted)' }}
                                   placeholder="UN"
                                 />
@@ -11921,37 +11915,15 @@ export default function Page() {
                             ) : (
                               <button
                                 onClick={(e) => handleMeasureTriggerClick(idx, item, e.currentTarget, 100)}
-                                className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] transition-colors" style={{ background: 'var(--rn-cell-inner)' }}
+                                className="inline-flex items-center gap-1 min-w-0 transition-opacity hover:opacity-70"
                               >
-                                {viewingNoteMeasureConverted[idx] && (
-                                  <span
-                                    className="absolute -top-[5px] -left-[3px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-amber-200/90 dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]"
-                                    title="Medida definida por conversão (tradução ou medida cadastrada)"
-                                  >
-                                    <ArrowLeftRight size={8} strokeWidth={3} />
-                                  </span>
-                                )}
-                                {(() => {
-                                  const distribQty = getDistribTotal(idx, item);
-                                  if (distribQty <= 0) return null;
-                                  return (
-                                    <span
-                                      className={cn(
-                                        'absolute -top-[5px] w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 bg-violet-200/90 dark:bg-violet-400/20 text-violet-800 dark:text-violet-300 shadow-sm ring-[1.5px] ring-[#FDFAF0] dark:ring-[#1E1E18] z-[2]',
-                                        viewingNoteMeasureConverted[idx] ? 'left-[9px]' : '-left-[3px]'
-                                      )}
-                                      title={`Distribuído para outra loja (${distribQty} un.)`}
-                                    >
-                                      <Truck size={8} strokeWidth={3} />
-                                    </span>
-                                  );
-                                })()}
-                                <span className="text-sm font-black truncate min-w-0 max-w-[56px]" style={{ color: 'var(--rn-text-muted)' }} title={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
+                                <span className="text-xs font-black truncate min-w-0" style={{ color: 'var(--rn-text-muted)' }} title={viewingNoteUnits[idx] ?? item.unit ?? 'UN'}>{viewingNoteUnits[idx] ?? item.unit ?? 'UN'}</span>
                                 {(viewingNoteMultipliers[idx] ?? item.multiplier ?? 1) > 1 && (
                                   <span className="text-[9px] font-black text-primary/60 leading-none shrink-0">×{viewingNoteMultipliers[idx] ?? item.multiplier}</span>
                                 )}
                               </button>
                             )}
+                            </div>
                             </div>
                           </td>
                           )}
@@ -12083,7 +12055,7 @@ export default function Page() {
                                       className="absolute -top-[3px] -right-[3px] w-[7px] h-[7px] rounded-full bg-amber-500 ring-2 ring-[#FDFAF0] dark:ring-[#1E1E18] z-[3]"
                                     />
                                   )}
-                                  <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
+                                  <div className="inline-flex items-center gap-1">
                                     <span className="text-[10px] font-black shrink-0" style={{ color: hasAdj ? adjValueColor : 'var(--rn-text-muted)' }}>R$</span>
                                     {hasAdj ? (
                                       /* Adjusted cost replaces raw cost — click cell to edit raw price */
@@ -12137,7 +12109,7 @@ export default function Page() {
                           <td style={tdP}>
                             <div style={cell({ justifyContent: 'flex-end', padding: '0 10px' })}>
                               {(canEditItems || reviewEditableCols.has('Valor Total')) && !hasDiscount && !hasSurcharge && displayQty > 0 ? (
-                                <div className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1" style={{ background: 'var(--rn-cell-inner)' }}>
+                                <div className="inline-flex items-center gap-1">
                                   <span className="text-[10px] font-black shrink-0" style={{ color: 'var(--rn-text-muted)' }}>R$</span>
                                   <input
                                     type="number"
@@ -12272,21 +12244,6 @@ export default function Page() {
                               ) : (
                                 <span className="text-[11px] font-bold" style={{ color: 'var(--rn-text-subtle)' }}>—</span>
                               )}
-                            </div>
-                          </td>
-                          )}
-                          {/* Status */}
-                          {!reviewHiddenCols.has('Status') && (
-                          <td style={tdP}>
-                            <div style={cell({ padding: '0 10px' })}>
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase",
-                                item.product_id && item.status_translation === 'Traduzido' ? "bg-amber-500/10 text-amber-400" :
-                                item.product_id ? "bg-blue-500/10 text-blue-400" :
-                                "bg-red-500/10 text-red-400"
-                              )}>
-                                {item.status_translation}
-                              </span>
                             </div>
                           </td>
                           )}
@@ -12521,8 +12478,7 @@ export default function Page() {
                             {adjColumns.filter(col => !reviewHiddenCols.has(col.id)).map(col => (
                               <td key={col.id} style={tdP}><div style={cell({ padding: '0 10px' })}><span style={{ color: 'var(--rn-text-subtle)' }}>—</span></div></td>
                             ))}
-                            {/* Preço Venda, Markup, Status, Ok, Revisão, Distribuição, Delete */}
-                            <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
+                            {/* Preço Venda, Markup, Ok, Revisão, Distribuição, Delete */}
                             <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
                             <td style={tdP}><div style={cell({ padding: '0 10px' })}></div></td>
                             <td style={tdP}><div style={cell({ justifyContent: 'center' })}></div></td>
