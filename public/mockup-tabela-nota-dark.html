@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabela da Nota — Grade</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #FDFAF0;
+    --title: #1A1A0E;
+    --muted: rgba(26,26,10,0.45);
+
+    --th-bg: #FFEC4D;
+    --th-text: rgba(26,26,10,0.62);
+    --th-line: #B8A31F;          /* divisória entre colunas do cabeçalho */
+    --th-bottom: #8F7E10;        /* linha forte separando cabeçalho do corpo */
+
+    --grid: #A8A290;             /* linhas do corpo — bem mais escuras que antes (#E0D8BF 80%) */
+    --outer: #8C8672;
+
+    --row: #FFFFFF;
+    --row-alt: #FAF7EE;
+    --row-hover: #FFF8D0;
+
+    --text: rgba(26,26,10,0.88);
+    --text-muted: rgba(26,26,10,0.55);
+    --text-subtle: rgba(26,26,10,0.32);
+
+    --dup-bg: rgba(216,30,30,0.10);
+    --dup-text: #B91C1C;
+    --ok: #0A7A55;
+    --ok-bg: rgba(10,122,85,0.10);
+    --warn: #92400E;
+    --warn-bg: rgba(252,211,77,0.30);
+  }
+  html.dark {
+    --page-bg: #1E1E18;
+    --title: #F2F0E3;
+    --muted: rgba(242,240,227,0.40);
+
+    --th-bg: #FFEC4D;
+    --th-text: rgba(26,26,10,0.62);
+    --th-line: #B8A31F;
+    --th-bottom: #8F7E10;
+
+    --grid: rgba(242,240,227,0.20);
+    --outer: rgba(242,240,227,0.28);
+
+    --row: #252520;
+    --row-alt: #1E1E18;
+    --row-hover: rgba(242,240,227,0.04);
+
+    --text: rgba(242,240,227,0.88);
+    --text-muted: rgba(242,240,227,0.55);
+    --text-subtle: rgba(242,240,227,0.30);
+
+    --dup-bg: rgba(216,30,30,0.18);
+    --dup-text: #FCA5A5;
+    --ok: #34D399;
+    --ok-bg: rgba(52,211,153,0.12);
+    --warn: #FCD34D;
+    --warn-bg: rgba(252,211,77,0.12);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 48px;
+    background: var(--page-bg); color: var(--title);
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  h1 { font-size: 18px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; font-size: 12px; color: var(--muted); }
+  h2 { font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; }
+
+  .wrap { overflow-x: auto; border: 1px solid var(--outer); }
+  table { border-collapse: collapse; width: 100%; min-width: 1180px; table-layout: fixed; }
+
+  /* ── Cabeçalho: faixa amarela reta, só divisórias ── */
+  thead th {
+    background: var(--th-bg);
+    color: var(--th-text);
+    height: 34px; padding: 0 10px;
+    font-size: 9px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase;
+    text-align: left; white-space: nowrap;
+    border-right: 1px solid var(--th-line);
+    border-bottom: 1.5px solid var(--th-bottom);
+  }
+  thead th:last-child { border-right: 0; }
+  thead th.r { text-align: right; }
+  thead th.c { text-align: center; }
+  thead th .pen { opacity: .45; margin-left: 4px; font-size: 10px; }
+  thead th.dup { color: #D81E1E; background: #FFE0B8; }
+
+  /* ── Corpo: células retas, grade contínua ── */
+  tbody td {
+    height: 34px; padding: 0 10px;
+    font-size: 11.5px; color: var(--text);
+    border-right: 1px solid var(--grid);
+    border-bottom: 1px solid var(--grid);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: background-color 120ms cubic-bezier(0.23,1,0.32,1);
+  }
+  tbody td:last-child { border-right: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { background: var(--row); }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: var(--row-hover); }
+
+  td.seq { text-align: center; font-size: 10px; font-weight: 900; color: var(--text-subtle); }
+  td.mono { font-family: 'DM Mono', monospace; font-size: 11.5px; font-weight: 500; color: var(--text-muted); }
+  td.r { text-align: right; font-family: 'DM Mono', monospace; }
+  td.c { text-align: center; }
+  td.strong { font-weight: 600; }
+  td.dup { background: var(--dup-bg); color: var(--dup-text); font-weight: 700; }
+
+  /* Foco: contorno por dentro da célula — não desloca a grade */
+  td.focus { box-shadow: inset 0 0 0 2px #D81E1E; background: rgba(216,30,30,0.04); }
+  tr.row-focus td.seq { color: #D81E1E; }
+  td input {
+    all: unset; width: 100%; font: inherit; color: inherit; caret-color: #D81E1E;
+  }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .chk { display: inline-flex; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--grid); align-items: center; justify-content: center; font-size: 11px; }
+  .chk.on { background: #0A7A55; border-color: #0A7A55; color: #fff; }
+
+  /* ── Referência "antes" ── */
+  .before { display: flex; gap: 3px; padding: 3px; background: var(--th-bg); max-width: 520px; }
+  .before span { flex: 1; height: 34px; border-radius: 9px; border: 1.5px solid rgba(26,26,10,0.10); background: rgba(26,26,10,0.05);
+    font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--th-text); display: flex; align-items: center; padding: 0 10px; }
+  .before-row { display: flex; gap: 3px; padding: 3px; background: var(--row); max-width: 520px; }
+  .before-row span { flex: 1; height: 34px; border-radius: 9px; border: 1.5px solid rgba(224,216,191,0.80); font-size: 11px; display: flex; align-items: center; padding: 0 10px; color: var(--text); }
+  html.dark .before-row span { border-color: rgba(242,240,227,0.06); }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+  .legend b { color: var(--title); }
+</style>
+</head>
+<body>
+  <h1>Tabela da Nota — grade reta</h1>
+  <p class="sub">Mockup · modo <span id="mode">claro</span> · sem cantos arredondados, só linhas separando colunas e células</p>
+
+  <h2>Depois</h2>
+  <div class="wrap">
+    <table>
+      <colgroup>
+        <col style="width:44px"><col style="width:130px"><col style="width:270px"><col style="width:220px">
+        <col style="width:130px"><col style="width:70px"><col style="width:60px"><col style="width:96px">
+        <col style="width:96px"><col style="width:96px"><col style="width:76px"><col style="width:110px"><col style="width:48px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="c">#</th>
+          <th>Código<span class="pen">✎</span></th>
+          <th>Produto na Nota<span class="pen">✎</span></th>
+          <th>Identificação Interna</th>
+          <th class="dup">⚠ EAN<span class="pen">✎</span></th>
+          <th>Medida</th>
+          <th class="r">Qtd.</th>
+          <th class="r">Preço Custo</th>
+          <th class="r">Valor Total</th>
+          <th class="r">Preço Venda</th>
+          <th class="r">Markup</th>
+          <th>Status</th>
+          <th class="c">Ok</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="seq">1</td><td class="mono">7899701876976</td>
+          <td class="strong">TAPETE CAPACHO BEM-VINDO 58X37CM</td><td>tapete capacho bem-vindo 58x37cm</td>
+          <td class="mono">7899701876976</td><td>UN</td><td class="r">6</td>
+          <td class="r">R$ 12,90</td><td class="r">R$ 77,40</td><td class="r">R$ 24,90</td><td class="r">93,0%</td>
+          <td><span class="pill ok">Vinculado</span></td><td class="c"><span class="chk on">✓</span></td>
+        </tr>
+        <tr class="row-focus">
+          <td class="seq">2</td><td class="mono">CX-4410</td>
+          <td class="strong focus"><input value="PANO DE PRATO XADREZ 45X70 KIT C/3"></td><td>pano de prato xadrez kit 3</td>
+          <td class="mono dup">7891234500018</td><td>KIT</td><td class="r">12</td>
+          <td class="r">R$ 8,45</td><td class="r">R$ 101,40</td><td class="r">R$ 16,90</td><td class="r">100,0%</td>
+          <td><span class="pill ok">Vinculado</span></td><td class="c"><span class="chk"></span></td>
+        </tr>
+        <tr>
+          <td class="seq">3</td><td class="mono">CX-4411</td>
+          <td class="strong">TOALHA DE MESA RETANGULAR 1,40X2,20</td><td style="color:var(--text-subtle)">—</td>
+          <td class="mono dup">7891234500018</td><td>UN</td><td class="r">4</td>
+          <td class="r">R$ 21,00</td><td class="r">R$ 84,00</td><td class="r" style="color:var(--text-subtle)">—</td><td class="r" style="color:var(--text-subtle)">—</td>
+          <td><span class="pill warn">Sem vínculo</span></td><td class="c"><span class="chk"></span></td>
+        </tr>
+        <tr>
+          <td class="seq">4</td><td class="mono">40169990</td>
+          <td class="strong">JOGO AMERICANO BAMBU 4 PECAS</td><td>jogo americano bambu 4pc</td>
+          <td class="mono">7896000112233</td><td>JG</td><td class="r">10</td>
+          <td class="r">R$ 15,30</td><td class="r">R$ 153,00</td><td class="r">R$ 29,90</td><td class="r">95,4%</td>
+          <td><span class="pill ok">Vinculado</span></td><td class="c"><span class="chk on">✓</span></td>
+        </tr>
+        <tr>
+          <td class="seq">5</td><td class="mono">CX-9002</td>
+          <td class="strong">CORTINA BLACKOUT 2,80X2,30 CINZA</td><td>cortina blackout cinza 2,80</td>
+          <td class="mono">7896000998877</td><td>UN</td><td class="r">3</td>
+          <td class="r">R$ 48,70</td><td class="r">R$ 146,10</td><td class="r">R$ 89,90</td><td class="r">84,6%</td>
+          <td><span class="pill ok">Vinculado</span></td><td class="c"><span class="chk on">✓</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <b>O que muda:</b> cabeçalho vira faixa amarela contínua com divisórias finas (sem chips arredondados) ·
+    células sem borda própria nem raio — a grade é feita pelas linhas da tabela ·
+    linhas do corpo mais escuras (<code>#A8A290</code> no claro, 20% no escuro) · foco vira contorno vermelho por dentro da célula ·
+    duplicatas continuam com fundo vermelho na célula · zebra suave volta para ajudar a seguir a linha.
+  </div>
+
+  <h2>Antes (referência)</h2>
+  <div class="before"><span>#</span><span>Código</span><span>Produto na Nota</span><span>EAN</span></div>
+  <div class="before-row"><span>1</span><span>7899701876976</span><span>TAPETE CAPACHO…</span><span>7899701876976</span></div>
+
+<script>
+  if (document.documentElement.classList.contains('dark')) document.getElementById('mode').textContent = 'escuro';
+</script>
+</body>
+</html>

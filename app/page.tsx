@@ -11159,7 +11159,7 @@ export default function Page() {
 
               <div
                 className={cn(
-                  "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] [--rn-dup-bg:rgba(216,30,30,0.10)] [--rn-dup-border:rgba(216,30,30,0.55)] [--rn-dup-text:#B91C1C] [--rn-dup-th-border:#D81E1E] [--rn-dup-th-text:#D81E1E] [--rn-dup-th-bg:rgba(216,30,30,0.08)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)] dark:[--rn-dup-bg:rgba(216,30,30,0.16)] dark:[--rn-dup-border:rgba(216,30,30,0.60)] dark:[--rn-dup-text:#FCA5A5]",
+                  "flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-th-pill:rgba(0,0,0,0.08)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-seq-bg:rgba(0,0,0,0.07)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] [--rn-dup-bg:rgba(216,30,30,0.10)] [--rn-dup-border:rgba(216,30,30,0.55)] [--rn-dup-text:#B91C1C] [--rn-dup-th-border:#D81E1E] [--rn-dup-th-text:#D81E1E] [--rn-dup-th-bg:rgba(216,30,30,0.08)] [--rn-grid:#A8A290] [--rn-th-line:#B8A31F] [--rn-th-bottom:#8F7E10] dark:[--rn-grid:rgba(242,240,227,0.20)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-th-pill:rgba(0,0,0,0.10)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-seq-bg:#1a1a14] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)] dark:[--rn-dup-bg:rgba(216,30,30,0.16)] dark:[--rn-dup-border:rgba(216,30,30,0.60)] dark:[--rn-dup-text:#FCA5A5]",
                   noteEditorTab !== 'produtos' && 'hidden'
                 )}
                 style={{ padding: 0 }}
@@ -11179,25 +11179,24 @@ export default function Page() {
                     <col style={{ width: 36 }} />
                   </colgroup>
                   <thead className="sticky top-0 z-10">
-                    <tr className="text-left" style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
-                      {/* Cabeçalho igual ao da tabela de Controle Financeiro: barra amarela contínua
-                          com um "chip" pill arredondado por coluna, sem divisórias verticais. */}
+                    <tr className="text-left">
+                      {/* Cabeçalho em grade: faixa amarela contínua, sem chips — só divisórias finas
+                          entre colunas e uma linha mais forte embaixo. As linhas são box-shadow inset
+                          porque bordas de <th> com border-collapse não acompanham o sticky. */}
                       {(() => {
-                        // Molde da tabela de Distribuição: barra amarela com padding fino (3px, igual
-                        // ao gap entre células do corpo) e o "chip" preenchendo a coluna inteira com
-                        // cantos quadrados (9px, igual ao raio das células), em vez do pill arredondado
-                        // menor que sobrava dentro de um padding largo.
-                        const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '3px', boxSizing: 'border-box', verticalAlign: 'middle', height: '42px' };
-                        const thFirst: React.CSSProperties = { ...thBar, paddingLeft: '7px' };
-                        const thLast: React.CSSProperties = { ...thBar, width: '36px', paddingRight: '7px' };
+                        const thBar: React.CSSProperties = {
+                          background: 'var(--rn-th-bg)', padding: 0, boxSizing: 'border-box', verticalAlign: 'middle', height: '34px',
+                          boxShadow: 'inset -1px 0 0 var(--rn-th-line), inset 0 -1.5px 0 var(--rn-th-bottom)',
+                        };
+                        const thFirst: React.CSSProperties = thBar;
+                        const thLast: React.CSSProperties = { ...thBar, width: '36px', boxShadow: 'inset 0 -1.5px 0 var(--rn-th-bottom)' };
                         const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
                           display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '4px',
                           width: '100%', height: '100%', boxSizing: 'border-box',
                           fontSize: '9px', fontWeight: 900,
                           letterSpacing: '0.10em', textTransform: 'uppercase' as const,
                           color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const, overflow: 'hidden',
-                          background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
-                          borderRadius: '9px', padding: '0 10px', ...extra,
+                          padding: '0 10px', ...extra,
                         });
                         // ── Filter helpers (used when reviewFilterActive) ──
                         const colFilterKey: Record<string, string> = {
@@ -11557,14 +11556,13 @@ export default function Page() {
                       const rowDiscrepancy = getItemDiscrepancy(idx, item);
                       const isDisregarded = !!rowDiscrepancy?.disregarded;
 
-                      /* ── Rounded-cell style tokens (per-row) ── */
-                      const cellBg = idx % 2 === 0 ? 'var(--rn-cell-bg)' : 'var(--rn-cell-bg-alt)';
-                      const tdP: React.CSSProperties = { padding: '3px 3px', borderBottom: '1px solid var(--rn-cell-border)', borderRight: '1px solid var(--rn-cell-border)' };
+                      /* ── Grade reta: a <td> desenha as linhas; o wrapper da célula não tem borda
+                         visível (transparente), só fica vermelho por dentro no foco. ── */
+                      const tdP: React.CSSProperties = { padding: 0, borderBottom: '1px solid var(--rn-grid)', borderRight: '1px solid var(--rn-grid)' };
                       const cell = (extra?: React.CSSProperties): React.CSSProperties => ({
-                        borderRadius: '9px',
                         background: 'transparent',
-                        border: '1.5px solid var(--rn-cell-border)',
-                        height: '40px',
+                        border: '1.5px solid transparent',
+                        height: '34px',
                         display: 'flex',
                         alignItems: 'center',
                         overflow: 'hidden',
@@ -11572,7 +11570,7 @@ export default function Page() {
                         transition: 'border-color 120ms cubic-bezier(0.23,1,0.32,1), box-shadow 120ms cubic-bezier(0.23,1,0.32,1)',
                         ...extra,
                       });
-                      const focusCell = (el: HTMLElement | null) => { if (el) { el.style.borderColor = 'rgba(216,30,30,0.55)'; el.style.boxShadow = '0 0 0 3px rgba(216,30,30,0.12)'; } };
+                      const focusCell = (el: HTMLElement | null) => { if (el) { el.style.borderColor = '#D81E1E'; el.style.boxShadow = ''; } };
                       const blurCell  = (el: HTMLElement | null) => { if (el) { el.style.borderColor = ''; el.style.boxShadow = ''; } };
 
                       const _rowCodigo = (item.supplier_code || '').trim();
@@ -11611,16 +11609,16 @@ export default function Page() {
                           isDisregarded
                             ? "opacity-50 saturate-[0.7] [background-image:repeating-linear-gradient(135deg,rgba(255,229,0,0.16),rgba(255,229,0,0.16)_8px,transparent_8px,transparent_16px)] bg-[#FFF9D6] dark:bg-[#22200f] dark:[background-image:repeating-linear-gradient(135deg,rgba(252,211,77,0.10),rgba(252,211,77,0.10)_8px,transparent_8px,transparent_16px)] hover:opacity-70"
                             : _hasVariants ? 'bg-[#1a1402] dark:bg-[#1a1402] hover:bg-[#1f1900] dark:hover:bg-[#1f1900]'
-                            // Molde da Distribuição: sem listra zebra — todas as linhas com o mesmo
-                            // fundo liso, a grade fica só nas bordas arredondadas de cada célula.
-                            : 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.025]'
+                            : idx % 2 === 0
+                              ? 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]'
+                              : 'bg-[#FAF7EE] dark:bg-[#1E1E18] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]'
                         )}
                           onFocus={() => setReviewFocusedRowIdx(idx)}
                           onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setReviewFocusedRowIdx(null); }}
                         >
                           {/* # */}
                           <td style={tdP}>
-                            <div style={cell({ justifyContent: 'center', ...(isRowFocused ? { borderColor: '#DC2626', boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' } : {}) })}>
+                            <div style={cell({ justifyContent: 'center' })}>
                               {isDisregarded ? (
                                 <span title="Divergência confirmada — valor ajustado no total/markup" className="text-amber-600 dark:text-amber-400">
                                   <Ban size={13} strokeWidth={2.4} />
@@ -11638,7 +11636,7 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ padding: '0 10px', ...(isCodigoDup ? { background: 'var(--rn-dup-bg)', borderColor: 'var(--rn-dup-border)' } : {}) })} title={isCodigoDup ? 'Código duplicado nesta nota' : undefined}>
+                            <div data-cell style={cell({ padding: '0 10px', ...(isCodigoDup ? { background: 'var(--rn-dup-bg)' } : {}) })} title={isCodigoDup ? 'Código duplicado nesta nota' : undefined}>
                               {(canEditItems || reviewEditableCols.has('Código')) ? (
                                 <input type="text" value={item.supplier_code || ''}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], supplier_code: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
@@ -11815,7 +11813,7 @@ export default function Page() {
                             onFocus={e => focusCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                             onBlur={e => blurCell(e.currentTarget.querySelector<HTMLElement>('[data-cell]'))}
                           >
-                            <div data-cell style={cell({ padding: '0 10px', ...(isEanDup ? { background: 'var(--rn-dup-bg)', borderColor: 'var(--rn-dup-border)' } : {}) })} title={isEanDup ? 'EAN duplicado nesta nota' : undefined}>
+                            <div data-cell style={cell({ padding: '0 10px', ...(isEanDup ? { background: 'var(--rn-dup-bg)' } : {}) })} title={isEanDup ? 'EAN duplicado nesta nota' : undefined}>
                               {(canEditItems || reviewEditableCols.has('EAN')) ? (
                                 <input type="text" value={viewingNoteEans[idx] ?? item.ean ?? ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={1}
@@ -12071,8 +12069,8 @@ export default function Page() {
                                     transition: 'border-color 180ms cubic-bezier(0.23,1,0.32,1), box-shadow 180ms cubic-bezier(0.23,1,0.32,1)',
                                   }}
                                   onFocus={e => {
-                                    e.currentTarget.style.borderColor = 'rgba(216,30,30,0.55)';
-                                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(216,30,30,0.12)';
+                                    e.currentTarget.style.borderColor = '#D81E1E';
+                                    e.currentTarget.style.boxShadow = '';
                                   }}
                                   onBlur={e => {
                                     e.currentTarget.style.borderColor = adjBorder;
@@ -12466,10 +12464,10 @@ export default function Page() {
                           >
                             <td style={tdP}>
                               <div style={{ ...cell({ justifyContent: 'center', overflow: 'visible' }), position: 'relative' }}>
-                                <svg width="18" height="40" viewBox="0 0 18 40" fill="none" aria-hidden="true"
-                                  style={{ position: 'absolute', left: -3, top: 0, overflow: 'visible' }}>
-                                  <line x1="9" y1="0" x2="9" y2={isLastChild ? 20 : 40} stroke="#2a2000" strokeWidth="1.5" />
-                                  <line x1="9" y1="20" x2="18" y2="20" stroke="#2a2000" strokeWidth="1.5" />
+                                <svg width="18" height="34" viewBox="0 0 18 34" fill="none" aria-hidden="true"
+                                  style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+                                  <line x1="9" y1="0" x2="9" y2={isLastChild ? 17 : 34} stroke="#2a2000" strokeWidth="1.5" />
+                                  <line x1="9" y1="17" x2="18" y2="17" stroke="#2a2000" strokeWidth="1.5" />
                                 </svg>
                                 <span className="text-[10px] font-black" style={{ color: '#555', paddingLeft: 10 }}>{seqLabel}</span>
                               </div>
