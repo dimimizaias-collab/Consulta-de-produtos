@@ -11855,8 +11855,8 @@ export default function Page() {
                           {!reviewHiddenCols.has('Medida') && (
                           <td style={{ ...tdP, position: 'relative' }}>
                             {/* Ícones de conversão/distribuição ficam no canto esquerdo, dentro da célula;
-                                a medida ocupa o resto centralizada. */}
-                            <div style={cell({ padding: '0 4px', gap: '4px' })}>
+                                a medida fica fixa à direita, pra alinhar a coluna com ou sem ícones. */}
+                            <div style={cell({ padding: '0 8px 0 4px', gap: '4px' })}>
                             {(() => {
                               const distribQty = getDistribTotal(idx, item);
                               const converted = !!viewingNoteMeasureConverted[idx];
@@ -11882,7 +11882,7 @@ export default function Page() {
                                 </div>
                               );
                             })()}
-                            <div className="flex-1 min-w-0 flex items-center justify-center">
+                            <div className="flex-1 min-w-0 flex items-center justify-end">
                             {(canEditItems || reviewEditableCols.has('Medida')) ? (
                               <div className="flex items-center gap-0.5 min-w-0" onClick={e => e.stopPropagation()}>
                                 <input
@@ -13274,30 +13274,24 @@ export default function Page() {
                   setDistribModalDraft(prev => ({ ...prev, [companyId]: clamped }));
                 };
 
-                const handleConfirm = () => {
-                  const cleaned: Record<string, number> = {};
-                  Object.entries(distribModalDraft).forEach(([cid, v]) => {
-                    const n = parseInt(v) || 0;
-                    if (n > 0) cleaned[cid] = n;
-                  });
-                  const u = [...viewingNoteDistribByCompany]; u[idx] = cleaned; setViewingNoteDistribByCompany(u);
-                  captureSnapshot();
-                  // Pelo Cadastro Rápido, confirmar fecha e volta pra ele.
-                  if (openedFromQuickEdit) setDistribModalIdx(null);
-                };
-
-                // Navegação entre itens sem fechar o modal — travada se houver quantidade
-                // digitada ainda não confirmada, pra não perder o que foi preenchido (comparação
-                // ignora ordem das chaves, já que o rascunho é preenchido na ordem que o usuário
-                // digitou, não necessariamente a ordem salva).
+                // Sem botão de confirmar: o rascunho é salvo ao trocar de item ou fechar o
+                // modal (comparação ignora ordem das chaves, já que o rascunho é preenchido na
+                // ordem que o usuário digitou, não necessariamente a ordem salva).
                 const draftNormalized: Record<string, number> = {};
                 Object.entries(distribModalDraft).forEach(([cid, v]) => { const n = parseInt(v) || 0; if (n > 0) draftNormalized[cid] = n; });
                 const savedForItem = viewingNoteDistribByCompany[idx] || {};
                 const navKeys = new Set([...Object.keys(draftNormalized), ...Object.keys(savedForItem)]);
                 const isDirty = Array.from(navKeys).some(k => (draftNormalized[k] || 0) !== (savedForItem[k] || 0));
+                const saveDraft = () => {
+                  if (!isDirty) return;
+                  const u = [...viewingNoteDistribByCompany]; u[idx] = draftNormalized; setViewingNoteDistribByCompany(u);
+                  captureSnapshot();
+                };
+                const closeModal = () => { saveDraft(); setDistribModalIdx(null); };
                 const totalItems = viewingReviewNote.items.length;
                 const goToItem = (newIdx: number) => {
-                  if (isDirty || newIdx < 0 || newIdx >= totalItems) return;
+                  if (newIdx < 0 || newIdx >= totalItems || newIdx === idx) return;
+                  saveDraft();
                   const draft: Record<string, string> = {};
                   Object.entries(viewingNoteDistribByCompany[newIdx] || {}).forEach(([cid, v]) => { draft[cid] = String(v); });
                   setDistribModalDraft(draft);
@@ -13306,7 +13300,7 @@ export default function Page() {
 
                 return (
                   <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDistribModalIdx(null)} />
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeModal} />
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: 16 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -13333,7 +13327,7 @@ export default function Page() {
                             <button
                               key={title}
                               onClick={() => goToItem(target)}
-                              disabled={isDirty || target < 0}
+                              disabled={idx === 0}
                               title={title}
                               className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center bg-black/[0.08] border border-black/10 text-black/55 hover:bg-black/[0.14] transition-colors disabled:opacity-35 disabled:pointer-events-none"
                             >
@@ -13348,7 +13342,7 @@ export default function Page() {
                             <button
                               key={title}
                               onClick={() => goToItem(target)}
-                              disabled={isDirty || target >= totalItems}
+                              disabled={idx >= totalItems - 1}
                               title={title}
                               className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center bg-black/[0.08] border border-black/10 text-black/55 hover:bg-black/[0.14] transition-colors disabled:opacity-35 disabled:pointer-events-none"
                             >
@@ -13358,7 +13352,8 @@ export default function Page() {
                         </div>
                         )}
                         <button
-                          onClick={() => setDistribModalIdx(null)}
+                          onClick={closeModal}
+                          title="Fechar (a distribuição é salva automaticamente)"
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors ml-1.5"
                         >
                           <X size={18} />
@@ -13390,13 +13385,6 @@ export default function Page() {
                           <span>{draftTotal} de {qtyRecebida} un. distribuídos</span>
                           <span>{remaining} restante{remaining === 1 ? '' : 's'}</span>
                         </div>
-
-                        {isDirty && (
-                          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-xl px-3.5 py-2.5 text-[11px] font-extrabold">
-                            <AlertTriangle size={14} className="shrink-0" />
-                            Confirme a distribuição deste item antes de navegar para outro
-                          </div>
-                        )}
 
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-wider text-[#1A1A0E]/40 dark:text-white/30 mb-2">Empresas cadastradas</p>
@@ -13442,15 +13430,6 @@ export default function Page() {
                         </div>
                       </div>
 
-                      <div className="p-4 shrink-0">
-                        <button
-                          onClick={handleConfirm}
-                          className="w-full bg-primary text-white py-3.5 rounded-2xl font-extrabold text-sm shadow-lg shadow-primary/30 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                        >
-                          <CheckCircle2 size={16} />
-                          Confirmar Distribuição
-                        </button>
-                      </div>
                     </motion.div>
                   </div>
                 );
