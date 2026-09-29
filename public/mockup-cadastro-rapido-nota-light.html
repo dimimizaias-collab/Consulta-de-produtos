@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Cadastro Rápido (Nota)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --page-bg:        #FFFCEC;
+    --modal-bg:       #FDFAF0;
+    --header-bg:      #FFE500;
+    --header-border:  #D4C000;
+    --chip-bg:        rgba(26,26,10,0.09);
+    --chip-color:     #1A1A0E;
+    --title:          #1A1A0E;
+    --muted:          rgba(26,26,10,0.45);
+    --subtle:         rgba(26,26,10,0.28);
+    --close-bg:       rgba(26,26,10,0.08);
+    --close-border:   rgba(26,26,10,0.10);
+    --close-color:    rgba(26,26,10,0.45);
+
+    --card-bg:        #FFFFFF;
+    --card-border:    #E0D8BF;
+    --values-bg:      #FAF7EE;
+    --values-border:  #EAE2C8;
+
+    --cell-bg:        #FFFFFF;
+    --cell-border:    #E0D8BF;
+    --cell-text:      #1A1A0E;
+    --cell-ph:        rgba(26,26,10,0.22);
+    --locked-bg:      rgba(26,26,10,0.04);
+    --locked-border:  rgba(26,26,10,0.08);
+    --locked-text:    rgba(26,26,10,0.50);
+    --label:          rgba(26,26,10,0.50);
+    --group-cap:      rgba(26,26,10,0.32);
+    --sep:            #E6DEC4;
+
+    --footer-bg:      #FFF7B0;
+    --footer-border:  #DDD000;
+    --footer-text:    #1A1A0E;
+    --footer-muted:   rgba(26,26,10,0.40);
+    --nav-btn-bg:     rgba(26,26,10,0.06);
+    --nav-btn-hover:  rgba(26,26,10,0.11);
+    --nav-circle:     #1A1A0E;
+    --nav-circle-fg:  #FFE500;
+
+    --pop-bg:         #FFFFFF;
+    --overlay:        rgba(26,26,10,0.38);
+
+    --row-even:       #FFFFFF;
+    --row-odd:        #FAF7EE;
+    --row-hover:      #FFF8D0;
+    --th-bg:          #FFE500;
+    --th-border:      #D4C000;
+    --th-text:        rgba(26,26,10,0.58);
+
+    --emerald:        #0A7A55;
+    --emerald-bg:     rgba(16,185,129,0.10);
+    --red:            #C81E1E;
+    --red-bg:         rgba(216,30,30,0.08);
+    --violet:         #6D28D9;
+    --violet-bg:      rgba(139,92,246,0.10);
+    --amber:          #92400E;
+    --amber-bg:       rgba(245,158,11,0.14);
+    --primary:        #D81E1E;
+  }
+
+  [data-theme="dark"] {
+    --page-bg:        #161612;
+    --modal-bg:       #1E1E18;
+    --header-bg:      #252520;
+    --header-border:  rgba(242,240,227,0.07);
+    --chip-bg:        rgba(216,30,30,0.13);
+    --chip-color:     #D81E1E;
+    --title:          #F2F0E3;
+    --muted:          rgba(242,240,227,0.40);
+    --subtle:         rgba(242,240,227,0.24);
+    --close-bg:       rgba(242,240,227,0.06);
+    --close-border:   rgba(242,240,227,0.08);
+    --close-color:    rgba(242,240,227,0.35);
+
+    --card-bg:        #252520;
+    --card-border:    rgba(242,240,227,0.08);
+    --values-bg:      #1A1A15;
+    --values-border:  rgba(242,240,227,0.06);
+
+    --cell-bg:        #252520;
+    --cell-border:    rgba(242,240,227,0.10);
+    --cell-text:      #F2F0E3;
+    --cell-ph:        rgba(242,240,227,0.25);
+    --locked-bg:      rgba(242,240,227,0.03);
+    --locked-border:  rgba(242,240,227,0.06);
+    --locked-text:    rgba(242,240,227,0.45);
+    --label:          rgba(242,240,227,0.45);
+    --group-cap:      rgba(242,240,227,0.26);
+    --sep:            rgba(242,240,227,0.08);
+
+    --footer-bg:      #252520;
+    --footer-border:  rgba(242,240,227,0.06);
+    --footer-text:    #F2F0E3;
+    --footer-muted:   rgba(242,240,227,0.30);
+    --nav-btn-bg:     rgba(242,240,227,0.05);
+    --nav-btn-hover:  rgba(242,240,227,0.09);
+    --nav-circle:     #F2F0E3;
+    --nav-circle-fg:  #1E1E18;
+
+    --pop-bg:         #2E2E28;
+    --overlay:        rgba(0,0,0,0.55);
+
+    --row-even:       #252520;
+    --row-odd:        #1E1E18;
+    --row-hover:      rgba(242,240,227,0.03);
+    --th-bg:          #FFE500;
+    --th-border:      #C8B800;
+    --th-text:        rgba(26,26,10,0.58);
+
+    --emerald:        #34D399;
+    --emerald-bg:     rgba(52,211,153,0.10);
+    --red:            #F87171;
+    --red-bg:         rgba(248,113,113,0.10);
+    --violet:         #C4B5FD;
+    --violet-bg:      rgba(139,92,246,0.14);
+    --amber:          #FCD34D;
+    --amber-bg:       rgba(252,211,77,0.12);
+  }
+
+  html, body { background: var(--page-bg); }
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    color: var(--cell-text);
+    min-height: 100vh;
+    padding: 28px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  /* ── Mock banner ── */
+  .banner {
+    max-width: 1180px; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  .banner b { color: var(--title); }
+  .banner a { color: var(--primary); font-weight: 800; text-decoration: none; }
+
+  /* ── Faux note table (contexto: onde o clique acontece) ── */
+  .table-wrap {
+    max-width: 1180px; margin: 0 auto;
+    border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    background: var(--th-bg); border-bottom: 1px solid var(--th-border);
+    color: var(--th-text); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+    text-align: left; padding: 10px 12px; white-space: nowrap;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--sep); white-space: nowrap; }
+  tr:nth-child(even) td { background: var(--row-odd); }
+  tr:nth-child(odd) td { background: var(--row-even); }
+  tr:hover td { background: var(--row-hover); }
+  td.r { text-align: right; }
+  .seq { color: var(--subtle); font-weight: 900; font-size: 10px; }
+  .prod-link {
+    font-weight: 700; font-size: 11.5px; color: var(--cell-text); cursor: pointer;
+    background: none; border: none; font-family: inherit; text-align: left;
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+    transition: text-decoration-color 140ms, color 140ms;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .prod-link:hover { color: var(--primary); text-decoration-color: currentColor; }
+  .prod-link .open-ic { opacity: 0; transform: translateX(-3px); transition: opacity 140ms, transform 140ms; }
+  .prod-link:hover .open-ic { opacity: 1; transform: none; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 800; }
+  .tag.em { background: var(--emerald-bg); color: var(--emerald); }
+  .tag.rd { background: var(--red-bg); color: var(--red); }
+  .tag.vi { background: var(--violet-bg); color: var(--violet); }
+
+  /* ── Modal ── */
+  .backdrop {
+    position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    opacity: 0; pointer-events: none; transition: opacity 200ms cubic-bezier(0.23,1,0.32,1);
+    z-index: 50;
+  }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    width: 100%; max-width: 1180px;
+    background: var(--modal-bg);
+    border-radius: 22px;
+    border: 1px solid var(--card-border);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 32px);
+    transform: scale(0.97); opacity: 0;
+    transition: transform 200ms cubic-bezier(0.23,1,0.32,1), opacity 200ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .backdrop.open .modal { transform: scale(1); opacity: 1; }
+
+  /* Header */
+  .m-head {
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+    padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  }
+  .chip {
+    width: 38px; height: 38px; border-radius: 13px; background: var(--chip-bg); color: var(--chip-color);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .m-title { font-size: 16px; font-weight: 800; color: var(--title); letter-spacing: -0.01em; line-height: 1.15; }
+  .m-sub { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+  .counter {
+    margin-left: auto; display: flex; align-items: center; gap: 10px;
+    font-size: 11px; font-weight: 800; color: var(--muted);
+  }
+  .counter .num { font-size: 13px; color: var(--title); }
+  .progress { width: 120px; height: 5px; border-radius: 99px; background: var(--chip-bg); overflow: hidden; }
+  .progress > i { display: block; height: 100%; background: var(--primary); border-radius: 99px; transition: width 240ms cubic-bezier(0.23,1,0.32,1); }
+  .close {
+    width: 34px; height: 34px; border-radius: 11px; background: var(--close-bg); border: 1px solid var(--close-border);
+    color: var(--close-color); display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background 140ms, color 140ms, transform 150ms;
+  }
+  .close:hover { background: rgba(216,30,30,0.10); color: var(--primary); }
+  .close:active { transform: scale(0.93); }
+
+  /* Body */
+  .m-body { overflow-y: auto; }
+  .fade { transition: opacity 140ms, transform 140ms; }
+  .fade.out { opacity: 0; transform: translateY(3px); }
+
+  /* Top: identificação do item na nota */
+  .ident {
+    padding: 18px 22px 18px;
+    display: grid; grid-template-columns: 44px minmax(0,1fr) 150px 190px; gap: 16px; align-items: end;
+  }
+  .ident-ic {
+    width: 44px; height: 44px; border-radius: 14px; align-self: center;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    display: flex; align-items: center; justify-content: center; color: var(--muted);
+  }
+  .f-label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--label);
+    margin-bottom: 5px; white-space: nowrap;
+  }
+  .ro {
+    height: 38px; border-radius: 10px; border: 1.5px solid var(--locked-border); background: var(--locked-bg);
+    display: flex; align-items: center; gap: 8px; padding: 0 11px; min-width: 0;
+  }
+  .ro .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ro.desc .txt { font-size: 13.5px; font-weight: 800; color: var(--cell-text); letter-spacing: -0.005em; }
+  .ro.code .txt { font-size: 12.5px; color: var(--cell-text); }
+  .icon-btn {
+    width: 24px; height: 24px; border-radius: 7px; border: none; background: transparent; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+    transition: background 120ms, color 120ms, transform 120ms;
+  }
+  .icon-btn:hover { background: var(--nav-btn-bg); color: var(--cell-text); }
+  .icon-btn:active { transform: scale(0.9); }
+  .icon-btn.ok { color: var(--emerald); }
+
+  .ident-meta { grid-column: 2 / -1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: -6px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px;
+    font-size: 10.5px; font-weight: 800;
+  }
+  .pill.em { background: var(--emerald-bg); color: var(--emerald); }
+  .pill.rd { background: var(--red-bg); color: var(--red); }
+  .pill.am { background: var(--amber-bg); color: var(--amber); }
+
+  /* Bottom: valores e medidas */
+  .values {
+    background: var(--values-bg); border-top: 1px solid var(--values-border);
+    padding: 16px 22px 20px;
+  }
+  .groups { display: flex; align-items: flex-end; gap: 0; flex-wrap: wrap; row-gap: 16px; }
+  .group { display: flex; flex-direction: column; padding: 0 16px; border-left: 1px solid var(--sep); }
+  .group:first-child { padding-left: 0; border-left: none; }
+  .group:last-child { padding-right: 0; }
+  .g-cap {
+    font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; color: var(--group-cap);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .g-row { display: flex; gap: 8px; align-items: flex-end; }
+  .fld { display: flex; flex-direction: column; }
+  .cell {
+    height: 38px; border-radius: 10px; border: 1.5px solid var(--cell-border); background: var(--cell-bg);
+    display: flex; align-items: center; gap: 4px; padding: 0 10px; overflow: hidden;
+    transition: border-color 130ms, box-shadow 130ms;
+  }
+  .cell:focus-within { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.14); }
+  .cell.locked { background: var(--locked-bg); border-color: var(--locked-border); }
+  .cell.locked .v { color: var(--locked-text); }
+  .cell .pre { font-size: 10px; font-weight: 900; color: var(--muted); flex-shrink: 0; }
+  .cell .suf { font-size: 10px; font-weight: 900; color: var(--muted); flex-shrink: 0; }
+  .cell input, .cell .v {
+    width: 100%; min-width: 0; background: transparent; border: none; outline: none;
+    font-family: 'DM Mono', monospace; font-size: 12.5px; color: var(--cell-text); caret-color: #D81E1E;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .cell input::placeholder { color: var(--cell-ph); }
+  .cell input::-webkit-inner-spin-button, .cell input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .cell.r input, .cell.r .v { text-align: right; }
+  .cell.c input, .cell.c .v { text-align: center; }
+  .lock { color: var(--subtle); flex-shrink: 0; }
+
+  .cell.computed { background: transparent; border-style: dashed; }
+  .cell.computed .v { font-weight: 500; }
+  .cell.empty .v { color: var(--cell-ph); }
+  .cell.sell-missing { border-style: dashed; border-color: rgba(216,30,30,0.45); background: rgba(216,30,30,0.04); }
+
+  .arrow { color: var(--subtle); align-self: center; margin-top: 18px; flex-shrink: 0; }
+
+  .delta { font-size: 10px; font-weight: 900; margin-top: 4px; height: 13px; white-space: nowrap; }
+  .delta.up { color: var(--red); }
+  .delta.down { color: var(--emerald); }
+  .delta.eq { color: var(--muted); }
+  .hint { font-size: 10px; font-weight: 700; color: var(--muted); margin-top: 4px; height: 13px; white-space: nowrap; }
+
+  .markup {
+    height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 12.5px; font-weight: 900; border: 1.5px solid transparent;
+    transition: background 160ms, color 160ms;
+  }
+  .markup.pos { background: var(--emerald-bg); color: var(--emerald); }
+  .markup.neg { background: var(--red-bg); color: var(--red); }
+  .markup.none { border-color: var(--cell-border); border-style: dashed; color: var(--cell-ph); }
+
+  .distrib-btn {
+    height: 38px; border-radius: 10px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 900; cursor: pointer; font-family: inherit;
+    border: 1.5px dashed var(--cell-border); background: var(--cell-bg); color: var(--muted);
+    transition: background 140ms, color 140ms, border-color 140ms, transform 150ms;
+    width: 100%; justify-content: center;
+  }
+  .distrib-btn:hover { color: var(--violet); border-color: var(--violet); }
+  .distrib-btn:active { transform: scale(0.97); }
+  .distrib-btn.has { background: var(--violet-bg); color: var(--violet); border: 1.5px solid transparent; }
+
+  /* Popover distribuição */
+  .pop-anchor { position: relative; }
+  .pop {
+    position: absolute; right: 0; bottom: calc(100% + 8px); width: 260px;
+    background: var(--pop-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    box-shadow: 0 16px 32px -8px rgba(0,0,0,0.25); padding: 12px; z-index: 5;
+    transform-origin: bottom right;
+    opacity: 0; transform: scale(0.97) translateY(4px); pointer-events: none;
+    transition: opacity 130ms cubic-bezier(0.23,1,0.32,1), transform 130ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .pop.open { opacity: 1; transform: none; pointer-events: auto; }
+  .pop h4 { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; color: var(--label); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .pop h4 span { color: var(--violet); }
+  .store { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; }
+  .store + .store { border-top: 1px solid var(--sep); }
+  .store b { font-size: 12px; font-weight: 700; color: var(--cell-text); }
+  .store .cell { height: 32px; width: 78px; }
+  .pop .left { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 8px; }
+
+  /* Footer */
+  .m-foot {
+    background: var(--footer-bg); border-top: 1px solid var(--footer-border);
+    padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+  }
+  .nav {
+    display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 6px;
+    border-radius: 12px; border: none; background: var(--nav-btn-bg); color: var(--footer-text);
+    font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+    transition: background 140ms, transform 150ms, opacity 140ms;
+  }
+  .nav:hover { background: var(--nav-btn-hover); }
+  .nav:active { transform: scale(0.97); }
+  .nav:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+  .nav .circ {
+    width: 28px; height: 28px; border-radius: 99px; background: var(--nav-circle); color: var(--nav-circle-fg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav.next { padding: 0 6px 0 16px; margin-left: auto; }
+  .nav.next.finish { background: #D81E1E; color: #fff; }
+  .nav.next.finish .circ { background: rgba(255,255,255,0.2); color: #fff; }
+  .nav.next.finish:hover { background: #BF1A1A; }
+  .kbd { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--close-border); color: var(--footer-muted); }
+  .save-state {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--footer-muted);
+  }
+  .save-state .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--emerald); transition: background 140ms; }
+  .save-state.saving .dot { background: #F59E0B; animation: pulse 800ms ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .m-foot { position: relative; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 8px); opacity: 0;
+    background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 700; padding: 9px 14px; border-radius: 11px;
+    transition: opacity 180ms, transform 180ms cubic-bezier(0.23,1,0.32,1); z-index: 60; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ── Produto vinculado ── */
+  .link-row { grid-column: 2 / -1; display: flex; align-items: flex-end; gap: 10px; }
+  .lbl-state { font-size: 9.5px; font-weight: 800; letter-spacing: .02em; text-transform: none; margin-left: 4px; }
+  .lbl-state.em { color: var(--emerald); }
+  .lbl-state.am { color: var(--amber); }
+  .lbl-state.mu { color: var(--subtle); }
+  .link-field {
+    position: relative; height: 38px; border-radius: 10px; border: 1.5px solid var(--cell-border); background: var(--cell-bg);
+    display: flex; align-items: center; gap: 8px; padding: 0 10px 0 5px;
+    transition: border-color 130ms, box-shadow 130ms, background 130ms;
+  }
+  .link-field:focus-within { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.14); }
+  .link-field.is-linked { border-color: rgba(16,185,129,0.35); background: var(--emerald-bg); }
+  .link-field.is-trad { border-color: rgba(245,158,11,0.45); background: var(--amber-bg); }
+  .lupa {
+    position: relative; width: 28px; height: 28px; border-radius: 8px; border: none; flex-shrink: 0;
+    background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 130ms, color 130ms, transform 130ms;
+  }
+  .lupa:hover { background: var(--nav-btn-bg); color: var(--cell-text); }
+  .lupa:active { transform: scale(0.9); }
+  .lupa.signal { background: #FFE500; color: #1A1A0E; box-shadow: 0 0 0 3px rgba(255,229,0,0.28); }
+  .lupa.signal:hover { background: #F5DB00; }
+  .lupa-badge {
+    position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; border-radius: 99px; padding: 0 3px;
+    background: #D81E1E; color: #fff; font-size: 9px; font-weight: 900; display: none; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--cell-bg);
+  }
+  .lupa.signal .lupa-badge { display: flex; }
+  .linked { display: none; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .is-linked .linked, .is-trad .linked { display: flex; }
+  .is-linked .link-search, .is-trad .link-search { display: none; }
+  .linked-name {
+    background: none; border: none; font-family: inherit; cursor: pointer; text-align: left;
+    font-size: 13px; font-weight: 800; color: var(--emerald); min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color 130ms;
+  }
+  .is-trad .linked-name { color: var(--amber); }
+  .linked-name:hover { text-decoration-color: currentColor; }
+  .linked-meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .trad-tag {
+    display: none; align-items: center; gap: 4px; margin-left: auto; padding: 2px 8px; border-radius: 99px;
+    background: rgba(245,158,11,0.18); color: var(--amber); font-size: 10px; font-weight: 900; white-space: nowrap;
+  }
+  .is-trad .trad-tag { display: inline-flex; }
+  .link-search {
+    flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--cell-text); caret-color: #D81E1E;
+  }
+  .link-search::placeholder { color: var(--cell-ph); font-weight: 500; }
+  .link-field.ean-hit .link-search::placeholder { color: var(--amber); font-weight: 700; }
+
+  .dd {
+    position: absolute; left: -1.5px; right: -1.5px; top: calc(100% + 6px); z-index: 6;
+    background: var(--pop-bg); border: 1px solid var(--card-border); border-radius: 12px;
+    box-shadow: 0 16px 32px -8px rgba(0,0,0,0.25); padding: 5px; max-height: 240px; overflow-y: auto;
+    transform-origin: top center; opacity: 0; transform: scale(0.97) translateY(-4px); pointer-events: none;
+    transition: opacity 130ms cubic-bezier(0.23,1,0.32,1), transform 130ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .dd.open { opacity: 1; transform: none; pointer-events: auto; }
+  .dd-cap { font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: var(--group-cap); padding: 6px 9px 4px; }
+  .dd-item {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 9px; border-radius: 8px; border: none;
+    background: transparent; font-family: inherit; text-align: left; cursor: pointer; color: var(--cell-text);
+  }
+  .dd-item:hover, .dd-item.hl { background: var(--row-hover); }
+  .dd-item b { font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-item .mono { font-size: 10.5px; color: var(--muted); }
+  .dd-item .eq-ean { font-size: 9.5px; font-weight: 900; color: var(--amber); background: var(--amber-bg); padding: 2px 6px; border-radius: 6px; }
+  .dd-empty { padding: 12px 9px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .dd-empty button { border: none; background: #D81E1E; color: #fff; font-family: inherit; font-size: 11px; font-weight: 800; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+
+  .link-actions { display: flex; gap: 6px; }
+  .tip-wrap { position: relative; }
+  .act {
+    width: 38px; height: 38px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    border: 1.5px dashed var(--cell-border); background: var(--cell-bg); color: var(--muted);
+    transition: background 130ms, color 130ms, border-color 130ms, transform 130ms;
+  }
+  .act:hover { color: var(--primary); border-color: rgba(216,30,30,0.45); background: rgba(216,30,30,0.06); }
+  .act:active { transform: scale(0.92); }
+  .act.on-em { border: 1.5px solid rgba(16,185,129,0.30); background: var(--emerald-bg); color: var(--emerald); }
+  .act.on-am { border: 1.5px solid rgba(245,158,11,0.55); background: #FFE500; color: #1A1A0E; }
+  .act.on-am svg { fill: rgba(26,26,10,0.25); }
+  .tip {
+    pointer-events: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%) scale(0.95);
+    opacity: 0; transition: opacity 100ms, transform 100ms; background: #3a3a32; color: #f2f0e3; font-size: 10px; font-weight: 700;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 7;
+  }
+  .tip-wrap:hover .tip { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  /* ── Lápis do R$ Novo ── */
+  .pencil {
+    width: 20px; height: 20px; border-radius: 6px; border: none; cursor: pointer; margin: -4px 0 -4px 2px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #FFE500; color: #1A1A0E; box-shadow: 0 0 0 1px rgba(26,26,10,0.12);
+    transition: background 130ms, transform 130ms, box-shadow 130ms;
+  }
+  .pencil:hover { background: #F5DB00; }
+  .pencil:active { transform: scale(0.9); }
+  .pencil .ic-ok { display: none; }
+  .pencil.on { background: #D81E1E; color: #fff; box-shadow: 0 0 0 3px rgba(216,30,30,0.22); }
+  .pencil.on .ic-pen { display: none; }
+  .pencil.on .ic-ok { display: block; }
+  .cell.editing { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.14); background: var(--cell-bg); }
+  .cell.locked input { color: var(--locked-text); cursor: default; }
+
+  /* Markup editável */
+  .cell.mk input { font-weight: 500; }
+  .cell.mk.pos { background: var(--emerald-bg); border-color: rgba(16,185,129,0.30); }
+  .cell.mk.pos input, .cell.mk.pos .suf { color: var(--emerald); }
+  .cell.mk.neg { background: var(--red-bg); border-color: rgba(216,30,30,0.30); }
+  .cell.mk.neg input, .cell.mk.neg .suf { color: var(--red); }
+  .cell.mk:focus-within { border-color: #D81E1E; }
+
+  /* Navegação bloqueada */
+  .save-state.locked { color: var(--primary); }
+  .save-state.locked .dot { background: #D81E1E; }
+  .nav.blocked { opacity: .4; cursor: not-allowed; }
+  .shake { animation: shake 280ms cubic-bezier(0.36,0.07,0.19,0.97); }
+  @keyframes shake { 20%,60% { transform: translateX(-4px); } 40%,80% { transform: translateX(4px); } }
+
+  @media (max-width: 860px) {
+    .link-row { grid-column: 1 / -1; }
+    .ident { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    .ident-ic { display: none; }
+    .ident > .fld:first-of-type { grid-column: 1 / -1; }
+    .ident-meta { grid-column: 1 / -1; }
+    .group { border-left: none; padding: 0; width: 100%; }
+    .groups { gap: 14px; }
+    .counter .progress { display: none; }
+    .save-state { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <span><b>Mockup — Cadastro Rápido da Nota</b> · clique no texto de qualquer linha em “Produto na Nota”</span>
+  <span id="themeLink"></span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>#</th><th>Código</th><th>Produto na Nota</th><th>EAN</th><th>Medida</th><th>Qtd.</th><th style="text-align:right">Preço Custo</th><th style="text-align:right">Preço Venda</th><th style="text-align:right">Markup</th><th>Distribuição</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div class="backdrop" id="backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="m-head">
+      <div class="chip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <div>
+        <div class="m-title" id="mTitle">Cadastro Rápido</div>
+        <div class="m-sub">NF 004.812 · Distribuidora Ouro Fino Ltda.</div>
+      </div>
+      <div class="counter">
+        <span>Produto <span class="num mono" id="cnt">1 de 5</span></span>
+        <div class="progress"><i id="prog"></i></div>
+      </div>
+      <button class="close" id="closeBtn" title="Salvar e fechar (Esc)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="m-body">
+      <div class="fade" id="fadeWrap">
+        <!-- Parte superior: identificação -->
+        <div class="ident">
+          <div class="ident-ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+          </div>
+          <div class="fld" style="min-width:0">
+            <div class="f-label">Produto na Nota</div>
+            <div class="ro desc"><span class="txt" id="fDesc"></span></div>
+          </div>
+          <div class="fld">
+            <div class="f-label">Código</div>
+            <div class="ro code"><span class="txt mono" id="fCode"></span></div>
+          </div>
+          <div class="fld">
+            <div class="f-label">EAN</div>
+            <div class="ro code">
+              <span class="txt mono" id="fEan"></span>
+              <button class="icon-btn" id="copyEan" title="Copiar EAN">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Produto vinculado (mesma lógica da coluna Identificação Interna) -->
+          <div class="link-row">
+            <div class="fld" style="flex:1; min-width:0">
+              <div class="f-label">Produto Vinculado <span class="lbl-state" id="linkState"></span></div>
+              <div class="link-field" id="linkField">
+                <button class="lupa" id="lupaBtn" title="Buscar produto no sistema">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  <span class="lupa-badge" id="lupaBadge">1</span>
+                </button>
+                <!-- vinculado -->
+                <div class="linked" id="linkedView">
+                  <button class="linked-name" id="linkedName" title="Clique para editar o produto"></button>
+                  <span class="linked-meta mono" id="linkedMeta"></span>
+                  <span class="trad-tag" id="tradTag">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Tradução
+                  </span>
+                </div>
+                <!-- busca -->
+                <input class="link-search" id="linkSearch" placeholder="Buscar produto por nome, SKU ou EAN…" autocomplete="off" />
+                <div class="dd" id="dd"></div>
+              </div>
+            </div>
+            <div class="link-actions">
+              <div class="tip-wrap"><button class="act" id="actLink"></button><span class="tip" id="tipLink"></span></div>
+              <div class="tip-wrap"><button class="act" id="actMulti">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+              </button><span class="tip">Vários</span></div>
+              <div class="tip-wrap"><button class="act" id="actZap">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              </button><span class="tip" id="tipZap"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parte inferior: valores e medidas -->
+        <div class="values">
+          <div class="groups">
+            <!-- Na nota (travado) -->
+            <div class="group">
+              <div class="g-cap">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                Na nota
+              </div>
+              <div class="g-row">
+                <div class="fld" style="width:66px">
+                  <div class="f-label">Medida</div>
+                  <div class="cell locked c"><span class="v" id="vUnit"></span><svg class="lock" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+                  <div class="hint"></div>
+                </div>
+                <div class="fld" style="width:78px">
+                  <div class="f-label">Quantidade</div>
+                  <div class="cell locked r"><span class="v" id="vQty"></span><svg class="lock" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+                  <div class="hint"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Conversão -->
+            <div class="group">
+              <div class="g-cap">Conversão</div>
+              <div class="g-row">
+                <div class="fld" style="width:88px">
+                  <div class="f-label" title="Unidade do Fornecedor">Unid. Fornec.</div>
+                  <div class="cell c"><input id="iSupUnit" list="units" placeholder="CX" /></div>
+                  <div class="hint"></div>
+                </div>
+                <div class="fld" style="width:88px">
+                  <div class="f-label" title="Multiplicador (qtd. por unidade)">Multiplicador</div>
+                  <div class="cell r"><span class="pre">×</span><input id="iMult" type="number" min="1" step="1" placeholder="1" /></div>
+                  <div class="hint">qtd. por unid.</div>
+                </div>
+                <svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                <div class="fld" style="width:92px">
+                  <div class="f-label">Qtde Real</div>
+                  <div class="cell computed r"><span class="v" id="vReal"></span><span class="suf">UN</span></div>
+                  <div class="hint" id="realHint"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Custo -->
+            <div class="group">
+              <div class="g-cap">Custo unitário</div>
+              <div class="g-row">
+                <div class="fld" style="width:98px">
+                  <div class="f-label">R$ Antigo</div>
+                  <div class="cell locked r" id="cOld"><span class="pre">R$</span><span class="v" id="vOld"></span></div>
+                  <div class="hint" id="oldHint"></div>
+                </div>
+                <div class="fld" style="width:104px">
+                  <div class="f-label">R$ Novo
+                    <button class="pencil" id="pencilBtn" title="Editar custo">
+                      <svg class="ic-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+                      <svg class="ic-ok" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    </button>
+                  </div>
+                  <div class="cell r locked" id="cNew"><span class="pre">R$</span><input id="iNew" type="number" min="0" step="0.01" readonly tabindex="-1" /></div>
+                  <div class="delta" id="delta"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Venda -->
+            <div class="group">
+              <div class="g-cap">Venda</div>
+              <div class="g-row">
+                <div class="fld" style="width:106px">
+                  <div class="f-label">Preço Venda</div>
+                  <div class="cell r" id="cSell"><span class="pre">R$</span><input id="iSell" type="number" min="0" step="0.01" placeholder="0,00" /></div>
+                  <div class="hint" id="sellHint"></div>
+                </div>
+                <div class="fld" style="width:84px">
+                  <div class="f-label">Markup</div>
+                  <div class="cell r mk none" id="cMarkup"><input id="iMarkup" type="number" step="0.1" placeholder="—" /><span class="suf">%</span></div>
+                  <div class="hint"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Distribuição -->
+            <div class="group" style="flex:1; min-width:96px">
+              <div class="g-cap">Distribuição</div>
+              <div class="fld pop-anchor">
+                <div class="f-label">Outras lojas</div>
+                <button class="distrib-btn" id="distribBtn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  <span id="distribLbl">—</span>
+                </button>
+                <div class="hint" id="distribHint"></div>
+                <div class="pop" id="pop">
+                  <h4>Distribuir <span id="popTotal">0 / 0 un.</span></h4>
+                  <div id="stores"></div>
+                  <div class="left" id="popLeft"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-foot">
+      <button class="nav prev" id="prevBtn">
+        <span class="circ"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></span>
+        Produto Anterior
+      </button>
+      <div class="save-state" id="saveState"><span class="dot"></span><span id="saveTxt">Tudo salvo</span></div>
+      <span class="kbd" style="margin-left:auto" title="Atalhos">Alt ← / Alt →</span>
+      <button class="nav next" id="nextBtn" style="margin-left:10px">
+        <span id="nextLbl">Próximo Produto</span>
+        <span class="circ"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<datalist id="units"><option>UN</option><option>CX</option><option>CART</option><option>PCT</option><option>FD</option><option>DZ</option></datalist>
+<div class="toast" id="toast"></div>
+
+<script>
+  const STORES = ['Loja Centro', 'Loja Norte', 'Loja Sul'];
+  // Catálogo do sistema (dicionário de produtos) — cost = último custo salvo (R$ Antigo)
+  const CATALOG = [
+    { id: 'p1', name: 'Fita Isolante 3M Rivell 6445', sku: '6445', ean: '7898254374458', cost: 3.42 },
+    { id: 'p3', name: 'Envelope Branco Unit.', sku: 'ENV-01', ean: '7891040071205', cost: 0.74 },
+    { id: 'p4', name: 'Pilha Alcalina AA Elgin (par)', sku: 'PIL-AA2', ean: '7898117630131', cost: 7.20 },
+    { id: 'p6', name: 'Cadeado Papaiz 20mm', sku: 'CAD-20', ean: '7891009200202', cost: 2.65 },
+    { id: 'p7', name: 'Cadeado Pado 25mm', sku: 'CAD-25', ean: '7891009200257', cost: 3.10 },
+    { id: 'p8', name: 'Lâmpada LED Bulbo 9W Elgin', sku: 'LED-9', ean: '7898117631220', cost: null },
+    { id: 'p9', name: 'Lâmpada LED Bulbo 12W Ourolux', sku: 'LED-12', ean: '7896522900127', cost: 5.10 },
+  ];
+  // linkedId = vínculo atual do item · mappingId = tradução permanente salva
+  const items = [
+    { seq: 1, code: '6445', desc: 'FITA ISOLANTE (LINHA OURO) 05M.', ean: '7898254374458', unit: 'GR', qty: 10, price: 36.50, supUnit: 'GR', mult: 10, sell: 7.90, distrib: {}, linkedId: 'p1', mappingId: 'p1' },
+    { seq: 2, code: '6111', desc: 'CADEADO CARTELA 20MM. CART.C/12', ean: '', unit: 'CART', qty: 1, price: 33.25, supUnit: '', mult: 1, sell: null, distrib: {}, linkedId: null, mappingId: null },
+    { seq: 3, code: '7020', desc: 'ENVELOPE BRANCO CART.C/06', ean: '7891040071205', unit: 'CART', qty: 12, price: 4.80, supUnit: 'CART', mult: 6, sell: 1.50, distrib: { 'Loja Norte': 12 }, linkedId: 'p3', mappingId: null },
+    { seq: 4, code: '5510', desc: 'PILHA ALCALINA AA C/2 ELGIN', ean: '7898117630131', unit: 'PCT', qty: 24, price: 6.90, supUnit: '', mult: 1, sell: null, distrib: {}, linkedId: null, mappingId: null },
+    { seq: 5, code: '8802', desc: 'LAMPADA LED BULBO 9W BIV. 6500K', ean: '7899802700951', unit: 'UN', qty: 50, price: 5.35, supUnit: '', mult: 1, sell: null, distrib: {}, linkedId: null, mappingId: null },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const brl = n => n.toFixed(2).replace('.', ',');
+  const prod = id => CATALOG.find(p => p.id === id) || null;
+  const costOf = it => it.price / (it.mult || 1);
+  const oldCostOf = it => prod(it.linkedId)?.cost ?? null;
+  const markupOf = it => (it.sell && costOf(it) > 0) ? ((it.sell - costOf(it)) / costOf(it)) * 100 : null;
+  const distribTotal = it => Object.values(it.distrib).reduce((s, v) => s + (+v || 0), 0);
+  const eanMatches = it => it.ean ? CATALOG.filter(p => p.ean === it.ean) : [];
+  const linkState = it => it.linkedId ? (it.mappingId === it.linkedId ? 'trad' : 'linked') : (eanMatches(it).length ? 'ean' : 'none');
+
+  let cur = 0, open = false, saveTimer = null, editingCost = false, searchMode = false;
+
+  const ICON_PLUS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+  const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>';
+
+  // Theme link (light ↔ dark)
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  $('themeLink').innerHTML = isDark
+    ? '<a href="mockup-cadastro-rapido-nota-light.html">Ver versão clara →</a>'
+    : '<a href="mockup-cadastro-rapido-nota-dark.html">Ver versão escura →</a>';
+
+  function renderTable() {
+    $('tbody').innerHTML = items.map((it, i) => {
+      const mk = markupOf(it); const dt = distribTotal(it);
+      return `<tr>
+        <td class="seq">${it.seq}</td>
+        <td class="mono">${it.code}</td>
+        <td><button class="prod-link" data-i="${i}">${it.desc}
+          <svg class="open-ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></button></td>
+        <td class="mono">${it.ean || '—'}</td>
+        <td>${it.mult > 1 ? `${it.supUnit || it.unit} <b style="color:var(--primary);font-size:10px">×${it.mult}</b>` : it.unit}</td>
+        <td class="mono">${it.qty * (it.mult || 1)}</td>
+        <td class="r mono">R$ ${brl(costOf(it))}</td>
+        <td class="r mono">${it.sell ? 'R$ ' + brl(it.sell) : '<span style="color:var(--subtle)">—</span>'}</td>
+        <td class="r">${mk === null ? '<span style="color:var(--subtle)">—</span>' : `<span class="tag ${mk >= 0 ? 'em' : 'rd'}">${mk >= 0 ? '+' : ''}${mk.toFixed(1)}%</span>`}</td>
+        <td>${dt > 0 ? `<span class="tag vi">${dt} un.</span>` : '<span style="color:var(--subtle)">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    document.querySelectorAll('.prod-link').forEach(b => b.onclick = () => openModal(+b.dataset.i));
+  }
+
+  /* ───────── Produto vinculado ───────── */
+  function renderLink() {
+    const it = items[cur];
+    const st = linkState(it);
+    const f = $('linkField');
+    const showLinked = (st === 'linked' || st === 'trad') && !searchMode;
+    f.className = 'link-field' + (showLinked ? (st === 'trad' ? ' is-trad' : ' is-linked') : '') + (st === 'ean' ? ' ean-hit' : '');
+
+    const p = prod(it.linkedId);
+    if (p) {
+      $('linkedName').textContent = p.name;
+      $('linkedMeta').textContent = `SKU ${p.sku} · ${p.ean}`;
+    }
+    const matches = eanMatches(it);
+    $('lupaBtn').classList.toggle('signal', st === 'ean');
+    $('lupaBadge').textContent = matches.length;
+    $('lupaBtn').title = st === 'ean' ? `${matches.length} produto(s) no sistema com o mesmo EAN — clique para ver` : 'Buscar produto no sistema';
+    $('linkSearch').placeholder = st === 'ean'
+      ? `Produto com o mesmo EAN encontrado — clique na lupa`
+      : 'Buscar produto por nome, SKU ou EAN…';
+
+    const ls = $('linkState');
+    if (st === 'trad') { ls.className = 'lbl-state am'; ls.textContent = '· tradução permanente'; }
+    else if (st === 'linked') { ls.className = 'lbl-state em'; ls.textContent = '· vinculado'; }
+    else if (st === 'ean') { ls.className = 'lbl-state am'; ls.textContent = '· EAN encontrado no sistema'; }
+    else { ls.className = 'lbl-state mu'; ls.textContent = '· sem cadastro'; }
+
+    // Botão Vincular / Alterar vínculo
+    const a = $('actLink');
+    if (it.linkedId) { a.className = 'act on-em'; a.innerHTML = ICON_CHECK; $('tipLink').textContent = 'Alterar vínculo'; }
+    else { a.className = 'act'; a.innerHTML = ICON_PLUS; $('tipLink').textContent = 'Vincular'; }
+
+    // Raio — tradução permanente
+    const z = $('actZap');
+    z.className = 'act' + (it.mappingId ? ' on-am' : '');
+    $('tipZap').textContent = it.mappingId ? (it.linkedId === it.mappingId ? 'Tradução permanente salva' : 'Usar tradução permanente') : 'Criar e Vincular';
+  }
+
+  function renderDropdown() {
+    const it = items[cur];
+    const q = $('linkSearch').value.trim().toLowerCase();
+    const matches = eanMatches(it);
+    let html = '';
+    if (!q) {
+      if (matches.length) {
+        html += `<div class="dd-cap">Mesmo EAN da nota</div>` + matches.map(itemRow(true)).join('');
+      } else {
+        html = `<div class="dd-empty">Digite para buscar no sistema</div>`;
+      }
+    } else {
+      const res = CATALOG.filter(p => (p.name + ' ' + p.sku + ' ' + p.ean).toLowerCase().includes(q));
+      html = res.length
+        ? `<div class="dd-cap">${res.length} resultado(s)</div>` + res.map(p => itemRow(p.ean === it.ean)(p)).join('')
+        : `<div class="dd-empty">Nenhum produto encontrado <button data-create>Criar e Vincular</button></div>`;
+    }
+    $('dd').innerHTML = html;
+    $('dd').querySelectorAll('[data-id]').forEach(b => b.onmousedown = e => { e.preventDefault(); selectProduct(b.dataset.id); });
+    $('dd').querySelector('[data-create]')?.addEventListener('mousedown', e => { e.preventDefault(); closeDd(); toast('Abre o fluxo Criar e Vincular (igual à tabela)'); });
+  }
+  const itemRow = sameEan => p => `<button class="dd-item" data-id="${p.id}">
+      <b>${p.name}</b>${sameEan ? '<span class="eq-ean">MESMO EAN</span>' : ''}<span class="mono">${p.sku}</span></button>`;
+
+  function openDd() { renderDropdown(); $('dd').classList.add('open'); }
+  function closeDd() { $('dd').classList.remove('open'); }
+
+  function enterSearch() {
+    searchMode = true; renderLink();
+    const s = $('linkSearch'); s.value = ''; s.focus(); openDd();
+  }
+  function exitSearch() { searchMode = false; closeDd(); renderLink(); }
+
+  function selectProduct(id) {
+    const it = items[cur]; it.linkedId = id;
+    searchMode = false; closeDd(); $('linkSearch').value = '';
+    renderLink(); renderComputed(false); markDirty();
+    toast(`Vinculado a ${prod(id).name}`);
+  }
+
+  $('lupaBtn').onclick = () => { if ($('dd').classList.contains('open')) { exitSearch(); return; } enterSearch(); };
+  $('linkSearch').onfocus = () => openDd();
+  $('linkSearch').oninput = () => openDd();
+  $('linkSearch').onblur = () => setTimeout(() => { if (document.activeElement !== $('linkSearch')) exitSearch(); }, 120);
+  $('linkSearch').onkeydown = e => {
+    if (e.key === 'Escape') { e.stopPropagation(); exitSearch(); }
+    if (e.key === 'Enter') { const first = $('dd').querySelector('[data-id]'); if (first) { e.preventDefault(); selectProduct(first.dataset.id); } }
+  };
+  $('linkedName').onclick = () => toast('Abre a janela Editar Produto (igual à tabela)');
+  $('actLink').onclick = () => items[cur].linkedId ? enterSearch() : toast('Abre o fluxo Vincular (igual à tabela)');
+  $('actMulti').onclick = () => toast('Abre Vincular Vários (igual à tabela)');
+  $('actZap').onclick = () => {
+    const it = items[cur];
+    if (it.mappingId) { if (it.linkedId !== it.mappingId) selectProduct(it.mappingId); else toast('Tradução permanente já aplicada'); }
+    else toast('Abre Criar e Vincular (igual à tabela)');
+  };
+
+  /* ───────── Modal ───────── */
+  function renderModal() {
+    const it = items[cur];
+    $('cnt').textContent = `${cur + 1} de ${items.length}`;
+    $('prog').style.width = `${((cur + 1) / items.length) * 100}%`;
+    $('fDesc').textContent = it.desc; $('fDesc').title = it.desc;
+    $('fCode').textContent = it.code;
+    $('fEan').textContent = it.ean || 'SEM GTIN';
+    $('fEan').style.color = it.ean ? '' : 'var(--subtle)';
+    $('copyEan').style.display = it.ean ? '' : 'none';
+
+    searchMode = false; closeDd(); $('linkSearch').value = '';
+    renderLink();
+
+    $('vUnit').textContent = it.unit;
+    $('vQty').textContent = it.qty.toLocaleString('pt-BR');
+    $('iSupUnit').value = it.supUnit;
+    $('iMult').value = it.mult > 1 ? it.mult : '';
+    $('prevBtn').disabled = cur === 0;
+    const last = cur === items.length - 1;
+    $('nextBtn').classList.toggle('finish', last);
+    $('nextLbl').textContent = last ? 'Concluir e Fechar' : 'Próximo Produto';
+    closePop();
+    setEditingCost(false);
+    renderComputed(true);
+  }
+
+  function renderComputed(syncInputs) {
+    const it = items[cur];
+    const mult = it.mult || 1;
+    const real = it.qty * mult;
+    $('vReal').textContent = real.toLocaleString('pt-BR');
+    $('realHint').textContent = mult > 1 ? `${it.qty} × ${mult}` : '';
+
+    // R$ Antigo — custo salvo do produto vinculado
+    const old = oldCostOf(it);
+    if (old != null) { $('vOld').textContent = brl(old); $('cOld').classList.remove('empty'); $('oldHint').textContent = 'última entrada'; }
+    else { $('vOld').textContent = ''; $('cOld').classList.add('empty'); $('oldHint').textContent = it.linkedId ? 'sem custo salvo' : ''; }
+
+    // R$ Novo (já dividido pelo multiplicador)
+    const cost = costOf(it);
+    if (syncInputs || document.activeElement !== $('iNew')) $('iNew').value = cost ? cost.toFixed(2) : '';
+    const d = $('delta'); d.style.color = '';
+    if (old != null && cost > 0) {
+      const pct = ((cost - old) / old) * 100;
+      if (Math.abs(pct) < 0.05) { d.className = 'delta eq'; d.textContent = '= sem variação'; }
+      else { d.className = 'delta ' + (pct > 0 ? 'up' : 'down'); d.textContent = `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1).replace('.', ',')}% vs antigo`; }
+    } else { d.className = 'delta'; d.textContent = mult > 1 ? `R$ ${brl(it.price)} ÷ ${mult}` : ''; d.style.color = 'var(--muted)'; }
+
+    // Venda ↔ Markup
+    if (syncInputs || document.activeElement !== $('iSell')) $('iSell').value = it.sell ? it.sell.toFixed(2) : '';
+    $('cSell').classList.toggle('sell-missing', !it.sell);
+    const mk = markupOf(it);
+    if (syncInputs || document.activeElement !== $('iMarkup')) $('iMarkup').value = mk === null ? '' : mk.toFixed(1);
+    $('cMarkup').className = 'cell r mk ' + (mk === null ? 'none' : mk >= 0 ? 'pos' : 'neg');
+
+    // Distribuição
+    const dt = distribTotal(it);
+    $('distribBtn').classList.toggle('has', dt > 0);
+    $('distribLbl').textContent = dt > 0 ? `${dt} un.` : 'Distribuir';
+    $('distribHint').textContent = dt > 0 ? `fica ${real - dt} un. aqui` : '';
+  }
+
+  /* ───────── Lápis do R$ Novo ───────── */
+  function setEditingCost(on) {
+    editingCost = on;
+    $('pencilBtn').classList.toggle('on', on);
+    $('pencilBtn').title = on ? 'Confirmar custo (Enter)' : 'Editar custo';
+    $('cNew').classList.toggle('locked', !on);
+    $('cNew').classList.toggle('editing', on);
+    $('iNew').readOnly = !on;
+    $('iNew').tabIndex = on ? 0 : -1;
+    $('prevBtn').classList.toggle('blocked', on);
+    $('nextBtn').classList.toggle('blocked', on);
+    const s = $('saveState');
+    s.classList.toggle('locked', on);
+    if (on) { s.classList.remove('saving'); $('saveTxt').textContent = 'Custo em edição — confirme ✓ para trocar de produto'; }
+    else $('saveTxt').textContent = 'Tudo salvo';
+    if (on) setTimeout(() => $('iNew').select(), 20);
+  }
+  $('pencilBtn').onclick = () => { setEditingCost(!editingCost); if (!editingCost) markDirty(); };
+
+  function blockedNav(btn) {
+    [btn, $('pencilBtn')].forEach(el => { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); });
+    toast('Confirme o custo (✓) antes de trocar de produto');
+  }
+
+  function markDirty() {
+    if (editingCost) return;
+    const s = $('saveState'); s.classList.add('saving'); $('saveTxt').textContent = 'Salvando…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { if (editingCost) return; s.classList.remove('saving'); $('saveTxt').textContent = 'Tudo salvo'; renderTable(); }, 650);
+  }
+
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800); }
+
+  function go(delta) {
+    if (editingCost) { blockedNav(delta > 0 ? $('nextBtn') : $('prevBtn')); return; }
+    const nxt = cur + delta;
+    if (nxt < 0) return;
+    if (nxt >= items.length) { closeModal(); return; }
+    const w = $('fadeWrap'); w.classList.add('out');
+    setTimeout(() => { cur = nxt; renderModal(); w.classList.remove('out'); $('iSupUnit').focus(); }, 120);
+    renderTable();
+  }
+
+  function openModal(i) { cur = i; renderModal(); open = true; $('backdrop').classList.add('open'); setTimeout(() => $('iSupUnit').focus(), 60); }
+  function closeModal() { setEditingCost(false); open = false; $('backdrop').classList.remove('open'); renderTable(); toast('Alterações salvas'); }
+
+  // Inputs
+  $('iSupUnit').oninput = e => { items[cur].supUnit = e.target.value.toUpperCase(); e.target.value = items[cur].supUnit; markDirty(); };
+  $('iMult').oninput = e => { const v = parseInt(e.target.value); items[cur].mult = v > 0 ? v : 1; renderComputed(false); markDirty(); };
+  $('iNew').oninput = e => { if (!editingCost) return; const v = parseFloat(e.target.value); if (!isNaN(v)) { items[cur].price = v * (items[cur].mult || 1); renderComputed(false); } };
+  $('iSell').oninput = e => { const v = parseFloat(e.target.value); items[cur].sell = isNaN(v) || v <= 0 ? null : v; renderComputed(false); markDirty(); };
+  $('iMarkup').oninput = e => {
+    const v = parseFloat(e.target.value); const cost = costOf(items[cur]);
+    if (isNaN(v) || !(cost > 0)) return;
+    items[cur].sell = Math.round(cost * (1 + v / 100) * 100) / 100;
+    renderComputed(false); markDirty();
+  };
+  $('iMarkup').onblur = () => renderComputed(true);
+  $('copyEan').onclick = () => { const b = $('copyEan'); b.classList.add('ok'); setTimeout(() => b.classList.remove('ok'), 900); toast('EAN copiado'); };
+
+  // Distribuição popover
+  function renderStores() {
+    const it = items[cur]; const real = it.qty * (it.mult || 1);
+    $('stores').innerHTML = STORES.map(s => `<div class="store"><b>${s}</b><div class="cell r"><input type="number" min="0" data-s="${s}" value="${it.distrib[s] || ''}" placeholder="0" /></div></div>`).join('');
+    const upd = () => { const t = distribTotal(it); $('popTotal').textContent = `${t} / ${real} un.`; $('popLeft').textContent = `Restam ${real - t} un. nesta loja`; };
+    $('stores').querySelectorAll('input').forEach(inp => inp.oninput = () => { const v = parseInt(inp.value); if (v > 0) it.distrib[inp.dataset.s] = v; else delete it.distrib[inp.dataset.s]; upd(); renderComputed(false); markDirty(); });
+    upd();
+  }
+  function closePop() { $('pop').classList.remove('open'); }
+  $('distribBtn').onclick = e => { e.stopPropagation(); const p = $('pop'); if (p.classList.contains('open')) return closePop(); renderStores(); p.classList.add('open'); setTimeout(() => $('stores').querySelector('input')?.focus(), 30); };
+  $('pop').onclick = e => e.stopPropagation();
+  document.addEventListener('click', closePop);
+
+  // Enter avança campo a campo; no último, próximo produto. R$ Novo em edição: Enter confirma.
+  $('iNew').addEventListener('keydown', e => { if (e.key === 'Enter' && editingCost) { e.preventDefault(); setEditingCost(false); markDirty(); $('iSell').select(); } });
+  const order = ['iSupUnit', 'iMult', 'iSell', 'iMarkup'];
+  order.forEach((id, k) => $(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); if (k < order.length - 1) $(order[k + 1]).select(); else go(1); }
+  }));
+
+  $('prevBtn').onclick = () => go(-1);
+  $('nextBtn').onclick = () => go(1);
+  $('closeBtn').onclick = closeModal;
+  $('backdrop').addEventListener('mousedown', e => { if (e.target === $('backdrop')) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (!open) return;
+    if (e.key === 'Escape') {
+      if ($('pop').classList.contains('open')) closePop();
+      else if (editingCost) { setEditingCost(false); markDirty(); }
+      else closeModal();
+    }
+    if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+    if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+  });
+
+  renderTable();
+  openModal(0);
+</script>
+</body>
+</html>

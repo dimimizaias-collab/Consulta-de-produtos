@@ -14,6 +14,7 @@ import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailM
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
 import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, noteHasUnpricedLinkedItems, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
+import { QuickEditItemModal } from '@/components/requests/QuickEditItemModal';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -846,6 +847,14 @@ export default function Page() {
   // company_id -> quantidade), substituindo o número único antigo (item.distribuicao).
   const [viewingNoteDistribByCompany, setViewingNoteDistribByCompany] = useState<Record<string, number>[]>([]);
   const [distribModalIdx, setDistribModalIdx] = useState<number | null>(null);
+  // Cadastro Rápido (clique no texto da coluna "Produto na Nota") — item aberto no modal,
+  // salvamento em andamento e a base da conversão do item (qtd./preço por unidade da nota,
+  // capturados ao entrar no item, pra digitar o multiplicador não acumular divisões).
+  const [quickEditIdx, setQuickEditIdx] = useState<number | null>(null);
+  const [quickEditSaving, setQuickEditSaving] = useState(false);
+  const quickEditBaseRef = useRef<{ idx: number; origQty: number; notePrice: number; mult: number } | null>(null);
+  const viewingReviewNoteId = viewingReviewNote?.id;
+  useEffect(() => { setQuickEditIdx(null); quickEditBaseRef.current = null; }, [viewingReviewNoteId]);
   const [distribModalDraft, setDistribModalDraft] = useState<Record<string, string>>({});
   const [viewingNoteUnits, setViewingNoteUnits] = useState<string[]>([]);
   const [viewingNoteMultipliers, setViewingNoteMultipliers] = useState<number[]>([]);
@@ -4553,14 +4562,25 @@ export default function Page() {
   // handleNoteImportExcel, que faz o mesmo cálculo no caminho de importação).
   const confirmNoteItemLink = async () => {
     if (!viewingReviewNote || linkingItemIdx === null || !noteItemSelectedProduct) return;
+    await linkNoteItemToProduct(
+      linkingItemIdx,
+      noteItemSelectedProduct,
+      parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0,
+      noteItemSaveTranslation,
+      noteItemSkipMotherConversion,
+    );
+    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto');
+  };
+
+  // Vínculo em si — usado pelo modal "Vincular ao Dicionário" (confirmNoteItemLink) e pela
+  // busca do campo Produto Vinculado do Cadastro Rápido, que vincula sem abrir o modal.
+  const linkNoteItemToProduct = async (i: number, p: any, sellPrice: number, saveTranslation: boolean, skipMotherConversion: boolean) => {
+    if (!viewingReviewNote) return;
     captureSnapshot();
-    const i = linkingItemIdx;
-    const p = noteItemSelectedProduct;
     const linkItem = viewingReviewNote.items[i];
     // Produto Mãe pendente deste item (aba "Produto Mãe") — vincular a um produto JÁ EXISTENTE
     // (este caminho) também precisa finalizar o Produto Mãe, não só criar um produto novo.
     const pendingMotherDraft: MotherPackageDraft | null = linkItem?.mother_draft || null;
-    const sellPrice = parseFloat(noteItemSellPriceInput.replace(',', '.')) || 0;
     const updatedItems = [...viewingReviewNote.items];
     const code = getNoteItemMatchCode(viewingNoteEans[i] ?? updatedItems[i].ean, updatedItems[i].supplier_code);
     // Se há um rascunho de Produto Mãe pendente (fluxo "Vincular Produto Filho"), ele manda —
@@ -4583,7 +4603,7 @@ export default function Page() {
         // Usuário confirmou no aviso "Qtd./Preço editados manualmente" (mostrado logo abaixo,
         // na etapa de escolher/criar o filho) que os valores já refletem a unidade do filho —
         // não multiplica de novo, só registra o vínculo com a mãe.
-        if (noteItemSkipMotherConversion) {
+        if (skipMotherConversion) {
           conversion = {
             multiplier: 1,
             qty: liveQty,
@@ -4662,7 +4682,7 @@ export default function Page() {
       const uIP = [...viewingNoteItemPrices]; uIP[i] = conversion.price; setViewingNoteItemPrices(uIP);
       const uM = [...viewingNoteMultipliers]; uM[i] = conversion.multiplier; setViewingNoteMultipliers(uM);
     }
-    if (noteItemSaveTranslation) {
+    if (saveTranslation) {
       const supplierId = await resolveNoteSupplierId();
       if (!supplierId) {
         setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
@@ -4682,7 +4702,157 @@ export default function Page() {
     } else {
       setNotification({ type: 'success', message: `Vinculado a ${p.name}.` });
     }
-    setLinkingItemIdx(null); setNoteItemLinkQuery(''); setNoteItemSelectedProduct(null); setNoteItemSellPriceInput(''); setNoteItemSaveTranslation(false); setNoteItemCreateTab('produto');
+  };
+
+  // Botão "Vários" da coluna Identificação Interna (e do Cadastro Rápido).
+  const openMultiLinkForItem = (idx: number, item: any) => {
+    setMultiLinkItemIdx(idx);
+    setMultiLinkItemSearch('');
+    setMultiLinkItemResults([]);
+    setMultiLinkItemShowCreate(false);
+    if ((item as any).multiLinked && item.product_id) {
+      const currentQty = String(viewingNoteQtys[idx] ?? item.qty ?? '');
+      setMultiLinkItemQty(currentQty);
+      setMultiLinkItemEntries([{ product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.product_price }, qty: currentQty, multiplier: '1', supplierCode: item.supplier_code || '' }]);
+    } else {
+      setMultiLinkItemQty('');
+      setMultiLinkItemEntries([]);
+    }
+  };
+
+  // ── Cadastro Rápido ─────────────────────────────────────────────────────────
+  // Base da conversão do item: quantidade e preço por unidade da NOTA (antes de qualquer
+  // multiplicador). Capturada uma vez por item — o multiplicador digitado é sempre aplicado
+  // sobre ela, igual ao "Adicionar medida" (qtd. × mult, preço ÷ mult, multiplicador volta a 1).
+  const getQuickEditBase = (idx: number) => {
+    const cached = quickEditBaseRef.current;
+    if (cached && cached.idx === idx) return cached;
+    const item = viewingReviewNote!.items[idx];
+    const liveQty = Number(viewingNoteQtys[idx] ?? item.qty) || 0;
+    const liveMult = Number(viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+    const livePrice = Number(viewingNoteItemPrices[idx] ?? item.price) || 0;
+    const origQty = Number(item.original_qty) || Math.round(liveQty / liveMult) || 0;
+    const mult = origQty > 0 && liveQty > 0 ? liveQty / origQty : 1;
+    const base = { idx, origQty, notePrice: (livePrice / liveMult) * mult, mult };
+    quickEditBaseRef.current = base;
+    return base;
+  };
+
+  // Medida original da nota — gravada no item na primeira conversão feita pelo Cadastro
+  // Rápido, senão a coluna Medida (que passa a mostrar a unidade do fornecedor) apagaria ela.
+  const ensureQuickEditOriginalUnit = (idx: number) => {
+    setViewingReviewNote(prev => {
+      if (!prev || prev.items[idx]?.original_unit) return prev;
+      const items = [...prev.items];
+      items[idx] = { ...items[idx], original_unit: items[idx].unit || 'UN' };
+      return { ...prev, items };
+    });
+  };
+
+  const handleQuickEditSupplierUnit = (idx: number, value: string) => {
+    ensureQuickEditOriginalUnit(idx);
+    setViewingNoteUnits(prev => { const u = [...prev]; u[idx] = value; return u; });
+  };
+
+  const handleQuickEditMultiplier = (idx: number, mult: number) => {
+    const base = getQuickEditBase(idx);
+    ensureQuickEditOriginalUnit(idx);
+    setViewingNoteQtys(prev => { const u = [...prev]; u[idx] = base.origQty * mult; return u; });
+    setViewingNoteItemPrices(prev => { const u = [...prev]; u[idx] = parseFloat((base.notePrice / mult).toFixed(6)); return u; });
+    setViewingNoteMultipliers(prev => { const u = [...prev]; u[idx] = 1; return u; });
+    setViewingNoteMeasureConverted(prev => { const u = [...prev]; u[idx] = mult !== 1; return u; });
+  };
+
+  // Mesma convenção da célula Preço Custo: grava preço = custo × multiplicador vigente.
+  const handleQuickEditCost = (idx: number, cost: number) => {
+    const base = getQuickEditBase(idx);
+    const item = viewingReviewNote!.items[idx];
+    const liveMult = Number(viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+    const liveQty = Number(viewingNoteQtys[idx] ?? item.qty) || 0;
+    const effMult = base.origQty > 0 && liveQty > 0 ? liveQty / base.origQty : 1;
+    quickEditBaseRef.current = { ...base, notePrice: cost * effMult };
+    setViewingNoteItemPrices(prev => { const u = [...prev]; u[idx] = cost * liveMult; return u; });
+    setViewingNoteQtyPriceEdited(prev => { const u = [...prev]; u[idx] = true; return u; });
+  };
+
+  const handleQuickEditSellPrice = (idx: number, value: number) => {
+    if (viewingPriceCompanyId) { setExtraSellPrice(viewingPriceCompanyId, idx, value); return; }
+    setViewingNoteSellPrices(prev => { const u = [...prev]; u[idx] = value; return u; });
+  };
+
+  // Salva o item ao sair dele (trocar de produto ou fechar): grava a medida do fornecedor no
+  // produto vinculado (como o "Adicionar medida" faz) e persiste a nota em segundo plano.
+  const commitQuickEdit = async (idx: number) => {
+    if (!viewingReviewNote) return;
+    captureSnapshot();
+    const base = quickEditBaseRef.current;
+    quickEditBaseRef.current = null;
+    const item = viewingReviewNote.items[idx];
+    setQuickEditSaving(true);
+    try {
+      if (base && base.idx === idx && item?.product_id) {
+        const liveQty = Number(viewingNoteQtys[idx] ?? item.qty) || 0;
+        const mult = base.origQty > 0 ? liveQty / base.origQty : 1;
+        const unitName = String(viewingNoteUnits[idx] ?? item.unit ?? '').trim();
+        if (mult > 1 && Math.abs(mult - base.mult) > 1e-9 && unitName) {
+          const { data: existing } = await supabase.from('supplier_units')
+            .select('id').eq('product_id', item.product_id).eq('unit_name', unitName).eq('multiplier', mult).limit(1);
+          if (!existing?.length) {
+            await supabase.from('supplier_units').insert({ product_id: item.product_id, unit_name: unitName, multiplier: mult });
+            setProductsWithMeasureTranslation(prev => new Set(prev).add(String(item.product_id)));
+          }
+        }
+      }
+      await persistNote();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err?.message || 'Erro ao salvar a nota.' });
+    } finally {
+      setQuickEditSaving(false);
+    }
+  };
+
+  const handleQuickEditNavigate = (delta: number) => {
+    if (quickEditIdx === null || !viewingReviewNote) return;
+    const next = quickEditIdx + delta;
+    if (next < 0) return;
+    void commitQuickEdit(quickEditIdx);
+    setQuickEditIdx(next >= viewingReviewNote.items.length ? null : next);
+  };
+
+  const closeQuickEdit = () => {
+    if (quickEditIdx === null) return;
+    void commitQuickEdit(quickEditIdx);
+    setQuickEditIdx(null);
+  };
+
+  // Produtos do sistema com o mesmo EAN do item (EAN principal, adicionais ou de embalagem-mãe).
+  const findProductsByExactEan = (ean: string) => {
+    const code = ean.trim().toLowerCase();
+    if (!code) return [];
+    return products.filter((p: any) =>
+      p.ean?.trim().toLowerCase() === code ||
+      (p.extraEans || []).some((e: any) => e.ean?.trim().toLowerCase() === code) ||
+      (p.motherEans || []).some((e: any) => e.ean?.trim().toLowerCase() === code)
+    ).slice(0, 8);
+  };
+
+  // Escolha na busca do campo Produto Vinculado: vincula direto com o preço de venda que já
+  // está na linha. Com Produto Mãe pendente, abre o modal de vínculo (ele trata o aviso de
+  // qtd./preço editados e a conversão da caixa) já com o produto selecionado.
+  const handleQuickEditSelectProduct = (idx: number, product: any) => {
+    if (!viewingReviewNote) return;
+    const item = viewingReviewNote.items[idx];
+    const sellPrice = viewingNoteSellPrices[idx] ?? item.product_price ?? 0;
+    const full = products.find((p: any) => p.id === product.id) || product;
+    quickEditBaseRef.current = null; // o vínculo pode aplicar conversão de caixa — recalcula a base
+    if (item.mother_draft) {
+      openNoteItemLink(idx, item);
+      setNoteItemShowCreate(false);
+      setNoteItemSelectedProduct(full);
+      setNoteItemSellPriceInput(sellPrice > 0 ? String(sellPrice) : '');
+      return;
+    }
+    void linkNoteItemToProduct(idx, full, sellPrice, false, false);
   };
 
   const openQuickCreateOrLink = (idx: number, item: any) => {
@@ -11490,15 +11660,33 @@ export default function Page() {
                           >
                             <div data-cell style={cell({ padding: '0 10px', overflow: (canEditItems || reviewEditableCols.has('Produto na Nota')) ? 'visible' : 'hidden' })}>
                               {(canEditItems || reviewEditableCols.has('Produto na Nota')) ? (
+                                <div className="flex items-center gap-1 min-w-0 flex-1">
                                 <input type="text" value={item.original_description || ''}
                                   data-nav-table="review-note" data-nav-row={idx} data-nav-col={0}
                                   onChange={e => { const u = [...viewingReviewNote!.items]; u[idx] = { ...u[idx], original_description: e.target.value }; setViewingReviewNote({ ...viewingReviewNote!, items: u }); }}
                                   onKeyDown={tableCellKeyDown('review-note', idx, 0)}
                                   onPaste={e => handleNoteColumnPaste(e, idx, 'original_description')}
-                                  className="w-full text-[11px] font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                                  className="w-full min-w-0 text-[11px] font-semibold bg-transparent outline-none" style={{ color: 'var(--rn-text)' }} />
+                                {/* Com a descrição editável (Registro) o texto é um input — o Cadastro Rápido abre por este botão */}
+                                <button
+                                  type="button"
+                                  onClick={() => { quickEditBaseRef.current = null; setQuickEditIdx(idx); }}
+                                  title="Abrir Cadastro Rápido"
+                                  className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[var(--rn-text-muted)] hover:text-[#D81E1E] hover:bg-[#D81E1E]/10 transition-colors"
+                                >
+                                  <Zap size={11} />
+                                </button>
+                                </div>
                               ) : (
                                 <div className="flex items-center gap-1 min-w-0 flex-1">
-                                  <p className="text-[11px] font-semibold truncate flex-1 min-w-0" style={{ color: 'var(--rn-text)' }} title={item.original_description || '-'}>{item.original_description || '-'}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => { quickEditBaseRef.current = null; setQuickEditIdx(idx); }}
+                                    className="text-[11px] font-semibold truncate flex-1 min-w-0 text-left text-[var(--rn-text)] hover:!text-[#D81E1E] underline decoration-transparent hover:decoration-current underline-offset-[3px] transition-colors"
+                                    title={`${item.original_description || '-'} — clique para abrir o Cadastro Rápido`}
+                                  >
+                                    {item.original_description || '-'}
+                                  </button>
                                   {(() => {
                                     const mapping = getItemMapping(item);
                                     if (!mapping) return null;
@@ -11579,20 +11767,7 @@ export default function Page() {
                               {/* Botão Vários — sempre ícone */}
                               <div className="relative group shrink-0">
                                 <button
-                                  onClick={() => {
-                                    setMultiLinkItemIdx(idx);
-                                    setMultiLinkItemSearch('');
-                                    setMultiLinkItemResults([]);
-                                    setMultiLinkItemShowCreate(false);
-                                    if ((item as any).multiLinked && item.product_id) {
-                                      const currentQty = String(viewingNoteQtys[idx] ?? item.qty ?? '');
-                                      setMultiLinkItemQty(currentQty);
-                                      setMultiLinkItemEntries([{ product: { id: item.product_id, name: item.name, sku: item.sku, ean: item.ean, price: item.product_price }, qty: currentQty, multiplier: '1', supplierCode: item.supplier_code || '' }]);
-                                    } else {
-                                      setMultiLinkItemQty('');
-                                      setMultiLinkItemEntries([]);
-                                    }
-                                  }}
+                                  onClick={() => openMultiLinkForItem(idx, item)}
                                   className={cn(
                                     'w-[26px] h-[26px] flex items-center justify-center rounded-[7px] border transition-all active:scale-90',
                                     (item as any).multiLinked
@@ -13031,6 +13206,86 @@ export default function Page() {
               />
 
               {/* ── Distribuição por loja — Modal separado (mesmo porte/estilo de "Vincular ao Dicionário") ── */}
+              {quickEditIdx !== null && viewingReviewNote && viewingReviewNote.items[quickEditIdx] && (() => {
+                const idx = quickEditIdx;
+                const item = viewingReviewNote.items[idx];
+                const liveQty = Number(viewingNoteQtys[idx] ?? item.qty) || 0;
+                const liveMult = Number(viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
+                const cost = (Number(viewingNoteItemPrices[idx] ?? item.price) || 0) / liveMult;
+                const noteQty = Number(item.original_qty) || Math.round(liveQty / liveMult) || 0;
+                const effMult = noteQty > 0 && liveQty > 0 ? Math.round((liveQty / noteQty) * 1000) / 1000 : 1;
+                const { disc, sur } = calcAdjAmounts(cost, liveQty, idx, adjColumns);
+                const adjCost = cost - disc + sur;
+                const isOwnerCtx = !viewingPriceCompanyId;
+                const sellPrice = isOwnerCtx
+                  ? (viewingNoteSellPrices[idx] ?? item.product_price ?? 0)
+                  : (getExtraSellPrice(viewingPriceCompanyId!, idx, item) ?? 0);
+                const linked = item.product_id ? products.find((p: any) => p.id === item.product_id) : null;
+                const linkedProduct = item.product_id
+                  ? { id: String(item.product_id), name: linked?.name || item.name, sku: linked?.sku ?? item.sku, ean: linked?.ean ?? item.ean }
+                  : null;
+                const mapping = getItemMapping(item);
+                const itemEan = String(viewingNoteEans[idx] ?? item.ean ?? '');
+                const subtitle = [
+                  viewingReviewNote.noteNumber ? `NF ${viewingReviewNote.noteNumber}` : null,
+                  viewingReviewNote.supplierName || null,
+                ].filter(Boolean).join(' · ') || viewingReviewNote.fileName || 'Nota';
+                return (
+                  <QuickEditItemModal
+                    suspended={linkingItemIdx !== null || multiLinkItemIdx !== null || distribModalIdx !== null || quickCreateConfirmIdx !== null || showEditModal}
+                    index={idx}
+                    total={viewingReviewNote.items.length}
+                    subtitle={subtitle}
+                    saving={quickEditSaving}
+                    description={item.original_description || ''}
+                    code={item.supplier_code || ''}
+                    ean={itemEan}
+                    noteUnit={item.original_unit || item.unit || 'UN'}
+                    noteQty={noteQty}
+                    supplierUnit={String(viewingNoteUnits[idx] ?? item.unit ?? '')}
+                    multiplier={effMult}
+                    realQty={liveQty}
+                    cost={cost}
+                    adjCost={adjCost}
+                    hasAdj={(disc > 0 || sur > 0) && Math.abs(adjCost - cost) > 0.001}
+                    companyId={viewingPriceCompanyId || viewingReviewNote.companyId || null}
+                    sellPrice={sellPrice}
+                    suggestedPrice={isOwnerCtx && linked && linked.price > 0 ? linked.price : null}
+                    distribTotal={getDistribTotal(idx, item)}
+                    linkedProduct={linkedProduct}
+                    hasMapping={!!mapping}
+                    isTranslation={!!mapping && !!item.product_id && mapping.internal_product_id === item.product_id}
+                    eanMatches={item.product_id ? [] : findProductsByExactEan(itemEan)}
+                    searchProducts={searchProductsForLink}
+                    onSupplierUnitChange={v => handleQuickEditSupplierUnit(idx, v)}
+                    onMultiplierChange={m => handleQuickEditMultiplier(idx, m)}
+                    onCostChange={c => handleQuickEditCost(idx, c)}
+                    onSellPriceChange={v => handleQuickEditSellPrice(idx, v)}
+                    onOpenDistribution={() => {
+                      const draft: Record<string, string> = {};
+                      Object.entries(viewingNoteDistribByCompany[idx] || {}).forEach(([cid, v]) => { draft[cid] = String(v); });
+                      setDistribModalDraft(draft);
+                      setDistribModalIdx(idx);
+                    }}
+                    onLinkClick={() => {
+                      if (item.product_id) {
+                        setLinkingItemIdx(idx); setNoteItemLinkQuery(itemEan); setNoteItemShowCreate(false); setNoteItemNewName(''); setNoteItemNewSku(''); setNoteItemNewEan(itemEan);
+                      } else {
+                        openNoteItemLink(idx, item);
+                      }
+                    }}
+                    onMultiClick={() => openMultiLinkForItem(idx, item)}
+                    onZapClick={() => mapping
+                      ? handleUsePermanentTranslation(idx, item, mapping.internal_product_id)
+                      : openQuickCreateOrLink(idx, item)}
+                    onSelectProduct={p => handleQuickEditSelectProduct(idx, p)}
+                    onEditProduct={() => { if (linked) openEditModal(linked); }}
+                    onNavigate={handleQuickEditNavigate}
+                    onClose={closeQuickEdit}
+                  />
+                );
+              })()}
+
               {distribModalIdx !== null && viewingReviewNote && (() => {
                 const idx = distribModalIdx;
                 const item = viewingReviewNote.items[idx];
