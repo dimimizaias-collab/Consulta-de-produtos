@@ -13305,6 +13305,7 @@ export default function Page() {
                 const otherCompanies = companies.filter((c: any) => c.id !== viewingReviewNote.companyId);
                 const draftTotal = Object.values(distribModalDraft).reduce((acc, v) => acc + (parseInt(v) || 0), 0);
                 const remaining = qtyRecebida - draftTotal;
+                const openedFromQuickEdit = quickEditIdx !== null;
 
                 const setCompanyQty = (companyId: string, raw: string) => {
                   const digits = raw.replace(/[^0-9]/g, '');
@@ -13324,6 +13325,8 @@ export default function Page() {
                   });
                   const u = [...viewingNoteDistribByCompany]; u[idx] = cleaned; setViewingNoteDistribByCompany(u);
                   captureSnapshot();
+                  // Pelo Cadastro Rápido, confirmar fecha e volta pra ele.
+                  if (openedFromQuickEdit) setDistribModalIdx(null);
                 };
 
                 // Navegação entre itens sem fechar o modal — travada se houver quantidade
@@ -13362,6 +13365,9 @@ export default function Page() {
                           <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Distribuição entre Lojas</h2>
                           <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{item.name || item.original_description || 'Item sem descrição'}</p>
                         </div>
+                        {/* Aberto pelo Cadastro Rápido: versão simples, sem navegação entre itens
+                            (quem navega é o Cadastro Rápido) */}
+                        {!openedFromQuickEdit && (
                         <div className="flex items-center gap-1 shrink-0">
                           {[
                             { title: 'Primeiro item', target: 0, Icon: ChevronsLeft },
@@ -13393,6 +13399,7 @@ export default function Page() {
                             </button>
                           ))}
                         </div>
+                        )}
                         <button
                           onClick={() => setDistribModalIdx(null)}
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors ml-1.5"
