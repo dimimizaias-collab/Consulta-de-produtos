@@ -3027,16 +3027,27 @@ export default function Page() {
     XLSX.writeFile(wb, "nota_traduzida.xlsx");
   };
 
-  // Gera uma NFe corrigida a partir do XML original autorizado (SEFAZ), usado como template —
-  // só sobrescreve, por item (casado por EAN e, na falta, por código do fornecedor/cProd):
+  // Gera uma NFe corrigida a partir do XML original autorizado (SEFAZ), usado como template.
+  // Cada item da nota revisada vira um <det> clonado do SEU <det> de origem no XML — achado por
+  // item.nfe_det (gravado ao usar o XML como molde) e, em notas antigas, por código do
+  // fornecedor/EAN/descrição — então CFOP, NCM, CST e impostos são os reais daquele item.
+  // Em <prod> sobrescreve só:
   //   • Medida/Quantidade traduzidas na revisão (item.unit / item.qty) — quantidade cheia,
   //     a Distribuição para outras lojas NÃO é descontada aqui
-  //   • Preço Un./Total já com os Acréscimos/Descontos da nota embutidos (calcAdjAmounts) —
-  //     EXCETO as colunas fiscais (IPI/ICMS ST importados do XML): esses impostos já estão no
-  //     XML original (vIPI/vICMSST/vNF), então somar de novo duplicaria o valor.
-  // Tudo mais (chave de acesso, CFOP, NCM, emit/dest, protocolo) fica intacto. A assinatura
-  // digital é removida — deixa de bater com o conteúdo assim que qualquer valor muda.
-  const buildCorrectedNfeXml = (originalXmlText: string, items: any[], noteAdjColumns: AdjColumn[]): string => {
+  //   • Preço Un./Total já com os Acréscimos/Descontos manuais da nota embutidos — as colunas
+  //     fiscais (IPI/ICMS ST/frete... importadas do XML) ficam de fora: continuam no XML como
+  //     tags próprias (vIPI/vICMSST/vFrete...), então somar no preço duplicaria o valor.
+  // Impostos ficam com o MESMO R$ da nota original. Como o vProd muda, a base de cálculo passa a
+  // ser o valor corrigido e a alíquota é recalculada (p = v / base) — assim quem recalcular
+  // "alíquota × valor corrigido" chega no mesmo R$. Imposto por unidade (qUnid/qBCProd) segue a
+  // mesma ideia com a quantidade. ICMS ST só é repartido, nunca recalculado (a base vem de
+  // MVA/pauta e desconta o ICMS próprio, que também não muda).
+  // Um <det> dividido em vários itens ("Vincular Vários") reparte seus R$ entre as partes na
+  // proporção do valor de cada uma, em centavos, com o resto na última — a soma fecha exata.
+  // Item sem correspondência no XML clona o 1º <det> com todos os impostos zerados.
+  // Tudo mais (chave de acesso, emit/dest, protocolo) fica intacto. A assinatura digital é
+  // removida — deixa de bater com o conteúdo assim que qualquer valor muda.
+  const buildCorrectedNfeXml = (originalXmlText: string, items: any[], noteAdjColumns: AdjColumn[]): { xml: string; unmatched: number } => {
     const doc = new DOMParser().parseFromString(originalXmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length > 0) {
       throw new Error('XML original inválido ou corrompido — não foi possível ler.');
@@ -3046,46 +3057,174 @@ export default function Page() {
       const found = el.getElementsByTagNameNS(NFE_NS, tag);
       return found.length > 0 ? found[0] : null;
     };
+    const childOf = (el: Element, tag: string): Element | null =>
+      Array.from(el.children).find(c => c.localName === tag) || null;
     const setText = (el: Element, tag: string, value: string) => {
       const node = firstChild(el, tag);
       if (node) node.textContent = value;
     };
-    const getNum = (el: Element, tag: string): number => parseFloat(firstChild(el, tag)?.textContent || '0') || 0;
+    const numOf = (el: Element | null): number => parseFloat(el?.textContent || '0') || 0;
+    const getNum = (el: Element, tag: string): number => numOf(firstChild(el, tag));
+    const getTxt = (el: Element | null, tag: string): string => (el ? firstChild(el, tag)?.textContent || '' : '').trim();
 
     const dets = Array.from(doc.getElementsByTagNameNS(NFE_NS, 'det'));
     if (dets.length === 0) throw new Error('XML original não parece ser uma NFe (nenhum item <det> encontrado).');
 
-    // O casamento por EAN/SKU entre o XML original e a nota revisada é pouco confiável (códigos
-    // de fornecedor divergem, EAN pode faltar), então em vez de tentar abater item a item,
-    // substituímos a lista de <det> inteira: removemos todos os itens originais e recriamos um
-    // <det> para cada item da nota revisada (clonando o primeiro como modelo, para manter a
-    // estrutura de impostos exigida pelo schema — os dados fiscais desse bloco clonado são um
-    // placeholder, já que não temos os dados fiscais reais de itens que não vieram na NF original).
-    let vProdOriginalTotal = 0;
-    dets.forEach(det => {
+    const origInfo = dets.map((det, i) => {
       const prod = firstChild(det, 'prod');
-      if (prod) vProdOriginalTotal += getNum(prod, 'vProd');
+      return {
+        det,
+        nItem: parseInt(det.getAttribute('nItem') || '', 10) || i + 1,
+        cProd: getTxt(prod, 'cProd'),
+        cEAN: getTxt(prod, 'cEAN'),
+        xProd: normalizeText(getTxt(prod, 'xProd')),
+        vProd: prod ? getNum(prod, 'vProd') : 0,
+        qTrib: prod ? (getNum(prod, 'qTrib') || getNum(prod, 'qCom')) : 0,
+      };
     });
 
-    const template = dets[0].cloneNode(true) as Element;
-    const parent = dets[0].parentNode;
-    const anchor = dets[dets.length - 1].nextSibling;
-    dets.forEach(det => det.parentNode?.removeChild(det));
+    const findDet = (item: any): number => {
+      if (item.nfe_det != null) {
+        const i = origInfo.findIndex(o => o.nItem === Number(item.nfe_det));
+        if (i >= 0) return i;
+      }
+      const desc = normalizeText(item.original_description || '');
+      // Mais de um <det> com o mesmo código/EAN: desempata pela descrição do fornecedor.
+      const pick = (cands: number[]) => (desc ? cands.find(i => origInfo[i].xProd === desc) : undefined) ?? cands[0];
+      const code = String(item.supplier_code || '').trim();
+      if (code) {
+        const c = origInfo.flatMap((o, i) => (o.cProd === code ? [i] : []));
+        if (c.length > 0) return pick(c);
+      }
+      const ean = String(item.ean || '').trim();
+      if (ean) {
+        const c = origInfo.flatMap((o, i) => (o.cEAN === ean ? [i] : []));
+        if (c.length > 0) return pick(c);
+      }
+      return desc ? origInfo.findIndex(o => o.xProd === desc) : -1;
+    };
 
-    let vProdNovoTotal = 0;
-    let nItem = 0;
-    let lastInserted: Node | null = null;
-
+    type Line = { item: any; detIdx: number; adjCost: number; qty: number; vProd: number; share: number };
+    const lines: Line[] = [];
     items.forEach((item: any, idx: number) => {
       const rawCost = (item.price || 0) / (item.multiplier || 1);
       const { disc, sur } = calcAdjAmounts(rawCost, item.qty || 1, idx, (noteAdjColumns || []).filter(c => !c.fiscal));
       const adjCost = rawCost - disc + sur;
-      const finalQty = Math.max(0, item.qty || 0);
-      if (finalQty <= 0) return;
-      const finalVProd = adjCost * finalQty;
-      vProdNovoTotal += finalVProd;
+      const qty = Math.max(0, item.qty || 0);
+      if (qty <= 0) return;
+      lines.push({ item, detIdx: findDet(item), adjCost, qty, vProd: adjCost * qty, share: 1 });
+    });
 
-      const newDet = template.cloneNode(true) as Element;
+    const groups = new Map<number, Line[]>();
+    lines.forEach(l => { if (l.detIdx >= 0) groups.set(l.detIdx, [...(groups.get(l.detIdx) || []), l]); });
+    groups.forEach(g => {
+      const total = g.reduce((a, l) => a + l.vProd, 0);
+      g.forEach(l => { l.share = total > 0 ? l.vProd / total : 1 / g.length; });
+    });
+
+    // Valores em R$ do item que o <det> carrega: frete/seguro/desconto/outras em <prod> e toda
+    // tag monetária folha dentro de <imposto> (vAliqProd/vUnid são alíquota por unidade, não R$).
+    const PROD_MONEY = new Set(['vFrete', 'vSeg', 'vDesc', 'vOutro']);
+    const moneyEls = (det: Element): Element[] => {
+      const out: Element[] = [];
+      const prod = firstChild(det, 'prod');
+      if (prod) out.push(...Array.from(prod.children).filter(c => PROD_MONEY.has(c.localName)));
+      const imp = firstChild(det, 'imposto');
+      if (imp) out.push(...Array.from(imp.getElementsByTagNameNS(NFE_NS, '*')).filter(c =>
+        c.children.length === 0 && c.localName.startsWith('v') && c.localName !== 'vAliqProd' && c.localName !== 'vUnid'));
+      return out;
+    };
+
+    const newDets = new Map<Line, Element>();
+    let unmatched = 0;
+    lines.forEach(l => {
+      if (l.detIdx >= 0) {
+        newDets.set(l, origInfo[l.detIdx].det.cloneNode(true) as Element);
+        return;
+      }
+      unmatched += 1;
+      const det = dets[0].cloneNode(true) as Element;
+      moneyEls(det).forEach(el => { el.textContent = '0.00'; });
+      const imp = firstChild(det, 'imposto');
+      if (imp) Array.from(imp.getElementsByTagNameNS(NFE_NS, '*')).forEach(c => {
+        if (c.children.length === 0 && /^(p|q|vAliqProd$|vUnid$)/.test(c.localName) && !isNaN(parseFloat(c.textContent || ''))) c.textContent = '0.0000';
+      });
+      newDets.set(l, det);
+    });
+
+    // Reparte os R$ de um <det> dividido — todos os clones do mesmo <det> têm a mesma estrutura,
+    // então as listas de moneyEls se alinham posição a posição.
+    groups.forEach(g => {
+      if (g.length < 2) return;
+      const lists = g.map(l => moneyEls(newDets.get(l)!));
+      lists[0].forEach((_, k) => {
+        const cents = Math.round(numOf(lists[0][k]) * 100);
+        let used = 0;
+        g.forEach((l, j) => {
+          const part = j === g.length - 1 ? cents - used : Math.round(cents * l.share);
+          used += part;
+          lists[j][k].textContent = (part / 100).toFixed(2);
+        });
+      });
+    });
+
+    // Base nova + alíquota recalculada, mantendo o R$ do imposto. [alíquota, valor, base]
+    const RATE_TAGS: [string, string, string][] = [
+      ['pIPI', 'vIPI', 'vBC'], ['pICMS', 'vICMS', 'vBC'], ['pFCP', 'vFCP', 'vBCFCP'],
+      ['pPIS', 'vPIS', 'vBC'], ['pCOFINS', 'vCOFINS', 'vBC'],
+    ];
+    // Imposto por unidade: [quantidade, alíquota R$/unidade]
+    const UNIT_TAGS: [string, string][] = [['qUnid', 'vUnid'], ['qBCProd', 'vAliqProd']];
+    const UNIT_VALUE_TAGS = ['vIPI', 'vPIS', 'vCOFINS'];
+    lines.forEach(l => {
+      if (l.detIdx < 0) return;
+      const det = newDets.get(l)!;
+      const imp = firstChild(det, 'imposto');
+      if (!imp) return;
+      const orig = origInfo[l.detIdx];
+      const origVProdShare = orig.vProd * l.share;
+      const baseRatio = origVProdShare > 0 ? l.vProd / origVProdShare : 1;
+      const origQtyShare = orig.qTrib * l.share;
+      const qtyRatio = origQtyShare > 0 ? l.qty / origQtyShare : 1;
+      const scaled = new Set<Element>();
+      const all = Array.from(imp.getElementsByTagNameNS(NFE_NS, '*'));
+      for (const [rateTag, valueTag, baseTag] of RATE_TAGS) {
+        all.filter(e => e.localName === rateTag && e.parentElement).forEach(rateEl => {
+          const group = rateEl.parentElement!;
+          const valueEl = childOf(group, valueTag);
+          const baseEl = childOf(group, baseTag) || (rateTag === 'pFCP' ? childOf(group, 'vBC') : null);
+          if (!valueEl || !baseEl) return;
+          if (!scaled.has(baseEl)) {
+            baseEl.textContent = (numOf(baseEl) * baseRatio).toFixed(2);
+            scaled.add(baseEl);
+          }
+          const base = numOf(baseEl);
+          const value = numOf(valueEl);
+          if (value > 0 && base > 0) rateEl.textContent = (value / base * 100).toFixed(4);
+        });
+      }
+      for (const [qTag, rateTag] of UNIT_TAGS) {
+        all.filter(e => e.localName === qTag && e.parentElement).forEach(qEl => {
+          const group = qEl.parentElement!;
+          const rateEl = childOf(group, rateTag);
+          const valueEl = UNIT_VALUE_TAGS.map(t => childOf(group, t)).find(Boolean) || null;
+          const q = numOf(qEl) * l.share * qtyRatio;
+          qEl.textContent = q.toFixed(4);
+          const value = numOf(valueEl);
+          if (rateEl && value > 0 && q > 0) rateEl.textContent = (value / q).toFixed(4);
+        });
+      }
+    });
+
+    // Troca a lista de <det> inteira pelos itens revisados, na ordem da revisão.
+    const parent = dets[0].parentNode;
+    const anchor = dets[dets.length - 1].nextSibling;
+    dets.forEach(det => det.parentNode?.removeChild(det));
+
+    let nItem = 0;
+    lines.forEach(l => {
+      const newDet = newDets.get(l)!;
+      const item = l.item;
       nItem += 1;
       newDet.setAttribute('nItem', String(nItem));
       const prod = firstChild(newDet, 'prod');
@@ -3094,32 +3233,48 @@ export default function Page() {
         setText(prod, 'cEAN', item.ean || 'SEM GTIN');
         setText(prod, 'cEANTrib', item.ean || 'SEM GTIN');
         setText(prod, 'xProd', item.name || item.original_description || 'Produto');
-        setText(prod, 'qCom', finalQty.toFixed(4));
-        setText(prod, 'qTrib', finalQty.toFixed(4));
-        setText(prod, 'vUnCom', adjCost.toFixed(10));
-        setText(prod, 'vUnTrib', adjCost.toFixed(10));
-        setText(prod, 'vProd', finalVProd.toFixed(2));
+        setText(prod, 'qCom', l.qty.toFixed(4));
+        setText(prod, 'qTrib', l.qty.toFixed(4));
+        setText(prod, 'vUnCom', l.adjCost.toFixed(10));
+        setText(prod, 'vUnTrib', l.adjCost.toFixed(10));
+        setText(prod, 'vProd', l.vProd.toFixed(2));
         if (item.unit) {
           setText(prod, 'uCom', item.unit);
           setText(prod, 'uTrib', item.unit);
         }
       }
-      parent?.insertBefore(newDet, lastInserted ? lastInserted.nextSibling : anchor);
-      lastInserted = newDet;
+      parent?.insertBefore(newDet, anchor);
     });
 
-    // Totais (total/ICMSTot e cobr/fat) recalculados por diferença — preserva frete/desconto/
-    // outros valores já corretos no XML original sem precisar reproduzir a fórmula da NFe inteira.
+    // Totais (total/ICMSTot e cobr/fat) recalculados por diferença entre os <det> novos e os
+    // originais — preserva o que já estava certo no XML sem reproduzir a fórmula da NFe inteira.
+    // [tag em ICMSTot, grupo dentro do <det>, tag no item, sinal no vNF (0 = não entra)]
+    const TOTALS: [string, string, string, number][] = [
+      ['vProd', 'prod', 'vProd', 1], ['vFrete', 'prod', 'vFrete', 1], ['vSeg', 'prod', 'vSeg', 1],
+      ['vDesc', 'prod', 'vDesc', -1], ['vOutro', 'prod', 'vOutro', 1],
+      ['vBC', 'ICMS', 'vBC', 0], ['vICMS', 'ICMS', 'vICMS', 0], ['vICMSDeson', 'ICMS', 'vICMSDeson', -1],
+      ['vFCP', 'ICMS', 'vFCP', 0], ['vBCST', 'ICMS', 'vBCST', 0], ['vST', 'ICMS', 'vICMSST', 1],
+      ['vFCPST', 'ICMS', 'vFCPST', 1], ['vFCPSTRet', 'ICMS', 'vFCPSTRet', 0],
+      ['vII', 'II', 'vII', 1], ['vIPI', 'IPI', 'vIPI', 1], ['vIPIDevol', 'impostoDevol', 'vIPIDevol', 1],
+      ['vPIS', 'PIS', 'vPIS', 0], ['vCOFINS', 'COFINS', 'vCOFINS', 0], ['vTotTrib', 'imposto', 'vTotTrib', 0],
+    ];
+    const sumOver = (list: Element[], group: string, tag: string) => list.reduce((acc, det) => {
+      const g = firstChild(det, group);
+      return acc + (g ? getNum(g, tag) : 0);
+    }, 0);
+    const finalDets = lines.map(l => newDets.get(l)!);
     const icmsTot = doc.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0];
-    const delta = vProdNovoTotal - vProdOriginalTotal;
-    if (icmsTot) {
-      setText(icmsTot, 'vProd', vProdNovoTotal.toFixed(2));
-      setText(icmsTot, 'vNF', (getNum(icmsTot, 'vNF') + delta).toFixed(2));
+    let vNFDelta = 0;
+    for (const [totTag, group, tag, sign] of TOTALS) {
+      const delta = sumOver(finalDets, group, tag) - sumOver(dets, group, tag);
+      vNFDelta += sign * delta;
+      if (icmsTot && firstChild(icmsTot, totTag)) setText(icmsTot, totTag, (getNum(icmsTot, totTag) + delta).toFixed(2));
     }
+    if (icmsTot) setText(icmsTot, 'vNF', (getNum(icmsTot, 'vNF') + vNFDelta).toFixed(2));
     const fat = doc.getElementsByTagNameNS(NFE_NS, 'fat')[0];
     if (fat) {
-      setText(fat, 'vOrig', (getNum(fat, 'vOrig') + delta).toFixed(2));
-      setText(fat, 'vLiq', (getNum(fat, 'vLiq') + delta).toFixed(2));
+      setText(fat, 'vOrig', (getNum(fat, 'vOrig') + vNFDelta).toFixed(2));
+      setText(fat, 'vLiq', (getNum(fat, 'vLiq') + vNFDelta).toFixed(2));
     }
     // Parcelas (cobr/dup) e forma de pagamento (pag/detPag) não são redistribuídas — ficam
     // como no XML original, fora do escopo desta correção (é dado financeiro, não de estoque).
@@ -3127,7 +3282,10 @@ export default function Page() {
     const signature = doc.getElementsByTagNameNS('http://www.w3.org/2000/09/xmldsig#', 'Signature')[0];
     signature?.parentNode?.removeChild(signature);
 
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc);
+    // O Chrome serializa a declaração <?xml?> do arquivo original junto — sem remover, o XML
+    // sairia com duas declarações (inválido).
+    const body = new XMLSerializer().serializeToString(doc).replace(/^\s*<\?xml[^?]*\?>\s*/, '');
+    return { xml: '<?xml version="1.0" encoding="UTF-8"?>\n' + body, unmatched };
   };
 
   // Lê um XML de NFe (autorizado pela SEFAZ, solto ou dentro de um nfeProc) e extrai os itens
@@ -3156,9 +3314,10 @@ export default function Page() {
     const num = (s: string) => parseFloat(s.replace(',', '.')) || 0;
     const icmsTot = doc.getElementsByTagNameNS(NFE_NS, 'ICMSTot')[0] || null;
 
-    const allRows = dets.map(det => {
+    const allRows = dets.map((det, detIdx) => {
       const prod = firstChild(det, 'prod');
       if (!prod) return null;
+      const nfeDet = parseInt(det.getAttribute('nItem') || '', 10) || detIdx + 1;
       const ean = getText(prod, 'cEAN');
       const qty = num(getText(prod, 'qCom'));
       const vProd = num(getText(prod, 'vProd'));
@@ -3176,6 +3335,7 @@ export default function Page() {
         price: vUnCom,
         vProd,
         taxes,
+        nfeDet,
       };
     }).filter((r): r is NonNullable<typeof r> => !!r);
 
@@ -3237,7 +3397,7 @@ export default function Page() {
         multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
         price: viewingNoteItemPrices[idx] ?? item.price,
       }));
-      const xml = buildCorrectedNfeXml(viewingReviewNote.originalNfeXml, items, adjColumns);
+      const { xml, unmatched } = buildCorrectedNfeXml(viewingReviewNote.originalNfeXml, items, adjColumns);
       const blob = new Blob([xml], { type: 'application/xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -3245,6 +3405,9 @@ export default function Page() {
       a.download = `nota_${viewingReviewNote.noteNumber || viewingReviewNote.id}_corrigida.xml`;
       a.click();
       URL.revokeObjectURL(url);
+      if (unmatched > 0) {
+        setNotification({ type: 'error', message: `${unmatched} item(ns) não foram encontrados no XML original e saíram sem impostos no XML corrigido — confira antes de importar no PDV.` });
+      }
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erro ao gerar XML corrigido.' });
     }
@@ -5551,9 +5714,31 @@ export default function Page() {
     setViewingNoteMultipliers(sp(pM, newItems.map(() => pM[srcIdx])));
     setViewingNoteMeasureConverted(sp(pC, newItems.map(() => pC[srcIdx])));
     setViewingNoteReviewTimestamps(sp(pT, newItems.map(() => null)));
+    // Colunas em "R$ total do item" (fixed_total — inclui IPI/ICMS ST importados do XML) são
+    // repartidas entre as partes na proporção do valor (qtd × preço) de cada uma, em centavos,
+    // com o resto na última; copiar o total pra cada parte multiplicava o valor no custo.
+    // % e R$ por unidade continuam copiados — valem igual pra qualquer parte.
+    const partValues = newItems.map(it => (it.qty || 0) * (it.price || 0));
+    const partTotal = partValues.reduce((a, b) => a + b, 0);
+    const splitTotal = (raw: string): string[] => {
+      const v = parseFloat(raw ?? '');
+      if (isNaN(v) || v <= 0) return newItems.map(() => raw ?? '');
+      const cents = Math.round(v * 100);
+      let used = 0;
+      return newItems.map((_, j) => {
+        const part = j === newItems.length - 1 ? cents - used
+          : Math.round(cents * (partTotal > 0 ? partValues[j] / partTotal : 1 / newItems.length));
+        used += part;
+        return (part / 100).toFixed(2);
+      });
+    };
     setAdjColumns(prev => prev.map((col, ci) => {
       const pItems = ci === 0 ? pDisc : ci === 1 ? pSur : col.items;
-      return { ...col, items: sp(pItems, newItems.map(() => pItems[srcIdx] ?? '')) };
+      const src = pItems[srcIdx] ?? '';
+      const reps = col.mode === 'individual' && col.individualType === 'fixed_total'
+        ? splitTotal(src)
+        : newItems.map(() => src);
+      return { ...col, items: sp(pItems, reps) };
     }));
     setViewingNoteDiscrepancies(sp(pDiscr, newItems.map(() => null)));
     setViewingNoteItemPrices(sp(pIP, multiLinkItemEntries.map(e => {
@@ -5614,7 +5799,9 @@ export default function Page() {
   // importação de nota: SKU exato, EAN (principal ou adicional), Produto Mãe (embalagem),
   // mapeamento de fornecedor por código/descrição. O que não bater fica "Não Encontrado" para o
   // usuário vincular manualmente na revisão.
-  type NoteImportRow = { ean: string; sku: string; description: string; unit: string; qty: number; price: number };
+  // `nfeDet` = nItem do <det> de origem quando a linha vem de um XML de NFe — guardado no item
+  // (nfe_det) para o XML corrigido saber de qual <det> original tirar os impostos do item.
+  type NoteImportRow = { ean: string; sku: string; description: string; unit: string; qty: number; price: number; nfeDet?: number };
   const buildProcessedNoteItems = async (rows: NoteImportRow[], supplierIdForMapping: string) => {
     const { data: currentProducts } = await supabase.from('products').select('*');
     const { data: extraEanRows } = await supabase.from('product_ean_codes').select('ean, product_id');
@@ -5639,7 +5826,7 @@ export default function Page() {
 
     const processedItems: any[] = [];
 
-    for (const { ean: finalEan, sku, description, unit, qty, price } of rows) {
+    for (const { ean: finalEan, sku, description, unit, qty, price, nfeDet } of rows) {
       const motherPackage = finalEan ? motherEanToPackage.get(finalEan) : undefined;
       const finalEanProductId = finalEan ? eanToProductId.get(finalEan) : undefined;
       let product = motherPackage
@@ -5721,6 +5908,7 @@ export default function Page() {
         mother_package_id: motherMatch?.id || null,
         mother_package_name: motherMatch?.name || null,
         mother_package_ean: motherMatch?.ean || null,
+        ...(nfeDet != null ? { nfe_det: nfeDet } : {}),
       });
     }
 
