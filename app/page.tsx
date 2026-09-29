@@ -11942,7 +11942,10 @@ export default function Page() {
                                 </span>
                               );
                             })()}
-                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}>
+                            <div style={cell({ justifyContent: 'center', overflow: 'visible', gap: '6px' })}
+                              onFocus={e => focusCell(e.currentTarget)}
+                              onBlur={e => blurCell(e.currentTarget)}
+                            >
                             <div className="flex items-center gap-1.5 relative">
                             {viewingNoteQtyPriceEdited[idx] && (
                               <span
@@ -11958,7 +11961,7 @@ export default function Page() {
                                 onPaste={e => handleNoteColumnPaste(e, idx, 'qty')}
                                 onBlur={captureSnapshot}
                                 onWheel={blockWheelChange}
-                                className="w-16 text-center text-sm font-black bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
+                                className="w-16 text-center text-sm font-black bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden" style={{ color: 'var(--rn-text)' }} />
                             ) : (() => {
                               // Mesmo padrão visual da coluna Qtd. Env. da Distribuição: botão
                               // circular colorido (seta) + quantidade efetiva em negrito + qtd.
