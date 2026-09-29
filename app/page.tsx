@@ -7063,9 +7063,9 @@ export default function Page() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
+              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-[1180px] h-[min(860px,calc(100vh-32px))] flex flex-col overflow-hidden border border-black/10 dark:border-white/[0.08]"
             >
-              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
+              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
                   <Package size={20} />
                 </div>
@@ -7084,7 +7084,7 @@ export default function Page() {
                 </button>
               </div>
 
-              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
+              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08] shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditProductTab('dados')}
@@ -7132,8 +7132,9 @@ export default function Page() {
               <form
                 onSubmit={handleEditProduct}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
-                className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
+                className="flex-1 min-h-0 flex flex-col"
               >
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
                 {editProductTab === 'dados' && editStatus === 'success' && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -7160,6 +7161,9 @@ export default function Page() {
                   const sectionHeadCls = 'flex items-center gap-2';
                   const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
                   const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+                  const costNum = Number(editingProduct.costPrice) || 0;
+                  const priceNum = Number(editingProduct.price) || 0;
+                  const editMarkup = costNum > 0 && priceNum > 0 ? ((priceNum - costNum) / costNum) * 100 : null;
                   const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
                   const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
                   const statusOptions: { value: string; label: string }[] = [
@@ -7170,13 +7174,15 @@ export default function Page() {
                   ];
                   return (
                 <>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 items-start">
+                  {/* Coluna principal: Identificação + Estoque & Preço */}
+                  <div className="space-y-4 min-w-0">
                   <div className={sectionCls}>
                     <div className={sectionHeadCls}>
                       <Package size={15} className="text-primary shrink-0" />
                       <span className={sectionTitleCls}>Identificação</span>
                     </div>
-                    <div className={fieldGridCls}>
+                    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3.5">
                       <div className="space-y-1.5">
                         <label className={labelCls}>Nome do Produto</label>
                         <input
@@ -7227,9 +7233,17 @@ export default function Page() {
                     <div className={sectionHeadCls}>
                       <BarChart3 size={15} className="text-primary shrink-0" />
                       <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                      {editMarkup !== null && (
+                        <span className={cn(
+                          'ml-auto px-2.5 py-0.5 rounded-full text-[10.5px] font-black',
+                          editMarkup >= 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                        )}>
+                          {editMarkup >= 0 ? '+' : ''}{editMarkup.toFixed(1).replace('.', ',')}% markup
+                        </span>
+                      )}
                     </div>
-                    <div className={fieldGridCls}>
-                      <div className="md:col-span-2 space-y-1.5">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                      <div className="col-span-2 md:col-span-4 space-y-1.5">
                         <label className={labelCls}>Empresa</label>
                         <select
                           value={editProductCompanyId}
@@ -7243,7 +7257,7 @@ export default function Page() {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label className={labelCls}>Quantidade em Estoque</label>
+                        <label className={labelCls}>Qtd. em Estoque</label>
                         <input
                           type="number"
                           value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
@@ -7307,7 +7321,7 @@ export default function Page() {
                           className={inputCls}
                         />
                       </div>
-                      <div className="md:col-span-2 space-y-1.5">
+                      <div className="col-span-2 md:col-span-4 space-y-1.5">
                         <label className={labelCls}>Status</label>
                         <div className="flex flex-wrap gap-2">
                           {statusOptions.map(opt => (
@@ -7330,6 +7344,50 @@ export default function Page() {
                     </div>
                   </div>
 
+                  </div>
+
+                  {/* Coluna lateral: Imagem + Organização + Detalhes */}
+                  <div className="space-y-4 min-w-0">
+                  <div className={sectionCls}>
+                    <div className={sectionHeadCls}>
+                      <ImageIcon size={15} className="text-primary shrink-0" />
+                      <span className={sectionTitleCls}>Imagem</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
+                        {editingProduct.image ? (
+                          <ProductImage src={editingProduct.image} alt={editingProduct.name} />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="flex-1 flex gap-2 min-w-0">
+                        <input
+                          type="text"
+                          value={editingProduct.image}
+                          onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
+                          className={cn(inputCls, 'flex-1 min-w-0')}
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="file"
+                          ref={editImageInputRef}
+                          onChange={(e) => handleImageUpload(e, true)}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => editImageInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
+                          title="Upload do computador"
+                        >
+                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                   <div className={sectionCls}>
                     <div className={sectionHeadCls}>
                       <BookText size={15} className="text-primary shrink-0" />
@@ -7407,96 +7465,9 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <ImageIcon size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Imagem</span>
-                    </div>
-                    <div className="flex gap-3 items-center">
-                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
-                        {editingProduct.image ? (
-                          <ProductImage src={editingProduct.image} alt={editingProduct.name} />
-                        ) : (
-                          <ImageIcon size={20} />
-                        )}
-                      </div>
-                      <div className="flex-1 flex gap-2 min-w-0">
-                        <input
-                          type="text"
-                          value={editingProduct.image}
-                          onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
-                          className={cn(inputCls, 'flex-1 min-w-0')}
-                          placeholder="https://..."
-                        />
-                        <input
-                          type="file"
-                          ref={editImageInputRef}
-                          onChange={(e) => handleImageUpload(e, true)}
-                          className="hidden"
-                          accept="image/*"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => editImageInputRef.current?.click()}
-                          disabled={uploading}
-                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
-                          title="Upload do computador"
-                        >
-                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                <div className="pt-2 flex flex-col gap-3">
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowEditModal(false)}
-                      className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={editStatus === 'loading' || editStatus === 'success'}
-                      className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50"
-                    >
-                      {editStatus === 'loading' ? 'Salvando...' : editStatus === 'success' ? 'Sucesso!' : 'Salvar Alterações'}
-                    </button>
-                  </div>
-
-                  {!showDeleteConfirm ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full text-primary text-[10px] font-bold uppercase tracking-wider hover:underline py-2"
-                    >
-                      Excluir Produto
-                    </button>
-                  ) : (
-                    <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border border-red-100 dark:border-red-900 flex flex-col gap-3">
-                      <p className="text-xs text-red-700 dark:text-red-400 font-bold text-center uppercase">Confirmar Exclusão?</p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 bg-white dark:bg-white/10 border border-slate-200 dark:border-transparent text-secondary text-[10px] font-bold py-2 rounded uppercase"
-                        >
-                          Não, Manter
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleDeleteProduct}
-                          className="flex-1 bg-red-500 text-white text-[10px] font-bold py-2 rounded uppercase"
-                        >
-                          Sim, Excluir
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
                 </>
                   );
                 })()}
@@ -7506,9 +7477,9 @@ export default function Page() {
                 )}
 
                 {editProductTab === 'historico' && (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {editProductEanHistory.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-center text-secondary/60">
+                      <div className="lg:col-span-2 flex flex-col items-center justify-center py-16 text-center text-secondary/60">
                         <FileText size={32} className="mb-3 opacity-40" />
                         <p className="text-sm font-bold">Nenhum registro encontrado</p>
                         <p className="text-xs mt-1 max-w-xs">
@@ -7594,7 +7565,97 @@ export default function Page() {
                     })}
                   </div>
                 )}
+                </div>
+
+                {/* Rodapé fixo — Excluir / Cancelar / Salvar (Salvar e Excluir só valem para a aba Dados) */}
+                <div className="shrink-0 flex items-center gap-2.5 px-6 py-3 bg-[#FFF7B0] dark:bg-[#252520] border-t border-[#DDD000] dark:border-white/[0.06]">
+                  {editProductTab === 'dados' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="h-11 px-5 rounded-[13px] inline-flex items-center gap-2 text-[13px] font-extrabold text-primary bg-primary/[0.07] dark:bg-primary/10 border-[1.5px] border-primary/[0.28] dark:border-primary/35 hover:bg-primary/[0.14] active:scale-[0.97] transition-all"
+                    >
+                      <Trash2 size={15} />
+                      Excluir
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
+                    }}
+                    className="ml-auto h-11 px-5 rounded-[13px] text-[13px] font-extrabold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/60 dark:text-[#F2F0E3]/60 hover:bg-black/[0.13] dark:hover:bg-white/[0.11] active:scale-[0.97] transition-all"
+                  >
+                    {editProductTab === 'dados' ? 'Cancelar' : 'Fechar'}
+                  </button>
+                  {editProductTab === 'dados' && (
+                    <button
+                      type="submit"
+                      disabled={editStatus === 'loading' || editStatus === 'success'}
+                      className={cn(
+                        'h-11 px-5 min-w-[190px] rounded-[13px] inline-flex items-center justify-center gap-2 text-[13px] font-extrabold text-white active:scale-[0.97] transition-all disabled:cursor-default',
+                        editStatus === 'success' ? 'bg-emerald-700' : 'bg-primary hover:bg-[#BF1A1A] shadow-lg shadow-primary/30 disabled:opacity-60'
+                      )}
+                    >
+                      {editStatus === 'loading'
+                        ? <><span className="w-3.5 h-3.5 border-2 border-white/35 border-t-white rounded-full animate-spin" />Salvando…</>
+                        : editStatus === 'success' ? <><Check size={15} />Salvo!</>
+                        : <><Save size={15} />Salvar Alterações</>}
+                    </button>
+                  )}
+                </div>
               </form>
+
+              {/* Janela de confirmação de exclusão — sobre o modal, em vez de expandir o rodapé */}
+              <AnimatePresence>
+                {showDeleteConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute inset-0 z-10 flex items-center justify-center p-4 bg-[#1A1A0E]/35 backdrop-blur-[2px]"
+                    onMouseDown={e => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }}
+                    onKeyDown={e => { if (e.key === 'Escape') setShowDeleteConfirm(false); }}
+                  >
+                    <motion.div
+                      role="alertdialog"
+                      aria-modal="true"
+                      initial={{ scale: 0.97 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0.97 }}
+                      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                      className="w-full max-w-[400px] rounded-[22px] bg-[#FDFAF0] dark:bg-[#252520] border border-black/10 dark:border-white/[0.08] shadow-2xl px-6 pt-6 pb-5 text-center"
+                    >
+                      <div className="w-[54px] h-[54px] mx-auto mb-3.5 rounded-[18px] bg-primary/10 text-primary flex items-center justify-center">
+                        <Trash2 size={24} />
+                      </div>
+                      <h3 className="text-base font-black text-[#1A1A0E] dark:text-[#F2F0E3] mb-1.5">Excluir produto?</h3>
+                      <p className="text-[13px] leading-snug text-[#1A1A0E]/50 dark:text-[#F2F0E3]/45">
+                        <b className="font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3]">{editingProduct.name || 'Este produto'}</b> será removido do cadastro. Essa ação não pode ser desfeita.
+                      </p>
+                      <div className="flex gap-2 mt-5">
+                        <button
+                          type="button"
+                          autoFocus
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="flex-1 h-11 rounded-[13px] text-[13px] font-extrabold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/60 dark:text-[#F2F0E3]/60 hover:bg-black/[0.13] dark:hover:bg-white/[0.11] active:scale-[0.97] transition-all"
+                        >
+                          Não, manter
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteProduct}
+                          className="flex-1 h-11 rounded-[13px] text-[13px] font-extrabold bg-primary hover:bg-[#BF1A1A] text-white active:scale-[0.97] transition-all"
+                        >
+                          Sim, excluir
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </div>
           )

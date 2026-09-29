@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Editar Produto (largo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800;900&family=Manrope:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --page-bg:       #FFFCEC;
+    --overlay:       rgba(26,26,10,0.40);
+    --modal-bg:      #F0E7CC;
+    --modal-border:  rgba(26,26,10,0.10);
+    --header-bg:     #FFE500;
+    --header-border: #D4C000;
+    --chip-bg:       rgba(26,26,10,0.09);
+    --chip-color:    #1A1A0E;
+    --title:         #1A1A0E;
+    --subtitle:      rgba(26,26,10,0.55);
+    --close-bg:      rgba(26,26,10,0.08);
+    --close-border:  rgba(26,26,10,0.10);
+    --close-color:   rgba(26,26,10,0.50);
+
+    --tab-border:    rgba(26,26,10,0.10);
+    --tab-idle:      rgba(74,63,46,0.75);
+    --tab-hover:     #1A1A0E;
+    --badge-bg:      rgba(26,26,10,0.06);
+
+    --card-bg:       #FFFFFF;
+    --card-border:   rgba(26,26,10,0.07);
+    --section-title: #1A1A0E;
+    --label:         rgba(74,63,46,0.80);
+    --input-bg:      rgba(26,26,10,0.035);
+    --input-border:  rgba(26,26,10,0.10);
+    --input-text:    #1A1208;
+    --input-ph:      rgba(26,26,10,0.30);
+    --muted:         rgba(26,26,10,0.45);
+
+    --chip-idle-bg:  rgba(26,26,10,0.035);
+    --chip-idle-bd:  rgba(26,26,10,0.10);
+    --chip-idle-tx:  rgba(74,63,46,0.70);
+
+    --footer-bg:     #FFF7B0;
+    --footer-border: #DDD000;
+    --cancel-bg:     rgba(26,26,10,0.08);
+    --cancel-hover:  rgba(26,26,10,0.13);
+    --cancel-text:   rgba(26,26,10,0.60);
+    --del-bg:        rgba(216,30,30,0.07);
+    --del-border:    rgba(216,30,30,0.28);
+
+    --dialog-bg:     #FDFAF0;
+    --dialog-border: rgba(26,26,10,0.10);
+    --primary:       #D81E1E;
+    --emerald:       #0A7A55;
+    --emerald-bg:    rgba(16,185,129,0.10);
+  }
+
+  [data-theme="dark"] {
+    --page-bg:       #161612;
+    --overlay:       rgba(0,0,0,0.55);
+    --modal-bg:      #1E1E18;
+    --modal-border:  rgba(242,240,227,0.08);
+    --header-bg:     #FFE500;
+    --header-border: #C8B800;
+    --chip-bg:       rgba(216,30,30,0.16);
+    --chip-color:    #D81E1E;
+    --title:         #1A1A0E;
+    --subtitle:      rgba(26,26,10,0.55);
+    --close-bg:      rgba(26,26,10,0.08);
+    --close-border:  rgba(26,26,10,0.10);
+    --close-color:   rgba(26,26,10,0.50);
+
+    --tab-border:    rgba(242,240,227,0.08);
+    --tab-idle:      rgba(242,240,227,0.45);
+    --tab-hover:     #F2F0E3;
+    --badge-bg:      rgba(242,240,227,0.08);
+
+    --card-bg:       #252520;
+    --card-border:   rgba(242,240,227,0.06);
+    --section-title: #F2F0E3;
+    --label:         rgba(242,240,227,0.50);
+    --input-bg:      rgba(242,240,227,0.05);
+    --input-border:  rgba(242,240,227,0.10);
+    --input-text:    #F2F0E3;
+    --input-ph:      rgba(242,240,227,0.25);
+    --muted:         rgba(242,240,227,0.40);
+
+    --chip-idle-bg:  rgba(242,240,227,0.05);
+    --chip-idle-bd:  rgba(242,240,227,0.10);
+    --chip-idle-tx:  rgba(242,240,227,0.55);
+
+    --footer-bg:     #252520;
+    --footer-border: rgba(242,240,227,0.06);
+    --cancel-bg:     rgba(242,240,227,0.07);
+    --cancel-hover:  rgba(242,240,227,0.11);
+    --cancel-text:   rgba(242,240,227,0.60);
+    --del-bg:        rgba(216,30,30,0.10);
+    --del-border:    rgba(216,30,30,0.35);
+
+    --dialog-bg:     #252520;
+    --dialog-border: rgba(242,240,227,0.08);
+    --emerald:       #34D399;
+    --emerald-bg:    rgba(52,211,153,0.10);
+  }
+
+  html, body { background: var(--page-bg); }
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif; color: var(--input-text);
+    min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  .banner {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100;
+    background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 99px;
+    display: flex; gap: 12px; align-items: center; white-space: nowrap;
+  }
+  .banner a { color: #FFE500; text-decoration: none; font-weight: 800; }
+
+  .backdrop {
+    position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; padding: 16px; padding-top: 52px;
+  }
+
+  .modal {
+    position: relative; width: 100%; max-width: 1180px; height: min(860px, calc(100vh - 68px));
+    background: var(--modal-bg); border: 1px solid var(--modal-border); border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30); overflow: hidden;
+    display: flex; flex-direction: column;
+    animation: pop 200ms cubic-bezier(0.23,1,0.32,1);
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+
+  /* Header */
+  .m-head {
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+    padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+  }
+  .chip { width: 44px; height: 44px; border-radius: 16px; background: var(--chip-bg); color: var(--chip-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .m-title { font-family: 'Manrope', sans-serif; font-size: 18px; font-weight: 800; color: var(--title); line-height: 1.2; }
+  .m-sub { font-size: 12px; font-weight: 700; color: var(--subtitle); margin-top: 2px; }
+  .close {
+    margin-left: auto; width: 36px; height: 36px; border-radius: 12px; background: var(--close-bg); border: 1px solid var(--close-border);
+    color: var(--close-color); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 140ms, transform 150ms;
+  }
+  .close:hover { background: rgba(26,26,10,0.14); }
+  .close:active { transform: scale(0.93); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; padding: 10px 22px 0; border-bottom: 1px solid var(--tab-border); flex-shrink: 0; }
+  .tab {
+    padding: 10px 16px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+    color: var(--tab-idle); font-family: inherit; display: flex; align-items: center; gap: 6px; transition: color 140ms;
+  }
+  .tab:hover { color: var(--tab-hover); }
+  .tab.on { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab .n { padding: 2px 6px; border-radius: 99px; font-size: 10px; font-weight: 900; background: var(--badge-bg); }
+  .tab.on .n { background: rgba(216,30,30,0.10); }
+
+  /* Body */
+  .m-body { flex: 1; overflow-y: auto; padding: 20px 22px 22px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .section { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 18px 20px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .s-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .s-head svg { color: var(--primary); flex-shrink: 0; }
+  .s-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--section-title); }
+  .s-note { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+
+  .row { display: grid; gap: 12px; }
+  .row + .row { margin-top: 14px; }
+  .r-ident { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+  .r-ean { grid-template-columns: minmax(0, 1fr); }
+  .r-stock { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .r-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .lbl { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--label); white-space: nowrap; }
+  .inp {
+    width: 100%; height: 42px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px;
+    padding: 0 14px; font-family: inherit; font-size: 14px; color: var(--input-text); outline: none;
+    transition: border-color 130ms, box-shadow 130ms;
+  }
+  .inp::placeholder { color: var(--input-ph); }
+  .inp:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(216,30,30,0.14); }
+  .inp.r { text-align: right; font-family: 'DM Mono', monospace; font-size: 13px; }
+  textarea.inp { height: auto; padding: 10px 14px; resize: none; line-height: 1.45; }
+  select.inp { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer; }
+  .with-btn { display: flex; gap: 8px; }
+  .sq {
+    width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: rgba(216,30,30,0.08); border: 1px solid rgba(216,30,30,0.16); color: var(--primary); transition: background 130ms, transform 130ms;
+  }
+  .sq:hover { background: rgba(216,30,30,0.14); }
+  .sq:active { transform: scale(0.94); }
+  .pre-wrap { position: relative; }
+  .pre-wrap .pre { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 900; color: var(--muted); pointer-events: none; }
+  .pre-wrap .inp { padding-left: 34px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .st {
+    padding: 8px 14px; border-radius: 99px; font-size: 11px; font-weight: 800; border: 1.5px solid var(--chip-idle-bd);
+    background: var(--chip-idle-bg); color: var(--chip-idle-tx); cursor: pointer; font-family: inherit; transition: all 130ms;
+  }
+  .st.on { background: rgba(216,30,30,0.10); border-color: var(--primary); color: var(--primary); }
+
+  .markup { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 10.5px; font-weight: 900; background: var(--emerald-bg); color: var(--emerald); }
+
+  .img-row { display: flex; gap: 12px; align-items: center; }
+  .img-box {
+    width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px; background: var(--input-bg); border: 1px solid var(--input-border);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted);
+  }
+  .img-box img { width: 100%; height: 100%; object-fit: contain; }
+
+  .tab-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 100%; color: var(--muted); font-size: 13px; font-weight: 600; text-align: center; }
+  .tab-empty b { color: var(--section-title); font-size: 14px; }
+
+  /* Footer fixo */
+  .m-foot {
+    flex-shrink: 0; background: var(--footer-bg); border-top: 1px solid var(--footer-border);
+    padding: 12px 22px; display: flex; align-items: center; gap: 10px;
+  }
+  .btn {
+    height: 44px; padding: 0 20px; border-radius: 13px; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px; border: none; transition: background 140ms, opacity 140ms, transform 150ms;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-del { background: var(--del-bg); border: 1.5px solid var(--del-border); color: var(--primary); }
+  .btn-del:hover { background: rgba(216,30,30,0.14); }
+  .btn-cancel { margin-left: auto; background: var(--cancel-bg); color: var(--cancel-text); }
+  .btn-cancel:hover { background: var(--cancel-hover); }
+  .btn-save { background: #D81E1E; color: #fff; box-shadow: 0 8px 18px -6px rgba(216,30,30,0.45); min-width: 190px; justify-content: center; }
+  .btn-save:hover { background: #BF1A1A; }
+  .btn-save.ok { background: #0A7A55; box-shadow: none; }
+  .foot-hint { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: sp 700ms linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* Diálogo de exclusão */
+  .dlg-back {
+    position: absolute; inset: 0; background: rgba(26,26,10,0.35); backdrop-filter: blur(2px); z-index: 10;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    opacity: 0; pointer-events: none; transition: opacity 180ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .dlg-back.open { opacity: 1; pointer-events: auto; }
+  .dlg {
+    width: 100%; max-width: 400px; background: var(--dialog-bg); border: 1px solid var(--dialog-border); border-radius: 22px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); padding: 26px 24px 20px; text-align: center;
+    transform: scale(0.97); transition: transform 200ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .dlg-back.open .dlg { transform: scale(1); }
+  .dlg-ic { width: 54px; height: 54px; margin: 0 auto 14px; border-radius: 18px; background: rgba(216,30,30,0.10); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+  .dlg h3 { font-size: 16px; font-weight: 900; color: var(--section-title); margin-bottom: 6px; }
+  .dlg p { font-size: 13px; font-weight: 500; color: var(--muted); line-height: 1.45; }
+  .dlg p b { color: var(--section-title); font-weight: 800; }
+  .dlg-actions { display: flex; gap: 8px; margin-top: 20px; }
+  .dlg-actions .btn { flex: 1; justify-content: center; }
+  .btn-keep { background: var(--cancel-bg); color: var(--cancel-text); }
+  .btn-keep:hover { background: var(--cancel-hover); }
+  .btn-confirm-del { background: #D81E1E; color: #fff; }
+  .btn-confirm-del:hover { background: #BF1A1A; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 8px); opacity: 0; z-index: 200;
+    background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 700; padding: 9px 14px; border-radius: 11px;
+    transition: opacity 180ms, transform 180ms cubic-bezier(0.23,1,0.32,1); pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .r-stock { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .r-ident { grid-template-columns: 1fr; }
+    .foot-hint { display: none; }
+    .btn-save { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="banner">Mockup — Editar Produto (largura do Cadastro Rápido) <span id="themeLink"></span></div>
+
+<div class="backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <!-- Header -->
+    <div class="m-head">
+      <div class="chip">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+      </div>
+      <div>
+        <div class="m-title" id="mTitle">Editar Produto</div>
+        <div class="m-sub" id="mSub">brinquedo boneco ninja escalador</div>
+      </div>
+      <button class="close" title="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab on" data-tab="dados">Dados</button>
+      <button class="tab" data-tab="mae">Produto Mãe</button>
+      <button class="tab" data-tab="hist">Histórico em Notas <span class="n">4</span></button>
+    </div>
+
+    <!-- Body -->
+    <div class="m-body" id="body">
+      <div class="grid" id="tabDados">
+        <!-- Coluna principal -->
+        <div class="col">
+          <div class="section">
+            <div class="s-head">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+              <span class="s-title">Identificação</span>
+            </div>
+            <div class="row r-ident">
+              <div class="fld">
+                <label class="lbl">Nome do Produto</label>
+                <input class="inp" id="name" value="brinquedo boneco ninja escalador" />
+              </div>
+              <div class="fld">
+                <label class="lbl">SKU (Código Interno)</label>
+                <div class="with-btn">
+                  <input class="inp mono" id="sku" placeholder="Gerar ou digitar" style="font-size:13px" />
+                  <button class="sq" id="genSku" title="Gerar SKU">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="row r-ean">
+              <div class="fld">
+                <label class="lbl">Código EAN</label>
+                <div class="with-btn">
+                  <input class="inp mono" value="7899763206704" style="font-size:13px" />
+                  <button class="sq" title="Adicionar EAN">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="s-head">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-4"/></svg>
+              <span class="s-title">Estoque &amp; Preço</span>
+              <span class="s-note"><span class="markup" id="markup">+ 92,3% markup</span></span>
+            </div>
+            <div class="row">
+              <div class="fld">
+                <label class="lbl">Empresa</label>
+                <select class="inp"><option>UNIVERSO DO R$1,99</option><option>CASTELO REAL</option><option>LOJA NORTE</option></select>
+              </div>
+            </div>
+            <div class="row r-stock">
+              <div class="fld">
+                <label class="lbl">Qtd. em Estoque</label>
+                <input class="inp r" value="80" />
+              </div>
+              <div class="fld">
+                <label class="lbl">Estoque Mínimo</label>
+                <input class="inp r" placeholder="Não definido" />
+              </div>
+              <div class="fld">
+                <label class="lbl">Preço de Custo</label>
+                <div class="pre-wrap"><span class="pre">R$</span><input class="inp r" id="cost" value="10,40" /></div>
+              </div>
+              <div class="fld">
+                <label class="lbl">Preço de Venda</label>
+                <div class="pre-wrap"><span class="pre">R$</span><input class="inp r" id="sell" value="20,00" /></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="fld">
+                <label class="lbl">Status</label>
+                <div class="chips" id="status">
+                  <button class="st">Estoque Baixo</button>
+                  <button class="st on">Em Estoque</button>
+                  <button class="st">Estoque em Alta</button>
+                  <button class="st">Fora de Estoque</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Coluna lateral -->
+        <div class="col">
+          <div class="section">
+            <div class="s-head">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+              <span class="s-title">Imagem</span>
+            </div>
+            <div class="img-row">
+            <div class="img-box">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+            </div>
+            <div class="with-btn" style="flex:1;min-width:0">
+              <input class="inp" placeholder="https://..." />
+              <button class="sq" title="Upload do computador" style="background:var(--input-bg);border-color:var(--input-border);color:var(--muted)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              </button>
+            </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="s-head">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+              <span class="s-title">Organização</span>
+            </div>
+            <div class="row r-2">
+              <div class="fld"><label class="lbl">Localização</label><select class="inp"><option>Não atribuído</option><option>Corredor 3</option></select></div>
+              <div class="fld"><label class="lbl">Categoria</label><select class="inp"><option>Brinquedos</option><option>Geral</option></select></div>
+            </div>
+            <div class="row r-2">
+              <div class="fld"><label class="lbl">Subcategoria</label><select class="inp"><option>Bonecos</option><option>Geral</option></select></div>
+              <div class="fld"><label class="lbl">Fabricante/Marca</label><select class="inp"><option>- Selecionar -</option></select></div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="s-head">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+              <span class="s-title">Detalhes</span>
+            </div>
+            <div class="fld">
+              <label class="lbl">Composição</label>
+              <textarea class="inp" rows="3" placeholder="Ingredientes / composição do produto..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-empty" id="tabOther" style="display:none">
+        <b id="tabOtherTitle"></b>
+        <span>Conteúdo da aba permanece igual ao atual — só ganha a largura nova.</span>
+      </div>
+    </div>
+
+    <!-- Rodapé fixo -->
+    <div class="m-foot" id="foot">
+      <button class="btn btn-del" id="delBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+        Excluir
+      </button>
+      <span class="foot-hint" id="footHint"></span>
+      <button class="btn btn-cancel" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-save" id="saveBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        <span id="saveTxt">Salvar Alterações</span>
+      </button>
+    </div>
+
+    <!-- Janela de confirmação de exclusão -->
+    <div class="dlg-back" id="dlgBack">
+      <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle">
+        <div class="dlg-ic">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+        </div>
+        <h3 id="dlgTitle">Excluir produto?</h3>
+        <p><b id="dlgName">brinquedo boneco ninja escalador</b> será removido do cadastro. Essa ação não pode ser desfeita.</p>
+        <div class="dlg-actions">
+          <button class="btn btn-keep" id="keepBtn">Não, manter</button>
+          <button class="btn btn-confirm-del" id="confirmDelBtn">Sim, excluir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  $('themeLink').innerHTML = isDark
+    ? '<a href="mockup-editar-produto-largo-light.html">Ver claro →</a>'
+    : '<a href="mockup-editar-produto-largo-dark.html">Ver escuro →</a>';
+
+  function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1700); }
+
+  // Abas — rodapé com Salvar/Excluir só faz sentido na aba Dados
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    const dados = t.dataset.tab === 'dados';
+    $('tabDados').style.display = dados ? '' : 'none';
+    $('tabOther').style.display = dados ? 'none' : '';
+    $('tabOtherTitle').textContent = t.textContent.replace(/\d+/, '').trim();
+    $('delBtn').style.display = dados ? '' : 'none';
+    $('saveBtn').style.display = dados ? '' : 'none';
+    $('cancelBtn').textContent = dados ? 'Cancelar' : 'Fechar';
+    $('footHint').textContent = dados ? '' : 'Alterações desta aba são salvas nela mesma';
+  });
+
+  // Status
+  document.querySelectorAll('.st').forEach(b => b.onclick = () => document.querySelectorAll('.st').forEach(x => x.classList.toggle('on', x === b)));
+
+  // Markup ao vivo
+  const num = v => parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
+  function upd() {
+    const c = num($('cost').value), s = num($('sell').value); const m = $('markup');
+    if (c > 0 && s > 0) { const mk = (s - c) / c * 100; m.style.display = ''; m.textContent = `${mk >= 0 ? '+' : ''} ${mk.toFixed(1).replace('.', ',')}% markup`; }
+    else m.style.display = 'none';
+  }
+  $('cost').oninput = upd; $('sell').oninput = upd; upd();
+  $('name').oninput = e => { $('mSub').textContent = e.target.value || 'Produto sem nome'; $('dlgName').textContent = e.target.value || 'Este produto'; };
+  $('genSku').onclick = () => { $('sku').value = 'BRQ-' + Math.floor(1000 + Math.random() * 9000); };
+
+  // Salvar
+  $('saveBtn').onclick = () => {
+    const b = $('saveBtn'); b.disabled = true;
+    b.querySelector('svg').style.display = 'none';
+    $('saveTxt').innerHTML = '<span class="spin" style="display:inline-block;vertical-align:-2px;margin-right:8px"></span>Salvando…';
+    setTimeout(() => { b.classList.add('ok'); $('saveTxt').textContent = 'Salvo!'; }, 700);
+    setTimeout(() => { b.classList.remove('ok'); b.disabled = false; b.querySelector('svg').style.display = ''; $('saveTxt').textContent = 'Salvar Alterações'; }, 2000);
+  };
+  $('cancelBtn').onclick = () => toast('Fecha sem salvar');
+
+  // Excluir → janela de pergunta
+  const openDlg = () => { $('dlgBack').classList.add('open'); setTimeout(() => $('keepBtn').focus(), 50); };
+  const closeDlg = () => $('dlgBack').classList.remove('open');
+  $('delBtn').onclick = openDlg;
+  $('keepBtn').onclick = closeDlg;
+  $('confirmDelBtn').onclick = () => { closeDlg(); toast('Produto excluído'); };
+  $('dlgBack').onmousedown = e => { if (e.target === $('dlgBack')) closeDlg(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDlg(); });
+</script>
+</body>
+</html>
