@@ -52,9 +52,12 @@ interface ManifestItem {
   measure: string;
   costPrice: number;
   salePriceOrigin: number;
-  // Preenchidos pela loja destino após o envio — decisão 3-B do plano de Distribuição,
-  // substitui o antigo "botão de preço" da nota (pricingByCompany, removido).
+  // Preenchidos pela loja destino após o envio (decisão 3-B do plano de Distribuição). O
+  // preço de venda já chega preenchido quando foi lançado na nota de origem pelo botão
+  // "Precificar para outra empresa" (pricingByCompany).
   salePriceDestination: number | null;
+  // Quando o preço acima foi salvo (aqui ou na nota de origem) — "vale o último salvo".
+  salePriceDestinationAt: string | null;
   verified: boolean;
   // Divergência registrada pela loja destino via botão na coluna Qtd. Env. — substitui o
   // antigo campo solto "Qtd. Receb." (qty_received): agora o Falta/Sobra é explícito e vem
@@ -251,7 +254,7 @@ export function DistributionManifestModal({
     (async () => {
       const { data } = await supabase
         .from('distribution_manifest_items')
-        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, verified, discrepancy')
+        .select('id, product_id, product_name, sku, ean, qty, measure, cost_price, sale_price_origin, sale_price_destination, sale_price_destination_at, verified, discrepancy')
         .eq('manifest_id', manifest.id);
       if (itemsDirtyRef.current) { setLoadingItems(false); return; }
       setItems((data || []).map((r: any) => ({
@@ -265,6 +268,7 @@ export function DistributionManifestModal({
         costPrice: parseFloat(r.cost_price) || 0,
         salePriceOrigin: parseFloat(r.sale_price_origin) || 0,
         salePriceDestination: r.sale_price_destination !== null ? parseFloat(r.sale_price_destination) : null,
+        salePriceDestinationAt: r.sale_price_destination_at ?? null,
         verified: !!r.verified,
         discrepancy: r.discrepancy ?? null,
       })));
@@ -369,6 +373,7 @@ export function DistributionManifestModal({
       costPrice: p.costPrice,
       salePriceOrigin: p.salePriceOrigin,
       salePriceDestination: null,
+      salePriceDestinationAt: null,
       verified: false,
       discrepancy: null,
     }]);
@@ -488,6 +493,7 @@ export function DistributionManifestModal({
             cost_price: it.costPrice,
             sale_price_origin: it.salePriceOrigin,
             sale_price_destination: it.salePriceDestination,
+            sale_price_destination_at: it.salePriceDestinationAt,
             verified: it.verified,
             discrepancy: it.discrepancy,
           }))
@@ -529,15 +535,22 @@ export function DistributionManifestModal({
 
   // Preço de venda / Ok do item — preenchido pela loja destino depois do envio (decisão 3-B).
   // Salva direto (fora do fluxo de "Salvar Rascunho", que fica desabilitado pós-envio) e já
-  // propaga o preço pro Estoque & Preço da loja destino, substituindo o antigo mecanismo da
-  // nota (botão de preço / pricingByCompany, removido).
+  // propaga o preço pro Estoque & Preço da loja destino.
+  // O preço também pode vir da nota de origem (botão "Precificar para outra empresa") — vale o
+  // último salvo entre os dois, por isso o horário só muda quando o preço muda de fato (marcar
+  // o Ok não conta como nova precificação).
   const updateItemPricing = async (itemId: string, productId: string, salePrice: number | null, verified: boolean) => {
-    setItems(prev => prev.map(it => it.id === itemId ? { ...it, salePriceDestination: salePrice, verified } : it));
+    const priceChanged = items.find(it => it.id === itemId)?.salePriceDestination !== salePrice;
     const nowIso = new Date().toISOString();
+    setItems(prev => prev.map(it => it.id === itemId ? {
+      ...it, salePriceDestination: salePrice, verified,
+      ...(priceChanged ? { salePriceDestinationAt: salePrice !== null ? nowIso : null } : {}),
+    } : it));
     await supabase.from('distribution_manifest_items').update({
       sale_price_destination: salePrice,
       verified,
       verified_at: verified ? nowIso : null,
+      ...(priceChanged ? { sale_price_destination_at: salePrice !== null ? nowIso : null } : {}),
     }).eq('id', itemId);
     if (destinationCompanyId && salePrice !== null && salePrice > 0) {
       await supabase.from('product_company_stock').upsert({

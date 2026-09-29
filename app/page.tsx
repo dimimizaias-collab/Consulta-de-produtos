@@ -427,6 +427,52 @@ function getNoteItemMatchCode(ean: string | null | undefined, supplierCode: stri
   return e || (supplierCode || '').trim();
 }
 
+// Preço de venda da loja destino pode ser lançado em dois lugares: na nota (botão
+// "Precificar para outra empresa", item.pricingByCompany[loja].precoAt) e no manifesto de
+// Distribuição (sale_price_destination_at). Regra: vale o último salvo. Sem horário conta
+// como o mais antigo (preços lançados antes dessa regra existir).
+type ManifestPriceEntry = { price: number | null; at: string | null; itemIds: string[] };
+
+function isManifestPriceNewer(manifestAt: string | null, noteAt: string | null, manifestPrice: number | null): boolean {
+  if (manifestPrice === null) return false;
+  if (!noteAt) return true;
+  return !!manifestAt && manifestAt > noteAt;
+}
+
+function isNotePriceNewer(noteAt: string | null, manifestAt: string | null): boolean {
+  if (!noteAt) return false;
+  return !manifestAt || noteAt > manifestAt;
+}
+
+// Itens dos manifestos gerados a partir desta nota, por `${loja destino}:${product_id}`.
+async function fetchNoteManifestPricing(noteId: string, companyIds: string[]): Promise<Record<string, ManifestPriceEntry>> {
+  if (companyIds.length === 0) return {};
+  const { data: manifests } = await supabase
+    .from('distribution_manifests')
+    .select('id, destination_company_id')
+    .eq('source_note_id', noteId)
+    .in('destination_company_id', companyIds);
+  if (!manifests || manifests.length === 0) return {};
+  const destByManifest: Record<string, string> = {};
+  manifests.forEach((m: any) => { destByManifest[m.id] = m.destination_company_id; });
+  const { data: items } = await supabase
+    .from('distribution_manifest_items')
+    .select('id, manifest_id, product_id, sale_price_destination, sale_price_destination_at')
+    .in('manifest_id', Object.keys(destByManifest));
+  const result: Record<string, ManifestPriceEntry> = {};
+  (items || []).forEach((r: any) => {
+    if (!r.product_id) return;
+    const key = `${destByManifest[r.manifest_id]}:${r.product_id}`;
+    const price = r.sale_price_destination !== null ? parseFloat(r.sale_price_destination) : null;
+    const at = r.sale_price_destination_at ?? null;
+    const cur = result[key];
+    if (!cur) { result[key] = { price, at, itemIds: [r.id] }; return; }
+    cur.itemIds.push(r.id);
+    if (at && (!cur.at || at > cur.at)) { cur.price = price; cur.at = at; }
+  });
+  return result;
+}
+
 export default function Page() {
   const { isMobileView } = useViewMode();
   const [activeTab, setActiveTab] = useState('Inventory');
@@ -539,6 +585,9 @@ export default function Page() {
     sellPrices: (number | undefined)[];
     verified: boolean[];
     reviewTimestamps: (string | null)[];
+    // Quando o Preço Venda foi lançado — regra "vale o último salvo" entre a nota e o
+    // manifesto de Distribuição (comparado com sale_price_destination_at do manifesto).
+    priceTimestamps: (string | null)[];
   }>>({});
   const [switchingPriceCompany, setSwitchingPriceCompany] = useState(false);
 
@@ -1957,47 +2006,62 @@ export default function Page() {
     }
 
     // Empresas extras (não-donas) que receberam alguma quantidade via item.distribuicaoByCompany.
-    // Preço de venda (pricingByCompany, opcional) é ressincronizado sempre que já preenchido
-    // (regra "só avança se mais recente"); a quantidade distribuída só é somada UMA VEZ por
-    // empresa (guarda: stockAppliedCompanies), igual à empresa dona.
+    // A quantidade distribuída só é somada UMA VEZ por empresa (guarda: stockAppliedCompanies),
+    // igual à empresa dona. Custo e preço de venda têm cada um sua trava, campo a campo — o
+    // manifesto grava price_received_date com a data do dia ao precificar, e uma trava pela
+    // linha inteira faria a aprovação descartar também a quantidade e o custo desses itens.
     if (hasExtraWork) {
       const alreadyAppliedCompanies = new Set(note.stockAppliedCompanies || []);
       const newlyAppliedCompanies: string[] = [];
+      const manifestPricing = await fetchNoteManifestPricing(note.id, extraCompanyIds);
       for (const extraCompanyId of extraCompanyIds) {
         const extraCandidates = distributionCandidates.filter((item: any) => (Number(item.distribuicaoByCompany?.[extraCompanyId]) || 0) > 0);
         if (extraCandidates.length === 0) continue;
         const extraProductIds = Array.from(new Set(extraCandidates.map((item: any) => item.product_id)));
         const { data: currentExtraStockRows } = await supabase
           .from('product_company_stock')
-          .select('product_id, count, price_received_date')
+          .select('product_id, count, price_received_date, cost_received_date')
           .eq('company_id', extraCompanyId)
           .in('product_id', extraProductIds);
-        const extraStockByProduct: Record<string, { count: number; price_received_date: string | null }> = {};
+        const extraStockByProduct: Record<string, { count: number; price_received_date: string | null; cost_received_date: string | null }> = {};
         (currentExtraStockRows || []).forEach((r: any) => { extraStockByProduct[r.product_id] = r; });
+        const isOlderThanStock = (existingDate: string | null | undefined) =>
+          !!(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
 
         const alreadyAppliedThisCompany = alreadyAppliedCompanies.has(extraCompanyId);
         const extraUpserts = extraCandidates
-          .filter((item: any) => {
-            const existingDate = extraStockByProduct[item.product_id]?.price_received_date || null;
-            return !(noteReceivedDate && existingDate && existingDate > noteReceivedDate);
-          })
           .map((item: any) => {
+            const existing = extraStockByProduct[item.product_id];
             const qty = alreadyAppliedThisCompany ? 0 : (Number(item.distribuicaoByCompany?.[extraCompanyId]) || 0);
-            const nextCount = (extraStockByProduct[item.product_id]?.count || 0) + qty;
-            // Preço de venda NÃO é mais sincronizado aqui — o mecanismo antigo (botão de preço /
-            // pricingByCompany) foi removido da nota. Quem define o preço de venda da loja
-            // destino agora é o próprio manifesto de Distribuição, ao confirmar o recebimento
-            // (decisão 3-B) — ver updateItemPricing em DistributionManifestModal.tsx.
             const payload: any = {
               product_id: item.product_id,
               company_id: extraCompanyId,
-              count: nextCount,
-              // Custo por loja também propaga pra quem recebeu via distribuição — mesmo valor
-              // usado no snapshot do manifesto (Etapa 6 do plano de Distribuição).
-              cost_price: (item.price || 0) + fiscalPerUnit(item),
-              cost_received_date: noteReceivedDate,
+              count: (existing?.count || 0) + qty,
               updated_at: new Date().toISOString(),
             };
+            // Custo por loja também propaga pra quem recebeu via distribuição — mesmo valor
+            // usado no snapshot do manifesto (Etapa 6 do plano de Distribuição).
+            if (!isOlderThanStock(existing?.cost_received_date)) {
+              payload.cost_price = (item.price || 0) + fiscalPerUnit(item);
+              payload.cost_received_date = noteReceivedDate;
+            }
+            // Preço de venda lançado na nota pelo botão "Precificar para outra empresa". Se o
+            // item está num manifesto desta nota, vale o último salvo entre os dois (o manifesto
+            // já grava direto aqui ao ser editado); senão, a trava "só avança se mais recente".
+            const pricing = item.pricingByCompany?.[extraCompanyId];
+            const sellPrice = Number(pricing?.precoVenda) || 0;
+            if (sellPrice > 0) {
+              const manifestPrice = manifestPricing[`${extraCompanyId}:${item.product_id}`];
+              // Mesmo preço nos dois (ex.: o manifesto foi preenchido pela própria nota e só
+              // ela ainda não gravou aqui) — grava; o manifesto só grava quando é editado lá.
+              const noteWins = manifestPrice && manifestPrice.price !== null
+                ? (Math.abs(manifestPrice.price - sellPrice) < 0.005 || isNotePriceNewer(pricing?.precoAt ?? null, manifestPrice.at))
+                : !isOlderThanStock(existing?.price_received_date);
+              if (noteWins) {
+                payload.price = sellPrice;
+                payload.price_received_date = noteReceivedDate;
+              }
+            }
             return supabase.from('product_company_stock').upsert(payload, { onConflict: 'product_id,company_id' });
           });
         if (extraUpserts.length > 0) await Promise.all(extraUpserts);
@@ -2109,10 +2173,11 @@ export default function Page() {
       // coluna "Preço Custo" da tabela de revisão), não do Estoque & Preço da origem — a
       // nota costuma ser enviada em Revisão, antes da aprovação que grava esse preço em
       // product_company_stock, então aquele valor ainda estaria zerado/desatualizado.
-      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number }[]> = {};
+      const byCompany: Record<string, { productId: string; productName: string; sku: string | null; ean: string | null; qty: number; costPrice: number; salePriceDestination: number | null; salePriceDestinationAt: string | null }[]> = {};
       // Itens com quantidade distribuída mas sem produto vinculado ("Não Encontrado") não
       // têm como virar linha de manifesto — antes eram descartados em silêncio.
       const unlinkedWithDist: string[] = [];
+      const nowIsoForPricing = new Date().toISOString();
       note.items.forEach((item: any, idx: number) => {
         const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
         if (!item.product_id && Object.values(dist).some(q => (Number(q) || 0) > 0)) {
@@ -2130,7 +2195,13 @@ export default function Page() {
           const rawCost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
           const { disc, sur } = calcAdjAmounts(rawCost, itemQty || 1, idx, adjColumns.filter(c => !c.fiscal));
           const costPrice = rawCost - disc + sur + calcFiscalPerUnit(adjColumns, idx, itemQty);
+          // Preço de venda já lançado na nota para essa loja (botão "Precificar para outra
+          // empresa") chega pronto no manifesto — a loja destino ainda pode alterar lá.
+          const notePrice = getExtraSellPrice(companyId, idx, item);
+          const hasNotePrice = notePrice !== undefined && notePrice > 0;
           byCompany[companyId].push({
+            salePriceDestination: hasNotePrice ? notePrice : null,
+            salePriceDestinationAt: hasNotePrice ? (getExtraPriceTimestamp(companyId, idx, item) ?? nowIsoForPricing) : null,
             productId: item.product_id,
             productName: item.name || item.original_description || 'Produto',
             sku: (viewingNoteSkus[idx] ?? item.sku) || null,
@@ -2200,6 +2271,8 @@ export default function Page() {
           qty: r.qty,
           cost_price: r.costPrice,
           sale_price_origin: stockByProduct[r.productId]?.price || 0,
+          sale_price_destination: r.salePriceDestination,
+          sale_price_destination_at: r.salePriceDestinationAt,
         }));
         const { error: itemsError } = await supabase.from('distribution_manifest_items').insert(itemsPayload);
         if (itemsError) throw itemsError;
@@ -4772,6 +4845,7 @@ export default function Page() {
             precoVenda: extra.sellPrices[idx] ?? item.pricingByCompany?.[companyId]?.precoVenda ?? null,
             ok: extra.verified[idx] ?? item.pricingByCompany?.[companyId]?.ok ?? false,
             revisao: extra.reviewTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.revisao ?? null,
+            precoAt: extra.priceTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.precoAt ?? null,
           },
         ])),
       } : item.pricingByCompany,
@@ -4868,6 +4942,29 @@ export default function Page() {
         await supabase.from('product_ean_codes').insert(rowsToInsert);
       }
     }
+    // Distribuição já enviada: preço lançado na nota para a loja destino depois disso também
+    // atualiza o manifesto, se for mais recente que o de lá ("vale o último salvo"). O Estoque
+    // & Preço da loja destino só recebe esse preço na aprovação da nota, igual à loja dona.
+    const extraPricingCompanyIds = Object.keys(viewingNoteExtraPricing);
+    if (viewingReviewNote.distributionStatus === 'distribuicao_enviada' && extraPricingCompanyIds.length > 0) {
+      const manifestPricing = await fetchNoteManifestPricing(viewingReviewNote.id, extraPricingCompanyIds);
+      const manifestUpdates: PromiseLike<any>[] = [];
+      for (const item of updatedItems as any[]) {
+        if (!item.product_id) continue;
+        for (const companyId of extraPricingCompanyIds) {
+          const entry = item.pricingByCompany?.[companyId];
+          const target = manifestPricing[`${companyId}:${item.product_id}`];
+          if (!entry || !target || !(entry.precoVenda > 0)) continue;
+          if (!isNotePriceNewer(entry.precoAt ?? null, target.at)) continue;
+          manifestUpdates.push(supabase.from('distribution_manifest_items')
+            .update({ sale_price_destination: entry.precoVenda, sale_price_destination_at: entry.precoAt })
+            .in('id', target.itemIds));
+          // Mais de um item da nota com o mesmo produto: o de preço mais recente prevalece.
+          target.at = entry.precoAt;
+        }
+      }
+      if (manifestUpdates.length > 0) await Promise.all(manifestUpdates);
+    }
     const nextNote: ReviewNote = {
       ...viewingReviewNote, items: updatedItems, verifiedCount: updatedVerifiedCount, itemCount: updatedItems.length, status, approved,
     };
@@ -4903,12 +5000,26 @@ export default function Page() {
     try {
       await persistNote();
       if (companyId && !viewingNoteExtraPricing[companyId]) {
+        // Distribuição já enviada: a loja destino pode ter mudado o preço direto no manifesto
+        // depois — "vale o último salvo", então o preço do manifesto entra se for mais recente.
+        const manifestPricing = viewingReviewNote.distributionStatus === 'distribuicao_enviada'
+          ? await fetchNoteManifestPricing(viewingReviewNote.id, [companyId])
+          : {};
+        const merged = viewingReviewNote.items.map((it: any) => {
+          const noteEntry = it.pricingByCompany?.[companyId];
+          const fromManifest = it.product_id ? manifestPricing[`${companyId}:${it.product_id}`] : undefined;
+          if (fromManifest && isManifestPriceNewer(fromManifest.at, noteEntry?.precoAt ?? null, fromManifest.price)) {
+            return { price: fromManifest.price ?? undefined, at: fromManifest.at };
+          }
+          return { price: noteEntry?.precoVenda ?? undefined, at: noteEntry?.precoAt ?? null };
+        });
         setViewingNoteExtraPricing(prev => ({
           ...prev,
           [companyId]: {
-            sellPrices: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.precoVenda ?? undefined),
+            sellPrices: merged.map(m => m.price),
             verified: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.ok ?? false),
             reviewTimestamps: viewingReviewNote.items.map((it: any) => it.pricingByCompany?.[companyId]?.revisao ?? null),
+            priceTimestamps: merged.map(m => m.at),
           },
         }));
       }
@@ -4975,16 +5086,19 @@ export default function Page() {
     viewingNoteExtraPricing[companyId]?.verified[idx] ?? item.pricingByCompany?.[companyId]?.ok ?? false;
   const getExtraReviewTimestamp = (companyId: string, idx: number, item: any): string | null =>
     viewingNoteExtraPricing[companyId]?.reviewTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.revisao ?? null;
+  const getExtraPriceTimestamp = (companyId: string, idx: number, item: any): string | null =>
+    viewingNoteExtraPricing[companyId]?.priceTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.precoAt ?? null;
   const setExtraSellPrice = (companyId: string, idx: number, val: number) => {
     setViewingNoteExtraPricing(prev => {
-      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [] };
+      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [], priceTimestamps: [] };
       const sellPrices = [...cur.sellPrices]; sellPrices[idx] = val;
-      return { ...prev, [companyId]: { ...cur, sellPrices } };
+      const priceTimestamps = [...cur.priceTimestamps]; priceTimestamps[idx] = new Date().toISOString();
+      return { ...prev, [companyId]: { ...cur, sellPrices, priceTimestamps } };
     });
   };
   const setExtraVerified = (companyId: string, idx: number, val: boolean, timestamp?: string | null) => {
     setViewingNoteExtraPricing(prev => {
-      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [] };
+      const cur = prev[companyId] || { sellPrices: [], verified: [], reviewTimestamps: [], priceTimestamps: [] };
       const verified = [...cur.verified]; verified[idx] = val;
       const reviewTimestamps = [...cur.reviewTimestamps];
       if (timestamp !== undefined) reviewTimestamps[idx] = timestamp;
@@ -10119,6 +10233,96 @@ export default function Page() {
                   )}
                 </button>
                 </div>
+                {/* Precificar para outra empresa — troca Preço Venda/Markup/Ok/Revisão da tabela
+                    para outra loja, sem precisar vincular tudo e mandar pra Distribuição antes.
+                    Vale o último salvo entre este preço e o do manifesto de Distribuição. */}
+                {noteEditorTab === 'produtos' && (
+                <div style={{ position: 'relative' }} className="shrink-0">
+                  {(() => {
+                    const ownerId = viewingReviewNote.companyId || null;
+                    const selectedId = viewingPriceCompanyId || ownerId;
+                    const selected = companies.find((c: any) => c.id === selectedId);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (companies.length === 0) fetchCompanies();
+                          setPriceCompanyDropdownOpen(o => !o);
+                        }}
+                        disabled={switchingPriceCompany}
+                        title="Precificar para outra empresa"
+                        className={cn(
+                          'flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border transition-all disabled:opacity-50',
+                          viewingPriceCompanyId
+                            ? 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#D81E1E]'
+                            : 'border-line dark:border-white/[0.1] bg-on-surface/[0.04] text-on-surface/70 hover:bg-on-surface/[0.08]',
+                        )}
+                      >
+                        {selected?.logo ? (
+                          <img src={selected.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className={cn(
+                            'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0',
+                            viewingPriceCompanyId ? 'bg-[#D81E1E]/15 text-[#D81E1E]' : 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]',
+                          )}>
+                            {(selected?.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-[11px] font-bold max-w-[72px] truncate">{selected?.nome_fantasia || 'Empresa'}</span>
+                        <ChevronDown size={12} className="flex-shrink-0" />
+                      </button>
+                    );
+                  })()}
+                  {priceCompanyDropdownOpen && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
+                      <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
+                        {(() => {
+                          const ownerId = viewingReviewNote?.companyId || null;
+                          const owner = companies.find((c: any) => c.id === ownerId);
+                          const others = companies.filter((c: any) => c.id !== ownerId);
+                          const row = (c: any, isOwner: boolean) => (
+                            <button
+                              key={c.id}
+                              onClick={() => switchPriceCompany(isOwner ? null : c.id)}
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                                (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
+                                  ? 'bg-[#D81E1E]/10'
+                                  : 'hover:bg-on-surface/[0.05]',
+                              )}
+                            >
+                              {c.logo ? (
+                                <img src={c.logo} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className={cn(
+                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
+                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
+                                )}>
+                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
+                              {isOwner && (
+                                <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
+                              )}
+                            </button>
+                          );
+                          return (
+                            <>
+                              {owner ? row(owner, true) : (
+                                <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
+                              )}
+                              {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
+                              {others.map((c: any) => row(c, false))}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </>
+                  )}
+                </div>
+                )}
               </div>
 
               {noteEditorTab === 'financeiro' && (() => {
