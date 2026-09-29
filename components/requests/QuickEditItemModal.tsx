@@ -50,6 +50,9 @@ interface QuickEditItemModalProps {
   eanMatches: QuickEditProduct[];
   searchProducts: (q: string) => QuickEditProduct[];
 
+  onDescriptionChange: (v: string) => void;
+  onCodeChange: (v: string) => void;
+  onEanChange: (v: string) => void;
   onSupplierUnitChange: (v: string) => void;
   onMultiplierChange: (m: number) => void;
   onCostChange: (c: number) => void;
@@ -81,6 +84,36 @@ const tipCls = "pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -t
 const actCls = 'w-[38px] h-[38px] rounded-[10px] flex items-center justify-center transition-all active:scale-[0.92]';
 const actIdleCls = 'border-[1.5px] border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#252520] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:text-[#D81E1E] hover:border-[#D81E1E]/45 hover:bg-[#D81E1E]/[0.06]';
 
+type EditField = 'desc' | 'code' | 'ean' | 'cost';
+
+// Lápis que libera um campo travado. Ativo (vermelho, ✓) enquanto o campo está em edição —
+// nesse estado trocar de produto/fechar fica bloqueado e ele "treme" a cada tentativa.
+function EditPencil({ active, disabled, shake, onClick, title }: {
+  active: boolean; disabled?: boolean; shake: number; onClick: () => void; title: string;
+}) {
+  return (
+    <motion.button
+      key={active ? shake : 'idle'}
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      animate={active && shake > 0 ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
+      transition={{ duration: 0.28 }}
+      title={title}
+      className={cn(
+        'w-5 h-5 -my-1 rounded-md flex items-center justify-center transition-colors active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed',
+        active
+          ? 'bg-[#D81E1E] text-white shadow-[0_0_0_3px_rgba(216,30,30,0.22)]'
+          : 'bg-[#FFE500] text-[#1A1A0E] shadow-[0_0_0_1px_rgba(26,26,10,0.12)] hover:bg-[#F5DB00]'
+      )}
+    >
+      {active ? <Check size={11} strokeWidth={3} /> : <Pencil size={11} strokeWidth={2.6} />}
+    </motion.button>
+  );
+}
+
+const editingRingCls = 'border-[#D81E1E] shadow-[0_0_0_3px_rgba(216,30,30,0.14)]';
+
 export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const {
     suspended, index, total, subtitle, saving,
@@ -95,7 +128,8 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const [costDraft, setCostDraft] = useState('');
   const [sellDraft, setSellDraft] = useState('');
   const [markupDraft, setMarkupDraft] = useState('');
-  const [editingCost, setEditingCost] = useState(false);
+  const [editing, setEditing] = useState<EditField | null>(null);
+  const editingCost = editing === 'cost';
   const [shakeKey, setShakeKey] = useState(0);
   const [blockedMsg, setBlockedMsg] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -110,6 +144,9 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const sellRef = useRef<HTMLInputElement>(null);
   const markupRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLInputElement>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const eanRef = useRef<HTMLInputElement>(null);
 
   const markup = adjCost > 0 && sellPrice > 0 ? ((sellPrice - adjCost) / adjCost) * 100 : null;
   const displayCost = hasAdj ? adjCost : cost;
@@ -119,7 +156,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   if (shownIndex !== index) {
     setShownIndex(index);
     setFocused(null);
-    setEditingCost(false);
+    setEditing(null);
     setBlockedMsg(false);
     setSearchMode(false);
     setQuery('');
@@ -157,7 +194,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const markupValue = focused === 'markup' ? markupDraft : (markup === null ? '' : markup.toFixed(1));
 
   const tryNavigate = (delta: number) => {
-    if (editingCost) {
+    if (editing) {
       setShakeKey(k => k + 1);
       setBlockedMsg(true);
       return;
@@ -166,16 +203,37 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
     props.onNavigate(delta);
   };
 
-  const confirmCost = () => {
-    setEditingCost(false);
+  // Fechar também fica bloqueado com um lápis ativo — o usuário precisa confirmar o campo.
+  const tryClose = () => {
+    if (editing) {
+      setShakeKey(k => k + 1);
+      setBlockedMsg(true);
+      return;
+    }
+    props.onClose();
+  };
+
+  const confirmEdit = () => {
+    setEditing(null);
     setBlockedMsg(false);
     setFocused(f => (f === 'cost' ? null : f));
   };
 
+  const toggleTextEdit = (field: EditField, ref: React.RefObject<HTMLInputElement | null>) => {
+    if (editing === field) { confirmEdit(); return; }
+    setEditing(field);
+    setBlockedMsg(false);
+    setTimeout(() => { ref.current?.focus(); ref.current?.select(); }, 20);
+  };
+  const confirmOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); confirmEdit(); }
+  };
+
   const toggleCostEdit = () => {
     if (hasAdj) return;
-    if (editingCost) { confirmCost(); return; }
-    setEditingCost(true);
+    if (editingCost) { confirmEdit(); return; }
+    setEditing('cost');
+    setBlockedMsg(false);
     setCostDraft(cost > 0 ? cost.toFixed(2) : '');
     setTimeout(() => { costRef.current?.focus(); costRef.current?.select(); }, 20);
   };
@@ -196,8 +254,8 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
       if (e.key === 'Escape') {
         e.preventDefault();
         if (ddOpen || searchMode) exitSearch();
-        else if (editingCost) confirmCost();
-        else props.onClose();
+        else if (editing) confirmEdit();
+        else tryClose();
       } else if (e.altKey && e.key === 'ArrowRight') {
         e.preventDefault(); tryNavigate(1);
       } else if (e.altKey && e.key === 'ArrowLeft') {
@@ -229,7 +287,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#1A1A0E]/40 dark:bg-black/55 backdrop-blur-[3px]" onMouseDown={() => props.onClose()} />
+      <div className="absolute inset-0 bg-[#1A1A0E]/40 dark:bg-black/55 backdrop-blur-[3px]" onMouseDown={tryClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -255,8 +313,8 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             </div>
           </div>
           <button
-            onClick={() => props.onClose()}
-            title="Salvar e fechar (Esc)"
+            onClick={tryClose}
+            title={editing ? 'Confirme o campo em edição antes de fechar' : 'Salvar e fechar (Esc)'}
             className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center transition-all active:scale-[0.93] bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/35 hover:bg-[#D81E1E]/10 hover:text-[#D81E1E]"
           >
             <X size={16} strokeWidth={2.6} />
@@ -271,19 +329,46 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                 <FileText size={20} />
               </div>
               <div className="col-span-2 md:col-span-1 min-w-0">
-                <div className={labelCls}>Produto na Nota</div>
-                <div className={lockedCls}>
-                  <span className="flex-1 min-w-0 truncate text-[13.5px] font-extrabold" title={description}>{description || '—'}</span>
+                <div className={labelCls}>
+                  Produto na Nota
+                  <EditPencil active={editing === 'desc'} shake={shakeKey} onClick={() => toggleTextEdit('desc', descRef)} title={editing === 'desc' ? 'Confirmar (Enter)' : 'Editar descrição'} />
                 </div>
+                {editing === 'desc' ? (
+                  <div className={cn(cellCls, editingRingCls)}>
+                    <input ref={descRef} value={description} onChange={e => props.onDescriptionChange(e.target.value)} onKeyDown={confirmOnEnter}
+                      className={cn(inputCls, 'font-sans text-[13.5px] font-extrabold')} />
+                  </div>
+                ) : (
+                  <div className={lockedCls}>
+                    <span className="flex-1 min-w-0 truncate text-[13.5px] font-extrabold" title={description}>{description || '—'}</span>
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
-                <div className={labelCls}>Código</div>
-                <div className={lockedCls}>
-                  <span className="flex-1 min-w-0 truncate font-mono text-[12.5px]">{code || '—'}</span>
+                <div className={labelCls}>
+                  Código
+                  <EditPencil active={editing === 'code'} shake={shakeKey} onClick={() => toggleTextEdit('code', codeRef)} title={editing === 'code' ? 'Confirmar (Enter)' : 'Editar código'} />
                 </div>
+                {editing === 'code' ? (
+                  <div className={cn(cellCls, editingRingCls)}>
+                    <input ref={codeRef} value={code} onChange={e => props.onCodeChange(e.target.value)} onKeyDown={confirmOnEnter} className={inputCls} />
+                  </div>
+                ) : (
+                  <div className={lockedCls}>
+                    <span className="flex-1 min-w-0 truncate font-mono text-[12.5px]">{code || '—'}</span>
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
-                <div className={labelCls}>EAN</div>
+                <div className={labelCls}>
+                  EAN
+                  <EditPencil active={editing === 'ean'} shake={shakeKey} onClick={() => toggleTextEdit('ean', eanRef)} title={editing === 'ean' ? 'Confirmar (Enter)' : 'Editar EAN'} />
+                </div>
+                {editing === 'ean' ? (
+                  <div className={cn(cellCls, editingRingCls)}>
+                    <input ref={eanRef} value={ean} onChange={e => props.onEanChange(e.target.value.trim())} onKeyDown={confirmOnEnter} className={inputCls} />
+                  </div>
+                ) : (
                 <div className={lockedCls}>
                   <span className={cn('flex-1 min-w-0 truncate font-mono text-[12.5px]', !ean && 'text-[#1A1A0E]/28 dark:text-[#F2F0E3]/24')}>{ean || 'SEM GTIN'}</span>
                   {ean && (
@@ -297,6 +382,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                     </button>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Produto vinculado — mesma lógica da coluna Identificação Interna */}
@@ -550,25 +636,15 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                     <div className="w-[104px]">
                       <div className={labelCls}>
                         R$ Novo
-                        <motion.button
-                          key={shakeKey}
-                          type="button"
-                          onClick={toggleCostEdit}
+                        <EditPencil
+                          active={editingCost}
                           disabled={hasAdj}
-                          animate={shakeKey > 0 ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
-                          transition={{ duration: 0.28 }}
+                          shake={shakeKey}
+                          onClick={toggleCostEdit}
                           title={hasAdj ? 'Custo com desconto/acréscimo da nota — edite pela tabela' : editingCost ? 'Confirmar custo (Enter)' : 'Editar custo'}
-                          className={cn(
-                            'w-5 h-5 -my-1 rounded-md flex items-center justify-center transition-colors active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed',
-                            editingCost
-                              ? 'bg-[#D81E1E] text-white shadow-[0_0_0_3px_rgba(216,30,30,0.22)]'
-                              : 'bg-[#FFE500] text-[#1A1A0E] shadow-[0_0_0_1px_rgba(26,26,10,0.12)] hover:bg-[#F5DB00]'
-                          )}
-                        >
-                          {editingCost ? <Check size={11} strokeWidth={3} /> : <Pencil size={11} strokeWidth={2.6} />}
-                        </motion.button>
+                        />
                       </div>
-                      <div className={cn(editingCost ? cellCls : lockedCls, editingCost && 'border-[#D81E1E] shadow-[0_0_0_3px_rgba(216,30,30,0.14)]')}>
+                      <div className={cn(editingCost ? cellCls : lockedCls, editingCost && editingRingCls)}>
                         <span className={preCls}>R$</span>
                         <input
                           ref={costRef}
@@ -584,7 +660,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                             const v = parseInput(e.target.value);
                             if (!isNaN(v) && v >= 0) props.onCostChange(v);
                           }}
-                          onKeyDown={e => { if (e.key === 'Enter' && editingCost) { e.preventDefault(); confirmCost(); sellRef.current?.focus(); sellRef.current?.select(); } }}
+                          onKeyDown={e => { if (e.key === 'Enter' && editingCost) { e.preventDefault(); confirmEdit(); sellRef.current?.focus(); sellRef.current?.select(); } }}
                           onWheel={e => e.currentTarget.blur()}
                           className={cn(inputCls, 'text-right', !editingCost && 'text-[#1A1A0E]/50 dark:text-[#F2F0E3]/45 cursor-default')}
                         />
@@ -697,7 +773,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             className={cn(
               'inline-flex items-center gap-2.5 h-10 pl-1.5 pr-4 rounded-xl text-[13px] font-extrabold transition-colors active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed',
               'bg-black/[0.06] hover:bg-black/[0.11] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              editingCost && 'opacity-40 cursor-not-allowed'
+              editing && 'opacity-40 cursor-not-allowed'
             )}
           >
             <span className="w-7 h-7 rounded-full flex items-center justify-center bg-[#1A1A0E] dark:bg-[#F2F0E3] text-[#FFE500] dark:text-[#1E1E18]">
@@ -708,12 +784,12 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
 
           <div className={cn(
             'hidden md:inline-flex absolute left-1/2 -translate-x-1/2 items-center gap-1.5 text-[11.5px] font-bold',
-            editingCost ? 'text-[#D81E1E]' : 'text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30'
+            editing ? 'text-[#D81E1E]' : 'text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30'
           )}>
             <span className={cn('w-[7px] h-[7px] rounded-full',
-              editingCost ? 'bg-[#D81E1E]' : saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500')} />
-            {editingCost
-              ? 'Custo em edição — confirme ✓ para trocar de produto'
+              editing ? 'bg-[#D81E1E]' : saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500')} />
+            {editing
+              ? 'Campo em edição — confirme ✓ para trocar de produto ou fechar'
               : saving ? 'Salvando…' : 'Salva ao trocar de produto ou fechar'}
           </div>
 
@@ -723,7 +799,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
           <motion.button
             key={`next-${shakeKey}`}
             type="button"
-            onClick={() => (isLast && !editingCost ? props.onClose() : tryNavigate(1))}
+            onClick={() => (isLast && !editing ? props.onClose() : tryNavigate(1))}
             animate={shakeKey > 0 && blockedMsg ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
             transition={{ duration: 0.28 }}
             className={cn(
@@ -731,7 +807,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
               isLast
                 ? 'bg-[#D81E1E] hover:bg-[#BF1A1A] text-white'
                 : 'bg-black/[0.06] hover:bg-black/[0.11] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              editingCost && 'opacity-40 cursor-not-allowed'
+              editing && 'opacity-40 cursor-not-allowed'
             )}
           >
             {isLast ? 'Concluir e Fechar' : 'Próximo Produto'}

@@ -13257,6 +13257,17 @@ export default function Page() {
                     isTranslation={!!mapping && !!item.product_id && mapping.internal_product_id === item.product_id}
                     eanMatches={item.product_id ? [] : findProductsByExactEan(itemEan)}
                     searchProducts={searchProductsForLink}
+                    onDescriptionChange={v => setViewingReviewNote(prev => {
+                      if (!prev) return prev;
+                      const items = [...prev.items]; items[idx] = { ...items[idx], original_description: v };
+                      return { ...prev, items };
+                    })}
+                    onCodeChange={v => setViewingReviewNote(prev => {
+                      if (!prev) return prev;
+                      const items = [...prev.items]; items[idx] = { ...items[idx], supplier_code: v };
+                      return { ...prev, items };
+                    })}
+                    onEanChange={v => setViewingNoteEans(prev => { const u = [...prev]; u[idx] = v; return u; })}
                     onSupplierUnitChange={v => handleQuickEditSupplierUnit(idx, v)}
                     onMultiplierChange={m => handleQuickEditMultiplier(idx, m)}
                     onCostChange={c => handleQuickEditCost(idx, c)}
