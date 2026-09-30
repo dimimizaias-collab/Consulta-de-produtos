@@ -40,7 +40,7 @@ import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, 
   ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign, Printer } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
@@ -960,6 +960,16 @@ export default function Page() {
   const [reviewColumnFilters, setReviewColumnFilters] = useState<Record<string, Set<string>>>({});
   const [reviewFilterOpen, setReviewFilterOpen] = useState<string | null>(null);
   const [reviewFilterSearch, setReviewFilterSearch] = useState('');
+  // ── Busca rápida no cabeçalho da nota — soma com os filtros por coluna acima ──
+  const [noteQuickSearch, setNoteQuickSearch] = useState('');
+  const [noteQuickSearchCol, setNoteQuickSearchCol] = useState<string | null>(null); // null = todas
+  const [noteQuickSearchMenuOpen, setNoteQuickSearchMenuOpen] = useState(false);
+  // Zera ao trocar/fechar a nota, senão a próxima abre já filtrada sem o usuário perceber.
+  useEffect(() => {
+    setNoteQuickSearch('');
+    setNoteQuickSearchCol(null);
+    setNoteQuickSearchMenuOpen(false);
+  }, [viewingReviewNote?.id]);
   // ── Ocultar colunas ── "Marca" vem oculta por padrão — usuário precisa abrir o menu de
   // colunas ocultas e reexibi-la manualmente.
   const [reviewHiddenCols, setReviewHiddenCols] = useState<Set<string>>(new Set(['Marca']));
@@ -5421,6 +5431,57 @@ export default function Page() {
     viewingNoteExtraPricing[companyId]?.verified[idx] ?? item.pricingByCompany?.[companyId]?.ok ?? false;
   const getExtraReviewTimestamp = (companyId: string, idx: number, item: any): string | null =>
     viewingNoteExtraPricing[companyId]?.reviewTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.revisao ?? null;
+
+  // Texto de cada coluna da tabela de revisão, como aparece na tela — usado pelos filtros por
+  // coluna e pela busca rápida do cabeçalho.
+  const getReviewColText = (key: string, it: any, i: number): string => {
+    if (key === 'produto') return it.original_description || '-';
+    if (key === 'interno') return it.name || '-';
+    if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
+    if (key === 'medida') return viewingNoteUnits[i] || it.unit || '-';
+    if (key === 'status') return it.status_translation || '-';
+    if (key === 'seq') return String(i + 1);
+    if (key === 'codigo') return it.supplier_code || '-';
+    if (key === 'qtd') return String(viewingNoteQtys[i] ?? it.qty ?? 0);
+    if (key === 'preco_custo' || key === 'valor_total' || key === 'markup') {
+      const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
+      const q = viewingNoteQtys[i] ?? it.qty ?? 0;
+      const { disc: dsc, sur } = calcAdjAmounts(c, q, i, adjColumns);
+      const adj = c - dsc + sur;
+      if (key === 'preco_custo') return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-';
+      if (key === 'valor_total') { const t = adj * q; return t > 0 ? `R$ ${t.toFixed(2)}` : '-'; }
+      const sp = viewingPriceCompanyId
+        ? (getExtraSellPrice(viewingPriceCompanyId, i, it) ?? 0)
+        : (viewingNoteSellPrices[i] ?? it.product_price ?? 0);
+      return adj > 0 && sp > 0 ? `${((sp - adj) / adj * 100).toFixed(1)}%` : '-';
+    }
+    return '-';
+  };
+
+  // Colunas oferecidas no seletor da busca rápida (chave → rótulo da tabela).
+  const NOTE_QUICK_SEARCH_COLS: { key: string; label: string }[] = [
+    { key: 'codigo', label: 'Código' },
+    { key: 'produto', label: 'Produto na Nota' },
+    { key: 'interno', label: 'Identificação Interna' },
+    { key: 'ean', label: 'EAN' },
+    { key: 'medida', label: 'Medida' },
+    { key: 'qtd', label: 'Qtd.' },
+    { key: 'preco_custo', label: 'Preço Custo' },
+    { key: 'valor_total', label: 'Valor Total' },
+    { key: 'markup', label: 'Markup' },
+  ];
+  const normalizeSearch = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  // Linha passa na busca rápida? Sem termo, todas passam. Em "Todas", procura em qualquer coluna;
+  // o valor em R$ também é comparado com vírgula, que é como o usuário digita.
+  const matchesNoteQuickSearch = (it: any, i: number): boolean => {
+    const term = normalizeSearch(noteQuickSearch.trim());
+    if (!term) return true;
+    const keys = noteQuickSearchCol ? [noteQuickSearchCol] : NOTE_QUICK_SEARCH_COLS.map(c => c.key);
+    return keys.some(k => {
+      const v = normalizeSearch(getReviewColText(k, it, i));
+      return v.includes(term) || v.replace(/\./g, ',').includes(term);
+    });
+  };
   const getExtraPriceTimestamp = (companyId: string, idx: number, item: any): string | null =>
     viewingNoteExtraPricing[companyId]?.priceTimestamps[idx] ?? item.pricingByCompany?.[companyId]?.precoAt ?? null;
   const setExtraSellPrice = (companyId: string, idx: number, val: number) => {
@@ -10333,7 +10394,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-              className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-[20px] shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
+              className="relative w-full h-full bg-white dark:bg-[#1e1e18] rounded-none shadow-2xl overflow-hidden flex flex-col border border-line/60 dark:border-white/[0.06]"
             >
               {noteLockBlockedBy && (
                 <div className="absolute inset-0 z-[250] flex items-center justify-center bg-black/45 backdrop-blur-[6px]">
@@ -10368,8 +10429,8 @@ export default function Page() {
                   </div>
                 </div>
               )}
-              <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between bg-surface-container dark:bg-[#252520] shrink-0">
-                <div className="flex items-center gap-4">
+              <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between gap-5 bg-surface-container dark:bg-[#252520] shrink-0">
+                <div className="flex items-center gap-4 shrink-0">
                   <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                     <FileText size={24} />
                   </div>
@@ -10471,7 +10532,94 @@ export default function Page() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* ── Busca rápida: filtra a tabela por uma coluna (ou todas) enquanto digita ── */}
+                {(() => {
+                  const term = noteQuickSearch.trim();
+                  const colLabel = NOTE_QUICK_SEARCH_COLS.find(c => c.key === noteQuickSearchCol)?.label;
+                  const matchCount = term ? viewingReviewNote.items.filter((it: any, i: number) => matchesNoteQuickSearch(it, i)).length : 0;
+                  return (
+                    <div className="relative flex-1 min-w-[260px] max-w-[460px] ml-auto">
+                      <div
+                        className={cn(
+                          'h-[38px] flex items-center gap-0.5 pl-[11px] pr-1 rounded-xl border-[1.5px] bg-white dark:bg-[#1E1E18]',
+                          'transition-[border-color,box-shadow] duration-[130ms]',
+                          'focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_3px_rgba(216,30,30,0.13)]',
+                          term
+                            ? 'border-[#EADB6A] dark:border-[#FFE500]/35'
+                            : 'border-[#E0D8BF] dark:border-white/[0.10] hover:border-[#D2C8A8] dark:hover:border-white/[0.18]',
+                        )}
+                      >
+                        <Search size={15} strokeWidth={2.4} className="shrink-0 text-on-surface/40" />
+                        <input
+                          value={noteQuickSearch}
+                          onChange={e => setNoteQuickSearch(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Escape' && noteQuickSearch) { e.stopPropagation(); setNoteQuickSearch(''); } }}
+                          placeholder={colLabel ? `Buscar em ${colLabel}…` : 'Buscar em todas as colunas…'}
+                          autoComplete="off"
+                          className="flex-1 min-w-0 h-full px-2 bg-transparent border-none outline-none text-[13px] font-semibold text-on-surface placeholder:font-medium placeholder:text-on-surface/25 caret-[#D81E1E]"
+                        />
+                        {term && (
+                          <button
+                            onClick={() => setNoteQuickSearch('')}
+                            title="Limpar busca (Esc)"
+                            className="w-[26px] h-[26px] shrink-0 rounded-lg flex items-center justify-center text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] active:scale-90 transition-all duration-[130ms]"
+                          >
+                            <X size={14} strokeWidth={2.6} />
+                          </button>
+                        )}
+                        <div className="w-px h-[18px] mx-1 shrink-0 bg-[#E0D8BF] dark:bg-white/[0.10]" />
+                        <button
+                          onClick={() => setNoteQuickSearchMenuOpen(o => !o)}
+                          title="Escolher coluna da busca"
+                          className="h-7 max-w-[170px] shrink-0 flex items-center gap-1.5 pl-[9px] pr-2 rounded-lg border border-[#EADB6A] dark:border-[#FFE500]/[0.28] bg-[#FFF3A6] dark:bg-[#FFE500]/[0.12] text-[#1A1A0E] dark:text-[#FFE500] text-[10.5px] font-extrabold uppercase tracking-[0.06em] hover:brightness-[0.97] active:scale-[0.97] transition-all duration-[130ms]"
+                        >
+                          <Filter size={12} strokeWidth={2.6} className="shrink-0 opacity-70" />
+                          <span className="truncate">{colLabel || 'Todas'}</span>
+                          <ChevronDown size={11} strokeWidth={2.8} className="shrink-0 opacity-70" />
+                        </button>
+                      </div>
+                      {term && (
+                        <div className="absolute left-3 top-full mt-1 text-[10.5px] font-bold text-on-surface/40 whitespace-nowrap">
+                          <span className="text-on-surface">{matchCount}</span> de {viewingReviewNote.items.length} produtos
+                        </div>
+                      )}
+                      <AnimatePresence>
+                        {noteQuickSearchMenuOpen && (<>
+                          <div className="fixed inset-0 z-[290]" onClick={() => setNoteQuickSearchMenuOpen(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.97, y: -4 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97, y: -4 }}
+                            transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                            style={{ transformOrigin: 'top right' }}
+                            className="absolute right-0 top-full mt-1.5 z-[300] w-[230px] p-[5px] rounded-xl border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#2E2E28] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.28)]"
+                          >
+                            <div className="px-[9px] pt-[7px] pb-[5px] text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Buscar na coluna</div>
+                            {[{ key: null as string | null, label: 'Todas as colunas' }, ...NOTE_QUICK_SEARCH_COLS].map((c, i) => {
+                              const sel = noteQuickSearchCol === c.key;
+                              return (
+                                <Fragment key={c.key ?? '__all'}>
+                                  <button
+                                    onClick={() => { setNoteQuickSearchCol(c.key); setNoteQuickSearchMenuOpen(false); }}
+                                    className={cn(
+                                      'w-full flex items-center justify-between gap-2 px-[9px] py-2 rounded-lg text-left text-[12.5px] text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors',
+                                      sel ? 'font-extrabold' : 'font-semibold',
+                                    )}
+                                  >
+                                    {c.label}
+                                    {sel && <Check size={14} strokeWidth={3} className="text-[#D81E1E]" />}
+                                  </button>
+                                  {i === 0 && <div className="border-t border-[#EFE8D2] dark:border-white/[0.05] mx-0.5 my-1" />}
+                                </Fragment>
+                              );
+                            })}
+                          </motion.div>
+                        </>)}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })()}
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={handleUndo}
                     disabled={!canUndo}
@@ -11441,6 +11589,12 @@ export default function Page() {
                         };
                         const thFirst: React.CSSProperties = thBar;
                         const thLast: React.CSSProperties = { ...thBar, width: '36px', boxShadow: 'inset 0 -1.5px 0 var(--rn-th-bottom)' };
+                        // Coluna escolhida na busca rápida ganha um sublinhado vermelho enquanto há termo.
+                        const thQs = (key: string | undefined): React.CSSProperties => (
+                          key && noteQuickSearch.trim() && noteQuickSearchCol === key
+                            ? { ...thBar, position: 'relative', boxShadow: 'inset -1px 0 0 var(--rn-th-line), inset 0 -3px 0 #D81E1E' }
+                            : { ...thBar, position: 'relative' }
+                        );
                         const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
                           display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '4px',
                           width: '100%', height: '100%', boxSizing: 'border-box',
@@ -11574,7 +11728,7 @@ export default function Page() {
                             {renderFilterDropdown('seq')}
                           </th>
                           {!reviewHiddenCols.has('Código') && (
-                          <th style={{ ...thBar, position: 'relative' }}>
+                          <th style={thQs('codigo')}>
                             <ReviewColResizeHandle colKey="Código" />
                             <div style={lbl(hasCodigoDup ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={hasCodigoDup ? 'Existem códigos duplicados nesta coluna' : undefined}>
                               {hasCodigoDup && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
@@ -11599,7 +11753,7 @@ export default function Page() {
                             const filterKey = colFilterKey[col];
                             const isDupCol = col === 'EAN' && hasEanDup;
                             return (
-                              <th key={col} style={{ ...thBar, position: 'relative' }}>
+                              <th key={col} style={thQs(filterKey)}>
                                 <ReviewColResizeHandle colKey={col} />
                                 <div style={lbl(isDupCol ? { borderColor: 'var(--rn-dup-th-border)', background: 'var(--rn-dup-th-bg)' } : undefined)} title={isDupCol ? 'Existem EANs duplicados nesta coluna' : undefined}>
                                   {isDupCol && <AlertTriangle size={9} style={{ color: 'var(--rn-dup-th-text)' }} />}
@@ -11652,7 +11806,7 @@ export default function Page() {
                             const canEdit = true;
                             const filterKey = colFilterKey[col];
                             return (
-                              <th key={col} style={{ ...thBar, position: 'relative' }}>
+                              <th key={col} style={thQs(filterKey)}>
                                 <ReviewColResizeHandle colKey={col} />
                                 <div style={lbl()}>
                                   <span style={{ color: editable ? 'rgb(52 211 153)' : 'inherit' }}>{col}</span>
@@ -11673,7 +11827,7 @@ export default function Page() {
                             );
                           })}
                           {!reviewHiddenCols.has('Preço Custo') && (
-                          <th style={{ ...thBar, position: 'relative' }}>
+                          <th style={thQs('preco_custo')}>
                             <ReviewColResizeHandle colKey="Preço Custo" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Preço Custo
@@ -11683,7 +11837,7 @@ export default function Page() {
                           </th>
                           )}
                           {!reviewHiddenCols.has('Valor Total') && (
-                          <th style={{ ...thBar, position: 'relative' }}>
+                          <th style={thQs('valor_total')}>
                             <ReviewColResizeHandle colKey="Valor Total" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               <span style={{ color: reviewEditableCols.has('Valor Total') ? 'rgb(52 211 153)' : 'inherit' }}>Valor Total</span>
@@ -11720,7 +11874,7 @@ export default function Page() {
                           <th style={{ ...thBar, position: 'relative' }}><ReviewColResizeHandle colKey="Preço Venda" /><div style={lbl({ justifyContent: 'flex-end' })}>Preço Venda</div></th>
                           )}
                           {!reviewHiddenCols.has('Markup') && (
-                          <th style={{ ...thBar, position: 'relative' }}>
+                          <th style={thQs('markup')}>
                             <ReviewColResizeHandle colKey="Markup" />
                             <div style={lbl({ justifyContent: 'flex-end' })}>
                               Markup
@@ -11758,37 +11912,24 @@ export default function Page() {
                         const ev = (viewingNoteEans[i] ?? it.ean ?? '').trim();
                         if (ev) _tbEanDupCounts[ev] = (_tbEanDupCounts[ev] || 0) + 1;
                       });
-                      const _getVal = (key: string, it: any, i: number): string => {
-                        if (key === 'produto') return it.original_description || '-';
-                        if (key === 'interno') return it.name || '-';
-                        if (key === 'ean') return viewingNoteEans[i] || it.ean || '-';
-                        if (key === 'medida') return viewingNoteUnits[i] || it.unit || '-';
-                        if (key === 'status') return it.status_translation || '-';
-                        if (key === 'seq') return String(i + 1);
-                        if (key === 'codigo') return it.supplier_code || '-';
-                        if (key === 'qtd') return String(viewingNoteQtys[i] ?? it.qty ?? 0);
-                        if (key === 'preco_custo' || key === 'valor_total' || key === 'markup') {
-                          const c = (viewingNoteItemPrices[i] ?? it.price ?? 0) / ((viewingNoteMultipliers[i] ?? it.multiplier) || 1);
-                          const q = viewingNoteQtys[i] ?? it.qty ?? 0;
-                          const { disc: dsc, sur } = calcAdjAmounts(c, q, i, adjColumns);
-                          const adj = c - dsc + sur;
-                          if (key === 'preco_custo') return adj > 0 ? `R$ ${adj.toFixed(2)}` : '-';
-                          if (key === 'valor_total') { const t = adj * q; return t > 0 ? `R$ ${t.toFixed(2)}` : '-'; }
-                          const sp = viewingPriceCompanyId
-                            ? (getExtraSellPrice(viewingPriceCompanyId, i, it) ?? 0)
-                            : (viewingNoteSellPrices[i] ?? it.product_price ?? 0);
-                          return adj > 0 && sp > 0 ? `${((sp - adj) / adj * 100).toFixed(1)}%` : '-';
-                        }
-                        return '-';
-                      };
+                      const _getVal = getReviewColText;
                       const _hasActiveFilters = reviewFilterActive && Object.values(reviewColumnFilters).some(s => s.size > 0);
                       const _filtered = _allItems
                         .map((item: any, origIdx: number) => ({ item, origIdx }))
                         .filter(({ item, origIdx }) =>
-                          !_hasActiveFilters || Object.entries(reviewColumnFilters).every(([key, sel]) =>
+                          (!_hasActiveFilters || Object.entries(reviewColumnFilters).every(([key, sel]) =>
                             sel.size === 0 || sel.has(_getVal(key, item, origIdx))
-                          )
+                          )) && matchesNoteQuickSearch(item, origIdx)
                         );
+                      if (_filtered.length === 0 && noteQuickSearch.trim()) {
+                        return (
+                          <tr>
+                            <td colSpan={999} className="h-[120px] text-center text-[13px] font-semibold text-on-surface/40">
+                              Nenhum produto encontrado para “{noteQuickSearch.trim()}”
+                            </td>
+                          </tr>
+                        );
+                      }
                       return _filtered.flatMap(({ item, origIdx: idx }) => {
                       const mult = (viewingNoteMultipliers[idx] ?? item.multiplier) || 1;
                       const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / mult;
