@@ -13597,6 +13597,7 @@ export default function Page() {
                     cost={cost}
                     adjCost={adjCost}
                     hasAdj={(disc > 0 || sur > 0) && Math.abs(adjCost - cost) > 0.001}
+                    itemTotal={adjCost * liveQty}
                     companyId={viewingPriceCompanyId || viewingReviewNote.companyId || null}
                     sellPrice={sellPrice}
                     suggestedPrice={isOwnerCtx && linked && linked.price > 0 ? linked.price : null}

@@ -38,6 +38,8 @@ interface QuickEditItemModalProps {
   /** Custo com descontos/acréscimos da nota — quando difere do cost o R$ Novo vira só leitura. */
   adjCost: number;
   hasAdj: boolean;
+  /** Valor Total do item — mesma conta da coluna Valor Total da tabela (custo ajustado × Qtde Real). */
+  itemTotal: number;
   companyId: string | null;
 
   sellPrice: number;
@@ -118,7 +120,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const {
     suspended, index, total, subtitle, saving,
     description, code, ean, noteUnit, noteQty, supplierUnit, multiplier, realQty,
-    cost, adjCost, hasAdj, companyId, sellPrice, suggestedPrice, distribTotal,
+    cost, adjCost, hasAdj, itemTotal, companyId, sellPrice, suggestedPrice, distribTotal,
     linkedProduct, hasMapping, isTranslation, eanMatches, searchProducts,
   } = props;
 
@@ -782,18 +784,32 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             Produto Anterior
           </motion.button>
 
+          {/* Status ocupa o espaço entre os botões (flex-1) em vez de absolute — assim não
+              passa por baixo do Total do item quando a mensagem de edição é longa. */}
           <div className={cn(
-            'hidden md:inline-flex absolute left-1/2 -translate-x-1/2 items-center gap-1.5 text-[11.5px] font-bold',
+            'hidden md:flex flex-1 min-w-0 justify-center items-center gap-1.5 text-[11.5px] font-bold',
             editing ? 'text-[#D81E1E]' : 'text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30'
           )}>
-            <span className={cn('w-[7px] h-[7px] rounded-full',
+            <span className={cn('w-[7px] h-[7px] rounded-full shrink-0',
               editing ? 'bg-[#D81E1E]' : saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500')} />
-            {editing
-              ? 'Campo em edição — confirme ✓ para trocar de produto ou fechar'
-              : saving ? 'Salvando…' : 'Salva ao trocar de produto ou fechar'}
+            <span className="truncate">
+              {editing
+                ? 'Campo em edição — confirme ✓ para trocar de produto ou fechar'
+                : saving ? 'Salvando…' : 'Salva ao trocar de produto ou fechar'}
+            </span>
           </div>
 
-          <span className="hidden sm:inline ml-auto font-mono text-[10px] px-[5px] py-px rounded-[5px] border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30" title="Atalhos">
+          <div
+            title={hasAdj ? 'Custo com desconto/acréscimo da nota × Qtde Real' : 'Custo × Qtde Real — mesmo valor da coluna Valor Total'}
+            className="ml-auto md:ml-0 shrink-0 inline-flex items-baseline gap-2 px-3 py-1.5 rounded-[10px] border-[1.5px] bg-[#FFF4A8] dark:bg-[#FFE500]/[0.09] border-[#E3CF2A] dark:border-[#FFE500]/35 text-[#1A1A0E] dark:text-[#FFE500]"
+          >
+            <span className="hidden sm:inline text-[9.5px] font-black uppercase tracking-[0.1em] opacity-65">
+              Total do item{hasAdj ? ' · c/ desc.' : ''}
+            </span>
+            <span className="font-mono text-[15px] tabular-nums whitespace-nowrap">R$ {brl(itemTotal)}</span>
+          </div>
+
+          <span className="hidden lg:inline font-mono text-[10px] px-[5px] py-px rounded-[5px] border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30" title="Atalhos">
             Alt ← / Alt →
           </span>
           <motion.button
@@ -803,7 +819,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             animate={shakeKey > 0 && blockedMsg ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
             transition={{ duration: 0.28 }}
             className={cn(
-              'ml-auto sm:ml-2.5 inline-flex items-center gap-2.5 h-10 pl-4 pr-1.5 rounded-xl text-[13px] font-extrabold transition-colors active:scale-[0.97]',
+              'shrink-0 inline-flex items-center gap-2.5 h-10 pl-4 pr-1.5 rounded-xl text-[13px] font-extrabold transition-colors active:scale-[0.97]',
               isLast
                 ? 'bg-[#D81E1E] hover:bg-[#BF1A1A] text-white'
                 : 'bg-black/[0.06] hover:bg-black/[0.11] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-[#1A1A0E] dark:text-[#F2F0E3]',
