@@ -4001,6 +4001,7 @@ export default function Page() {
     // senão a célula de Preço Custo (ligada direto ao preço bruto) fica com o valor antigo na tela.
     const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
     const unitPrice = parseFloat((currentPrice / mult).toFixed(6));
+    ensureOriginalUnit(idx);
     const u = [...viewingNoteUnits]; u[idx] = conv.unit_name; setViewingNoteUnits(u);
     const p = [...viewingNoteItemPrices]; p[idx] = unitPrice; setViewingNoteItemPrices(p);
     const m = [...viewingNoteMultipliers]; m[idx] = 1; setViewingNoteMultipliers(m);
@@ -4418,6 +4419,7 @@ export default function Page() {
       }
       const originalQty = item.original_qty ?? Math.round(item.qty / (item.multiplier || 1));
       const newQty = originalQty * mult;
+      ensureOriginalUnit(idx);
       const u = [...viewingNoteUnits]; u[idx] = unitName.trim() || item.unit || 'UN'; setViewingNoteUnits(u);
       // Divide unit price by multiplier and reset multiplier to 1 to avoid double-division in cost = price/multiplier
       const currentPrice = viewingNoteItemPrices[idx] ?? item.price ?? 0;
@@ -4901,9 +4903,9 @@ export default function Page() {
     return base;
   };
 
-  // Medida original da nota — gravada no item na primeira conversão feita pelo Cadastro
-  // Rápido, senão a coluna Medida (que passa a mostrar a unidade do fornecedor) apagaria ela.
-  const ensureQuickEditOriginalUnit = (idx: number) => {
+  // Medida original da nota — gravada no item na primeira conversão (tabela ou Cadastro
+  // Rápido), senão a coluna Medida (que passa a mostrar a unidade convertida) apagaria ela.
+  const ensureOriginalUnit = (idx: number) => {
     setViewingReviewNote(prev => {
       if (!prev || prev.items[idx]?.original_unit) return prev;
       const items = [...prev.items];
@@ -4913,13 +4915,13 @@ export default function Page() {
   };
 
   const handleQuickEditSupplierUnit = (idx: number, value: string) => {
-    ensureQuickEditOriginalUnit(idx);
+    ensureOriginalUnit(idx);
     setViewingNoteUnits(prev => { const u = [...prev]; u[idx] = value; return u; });
   };
 
   const handleQuickEditMultiplier = (idx: number, mult: number) => {
     const base = getQuickEditBase(idx);
-    ensureQuickEditOriginalUnit(idx);
+    ensureOriginalUnit(idx);
     setViewingNoteQtys(prev => { const u = [...prev]; u[idx] = base.origQty * mult; return u; });
     setViewingNoteItemPrices(prev => { const u = [...prev]; u[idx] = parseFloat((base.notePrice / mult).toFixed(6)); return u; });
     setViewingNoteMultipliers(prev => { const u = [...prev]; u[idx] = 1; return u; });
