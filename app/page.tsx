@@ -4406,6 +4406,44 @@ export default function Page() {
        m.supplier_description.toLowerCase().trim() === item.original_description.toLowerCase().trim())
     ) || null;
   }, [noteSupplierMappings]);
+
+  // Salva a tradução permanente do item — ou SUBSTITUI a existente. Não usa upsert por descrição:
+  // uma tradução antiga pode bater só pelo código (descrição mudou entre notas) e o upsert criaria
+  // uma segunda linha com o mesmo código, que a importação resolveria pela primeira encontrada
+  // (possivelmente a errada). Aqui toda linha do fornecedor que bate pelo código OU pela descrição
+  // passa a apontar pro novo produto, e mother_package_id é limpo (senão a importação continuaria
+  // seguindo a embalagem-mãe antiga, que tem precedência sobre internal_product_id).
+  const saveItemPermanentTranslation = async (item: any, productId: string): Promise<{ error: string | null; replaced: boolean }> => {
+    const supplierId = await resolveNoteSupplierId();
+    if (!supplierId) return { error: 'esta nota não tem um fornecedor identificado.', replaced: false };
+    const sku = item?.supplier_code || null;
+    const desc = item?.original_description || null;
+    const norm = (s: string | null | undefined) => (s || '').toLowerCase().trim();
+    const matchesItem = (m: any) =>
+      (sku && m.supplier_sku === sku) ||
+      (desc && m.supplier_description && norm(m.supplier_description) === norm(desc));
+    const { data: rows, error: findErr } = await supabase.from('supplier_mappings')
+      .select('id, supplier_sku, supplier_description')
+      .eq('supplier_id', supplierId);
+    if (findErr) return { error: findErr.message, replaced: false };
+    const ids = (rows || []).filter(matchesItem).map((m: any) => m.id);
+    if (ids.length > 0) {
+      const { error } = await supabase.from('supplier_mappings')
+        .update({ internal_product_id: productId, mother_package_id: null })
+        .in('id', ids);
+      if (error) return { error: error.message, replaced: false };
+    } else {
+      const { error } = await supabase.from('supplier_mappings')
+        .insert({ supplier_id: supplierId, supplier_description: desc, supplier_sku: sku, internal_product_id: productId });
+      if (error) return { error: error.message, replaced: false };
+    }
+    setNoteSupplierMappings(prev => {
+      const hit = prev.some(matchesItem);
+      const next = prev.map(m => matchesItem(m) ? { ...m, internal_product_id: productId, mother_package_id: null } : m);
+      return hit ? next : [...next, { supplier_sku: sku, supplier_description: desc, internal_product_id: productId }];
+    });
+    return { error: null, replaced: ids.length > 0 };
+  };
   // ────────────────────────────────────────────────────────────────────────────
 
   const applyReviewMeasure = async (idx: number, unitName: string, multStr: string): Promise<boolean> => {
@@ -4616,31 +4654,12 @@ export default function Page() {
             setNotification({ type: 'error', message: 'Produto criado, mas houve erro ao salvar EANs adicionais: ' + eanErr.message });
           }
         }
+        let translationReplaced = false;
+        let translationError: string | null = null;
         if (noteItemSaveTranslation) {
-          const supplierId = await resolveNoteSupplierId();
-          if (!supplierId) {
-            setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
-          } else {
-            const sourceItem = viewingReviewNote.items[linkingItemIdx];
-            // upsert (não insert): supplier_mappings tem UNIQUE (supplier_id, supplier_description) —
-            // reconfirmar a tradução de uma descrição já mapeada deve atualizar o produto, não falhar.
-            const { error: mappingErr } = await supabase.from('supplier_mappings')
-              .upsert({
-                supplier_id: supplierId,
-                supplier_description: sourceItem?.original_description || null,
-                supplier_sku: sourceItem?.supplier_code || null,
-                internal_product_id: created.id,
-              }, { onConflict: 'supplier_id,supplier_description' });
-            if (mappingErr) {
-              setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
-            } else {
-              setNoteSupplierMappings(prev => [...prev, {
-                supplier_sku: sourceItem?.supplier_code || null,
-                supplier_description: sourceItem?.original_description || null,
-                internal_product_id: created.id,
-              }]);
-            }
-          }
+          const { error: mappingErr, replaced } = await saveItemPermanentTranslation(viewingReviewNote.items[linkingItemIdx], created.id);
+          translationReplaced = replaced;
+          translationError = mappingErr;
         }
         setLinkingItemIdx(null);
         setNoteItemShowCreate(false);
@@ -4650,8 +4669,10 @@ export default function Page() {
         setNoteItemExtraStoreIds([]); setNoteItemExtraStorePrices({}); setNoteItemAddStoreOpen(false);
         if (motherPackageError) {
           setNotification({ type: 'error', message: 'Produto criado e vinculado, mas houve erro ao salvar o Produto Mãe: ' + motherPackageError });
+        } else if (translationError) {
+          setNotification({ type: 'error', message: 'Produto criado e vinculado, mas houve erro ao salvar a tradução permanente: ' + translationError });
         } else if (extraEanRows.length === 0 || !eanInsertFailed) {
-          setNotification({ type: 'success', message: noteItemSaveTranslation ? 'Produto criado, vinculado e tradução salva!' : 'Produto criado e vinculado com sucesso!' });
+          setNotification({ type: 'success', message: !noteItemSaveTranslation ? 'Produto criado e vinculado com sucesso!' : translationReplaced ? 'Produto criado, vinculado e tradução substituída!' : 'Produto criado, vinculado e tradução salva!' });
         }
         fetchProducts(); // Sincroniza o state global para que o novo produto (e o EAN da caixa, se houver) apareça em buscas imediatamente
       }
@@ -4858,17 +4879,13 @@ export default function Page() {
       const uM = [...viewingNoteMultipliers]; uM[i] = conversion.multiplier; setViewingNoteMultipliers(uM);
     }
     if (saveTranslation) {
-      const supplierId = await resolveNoteSupplierId();
-      if (!supplierId) {
-        setNotification({ type: 'error', message: 'Não foi possível salvar a tradução permanente: esta nota não tem um fornecedor identificado.' });
+      const { error: mappingErr, replaced } = await saveItemPermanentTranslation(linkItem, p.id);
+      if (mappingErr) {
+        setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr });
       } else {
-        const { error: mappingErr } = await supabase.from('supplier_mappings').upsert({ supplier_id: supplierId, supplier_description: linkItem?.original_description || null, supplier_sku: linkItem?.supplier_code || null, internal_product_id: p.id }, { onConflict: 'supplier_id,supplier_description' });
-        if (mappingErr) {
-          setNotification({ type: 'error', message: 'Erro ao salvar tradução permanente: ' + mappingErr.message });
-        } else {
-          setNoteSupplierMappings(prev => [...prev, { supplier_sku: linkItem?.supplier_code || null, supplier_description: linkItem?.original_description || null, internal_product_id: p.id }]);
-          setNotification({ type: 'success', message: 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
-        }
+        setNotification({ type: 'success', message: replaced
+          ? `Tradução substituída! Próximas notas deste fornecedor usarão ${p.name}.`
+          : 'Tradução salva! Este item será identificado automaticamente nas próximas notas.' });
       }
     } else if (motherPackageError) {
       setNotification({ type: 'error', message: 'Vinculado, mas houve erro ao salvar o Produto Mãe: ' + motherPackageError });
@@ -5082,14 +5099,7 @@ export default function Page() {
       const uE = [...viewingNoteEans]; uE[idx] = created.ean || ''; setViewingNoteEans(uE);
       const uP = [...viewingNoteSellPrices]; uP[idx] = price; setViewingNoteSellPrices(uP);
 
-      const supplierId = await resolveNoteSupplierId();
-      if (supplierId) {
-        const { error: mappingErr } = await supabase.from('supplier_mappings')
-          .upsert({ supplier_id: supplierId, supplier_description: item?.original_description || null, supplier_sku: item?.supplier_code || null, internal_product_id: created.id }, { onConflict: 'supplier_id,supplier_description' });
-        if (!mappingErr) {
-          setNoteSupplierMappings(prev => [...prev, { supplier_sku: item?.supplier_code || null, supplier_description: item?.original_description || null, internal_product_id: created.id }]);
-        }
-      }
+      await saveItemPermanentTranslation(item, created.id);
 
       const { error: motherPackageError } = await persistPendingMotherDraftIfAny(pendingMotherDraft, created.id);
       setNotification(motherPackageError
@@ -12923,7 +12933,12 @@ export default function Page() {
                 // de novo — ela já está salva. Só volta a oferecer quando não há tradução, ou
                 // quando a existente aponta para um produto removido (precisa ser recriada).
                 const existingMapping = getItemMapping(linkItem);
-                const hasValidPermanentTranslation = !!existingMapping && products.some((p: any) => p.id === existingMapping.internal_product_id);
+                const existingMappedProduct = existingMapping ? products.find((p: any) => p.id === existingMapping.internal_product_id) : null;
+                const hasValidPermanentTranslation = !!existingMappedProduct;
+                // Exceção à regra acima: se o usuário escolheu um produto DIFERENTE do da tradução
+                // (tradução salva errada), oferece substituí-la — senão só esta nota seria corrigida
+                // e as próximas continuariam vindo com o produto errado.
+                const canReplaceTranslation = hasValidPermanentTranslation && !!noteItemSelectedProduct && noteItemSelectedProduct.id !== existingMappedProduct.id;
                 // Produto Mãe pendente deste item — visível/editável nas duas abas (Produto e
                 // Produto Mãe), independente de estar buscando um produto existente ou criando um novo.
                 const itemMotherDraft: MotherPackageDraft | null = linkItem?.mother_draft || null;
@@ -13173,8 +13188,9 @@ export default function Page() {
                                 </div>
 
                                 {/* Toggle: salvar como tradução permanente — escondido quando o item já
-                                    tem uma tradução permanente válida, pra não oferecer salvar de novo. */}
-                                {!hasValidPermanentTranslation && (
+                                    tem uma tradução permanente válida pro MESMO produto, pra não oferecer
+                                    salvar de novo. Produto diferente → vira "Substituir tradução". */}
+                                {(!hasValidPermanentTranslation || canReplaceTranslation) && (
                                   <>
                                     <button
                                       onClick={() => setNoteItemSaveTranslation(v => !v)}
@@ -13184,8 +13200,10 @@ export default function Page() {
                                         {noteItemSaveTranslation && <Check size={10} className="text-white" />}
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>Salvar como tradução permanente</p>
-                                        <p className="text-[10px] text-slate-400 leading-tight">Próximas notas deste fornecedor identificarão este item automaticamente</p>
+                                        <p className={cn('text-xs font-bold', noteItemSaveTranslation ? 'text-amber-700' : 'text-slate-500')}>{canReplaceTranslation ? 'Substituir tradução permanente' : 'Salvar como tradução permanente'}</p>
+                                        <p className="text-[10px] text-slate-400 leading-tight">{canReplaceTranslation
+                                          ? <>Hoje aponta para <span className="font-bold">{existingMappedProduct.name}</span> — próximas notas deste fornecedor passarão a usar este produto</>
+                                          : 'Próximas notas deste fornecedor identificarão este item automaticamente'}</p>
                                       </div>
                                     </button>
                                     {noteItemSaveTranslation && (
@@ -13504,8 +13522,10 @@ export default function Page() {
                                 {noteItemSaveTranslation && <Check size={11} className="text-white" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={cn('text-xs font-extrabold', noteItemSaveTranslation ? 'text-amber-700 dark:text-amber-300' : 'text-secondary/70')}>Salvar como tradução permanente</p>
-                                <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">Próximas notas deste fornecedor identificarão este item automaticamente</p>
+                                <p className={cn('text-xs font-extrabold', noteItemSaveTranslation ? 'text-amber-700 dark:text-amber-300' : 'text-secondary/70')}>{hasValidPermanentTranslation ? 'Substituir tradução permanente' : 'Salvar como tradução permanente'}</p>
+                                <p className="text-[10px] text-secondary/50 leading-tight mt-0.5">{hasValidPermanentTranslation
+                                  ? <>Hoje aponta para <span className="font-bold">{existingMappedProduct.name}</span> — próximas notas deste fornecedor passarão a usar o produto criado</>
+                                  : 'Próximas notas deste fornecedor identificarão este item automaticamente'}</p>
                               </div>
                             </button>
                             {noteItemSaveTranslation && (
