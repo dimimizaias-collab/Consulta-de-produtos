@@ -10,8 +10,6 @@ import {
   Bell,
   Users
 } from 'lucide-react';
-import Image from 'next/image';
-import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 
@@ -19,11 +17,10 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
   unreadNotifications?: number;
 }
 
-const navItems = [
+export const NAV_ITEMS = [
   // Dashboard — oculto do menu lateral (desktop). Componente/rota mantidos para reativação futura.
   // { icon: LayoutDashboard, label: 'Dashboard' },
   { icon: Package2,        label: 'Inventory' },
@@ -37,78 +34,62 @@ const navItems = [
   { icon: Settings,        label: 'Configurações' },
 ] as const;
 
-export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, onToggleCollapse, unreadNotifications = 0 }: SidebarProps) {
+// Itens que ficam no pé da faixa (os demais ficam no topo).
+const BOTTOM_ITEMS = new Set<string>(['Notificações', 'Configurações']);
+
+/** Ícone da página ativa — usado também no título do cabeçalho (TopNav). */
+export function getNavIcon(label: string) {
+  if (label === 'Dashboard') return LayoutDashboard;
+  return NAV_ITEMS.find(i => i.label === label)?.icon ?? null;
+}
+
+// Menu lateral (desktop): faixa colada na borda esquerda, logo abaixo do cabeçalho, com a mesma
+// cor/borda dele — o logo (e o botão de ocultar o menu) fica no canto esquerdo do cabeçalho.
+export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, unreadNotifications = 0 }: SidebarProps) {
   const { isMobileView } = useViewMode();
 
-  if (isCollapsed && !isMobileView) return null;
+  if (isMobileView || isCollapsed) return null;
+
+  const renderItem = (item: typeof NAV_ITEMS[number]) => {
+    const isActive = activeTab === item.label;
+    const badge = 'hasBadge' in item && item.hasBadge ? unreadNotifications : 0;
+    return (
+      <button
+        key={item.label}
+        onClick={() => setActiveTab(item.label)}
+        title={item.label}
+        className={cn(
+          'group relative w-12 h-11 flex items-center justify-center outline-none shrink-0',
+          'transition-[background-color,color,opacity,transform] duration-[130ms] active:scale-95',
+          isActive
+            ? 'bg-[#D81E1E] text-white'
+            : 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-60 hover:opacity-100 hover:bg-black/[0.07] dark:hover:bg-white/[0.06]'
+        )}
+      >
+        <item.icon size={18} strokeWidth={isActive ? 2.5 : 2.1} />
+
+        {badge > 0 && (
+          <span className="absolute top-2 right-2.5 w-[7px] h-[7px] rounded-full bg-[#D81E1E] shadow-[0_0_0_2px_#FFE500] dark:shadow-[0_0_0_2px_#252520]" />
+        )}
+
+        <span className={cn(
+          'pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-10',
+          'px-2.5 py-1.5 text-[11px] font-extrabold whitespace-nowrap',
+          'bg-[#1A1A0E] text-[#F2F0E3] dark:bg-[#F2F0E3] dark:text-[#1A1A0E]',
+          'opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0',
+          'transition-[opacity,transform] duration-[120ms] ease-out'
+        )}>
+          {item.label}
+        </span>
+      </button>
+    );
+  };
 
   return (
-    <aside className={cn(
-      'fixed left-4 inset-y-0 z-40 flex-col items-center w-[56px] py-6',
-      isMobileView ? 'hidden' : 'flex'
-    )}>
-
-      {/* ── Logo circle — doubles as the collapse toggle ── */}
-      <motion.button
-        layoutId="sidebar-toggle"
-        onClick={onToggleCollapse}
-        title="Ocultar menu"
-        className="w-14 h-14 rounded-full bg-on-surface/[0.10] hover:bg-on-surface/[0.18] flex items-center justify-center shrink-0 mb-6 overflow-hidden outline-none transition-colors duration-150 active:scale-[0.93]"
-      >
-        <div className="relative w-9 h-9">
-          <Image
-            src="/brand/logo.png"
-            alt="Universo do R$1,99"
-            fill
-            className="object-contain"
-            unoptimized
-            priority
-          />
-        </div>
-      </motion.button>
-
-      {/* ── Nav items — spread across remaining vertical space ── */}
-      <nav className="flex flex-col items-center justify-between flex-1 w-full">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.label;
-          const badge = 'hasBadge' in item && item.hasBadge ? unreadNotifications : 0;
-
-          return (
-            <button
-              key={item.label}
-              onClick={() => setActiveTab(item.label)}
-              title={item.label}
-              className={cn(
-                'group relative w-12 h-12 rounded-full flex items-center justify-center outline-none',
-                'transition-[background,color,transform] duration-150 active:scale-[0.93]',
-                isActive
-                  ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                  : 'bg-on-surface/[0.10] text-on-surface/70 hover:bg-on-surface/[0.18] hover:text-on-surface'
-              )}
-            >
-              <item.icon size={19} strokeWidth={isActive ? 2.5 : 2} />
-
-              {/* Notification dot */}
-              {badge > 0 && (
-                <span className="absolute top-[10px] right-[10px] w-2 h-2 bg-red-500 rounded-full border-2 border-background" />
-              )}
-
-              {/* Tooltip */}
-              <span className={cn(
-                'pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2',
-                'px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap',
-                'text-on-surface bg-surface-container border border-on-surface/[0.08]',
-                'shadow-[0_4px_14px_rgba(0,0,0,0.25)]',
-                'opacity-0 translate-x-[-4px]',
-                'group-hover:opacity-100 group-hover:translate-x-0',
-                'transition-[opacity,transform] duration-[120ms] ease-out'
-              )}>
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+    <aside className="fixed left-0 top-11 bottom-0 z-40 w-16 flex flex-col items-center gap-1 py-2 bg-[#FFE500] dark:bg-[#252520] border-r border-[#D4C000] dark:border-white/[0.08]">
+      {NAV_ITEMS.filter(i => !BOTTOM_ITEMS.has(i.label)).map(renderItem)}
+      <div className="flex-1" />
+      {NAV_ITEMS.filter(i => BOTTOM_ITEMS.has(i.label)).map(renderItem)}
     </aside>
   );
 }

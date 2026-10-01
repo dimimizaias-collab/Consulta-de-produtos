@@ -6429,26 +6429,14 @@ export default function Page() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           unreadNotifications={unreadNotificationCount}
         />
-        {isSidebarCollapsed && !isMobileView && (
-          <motion.button
-            layoutId="sidebar-toggle"
-            onClick={() => setIsSidebarCollapsed(false)}
-            title="Mostrar menu"
-            className={cn(
-              'fixed left-0 top-10 z-40 w-7 h-[52px] rounded-r-2xl',
-              'bg-on-surface/[0.10] hover:bg-on-surface/[0.18] text-on-surface/60 hover:text-on-surface',
-              'flex items-center justify-center outline-none',
-              'transition-colors duration-150 active:scale-[0.93]'
-            )}
-          >
-            <ChevronRight size={16} strokeWidth={2.5} />
-          </motion.button>
-        )}
-        <main className={cn('flex-1 min-w-0 overflow-x-clip', (isMobileView || isSidebarCollapsed) ? 'ml-0' : 'ml-[80px]')}>
+        {/* Desktop: cabeçalho fixo de 44px no topo (pt-11) e menu lateral de 64px (ml-16). */}
+        <main className={cn('flex-1 min-w-0 overflow-x-clip', (isMobileView || isSidebarCollapsed) ? 'ml-0' : 'ml-16', !isMobileView && 'pt-11')}>
           <TopNav
+            title={activeTab}
+            sidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={() => setIsSidebarCollapsed(c => !c)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             activeTab={activeTab}

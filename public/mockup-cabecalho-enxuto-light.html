@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabeçalho enxuto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --hdr: #FFE500; --hdr-border: #D4C000; --hdr-text: #1A1A0E; --hdr-muted: rgba(26,26,10,0.45); --chip: rgba(26,26,10,0.09);
+    --hover: rgba(26,26,10,0.07);
+    --card: #FFFFFF; --card-border: #E0D8BF; --btn: rgba(26,26,10,0.06);
+    --menu: #FFFFFF; --menu-border: #E0D8BF; --menu-hover: #FFF8D0;
+    --grid: #A8A290; --row-odd: #FAF7EE; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    --old: rgba(216,30,30,0.85);
+    --rail: 64px; --hh: 44px;
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3; --hdr-muted: rgba(242,240,227,0.30); --chip: rgba(216,30,30,0.13);
+    --hover: rgba(242,240,227,0.06);
+    --card: #1E1E18; --card-border: rgba(242,240,227,0.08); --btn: rgba(242,240,227,0.06);
+    --menu: #2E2E28; --menu-border: rgba(242,240,227,0.10); --menu-hover: rgba(255,229,0,0.08);
+    --grid: rgba(242,240,227,0.20); --row-odd: #1E1E18; --th-text: rgba(26,26,10,0.58);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+  button { font-family: inherit; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; }
+  .anno .sep { width: 1px; height: 18px; background: rgba(242,240,227,.2); }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+
+  /* ── CABEÇALHO: colado no topo, borda a borda, com o logo no canto esquerdo ── */
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: var(--hh); display: flex; align-items: stretch; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .logo { width: var(--rail); flex-shrink: 0; display: grid; place-items: center; border: 0; border-right: 1px solid var(--hdr-border); background: transparent; cursor: pointer; transition: background 130ms; }
+  .logo:hover { background: var(--hover); }
+  .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; letter-spacing: -0.02em; border: 1px solid rgba(26,26,10,0.12); }
+  .ttl { display: flex; align-items: center; gap: 9px; padding: 0 16px; min-width: 0; }
+  .ico { width: 28px; height: 28px; display: grid; place-items: center; background: var(--chip); color: var(--hdr-text); flex-shrink: 0; }
+  html.dark .ico { color: #D81E1E; }
+  .ttl h1 { margin: 0; font-size: 15px; font-weight: 900; letter-spacing: -0.01em; color: var(--hdr-text); white-space: nowrap; }
+  .ttl small { font-size: 8.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--hdr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ttl .dot { width: 3px; height: 3px; border-radius: 9px; background: var(--hdr-muted); flex-shrink: 0; }
+  .right { margin-left: auto; display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
+
+  /* Perfil quadrado */
+  .prof { position: relative; }
+  .pbtn { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.16); background: rgba(26,26,10,0.06); color: var(--hdr-text); font-size: 11.5px; font-weight: 900; cursor: pointer; transition: background 130ms, transform 130ms, box-shadow 130ms; }
+  html.dark .pbtn { border-color: rgba(242,240,227,0.14); background: rgba(216,30,30,0.13); }
+  .pbtn:hover { background: rgba(26,26,10,0.11); }
+  .pbtn:active { transform: scale(0.94); }
+  .pbtn.open { box-shadow: inset 0 -3px 0 #D81E1E; }
+  .menu { position: absolute; right: 0; top: calc(100% + 7px); width: 228px; background: var(--menu); border: 1px solid var(--menu-border); box-shadow: 0 16px 36px -10px rgba(0,0,0,0.3); transform-origin: top right; opacity: 0; transform: scale(0.97) translateY(-4px); pointer-events: none; transition: opacity 130ms cubic-bezier(0.23,1,0.32,1), transform 130ms cubic-bezier(0.23,1,0.32,1); }
+  .menu.open { opacity: 1; transform: none; pointer-events: auto; }
+  .mh { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--menu-border); }
+  .mh .av { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(216,30,30,0.10); color: #D81E1E; font-size: 11px; font-weight: 900; }
+  .mh b { display: block; font-size: 12.5px; font-weight: 900; }
+  .mh small { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .mi { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 0; background: transparent; color: var(--text); font-size: 12px; font-weight: 700; text-align: left; cursor: pointer; }
+  .mi:hover { background: var(--menu-hover); }
+  .mi svg { opacity: .55; }
+  .mi.out { color: #D81E1E; border-top: 1px solid var(--menu-border); }
+  .mi.out svg { opacity: .85; }
+  .mi.out:hover { background: rgba(216,30,30,0.08); }
+
+  /* ── MENU LATERAL: faixa colada na borda, mesma cor do cabeçalho ── */
+  .rail { position: fixed; left: 0; top: var(--hh); bottom: 0; width: var(--rail); z-index: 45; background: var(--hdr); border-right: 1px solid var(--hdr-border); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; transition: transform 200ms cubic-bezier(0.23,1,0.32,1); }
+  .nav { position: relative; width: 48px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--hdr-text); opacity: .6; cursor: pointer; transition: background 130ms, opacity 130ms, transform 130ms; }
+  .nav:hover { opacity: 1; background: var(--hover); }
+  .nav:active { transform: scale(0.95); }
+  .nav.on { opacity: 1; background: #D81E1E; color: #fff; }
+  .nav .bdg { position: absolute; top: 8px; right: 10px; width: 7px; height: 7px; border-radius: 9px; background: #D81E1E; box-shadow: 0 0 0 2px var(--hdr); }
+  .nav .tip { pointer-events: none; position: absolute; left: calc(100% + 10px); top: 50%; transform: translate(-4px, -50%); opacity: 0; white-space: nowrap; padding: 6px 9px; font-size: 11px; font-weight: 800; background: #1A1A0E; color: #F2F0E3; transition: opacity 120ms, transform 120ms; }
+  .nav:hover .tip { opacity: 1; transform: translate(0, -50%); }
+  .rail .spacer { flex: 1; }
+
+  /* Variante horizontal: faixa de páginas logo abaixo do cabeçalho */
+  .hnav { position: fixed; left: 0; right: 0; top: var(--hh); height: 36px; z-index: 45; display: none; align-items: stretch; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); padding-left: 6px; overflow-x: auto; scrollbar-width: none; }
+  .hnav .nav { width: auto; height: auto; flex-shrink: 0; white-space: nowrap; padding: 0 14px; display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+  .hnav .nav .bdg { top: 7px; right: 6px; }
+  body.horiz .rail { display: none; }
+  body.horiz .hnav { display: flex; }
+  body.horiz .logo { border-right: 0; }
+
+  body.collapsed .rail { transform: translateX(-100%); }
+
+  /* ── CONTEÚDO ── */
+  main { margin-left: var(--rail); padding-top: var(--hh); transition: margin-left 200ms cubic-bezier(0.23,1,0.32,1); }
+  body.collapsed main, body.horiz main { margin-left: 0; }
+  body.horiz main { padding-top: calc(var(--hh) + 36px); }
+
+  /* Abas penduradas logo abaixo do cabeçalho (como hoje, mas quadradas e coladas) */
+  .tabs { display: flex; position: sticky; top: var(--hh); z-index: 20; width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  body.horiz .tabs { top: calc(var(--hh) + 36px); }
+  .tab { height: 32px; min-width: 112px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--hdr-text); box-shadow: var(--tabshadow); opacity: 1; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: color 130ms; }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab span.l { opacity: .55; transition: opacity 130ms; }
+  .tab:hover span.l { opacity: .85; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; }
+  .tab.on span.l { opacity: 1; }
+  .tab .n { font-size: 9px; font-weight: 900; letter-spacing: 0; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,0.12); }
+  html.dark .tab .n { background: rgba(242,240,227,0.10); }
+
+  .content { padding: 14px 20px 90px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .search { flex: 1; max-width: 460px; height: 34px; border: 1px solid var(--card-border); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--faint); font-size: 13px; font-weight: 600; }
+  .tb { height: 34px; padding: 0 14px; border: 0; background: #D81E1E; color: #fff; font-size: 11.5px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+  .tb.sec { background: var(--btn); color: var(--text); }
+  .tbl { border: 1px solid var(--card-border); background: var(--card); overflow: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; }
+  th { background: var(--th); color: var(--th-text); box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); height: 34px; padding: 0 10px; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+  td { height: 36px; padding: 0 10px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  tbody tr:nth-child(even) td { background: var(--row-odd); }
+  .mono { font-family: 'DM Mono'; font-size: 11.5px; color: var(--muted); }
+  .st { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: 999px; background: rgba(37,99,235,.1); color: #2563EB; }
+</style>
+</head>
+<body>
+
+<!-- Cabeçalho -->
+<header class="hdr">
+  <button class="logo" id="logo" title="Ocultar menu"><span>R$1,99</span></button>
+  <div class="ttl">
+    <div class="ico" id="ico"></div>
+    <h1 id="title"></h1>
+    <span class="dot"></span>
+    <small id="sub"></small>
+  </div>
+  <div class="right">
+    <div class="prof">
+      <button class="pbtn" id="pbtn" title="Menu do usuário">DM</button>
+      <div class="menu" id="menu">
+        <div class="mh"><span class="av">DM</span><div><b>Dimit Mizaias</b><small>Admin</small></div></div>
+        <button class="mi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Mudar para modo Mobile</button>
+        <button class="mi out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair da conta</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Menu lateral (vertical) -->
+<aside class="rail" id="rail"></aside>
+<!-- Menu de páginas (variante horizontal) -->
+<nav class="hnav" id="hnav"></nav>
+
+<main>
+  <div class="tabs" id="tabs"></div>
+  <div class="content">
+    <div class="toolbar">
+      <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar nota, fornecedor ou número…</div>
+      <button class="tb sec">Filtros</button>
+      <button class="tb">+ Nova nota</button>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Fornecedor</th><th>Nº Nota</th><th>Empresa</th><th>Recebida em</th><th>Itens</th><th>Valor</th><th>Situação</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+</main>
+
+<div class="anno">
+  <span><b>Mockup v2</b> — cabeçalho enxuto</span>
+  <span>Menu:</span>
+  <button data-m="vert" class="on">Vertical</button>
+  <button data-m="horiz">Horizontal</button>
+  <span class="sep"></span>
+  <span>Página:</span>
+  <button data-p="entrada" class="on">Entrada</button>
+  <button data-p="fin">Financeiro</button>
+  <button data-p="est">Estoque</button>
+  <span class="sep"></span>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const IC = {
+  est: '<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+  req: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
+  entrada: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  ped: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  fin: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  rh: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  not: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  cfg: '<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>',
+};
+const NAV = [['est', 'Estoque'], ['req', 'Requisições'], ['entrada', 'Entrada de Mercadoria'], ['ped', 'Pedidos de Compra'], ['fin', 'Controle Financeiro'], ['rh', 'Recursos Humanos'], ['not', 'Notificações', true], ['cfg', 'Configurações']];
+const PAGES = {
+  entrada: { title: 'Entrada de Mercadoria', sub: 'Logistics Orchestration & Inventory Feed', tabs: [['Notas', 48], ['Distribuição', 3], ['Dicionário'], ['Fornecedores'], ['Fabricantes'], ['Rascunhos', 2]] },
+  fin: { title: 'Controle Financeiro', sub: 'Cash Flow & Payables', tabs: [['Movimentações'], ['Calendário'], ['Favorecidos'], ['Cartões'], ['Dados']] },
+  est: { title: 'Estoque', sub: 'Inventory & Pricing', tabs: [['Produtos'], ['Fila de impressão', 5], ['Etiquetas']] },
+};
+let page = 'entrada', tab = 0;
+const svg = (k, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
+function render() {
+  const p = PAGES[page];
+  document.getElementById('ico').innerHTML = svg(page, 15);
+  document.getElementById('title').textContent = p.title;
+  document.getElementById('sub').textContent = p.sub;
+  const navBtns = (horiz) => NAV.map(([k, l, b]) => `<button class="nav ${k === page ? 'on' : ''}" data-nav="${k}" title="${l}">${svg(k, horiz ? 15 : 18)}${horiz ? `<span>${l}</span>` : `<span class="tip">${l}</span>`}${b ? '<span class="bdg"></span>' : ''}</button>`);
+  const v = navBtns(false);
+  document.getElementById('rail').innerHTML = v.slice(0, 6).join('') + '<div class="spacer"></div>' + v.slice(6).join('');
+  document.getElementById('hnav').innerHTML = navBtns(true).join('');
+  document.getElementById('tabs').innerHTML = p.tabs.map((t, i) => `<button class="tab ${i === tab ? 'on' : ''}" data-i="${i}"><span class="l">${t[0]}</span>${t[1] ? `<span class="n">${t[1]}</span>` : ''}</button>`).join('');
+  document.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === page));
+}
+document.addEventListener('click', e => {
+  const n = e.target.closest('[data-nav]'); if (n && PAGES[n.dataset.nav]) { page = n.dataset.nav; tab = 0; render(); }
+  const t = e.target.closest('.tab'); if (t) { tab = +t.dataset.i; render(); }
+});
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { page = b.dataset.p; tab = 0; render(); }));
+document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+  document.body.classList.toggle('horiz', b.dataset.m === 'horiz');
+  document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b));
+}));
+document.getElementById('logo').addEventListener('click', () => { if (!document.body.classList.contains('horiz')) document.body.classList.toggle('collapsed'); });
+const pbtn = document.getElementById('pbtn'), menu = document.getElementById('menu');
+pbtn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('open'); pbtn.classList.toggle('open'); });
+document.addEventListener('click', e => { if (!menu.contains(e.target) && e.target !== pbtn) { menu.classList.remove('open'); pbtn.classList.remove('open'); } });
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+const sups = ['DISPEL MAXX', 'CHOCOMAR 01', 'ARCOM', 'DISTRIBUIDORA ALVORADA', 'PLASTICOS ROMA', 'CASA FORTE UTILIDADES', 'METALÚRGICA ÍRIS', 'ATACADÃO DO LAR', 'TRANSPORTADORA RÁPIDO SUL', 'BRINQUEDOS ESTRELA'];
+document.getElementById('rows').innerHTML = Array.from({ length: 18 }, (_, i) => `<tr><td style="font-weight:800">${sups[i % sups.length]}</td><td class="mono">${39400 + i * 7}</td><td>Castelo Real</td><td class="mono">${String(30 - (i % 28)).padStart(2, '0')}/09/2026</td><td>${12 + (i * 5) % 50}</td><td class="mono">R$ ${(480 + i * 137.4).toFixed(2).replace('.', ',')}</td><td><span class="st">Revisão</span></td></tr>`).join('');
+render();
+</script>
+</body>
+</html>

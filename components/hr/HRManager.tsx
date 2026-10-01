@@ -201,7 +201,6 @@ export function HRManager({ requests, onOpenTask, onGoToFinance }: HRManagerProp
           </div>
           <div>
             <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Recursos Humanos</h1>
-            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[rgba(26,26,10,0.40)] dark:text-white/[0.28]">Planejamento Interno</div>
           </div>
         </div>
 
