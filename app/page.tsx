@@ -40,7 +40,7 @@ import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, 
   ChevronsRight, Check, Trash2, ArrowLeftRight, BarChart3, Link as LinkIcon, ArrowRight, ArrowDown, ArrowUp, Package, LogIn, FileText, ShoppingCart, Truck, BookText, Users, Pencil, ClipboardList, SendHorizonal, Ban, Save, Ruler, Zap, Layers, AlertTriangle, Undo2, Redo2, Bookmark, ShieldCheck, Copy, EyeOff, Calendar, Building2, Wallet, TrendingUp, TrendingDown, Hash, MapPin, Tag, Barcode, LayoutGrid, Factory, IdCard, AlignLeft, Columns3, Boxes, Info, ScrollText, FileCode2, Upload, DollarSign, Printer } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
@@ -902,7 +902,6 @@ export default function Page() {
   const [translationChoiceOptions, setTranslationChoiceOptions] = useState<{ id: string; unit_name: string; multiplier: number }[]>([]);
   const [translationChoiceSelectedId, setTranslationChoiceSelectedId] = useState<string | null>(null);
   const [reviewEditableCols, setReviewEditableCols] = useState<Set<string>>(new Set());
-  const [editingNoteHeader, setEditingNoteHeader] = useState(false);
   // ── Aba Produtos/Recebimento + Situação de Entrada ──
   // Movimentações financeiras vinculadas à nota em revisão (aba Financeiro)
   type NoteFinanceTx = {
@@ -4177,7 +4176,6 @@ export default function Page() {
     setReviewUnitMenuIdx(null);
     setReviewMeasureIdx(null);
     setReviewEditableCols(new Set());
-    setEditingNoteHeader(false);
     setReviewFilterActive(false);
     setReviewColumnFilters({});
     setReviewFilterOpen(null);
@@ -10429,315 +10427,93 @@ export default function Page() {
                   </div>
                 </div>
               )}
-              <div className="p-6 border-b border-line dark:border-white/[0.07] flex items-center justify-between gap-5 bg-surface-container dark:bg-[#252520] shrink-0">
-                <div className="flex items-center gap-4 shrink-0">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                    <FileText size={24} />
-                  </div>
-                  <div>
-                    {editingNoteHeader ? (
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <div className="relative w-[280px]" ref={noteSupplierRef}>
-                            <input
-                              autoFocus
-                              value={noteSupplierQuery}
-                              disabled={getNoteStatus(viewingReviewNote) !== 'registro'}
-                              onChange={e => { setNoteSupplierQuery(e.target.value); setNoteSupplierOpen(true); }}
-                              onFocus={() => setNoteSupplierOpen(true)}
-                              placeholder="Selecionar fornecedor…"
-                              autoComplete="off"
-                              className="text-xl font-black text-on-surface border-b-2 border-primary outline-none bg-transparent w-full placeholder:text-on-surface/25 disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            <AnimatePresence>
-                              {noteSupplierOpen && getNoteStatus(viewingReviewNote) === 'registro' && (
-                                <motion.ul
-                                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                                  transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                                  className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-line dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto"
-                                >
-                                  {supplierNames
-                                    .filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase()))
-                                    .map((s: any) => (
-                                      <li
-                                        key={s.id}
-                                        onMouseDown={() => {
-                                          setViewingReviewNote({ ...viewingReviewNote, supplierId: s.id, supplierName: s.name, fileName: s.name });
-                                          setNoteSupplierQuery(s.name);
-                                          setNoteSupplierOpen(false);
-                                        }}
-                                        className="px-3 py-2.5 text-sm font-semibold text-on-surface hover:bg-on-surface/5 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
-                                      >
-                                        {s.name}
-                                      </li>
-                                    ))}
-                                  {supplierNames.filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase())).length === 0 && (
-                                    <li className="px-3 py-2.5 text-sm text-on-surface/35 italic">
-                                      {supplierNames.length === 0 ? 'Carregando fornecedores…' : 'Nenhum resultado'}
-                                    </li>
-                                  )}
-                                </motion.ul>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                          <button
-                            onClick={() => { setEditingNoteHeader(false); setNoteSupplierQuery(viewingReviewNote.supplierName || ''); setNoteSupplierOpen(false); }}
-                            className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors" title="Confirmar"
-                          >
-                            <CheckCircle2 size={16} className="text-primary" />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={viewingReviewNote.noteNumber || ''}
-                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, noteNumber: e.target.value || undefined })}
-                            placeholder="Número da nota"
-                            className="text-sm font-bold text-on-surface/60 border-b border-on-surface/20 outline-none bg-transparent w-48 placeholder:text-on-surface/20"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xl font-black text-on-surface">
-                            {viewingReviewNote.supplierName || viewingReviewNote.fileName || <span className="text-on-surface/30 font-medium">Sem fornecedor</span>}
-                          </h3>
-                          <button
-                            onClick={() => { setEditingNoteHeader(true); setNoteSupplierQuery(viewingReviewNote.supplierName || ''); }}
-                            className="p-1 hover:bg-on-surface/[0.07] rounded-lg transition-colors text-on-surface/30 hover:text-on-surface/60"
-                            title="Editar fornecedor e número"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {viewingReviewNote.noteNumber ? (
-                            <span className="px-2 py-0.5 bg-on-surface/[0.07] rounded-lg text-xs font-black text-on-surface/50">{viewingReviewNote.noteNumber}</span>
-                          ) : (
-                            <button
-                              onClick={() => setEditingNoteHeader(true)}
-                              className="text-xs text-on-surface/20 hover:text-on-surface/50 transition-colors"
-                            >
-                              + Número da nota
-                            </button>
+              {/* ── ① Barra de título: Fornecedor e Nº da nota em campos quadrados ── */}
+              <div className="flex items-end gap-3 pl-3.5 pr-4 pt-[9px] pb-2.5 bg-surface-container dark:bg-[#252520] shrink-0">
+                <div className="w-[30px] h-[30px] bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                  <FileText size={16} />
+                </div>
+                <div className="flex flex-col items-start gap-[3px] shrink-0">
+                  <span className="pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Fornecedor</span>
+                  <div
+                    ref={noteSupplierRef}
+                    className={cn(
+                      'relative w-[300px] h-[30px] flex items-center border bg-white dark:bg-[#1E1E18] transition-[border-color,box-shadow] duration-[130ms]',
+                      'border-[#E0D8BF] dark:border-white/[0.10] hover:border-[#CFC4A2] dark:hover:border-white/[0.20]',
+                      'focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]',
+                      getNoteStatus(viewingReviewNote) !== 'registro' && 'bg-transparent dark:bg-transparent',
+                    )}
+                  >
+                    <input
+                      value={noteSupplierOpen ? noteSupplierQuery : (viewingReviewNote.supplierName || viewingReviewNote.fileName || '')}
+                      disabled={getNoteStatus(viewingReviewNote) !== 'registro'}
+                      onChange={e => { setNoteSupplierQuery(e.target.value); setNoteSupplierOpen(true); }}
+                      onFocus={e => { setNoteSupplierQuery(viewingReviewNote.supplierName || ''); setNoteSupplierOpen(true); e.currentTarget.select(); }}
+                      onBlur={() => setNoteSupplierOpen(false)}
+                      onKeyDown={e => { if (e.key === 'Escape' && noteSupplierOpen) { e.stopPropagation(); e.currentTarget.blur(); } }}
+                      placeholder="Sem fornecedor"
+                      autoComplete="off"
+                      title={getNoteStatus(viewingReviewNote) !== 'registro' ? 'O fornecedor só pode ser trocado com a nota em Registro' : undefined}
+                      className="flex-1 min-w-0 h-full px-2.5 bg-transparent border-none outline-none text-[13px] font-extrabold text-on-surface placeholder:font-medium placeholder:text-on-surface/25 caret-[#D81E1E] disabled:opacity-70 disabled:cursor-not-allowed"
+                    />
+                    {getNoteStatus(viewingReviewNote) === 'registro' && (
+                      <span
+                        onMouseDown={e => { e.preventDefault(); (e.currentTarget.previousElementSibling as HTMLInputElement | null)?.focus(); }}
+                        className="w-[26px] h-full shrink-0 flex items-center justify-center border-l border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/40 hover:bg-on-surface/[0.06] hover:text-on-surface cursor-pointer transition-colors"
+                      >
+                        <ChevronDown size={12} strokeWidth={2.8} />
+                      </span>
+                    )}
+                    <AnimatePresence>
+                      {noteSupplierOpen && getNoteStatus(viewingReviewNote) === 'registro' && (
+                        <motion.ul
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                          style={{ transformOrigin: 'top' }}
+                          className="absolute -left-px -right-px top-full mt-0.5 z-50 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/10 shadow-[0_16px_36px_-10px_rgba(0,0,0,0.28)] max-h-56 overflow-y-auto"
+                        >
+                          {supplierNames
+                            .filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase()))
+                            .map((s: any) => (
+                              <li
+                                key={s.id}
+                                onMouseDown={e => {
+                                  e.preventDefault();
+                                  setViewingReviewNote({ ...viewingReviewNote, supplierId: s.id, supplierName: s.name, fileName: s.name });
+                                  setNoteSupplierQuery(s.name);
+                                  setNoteSupplierOpen(false);
+                                  (document.activeElement as HTMLElement | null)?.blur();
+                                }}
+                                className="px-2.5 py-2 text-[12.5px] font-semibold text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] cursor-pointer transition-colors"
+                              >
+                                {s.name}
+                              </li>
+                            ))}
+                          {supplierNames.filter((s: any) => !noteSupplierQuery || s.name.toLowerCase().includes(noteSupplierQuery.toLowerCase())).length === 0 && (
+                            <li className="px-2.5 py-2 text-[12.5px] text-on-surface/35 italic">
+                              {supplierNames.length === 0 ? 'Carregando fornecedores…' : 'Nenhum resultado'}
+                            </li>
                           )}
-                        </div>
-                      </div>
-                    )}
-                    {viewingReviewNote.accessKey && (
-                      <p className="text-[10px] font-mono text-on-surface/30 mt-0.5 truncate max-w-sm">{viewingReviewNote.accessKey}</p>
-                    )}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-                {/* ── Busca rápida: filtra a tabela por uma coluna (ou todas) enquanto digita ── */}
-                {(() => {
-                  const term = noteQuickSearch.trim();
-                  const colLabel = NOTE_QUICK_SEARCH_COLS.find(c => c.key === noteQuickSearchCol)?.label;
-                  const matchCount = term ? viewingReviewNote.items.filter((it: any, i: number) => matchesNoteQuickSearch(it, i)).length : 0;
-                  return (
-                    <div className="relative flex-1 min-w-[260px] max-w-[460px] ml-auto">
-                      <div
-                        className={cn(
-                          'h-[38px] flex items-center gap-0.5 pl-[11px] pr-1 rounded-xl border-[1.5px] bg-white dark:bg-[#1E1E18]',
-                          'transition-[border-color,box-shadow] duration-[130ms]',
-                          'focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_3px_rgba(216,30,30,0.13)]',
-                          term
-                            ? 'border-[#EADB6A] dark:border-[#FFE500]/35'
-                            : 'border-[#E0D8BF] dark:border-white/[0.10] hover:border-[#D2C8A8] dark:hover:border-white/[0.18]',
-                        )}
-                      >
-                        <Search size={15} strokeWidth={2.4} className="shrink-0 text-on-surface/40" />
-                        <input
-                          value={noteQuickSearch}
-                          onChange={e => setNoteQuickSearch(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Escape' && noteQuickSearch) { e.stopPropagation(); setNoteQuickSearch(''); } }}
-                          placeholder={colLabel ? `Buscar em ${colLabel}…` : 'Buscar em todas as colunas…'}
-                          autoComplete="off"
-                          className="flex-1 min-w-0 h-full px-2 bg-transparent border-none outline-none text-[13px] font-semibold text-on-surface placeholder:font-medium placeholder:text-on-surface/25 caret-[#D81E1E]"
-                        />
-                        {term && (
-                          <button
-                            onClick={() => setNoteQuickSearch('')}
-                            title="Limpar busca (Esc)"
-                            className="w-[26px] h-[26px] shrink-0 rounded-lg flex items-center justify-center text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] active:scale-90 transition-all duration-[130ms]"
-                          >
-                            <X size={14} strokeWidth={2.6} />
-                          </button>
-                        )}
-                        <div className="w-px h-[18px] mx-1 shrink-0 bg-[#E0D8BF] dark:bg-white/[0.10]" />
-                        <button
-                          onClick={() => setNoteQuickSearchMenuOpen(o => !o)}
-                          title="Escolher coluna da busca"
-                          className="h-7 max-w-[170px] shrink-0 flex items-center gap-1.5 pl-[9px] pr-2 rounded-lg border border-[#EADB6A] dark:border-[#FFE500]/[0.28] bg-[#FFF3A6] dark:bg-[#FFE500]/[0.12] text-[#1A1A0E] dark:text-[#FFE500] text-[10.5px] font-extrabold uppercase tracking-[0.06em] hover:brightness-[0.97] active:scale-[0.97] transition-all duration-[130ms]"
-                        >
-                          <Filter size={12} strokeWidth={2.6} className="shrink-0 opacity-70" />
-                          <span className="truncate">{colLabel || 'Todas'}</span>
-                          <ChevronDown size={11} strokeWidth={2.8} className="shrink-0 opacity-70" />
-                        </button>
-                      </div>
-                      {term && (
-                        <div className="absolute left-3 top-full mt-1 text-[10.5px] font-bold text-on-surface/40 whitespace-nowrap">
-                          <span className="text-on-surface">{matchCount}</span> de {viewingReviewNote.items.length} produtos
-                        </div>
-                      )}
-                      <AnimatePresence>
-                        {noteQuickSearchMenuOpen && (<>
-                          <div className="fixed inset-0 z-[290]" onClick={() => setNoteQuickSearchMenuOpen(false)} />
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: -4 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: -4 }}
-                            transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                            style={{ transformOrigin: 'top right' }}
-                            className="absolute right-0 top-full mt-1.5 z-[300] w-[230px] p-[5px] rounded-xl border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#2E2E28] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.28)]"
-                          >
-                            <div className="px-[9px] pt-[7px] pb-[5px] text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Buscar na coluna</div>
-                            {[{ key: null as string | null, label: 'Todas as colunas' }, ...NOTE_QUICK_SEARCH_COLS].map((c, i) => {
-                              const sel = noteQuickSearchCol === c.key;
-                              return (
-                                <Fragment key={c.key ?? '__all'}>
-                                  <button
-                                    onClick={() => { setNoteQuickSearchCol(c.key); setNoteQuickSearchMenuOpen(false); }}
-                                    className={cn(
-                                      'w-full flex items-center justify-between gap-2 px-[9px] py-2 rounded-lg text-left text-[12.5px] text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors',
-                                      sel ? 'font-extrabold' : 'font-semibold',
-                                    )}
-                                  >
-                                    {c.label}
-                                    {sel && <Check size={14} strokeWidth={3} className="text-[#D81E1E]" />}
-                                  </button>
-                                  {i === 0 && <div className="border-t border-[#EFE8D2] dark:border-white/[0.05] mx-0.5 my-1" />}
-                                </Fragment>
-                              );
-                            })}
-                          </motion.div>
-                        </>)}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })()}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                    title="Desfazer (Ctrl+Z)"
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <Undo2 size={16} />
-                  </button>
-                  <button
-                    onClick={handleRedo}
-                    disabled={!canRedo}
-                    title="Refazer (Ctrl+Y)"
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.12] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <Redo2 size={16} />
-                  </button>
-                  <div className="w-px h-5 bg-on-surface/10" />
-                  <button
-                    onClick={() => {
-                      const next = !reviewFilterActive;
-                      setReviewFilterActive(next);
-                      if (!next) { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }
-                    }}
-                    title={reviewFilterActive ? 'Desativar filtros' : 'Filtrar por coluna'}
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center transition-all',
-                      reviewFilterActive
-                        ? 'bg-primary text-white shadow-md'
-                        : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
-                      Object.values(reviewColumnFilters).some(s => s.size > 0) && !reviewFilterActive && 'ring-2 ring-primary/40',
-                    )}
-                  >
-                    <Filter size={13} />
-                  </button>
-                  <button
-                    onClick={() => setShowHideColsModal(true)}
-                    title={reviewHiddenCols.size > 0 ? `${reviewHiddenCols.size} coluna(s) oculta(s)` : 'Ocultar colunas'}
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center transition-all',
-                      reviewHiddenCols.size > 0
-                        ? 'bg-[#FFE500] text-[#1A1A0E] shadow-md'
-                        : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
-                    )}
-                  >
-                    <EyeOff size={13} />
-                  </button>
-                  {Object.keys(reviewColWidths).length > 0 && (
-                    <button
-                      onClick={resetReviewColWidths}
-                      title="Restaurar larguras padrão das colunas"
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60"
-                    >
-                      <Columns3 size={13} />
-                    </button>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    {/* Adj column buttons */}
-                    <button
-                      onClick={() => setAdjColDialog({ kind: 'desconto', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
-                      className={cn("relative flex items-center justify-center w-9 h-9 rounded-xl transition-colors border", adjColumns.some(c => c.kind === 'desconto') ? "bg-red-500/15 text-red-400 border-red-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/15")}
-                      title="Adicionar coluna de Desconto"
-                    >
-                      <Minus size={14} />
-                      {adjColumns.filter(c => c.kind === 'desconto').length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-400/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'desconto').length}</span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setAdjColDialog({ kind: 'acrescimo', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
-                      className={cn("relative flex items-center justify-center w-9 h-9 rounded-xl transition-colors border", adjColumns.some(c => c.kind === 'acrescimo') ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/15")}
-                      title="Adicionar coluna de Acréscimo"
-                    >
-                      <Plus size={14} />
-                      {adjColumns.filter(c => c.kind === 'acrescimo').length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
-                      )}
-                    </button>
-                  </div>
-                  <div className="w-px h-5 bg-on-surface/10" />
-                  <button
-                    onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjColumns)}
-                    title="Baixar Excel"
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/18 transition-colors border border-emerald-500/15"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <rect x="2" y="2" width="20" height="20" rx="4" fill="#1D6F42" />
-                      <path d="M7 7l4 5-4 5M17 7l-4 5 4 5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEstoquePickerArgs({
-                        items: viewingReviewNote.items.map((item: any, idx: number) => ({
-                          ...item,
-                          qty: viewingNoteQtys[idx] ?? item.qty,
-                          unit: viewingNoteUnits[idx] ?? item.unit,
-                          multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
-                          distribuicao: getDistribTotal(idx, item) || null,
-                          discrepancy: getItemDiscrepancy(idx, item),
-                        })),
-                        adj: adjColumns,
-                        meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
-                      });
-                      setShowEstoqueLayoutPicker(true);
-                    }}
-                    title="Baixar para Estoque"
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/18 transition-colors border border-blue-500/15"
-                  >
-                    <Download size={16} />
-                  </button>
-                  <button
-                    onClick={downloadCorrectedNfeXml}
-                    title={viewingReviewNote.originalNfeXml ? 'Baixar XML corrigido (para importar no PDV)' : 'Anexe o XML original na aba "Nota Original" para poder baixar'}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/18 transition-colors border border-violet-500/15"
-                  >
-                    <FileCode2 size={16} />
-                  </button>
-                  <div className="w-px h-8 bg-line dark:bg-white/[0.08] mx-2" />
+                <div className="flex flex-col items-start gap-[3px] shrink-0">
+                  <span className="pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Nº Nota</span>
+                  <input
+                    type="text"
+                    value={viewingReviewNote.noteNumber || ''}
+                    onChange={e => setViewingReviewNote({ ...viewingReviewNote, noteNumber: e.target.value || undefined })}
+                    placeholder="—"
+                    className="w-32 h-[30px] px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] font-['DM_Mono',monospace] text-[12.5px] tracking-[0.02em] text-on-surface outline-none placeholder:text-on-surface/25 caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow] duration-[130ms]"
+                  />
+                </div>
+                <span className="flex-1 min-w-0 self-center mt-3 text-[10.5px] font-mono text-on-surface/25 truncate" title={viewingReviewNote.accessKey ? 'Chave de acesso' : undefined}>
+                  {viewingReviewNote.accessKey || ''}
+                </span>
+                <div className="flex items-center gap-2.5 self-center shrink-0">
                   {(() => {
                     const noteStatus = getNoteStatus(viewingReviewNote);
                     const meta = STATUS_META[noteStatus];
@@ -10750,149 +10526,359 @@ export default function Page() {
                   })()}
                   <button
                     onClick={() => { releaseNoteLock(); setViewingReviewNote(null); setConfirmDeleteNote(false); setShowMobileNoteView(false); resetNoteHistory(); setNoteSupplierMappings([]); setNoteEditorTab('produtos'); }}
-                    className="w-10 h-10 flex items-center justify-center rounded-full border-[1.5px] border-on-surface/15 hover:bg-on-surface/[0.07] transition-colors"
+                    title="Fechar"
+                    className="w-8 h-8 flex items-center justify-center border border-on-surface/[0.11] text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                   >
-                    <X size={22} className="text-on-surface/40" />
+                    <X size={16} strokeWidth={2.4} />
                   </button>
                 </div>
               </div>
 
-              {/* Abas Produtos / Recebimento */}
-              <div className="flex items-center justify-between gap-3 px-6 border-b border-line dark:border-white/[0.07] bg-white dark:bg-[#1e1e18] shrink-0">
-                <div className="flex gap-6">
-                <button
-                  onClick={() => setNoteEditorTab('produtos')}
-                  className={cn(
-                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
-                    noteEditorTab === 'produtos' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
-                  )}
-                >
-                  <FileText size={13} /> Produtos
-                  <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{viewingReviewNote.items?.length ?? 0}</span>
-                </button>
-                <button
-                  onClick={() => setNoteEditorTab('nota_original')}
-                  title="Itens exatamente como vieram na nota, sem conversão, vínculo, preço de venda ou distribuição"
-                  className={cn(
-                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
-                    noteEditorTab === 'nota_original' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
-                  )}
-                >
-                  <ScrollText size={13} /> Nota Original
-                </button>
-                <button
-                  onClick={() => setNoteEditorTab('recebimento')}
-                  className={cn(
-                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
-                    noteEditorTab === 'recebimento' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
-                  )}
-                >
-                  <Calendar size={13} /> Recebimento
-                </button>
-                <button
-                  onClick={() => setNoteEditorTab('financeiro')}
-                  className={cn(
-                    'flex items-center gap-2 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors',
-                    noteEditorTab === 'financeiro' ? 'border-on-surface text-on-surface' : 'border-transparent text-on-surface/40 hover:text-on-surface/70'
-                  )}
-                >
-                  <Wallet size={13} /> Financeiro
-                  {noteFinanceTxs.length > 0 && (
-                    <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{noteFinanceTxs.length}</span>
-                  )}
-                </button>
-                </div>
-                {/* Precificar para outra empresa — troca Preço Venda/Markup/Ok/Revisão da tabela
-                    para outra loja, sem precisar vincular tudo e mandar pra Distribuição antes.
-                    Vale o último salvo entre este preço e o do manifesto de Distribuição. */}
-                {noteEditorTab === 'produtos' && (
-                <div style={{ position: 'relative' }} className="shrink-0">
-                  {(() => {
-                    const ownerId = viewingReviewNote.companyId || null;
-                    const selectedId = viewingPriceCompanyId || ownerId;
-                    const selected = companies.find((c: any) => c.id === selectedId);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (companies.length === 0) fetchCompanies();
-                          setPriceCompanyDropdownOpen(o => !o);
-                        }}
-                        disabled={switchingPriceCompany}
-                        title="Precificar para outra empresa"
-                        className={cn(
-                          'flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border transition-all disabled:opacity-50',
-                          viewingPriceCompanyId
-                            ? 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#D81E1E]'
-                            : 'border-line dark:border-white/[0.1] bg-on-surface/[0.04] text-on-surface/70 hover:bg-on-surface/[0.08]',
-                        )}
-                      >
-                        {selected?.logo ? (
-                          <img src={selected.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className={cn(
-                            'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0',
-                            viewingPriceCompanyId ? 'bg-[#D81E1E]/15 text-[#D81E1E]' : 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]',
-                          )}>
-                            {(selected?.nome_fantasia || '?').slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-[11px] font-bold max-w-[72px] truncate">{selected?.nome_fantasia || 'Empresa'}</span>
-                        <ChevronDown size={12} className="flex-shrink-0" />
-                      </button>
-                    );
-                  })()}
-                  {priceCompanyDropdownOpen && (
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
-                        {(() => {
-                          const ownerId = viewingReviewNote?.companyId || null;
-                          const owner = companies.find((c: any) => c.id === ownerId);
-                          const others = companies.filter((c: any) => c.id !== ownerId);
-                          const row = (c: any, isOwner: boolean) => (
-                            <button
-                              key={c.id}
-                              onClick={() => switchPriceCompany(isOwner ? null : c.id)}
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
-                                (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
-                                  ? 'bg-[#D81E1E]/10'
-                                  : 'hover:bg-on-surface/[0.05]',
-                              )}
-                            >
-                              {c.logo ? (
-                                <img src={c.logo} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
-                              ) : (
-                                <div className={cn(
-                                  'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
-                                  isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
-                                )}>
-                                  {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                              <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
-                              {isOwner && (
-                                <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
-                              )}
-                            </button>
-                          );
-                          return (
-                            <>
-                              {owner ? row(owner, true) : (
-                                <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
-                              )}
-                              {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
-                              {others.map((c: any) => row(c, false))}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  )}
-                </div>
-                )}
+              {/* ── ② Abas estilo Excel: a aba ativa se emenda com a faixa de ferramentas ── */}
+              <div className="flex items-end gap-0.5 bg-surface-container dark:bg-[#252520] border-b border-line dark:border-white/[0.08] shrink-0">
+                {([
+                  { key: 'produtos', label: 'Produtos', icon: <FileText size={13} />, count: viewingReviewNote.items?.length ?? 0 },
+                  { key: 'nota_original', label: 'Nota Original', icon: <ScrollText size={13} />, title: 'Itens exatamente como vieram na nota, sem conversão, vínculo, preço de venda ou distribuição' },
+                  { key: 'recebimento', label: 'Recebimento', icon: <Calendar size={13} /> },
+                  { key: 'financeiro', label: 'Financeiro', icon: <Wallet size={13} />, count: noteFinanceTxs.length > 0 ? noteFinanceTxs.length : undefined },
+                ] as { key: typeof noteEditorTab; label: string; icon: ReactNode; count?: number; title?: string }[]).map(t => {
+                  const on = noteEditorTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setNoteEditorTab(t.key)}
+                      title={t.title}
+                      className={cn(
+                        'relative -mb-px h-[34px] px-4 flex items-center gap-[7px] whitespace-nowrap text-[11px] font-extrabold uppercase tracking-[0.08em] border border-b-0 transition-colors duration-[130ms]',
+                        on
+                          ? 'bg-white dark:bg-[#1e1e18] text-on-surface border-line dark:border-white/[0.08] first:border-l-transparent before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-[#FFE500] before:shadow-[inset_0_-1px_0_#D4C000]'
+                          : 'border-transparent text-on-surface/40 hover:text-on-surface hover:bg-on-surface/[0.06]',
+                      )}
+                    >
+                      <span className="opacity-80">{t.icon}</span>
+                      {t.label}
+                      {t.count !== undefined && (
+                        <span className="bg-on-surface/[0.11] text-on-surface/60 text-[9.5px] font-black px-1.5 py-px rounded-full tracking-normal">{t.count}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* ── ③ Faixa de ferramentas (ribbon) da aba ativa ── */}
+              {(() => {
+                const ribbonGroup = (label: string, children: ReactNode) => (
+                  <div className="self-stretch flex flex-col justify-end gap-1 px-3 border-r border-[#EFE8D2] dark:border-white/[0.05] last:border-r-0">
+                    <div className="pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25 whitespace-nowrap">{label}</div>
+                    <div className="flex items-center gap-1.5">{children}</div>
+                  </div>
+                );
+                const toolBtn = 'w-8 h-8 flex items-center justify-center border border-transparent transition-all duration-[130ms] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100';
+                const editGroup = ribbonGroup('Editar', <>
+                  <button onClick={handleUndo} disabled={!canUndo} title="Desfazer (Ctrl+Z)" className={cn(toolBtn, 'bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.11]')}>
+                    <Undo2 size={15} />
+                  </button>
+                  <button onClick={handleRedo} disabled={!canRedo} title="Refazer (Ctrl+Y)" className={cn(toolBtn, 'bg-on-surface/[0.06] text-on-surface hover:bg-on-surface/[0.11]')}>
+                    <Redo2 size={15} />
+                  </button>
+                </>);
+                const xmlBtn = (
+                  <button
+                    onClick={downloadCorrectedNfeXml}
+                    title={viewingReviewNote.originalNfeXml ? 'Baixar XML corrigido (para importar no PDV)' : 'Anexe o XML original na aba "Nota Original" para poder baixar'}
+                    className={cn(toolBtn, 'bg-violet-500/10 text-violet-500 dark:text-violet-400 border-violet-500/15 hover:bg-violet-500/[0.18]')}
+                  >
+                    <FileCode2 size={15} />
+                  </button>
+                );
+                return (
+                  <div className="flex items-end min-h-[62px] px-2.5 pt-[7px] pb-[9px] bg-white dark:bg-[#1e1e18] border-b border-line dark:border-white/[0.07] shrink-0">
+                    {noteEditorTab === 'produtos' && (<>
+                      {/* Busca rápida: filtra a tabela por uma coluna (ou todas) enquanto digita */}
+                      {(() => {
+                        const term = noteQuickSearch.trim();
+                        const colLabel = NOTE_QUICK_SEARCH_COLS.find(c => c.key === noteQuickSearchCol)?.label;
+                        const matchCount = term ? viewingReviewNote.items.filter((it: any, i: number) => matchesNoteQuickSearch(it, i)).length : 0;
+                        return (
+                          <div className="flex-1 min-w-[280px] self-stretch flex items-end gap-2.5 px-3 border-r border-[#EFE8D2] dark:border-white/[0.05]">
+                            <div className="relative flex-1 max-w-[520px]">
+                              <div
+                                className={cn(
+                                  'h-8 flex items-center gap-0.5 pl-2.5 pr-[3px] border bg-white dark:bg-[#1E1E18]',
+                                  'transition-[border-color,box-shadow] duration-[130ms]',
+                                  'focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]',
+                                  term
+                                    ? 'border-[#EADB6A] dark:border-[#FFE500]/35'
+                                    : 'border-[#E0D8BF] dark:border-white/[0.10] hover:border-[#CFC4A2] dark:hover:border-white/[0.20]',
+                                )}
+                              >
+                                <Search size={14} strokeWidth={2.4} className="shrink-0 text-on-surface/40" />
+                                <input
+                                  value={noteQuickSearch}
+                                  onChange={e => setNoteQuickSearch(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Escape' && noteQuickSearch) { e.stopPropagation(); setNoteQuickSearch(''); } }}
+                                  placeholder={colLabel ? `Buscar em ${colLabel}…` : 'Buscar em todas as colunas…'}
+                                  autoComplete="off"
+                                  className="flex-1 min-w-0 h-full px-2 bg-transparent border-none outline-none text-[13px] font-semibold text-on-surface placeholder:font-medium placeholder:text-on-surface/25 caret-[#D81E1E]"
+                                />
+                                {term && (
+                                  <button
+                                    onClick={() => setNoteQuickSearch('')}
+                                    title="Limpar busca (Esc)"
+                                    className="w-6 h-6 shrink-0 flex items-center justify-center text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] active:scale-90 transition-all duration-[130ms]"
+                                  >
+                                    <X size={13} strokeWidth={2.6} />
+                                  </button>
+                                )}
+                                <div className="w-px h-4 mx-1 shrink-0 bg-[#E0D8BF] dark:bg-white/[0.10]" />
+                                <button
+                                  onClick={() => setNoteQuickSearchMenuOpen(o => !o)}
+                                  title="Escolher coluna da busca"
+                                  className="h-6 max-w-[170px] shrink-0 flex items-center gap-[5px] px-[7px] border border-[#EADB6A] dark:border-[#FFE500]/[0.28] bg-[#FFF3A6] dark:bg-[#FFE500]/[0.12] text-[#1A1A0E] dark:text-[#FFE500] text-[10px] font-extrabold uppercase tracking-[0.06em] hover:brightness-[0.97] active:scale-[0.97] transition-all duration-[130ms]"
+                                >
+                                  <Filter size={11} strokeWidth={2.6} className="shrink-0 opacity-70" />
+                                  <span className="truncate">{colLabel || 'Todas'}</span>
+                                  <ChevronDown size={11} strokeWidth={2.8} className="shrink-0 opacity-70" />
+                                </button>
+                              </div>
+                              <AnimatePresence>
+                                {noteQuickSearchMenuOpen && (<>
+                                  <div className="fixed inset-0 z-[290]" onClick={() => setNoteQuickSearchMenuOpen(false)} />
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.97, y: -4 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.97, y: -4 }}
+                                    transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
+                                    style={{ transformOrigin: 'top right' }}
+                                    className="absolute right-0 top-full mt-1 z-[300] w-[230px] p-[5px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#2E2E28] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.28)]"
+                                  >
+                                    <div className="px-[9px] pt-[7px] pb-[5px] text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-on-surface/25">Buscar na coluna</div>
+                                    {[{ key: null as string | null, label: 'Todas as colunas' }, ...NOTE_QUICK_SEARCH_COLS].map((c, i) => {
+                                      const sel = noteQuickSearchCol === c.key;
+                                      return (
+                                        <Fragment key={c.key ?? '__all'}>
+                                          <button
+                                            onClick={() => { setNoteQuickSearchCol(c.key); setNoteQuickSearchMenuOpen(false); }}
+                                            className={cn(
+                                              'w-full flex items-center justify-between gap-2 px-[9px] py-2 text-left text-[12.5px] text-on-surface hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors',
+                                              sel ? 'font-extrabold' : 'font-semibold',
+                                            )}
+                                          >
+                                            {c.label}
+                                            {sel && <Check size={14} strokeWidth={3} className="text-[#D81E1E]" />}
+                                          </button>
+                                          {i === 0 && <div className="border-t border-[#EFE8D2] dark:border-white/[0.05] mx-0.5 my-1" />}
+                                        </Fragment>
+                                      );
+                                    })}
+                                  </motion.div>
+                                </>)}
+                              </AnimatePresence>
+                            </div>
+                            {term && (
+                              <div className="h-8 flex items-center shrink-0 text-[10.5px] font-bold text-on-surface/40 whitespace-nowrap">
+                                <span className="text-on-surface mr-1">{matchCount}</span> de {viewingReviewNote.items.length} produtos
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      {editGroup}
+                      {ribbonGroup('Colunas', <>
+                        <button
+                          onClick={() => {
+                            const next = !reviewFilterActive;
+                            setReviewFilterActive(next);
+                            if (!next) { setReviewColumnFilters({}); setReviewFilterOpen(null); setReviewFilterSearch(''); }
+                          }}
+                          title={reviewFilterActive ? 'Desativar filtros' : 'Filtrar por coluna'}
+                          className={cn(
+                            toolBtn,
+                            reviewFilterActive
+                              ? 'bg-primary text-white shadow-md'
+                              : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                            Object.values(reviewColumnFilters).some(s => s.size > 0) && !reviewFilterActive && 'ring-2 ring-primary/40',
+                          )}
+                        >
+                          <Filter size={13} />
+                        </button>
+                        <button
+                          onClick={() => setShowHideColsModal(true)}
+                          title={reviewHiddenCols.size > 0 ? `${reviewHiddenCols.size} coluna(s) oculta(s)` : 'Ocultar colunas'}
+                          className={cn(
+                            toolBtn,
+                            reviewHiddenCols.size > 0
+                              ? 'bg-[#FFE500] text-[#1A1A0E] shadow-md'
+                              : 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60',
+                          )}
+                        >
+                          <EyeOff size={13} />
+                        </button>
+                        {Object.keys(reviewColWidths).length > 0 && (
+                          <button
+                            onClick={resetReviewColWidths}
+                            title="Restaurar larguras padrão das colunas"
+                            className={cn(toolBtn, 'bg-on-surface/[0.06] text-on-surface/40 hover:bg-on-surface/[0.1] hover:text-on-surface/60')}
+                          >
+                            <Columns3 size={13} />
+                          </button>
+                        )}
+                      </>)}
+                      {ribbonGroup('Ajustes', <>
+                        <button
+                          onClick={() => setAdjColDialog({ kind: 'desconto', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
+                          className={cn(toolBtn, 'relative', adjColumns.some(c => c.kind === 'desconto') ? "bg-red-500/15 text-red-400 border-red-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/15")}
+                          title="Adicionar coluna de Desconto"
+                        >
+                          <Minus size={14} />
+                          {adjColumns.filter(c => c.kind === 'desconto').length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-400/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'desconto').length}</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setAdjColDialog({ kind: 'acrescimo', name: '', method: null, geralValue: '', geralType: 'pct', individualType: 'pct' })}
+                          className={cn(toolBtn, 'relative', adjColumns.some(c => c.kind === 'acrescimo') ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-on-surface/[0.06] text-on-surface/40 border-on-surface/[0.08] hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/15")}
+                          title="Adicionar coluna de Acréscimo"
+                        >
+                          <Plus size={14} />
+                          {adjColumns.filter(c => c.kind === 'acrescimo').length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-emerald-400/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{adjColumns.filter(c => c.kind === 'acrescimo').length}</span>
+                          )}
+                        </button>
+                      </>)}
+                      {ribbonGroup('Exportar', <>
+                        <button
+                          onClick={() => exportTranslatedToExcel(viewingReviewNote.items, adjColumns)}
+                          title="Baixar Excel"
+                          className={cn(toolBtn, 'bg-emerald-500/10 border-emerald-500/15 hover:bg-emerald-500/[0.18]')}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="2" width="20" height="20" rx="4" fill="#1D6F42" />
+                            <path d="M7 7l4 5-4 5M17 7l-4 5 4 5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEstoquePickerArgs({
+                              items: viewingReviewNote.items.map((item: any, idx: number) => ({
+                                ...item,
+                                qty: viewingNoteQtys[idx] ?? item.qty,
+                                unit: viewingNoteUnits[idx] ?? item.unit,
+                                multiplier: viewingNoteMultipliers[idx] ?? item.multiplier,
+                                distribuicao: getDistribTotal(idx, item) || null,
+                                discrepancy: getItemDiscrepancy(idx, item),
+                              })),
+                              adj: adjColumns,
+                              meta: { supplierName: viewingReviewNote.supplierName, noteNumber: viewingReviewNote.noteNumber, accessKey: viewingReviewNote.accessKey },
+                            });
+                            setShowEstoqueLayoutPicker(true);
+                          }}
+                          title="Baixar para Estoque"
+                          className={cn(toolBtn, 'bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/15 hover:bg-blue-500/[0.18]')}
+                        >
+                          <Download size={15} />
+                        </button>
+                        {xmlBtn}
+                      </>)}
+                      {/* Precificar para outra empresa — troca Preço Venda/Markup/Ok/Revisão da tabela
+                          para outra loja, sem precisar vincular tudo e mandar pra Distribuição antes.
+                          Vale o último salvo entre este preço e o do manifesto de Distribuição. */}
+                      {ribbonGroup('Precificar para', (
+                    <div style={{ position: 'relative' }} className="shrink-0">
+                      {(() => {
+                        const ownerId = viewingReviewNote.companyId || null;
+                        const selectedId = viewingPriceCompanyId || ownerId;
+                        const selected = companies.find((c: any) => c.id === selectedId);
+                        return (
+                          <button
+                            onClick={() => {
+                              if (companies.length === 0) fetchCompanies();
+                              setPriceCompanyDropdownOpen(o => !o);
+                            }}
+                            disabled={switchingPriceCompany}
+                            title="Precificar para outra empresa"
+                            className={cn(
+                              'flex items-center gap-1.5 h-8 pl-1 pr-2.5 border transition-all disabled:opacity-50',
+                              viewingPriceCompanyId
+                                ? 'border-[#D81E1E]/35 bg-[#D81E1E]/[0.08] text-[#D81E1E]'
+                                : 'border-line dark:border-white/[0.1] bg-on-surface/[0.04] text-on-surface/70 hover:bg-on-surface/[0.08]',
+                            )}
+                          >
+                            {selected?.logo ? (
+                              <img src={selected.logo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className={cn(
+                                'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0',
+                                viewingPriceCompanyId ? 'bg-[#D81E1E]/15 text-[#D81E1E]' : 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]',
+                              )}>
+                                {(selected?.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="text-[11px] font-bold max-w-[72px] truncate">{selected?.nome_fantasia || 'Empresa'}</span>
+                            <ChevronDown size={12} className="flex-shrink-0" />
+                          </button>
+                        );
+                      })()}
+                      {priceCompanyDropdownOpen && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setPriceCompanyDropdownOpen(false)} />
+                          <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[#E0D8BF] dark:border-white/10 bg-white dark:bg-[#2E2E28] shadow-2xl p-2 z-[200]">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-on-surface/35 px-2.5 pt-1 pb-2">Precificar para</div>
+                            {(() => {
+                              const ownerId = viewingReviewNote?.companyId || null;
+                              const owner = companies.find((c: any) => c.id === ownerId);
+                              const others = companies.filter((c: any) => c.id !== ownerId);
+                              const row = (c: any, isOwner: boolean) => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => switchPriceCompany(isOwner ? null : c.id)}
+                                  className={cn(
+                                    'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors',
+                                    (viewingPriceCompanyId === c.id || (isOwner && !viewingPriceCompanyId))
+                                      ? 'bg-[#D81E1E]/10'
+                                      : 'hover:bg-on-surface/[0.05]',
+                                  )}
+                                >
+                                  {c.logo ? (
+                                    <img src={c.logo} alt="" className="w-6 h-6 rounded-lg object-cover flex-shrink-0" />
+                                  ) : (
+                                    <div className={cn(
+                                      'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0',
+                                      isOwner ? 'bg-gradient-to-br from-[#FFE500] to-[#D4C000] text-[#1A1A0E]' : 'bg-gradient-to-br from-on-surface/40 to-on-surface/60 text-white',
+                                    )}>
+                                      {(c.nome_fantasia || '?').slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="flex-1 text-[12.5px] font-semibold text-on-surface truncate">{c.nome_fantasia}</span>
+                                  {isOwner && (
+                                    <span className="text-[9px] font-black tracking-wide text-[#D81E1E] bg-[#D81E1E]/10 px-1.5 py-0.5 rounded-full flex-shrink-0">PROPRIETÁRIA</span>
+                                  )}
+                                </button>
+                              );
+                              return (
+                                <>
+                                  {owner ? row(owner, true) : (
+                                    <div className="px-2.5 py-2 text-[11.5px] text-on-surface/40">Selecione a Empresa da nota primeiro.</div>
+                                  )}
+                                  {others.length > 0 && <div className="h-px bg-on-surface/[0.08] my-1.5 mx-1" />}
+                                  {others.map((c: any) => row(c, false))}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                      ))}
+                    </>)}
+                    {noteEditorTab === 'nota_original' && (<>
+                      {editGroup}
+                      {ribbonGroup('Exportar', xmlBtn)}
+                    </>)}
+                    {(noteEditorTab === 'recebimento' || noteEditorTab === 'financeiro') && editGroup}
+                  </div>
+                );
+              })()}
 
               {noteEditorTab === 'financeiro' && (() => {
                 const fmtBRL = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
@@ -13919,9 +13905,6 @@ export default function Page() {
                       </>
                     );
                   })()}
-                  <span className="text-on-surface/15">·</span>
-                  <span className="font-bold text-emerald-500 dark:text-emerald-400">{viewingNoteVerified.filter(Boolean).length} verificados</span>
-                  <span className="text-on-surface/15">·</span>
                   {/* Single reduce: totalCost (nota) + markup ponderado */}
                   {(() => {
                     const { noteTotalCost, markupCost, markupRevenue } =
@@ -13951,6 +13934,9 @@ export default function Page() {
                         <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-on-surface/10 bg-on-surface/[0.03]">
                           <span className="text-on-surface/40">Valor total da nota:</span>
                           <span className="font-black text-on-surface">R$ {noteTotalCost.toFixed(2)}</span>
+                        </span>
+                        <span className="flex items-center px-3 py-1.5 rounded-xl border border-[#0A7A55]/[0.28] dark:border-[#34D399]/25 bg-[#0A7A55]/[0.05] dark:bg-[#34D399]/[0.06] font-bold text-[#0A7A55] dark:text-[#34D399]">
+                          {viewingNoteVerified.filter(Boolean).length} verificados
                         </span>
                         {noteMarkup !== null && (
                           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-on-surface/10 bg-on-surface/[0.03]">
