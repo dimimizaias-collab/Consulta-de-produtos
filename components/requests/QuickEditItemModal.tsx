@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
-  X, Zap, FileText, Lock, ArrowRight, ArrowLeft, Copy, Check, Search, Plus, CheckCircle2, Layers, Truck, Pencil, Loader2,
+  X, Zap, Lock, ArrowRight, ArrowLeft, Copy, Check, Search, Plus, CheckCircle2, Layers, Truck, Pencil, Loader2,
+  CircleHelp, ChevronDown, Trash2, Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +15,27 @@ export interface QuickEditProduct {
   sku?: string | null;
   ean?: string | null;
 }
+
+/** Observação do item na nota — sinaliza markup baixo, preço incorreto ou outro problema
+ *  para revisar depois. Fica salva junto com o item (não vai para o cadastro do produto). */
+export type ItemObservationReason = 'markup_baixo' | 'preco_incorreto' | 'cadastro' | 'outro';
+export interface ItemObservation {
+  reason: ItemObservationReason;
+  text: string;
+  createdBy: string | null;
+  createdAt: string;
+  resolved: boolean;
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
+}
+export const OBSERVATION_REASONS: { key: ItemObservationReason; label: string }[] = [
+  { key: 'markup_baixo', label: 'Markup muito baixo' },
+  { key: 'preco_incorreto', label: 'Preço incorreto' },
+  { key: 'cadastro', label: 'Problema no cadastro' },
+  { key: 'outro', label: 'Outro' },
+];
+export const observationReasonLabel = (r: ItemObservationReason | undefined) =>
+  OBSERVATION_REASONS.find(o => o.key === r)?.label || 'Observação';
 
 interface QuickEditItemModalProps {
   /** Outro modal (vínculo, distribuição, editar produto…) aberto por cima — desliga os atalhos deste. */
@@ -48,6 +70,11 @@ interface QuickEditItemModalProps {
 
   linkedProduct: QuickEditProduct | null;
   hasMapping: boolean;
+  observation: ItemObservation | null;
+  /** Abre já com o painel de observação aberto (ao clicar no ícone da tabela). */
+  openObservation: boolean;
+  userName: string | null;
+  onObservationChange: (o: ItemObservation | null) => void;
   isTranslation: boolean;
   eanMatches: QuickEditProduct[];
   searchProducts: (q: string) => QuickEditProduct[];
@@ -74,17 +101,17 @@ const parseNum = (s: string) => parseFloat(s.replace(/\./g, '').replace(',', '.'
 // Aceita tanto "12,50" quanto "12.50" (input type=number do navegador devolve com ponto).
 const parseInput = (s: string) => (s.includes(',') ? parseNum(s) : parseFloat(s));
 
-const labelCls = 'flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#1A1A0E]/50 dark:text-[#F2F0E3]/45 mb-[5px] whitespace-nowrap h-[14px]';
-const capCls = 'flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/32 dark:text-[#F2F0E3]/26 mb-2';
-const cellCls = 'h-[38px] rounded-[10px] border-[1.5px] flex items-center gap-1 px-2.5 overflow-hidden transition-[border-color,box-shadow,background-color] duration-[130ms] border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#252520] focus-within:border-[#D81E1E] focus-within:shadow-[0_0_0_3px_rgba(216,30,30,0.14)]';
-const lockedCls = 'h-[38px] rounded-[10px] border-[1.5px] flex items-center gap-1 px-2.5 overflow-hidden border-black/[0.08] dark:border-white/[0.06] bg-black/[0.04] dark:bg-white/[0.03]';
+const labelCls = 'flex items-center gap-[5px] pl-px text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1A1A0E]/30 dark:text-[#F2F0E3]/28 mb-1 whitespace-nowrap h-[14px]';
+const capCls = 'flex items-center gap-[5px] pl-px text-[9px] font-black uppercase tracking-[0.12em] text-[#1A1A0E]/55 dark:text-[#F2F0E3]/50 mb-1.5';
+const cellCls = 'h-[34px] border flex items-center gap-1 px-2.5 overflow-hidden transition-[border-color,box-shadow,background-color] duration-[130ms] border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]';
+const lockedCls = 'h-[34px] border flex items-center gap-1 px-2.5 overflow-hidden border-[#E0D8BF] dark:border-white/[0.10] bg-black/[0.035] dark:bg-white/[0.03]';
 const inputCls = 'w-full min-w-0 bg-transparent border-none outline-none font-mono text-[12.5px] tabular-nums text-[#1A1A0E] dark:text-[#F2F0E3] caret-[#D81E1E] placeholder:text-[#1A1A0E]/22 dark:placeholder:text-white/25 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden';
 const preCls = 'text-[10px] font-black shrink-0 text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40';
-const hintCls = 'text-[10px] font-bold mt-1 h-[13px] whitespace-nowrap text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40';
-const groupCls = 'flex flex-col px-4 border-l border-[#E6DEC4] dark:border-white/[0.08] first:pl-0 first:border-l-0 last:pr-0';
-const tipCls = "pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap shadow-lg z-[5]";
-const actCls = 'w-[38px] h-[38px] rounded-[10px] flex items-center justify-center transition-all active:scale-[0.92]';
-const actIdleCls = 'border-[1.5px] border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#252520] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:text-[#D81E1E] hover:border-[#D81E1E]/45 hover:bg-[#D81E1E]/[0.06]';
+const hintCls = 'text-[9.5px] font-bold mt-1 h-3 pl-px whitespace-nowrap text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40';
+const groupCls = 'flex flex-col px-3 border-l border-[#EFE8D2] dark:border-white/[0.06] first:pl-0 first:border-l-0 last:pr-0';
+const tipCls = "pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-100 bg-[#3a3a32] text-[#f2f0e3] text-[10px] font-bold px-2 py-1 whitespace-nowrap shadow-lg z-[5]";
+const actCls = 'w-[34px] h-[34px] flex items-center justify-center transition-all active:scale-[0.95]';
+const actIdleCls = 'border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:text-[#D81E1E] hover:border-[#D81E1E]/45 hover:bg-[#D81E1E]/[0.06]';
 
 type EditField = 'desc' | 'code' | 'ean' | 'cost';
 
@@ -103,18 +130,150 @@ function EditPencil({ active, disabled, shake, onClick, title }: {
       transition={{ duration: 0.28 }}
       title={title}
       className={cn(
-        'w-5 h-5 -my-1 rounded-md flex items-center justify-center transition-colors active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed',
+        'w-4 h-4 -my-1 border flex items-center justify-center transition-colors active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed',
         active
-          ? 'bg-[#D81E1E] text-white shadow-[0_0_0_3px_rgba(216,30,30,0.22)]'
-          : 'bg-[#FFE500] text-[#1A1A0E] shadow-[0_0_0_1px_rgba(26,26,10,0.12)] hover:bg-[#F5DB00]'
+          ? 'bg-[#D81E1E] border-[#D81E1E] text-white shadow-[0_0_0_2px_rgba(216,30,30,0.22)]'
+          : 'bg-transparent border-[#E0D8BF] dark:border-white/[0.12] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/45 hover:bg-[#FFE500] hover:border-[#D4C000] hover:text-[#1A1A0E]'
       )}
     >
-      {active ? <Check size={11} strokeWidth={3} /> : <Pencil size={11} strokeWidth={2.6} />}
+      {active ? <Check size={10} strokeWidth={3} /> : <Pencil size={9} strokeWidth={2.8} />}
     </motion.button>
   );
 }
 
-const editingRingCls = 'border-[#D81E1E] shadow-[0_0_0_3px_rgba(216,30,30,0.14)]';
+const editingRingCls = 'border-[#D81E1E] shadow-[0_0_0_2px_rgba(216,30,30,0.12)]';
+
+const fmtObsDate = (iso: string | null | undefined) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
+// Painel encaixado logo abaixo da identificação do item. À esquerda: título + situação, motivo
+// (menu) e o texto; à direita: autor/data em campos quadrados e as ações no canto inferior.
+function ObservationPanel({ observation, draft, setDraft, onStartEdit, onCancel, onSave, onResolve, onReopen, onDelete }: {
+  observation: ItemObservation | null;
+  draft: { reason: ItemObservationReason; text: string } | null;
+  setDraft: (d: { reason: ItemObservationReason; text: string }) => void;
+  onStartEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onResolve: () => void;
+  onReopen: () => void;
+  onDelete: () => void;
+}) {
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const editingDraft = !!draft;
+  useEffect(() => { if (editingDraft) setTimeout(() => textRef.current?.focus(), 40); }, [editingDraft]);
+  const done = !!observation?.resolved && !draft;
+  const status: 'new' | 'pend' | 'ok' = draft ? 'new' : done ? 'ok' : 'pend';
+  const reason = draft ? draft.reason : observation?.reason ?? 'markup_baixo';
+  const metaField = (label: string, who: string | null | undefined, when: string | null | undefined) => (
+    <div className="grid grid-cols-2 gap-1.5">
+      <div className="min-w-0">
+        <div className={cn(labelCls, 'h-3')}>{label}</div>
+        <div className={cn(lockedCls, 'h-7 px-2 text-[12px] font-extrabold')}><span className="truncate">{who || '—'}</span></div>
+      </div>
+      <div className="min-w-0">
+        <div className={cn(labelCls, 'h-3')}>Em</div>
+        <div className={cn(lockedCls, 'h-7 px-2 font-mono text-[11.5px]')}><span className="truncate">{fmtObsDate(when)}</span></div>
+      </div>
+    </div>
+  );
+  const obBtn = 'h-8 flex items-center justify-center gap-1.5 border text-[11px] font-extrabold uppercase tracking-[0.04em] whitespace-nowrap transition-all duration-[130ms] active:scale-[0.97]';
+  const iconBtn = cn(obBtn, 'w-8 border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-black/[0.05] dark:hover:bg-white/[0.06]');
+  const delBtn = cn(iconBtn, 'hover:!bg-[#D81E1E]/[0.08] hover:text-[#D81E1E] hover:border-[#D81E1E]/30');
+  return (
+    <div className={cn(
+      'relative grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] gap-4 pl-[17px] pr-3.5 py-3 border-b',
+      'before:absolute before:left-0 before:inset-y-0 before:w-[3px]',
+      done
+        ? 'bg-emerald-500/[0.09] border-emerald-500/35 before:bg-[#0A7A55] dark:before:bg-[#34D399]'
+        : 'bg-orange-500/[0.08] dark:bg-orange-400/10 border-orange-500/35 before:bg-[#EA580C] dark:before:bg-[#FB923C]',
+    )}>
+      <div className="flex flex-col gap-2 min-w-0">
+        <div className="flex items-center gap-[7px] h-[30px]">
+          <span className={cn('flex items-center gap-1.5 text-[12.5px] font-black', done ? 'text-[#0A7A55] dark:text-[#34D399]' : 'text-[#C2410C] dark:text-[#FDBA74]')}>
+            {done ? <CheckCircle2 size={15} strokeWidth={2.4} /> : <CircleHelp size={15} strokeWidth={2.4} />}
+            <span className="text-[#1A1A0E] dark:text-[#F2F0E3]">Observação do item</span>
+          </span>
+          <span className={cn('text-[9px] font-black uppercase tracking-[0.08em] px-[7px] py-[3px]',
+            status === 'new' ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1A1A0E]/50 dark:text-[#F2F0E3]/50'
+              : status === 'ok' ? 'bg-[#0A7A55] dark:bg-[#34D399] text-white dark:text-[#1A1A0E]'
+              : 'bg-[#EA580C] dark:bg-[#FB923C] text-white dark:text-[#1A1A0E]')}>
+            {status === 'new' ? (observation ? 'Editando' : 'Nova') : status === 'ok' ? 'Solucionada' : 'Pendente'}
+          </span>
+          <div className="ml-auto w-[220px] flex items-center gap-2">
+            <span className={cn(labelCls, 'mb-0')}>Motivo</span>
+            <div className="relative flex-1">
+              <select
+                value={reason}
+                disabled={!draft}
+                onChange={e => draft && setDraft({ ...draft, reason: e.target.value as ItemObservationReason })}
+                className="appearance-none w-full h-[30px] pl-2.5 pr-7 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] outline-none cursor-pointer hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] disabled:cursor-default disabled:bg-black/[0.035] dark:disabled:bg-white/[0.03] disabled:hover:border-[#E0D8BF] dark:disabled:hover:border-white/[0.10] transition-[border-color,box-shadow] duration-[130ms]"
+              >
+                {OBSERVATION_REASONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+              {draft && <ChevronDown size={11} strokeWidth={2.8} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40" />}
+            </div>
+          </div>
+        </div>
+        {draft ? (
+          <textarea
+            ref={textRef}
+            value={draft.text}
+            onChange={e => setDraft({ ...draft, text: e.target.value })}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); }
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onSave(); }
+            }}
+            placeholder="Descreva o que precisa ser revisto neste item — markup muito baixo, preço incorreto, problema no cadastro…"
+            className="h-14 resize-none border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] px-2.5 py-2 text-[12.5px] font-semibold leading-[1.45] text-[#1A1A0E] dark:text-[#F2F0E3] outline-none caret-[#D81E1E] placeholder:font-medium placeholder:text-[#1A1A0E]/25 dark:placeholder:text-white/25 focus:border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow] duration-[130ms]"
+          />
+        ) : (
+          <div className={cn('h-14 overflow-y-auto border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] px-2.5 py-2 text-[12.5px] font-semibold leading-[1.45] whitespace-pre-wrap',
+            done ? 'text-[#1A1A0E]/50 dark:text-[#F2F0E3]/45' : 'text-[#1A1A0E] dark:text-[#F2F0E3]')}>
+            {observation?.text || <span className="text-[#1A1A0E]/30 dark:text-[#F2F0E3]/28 italic">Sem texto</span>}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
+        {draft ? (
+          <p className="mt-5 text-[10.5px] font-bold leading-[1.45] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40">
+            Sinalize um markup muito baixo, preço incorreto ou outro problema para revisar depois. <span className="font-mono">Ctrl+Enter</span> salva.
+          </p>
+        ) : (
+          <>
+            {metaField('Adicionada por', observation?.createdBy, observation?.createdAt)}
+            {done && metaField('Solucionada por', observation?.resolvedBy, observation?.resolvedAt)}
+          </>
+        )}
+        <div className="mt-auto flex justify-end gap-1.5">
+          {draft ? (
+            <>
+              <button type="button" onClick={onCancel} className={cn(obBtn, 'px-3 border-transparent text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:bg-[#D81E1E]/[0.08] hover:text-[#D81E1E]')}>Cancelar</button>
+              <button type="button" onClick={onSave} className={cn(obBtn, 'px-3 border-transparent bg-[#D81E1E] hover:bg-[#B91818] text-white')}>Salvar observação</button>
+            </>
+          ) : done ? (
+            <>
+              <button type="button" onClick={onDelete} title="Excluir observação" className={delBtn}><Trash2 size={13} /></button>
+              <button type="button" onClick={onReopen} title="Reabrir observação" className={iconBtn}><Undo2 size={13} /></button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={onStartEdit} title="Editar observação" className={iconBtn}><Pencil size={12} /></button>
+              <button type="button" onClick={onDelete} title="Excluir observação" className={delBtn}><Trash2 size={13} /></button>
+              <button type="button" onClick={onResolve} title="Marcar como solucionada" className={cn(obBtn, 'px-3 border-transparent bg-[#0A7A55] dark:bg-[#34D399] text-white dark:text-[#1A1A0E] hover:brightness-95')}>
+                <Check size={13} strokeWidth={3} /> Check
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const {
@@ -122,6 +281,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
     description, code, ean, noteUnit, noteQty, supplierUnit, multiplier, realQty,
     cost, adjCost, hasAdj, itemTotal, companyId, sellPrice, suggestedPrice, distribTotal,
     linkedProduct, hasMapping, isTranslation, eanMatches, searchProducts,
+    observation, openObservation, userName,
   } = props;
 
   // Rascunhos de texto dos campos numéricos (o valor "oficial" vive na nota, na página).
@@ -139,6 +299,9 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const [query, setQuery] = useState('');
   const [ddOpen, setDdOpen] = useState(false);
   const [oldCostEntry, setOldCostEntry] = useState<{ key: string; value: number | null } | null>(null);
+  // Observação: painel aberto/fechado e rascunho (só existe enquanto adiciona/edita).
+  const [obsPanel, setObsPanel] = useState(openObservation && !!observation);
+  const [obsDraft, setObsDraft] = useState<{ reason: ItemObservationReason; text: string } | null>(null);
 
   const supUnitRef = useRef<HTMLInputElement>(null);
   const multRef = useRef<HTMLInputElement>(null);
@@ -163,6 +326,8 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
     setSearchMode(false);
     setQuery('');
     setDdOpen(false);
+    setObsPanel(openObservation && !!observation);
+    setObsDraft(null);
   }
   useEffect(() => {
     const t = setTimeout(() => supUnitRef.current?.focus(), 60);
@@ -195,8 +360,9 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   const sellValue = focused === 'sell' ? sellDraft : (sellPrice > 0 ? sellPrice.toFixed(2) : '');
   const markupValue = focused === 'markup' ? markupDraft : (markup === null ? '' : markup.toFixed(1));
 
+  const blocked = !!editing || !!obsDraft;
   const tryNavigate = (delta: number) => {
-    if (editing) {
+    if (blocked) {
       setShakeKey(k => k + 1);
       setBlockedMsg(true);
       return;
@@ -207,7 +373,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
 
   // Fechar também fica bloqueado com um lápis ativo — o usuário precisa confirmar o campo.
   const tryClose = () => {
-    if (editing) {
+    if (blocked) {
       setShakeKey(k => k + 1);
       setBlockedMsg(true);
       return;
@@ -249,6 +415,36 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
   };
   const pick = (p: QuickEditProduct) => { exitSearch(); props.onSelectProduct(p); };
 
+  const obsStart = () => {
+    setObsDraft(observation ? { reason: observation.reason, text: observation.text } : { reason: 'markup_baixo', text: '' });
+    setObsPanel(true);
+    setBlockedMsg(false);
+  };
+  const obsToggle = () => {
+    if (!observation) { if (obsDraft) { setObsDraft(null); setObsPanel(false); } else obsStart(); return; }
+    if (obsDraft) return;
+    setObsPanel(v => !v);
+  };
+  const obsCancel = () => { setObsDraft(null); setBlockedMsg(false); if (!observation) setObsPanel(false); };
+  const obsSave = () => {
+    if (!obsDraft) return;
+    const now = new Date().toISOString();
+    props.onObservationChange({
+      reason: obsDraft.reason,
+      text: obsDraft.text.trim(),
+      createdBy: observation?.createdBy ?? userName,
+      createdAt: observation?.createdAt ?? now,
+      resolved: observation?.resolved ?? false,
+      resolvedBy: observation?.resolvedBy ?? null,
+      resolvedAt: observation?.resolvedAt ?? null,
+    });
+    setObsDraft(null);
+    setBlockedMsg(false);
+  };
+  const obsResolve = () => { if (observation) props.onObservationChange({ ...observation, resolved: true, resolvedBy: userName, resolvedAt: new Date().toISOString() }); };
+  const obsReopen = () => { if (observation) props.onObservationChange({ ...observation, resolved: false, resolvedBy: null, resolvedAt: null }); };
+  const obsDelete = () => { props.onObservationChange(null); setObsDraft(null); setObsPanel(false); };
+
   // Atalhos: Esc fecha (ou sai da edição/busca), Alt ←/→ navega.
   useEffect(() => {
     if (suspended) return;
@@ -256,6 +452,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
       if (e.key === 'Escape') {
         e.preventDefault();
         if (ddOpen || searchMode) exitSearch();
+        else if (obsDraft) obsCancel();
         else if (editing) confirmEdit();
         else tryClose();
       } else if (e.altKey && e.key === 'ArrowRight') {
@@ -297,38 +494,60 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Cadastro Rápido"
-        className="relative w-full max-w-[1180px] max-h-[calc(100vh-32px)] flex flex-col rounded-[22px] overflow-hidden shadow-2xl border border-[#E0D8BF] dark:border-white/[0.08] bg-[#FDFAF0] dark:bg-[#1E1E18] text-[#1A1A0E] dark:text-[#F2F0E3]"
+        className="relative w-full max-w-[1180px] max-h-[calc(100vh-32px)] flex flex-col overflow-hidden shadow-2xl border border-black/[0.12] dark:border-white/[0.08] bg-[#FDFAF0] dark:bg-[#1E1E18] text-[#1A1A0E] dark:text-[#F2F0E3]"
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 px-[18px] py-3.5 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] shrink-0">
-          <div className="w-[38px] h-[38px] rounded-[13px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.13] text-[#1A1A0E] dark:text-[#D81E1E]">
-            <Zap size={18} strokeWidth={2.2} />
+        {/* Barra de título — amarela no claro, grafite no escuro; cantos quadrados como a janela da nota */}
+        <div className="flex items-center gap-3 px-3.5 py-2.5 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.08] shrink-0">
+          <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#FFE500] text-[#1A1A0E]">
+            <Zap size={15} strokeWidth={2.4} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-base font-extrabold tracking-[-0.01em] leading-tight text-[#1A1A0E] dark:text-[#F2F0E3]">Cadastro Rápido</h2>
-            <p className="text-[11.5px] font-bold text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 truncate">{subtitle}</p>
+            <h2 className="text-sm font-black leading-tight text-[#1A1A0E] dark:text-[#F2F0E3]">Cadastro Rápido</h2>
+            <p className="text-[10.5px] font-bold text-[#1A1A0E]/50 dark:text-[#F2F0E3]/40 truncate">{subtitle}</p>
           </div>
-          <div className="ml-auto flex items-center gap-2.5 text-[11px] font-extrabold text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40">
-            <span>Produto <span className="font-mono text-[13px] text-[#1A1A0E] dark:text-[#F2F0E3]">{index + 1} de {total}</span></span>
-            <div className="hidden sm:block w-[120px] h-[5px] rounded-full overflow-hidden bg-black/[0.09] dark:bg-white/[0.08]">
-              <div className="h-full rounded-full bg-[#D81E1E] transition-[width] duration-[240ms]" style={{ width: `${((index + 1) / Math.max(total, 1)) * 100}%` }} />
+          <div className="ml-auto flex items-center gap-2.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/25">
+            <span>Produto <span className="ml-1 font-mono text-[12.5px] normal-case tracking-normal text-[#1A1A0E] dark:text-[#F2F0E3]">{index + 1} de {total}</span></span>
+            <div className="hidden sm:block w-[120px] h-1 overflow-hidden bg-black/[0.12] dark:bg-white/[0.11]">
+              <div className="h-full bg-[#D81E1E] transition-[width] duration-[240ms]" style={{ width: `${((index + 1) / Math.max(total, 1)) * 100}%` }} />
             </div>
           </div>
           <button
             onClick={tryClose}
-            title={editing ? 'Confirme o campo em edição antes de fechar' : 'Salvar e fechar (Esc)'}
-            className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center transition-all active:scale-[0.93] bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/35 hover:bg-[#D81E1E]/10 hover:text-[#D81E1E]"
+            title={blocked ? 'Confirme o campo em edição antes de fechar' : 'Salvar e fechar (Esc)'}
+            className="w-8 h-8 flex items-center justify-center transition-all duration-[130ms] active:scale-[0.93] border border-black/[0.14] dark:border-white/[0.11] text-[#1A1A0E]/50 dark:text-[#F2F0E3]/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25"
           >
-            <X size={16} strokeWidth={2.6} />
+            <X size={15} strokeWidth={2.6} />
           </button>
         </div>
 
         <div className="overflow-y-auto">
           <motion.div key={index} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14 }}>
             {/* Parte superior: identificação do item na nota */}
-            <div className="grid grid-cols-2 md:grid-cols-[44px_minmax(0,1fr)_150px_190px] gap-4 items-end px-[22px] py-[18px]">
-              <div className="hidden md:flex w-11 h-11 rounded-[14px] self-center items-center justify-center bg-white dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40">
-                <FileText size={20} />
+            <div className="grid grid-cols-2 md:grid-cols-[34px_minmax(0,1fr)_140px_180px] gap-x-3 gap-y-2.5 items-end px-3.5 pt-3 pb-3.5 bg-white dark:bg-[#1E1E18] border-b border-[#E6DDC2] dark:border-white/[0.08]">
+              {/* Observação do item — no lugar do antigo ícone de documento */}
+              <div className="hidden md:block">
+                <div className={labelCls}>Obs.</div>
+                <button
+                  type="button"
+                  onClick={obsToggle}
+                  title={!observation ? 'Adicionar observação ao item' : observation.resolved ? 'Observação solucionada' : 'Observação pendente'}
+                  className={cn(
+                    'relative w-[34px] h-[34px] flex items-center justify-center border transition-all duration-[130ms] active:scale-95',
+                    !observation
+                      ? 'border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:border-orange-500/35 hover:text-[#C2410C] dark:hover:text-[#FDBA74] hover:bg-orange-500/[0.08]'
+                      : observation.resolved
+                        ? 'border-emerald-500/35 bg-emerald-500/[0.09] text-[#0A7A55] dark:text-[#34D399]'
+                        : 'border-orange-500/35 bg-orange-500/[0.08] dark:bg-orange-400/10 text-[#C2410C] dark:text-[#FDBA74] after:absolute after:-top-1 after:-right-1 after:w-[9px] after:h-[9px] after:rounded-full after:bg-[#EA580C] dark:after:bg-[#FB923C] after:shadow-[0_0_0_2px_#fff] dark:after:shadow-[0_0_0_2px_#1E1E18]',
+                    (obsPanel || obsDraft) && 'shadow-[inset_0_-3px_0_currentColor]',
+                  )}
+                >
+                  {observation?.resolved ? <CheckCircle2 size={17} strokeWidth={2.3} /> : <CircleHelp size={17} strokeWidth={2.3} />}
+                  {!observation && (
+                    <span className="absolute -right-1 -bottom-1 w-[13px] h-[13px] flex items-center justify-center bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+                      <Plus size={8} strokeWidth={4} />
+                    </span>
+                  )}
+                </button>
               </div>
               <div className="col-span-2 md:col-span-1 min-w-0">
                 <div className={labelCls}>
@@ -378,7 +597,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                       type="button"
                       title="Copiar EAN"
                       onClick={() => { navigator.clipboard?.writeText(ean); setCopied(true); setTimeout(() => setCopied(false), 900); }}
-                      className="w-6 h-6 rounded-[7px] flex items-center justify-center shrink-0 text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:bg-black/[0.06] dark:hover:bg-white/[0.05] active:scale-90 transition-all"
+                      className="w-6 h-6 flex items-center justify-center shrink-0 text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:bg-black/[0.06] dark:hover:bg-white/[0.05] active:scale-90 transition-all"
                     >
                       {copied ? <Check size={13} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={13} />}
                     </button>
@@ -400,17 +619,17 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                     </span>
                   </div>
                   <div className={cn(
-                    'relative h-[38px] rounded-[10px] border-[1.5px] flex items-center gap-2 pl-[5px] pr-2.5 transition-[border-color,box-shadow,background-color] duration-[130ms] focus-within:border-[#D81E1E] focus-within:shadow-[0_0_0_3px_rgba(216,30,30,0.14)]',
+                    'relative h-[34px] border flex items-center gap-2 pl-[3px] pr-2.5 transition-[border-color,box-shadow,background-color] duration-[130ms] focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]',
                     showLinked && isTranslation ? 'border-amber-500/45 bg-amber-500/[0.14] dark:bg-amber-300/[0.12]'
                       : showLinked ? 'border-emerald-500/35 bg-emerald-500/10 dark:bg-emerald-400/10'
-                      : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#252520]'
+                      : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]'
                   )}>
                     <button
                       type="button"
                       onClick={() => (ddOpen ? exitSearch() : enterSearch())}
                       title={linkState === 'ean' ? `${eanMatches.length} produto(s) no sistema com o mesmo EAN — clique para ver` : 'Buscar produto no sistema'}
                       className={cn(
-                        'relative w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-all active:scale-90',
+                        'relative w-7 h-7 flex items-center justify-center shrink-0 transition-all active:scale-90',
                         linkState === 'ean' && !searchMode
                           ? 'bg-[#FFE500] text-[#1A1A0E] shadow-[0_0_0_3px_rgba(255,229,0,0.28)] hover:bg-[#F5DB00]'
                           : 'text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:bg-black/[0.06] dark:hover:bg-white/[0.05]'
@@ -475,7 +694,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
                         onMouseDown={e => e.preventDefault()}
-                        className="absolute left-[-1.5px] right-[-1.5px] top-[calc(100%+6px)] z-[6] origin-top max-h-[240px] overflow-y-auto p-[5px] rounded-xl bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.08] shadow-[0_16px_32px_-8px_rgba(0,0,0,0.25)]"
+                        className="absolute -left-px -right-px top-[calc(100%+2px)] z-[6] origin-top max-h-[240px] overflow-y-auto p-[5px] bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.08] shadow-[0_16px_32px_-8px_rgba(0,0,0,0.25)]"
                       >
                         {(() => {
                           const list = query.trim() ? results : eanMatches;
@@ -486,7 +705,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                             return (
                               <div className="px-2.5 py-3 flex items-center justify-between gap-2.5 text-xs font-semibold text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40">
                                 Nenhum produto encontrado
-                                <button type="button" onClick={() => { exitSearch(); props.onZapClick(); }} className="px-2.5 py-1.5 rounded-lg bg-[#D81E1E] hover:bg-[#BF1A1A] text-white text-[11px] font-extrabold active:scale-[0.97] transition-all">
+                                <button type="button" onClick={() => { exitSearch(); props.onZapClick(); }} className="px-2.5 py-1.5 bg-[#D81E1E] hover:bg-[#BF1A1A] text-white text-[11px] font-extrabold active:scale-[0.97] transition-all">
                                   Criar e Vincular
                                 </button>
                               </div>
@@ -503,7 +722,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                                   key={p.id}
                                   type="button"
                                   onClick={() => pick(p)}
-                                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04] transition-colors"
+                                  className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04] transition-colors"
                                 >
                                   <b className="flex-1 min-w-0 truncate text-[12.5px] font-bold">{p.name}</b>
                                   {eanIds.has(p.id) && (
@@ -521,7 +740,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                 </div>
                 <div className="flex gap-1.5">
                   <div className="relative group">
-                    <button type="button" onClick={props.onLinkClick} className={cn(actCls, linkedProduct ? 'border-[1.5px] border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/[0.18]' : actIdleCls)}>
+                    <button type="button" onClick={props.onLinkClick} className={cn(actCls, linkedProduct ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/[0.18]' : actIdleCls)}>
                       {linkedProduct ? <CheckCircle2 size={14} /> : <Plus size={14} strokeWidth={2.6} />}
                     </button>
                     <span className={tipCls}>{linkedProduct ? 'Alterar vínculo' : 'Vincular'}</span>
@@ -533,7 +752,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                     <span className={tipCls}>Vários</span>
                   </div>
                   <div className="relative group">
-                    <button type="button" onClick={props.onZapClick} className={cn(actCls, hasMapping ? 'border-[1.5px] border-amber-500/55 bg-[#FFE500] text-[#1A1A0E] hover:bg-[#F5DB00]' : actIdleCls)}>
+                    <button type="button" onClick={props.onZapClick} className={cn(actCls, hasMapping ? 'border border-amber-500/55 bg-[#FFE500] text-[#1A1A0E] hover:bg-[#F5DB00]' : actIdleCls)}>
                       <Zap size={13} className={hasMapping ? 'fill-[#1A1A0E]/25' : undefined} />
                     </button>
                     <span className={tipCls}>{hasMapping ? (isTranslation ? 'Tradução permanente salva' : 'Usar tradução permanente') : 'Criar e Vincular'}</span>
@@ -542,9 +761,25 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
               </div>
             </div>
 
-            {/* Parte inferior: valores e medidas */}
-            <div className="bg-[#FAF7EE] dark:bg-[#1A1A15] border-t border-[#EAE2C8] dark:border-white/[0.06] px-[22px] pt-4 pb-5">
-              <div className="flex flex-wrap items-end gap-y-4">
+            {(obsPanel || obsDraft) && (observation || obsDraft) && (
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}>
+                <ObservationPanel
+                  observation={observation}
+                  draft={obsDraft}
+                  setDraft={setObsDraft}
+                  onStartEdit={obsStart}
+                  onCancel={obsCancel}
+                  onSave={obsSave}
+                  onResolve={obsResolve}
+                  onReopen={obsReopen}
+                  onDelete={obsDelete}
+                />
+              </motion.div>
+            )}
+
+            {/* Parte inferior: valores e medidas — grupos no estilo da faixa de ferramentas da nota */}
+            <div className="bg-[#FDFAF0] dark:bg-[#1E1E18] px-3.5 pt-2.5 pb-3">
+              <div className="flex flex-wrap items-end gap-y-3">
                 {/* Na nota (travado) */}
                 <div className={groupCls}>
                   <div className={capCls}><Lock size={10} strokeWidth={2.6} /> Na nota</div>
@@ -609,10 +844,10 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                       </div>
                       <div className={hintCls}>qtd. por unid.</div>
                     </div>
-                    <ArrowRight size={16} strokeWidth={2.4} className="self-center mt-[18px] shrink-0 text-[#1A1A0E]/28 dark:text-[#F2F0E3]/24" />
+                    <ArrowRight size={14} strokeWidth={2.4} className="self-center mt-[2px] shrink-0 text-[#1A1A0E]/28 dark:text-[#F2F0E3]/24" />
                     <div className="w-[92px]">
                       <div className={labelCls}>Qtde Real</div>
-                      <div className="h-[38px] rounded-[10px] border-[1.5px] border-dashed border-[#E0D8BF] dark:border-white/[0.10] flex items-center gap-1 px-2.5">
+                      <div className="h-[34px] border border-dashed border-[#E0D8BF] dark:border-white/[0.10] flex items-center gap-1 px-2.5">
                         <span className="flex-1 text-right font-mono text-[12.5px]">{realQty.toLocaleString('pt-BR')}</span>
                         <span className={preCls}>un.</span>
                       </div>
@@ -747,10 +982,10 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
                     type="button"
                     onClick={props.onOpenDistribution}
                     className={cn(
-                      'h-[38px] w-full rounded-[10px] px-3 inline-flex items-center justify-center gap-[7px] text-xs font-black transition-all active:scale-[0.97]',
+                      'h-[34px] w-full px-3 inline-flex items-center justify-center gap-[7px] text-xs font-black transition-all active:scale-[0.97]',
                       distribTotal > 0
-                        ? 'bg-violet-500/10 dark:bg-violet-500/[0.14] text-violet-700 dark:text-violet-300 border-[1.5px] border-transparent hover:bg-violet-500/20'
-                        : 'border-[1.5px] border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#252520] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-500'
+                        ? 'bg-violet-500/10 dark:bg-violet-500/[0.14] text-violet-700 dark:text-violet-300 border border-transparent hover:bg-violet-500/20'
+                        : 'border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[#1A1A0E]/45 dark:text-[#F2F0E3]/40 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-500'
                     )}
                   >
                     <Truck size={13} />
@@ -764,7 +999,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="relative flex items-center gap-3 px-3.5 py-2.5 bg-[#FFF7B0] dark:bg-[#252520] border-t border-[#DDD000] dark:border-white/[0.06] shrink-0">
+        <div className="relative flex items-center gap-2.5 px-3.5 py-2.5 bg-[#F6F1DF] dark:bg-[#252520] border-t border-[#E6DDC2] dark:border-white/[0.08] shrink-0">
           <motion.button
             key={`prev-${shakeKey}`}
             type="button"
@@ -773,12 +1008,12 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             animate={shakeKey > 0 && blockedMsg ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
             transition={{ duration: 0.28 }}
             className={cn(
-              'inline-flex items-center gap-2.5 h-10 pl-1.5 pr-4 rounded-xl text-[13px] font-extrabold transition-colors active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed',
-              'bg-black/[0.06] hover:bg-black/[0.11] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              editing && 'opacity-40 cursor-not-allowed'
+              'inline-flex items-center gap-2.5 h-9 pl-1 pr-3.5 border text-[12.5px] font-extrabold transition-colors active:scale-[0.97] disabled:opacity-35 disabled:cursor-not-allowed',
+              'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#1A1A0E] dark:text-[#F2F0E3]',
+              blocked && 'opacity-40 cursor-not-allowed'
             )}
           >
-            <span className="w-7 h-7 rounded-full flex items-center justify-center bg-[#1A1A0E] dark:bg-[#F2F0E3] text-[#FFE500] dark:text-[#1E1E18]">
+            <span className="w-[26px] h-[26px] flex items-center justify-center bg-[#1A1A0E] dark:bg-[#F2F0E3] text-[#FFE500] dark:text-[#1E1E18]">
               <ArrowLeft size={14} strokeWidth={2.8} />
             </span>
             Produto Anterior
@@ -788,12 +1023,14 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
               passa por baixo do Total do item quando a mensagem de edição é longa. */}
           <div className={cn(
             'hidden md:flex flex-1 min-w-0 justify-center items-center gap-1.5 text-[11.5px] font-bold',
-            editing ? 'text-[#D81E1E]' : 'text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30'
+            blocked ? 'text-[#D81E1E]' : 'text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30'
           )}>
             <span className={cn('w-[7px] h-[7px] rounded-full shrink-0',
-              editing ? 'bg-[#D81E1E]' : saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500')} />
+              blocked ? 'bg-[#D81E1E]' : saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500')} />
             <span className="truncate">
-              {editing
+              {obsDraft && !editing
+                ? 'Observação em edição — salve ou cancele para trocar de produto ou fechar'
+                : editing
                 ? 'Campo em edição — confirme ✓ para trocar de produto ou fechar'
                 : saving ? 'Salvando…' : 'Salva ao trocar de produto ou fechar'}
             </span>
@@ -801,7 +1038,7 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
 
           <div
             title={hasAdj ? 'Custo com desconto/acréscimo da nota × Qtde Real' : 'Custo × Qtde Real — mesmo valor da coluna Valor Total'}
-            className="ml-auto md:ml-0 shrink-0 inline-flex items-baseline gap-2 px-3 py-1.5 rounded-[10px] border-[1.5px] bg-[#FFF4A8] dark:bg-[#FFE500]/[0.09] border-[#E3CF2A] dark:border-[#FFE500]/35 text-[#1A1A0E] dark:text-[#FFE500]"
+            className="ml-auto md:ml-0 shrink-0 h-9 inline-flex items-center gap-2 px-3 border bg-[#FFF4A8] dark:bg-[#FFE500]/[0.09] border-[#E3CF2A] dark:border-[#FFE500]/35 text-[#1A1A0E] dark:text-[#FFE500]"
           >
             <span className="hidden sm:inline text-[9.5px] font-black uppercase tracking-[0.1em] opacity-65">
               Total do item{hasAdj ? ' · c/ desc.' : ''}
@@ -809,25 +1046,25 @@ export function QuickEditItemModal(props: QuickEditItemModalProps) {
             <span className="font-mono text-[15px] tabular-nums whitespace-nowrap">R$ {brl(itemTotal)}</span>
           </div>
 
-          <span className="hidden lg:inline font-mono text-[10px] px-[5px] py-px rounded-[5px] border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30" title="Atalhos">
+          <span className="hidden lg:inline font-mono text-[10px] px-[5px] py-px border border-black/10 dark:border-white/[0.08] text-[#1A1A0E]/40 dark:text-[#F2F0E3]/30" title="Atalhos">
             Alt ← / Alt →
           </span>
           <motion.button
             key={`next-${shakeKey}`}
             type="button"
-            onClick={() => (isLast && !editing ? props.onClose() : tryNavigate(1))}
+            onClick={() => (isLast && !blocked ? props.onClose() : tryNavigate(1))}
             animate={shakeKey > 0 && blockedMsg ? { x: [0, -4, 4, -4, 4, 0] } : undefined}
             transition={{ duration: 0.28 }}
             className={cn(
-              'shrink-0 inline-flex items-center gap-2.5 h-10 pl-4 pr-1.5 rounded-xl text-[13px] font-extrabold transition-colors active:scale-[0.97]',
+              'shrink-0 inline-flex items-center gap-2.5 h-9 pl-3.5 pr-1 border text-[12.5px] font-extrabold transition-colors active:scale-[0.97]',
               isLast
-                ? 'bg-[#D81E1E] hover:bg-[#BF1A1A] text-white'
-                : 'bg-black/[0.06] hover:bg-black/[0.11] dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-[#1A1A0E] dark:text-[#F2F0E3]',
-              editing && 'opacity-40 cursor-not-allowed'
+                ? 'border-transparent bg-[#D81E1E] hover:bg-[#BF1A1A] text-white'
+                : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#1A1A0E] dark:text-[#F2F0E3]',
+              blocked && 'opacity-40 cursor-not-allowed'
             )}
           >
             {isLast ? 'Concluir e Fechar' : 'Próximo Produto'}
-            <span className={cn('w-7 h-7 rounded-full flex items-center justify-center',
+            <span className={cn('w-[26px] h-[26px] flex items-center justify-center',
               isLast ? 'bg-white/20 text-white' : 'bg-[#1A1A0E] dark:bg-[#F2F0E3] text-[#FFE500] dark:text-[#1E1E18]')}>
               <ArrowRight size={14} strokeWidth={2.8} />
             </span>

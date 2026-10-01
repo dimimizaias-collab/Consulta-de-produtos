@@ -14,7 +14,7 @@ import { TaskRequestDetailModal } from '@/components/requests/TaskRequestDetailM
 import { ProductAlterationModal } from '@/components/requests/ProductAlterationModal';
 import { LogisticsCenter, ReviewNote, getNoteStatus, STATUS_META, StatusIcon, noteHasUnpricedLinkedItems, type NoteStatus } from '@/components/requests/LogisticsCenter';
 import { ReceivedDateField } from '@/components/requests/ReceivedDateField';
-import { QuickEditItemModal } from '@/components/requests/QuickEditItemModal';
+import { QuickEditItemModal, observationReasonLabel } from '@/components/requests/QuickEditItemModal';
 // Pedidos de Compra — DESATIVADO da navegação (ver components/Sidebar.tsx). Import e componente mantidos para reativação futura.
 import { PurchaseOrderManager } from '@/components/orders/PurchaseOrderManager';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -852,6 +852,8 @@ export default function Page() {
   // capturados ao entrar no item, pra digitar o multiplicador não acumular divisões).
   const [quickEditIdx, setQuickEditIdx] = useState<number | null>(null);
   const [quickEditSaving, setQuickEditSaving] = useState(false);
+  // Aberto pelo ícone de observação da tabela → o Cadastro Rápido já abre com o painel aberto.
+  const [quickEditOpenObs, setQuickEditOpenObs] = useState(false);
   const quickEditBaseRef = useRef<{ idx: number; origQty: number; notePrice: number; mult: number } | null>(null);
   const viewingReviewNoteId = viewingReviewNote?.id;
   useEffect(() => { setQuickEditIdx(null); quickEditBaseRef.current = null; }, [viewingReviewNoteId]);
@@ -4989,12 +4991,14 @@ export default function Page() {
     const next = quickEditIdx + delta;
     if (next < 0) return;
     void commitQuickEdit(quickEditIdx);
+    setQuickEditOpenObs(false);
     setQuickEditIdx(next >= viewingReviewNote.items.length ? null : next);
   };
 
   const closeQuickEdit = () => {
     if (quickEditIdx === null) return;
     void commitQuickEdit(quickEditIdx);
+    setQuickEditOpenObs(false);
     setQuickEditIdx(null);
   };
 
@@ -11987,7 +11991,7 @@ export default function Page() {
                         >
                           {/* # */}
                           <td style={tdP}>
-                            <div style={cell({ justifyContent: 'center' })}>
+                            <div style={cell({ justifyContent: 'center', gap: '4px' })}>
                               {isDisregarded ? (
                                 <span title="Divergência confirmada — valor ajustado no total/markup" className="text-amber-600 dark:text-amber-400">
                                   <Ban size={13} strokeWidth={2.4} />
@@ -11996,6 +12000,23 @@ export default function Page() {
                                 <span className="text-[10px] font-black" style={{ color: isRowFocused ? '#DC2626' : 'var(--rn-text-subtle)' }}>
                                   {item.seq ?? idx + 1}
                                 </span>
+                              )}
+                              {/* Observação do item — "?" pendente / ✓ solucionada; abre o Cadastro
+                                  Rápido direto nesse item, já com o painel de observação aberto. */}
+                              {item.observation && (
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); quickEditBaseRef.current = null; setQuickEditOpenObs(true); setQuickEditIdx(idx); }}
+                                  title={`${item.observation.resolved ? 'Observação solucionada' : 'Observação pendente'} — ${observationReasonLabel(item.observation.reason)}${item.observation.text ? `: ${item.observation.text}` : ''}`}
+                                  className={cn(
+                                    'w-[15px] h-[15px] rounded-full flex items-center justify-center shrink-0 hover:scale-[1.15] transition-transform',
+                                    item.observation.resolved
+                                      ? 'bg-emerald-200/90 dark:bg-emerald-400/20 text-emerald-800 dark:text-emerald-300'
+                                      : 'bg-orange-300/90 dark:bg-orange-400/20 text-orange-800 dark:text-orange-300',
+                                  )}
+                                >
+                                  {item.observation.resolved ? <Check size={8} strokeWidth={4} /> : <span className="text-[9px] font-black leading-none">?</span>}
+                                </button>
                               )}
                             </div>
                           </td>
@@ -13592,6 +13613,14 @@ export default function Page() {
                     distribTotal={getDistribTotal(idx, item)}
                     linkedProduct={linkedProduct}
                     hasMapping={!!mapping}
+                    observation={item.observation ?? null}
+                    openObservation={quickEditOpenObs}
+                    userName={colaboradorNome}
+                    onObservationChange={o => setViewingReviewNote(prev => {
+                      if (!prev) return prev;
+                      const items = [...prev.items]; items[idx] = { ...items[idx], observation: o ?? undefined };
+                      return { ...prev, items };
+                    })}
                     isTranslation={!!mapping && !!item.product_id && mapping.internal_product_id === item.product_id}
                     eanMatches={item.product_id ? [] : findProductsByExactEan(itemEan)}
                     searchProducts={searchProductsForLink}

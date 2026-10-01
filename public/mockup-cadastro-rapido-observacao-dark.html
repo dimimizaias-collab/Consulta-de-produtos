@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadastro Rápido — Observação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: #E0D8BF;
+    --hdr: #FFE500; --hdr-border: #D4C000; --chip: rgba(26,26,10,0.09); --chip-fg: #1A1A0E;
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --cell: #FFFFFF; --cell-border: #E0D8BF; --locked: rgba(26,26,10,0.05); --locked-border: rgba(26,26,10,0.08); --locked-text: rgba(26,26,10,0.85);
+    --vals: #FAF7EE; --vals-border: #EAE2C8; --sep: #E6DEC4;
+    --emerald: #0A7A55; --emerald-bg: rgba(16,185,129,0.10); --emerald-border: rgba(16,185,129,0.35);
+    --pencil: #FFE500;
+    --footer: #FFF7B0; --footer-border: #DDD000; --nav: rgba(26,26,10,0.06); --nav-c: #1A1A0E; --nav-cfg: #FFE500;
+    --pop: #FFFFFF; --pop-border: #E0D8BF; --soft: rgba(26,26,10,0.05);
+    --obs: #C2410C; --obs-bg: rgba(234,88,12,0.10); --obs-border: rgba(234,88,12,0.35); --obs-solid: #EA580C;
+    --ok: #0A7A55; --ok-bg: rgba(16,185,129,0.10); --ok-border: rgba(16,185,129,0.35);
+    --grid: #A8A290; --row-even: #FFFFFF; --row-odd: #FAF7EE; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.07); --chip: rgba(216,30,30,0.13); --chip-fg: #D81E1E;
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --cell: #252520; --cell-border: rgba(242,240,227,0.10); --locked: rgba(242,240,227,0.04); --locked-border: rgba(242,240,227,0.06); --locked-text: rgba(242,240,227,0.85);
+    --vals: #1A1A15; --vals-border: rgba(242,240,227,0.06); --sep: rgba(242,240,227,0.08);
+    --emerald: #34D399; --emerald-bg: rgba(52,211,153,0.10); --emerald-border: rgba(52,211,153,0.30);
+    --footer: #252520; --footer-border: rgba(242,240,227,0.06); --nav: rgba(242,240,227,0.05); --nav-c: #F2F0E3; --nav-cfg: #1E1E18;
+    --pop: #2E2E28; --pop-border: rgba(242,240,227,0.10); --soft: rgba(242,240,227,0.05);
+    --obs: #FDBA74; --obs-bg: rgba(251,146,60,0.13); --obs-border: rgba(251,146,60,0.35); --obs-solid: #FB923C;
+    --ok: #34D399; --ok-bg: rgba(52,211,153,0.10); --ok-border: rgba(52,211,153,0.30);
+    --grid: rgba(242,240,227,0.20); --row-even: #252520; --row-odd: #1E1E18; --th-text: rgba(26,26,10,0.58);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: 'DM Sans', sans-serif; color: var(--text); padding: 28px 16px 60px; }
+  button { font-family: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .anno { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+  .anno b { color: var(--text); }
+  .anno .tg { padding: 4px 10px; border-radius: 999px; background: var(--soft); }
+  .anno button { border: 1px solid var(--cell-border); background: var(--cell); color: var(--text); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 12px; }
+  .anno button.on { background: var(--text); color: var(--modal); border-color: var(--text); }
+  h4 { margin: 34px 0 10px; font-size: 13px; font-weight: 900; }
+  h4 span { font-weight: 600; color: var(--muted); }
+
+  /* Modal */
+  .modal { position: relative; border-radius: 22px; border: 1px solid var(--modal-border); background: var(--modal); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.35); }
+  .hdr { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); border-radius: 22px 22px 0 0; }
+  .hchip { width: 38px; height: 38px; border-radius: 13px; display: grid; place-items: center; background: var(--chip); color: var(--chip-fg); }
+  .hdr h2 { margin: 0; font-size: 16px; font-weight: 800; }
+  .hdr small { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+  .hdr .rt { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 800; color: var(--muted); }
+  .hdr .rt b { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); font-weight: 500; }
+  .bar { width: 120px; height: 5px; border-radius: 9px; background: rgba(26,26,10,0.09); overflow: hidden; } .bar i { display: block; height: 100%; width: 36%; background: #D81E1E; }
+  .x { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: rgba(26,26,10,0.08); border: 1px solid rgba(26,26,10,0.10); color: var(--muted); }
+  html.dark .x { background: rgba(242,240,227,0.06); border-color: rgba(242,240,227,0.08); }
+
+  .top { display: grid; grid-template-columns: 44px minmax(0,1fr) 150px 190px; gap: 16px; align-items: end; padding: 18px 22px; }
+  .lbl { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 5px; height: 18px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pen { width: 18px; height: 18px; border-radius: 6px; background: var(--pencil); color: #1A1A0E; display: grid; place-items: center; }
+  .lk { height: 38px; border-radius: 10px; border: 1.5px solid var(--locked-border); background: var(--locked); display: flex; align-items: center; padding: 0 10px; font-family: 'DM Mono', monospace; font-size: 12.5px; color: var(--locked-text); }
+  .lk.sans { font-family: 'DM Sans'; font-size: 13.5px; font-weight: 800; }
+  .lnk { height: 38px; border-radius: 10px; border: 1.5px solid var(--emerald-border); background: var(--emerald-bg); color: var(--emerald); display: flex; align-items: center; gap: 10px; padding: 0 12px; font-weight: 800; font-size: 13.5px; }
+  .lnk small { font-family: 'DM Mono'; font-weight: 400; font-size: 11px; color: var(--muted); }
+  .span3 { grid-column: 2 / span 3; }
+
+  /* ── NOVO: botão de observação (lugar do ícone de documento) ── */
+  .obsw { position: relative; align-self: center; }
+  .obsb { position: relative; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; cursor: pointer; border: 1.5px dashed var(--cell-border); background: var(--cell); color: var(--muted); transition: border-color 130ms, background 130ms, color 130ms, transform 130ms; }
+  .obsb:hover { border-color: var(--obs-border); color: var(--obs); background: var(--obs-bg); }
+  .obsb:active { transform: scale(0.95); }
+  .obsb .plus { position: absolute; right: -5px; bottom: -5px; width: 17px; height: 17px; border-radius: 999px; display: grid; place-items: center; background: var(--modal); border: 1.5px solid var(--cell-border); color: var(--muted); }
+  .obsb.open { border-style: solid; border-color: var(--obs-border); background: var(--obs-bg); color: var(--obs); }
+  .obsb.open::after { content: ''; position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 999px; background: var(--obs-solid); box-shadow: 0 0 0 2.5px var(--modal); }
+  .obsb.done { border-style: solid; border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok); }
+
+  .pop {
+    position: absolute; left: 0; top: calc(100% + 8px); z-index: 30; width: 360px;
+    background: var(--pop); border: 1px solid var(--pop-border); border-radius: 16px; box-shadow: 0 22px 48px -14px rgba(0,0,0,0.35);
+    transform-origin: top left; opacity: 0; transform: scale(0.97) translateY(-4px); pointer-events: none;
+    transition: opacity 130ms cubic-bezier(0.23,1,0.32,1), transform 130ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .pop.show { opacity: 1; transform: none; pointer-events: auto; }
+  .pop .ph { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--pop-border); }
+  .pop .ph b { font-size: 13px; font-weight: 900; }
+  .pop .ph .st { margin-left: auto; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; }
+  .st.pend { background: var(--obs-bg); color: var(--obs); } .st.ok { background: var(--ok-bg); color: var(--ok); }
+  .pop .pb { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .pop .cap { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); }
+  .cats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cat { height: 28px; padding: 0 10px; border-radius: 9px; border: 1.5px solid var(--cell-border); background: var(--cell); color: var(--text); font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: border-color 130ms, background 130ms; }
+  .cat:hover { border-color: var(--obs-border); }
+  .cat.sel { border-color: var(--obs-border); background: var(--obs-bg); color: var(--obs); font-weight: 800; }
+  textarea { width: 100%; min-height: 74px; resize: vertical; border-radius: 10px; border: 1.5px solid var(--cell-border); background: var(--cell); color: var(--text); padding: 9px 10px; font: 600 12.5px/1.45 'DM Sans', sans-serif; outline: 0; caret-color: #D81E1E; transition: border-color 130ms, box-shadow 130ms; }
+  textarea:focus { border-color: #D81E1E; box-shadow: 0 0 0 3px rgba(216,30,30,0.13); }
+  textarea::placeholder { color: var(--faint); font-weight: 500; }
+  .meta { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .meta b { color: var(--text); }
+  .readtxt { font-size: 12.5px; font-weight: 600; line-height: 1.45; padding: 9px 10px; border-radius: 10px; background: var(--soft); }
+  .solved { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; color: var(--ok); padding: 8px 10px; border-radius: 10px; background: var(--ok-bg); border: 1px solid var(--ok-border); }
+  .pf { display: flex; align-items: center; gap: 8px; padding: 10px 14px 12px; border-top: 1px solid var(--pop-border); }
+  .pbtn { height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid transparent; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 130ms, transform 130ms, color 130ms; }
+  .pbtn:active { transform: scale(0.97); }
+  .pbtn.ghost { background: transparent; color: var(--muted); }
+  .pbtn.ghost:hover { background: rgba(216,30,30,0.08); color: #D81E1E; }
+  .pbtn.sec { background: var(--soft); color: var(--text); border-color: var(--cell-border); margin-left: auto; }
+  .pbtn.pri { background: #D81E1E; color: #fff; margin-left: auto; }
+  .pbtn.pri:hover { background: #B91818; }
+  .pbtn.okb { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); margin-left: auto; }
+  .pbtn.okb:hover { filter: brightness(0.97); }
+  .pbtn.sec + .pbtn, .pbtn.okb + .pbtn { margin-left: 0; }
+
+  .vals { background: var(--vals); border-top: 1px solid var(--vals-border); padding: 16px 22px 20px; display: flex; gap: 0; align-items: flex-end; }
+  .g { display: flex; flex-direction: column; padding: 0 16px; border-left: 1px solid var(--sep); }
+  .g:first-child { padding-left: 0; border-left: 0; }
+  .g .c { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); margin-bottom: 8px; }
+  .g .r { display: flex; gap: 8px; }
+  .f { display: flex; flex-direction: column; }
+  .f .lk, .f .cl { height: 38px; }
+  .cl { border-radius: 10px; border: 1.5px solid var(--cell-border); background: var(--cell); display: flex; align-items: center; padding: 0 10px; font-family: 'DM Mono'; font-size: 12.5px; }
+  .cl.red { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .cl.mk { background: var(--emerald-bg); border-color: var(--emerald-border); color: var(--emerald); }
+  .cl.mk.low { background: rgba(216,30,30,0.07); border-color: rgba(216,30,30,0.35); color: #D81E1E; }
+  .pre { font-family: 'DM Sans'; font-size: 10px; font-weight: 900; color: var(--muted); margin-right: auto; }
+  .ftr { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--footer); border-top: 1px solid var(--footer-border); border-radius: 0 0 22px 22px; }
+  .nav { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 6px; border-radius: 12px; background: var(--nav); font-size: 13px; font-weight: 800; }
+  .nav.r { margin-left: auto; padding: 0 6px 0 16px; }
+  .nav span { width: 28px; height: 28px; border-radius: 50%; background: var(--nav-c); color: var(--nav-cfg); display: grid; place-items: center; }
+  .stt { font-size: 11.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+  .stt i { width: 7px; height: 7px; border-radius: 50%; background: #10B981; }
+
+  /* Tabela da nota */
+  .tblw { border: 1px solid var(--modal-border); background: var(--modal); overflow: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  th { background: var(--th); color: var(--th-text); box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); height: 34px; padding: 0 10px; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+  td { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  tbody tr:nth-child(odd) td { background: var(--row-even); } tbody tr:nth-child(even) td { background: var(--row-odd); }
+  td.num { width: 64px; }
+  .numc { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .numc em { font-style: normal; font-size: 10px; font-weight: 900; color: var(--faint); min-width: 14px; text-align: center; }
+  .dot { width: 15px; height: 15px; border-radius: 999px; display: grid; place-items: center; flex-shrink: 0; cursor: pointer; }
+  .dot.q { background: rgba(253,186,116,0.9); color: #9A3412; }
+  html.dark .dot.q { background: rgba(251,146,60,0.22); color: #FDBA74; }
+  .dot.qok { background: rgba(167,243,208,0.9); color: #065F46; }
+  html.dark .dot.qok { background: rgba(52,211,153,0.2); color: #6EE7B7; }
+  .dot.cv { background: rgba(253,230,138,0.9); color: #92400E; }
+  html.dark .dot.cv { background: rgba(251,191,36,0.2); color: #FCD34D; }
+  .dot.tr { background: rgba(221,214,254,0.9); color: #5B21B6; }
+  html.dark .dot.tr { background: rgba(167,139,250,0.2); color: #C4B5FD; }
+  .medc { display: flex; align-items: center; gap: 4px; }
+  .medc b { margin-left: auto; font-weight: 800; color: var(--muted); }
+  .mono { font-family: 'DM Mono'; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .r { text-align: right; }
+  .tip { position: relative; }
+  .tip:hover::after { content: attr(data-tip); position: absolute; left: 22px; top: 50%; transform: translateY(-50%); z-index: 5; white-space: nowrap; background: #1A1A0E; color: #F2F0E3; font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 7px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="anno">
+    <span class="tg"><b>Mockup</b> — observação do item</span>
+    <span>Estado do item:</span>
+    <button data-s="none">Sem observação</button>
+    <button data-s="new">Adicionando</button>
+    <button data-s="open">Pendente</button>
+    <button data-s="done">Solucionada</button>
+    <button id="theme">Alternar claro/escuro</button>
+  </div>
+
+  <div class="modal">
+    <div class="hdr">
+      <div class="hchip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div><h2>Cadastro Rápido</h2><small>NF 39407 · CHOCOMAR 01</small></div>
+      <div class="rt">Produto <b>19 de 53</b><div class="bar"><i></i></div></div>
+      <div class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+    </div>
+
+    <div class="top">
+      <!-- NOVO: botão de observação -->
+      <div class="obsw">
+        <button class="obsb" id="obsb"></button>
+        <div class="pop" id="pop"></div>
+      </div>
+      <div><div class="lbl">Produto na nota <span class="pen"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="lk sans">COLHER PLASTICA REFEICAO REFORCADA C / 10</div></div>
+      <div><div class="lbl">Código <span class="pen"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="lk">4054</div></div>
+      <div><div class="lbl">EAN <span class="pen"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="lk">7898411040547</div></div>
+      <div class="span3"><div class="lbl">Produto vinculado <span style="color:var(--emerald);text-transform:none;letter-spacing:.02em">· vinculado</span></div><div class="lnk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>colher ref. forte c/10 <small>SKU 4054 · 7898411040547</small></div></div>
+    </div>
+
+    <div class="vals">
+      <div class="g"><div class="c">Na nota</div><div class="r">
+        <div class="f" style="width:66px"><div class="lbl">Medida</div><div class="lk" style="justify-content:center">PC</div></div>
+        <div class="f" style="width:78px"><div class="lbl">Quantidade</div><div class="lk" style="justify-content:flex-end">24</div></div>
+      </div></div>
+      <div class="g"><div class="c">Custo unitário</div><div class="r">
+        <div class="f" style="width:92px"><div class="lbl">R$ Antigo</div><div class="lk"><span class="pre">R$</span></div></div>
+        <div class="f" style="width:100px"><div class="lbl">R$ Novo</div><div class="lk"><span class="pre">R$</span>2,69</div></div>
+      </div></div>
+      <div class="g"><div class="c">Venda</div><div class="r">
+        <div class="f" style="width:106px"><div class="lbl">Preço venda</div><div class="cl red"><span class="pre">R$</span>2,90</div></div>
+        <div class="f" style="width:84px"><div class="lbl">Markup</div><div class="cl mk low"><span style="margin-left:auto">7,8 %</span></div></div>
+      </div></div>
+    </div>
+
+    <div class="ftr">
+      <div class="nav"><span>←</span>Produto Anterior</div>
+      <div class="stt"><i></i>Salva ao trocar de produto ou fechar</div>
+      <div class="nav r">Próximo Produto<span>→</span></div>
+    </div>
+  </div>
+
+  <h4>Tabela da nota (aba Produtos) <span>— o “?” aparece na célula do item (#), no mesmo estilo dos ícones de conversão e distribuição. Passe o mouse para ver o resumo; clique para abrir o Cadastro Rápido do item.</span></h4>
+  <div class="tblw">
+    <table>
+      <thead><tr><th style="text-align:center">#</th><th>Código</th><th>Produto na nota</th><th>EAN</th><th>Medida</th><th class="r">Qtd.</th><th class="r">Preço custo</th><th class="r">Preço venda</th><th class="r">Markup</th></tr></thead>
+      <tbody>
+        <tr><td class="num"><div class="numc"><em>18</em></div></td><td class="mono">4051</td><td>GARFO PLASTICO REFORCADO C/10</td><td class="mono">7898411040516</td><td><div class="medc"><span class="dot cv">⇄</span><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 4,80</td><td class="r" style="color:var(--emerald);font-weight:800">78,4%</td></tr>
+        <tr id="row19"><td class="num"><div class="numc" id="numc19"></div></td><td class="mono">4054</td><td>COLHER PLASTICA REFEICAO REFORCADA C / 10</td><td class="mono">7898411040547</td><td><div class="medc"><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 2,90</td><td class="r" style="color:#D81E1E;font-weight:800">7,8%</td></tr>
+        <tr><td class="num"><div class="numc"><em>20</em><span class="dot qok tip" data-tip="Observação solucionada — Preço incorreto"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span></div></td><td class="mono">4060</td><td>FACA PLASTICA REFORCADA C/10</td><td class="mono">7898411040608</td><td><div class="medc"><span class="dot tr">🚚</span><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 4,80</td><td class="r" style="color:var(--emerald);font-weight:800">78,4%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><span class="dot q"><b style="font-size:9px">?</b></span> Observação pendente</span>
+    <span><span class="dot qok"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span> Observação solucionada (fica como histórico)</span>
+    <span><span class="dot cv">⇄</span> Conversão</span>
+    <span><span class="dot tr">🚚</span> Distribuição</span>
+  </div>
+</div>
+
+<script>
+const ICON = {
+  q: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>',
+  plus: '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  ok: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+  check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  undo: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+};
+const CATS = ['Markup muito baixo', 'Preço incorreto', 'Problema no cadastro', 'Outro'];
+let state = 'open', cat = 0, popOpen = true;
+const txt = 'Markup ficou em 7,8% — preço de venda parece desatualizado. Conferir com a tabela do fornecedor antes de aprovar.';
+const obsb = document.getElementById('obsb'), pop = document.getElementById('pop');
+
+function render() {
+  obsb.className = 'obsb' + (state === 'open' ? ' open' : state === 'done' ? ' done' : '');
+  obsb.innerHTML = state === 'done' ? ICON.ok : ICON.q + (state === 'none' || state === 'new' ? `<span class="plus">${ICON.plus}</span>` : '');
+  obsb.title = state === 'none' || state === 'new' ? 'Adicionar observação ao item' : state === 'open' ? 'Observação pendente — clique para ver' : 'Observação solucionada';
+  const head = state === 'open' ? '<span class="st pend">Pendente</span>' : state === 'done' ? '<span class="st ok">Solucionada</span>' : '';
+  const cats = `<div class="cap">Motivo</div><div class="cats">${CATS.map((c, i) => `<button class="cat ${i === cat ? 'sel' : ''}" data-c="${i}">${c}</button>`).join('')}</div>`;
+  let body = '', foot = '';
+  if (state === 'new' || state === 'none') {
+    body = cats + `<div class="cap">Observação</div><textarea placeholder="Descreva o que precisa ser revisto neste item…">${''}</textarea>`;
+    foot = `<button class="pbtn ghost" data-a="cancel">Cancelar</button><button class="pbtn pri" data-a="save">Salvar observação</button>`;
+  } else if (state === 'open') {
+    body = `<div class="cap">Motivo</div><div class="cats"><span class="cat sel">${CATS[cat]}</span></div><div class="cap">Observação</div><div class="readtxt">${txt}</div><div class="meta">Adicionada por <b>Dimit</b> em 01/10/2026 às 09:42</div>`;
+    foot = `<button class="pbtn ghost" data-a="del">${ICON.trash}Excluir</button><button class="pbtn okb" data-a="solve">${ICON.check}Marcar como solucionada</button>`;
+  } else {
+    body = `<div class="cap">Motivo</div><div class="cats"><span class="cat">${CATS[cat]}</span></div><div class="cap">Observação</div><div class="readtxt" style="opacity:.75">${txt}</div><div class="meta">Adicionada por <b>Dimit</b> em 01/10/2026 às 09:42</div><div class="solved">${ICON.check}Solucionada por <b>&nbsp;Dimit&nbsp;</b> em 01/10/2026 às 10:15</div>`;
+    foot = `<button class="pbtn ghost" data-a="del">${ICON.trash}Excluir</button><button class="pbtn sec" data-a="reopen">${ICON.undo}Reabrir</button>`;
+  }
+  pop.innerHTML = `<div class="ph"><b>Observação do item</b>${head}</div><div class="pb">${body}</div><div class="pf">${foot}</div>`;
+  pop.classList.toggle('show', popOpen && state !== 'none');
+
+  const n = document.getElementById('numc19');
+  n.innerHTML = '<em>19</em>' + (state === 'open'
+    ? `<span class="dot q tip" data-tip="Observação pendente — ${CATS[cat]}"><b style="font-size:9px">?</b></span>`
+    : state === 'done' ? `<span class="dot qok tip" data-tip="Observação solucionada — ${CATS[cat]}">${'<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>'}</span>` : '');
+  document.querySelectorAll('.anno [data-s]').forEach(b => b.classList.toggle('on', b.dataset.s === (state === 'none' && !popOpen ? 'none' : state)));
+}
+obsb.addEventListener('click', e => { e.stopPropagation(); if (state === 'none') { state = 'new'; popOpen = true; } else popOpen = !popOpen; render(); });
+pop.addEventListener('click', e => {
+  e.stopPropagation();
+  const c = e.target.closest('[data-c]'); if (c && (state === 'new')) { cat = +c.dataset.c; render(); return; }
+  const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
+  if (a === 'cancel') { state = 'none'; popOpen = false; }
+  if (a === 'save') { state = 'open'; }
+  if (a === 'solve') { state = 'done'; }
+  if (a === 'reopen') { state = 'open'; }
+  if (a === 'del') { state = 'none'; popOpen = false; }
+  render();
+});
+document.addEventListener('click', () => { if (popOpen) { popOpen = false; if (state === 'new') state = 'none'; render(); } });
+document.querySelectorAll('.anno [data-s]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); state = b.dataset.s; popOpen = state !== 'none'; render(); }));
+document.getElementById('theme').addEventListener('click', e => { e.stopPropagation(); document.documentElement.classList.toggle('dark'); });
+render();
+</script>
+</body>
+</html>

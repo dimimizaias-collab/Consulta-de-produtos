@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadastro Rápido — Novo padrão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: rgba(26,26,10,0.12);
+    --head: #F6F1DF; --head-border: #E6DDC2; --ribbon: #FFFFFF;
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.42); --faint: rgba(26,26,10,0.25);
+    --btn: rgba(26,26,10,0.06); --btn-hover: rgba(26,26,10,0.11);
+    --field: #FFFFFF; --field-border: #E0D8BF; --field-hover: #CFC4A2;
+    --locked: rgba(26,26,10,0.035); --locked-text: rgba(26,26,10,0.80);
+    --line: #EFE8D2;
+    --emerald: #0A7A55; --emerald-bg: rgba(16,185,129,0.09); --emerald-border: rgba(16,185,129,0.35);
+    --obs: #C2410C; --obs-bg: rgba(234,88,12,0.08); --obs-border: rgba(234,88,12,0.35); --obs-solid: #EA580C;
+    --ok: #0A7A55; --ok-bg: rgba(16,185,129,0.09); --ok-border: rgba(16,185,129,0.35);
+    --total-bg: #FFF4A8; --total-border: #E3CF2A; --total-text: #1A1A0E;
+    --violet: #6D28D9; --violet-bg: rgba(139,92,246,0.10);
+    --grid: #A8A290; --row-even: #FFFFFF; --row-odd: #FAF7EE; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --head: #252520; --head-border: rgba(242,240,227,0.08); --ribbon: #1E1E18;
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --btn: rgba(242,240,227,0.06); --btn-hover: rgba(242,240,227,0.11);
+    --field: #1E1E18; --field-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20);
+    --locked: rgba(242,240,227,0.03); --locked-text: rgba(242,240,227,0.80);
+    --line: rgba(242,240,227,0.06);
+    --emerald: #34D399; --emerald-bg: rgba(52,211,153,0.09); --emerald-border: rgba(52,211,153,0.30);
+    --obs: #FDBA74; --obs-bg: rgba(251,146,60,0.10); --obs-border: rgba(251,146,60,0.35); --obs-solid: #FB923C;
+    --ok: #34D399; --ok-bg: rgba(52,211,153,0.09); --ok-border: rgba(52,211,153,0.30);
+    --total-bg: rgba(255,229,0,0.08); --total-border: rgba(255,229,0,0.32); --total-text: #FFE500;
+    --violet: #C4B5FD; --violet-bg: rgba(139,92,246,0.14);
+    --grid: rgba(242,240,227,0.20); --row-even: #252520; --row-odd: #1E1E18; --th-text: rgba(26,26,10,0.58);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: 'DM Sans', sans-serif; color: var(--text); padding: 28px 16px 60px; }
+  button { font-family: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .anno { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+  .anno b { color: var(--text); }
+  .anno .tg { padding: 4px 10px; border-radius: 999px; background: var(--btn); }
+  .anno button { border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 12px; }
+  .anno button.on { background: var(--text); color: var(--modal); border-color: var(--text); }
+  h4 { margin: 34px 0 10px; font-size: 13px; font-weight: 900; }
+  h4 span { font-weight: 600; color: var(--muted); }
+
+  /* ── Janela: cantos quadrados, como a janela da nota ── */
+  .modal { position: relative; background: var(--modal); border: 1px solid var(--modal-border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); }
+
+  /* Barra de título (mesmo padrão da nota) */
+  .tbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #FFE500; border-bottom: 1px solid #D4C000; }
+  html.dark .tbar { background: var(--head); border-bottom-color: var(--head-border); }
+  .tico { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(26,26,10,0.09); color: #1A1A0E; flex-shrink: 0; }
+  html.dark .tico { background: #FFE500; }
+  .tbar .ttl small { color: rgba(26,26,10,0.50); } html.dark .tbar .ttl small { color: var(--muted); }
+  .tbar .prog { color: rgba(26,26,10,0.45); } html.dark .tbar .prog { color: var(--faint); }
+  .tbar .pbar { background: rgba(26,26,10,0.12); } html.dark .tbar .pbar { background: var(--btn-hover); }
+  .tbar .close { border-color: rgba(26,26,10,0.14); color: rgba(26,26,10,0.50); } html.dark .tbar .close { border-color: var(--btn-hover); color: var(--muted); }
+  .ttl b { display: block; font-size: 14px; font-weight: 900; line-height: 1.1; }
+  .ttl small { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .prog { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .prog b { font: 500 12.5px 'DM Mono', monospace; color: var(--text); letter-spacing: 0; }
+  .pbar { width: 120px; height: 4px; background: var(--btn-hover); } .pbar i { display: block; height: 100%; width: 36%; background: #D81E1E; }
+  .close { width: 32px; height: 32px; border: 1px solid var(--btn-hover); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: background 130ms, color 130ms, transform 130ms; }
+  .close:hover { background: rgba(216,30,30,0.09); color: #D81E1E; border-color: rgba(216,30,30,0.25); }
+  .close:active { transform: scale(0.93); }
+
+  /* Identificação do item */
+  .ident { background: var(--ribbon); padding: 12px 14px 14px; display: grid; grid-template-columns: 34px minmax(0,1fr) 140px 180px; gap: 10px 12px; align-items: end; border-bottom: 1px solid var(--head-border); }
+  .fl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .lb { height: 14px; display: flex; align-items: center; gap: 5px; padding-left: 1px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+  .lb .tagok { text-transform: none; letter-spacing: .02em; color: var(--emerald); font-weight: 800; }
+  .pen { width: 16px; height: 16px; display: grid; place-items: center; background: transparent; color: var(--muted); border: 1px solid var(--field-border); cursor: pointer; }
+  .pen:hover { background: #FFE500; color: #1A1A0E; border-color: #D4C000; }
+  .sq { height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font: 500 12.5px 'DM Mono', monospace; white-space: nowrap; overflow: hidden; transition: border-color 130ms, box-shadow 130ms; }
+  .sq.lock { background: var(--locked); color: var(--locked-text); }
+  .sq.sans { font: 800 13px 'DM Sans', sans-serif; }
+  .sq.edit:hover { border-color: var(--field-hover); }
+  .sq.edit:focus-within, .sq.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .sq .pre { font: 900 9.5px 'DM Sans'; color: var(--muted); margin-right: auto; }
+  .sq .ic { color: var(--muted); flex-shrink: 0; }
+  .sq.linked { border-color: var(--emerald-border); background: var(--emerald-bg); color: var(--emerald); font: 800 13px 'DM Sans'; }
+  .sq.linked small { font: 400 11px 'DM Mono'; color: var(--muted); }
+  .sq.dash { border-style: dashed; background: transparent; }
+  .sp3 { grid-column: 2 / span 3; display: flex; gap: 6px; align-items: flex-end; }
+  .sp3 .fl { flex: 1; }
+  .ab { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--field-border); background: var(--field); color: var(--muted); cursor: pointer; flex-shrink: 0; transition: background 130ms, color 130ms, transform 130ms; }
+  .ab:hover { background: var(--btn); color: var(--text); }
+  .ab:active { transform: scale(0.95); }
+  .ab.okk { border-color: var(--emerald-border); background: var(--emerald-bg); color: var(--emerald); }
+  .ab.dsh { border-style: dashed; }
+
+  /* ── Botão de observação (no lugar do ícone de documento) ── */
+  .obsb { position: relative; width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; border: 1px dashed var(--field-border); background: var(--field); color: var(--muted); transition: border-color 130ms, background 130ms, color 130ms, transform 130ms; }
+  .obsb:hover { border-color: var(--obs-border); color: var(--obs); background: var(--obs-bg); }
+  .obsb:active { transform: scale(0.95); }
+  .obsb .plus { position: absolute; right: -4px; bottom: -4px; width: 13px; height: 13px; display: grid; place-items: center; background: var(--ribbon); border: 1px solid var(--field-border); color: var(--muted); }
+  .obsb.open { border-style: solid; border-color: var(--obs-border); background: var(--obs-bg); color: var(--obs); }
+  .obsb.open::after { content: ''; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 999px; background: var(--obs-solid); box-shadow: 0 0 0 2px var(--ribbon); }
+  .obsb.done { border-style: solid; border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok); }
+  .obsb.active { box-shadow: inset 0 -3px 0 currentColor; }
+
+  /* ── Painel de observação: encaixado abaixo da identificação ── */
+  .obsp { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms cubic-bezier(0.23,1,0.32,1); }
+  .obsp.show { grid-template-rows: 1fr; }
+  .obsp > div { overflow: hidden; }
+  .obsin { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 16px; padding: 12px 14px 12px 17px; background: var(--obs-bg); border-bottom: 1px solid var(--obs-border); }
+  .obsin::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--obs-solid); }
+  .obsin.isdone { background: var(--ok-bg); border-bottom-color: var(--ok-border); }
+  .obsin.isdone::before { background: var(--ok); }
+  .oleft { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .oright { display: flex; flex-direction: column; gap: 8px; }
+  .otitle { display: flex; align-items: center; gap: 7px; height: 22px; }
+  .otitle b { font-size: 12.5px; font-weight: 900; display: flex; align-items: center; gap: 6px; }
+  .otitle .st { align-self: center; }
+  .oleft textarea, .oleft .otxt { min-height: 0; height: 56px; }
+  .oleft textarea { resize: none; }
+  .oleft .otxt { overflow: auto; }
+  .otitle .selw { margin-left: auto; width: 220px; display: flex; align-items: center; gap: 8px; }
+  .otitle .selw .lb { margin: 0; }
+  .otitle .selw .sw { position: relative; flex: 1; }
+  .otitle { height: 30px; }
+  .ob.ic { width: 32px; padding: 0; }
+  .ob.ic[data-a=del]:hover { background: rgba(216,30,30,0.08); color: #D81E1E; border-color: rgba(216,30,30,0.3); }
+  .selw { position: relative; }
+  .selw select { appearance: none; width: 100%; height: 30px; padding: 0 28px 0 10px; border: 1px solid var(--field-border); border-radius: 0; background: var(--field); color: var(--text); font: 700 12px 'DM Sans', sans-serif; cursor: pointer; outline: 0; transition: border-color 130ms, box-shadow 130ms; }
+  .selw select:hover { border-color: var(--field-hover); }
+  .selw select:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .selw select:disabled { cursor: default; background: var(--locked); color: var(--locked-text); opacity: 1; }
+  .selw svg { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted); }
+
+  .st { align-self: flex-start; font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; }
+  .st.pend { background: var(--obs-solid); color: #fff; } html.dark .st.pend { color: #1A1A0E; }
+  .st.ok { background: var(--ok); color: #fff; } html.dark .st.ok { color: #1A1A0E; }
+  .st.new { background: var(--btn-hover); color: var(--muted); }
+  .mf { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mf .lb { height: 12px; }
+  .mf .sq { height: 28px; padding: 0 8px; font-size: 11.5px; }
+  .mf .sq.who { font: 800 12px 'DM Sans'; }
+  .meta { font-size: 10.5px; font-weight: 700; color: var(--muted); line-height: 1.45; }
+  .meta b { color: var(--text); font-weight: 800; }
+
+  .cats { display: flex; gap: 0; }
+  .cat { height: 28px; padding: 0 11px; border: 1px solid var(--field-border); margin-left: -1px; background: var(--field); color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 130ms, color 130ms; }
+  .cat:first-child { margin-left: 0; }
+  .cat:hover { background: var(--btn); }
+  .cat.sel { position: relative; z-index: 1; border-color: var(--obs-border); background: var(--obs-solid); color: #fff; font-weight: 800; }
+  html.dark .cat.sel { color: #1A1A0E; }
+  .cat.ro { cursor: default; }
+  .isdone .cat.sel { background: var(--field); color: var(--text); border-color: var(--field-border); }
+  textarea { width: 100%; min-height: 54px; resize: vertical; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 8px 10px; font: 600 12.5px/1.45 'DM Sans', sans-serif; outline: 0; caret-color: #D81E1E; border-radius: 0; transition: border-color 130ms, box-shadow 130ms; }
+  textarea:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  textarea::placeholder { color: var(--faint); font-weight: 500; }
+  .otxt { font-size: 12.5px; font-weight: 600; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--field-border); background: var(--field); }
+  .isdone .otxt { color: var(--muted); }
+  .oact { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; }
+  .ob { height: 32px; padding: 0 12px; border: 1px solid transparent; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; transition: background 130ms, color 130ms, transform 130ms, filter 130ms; }
+  .ob:active { transform: scale(0.97); }
+  .ob.pri { background: #D81E1E; color: #fff; } .ob.pri:hover { background: #B91818; }
+  .ob.okb { background: var(--ok); color: #fff; } .ob.okb:hover { filter: brightness(0.95); } html.dark .ob.okb { color: #1A1A0E; }
+  .ob.sec { background: var(--field); color: var(--text); border-color: var(--field-border); } .ob.sec:hover { background: var(--btn); }
+  .ob.gh { background: transparent; color: var(--muted); } .ob.gh:hover { background: rgba(216,30,30,0.08); color: #D81E1E; }
+
+  /* ── Valores: grupos no estilo da faixa de ferramentas ── */
+  .vals { display: flex; align-items: stretch; padding: 10px 4px 12px; background: var(--modal); overflow-x: auto; }
+  .grp { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 0 12px; border-right: 1px solid var(--line); }
+  .grp:last-child { border-right: 0; flex: 1; }
+  .gl { font-size: 9px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); opacity: .55; display: flex; align-items: center; gap: 5px; padding-left: 1px; }
+  .row { display: flex; gap: 8px; align-items: flex-start; }
+  .arr { align-self: center; margin-top: 8px; color: var(--faint); }
+  .hint { height: 12px; font-size: 9.5px; font-weight: 700; color: var(--muted); white-space: nowrap; padding-left: 1px; }
+  .hint.up { color: #D81E1E; font-weight: 900; }
+  .sq.price { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .sq.mk { background: var(--emerald-bg); border-color: var(--emerald-border); color: var(--emerald); }
+  .sq.mk.low { background: rgba(216,30,30,0.06); border-color: rgba(216,30,30,0.35); color: #D81E1E; }
+  .sq.real { border-style: dashed; background: transparent; }
+  .dist { height: 34px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px dashed var(--field-border); background: var(--field); color: var(--muted); font: 900 11.5px 'DM Sans'; cursor: pointer; }
+  .dist:hover { color: var(--violet); border-color: var(--violet); }
+
+  /* Rodapé */
+  .ftr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--head); border-top: 1px solid var(--head-border); }
+  .nav { height: 36px; display: inline-flex; align-items: center; gap: 9px; padding: 0 14px 0 4px; border: 1px solid var(--field-border); background: var(--field); font-size: 12.5px; font-weight: 800; color: var(--text); cursor: pointer; transition: background 130ms, transform 130ms; }
+  .nav:hover { background: var(--btn); }
+  .nav:active { transform: scale(0.97); }
+  .nav span { width: 26px; height: 26px; display: grid; place-items: center; background: var(--text); color: var(--modal); }
+  .nav.r { padding: 0 4px 0 14px; }
+  .stt { flex: 1; display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+  .stt i { width: 7px; height: 7px; border-radius: 50%; background: #10B981; }
+  .fp { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--total-border); background: var(--total-bg); color: var(--total-text); }
+  .fp small { font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; opacity: .65; }
+  .fp b { font: 500 14px 'DM Mono', monospace; }
+  .kbd { font: 500 10px 'DM Mono'; padding: 2px 5px; border: 1px solid var(--field-border); color: var(--muted); }
+
+  /* Tabela da nota */
+  .tblw { border: 1px solid var(--modal-border); background: var(--modal); overflow: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  th { background: var(--th); color: var(--th-text); box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); height: 34px; padding: 0 10px; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+  td { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  tbody tr:nth-child(odd) td { background: var(--row-even); } tbody tr:nth-child(even) td { background: var(--row-odd); }
+  .numc { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .numc em { font-style: normal; font-size: 10px; font-weight: 900; color: var(--faint); min-width: 14px; text-align: center; }
+  .dot { width: 15px; height: 15px; border-radius: 999px; display: grid; place-items: center; flex-shrink: 0; cursor: pointer; border: 0; padding: 0; transition: transform 130ms; }
+  .dot:hover { transform: scale(1.15); }
+  .dot.q { background: rgba(253,186,116,0.9); color: #9A3412; } html.dark .dot.q { background: rgba(251,146,60,0.22); color: #FDBA74; }
+  .dot.qok { background: rgba(167,243,208,0.9); color: #065F46; } html.dark .dot.qok { background: rgba(52,211,153,0.2); color: #6EE7B7; }
+  .dot.cv { background: rgba(253,230,138,0.9); color: #92400E; } html.dark .dot.cv { background: rgba(251,191,36,0.2); color: #FCD34D; }
+  .medc { display: flex; align-items: center; gap: 4px; } .medc b { margin-left: auto; font-weight: 800; color: var(--muted); }
+  .mono { font-family: 'DM Mono'; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .r { text-align: right; }
+  .flash { animation: fl 900ms ease-out; }
+  @keyframes fl { 0% { box-shadow: 0 0 0 3px rgba(234,88,12,0.55); } 100% { box-shadow: 0 0 0 3px rgba(234,88,12,0); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="anno">
+    <span class="tg"><b>Mockup v3</b> — Cadastro Rápido no padrão da janela da nota</span>
+    <span>Observação:</span>
+    <button data-s="none">Sem observação</button>
+    <button data-s="new">Adicionando</button>
+    <button data-s="open">Pendente</button>
+    <button data-s="done">Solucionada</button>
+    <button id="theme">Alternar claro/escuro</button>
+  </div>
+
+  <div class="modal" id="modal">
+    <!-- Barra de título -->
+    <div class="tbar">
+      <div class="tico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div class="ttl"><b>Cadastro Rápido</b><small>NF 39407 · CHOCOMAR 01</small></div>
+      <div class="prog">Produto <b>19 de 53</b><div class="pbar"><i></i></div></div>
+      <button class="close" title="Salvar e fechar (Esc)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <!-- Identificação -->
+    <div class="ident">
+      <div class="fl"><div class="lb">Obs.</div><button class="obsb" id="obsb"></button></div>
+      <div class="fl"><div class="lb">Produto na nota <span class="pen" title="Editar descrição"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="sq lock sans">COLHER PLASTICA REFEICAO REFORCADA C / 10</div></div>
+      <div class="fl"><div class="lb">Código <span class="pen"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="sq lock">4054</div></div>
+      <div class="fl"><div class="lb">EAN <span class="pen"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="sq lock">7898411040547<svg class="ic" style="margin-left:auto" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div></div>
+      <div class="sp3">
+        <div class="fl"><div class="lb">Produto vinculado <span class="tagok">· vinculado</span></div><div class="sq linked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>colher ref. forte c/10 <small>SKU 4054 · 7898411040547</small></div></div>
+        <button class="ab okk" title="Vínculo confirmado"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></button>
+        <button class="ab dsh" title="Produto mãe"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg></button>
+        <button class="ab dsh" title="Salvar como tradução"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></button>
+      </div>
+    </div>
+
+    <!-- Painel de observação -->
+    <div class="obsp" id="obsp"><div><div class="obsin" id="obsin"></div></div></div>
+
+    <!-- Valores -->
+    <div class="vals">
+      <div class="grp">
+        <div class="gl"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Na nota</div>
+        <div class="row">
+          <div class="fl" style="width:62px"><div class="lb">Medida</div><div class="sq lock" style="justify-content:center">PC</div><div class="hint"></div></div>
+          <div class="fl" style="width:76px"><div class="lb">Quantidade</div><div class="sq lock" style="justify-content:flex-end">24</div><div class="hint"></div></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gl">Conversão</div>
+        <div class="row">
+          <div class="fl" style="width:80px"><div class="lb">Unid. fornec.</div><div class="sq edit" style="justify-content:center">PC</div><div class="hint"></div></div>
+          <div class="fl" style="width:84px"><div class="lb">Multiplicador</div><div class="sq edit"><span class="pre">×</span><span style="color:var(--faint)">1</span></div><div class="hint">qtd. por unid.</div></div>
+          <svg class="arr" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <div class="fl" style="width:88px"><div class="lb">Qtde real</div><div class="sq real" style="justify-content:flex-end">24 <span class="pre" style="margin:0 0 0 4px">un.</span></div><div class="hint"></div></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gl">Custo unitário</div>
+        <div class="row">
+          <div class="fl" style="width:92px"><div class="lb">R$ antigo</div><div class="sq lock"><span class="pre">R$</span>2,49</div><div class="hint">último custo salvo</div></div>
+          <div class="fl" style="width:100px"><div class="lb">R$ novo <span class="pen"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span></div><div class="sq lock"><span class="pre">R$</span>2,69</div><div class="hint up">▲ 8,0% vs antigo</div></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gl">Venda</div>
+        <div class="row">
+          <div class="fl" style="width:106px"><div class="lb">Preço venda</div><div class="sq edit price"><span class="pre">R$</span>2,90</div><div class="hint"></div></div>
+          <div class="fl" style="width:84px"><div class="lb">Markup</div><div class="sq mk low" style="justify-content:flex-end">7,8 %</div><div class="hint"></div></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gl">Distribuição</div>
+        <div class="fl"><div class="lb">Outras lojas</div><button class="dist"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>Distribuir</button><div class="hint"></div></div>
+      </div>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="ftr">
+      <button class="nav"><span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></span>Produto anterior</button>
+      <div class="stt"><i></i>Salva ao trocar de produto ou fechar</div>
+      <div class="fp"><small>Total do item</small><b>R$ 64,56</b></div>
+      <span class="kbd">Alt ← / Alt →</span>
+      <button class="nav r">Próximo produto<span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+    </div>
+  </div>
+
+  <h4>Tabela da nota <span>— clique no “?” (ou no ✓) para abrir o Cadastro Rápido direto nesse item, já com a observação aberta.</span></h4>
+  <div class="tblw">
+    <table>
+      <thead><tr><th style="text-align:center;width:64px">#</th><th>Código</th><th>Produto na nota</th><th>EAN</th><th>Medida</th><th class="r">Qtd.</th><th class="r">Preço custo</th><th class="r">Preço venda</th><th class="r">Markup</th></tr></thead>
+      <tbody>
+        <tr><td><div class="numc"><em>18</em></div></td><td class="mono">4051</td><td>GARFO PLASTICO REFORCADO C/10</td><td class="mono">7898411040516</td><td><div class="medc"><span class="dot cv">⇄</span><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 4,80</td><td class="r" style="color:var(--emerald);font-weight:800">78,4%</td></tr>
+        <tr><td><div class="numc" id="numc19"></div></td><td class="mono">4054</td><td>COLHER PLASTICA REFEICAO REFORCADA C / 10</td><td class="mono">7898411040547</td><td><div class="medc"><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 2,90</td><td class="r" style="color:#D81E1E;font-weight:800">7,8%</td></tr>
+        <tr><td><div class="numc"><em>20</em><button class="dot qok" data-open="done" title="Observação solucionada — Preço incorreto"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></button></div></td><td class="mono">4060</td><td>FACA PLASTICA REFORCADA C/10</td><td class="mono">7898411040608</td><td><div class="medc"><b>PC</b></div></td><td class="r">24</td><td class="r">R$ 2,69</td><td class="r">R$ 4,80</td><td class="r" style="color:var(--emerald);font-weight:800">78,4%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const ICON = {
+  q: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>',
+  plus: '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  ok: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+  check: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  trash: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  undo: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  pen: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+};
+const metaF = (lbl, who, when) => `<div class="mf"><div class="fl"><div class="lb">${lbl}</div><div class="sq lock who">${who}</div></div><div class="fl"><div class="lb">Em</div><div class="sq lock">${when}</div></div></div>`;
+const CATS = ['Markup muito baixo', 'Preço incorreto', 'Problema no cadastro', 'Outro'];
+const TXT = 'Markup ficou em 7,8% — preço de venda parece desatualizado. Conferir com a tabela do fornecedor antes de aprovar.';
+let state = 'open', cat = 0, panel = true;
+const obsb = document.getElementById('obsb'), obsp = document.getElementById('obsp'), obsin = document.getElementById('obsin');
+
+function render() {
+  const emptyish = state === 'none' || state === 'new';
+  obsb.className = 'obsb' + (state === 'open' ? ' open' : state === 'done' ? ' done' : '') + (panel && state !== 'none' ? ' active' : '');
+  obsb.innerHTML = state === 'done' ? ICON.ok : ICON.q + (emptyish ? `<span class="plus">${ICON.plus}</span>` : '');
+  obsb.title = emptyish ? 'Adicionar observação ao item' : state === 'open' ? 'Observação pendente' : 'Observação solucionada';
+
+  const chev = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>';
+  const motivo = (ro) => `<div class="selw"><span class="lb">Motivo</span><div class="sw"><select id="cat" ${ro ? 'disabled' : ''}>${CATS.map((c, i) => `<option value="${i}" ${i === cat ? 'selected' : ''}>${c}</option>`).join('')}</select>${ro ? '' : chev}</div></div>`;
+  let title, text, right, act;
+  if (state === 'new' || state === 'none') {
+    title = `<b>${ICON.q}Observação do item</b><span class="st new">Nova</span>${motivo(false)}`;
+    text = `<textarea placeholder="Descreva o que precisa ser revisto neste item — markup muito baixo, preço incorreto, problema no cadastro…"></textarea>`;
+    right = `<div class="meta" style="margin-top:20px">Sinalize um markup muito baixo, preço incorreto ou outro problema para revisar depois.</div>`;
+    act = `<button class="ob gh" data-a="cancel">Cancelar</button><button class="ob pri" data-a="save">Salvar observação</button>`;
+  } else if (state === 'open') {
+    title = `<b>${ICON.q}Observação do item</b><span class="st pend">Pendente</span>${motivo(true)}`;
+    text = `<div class="otxt">${TXT}</div>`;
+    right = metaF('Adicionada por', 'Dimit', '01/10/2026 09:42');
+    act = `<button class="ob sec ic" data-a="edit" title="Editar observação">${ICON.pen}</button><button class="ob sec ic" data-a="del" title="Excluir observação">${ICON.trash}</button><button class="ob okb" data-a="solve" title="Marcar como solucionada">${ICON.check}Check</button>`;
+  } else {
+    title = `<b>${ICON.ok}Observação do item</b><span class="st ok">Solucionada</span>${motivo(true)}`;
+    text = `<div class="otxt">${TXT}</div>`;
+    right = metaF('Adicionada por', 'Dimit', '01/10/2026 09:42') + metaF('Solucionada por', 'Dimit', '01/10/2026 10:15');
+    act = `<button class="ob sec ic" data-a="del" title="Excluir observação">${ICON.trash}</button><button class="ob sec ic" data-a="reopen" title="Reabrir observação">${ICON.undo}</button>`;
+  }
+  obsin.className = 'obsin' + (state === 'done' ? ' isdone' : '');
+  obsin.innerHTML = `<div class="oleft"><div class="otitle">${title}</div>${text}</div><div class="oright">${right}<div class="oact">${act}</div></div>`;
+  const sel = document.getElementById('cat'); if (sel) sel.onchange = () => { cat = +sel.value; };
+  obsp.classList.toggle('show', panel && state !== 'none');
+
+  document.getElementById('numc19').innerHTML = '<em>19</em>' + (state === 'open'
+    ? `<button class="dot q" data-open="open" title="Observação pendente — ${CATS[cat]}"><b style="font-size:9px">?</b></button>`
+    : state === 'done' ? `<button class="dot qok" data-open="done" title="Observação solucionada — ${CATS[cat]}"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></button>` : '');
+  document.querySelectorAll('.anno [data-s]').forEach(b => b.classList.toggle('on', b.dataset.s === state));
+}
+obsb.addEventListener('click', () => { if (state === 'none') { state = 'new'; panel = true; } else panel = !panel; render(); });
+obsin.addEventListener('click', e => {
+  const c = e.target.closest('[data-c]'); if (c) { cat = +c.dataset.c; render(); return; }
+  const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
+  if (a === 'cancel' || a === 'del') { state = 'none'; panel = false; }
+  if (a === 'save' || a === 'reopen') state = 'open';
+  if (a === 'solve') state = 'done';
+  if (a === 'edit') state = 'new';
+  render();
+});
+document.addEventListener('click', e => {
+  const d = e.target.closest('[data-open]'); if (!d) return;
+  state = d.dataset.open; panel = true; render();
+  const m = document.getElementById('modal');
+  m.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  obsin.classList.remove('flash'); void obsin.offsetWidth; obsin.classList.add('flash');
+});
+document.querySelectorAll('.anno [data-s]').forEach(b => b.addEventListener('click', () => { state = b.dataset.s; panel = state !== 'none'; render(); }));
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+render();
+</script>
+</body>
+</html>
