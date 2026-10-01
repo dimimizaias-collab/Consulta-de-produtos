@@ -10874,6 +10874,66 @@ export default function Page() {
                     {noteEditorTab === 'nota_original' && (<>
                       {editGroup}
                       {ribbonGroup('Exportar', xmlBtn)}
+                      {ribbonGroup('XML original', <>
+                        {viewingReviewNote.originalNfeXml ? (
+                          <span
+                            title="Usado como base para gerar o XML corrigido (botão roxo em Exportar)"
+                            className="h-8 flex items-center gap-1.5 pl-2 pr-2.5 whitespace-nowrap text-[11px] font-bold border text-[#0A7A55] dark:text-[#34D399] bg-[#0A7A55]/[0.06] dark:bg-[#34D399]/[0.06] border-[#0A7A55]/[0.22] dark:border-[#34D399]/[0.22]"
+                          >
+                            <Check size={13} strokeWidth={2.6} /> Anexado
+                          </span>
+                        ) : (
+                          <span
+                            title="Anexe o XML autorizado pela SEFAZ para poder gerar o XML corrigido pronto para importar no PDV"
+                            className="h-8 flex items-center px-2.5 whitespace-nowrap text-[11px] font-bold border text-on-surface/40 border-[#E0D8BF] dark:border-white/[0.10]"
+                          >
+                            Nenhum anexado
+                          </span>
+                        )}
+                        <label
+                          title="Lê o XML e preenche os itens da nota com base nele (substitui os itens atuais)"
+                          className="h-8 flex items-center gap-1.5 px-[11px] whitespace-nowrap cursor-pointer border text-[10.5px] font-extrabold uppercase tracking-[0.07em] bg-violet-500/10 hover:bg-violet-500/[0.17] text-violet-600 dark:text-violet-400 border-violet-500/[0.18] active:scale-[0.97] transition-all duration-[130ms]"
+                        >
+                          <Zap size={13} />
+                          Usar como molde
+                          <input
+                            type="file"
+                            accept=".xml"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUseXmlAsNoteTemplate(file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                        <label
+                          title="Só anexa o XML para gerar a correção depois — não altera os itens da nota"
+                          className="h-8 flex items-center gap-1.5 px-[11px] whitespace-nowrap cursor-pointer border border-transparent text-[10.5px] font-extrabold uppercase tracking-[0.07em] bg-on-surface/[0.06] hover:bg-on-surface/[0.11] text-on-surface active:scale-[0.97] transition-all duration-[130ms]"
+                        >
+                          <Upload size={13} />
+                          {viewingReviewNote.originalNfeXml ? 'Substituir' : 'Anexar XML'}
+                          <input
+                            type="file"
+                            accept=".xml"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAttachOriginalNfeXml(file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                        {viewingReviewNote.originalNfeXml && (
+                          <button
+                            onClick={() => setViewingReviewNote({ ...viewingReviewNote, originalNfeXml: null })}
+                            title="Remover XML anexado"
+                            className={cn(toolBtn, 'text-on-surface/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E]')}
+                          >
+                            <X size={13} strokeWidth={2.6} />
+                          </button>
+                        )}
+                      </>)}
                     </>)}
                     {(noteEditorTab === 'recebimento' || noteEditorTab === 'financeiro') && editGroup}
                   </div>
@@ -11158,153 +11218,89 @@ export default function Page() {
                     </div>
                   );
                 };
+                // Mesmo formato da tabela da aba Produtos: de borda a borda, cabeçalho amarelo
+                // contínuo (linhas em box-shadow inset para acompanhar o sticky) e grade reta.
+                const thBar: React.CSSProperties = {
+                  background: 'var(--rn-th-bg)', padding: '0 10px', boxSizing: 'border-box', verticalAlign: 'middle', height: '34px',
+                  boxShadow: 'inset -1px 0 0 var(--rn-th-line), inset 0 -1.5px 0 var(--rn-th-bottom)',
+                  fontSize: '9px', fontWeight: 900, letterSpacing: '0.10em', textTransform: 'uppercase',
+                  color: 'var(--rn-th-color)', whiteSpace: 'nowrap',
+                };
+                const cols: { label: string; align: 'left' | 'right' | 'center' }[] = [
+                  { label: '#', align: 'center' },
+                  { label: 'Código', align: 'left' },
+                  { label: 'Produto na Nota', align: 'left' },
+                  { label: 'EAN', align: 'left' },
+                  { label: 'Unidade', align: 'center' },
+                  { label: 'Qtd.', align: 'center' },
+                  { label: 'Preço Unit.', align: 'right' },
+                  { label: 'Valor Total', align: 'right' },
+                  { label: 'Índice', align: 'center' },
+                  { label: 'UPC', align: 'right' },
+                ];
+                const tdP: React.CSSProperties = { padding: '0 10px', height: '34px', borderBottom: '1px solid var(--rn-grid)', borderRight: '1px solid var(--rn-grid)', whiteSpace: 'nowrap' };
+                const tdLast: React.CSSProperties = { ...tdP, borderRight: 'none' };
                 return (
-                  <div
-                    className="flex-1 overflow-auto p-8 [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
-                  >
-                    <div className="max-w-6xl">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
-                        <ScrollText size={12} />
-                        Nota Original
-                        <span className="normal-case font-semibold text-on-surface/30 tracking-normal">— itens exatamente como vieram na importação, sem conversão de unidade, produto vinculado, preço de venda ou distribuição</span>
-                      </p>
-                      <div className="rounded-2xl border p-4 mb-5 flex items-center justify-between gap-4" style={{ borderColor: 'var(--rn-cell-border)', background: 'var(--rn-cell-bg)' }}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', viewingReviewNote.originalNfeXml ? 'bg-emerald-500/15 text-emerald-500' : 'bg-on-surface/[0.06] text-on-surface/40')}>
-                            <FileCode2 size={16} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-black text-on-surface truncate">
-                              {viewingReviewNote.originalNfeXml ? 'XML original da NFe anexado' : 'Nenhum XML original anexado'}
-                            </p>
-                            <p className="text-[10px] font-semibold text-on-surface/40">
-                              {viewingReviewNote.originalNfeXml
-                                ? 'Usado como base para gerar o XML corrigido (botão roxo na barra superior)'
-                                : 'Anexe o XML autorizado pela SEFAZ para poder gerar o XML corrigido pronto para importar no PDV'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/18 cursor-pointer transition-colors border border-violet-500/15" title="Lê o XML e preenche os itens da nota com base nele (substitui os itens atuais)">
-                            <Zap size={13} />
-                            Usar como Molde
-                            <input
-                              type="file"
-                              accept=".xml"
-                              className="hidden"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) handleUseXmlAsNoteTemplate(file);
-                                e.target.value = '';
-                              }}
-                            />
-                          </label>
-                          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-on-surface/[0.06] text-on-surface/60 hover:bg-on-surface/[0.1] cursor-pointer transition-colors" title="Só anexa o XML para gerar a correção depois — não altera os itens da nota">
-                            <Upload size={13} />
-                            {viewingReviewNote.originalNfeXml ? 'Substituir' : 'Anexar XML'}
-                            <input
-                              type="file"
-                              accept=".xml"
-                              className="hidden"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) handleAttachOriginalNfeXml(file);
-                                e.target.value = '';
-                              }}
-                            />
-                          </label>
-                          {viewingReviewNote.originalNfeXml && (
-                            <button
-                              onClick={() => setViewingReviewNote({ ...viewingReviewNote, originalNfeXml: null })}
-                              title="Remover XML anexado"
-                              className="w-8 h-8 flex items-center justify-center rounded-xl bg-on-surface/[0.06] text-on-surface/40 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                  <div className="flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-line:#B8A31F] [--rn-th-bottom:#8F7E10] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-grid:#A8A290] [--rn-cell-bg:#FFFFFF] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-grid:rgba(242,240,227,0.20)] dark:[--rn-cell-bg:#252520] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]">
+                    <table className="w-full min-w-[1100px]" style={{ borderCollapse: 'collapse' }}>
+                      <thead className="sticky top-0 z-10">
+                        <tr>
+                          {cols.map((c, i) => (
+                            <th
+                              key={c.label}
+                              style={{ ...thBar, textAlign: c.align, ...(i === cols.length - 1 ? { boxShadow: 'inset 0 -1.5px 0 var(--rn-th-bottom)' } : {}) }}
                             >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--rn-cell-border)' }}>
-                        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
-                              {(() => {
-                                const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
-                                const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
-                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                  fontSize: '9px', fontWeight: 900,
-                                  letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-                                  color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
-                                  background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
-                                  borderRadius: '9999px', padding: '5px 13px', ...extra,
-                                });
-                                const cols: { label: string; align?: 'left' | 'right' | 'center' }[] = [
-                                  { label: '#', align: 'center' },
-                                  { label: 'Código' },
-                                  { label: 'Produto na Nota' },
-                                  { label: 'EAN' },
-                                  { label: 'Unidade', align: 'center' },
-                                  { label: 'Qtd.', align: 'center' },
-                                  { label: 'Preço Unit.', align: 'right' },
-                                  { label: 'Valor Total', align: 'right' },
-                                  { label: 'Índice', align: 'center' },
-                                  { label: 'UPC', align: 'right' },
-                                ];
-                                return cols.map(c => (
-                                  <th key={c.label} style={{ ...thBar, paddingLeft: c.label === '#' ? '10px' : thBar.padding }}>
-                                    <div style={lbl({ justifyContent: c.align === 'right' ? 'flex-end' : c.align === 'center' ? 'center' : 'flex-start' })}>
-                                      {c.label}
-                                    </div>
-                                  </th>
-                                ));
-                              })()}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map(({ item, idx, qty, price, total, cmp, history }, i) => {
-                              const tdCls = "px-3 py-2.5 text-[12px] font-semibold";
-                              return (
-                                <tr key={idx}
-                                  className={i % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'}
-                                  style={{ borderBottom: '1px solid var(--rn-cell-border)' }}
-                                >
-                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</td>
-                                  <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</td>
-                                  <td className={tdCls} style={{ color: 'var(--rn-text)' }}>{item.original_description || '-'}</td>
-                                  <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.ean || '-'}</td>
-                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-muted)' }}>{item.unit || '-'}</td>
-                                  <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text)' }}>{qty}</td>
-                                  <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>{price > 0 ? `R$ ${price.toFixed(2)}` : '-'}</td>
-                                  <td className={cn(tdCls, "text-right font-black")} style={{ color: 'var(--rn-text)' }}>{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
-                                  <td className={tdCls}>{indiceBadge(cmp)}</td>
-                                  <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>
-                                    {history ? (
-                                      <>
-                                        <span className="font-bold">{`R$ ${history.price.toFixed(2)}`}</span>
-                                        <span className="block text-[9px] font-bold mt-0.5" style={{ color: 'var(--rn-text-subtle)' }}>
-                                          nota de {history.date.split('-').reverse().join('/')}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <span style={{ color: 'var(--rn-text-subtle)' }}>—</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          {rows.length > 0 && (
-                            <tfoot>
-                              <tr style={{ borderTop: '1.5px solid var(--rn-th-border)' }}>
-                                <td colSpan={7} className="px-3 py-2.5 text-[11px] font-black text-right uppercase tracking-wide" style={{ color: 'var(--rn-text-muted)' }}>Total da Nota</td>
-                                <td className="px-3 py-2.5 text-[13px] font-black text-right" style={{ color: 'var(--rn-text)' }}>{`R$ ${grandTotal.toFixed(2)}`}</td>
-                                <td colSpan={2}></td>
-                              </tr>
-                            </tfoot>
-                          )}
-                        </table>
-                      </div>
-                    </div>
+                              {c.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map(({ item, idx, qty, price, total, cmp, history }, i) => (
+                          <tr key={idx}
+                            className={cn(
+                              'text-[12px] font-semibold transition-colors',
+                              i % 2 === 0
+                                ? 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]'
+                                : 'bg-[#FAF7EE] dark:bg-[#1E1E18] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+                            )}
+                          >
+                            <td style={{ ...tdP, width: 44, textAlign: 'center' }}>
+                              <span className="text-[10px] font-black" style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</span>
+                            </td>
+                            <td style={tdP}><span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</span></td>
+                            <td style={{ ...tdP, color: 'var(--rn-text)' }}>{item.original_description || '-'}</td>
+                            <td style={tdP}><span className="font-mono text-xs" style={{ color: 'var(--rn-text-muted)' }}>{item.ean || '-'}</span></td>
+                            <td style={{ ...tdP, textAlign: 'center', color: 'var(--rn-text-muted)' }} className="font-extrabold">{item.unit || '-'}</td>
+                            <td style={{ ...tdP, textAlign: 'center', color: 'var(--rn-text)' }}>{qty}</td>
+                            <td style={{ ...tdP, textAlign: 'right', color: 'var(--rn-text)' }}>{price > 0 ? `R$ ${price.toFixed(2)}` : '-'}</td>
+                            <td style={{ ...tdP, textAlign: 'right', color: 'var(--rn-text)' }} className="font-black">{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
+                            <td style={tdP}>{indiceBadge(cmp)}</td>
+                            <td style={{ ...tdLast, textAlign: 'right', color: 'var(--rn-text)' }}>
+                              {history ? (
+                                <>
+                                  <span className="font-bold">{`R$ ${history.price.toFixed(2)}`}</span>
+                                  <span className="block text-[9px] font-bold mt-px" style={{ color: 'var(--rn-text-subtle)' }}>
+                                    nota de {history.date.split('-').reverse().join('/')}
+                                  </span>
+                                </>
+                              ) : (
+                                <span style={{ color: 'var(--rn-text-subtle)' }}>—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {rows.length > 0 && (
+                        <tfoot>
+                          <tr className="bg-white dark:bg-[#1e1e18]" style={{ borderTop: '1.5px solid var(--rn-th-bottom)' }}>
+                            <td colSpan={7} className="px-2.5 h-[34px] text-[10.5px] font-black text-right uppercase tracking-[0.06em]" style={{ color: 'var(--rn-text-muted)' }}>Total da Nota</td>
+                            <td className="px-2.5 h-[34px] text-[13px] font-black text-right" style={{ color: 'var(--rn-text)' }}>{`R$ ${grandTotal.toFixed(2)}`}</td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
                   </div>
                 );
               })()}
