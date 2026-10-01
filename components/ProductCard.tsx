@@ -116,13 +116,13 @@ export const ProductCard = memo(function ProductCard({
       {/* ── Card completo — desktop (md+) ── */}
       <motion.div
         whileHover={{ y: -2 }}
-        className="hidden md:block bg-surface rounded-[22px] border border-on-surface/[0.07] relative group transition-shadow hover:shadow-[0_8px_32px_rgba(0,0,0,0.18)] dark:hover:shadow-[0_10px_36px_rgba(0,0,0,0.45)]"
+        className="hidden md:block bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] relative group transition-[border-color,box-shadow] duration-[130ms] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)]"
       >
         {/* Produto Filho badge — este produto tem Produto(s) Mãe (embalagem) cadastrados */}
         {hasMotherPackages && (
           <button
             onClick={(e) => { e.stopPropagation(); onViewMotherPackages?.(product); }}
-            className="absolute -top-2.5 -left-2.5 w-[26px] h-[26px] rounded-full flex items-center justify-center text-white bg-amber-500 border-[3px] border-background z-20 hover:scale-110 transition-transform shadow-lg"
+            className="absolute -top-px -left-px w-[22px] h-[22px] flex items-center justify-center text-white bg-amber-500 z-20 hover:bg-amber-600 transition-colors"
             title="Produto Filho — tem embalagem(ns) Produto Mãe cadastrada(s). Ao escanear a caixa, o estoque deste produto é atualizado."
           >
             <Package size={11} />
@@ -133,10 +133,10 @@ export const ProductCard = memo(function ProductCard({
         {onSendToPrintQueue && (
           <button
             onClick={(e) => { e.stopPropagation(); onSendToPrintQueue?.(product); }}
-            className="absolute top-3.5 right-[52px] w-[30px] h-[30px] rounded-full bg-on-surface/[0.07] border-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,background-color] hover:bg-primary z-10"
+            className="absolute top-2 right-[38px] w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,background-color,border-color] hover:bg-primary hover:border-primary z-10 group/pr"
             title="Enviar para fila de impressão"
           >
-            <Printer size={13} className="text-on-surface/55 group-hover:text-white transition-colors" strokeWidth={2} />
+            <Printer size={12} className="text-on-surface/55 group-hover/pr:text-white transition-colors" strokeWidth={2.2} />
           </button>
         )}
 
@@ -144,37 +144,37 @@ export const ProductCard = memo(function ProductCard({
         {onEdit && (
           <button
             onClick={() => onEdit?.(product)}
-            className="absolute top-3.5 right-4 w-[30px] h-[30px] rounded-full bg-on-surface/[0.07] border-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,background-color] hover:bg-primary z-10"
+            className="absolute top-2 right-2 w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,background-color,border-color] hover:bg-primary hover:border-primary z-10 group/ed"
             title="Editar produto"
           >
-            <Edit2 size={13} className="text-on-surface/55 group-hover:text-white transition-colors" strokeWidth={2} />
+            <Edit2 size={12} className="text-on-surface/55 group-hover/ed:text-white transition-colors" strokeWidth={2.2} />
           </button>
         )}
 
-        <div className="flex items-center gap-[18px] p-[18px_20px_18px_18px]">
+        <div className="flex items-center gap-3.5 py-2.5 pl-2.5 pr-3">
 
           {/* Image */}
-          <div className="w-[156px] h-[130px] rounded-2xl bg-surface-container border border-on-surface/[0.06] relative flex-shrink-0 overflow-hidden">
+          <div className="w-[120px] h-24 bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] relative flex-shrink-0 overflow-hidden">
             <ProductImage src={image} alt={name} />
           </div>
 
           {/* Main info */}
-          <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
             {/* Name */}
-            <p className="text-[17px] font-extrabold text-on-surface leading-[1.35] tracking-[-0.2px] mb-2">
+            <p className="text-[15px] font-extrabold text-on-surface leading-[1.3] tracking-[-0.01em] pr-16">
               {name}
             </p>
 
             {/* EAN + SKU pills */}
-            <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
+            <div className="flex items-center gap-1 flex-wrap">
               {ean && (
-                <span className="flex items-center gap-1.5 bg-on-surface/[0.05] border border-on-surface/[0.07] rounded-[8px] px-2.5 py-[5px] text-[10px] font-bold text-on-surface/40 tracking-[0.03em]">
+                <span className="h-[22px] flex items-center gap-[5px] bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] px-[7px] font-mono text-[10.5px] text-on-surface/50">
                   <Barcode size={10} className="text-primary shrink-0" strokeWidth={2} style={{ opacity: 0.8 }} />
                   <span>{ean}</span>
                 </span>
               )}
               {sku && (
-                <span className="flex items-center gap-1.5 bg-on-surface/[0.05] border border-on-surface/[0.07] rounded-[8px] px-2.5 py-[5px] text-[10px] font-bold text-on-surface/40 tracking-[0.03em]">
+                <span className="h-[22px] flex items-center gap-[5px] bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] px-[7px] font-mono text-[10.5px] text-on-surface/50">
                   <Hash size={10} className="text-primary shrink-0" strokeWidth={2} style={{ opacity: 0.8 }} />
                   {sku}
                 </span>
@@ -183,9 +183,9 @@ export const ProductCard = memo(function ProductCard({
 
             {/* Price */}
             {price != null && (
-              <div className="flex items-baseline gap-[3px] mb-3">
-                <span className="text-[14px] font-black text-primary">R$</span>
-                <span className="text-[32px] font-black text-primary leading-none tracking-[-1px]">
+              <div className="flex items-baseline gap-[3px]">
+                <span className="text-[12px] font-black text-primary">R$</span>
+                <span className="text-[26px] font-black text-primary leading-none tracking-[-0.03em]">
                   {price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -220,26 +220,28 @@ export const ProductCard = memo(function ProductCard({
             </div>
           </div>
 
-          {/* Side panel */}
-          <div className="flex-shrink-0 flex flex-col gap-2">
-            <div className="bg-on-surface/[0.04] border border-on-surface/[0.07] rounded-[14px] px-4 py-2.5 flex items-center gap-2.5 min-w-[120px]">
-              <div className="w-7 h-7 rounded-[9px] bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Package size={14} className="text-primary" strokeWidth={2} />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[8px] font-bold text-on-surface/30 uppercase tracking-[0.1em]">Estoque</span>
-                <span className={cn("text-[13px] font-black", isLow || count === 0 ? "text-primary" : "text-on-surface")}>
-                  {count}
+          {/* Side panel — título+ícone e valor em molduras (mesmo padrão dos indicadores da Entrada) */}
+          <div className="flex-shrink-0 w-[280px] grid grid-cols-2 gap-1.5">
+            <div className="flex flex-col gap-1">
+              <div className="h-[22px] flex items-center gap-[5px] pl-[3px] pr-[7px] border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                <span className="w-4 h-4 bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Package size={10} className="text-primary" strokeWidth={2.6} />
                 </span>
+                <span className="text-[8.5px] font-black text-on-surface/45 uppercase tracking-[0.1em]">Estoque</span>
+              </div>
+              <div className={cn("h-[34px] flex items-center px-[9px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[15px] font-black", isLow || count === 0 ? "text-primary" : "text-on-surface")}>
+                {count} un.
               </div>
             </div>
-            <div className="bg-on-surface/[0.04] border border-on-surface/[0.07] rounded-[14px] px-4 py-2.5 flex items-center gap-2.5 min-w-[120px]">
-              <div className="w-7 h-7 rounded-[9px] bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <MapPin size={14} className="text-primary" strokeWidth={2} />
+            <div className="flex flex-col gap-1">
+              <div className="h-[22px] flex items-center gap-[5px] pl-[3px] pr-[7px] border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                <span className="w-4 h-4 bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin size={10} className="text-primary" strokeWidth={2.6} />
+                </span>
+                <span className="text-[8.5px] font-black text-on-surface/45 uppercase tracking-[0.1em]">Localização</span>
               </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[8px] font-bold text-on-surface/30 uppercase tracking-[0.1em]">Localização</span>
-                <span className="text-[13px] font-black text-on-surface">{location || '—'}</span>
+              <div className="h-[34px] flex items-center px-[9px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[15px] font-black text-on-surface truncate">
+                {location || '—'}
               </div>
             </div>
           </div>

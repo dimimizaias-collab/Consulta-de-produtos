@@ -192,24 +192,16 @@ export function InventoryManager({
   // Virtualized list — uses window scroll (no wrapper scroll container needed)
   const rowVirtualizer = useWindowVirtualizer({
     count: gridProducts.length,
-    estimateSize: () => 182, // estimated height of ProductCard + gap (px)
+    estimateSize: () => 126, // estimated height of ProductCard + gap (px)
     overscan: 5,             // render 5 extra items above/below viewport
   });
 
   return (
-    <div className="space-y-8">
-      {/* Header — Desktop: card amarela âncora de marca */}
-      <div className="relative mb-14 hidden lg:block">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-            <Package size={24} strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Inventory</h1>
-          </div>
-        </div>
-
-        <div className="absolute left-0 top-full flex">
+    <div className="space-y-8 lg:space-y-3">
+      {/* Abas — Desktop: penduradas direto no cabeçalho do site (o título já fica nele).
+          -ml-7/-mt-5 desfazem o padding do conteúdo pra colar na barra e no menu lateral. */}
+      <div className="hidden lg:block sticky top-11 z-20 -ml-7 -mt-5 w-max">
+        <div className="flex">
           {(['produtos', 'estoque'] as const).map((tab, i, arr) => {
             const active = activeInventoryTab === tab;
             return (
@@ -217,18 +209,19 @@ export function InventoryManager({
                 key={tab}
                 onClick={() => setActiveInventoryTab(tab)}
                 className={cn(
-                  'w-[136px] h-[34px] flex items-center justify-center shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                  i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[12px] font-extrabold uppercase tracking-wide',
-                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  'min-w-[120px] h-8 px-3.5 flex items-center justify-center shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.08]',
+                  i === 0 ? 'border-l-0' : '-ml-px',
+                  'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
                   active
-                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                    ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
+                    : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-transform duration-150 active:scale-[0.97]'
                 )}
               >
-                {tab === 'produtos' ? 'Produtos' : 'Estoque'}
+                <span className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>
+                  {tab === 'produtos' ? 'Produtos' : 'Estoque'}
+                </span>
               </button>
             );
           })}
@@ -397,55 +390,55 @@ export function InventoryManager({
         </div>
 
         {/* Desktop layout: search + count + icon buttons, Novo na ponta direita */}
-        <div className="hidden lg:flex lg:items-center gap-3">
-          <div className="flex-1 max-w-[600px] h-12 flex items-center gap-3 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl px-5 shadow-sm min-w-0">
-            <Search size={16} className="text-on-surface/30 shrink-0" />
+        <div className="hidden lg:flex lg:items-center gap-1.5">
+          <div className="flex-1 max-w-[560px] h-8 flex items-center gap-2 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] px-2.5 min-w-0 hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]">
+            <Search size={15} className="text-on-surface/30 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar por nome, EAN, SKU..."
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium text-on-surface placeholder:text-on-surface/30"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-[13px] font-semibold text-on-surface placeholder:text-on-surface/30 placeholder:font-medium caret-[#D81E1E]"
             />
           </div>
 
           {/* Produtos count pill — uma linha, ao lado da busca */}
           <div
             title="Produtos"
-            className="h-12 shrink-0 flex items-center gap-1.5 px-5 rounded-2xl border border-[#E8D800] dark:border-on-surface/[0.06] bg-[#FFF8C0] dark:bg-surface-container-low whitespace-nowrap"
+            className="h-8 shrink-0 flex items-center gap-1.5 px-[11px] border border-[#E3CF2A] dark:border-[#FFE500]/30 bg-[#FFF4A8] dark:bg-[#FFE500]/[0.08] whitespace-nowrap"
           >
-            <span className="text-[15px] font-black text-on-surface">{products.length}</span>
+            <span className="text-[14px] font-black text-on-surface">{products.length}</span>
             <span className="text-xs font-bold text-on-surface/45">produtos</span>
           </div>
 
           <button
             onClick={onOpenMobileBulkTable}
             title="Mobile"
-            className="w-12 h-12 shrink-0 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl text-on-surface/60 hover:text-on-surface hover:bg-surface-container transition-[colors,transform] flex items-center justify-center shadow-sm active:scale-95"
+            className="w-8 h-8 shrink-0 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-[colors,transform] flex items-center justify-center active:scale-95"
           >
-            <Smartphone size={16} />
+            <Smartphone size={15} />
           </button>
 
           <button
             onClick={() => setShowFilters(!showFilters)}
             title="Filtros"
             className={cn(
-              "w-12 h-12 shrink-0 rounded-2xl transition-[colors,transform] flex items-center justify-center shadow-sm border active:scale-95",
+              "w-8 h-8 shrink-0 transition-[colors,transform] flex items-center justify-center border active:scale-95",
               showFilters
-                ? "bg-primary/10 border-primary/20 text-primary"
-                : "bg-surface-container-low border-on-surface/[0.03] text-on-surface/60 hover:text-on-surface"
+                ? "bg-primary/[0.08] border-primary/30 text-primary"
+                : "bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05]"
             )}
           >
-            <Filter size={16} />
+            <Filter size={15} />
           </button>
 
           <div ref={printMenuRefDesktop} className="relative">
             <button
               onClick={() => setShowPrintMenu(v => !v)}
               title="Imprimir"
-              className="w-12 h-12 shrink-0 bg-surface-container-low border border-on-surface/[0.03] rounded-2xl text-on-surface/60 hover:text-on-surface hover:bg-surface-container flex items-center justify-center shadow-sm transition-[colors,transform] active:scale-95"
+              className="w-8 h-8 shrink-0 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] flex items-center justify-center transition-[colors,transform] active:scale-95"
             >
-              <Tag size={16} />
+              <Tag size={15} />
             </button>
             <AnimatePresence>
               {showPrintMenu && (
@@ -480,9 +473,9 @@ export function InventoryManager({
             <button
               onClick={() => setShowNewDropdown(v => !v)}
               title="Novo"
-              className="w-12 h-12 shrink-0 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+              className="w-8 h-8 shrink-0 bg-primary hover:bg-[#B91818] text-white flex items-center justify-center active:scale-95 transition-[background-color,transform]"
             >
-              <Plus size={18} />
+              <Plus size={16} strokeWidth={3} />
             </button>
             <AnimatePresence>
               {showNewDropdown && (
@@ -525,7 +518,19 @@ export function InventoryManager({
             exit={{ height: 0, opacity: 0, scale: 0.98 }}
             className="overflow-hidden"
           >
-            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 shadow-sm border border-on-surface/[0.03] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
+            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 shadow-sm border border-on-surface/[0.03] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6 lg:bg-white lg:dark:bg-[#1E1E18] lg:backdrop-blur-none lg:rounded-none lg:shadow-none lg:border-[#E0D8BF] lg:dark:border-white/[0.10] lg:p-0 lg:px-2.5 lg:pb-2.5 lg:gap-2.5">
+              <div className="hidden lg:flex col-span-full -mx-2.5 h-8 items-center pl-2.5 pr-1.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10]">
+                <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]">Filtros</span>
+                <button
+                  onClick={() => {
+                    setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
+                    setSearchQuery('');
+                  }}
+                  className="ml-auto h-[22px] px-2.5 bg-[rgba(26,26,10,0.08)] hover:bg-[rgba(26,26,10,0.15)] text-[9px] font-black uppercase tracking-[0.1em] text-[#D81E1E] transition-colors"
+                >
+                  Limpar filtros
+                </button>
+              </div>
               {[
                 { label: 'EAN', key: 'ean', placeholder: '789...' },
                 { label: 'Código Interno', key: 'internalCode', placeholder: 'SKU-001...' },
@@ -535,18 +540,18 @@ export function InventoryManager({
                 { label: 'Nome', key: 'name', placeholder: 'Chocolate...' },
                 { label: 'Localização', key: 'location', placeholder: 'Corredor A...' },
               ].map((field) => (
-                <div key={field.key} className="space-y-2.5">
-                  <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] ml-1">{field.label}</label>
+                <div key={field.key} className="space-y-2.5 lg:space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/30 uppercase tracking-[0.15em] ml-1 lg:text-[9px] lg:font-extrabold lg:tracking-[0.1em] lg:ml-px">{field.label}</label>
                   <input 
                     type="text" 
                     value={(filters as any)[field.key]}
                     onChange={(e) => setFilters({...filters, [field.key]: e.target.value})}
                     placeholder={field.placeholder}
-                    className="w-full h-12 px-5 bg-surface-container-lowest border border-on-surface/[0.02] rounded-2xl text-xs font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none transition-colors placeholder:text-on-surface/10"
+                    className="w-full h-12 px-5 bg-surface-container-lowest border border-on-surface/[0.02] rounded-2xl text-xs font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none transition-colors placeholder:text-on-surface/10 lg:h-8 lg:px-2.5 lg:rounded-none lg:bg-white lg:dark:bg-[#1E1E18] lg:border-[#E0D8BF] lg:dark:border-white/[0.10] lg:font-semibold lg:focus:ring-0 lg:focus:border-[#D81E1E] lg:focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] lg:placeholder:text-on-surface/25 caret-[#D81E1E]"
                   />
                 </div>
               ))}
-              <div className="col-span-full flex justify-end pt-4 border-t border-on-surface/[0.03]">
+              <div className="col-span-full flex justify-end pt-4 border-t border-on-surface/[0.03] lg:hidden">
                 <button 
                   onClick={() => {
                     setFilters({ ean: '', internalCode: '', category: '', subcategory: '', brand: '', name: '', location: '' });
@@ -563,7 +568,7 @@ export function InventoryManager({
       </AnimatePresence>
 
       {/* Grid Layout */}
-      <div className="grid grid-cols-12 gap-8">
+      <div className="grid grid-cols-12 gap-8 lg:gap-3">
         <AnimatePresence>
           {featuredProduct && (
             <FeaturedProduct key="featured" product={featuredProduct} onEdit={onEdit} />
@@ -642,7 +647,7 @@ export function InventoryManager({
                     key={product.id || product.sku || `product-${virtualRow.index}`}
                     data-index={virtualRow.index}
                     ref={rowVirtualizer.measureElement}
-                    className="pb-0 md:pb-6"
+                    className="pb-0 md:pb-2"
                     style={{
                       position: 'absolute',
                       top: 0,
