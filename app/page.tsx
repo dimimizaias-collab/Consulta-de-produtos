@@ -10567,7 +10567,7 @@ export default function Page() {
 
               {/* ── ③ Faixa de ferramentas (ribbon) da aba ativa ── */}
               {(() => {
-                const ribbonGroup = (label: string, children: ReactNode) => (
+                const ribbonGroup = (label: ReactNode, children: ReactNode) => (
                   <div className="self-stretch flex flex-col justify-end gap-1 px-3 border-r border-[#EFE8D2] dark:border-white/[0.05] last:border-r-0">
                     <div className="pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25 whitespace-nowrap">{label}</div>
                     <div className="flex items-center gap-1.5">{children}</div>
@@ -10935,7 +10935,67 @@ export default function Page() {
                         )}
                       </>)}
                     </>)}
-                    {(noteEditorTab === 'recebimento' || noteEditorTab === 'financeiro') && editGroup}
+                    {noteEditorTab === 'recebimento' && (<>
+                      {editGroup}
+                      {ribbonGroup(<>Empresa <span className="text-[#D81E1E]">*</span></>, (
+                        <div className={cn(
+                          'relative h-8 flex items-center border transition-[border-color,box-shadow] duration-[130ms] focus-within:!border-[#D81E1E] focus-within:shadow-[0_0_0_2px_rgba(216,30,30,0.12)]',
+                          viewingReviewNote.companyId
+                            ? 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface hover:border-[#CFC4A2] dark:hover:border-white/[0.20]'
+                            : 'border-[#D81E1E]/55 bg-[#D81E1E]/[0.05] text-[#D81E1E]',
+                        )}>
+                          <select
+                            value={viewingReviewNote.companyId || ''}
+                            onChange={e => setViewingReviewNote({ ...viewingReviewNote, companyId: e.target.value || null })}
+                            title={viewingReviewNote.companyId ? undefined : 'Campo obrigatório'}
+                            className="appearance-none h-full pl-2.5 pr-7 bg-transparent border-none outline-none text-[12.5px] font-bold cursor-pointer text-inherit"
+                          >
+                            <option value="">Selecionar…</option>
+                            {companies.map((c: any) => (
+                              <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={11} strokeWidth={2.8} className="absolute right-2.5 pointer-events-none opacity-60" />
+                        </div>
+                      ))}
+                      {ribbonGroup('Data de recebimento', (
+                        <ReceivedDateField
+                          receivedDate={viewingReviewNote.receivedDate || ''}
+                          onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
+                          registeredLabel={viewingReviewNote.timestamp}
+                          className="h-8 flex items-center gap-1.5 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12.5px] font-bold text-on-surface whitespace-nowrap hover:border-[#CFC4A2] dark:hover:border-white/[0.20] transition-colors"
+                        />
+                      ))}
+                      {ribbonGroup('Data do pedido', (
+                        <input
+                          type="date"
+                          value={viewingReviewNote.orderDate || ''}
+                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, orderDate: e.target.value || undefined })}
+                          className="h-8 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12.5px] font-bold text-on-surface outline-none cursor-pointer hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow] duration-[130ms]"
+                        />
+                      ))}
+                    </>)}
+                    {noteEditorTab === 'financeiro' && (() => {
+                      const finTotal = noteFinanceTxs.reduce((s, t) => s + (t.valor_final || 0), 0);
+                      const finGroups = new Set(noteFinanceTxs.map(t => t.parcelamento_id || t.id)).size;
+                      const stat = 'h-8 flex items-center gap-1.5 px-[11px] border border-line dark:border-white/[0.08] text-[12px] text-on-surface/40 whitespace-nowrap';
+                      return (<>
+                        {editGroup}
+                        {ribbonGroup('Movimentações', (
+                          <button
+                            onClick={() => setShowNoteLinkTxModal(true)}
+                            className="h-8 flex items-center gap-1.5 px-[11px] whitespace-nowrap border border-transparent text-[10.5px] font-extrabold uppercase tracking-[0.07em] bg-on-surface/[0.06] text-on-surface hover:bg-[#D81E1E]/[0.08] hover:text-[#D81E1E] active:scale-[0.97] transition-all duration-[130ms]"
+                          >
+                            <LinkIcon size={13} /> Vincular / criar movimentação
+                          </button>
+                        ))}
+                        {ribbonGroup('Resumo', <>
+                          <span className={stat}>Total vinculado: <b className="font-black text-red-600 dark:text-red-400">R$ {finTotal.toFixed(2).replace('.', ',')}</b></span>
+                          <span className={stat}>Movimentações: <b className="font-black text-on-surface">{finGroups}</b></span>
+                          <span className={stat}>Parcelas: <b className="font-black text-on-surface">{noteFinanceTxs.length}</b></span>
+                        </>)}
+                      </>);
+                    })()}
                   </div>
                 );
               })()}
@@ -10970,139 +11030,128 @@ export default function Page() {
                     };
                   });
                 })();
-                const totalValor = noteFinanceTxs.reduce((s, t) => s + (t.valor_final || 0), 0);
+                // Mesmo formato das tabelas de Produtos/Nota Original. A linha principal de cada
+                // movimentação fica mais escura que as parcelas para marcar o início do grupo.
+                const thBar: React.CSSProperties = {
+                  background: 'var(--rn-th-bg)', padding: '0 10px', boxSizing: 'border-box', verticalAlign: 'middle', height: '34px',
+                  boxShadow: 'inset -1px 0 0 var(--rn-th-line), inset 0 -1.5px 0 var(--rn-th-bottom)',
+                  fontSize: '9px', fontWeight: 900, letterSpacing: '0.10em', textTransform: 'uppercase',
+                  color: 'var(--rn-th-color)', whiteSpace: 'nowrap',
+                };
+                const cols: { label: string; align: 'left' | 'right' | 'center'; width?: number }[] = [
+                  { label: '', align: 'center', width: 36 },
+                  { label: 'Tipo', align: 'left' },
+                  { label: 'Favorecido', align: 'left' },
+                  { label: 'Pagamento', align: 'left' },
+                  { label: 'Parcelas', align: 'center' },
+                  { label: 'Últ. vencimento', align: 'center' },
+                  { label: 'Situação', align: 'left' },
+                  { label: 'Total', align: 'right' },
+                ];
+                const tdP: React.CSSProperties = { padding: '0 10px', height: '34px', borderBottom: '1px solid var(--rn-grid)', borderRight: '1px solid var(--rn-grid)', whiteSpace: 'nowrap' };
+                const tdLast: React.CSSProperties = { ...tdP, borderRight: 'none' };
+                const badge = 'inline-flex items-center text-[9px] font-black uppercase tracking-[0.05em] px-[7px] py-0.5 rounded-full';
+                const tipoBadge = (isReceita: boolean) => isReceita
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-red-500/10 text-red-600 dark:text-red-400';
+                const pendBadge = 'bg-amber-500/[0.12] text-amber-700 dark:text-amber-400';
+                const pagoBadge = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
 
                 return (
-                  <div className="flex-1 overflow-auto p-8">
-                    <div className="max-w-4xl flex flex-col gap-8">
-                      {/* Resumo */}
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Resumo</p>
-                        <div className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl px-5 py-4 flex items-center gap-5">
-                          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                            <p className="text-[9px] font-extrabold uppercase tracking-wide text-on-surface/35">Total vinculado</p>
-                            <p className="text-2xl font-black text-red-600 dark:text-red-400 leading-tight">{fmtBRL(totalValor)}</p>
-                          </div>
-                          <div className="w-px self-stretch bg-on-surface/[0.08] dark:bg-white/[0.08]" />
-                          <div className="flex gap-6 shrink-0">
-                            <div className="text-center">
-                              <p className="text-[17px] font-black text-on-surface leading-none">{groups.length}</p>
-                              <p className="text-[9px] font-bold text-on-surface/40 mt-1 whitespace-nowrap">MOVIMENTAÇÕES</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-[17px] font-black text-on-surface leading-none">{noteFinanceTxs.length}</p>
-                              <p className="text-[9px] font-bold text-on-surface/40 mt-1 whitespace-nowrap">PARCELAS</p>
-                            </div>
-                          </div>
-                        </div>
+                  <div className="flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-line:#B8A31F] [--rn-th-bottom:#8F7E10] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-grid:#A8A290] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-grid:rgba(242,240,227,0.20)]">
+                    {noteFinanceLoading ? (
+                      <div className="flex items-center gap-2 px-4 py-5 text-on-surface/40 text-xs font-semibold">
+                        <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
+                        Carregando movimentações...
                       </div>
-
-                      <div>
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 flex items-center gap-2">
-                            Movimentações vinculadas
-                            <span className="bg-on-surface/10 text-on-surface/60 text-[9px] font-black px-1.5 py-0.5 rounded-full">{groups.length}</span>
-                          </p>
-                          <button
-                            onClick={() => setShowNoteLinkTxModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
-                          >
-                            <LinkIcon size={13} /> Vincular / criar movimentação
-                          </button>
-                        </div>
-                        {noteFinanceLoading ? (
-                          <div className="flex items-center gap-2 py-3 text-on-surface/40 text-xs font-semibold">
-                            <span className="w-3.5 h-3.5 border-2 border-on-surface/20 border-t-on-surface/50 rounded-full animate-spin" />
-                            Carregando movimentações...
-                          </div>
-                        ) : groups.length === 0 ? (
-                          <p className="text-xs text-on-surface/35 italic bg-on-surface/[0.03] border border-on-surface/10 rounded-2xl px-4 py-3">
-                            Nenhuma movimentação financeira vinculada a esta nota ainda. Vincule pela aba "Controle Financeiro" ao criar ou editar um lançamento.
-                          </p>
-                        ) : (
-                          <div className="flex flex-col gap-2.5">
-                            {groups.map(g => {
-                              const isReceita = g.tipo === 'Receita';
-                              const isOpen = noteFinanceExpandedGroups.has(g.key);
-                              return (
-                                <div
-                                  key={g.key}
-                                  className="bg-white dark:bg-[#252520] border-[1.5px] border-on-surface/[0.08] dark:border-white/[0.08] rounded-2xl overflow-hidden"
+                    ) : groups.length === 0 ? (
+                      <div className="h-[140px] flex items-center justify-center px-6 text-center text-[13px] font-semibold text-on-surface/40">
+                        Nenhuma movimentação financeira vinculada a esta nota ainda. Use "Vincular / criar movimentação" na faixa acima.
+                      </div>
+                    ) : (
+                      <table className="w-full min-w-[900px]" style={{ borderCollapse: 'collapse' }}>
+                        <thead className="sticky top-0 z-10">
+                          <tr>
+                            {cols.map((c, i) => (
+                              <th
+                                key={c.label || '__chev'}
+                                style={{ ...thBar, textAlign: c.align, width: c.width, ...(i === cols.length - 1 ? { boxShadow: 'inset 0 -1.5px 0 var(--rn-th-bottom)' } : {}) }}
+                              >
+                                {c.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groups.map(g => {
+                            const isReceita = g.tipo === 'Receita';
+                            const isOpen = noteFinanceExpandedGroups.has(g.key);
+                            const valueCls = isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                            return (
+                              <Fragment key={g.key}>
+                                <tr
+                                  onClick={() => setNoteFinanceExpandedGroups(prev => {
+                                    const s = new Set(prev);
+                                    s.has(g.key) ? s.delete(g.key) : s.add(g.key);
+                                    return s;
+                                  })}
+                                  className="cursor-pointer text-[12px] font-semibold text-on-surface bg-[#EFE9D4] dark:bg-[#151511] hover:bg-[#E8E0C6] dark:hover:bg-[#1A1A15] transition-colors"
                                 >
-                                  <button
-                                    onClick={() => setNoteFinanceExpandedGroups(prev => {
-                                      const s = new Set(prev);
-                                      s.has(g.key) ? s.delete(g.key) : s.add(g.key);
-                                      return s;
-                                    })}
-                                    className="w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-on-surface/[0.02]"
-                                  >
-                                    <span className={cn(
-                                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                                      isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                    )}>
-                                      {isReceita ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                                  <td style={{ ...tdP, textAlign: 'center' }}>
+                                    <ChevronRight size={13} strokeWidth={2.6} className={cn('inline-block text-on-surface/25 transition-transform duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)]', isOpen && 'rotate-90')} />
+                                  </td>
+                                  <td style={tdP}>
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <span className={cn('w-[22px] h-[22px] flex items-center justify-center', tipoBadge(isReceita))}>
+                                        {isReceita ? <TrendingUp size={12} strokeWidth={2.6} /> : <TrendingDown size={12} strokeWidth={2.6} />}
+                                      </span>
+                                      <span className={cn(badge, tipoBadge(isReceita))}>{g.tipo}</span>
                                     </span>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="text-[13.5px] font-black text-on-surface truncate">{g.favorecido || 'Favorecido não informado'}</span>
-                                        <span className={cn(
-                                          'shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full',
-                                          isReceita ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                        )}>
-                                          {g.tipo}
-                                        </span>
-                                        {g.pendentes > 0 && (
-                                          <span className="shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                            {g.items.length > 1 ? `${g.pendentes} pendentes` : 'Pendente'}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-[11.5px] font-semibold text-on-surface/40 truncate">
-                                        {g.tipoPagamento} · {g.items.length} parcela{g.items.length !== 1 ? 's' : ''}
-                                        {g.lastVencimento ? ` · Últ. venc. ${fmtDate(g.lastVencimento)}` : ''}
-                                      </p>
-                                    </div>
-                                    <div className="shrink-0 text-right">
-                                      <p className={cn('text-[15px] font-black', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
-                                        {fmtBRL(g.total)}
-                                      </p>
-                                      <p className="text-[10px] font-bold text-on-surface/30">total</p>
-                                    </div>
-                                    <ChevronRight size={15} className={cn('shrink-0 text-on-surface/20 transition-transform', isOpen && 'rotate-90')} style={{ transition: 'transform 160ms cubic-bezier(0.23,1,0.32,1)' }} />
-                                  </button>
-                                  {isOpen && (
-                                    <div className="border-t border-on-surface/[0.08] dark:border-white/[0.08] bg-on-surface/[0.015] flex flex-col">
-                                      {g.items.map(tx => (
-                                        <button
-                                          key={tx.id}
-                                          onClick={() => setNoteFinanceGoToTx(tx)}
-                                          className="flex items-center gap-2.5 px-3.5 pl-8 py-2.5 text-left border-b border-on-surface/[0.06] dark:border-white/[0.06] last:border-0 transition-colors hover:bg-red-500/[0.03]"
-                                        >
-                                          <span className="w-[5px] h-[5px] rounded-full bg-on-surface/20 shrink-0" />
-                                          <div className="min-w-0 flex-1">
-                                            <p className="text-[11.5px] font-extrabold text-on-surface">
-                                              {tx.total_parcelas && tx.total_parcelas > 1 ? `Parcela ${tx.numero_parcela ?? 1}/${tx.total_parcelas}` : 'Pagamento único'}
-                                            </p>
-                                            <p className="text-[10.5px] font-semibold text-on-surface/40">
-                                              {tx.vencimento ? `Venc. ${fmtDate(tx.vencimento)}` : fmtDate(tx.data)} · {tx.pago ? 'Pago' : 'Pendente'}
-                                            </p>
-                                          </div>
-                                          <span className={cn('text-xs font-black shrink-0', isReceita ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
-                                            {fmtBRL(tx.valor_final)}
-                                          </span>
-                                          <ChevronRight size={13} className="shrink-0 text-on-surface/20" />
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                                  </td>
+                                  <td style={tdP} className="font-extrabold">{g.favorecido || 'Favorecido não informado'}</td>
+                                  <td style={tdP} className="text-on-surface/45">{g.tipoPagamento}</td>
+                                  <td style={{ ...tdP, textAlign: 'center' }}>{g.items.length}</td>
+                                  <td style={{ ...tdP, textAlign: 'center' }} className="text-on-surface/45">{g.lastVencimento ? fmtDate(g.lastVencimento) : '—'}</td>
+                                  <td style={tdP}>
+                                    {g.pendentes > 0
+                                      ? <span className={cn(badge, pendBadge)}>{g.items.length > 1 ? `${g.pendentes} pendentes` : 'Pendente'}</span>
+                                      : <span className={cn(badge, pagoBadge)}>Quitado</span>}
+                                  </td>
+                                  <td style={{ ...tdLast, textAlign: 'right' }} className={cn('font-black', valueCls)}>{fmtBRL(g.total)}</td>
+                                </tr>
+                                {isOpen && g.items.map(tx => (
+                                  <tr
+                                    key={tx.id}
+                                    onClick={() => setNoteFinanceGoToTx(tx)}
+                                    title="Ir até a movimentação no Controle Financeiro"
+                                    className="cursor-pointer text-[11.5px] font-semibold text-on-surface bg-white dark:bg-[#252520] hover:bg-[#D81E1E]/[0.03] transition-colors"
+                                  >
+                                    <td style={tdP} />
+                                    <td style={{ ...tdP, paddingLeft: 34 }} colSpan={2} className="font-extrabold">
+                                      {tx.total_parcelas && tx.total_parcelas > 1 ? `Parcela ${tx.numero_parcela ?? 1}/${tx.total_parcelas}` : 'Pagamento único'}
+                                    </td>
+                                    <td style={tdP} className="text-on-surface/45">{g.tipoPagamento}</td>
+                                    <td style={tdP} />
+                                    <td style={{ ...tdP, textAlign: 'center' }} className="text-on-surface/45">
+                                      {tx.vencimento ? `Venc. ${fmtDate(tx.vencimento)}` : fmtDate(tx.data)}
+                                    </td>
+                                    <td style={tdP}>
+                                      <span className={cn(badge, tx.pago ? pagoBadge : pendBadge)}>{tx.pago ? 'Pago' : 'Pendente'}</span>
+                                    </td>
+                                    <td style={{ ...tdLast, textAlign: 'right' }} className={cn('font-extrabold', valueCls)}>
+                                      <span className="inline-flex items-center gap-1.5">
+                                        {fmtBRL(tx.valor_final)}
+                                        <ChevronRight size={12} strokeWidth={2.6} className="text-on-surface/25" />
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 );
               })()}
@@ -11305,237 +11354,194 @@ export default function Page() {
                 );
               })()}
 
-              {noteEditorTab === 'recebimento' && (
-                <div className="flex-1 overflow-auto p-8">
-                  <div className="max-w-2xl">
-                    <div className="flex items-start gap-8">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">
-                          Empresa <span className="text-primary">*</span>
-                        </label>
-                        <select
-                          value={viewingReviewNote.companyId || ''}
-                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, companyId: e.target.value || null })}
-                          className={cn(
-                            'px-3 py-2 border rounded-xl text-sm font-semibold text-on-surface transition-colors w-fit cursor-pointer',
-                            viewingReviewNote.companyId
-                              ? 'border-on-surface/15 bg-on-surface/[0.03] hover:bg-on-surface/[0.06]'
-                              : 'border-primary/55 bg-primary/[0.06] focus:ring-2 focus:ring-primary/20'
-                          )}
-                        >
-                          <option value="">Selecionar...</option>
-                          {companies.map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
-                          ))}
-                        </select>
-                        {!viewingReviewNote.companyId && (
-                          <p className="text-[10.5px] font-bold text-primary mt-1.5 flex items-center gap-1.5">
-                            <AlertTriangle size={11} /> Campo obrigatório
-                          </p>
-                        )}
+              {noteEditorTab === 'recebimento' && (() => {
+                // Empresa e datas ficam na faixa de ferramentas; aqui só as situações (blocos
+                // quadrados, o ativo com a faixa colorida no topo, como a aba ativa) e a tabela de
+                // falta no mesmo formato da aba Produtos.
+                const secLabel = 'pl-px text-[9px] leading-none font-extrabold uppercase tracking-[0.1em] text-on-surface/25 flex items-center gap-[7px]';
+                const tile = 'relative flex items-center gap-2.5 px-3 py-[11px] border text-left transition-[border-color,background-color,transform] duration-[130ms]';
+                const tileOff = 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]';
+                const tileIcon = 'w-7 h-7 flex items-center justify-center shrink-0';
+                const topBar = 'before:absolute before:-left-px before:-right-px before:-top-px before:h-[3px] before:bg-current';
+                const hasDistribution = (viewingReviewNote.items || []).some((item: any, idx: number) => {
+                  const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
+                  return Object.values(dist).some((v: any) => (Number(v) || 0) > 0);
+                }) || !!viewingReviewNote.distributionStatus;
+                const sent = viewingReviewNote.distributionStatus === 'distribuicao_enviada';
+                const canSend = !sent && getNoteStatus(viewingReviewNote) === 'revisao';
+                const faltaRows = (viewingReviewNote.items || [])
+                  .map((item: any, idx: number) => ({ item, idx, d: getItemDiscrepancy(idx, item) }))
+                  .filter(({ d }) => d?.type === 'falta');
+                const thBar: React.CSSProperties = {
+                  background: 'var(--rn-th-bg)', padding: '0 10px', boxSizing: 'border-box', verticalAlign: 'middle', height: '34px',
+                  boxShadow: 'inset -1px 0 0 var(--rn-th-line), inset 0 -1.5px 0 var(--rn-th-bottom)',
+                  fontSize: '9px', fontWeight: 900, letterSpacing: '0.10em', textTransform: 'uppercase',
+                  color: 'var(--rn-th-color)', whiteSpace: 'nowrap',
+                };
+                const faltaCols: { label: string; align: 'left' | 'right' | 'center' }[] = [
+                  { label: '#', align: 'center' },
+                  { label: 'Código', align: 'left' },
+                  { label: 'Produto na Nota', align: 'left' },
+                  { label: 'Identificação Interna', align: 'left' },
+                  { label: 'EAN', align: 'left' },
+                  { label: 'Medida', align: 'center' },
+                  { label: 'Qtd.', align: 'center' },
+                  { label: 'Preço Custo', align: 'right' },
+                  { label: 'Valor Total', align: 'right' },
+                ];
+                const tdP: React.CSSProperties = { padding: '0 10px', height: '34px', borderBottom: '1px solid var(--rn-grid)', borderRight: '1px solid var(--rn-grid)', whiteSpace: 'nowrap' };
+                const tdLast: React.CSSProperties = { ...tdP, borderRight: 'none' };
+                return (
+                  <div className="flex-1 overflow-auto [--rn-th-bg:#FFEC4D] [--rn-th-line:#B8A31F] [--rn-th-bottom:#8F7E10] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-grid:#A8A290] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-grid:rgba(242,240,227,0.20)] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]">
+                    <div className="px-4 pt-[18px] pb-[22px] flex flex-col gap-[22px]">
+                      <div className="flex flex-col gap-2">
+                        <div className={secLabel}>Situação de entrada</div>
+                        <div className="grid grid-cols-2 md:grid-cols-[repeat(4,minmax(0,220px))] gap-2">
+                          {(Object.keys(STATUS_META) as NoteStatus[]).map(key => {
+                            const meta = STATUS_META[key];
+                            const isActive = getNoteStatus(viewingReviewNote) === key;
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => setStatusConfirmTarget(key)}
+                                className={cn(tile, 'active:scale-[0.98]', isActive ? cn(meta.bg, meta.border, meta.fg, topBar, 'pr-7') : cn(tileOff, 'hover:border-[#CFC4A2] dark:hover:border-white/[0.20]'))}
+                              >
+                                <span className={cn(tileIcon, isActive ? meta.bg : 'bg-on-surface/[0.06] text-on-surface/40')}>
+                                  <StatusIcon status={key} size={15} />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-[11.5px] font-black text-on-surface">{meta.label}</span>
+                                  <span className="block text-[10px] font-semibold text-on-surface/40 leading-[1.3] mt-px">{meta.desc}</span>
+                                </span>
+                                {isActive && (
+                                  <span className="absolute top-2 right-2 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-current">
+                                    <Check size={9} strokeWidth={4} className="text-white dark:text-[#1A1A0E]" />
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data de recebimento</label>
-                        <ReceivedDateField
-                          receivedDate={viewingReviewNote.receivedDate || ''}
-                          onChange={v => setViewingReviewNote({ ...viewingReviewNote, receivedDate: v || undefined })}
-                          registeredLabel={viewingReviewNote.timestamp}
-                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors flex items-center gap-1.5 w-fit"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-1.5">Data do pedido</label>
-                        <input
-                          type="date"
-                          value={viewingReviewNote.orderDate || ''}
-                          onChange={e => setViewingReviewNote({ ...viewingReviewNote, orderDate: e.target.value || undefined })}
-                          className="px-3 py-2 border border-on-surface/15 rounded-xl text-sm font-semibold text-on-surface bg-on-surface/[0.03] hover:bg-on-surface/[0.06] transition-colors w-fit cursor-pointer"
-                        />
-                      </div>
-                    </div>
 
-                    <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mt-8 mb-3">Situação de Entrada</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {(Object.keys(STATUS_META) as NoteStatus[]).map(key => {
-                        const meta = STATUS_META[key];
-                        const isActive = getNoteStatus(viewingReviewNote) === key;
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => setStatusConfirmTarget(key)}
-                            className={cn(
-                              'relative flex flex-col items-start gap-2.5 p-4 rounded-2xl border-2 text-left transition-all hover:-translate-y-0.5',
-                              isActive ? cn(meta.bg, meta.border) : 'border-on-surface/10 bg-white dark:bg-[#252520] hover:border-on-surface/20'
-                            )}
-                          >
-                            {isActive && (
-                              <span className={cn('absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center', meta.fg)} style={{ backgroundColor: 'currentColor' }}>
-                                <Check size={10} className="text-white" />
+                      {/* Situação da Distribuição — independente da Situação de Entrada, só
+                          aparece se a nota tiver alguma distribuição preenchida */}
+                      {hasDistribution && (
+                        <div className="flex flex-col gap-2">
+                          <div className={secLabel}>Situação da distribuição</div>
+                          <div className="grid grid-cols-2 md:grid-cols-[repeat(2,minmax(0,260px))] gap-2">
+                            <div className={cn(tile, !sent ? cn('bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400', topBar) : tileOff)}>
+                              <span className={cn(tileIcon, !sent ? 'bg-amber-500/15' : 'bg-on-surface/[0.06] text-on-surface/40')}>
+                                <Pencil size={15} />
                               </span>
-                            )}
-                            <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center', meta.bg, meta.fg)}>
-                              <StatusIcon status={key} size={17} />
-                            </span>
-                            <span className="text-xs font-black text-on-surface">{meta.label}</span>
-                            <span className="text-[10.5px] font-medium text-on-surface/40 leading-snug">{meta.desc}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* ── Situação da Distribuição — independente da Situação de Entrada, só
-                        aparece se a nota tiver alguma distribuição preenchida ────────────── */}
-                    {(() => {
-                      const hasDistribution = (viewingReviewNote.items || []).some((item: any, idx: number) => {
-                        const dist = viewingNoteDistribByCompany[idx] ?? item.distribuicaoByCompany ?? {};
-                        return Object.values(dist).some((v: any) => (Number(v) || 0) > 0);
-                      }) || !!viewingReviewNote.distributionStatus;
-                      if (!hasDistribution) return null;
-                      const sent = viewingReviewNote.distributionStatus === 'distribuicao_enviada';
-                      const canSend = !sent && getNoteStatus(viewingReviewNote) === 'revisao';
-                      return (
-                        <div className="mt-8">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3">Situação da Distribuição</p>
-                          <div className="grid grid-cols-2 gap-3 max-w-lg">
-                            <div className={cn('flex items-center gap-2.5 p-4 rounded-2xl border-2', !sent ? 'bg-amber-500/10 border-amber-500/30' : 'border-on-surface/10 bg-white dark:bg-[#252520]')}>
-                              <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', !sent ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-on-surface/10 text-on-surface/40')}>
-                                <Pencil size={17} />
+                              <span>
+                                <span className="block text-[11.5px] font-black text-on-surface">Separação</span>
+                                <span className="block text-[10px] font-semibold text-on-surface/40">Editável</span>
                               </span>
-                              <div>
-                                <div className="text-xs font-black text-on-surface">Separação</div>
-                                <div className="text-[10.5px] font-medium text-on-surface/40">Editável</div>
-                              </div>
                             </div>
                             <button
                               onClick={() => canSend && setDistribSendConfirmOpen(true)}
                               disabled={!canSend && !sent}
                               className={cn(
-                                'flex items-center gap-2.5 p-4 rounded-2xl border-2 text-left transition-all',
-                                sent ? 'bg-emerald-500/10 border-emerald-500/30'
-                                  : canSend ? 'bg-emerald-500/10 border-emerald-500/30 hover:-translate-y-0.5 cursor-pointer'
-                                    : 'border-on-surface/10 bg-white dark:bg-[#252520] opacity-50 cursor-not-allowed'
+                                tile,
+                                sent ? cn('bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400', topBar)
+                                  : canSend ? cn(tileOff, 'text-emerald-600 dark:text-emerald-400 hover:border-emerald-500/40 active:scale-[0.98] cursor-pointer')
+                                    : cn(tileOff, 'opacity-50 cursor-not-allowed'),
                               )}
                             >
-                              <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', (sent || canSend) ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-on-surface/10 text-on-surface/40')}>
-                                <CheckCircle2 size={17} />
+                              <span className={cn(tileIcon, (sent || canSend) ? 'bg-emerald-500/15' : 'bg-on-surface/[0.06] text-on-surface/40')}>
+                                <CheckCircle2 size={15} />
                               </span>
-                              <div>
-                                <div className="text-xs font-black text-on-surface">Distribuição Enviada</div>
-                                <div className="text-[10.5px] font-medium text-on-surface/40">
+                              <span>
+                                <span className="block text-[11.5px] font-black text-on-surface">Distribuição enviada</span>
+                                <span className="block text-[10px] font-semibold text-on-surface/40">
                                   {sent ? 'Definitivo' : canSend ? 'Clique para confirmar' : 'Disponível apenas em Revisão'}
-                                </div>
-                              </div>
+                                </span>
+                              </span>
                             </button>
                           </div>
                           {!sent ? (
-                            <p className="text-[10.5px] font-bold text-on-surface/35 mt-2.5 flex items-center gap-1.5 max-w-lg">
+                            <p className="text-[10.5px] font-bold text-on-surface/40 flex items-center gap-1.5">
                               <AlertTriangle size={11} className="shrink-0" />
                               Cria 1 manifesto por loja de destino na aba Distribuição — ação não pode ser desfeita.
                             </p>
                           ) : (
-                            <p className="text-[11px] font-bold text-on-surface/45 mt-2.5">
+                            <p className="text-[11px] font-bold text-on-surface/45">
                               Enviado por <b className="text-on-surface font-black">{viewingReviewNote.distributionSentByName}</b>
                               {viewingReviewNote.distributionSentAt ? ` em ${new Date(viewingReviewNote.distributionSentAt).toLocaleString('pt-BR')}` : ''}
                             </p>
                           )}
                         </div>
-                      );
-                    })()}
-                  </div>
+                      )}
 
-                  {/* ── Produtos com Falta ──────────────────────────────────── */}
-                  {(() => {
-                    const faltaRows = (viewingReviewNote.items || [])
-                      .map((item: any, idx: number) => ({
-                        item, idx,
-                        d: getItemDiscrepancy(idx, item),
-                      }))
-                      .filter(({ d }) => d?.type === 'falta');
-                    if (faltaRows.length === 0) return null;
-                    return (
-                      <div
-                        className="max-w-5xl mt-10 [--rn-th-bg:#FFEC4D] [--rn-th-border:#E6CE33] [--rn-th-chip-bg:rgba(26,26,10,0.05)] [--rn-th-chip-border:rgba(26,26,10,0.10)] [--rn-th-color:rgba(26,26,10,0.55)] [--rn-cell-bg:#FFFFFF] [--rn-cell-bg-alt:#FAF7EE] [--rn-cell-border:rgba(224,216,191,0.80)] [--rn-cell-inner:rgba(0,0,0,0.06)] [--rn-text:rgba(26,26,10,0.85)] [--rn-text-muted:rgba(26,26,10,0.50)] [--rn-text-subtle:rgba(26,26,10,0.28)] dark:[--rn-th-bg:#FFEC4D] dark:[--rn-th-border:#DCC63D] dark:[--rn-th-chip-border:rgba(26,26,10,0.12)] dark:[--rn-th-color:rgba(26,26,10,0.58)] dark:[--rn-cell-bg:#252520] dark:[--rn-cell-bg-alt:#1e1e18] dark:[--rn-cell-border:rgba(242,240,227,0.06)] dark:[--rn-cell-inner:#3a3a34] dark:[--rn-text:rgba(242,240,227,0.85)] dark:[--rn-text-muted:rgba(242,240,227,0.50)] dark:[--rn-text-subtle:rgba(242,240,227,0.28)]"
-                      >
-                        <p className="text-[10px] font-black uppercase tracking-wider text-on-surface/40 mb-3 flex items-center gap-2">
-                          <AlertTriangle size={12} className="text-red-500 dark:text-red-400" />
-                          Produtos com Falta
-                          <span className="bg-red-500/10 text-red-500 dark:text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">{faltaRows.length}</span>
-                        </p>
-                        <div className="rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--rn-cell-border)' }}>
-                          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '1.5px solid var(--rn-th-border)' }}>
-                                {(() => {
-                                  const thBar: React.CSSProperties = { background: 'var(--rn-th-bg)', padding: '9px 8px', verticalAlign: 'middle', height: '36px' };
-                                  const lbl = (extra?: React.CSSProperties): React.CSSProperties => ({
-                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                    fontSize: '9px', fontWeight: 900,
-                                    letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-                                    color: 'var(--rn-th-color)', whiteSpace: 'nowrap' as const,
-                                    background: 'var(--rn-th-chip-bg)', border: '1.5px solid var(--rn-th-chip-border)',
-                                    borderRadius: '9999px', padding: '5px 13px', ...extra,
-                                  });
-                                  const cols: { label: string; align?: 'left' | 'right' | 'center' }[] = [
-                                    { label: '#', align: 'center' },
-                                    { label: 'Código' },
-                                    { label: 'Produto na Nota' },
-                                    { label: 'Identificação Interna' },
-                                    { label: 'EAN' },
-                                    { label: 'Medida', align: 'center' },
-                                    { label: 'Qtd.', align: 'center' },
-                                    { label: 'Preço Custo', align: 'right' },
-                                    { label: 'Valor Total', align: 'right' },
-                                  ];
-                                  return cols.map(c => (
-                                    <th key={c.label} style={{ ...thBar, paddingLeft: c.label === '#' ? '10px' : thBar.padding }}>
-                                      <div style={lbl({ justifyContent: c.align === 'right' ? 'flex-end' : c.align === 'center' ? 'center' : 'flex-start' })}>
-                                        {c.label}
-                                      </div>
+                      {/* Produtos com Falta */}
+                      {faltaRows.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                          <div className={secLabel}>
+                            <AlertTriangle size={12} className="text-red-500 dark:text-red-400" />
+                            Produtos com falta
+                            <span className="bg-red-500/10 text-red-500 dark:text-red-400 text-[9.5px] font-black px-1.5 py-px rounded-full tracking-normal">{faltaRows.length}</span>
+                          </div>
+                          <div className="-mx-4 overflow-x-auto border-t border-[var(--rn-grid)]">
+                            <table className="w-full min-w-[1000px]" style={{ borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  {faltaCols.map((c, i) => (
+                                    <th
+                                      key={c.label}
+                                      style={{ ...thBar, textAlign: c.align, ...(i === faltaCols.length - 1 ? { boxShadow: 'inset 0 -1.5px 0 var(--rn-th-bottom)' } : {}) }}
+                                    >
+                                      {c.label}
                                     </th>
-                                  ));
-                                })()}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {faltaRows.map(({ item, idx, d }, i) => {
-                                const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
-                                const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
-                                const { disc, sur } = calcAdjAmounts(cost, qty, idx, adjColumns);
-                                const adjCost = cost - disc + sur;
-                                const total = adjCost * qty;
-                                const tdCls = "px-3 py-2.5 text-[12px] font-semibold";
-                                return (
-                                  <tr key={idx}
-                                    className={i % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'}
-                                    style={{ borderBottom: '1px solid var(--rn-cell-border)' }}
-                                  >
-                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</td>
-                                    <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</td>
-                                    <td className={tdCls} style={{ color: 'var(--rn-text)' }}>{item.original_description || item.name || '-'}</td>
-                                    <td className={tdCls} style={{ color: 'var(--rn-text-muted)' }}>{item.name || '-'}</td>
-                                    <td className={cn(tdCls, "font-mono")} style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteEans[idx] ?? item.ean ?? '-'}</td>
-                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteUnits[idx] ?? item.unit ?? '-'}</td>
-                                    <td className={cn(tdCls, "text-center")} style={{ color: 'var(--rn-text)' }}>
-                                      {qty}
-                                      {d?.missingAll ? (
-                                        <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">TUDO</span>
-                                      ) : d?.qty ? (
-                                        <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">-{d.qty}</span>
-                                      ) : null}
-                                    </td>
-                                    <td className={cn(tdCls, "text-right")} style={{ color: 'var(--rn-text)' }}>{adjCost > 0 ? `R$ ${adjCost.toFixed(2)}` : '-'}</td>
-                                    <td className={cn(tdCls, "text-right font-black")} style={{ color: 'var(--rn-text)' }}>{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {faltaRows.map(({ item, idx, d }, i) => {
+                                  const cost = (viewingNoteItemPrices[idx] ?? item.price ?? 0) / ((viewingNoteMultipliers[idx] ?? item.multiplier) || 1);
+                                  const qty = viewingNoteQtys[idx] ?? item.qty ?? 0;
+                                  const { disc, sur } = calcAdjAmounts(cost, qty, idx, adjColumns);
+                                  const adjCost = cost - disc + sur;
+                                  const total = adjCost * qty;
+                                  return (
+                                    <tr key={idx}
+                                      className={cn(
+                                        'text-[12px] font-semibold transition-colors',
+                                        i % 2 === 0
+                                          ? 'bg-white dark:bg-[#252520] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]'
+                                          : 'bg-[#FAF7EE] dark:bg-[#1E1E18] hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+                                      )}
+                                    >
+                                      <td style={{ ...tdP, width: 44, textAlign: 'center' }}>
+                                        <span className="text-[10px] font-black" style={{ color: 'var(--rn-text-subtle)' }}>{item.seq ?? idx + 1}</span>
+                                      </td>
+                                      <td style={tdP}><span className="font-mono text-xs font-bold" style={{ color: 'var(--rn-text-muted)' }}>{item.supplier_code || '-'}</span></td>
+                                      <td style={{ ...tdP, color: 'var(--rn-text)' }}>{item.original_description || item.name || '-'}</td>
+                                      <td style={{ ...tdP, color: 'var(--rn-text-muted)' }}>{item.name || '-'}</td>
+                                      <td style={tdP}><span className="font-mono text-xs" style={{ color: 'var(--rn-text-muted)' }}>{viewingNoteEans[idx] ?? item.ean ?? '-'}</span></td>
+                                      <td style={{ ...tdP, textAlign: 'center', color: 'var(--rn-text-muted)' }} className="font-extrabold">{viewingNoteUnits[idx] ?? item.unit ?? '-'}</td>
+                                      <td style={{ ...tdP, textAlign: 'center', color: 'var(--rn-text)' }}>
+                                        {qty}
+                                        {d?.missingAll ? (
+                                          <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">TUDO</span>
+                                        ) : d?.qty ? (
+                                          <span className="ml-1 text-[8px] font-black text-red-500 dark:text-red-400 align-top">-{d.qty}</span>
+                                        ) : null}
+                                      </td>
+                                      <td style={{ ...tdP, textAlign: 'right', color: 'var(--rn-text)' }}>{adjCost > 0 ? `R$ ${adjCost.toFixed(2)}` : '-'}</td>
+                                      <td style={{ ...tdLast, textAlign: 'right', color: 'var(--rn-text)' }} className="font-black">{total > 0 ? `R$ ${total.toFixed(2)}` : '-'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
 
               <div
