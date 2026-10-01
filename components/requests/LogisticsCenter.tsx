@@ -31,6 +31,7 @@ import {
   Maximize2,
   Truck,
   MoreVertical,
+  ArrowUpDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -743,19 +744,11 @@ export function LogisticsCenter({
   const showCalendarResultsPanel = activeSection === 'notas' || activeSection === 'distribuicao';
 
   return (
-    <div className="space-y-4 md:space-y-12">
-      {/* Header — Desktop: card amarela âncora de marca */}
-      <div className="relative mb-14 hidden md:block">
-        <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-          <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-            <ClipboardList size={24} strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Entrada de Mercadoria</h1>
-          </div>
-        </div>
-
-        <div className="hidden md:flex absolute left-0 top-full">
+    <div className="space-y-4 md:space-y-3">
+      {/* Abas — Desktop: penduradas direto no cabeçalho do site (o título já fica nele).
+          -mx-7/-mt-5 desfazem o padding do conteúdo pra colar na barra e no menu lateral. */}
+      <div className="hidden md:block sticky top-11 z-20 -ml-7 -mt-5 w-max max-w-[calc(100%+1.75rem)]">
+        <div className="flex overflow-x-auto [scrollbar-width:none]">
           {([
             { key: 'notas', label: 'Notas', count: reviewNotes.length },
             { key: 'distribuicao', label: 'Distribuição', count: distributionManifests.filter(m => m.status === 'registro').length },
@@ -775,20 +768,19 @@ export function LogisticsCenter({
                 title={tab.label}
                 onClick={() => setActiveSection(tab.key)}
                 className={cn(
-                  'w-[122px] h-[34px] flex items-center justify-center gap-1.5 shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                  i === arr.length - 1 && 'rounded-br-[12px]',
-                  'text-[11.5px] font-extrabold uppercase tracking-wide',
-                  'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                  'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                  'min-w-[112px] h-8 px-3.5 flex items-center justify-center gap-1.5 shrink-0',
+                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.08]',
+                  i === 0 ? 'border-l-0' : '-ml-px',
+                  'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
                   active
-                    ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                    : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                    ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
+                    : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                  'transition-transform duration-150 active:scale-[0.97]',
                 )}
               >
-                <span className="truncate">{label}</span>
+                <span className={cn('truncate transition-opacity', active ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{label}</span>
                 {tab.count > 0 && (
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[rgba(26,26,10,0.12)] dark:bg-white/10 shrink-0">
+                  <span className="text-[9px] font-black px-1.5 py-px rounded-full bg-[rgba(26,26,10,0.12)] dark:bg-white/10 shrink-0">
                     {tab.count}
                   </span>
                 )}
@@ -1170,17 +1162,17 @@ export function LogisticsCenter({
 
       {/* Calendário + Painel de Resultados (Revisões / Aprovados) */}
       {showCalendarResultsPanel && (
-        <div className={cn('hidden md:grid grid-cols-2 gap-3.5', activeSection === 'distribuicao' ? 'items-stretch' : 'items-start')}>
+        <div className="hidden md:grid grid-cols-2 gap-3 items-stretch">
           {/* Calendário */}
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
-              <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
+          <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col">
+            <div className="h-8 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] pl-2.5 pr-1.5 flex items-center justify-between gap-2.5">
+              <span className="text-[12.5px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
               <div className="flex gap-1 flex-shrink-0">
                 <div className="relative" ref={calLegendRef}>
                   <button
                     onClick={() => setCalLegendOpen(v => !v)}
                     className={cn(
-                      'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                      'w-[22px] h-[22px] flex items-center justify-center transition-colors',
                       calLegendOpen
                         ? 'bg-[#1A1A0E]/14 text-[#1A1A0E]'
                         : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
@@ -1196,7 +1188,7 @@ export function LogisticsCenter({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -4, scale: 0.97 }}
                         transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute left-0 top-[30px] z-20 w-[196px] bg-surface border border-on-surface/10 rounded-xl shadow-lg p-2.5 flex flex-col gap-1.5"
+                        className="absolute left-0 top-[26px] z-20 w-[196px] bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/10 shadow-lg p-2.5 flex flex-col gap-1.5"
                       >
                         <div className="flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
@@ -1219,7 +1211,7 @@ export function LogisticsCenter({
                   }}
                   title="Filtrar por período"
                   className={cn(
-                    'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                    'w-[22px] h-[22px] flex items-center justify-center transition-colors',
                     calRangeMode
                       ? 'bg-[#D81E1E] text-white hover:opacity-90'
                       : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
@@ -1229,20 +1221,20 @@ export function LogisticsCenter({
                 </button>
                 <button
                   onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                  className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
                 >
                   <ChevronLeft size={12} strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                  className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                  className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
                 >
                   <ChevronRight size={12} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
 
-            <div className={cn('p-3', activeSection === 'distribuicao' && 'flex-1 flex flex-col justify-center')}>
+            <div className={cn('p-2', activeSection === 'distribuicao' && 'flex-1 flex flex-col justify-center')}>
               <div className="grid grid-cols-7 mb-1">
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
                   <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
@@ -1291,12 +1283,12 @@ export function LogisticsCenter({
                         setCalSelectedDate(isSelected ? null : cellDate);
                       }}
                       className={cn(
-                        'h-[26px] flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
+                        'h-6 flex items-center justify-center text-[10.5px] font-bold relative transition-all duration-[120ms]',
                         cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
                         cell.type === 'curr' && !isToday && !isSelected && !isRangeEndpoint && !isInRange && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
                         isToday && !isSelected && !isRangeEndpoint && !isInRange && 'bg-primary/10 text-primary font-black',
-                        isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
-                        isRangeEndpoint && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                        isSelected && 'bg-primary text-white font-black',
+                        isRangeEndpoint && 'bg-primary text-white font-black',
                         isInRange && 'bg-primary/15 text-primary font-bold',
                       )}
                     >
@@ -1311,7 +1303,7 @@ export function LogisticsCenter({
 
               {/* Range selection hint */}
               {calRangeMode && !(calRangeStart && calRangeEnd) && (
-                <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.05] border border-on-surface/10 rounded-[10px] px-2.5 py-1.5">
+                <div className="mt-1.5 h-6 flex items-center gap-1 bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] px-2">
                   <span className="text-[9.5px] font-bold text-on-surface/50 leading-none">
                     {!calRangeStart ? 'Selecione o dia inicial do período' : 'Selecione o dia final do período'}
                   </span>
@@ -1320,7 +1312,7 @@ export function LogisticsCenter({
 
               {/* Badge de período — filtro ativo ou padrão (mês exibido) */}
               {(calSelectedDate || (calRangeStart && calRangeEnd)) ? (
-                <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] dark:bg-primary/[0.12] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
+                <div className="mt-1.5 h-6 flex items-center justify-between gap-1 bg-primary/[0.06] dark:bg-primary/[0.12] border border-primary/25 px-2">
                   <span className="text-[9.5px] font-bold text-primary leading-none">
                     {calRangeStart && calRangeEnd
                       ? `Período: ${calRangeStart.toLocaleDateString('pt-BR')} – ${calRangeEnd.toLocaleDateString('pt-BR')}`
@@ -1339,7 +1331,7 @@ export function LogisticsCenter({
                   </button>
                 </div>
               ) : (
-                <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.04] border border-on-surface/[0.08] rounded-[10px] px-2.5 py-1.5">
+                <div className="mt-1.5 h-6 flex items-center gap-1 bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] px-2">
                   <span className="text-[9.5px] font-bold text-on-surface/45 leading-none capitalize">
                     Mostrando: {calMonthLabel} (mês atual)
                   </span>
@@ -1396,96 +1388,91 @@ export function LogisticsCenter({
               </div>
             </div>
           ) : (
-          <div className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-            <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center">
-              <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
+          <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col">
+            {/* Interruptor menor (metade do cabeçalho) — sobra o canto direito para os botões do gráfico */}
+            <div className="h-8 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] pl-1.5 pr-1.5 flex items-center gap-2">
+              <div className="w-1/2 min-w-[210px] flex gap-0.5 bg-[rgba(26,26,10,0.10)] p-[2px]">
                 {(['resultados', 'fornecedores'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setResultsPanelTab(tab)}
                     className={cn(
-                      'flex-1 px-2 py-[6px] rounded-full text-[9.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
+                      'flex-1 h-[22px] text-[9px] font-black uppercase tracking-[0.08em] transition-colors duration-150 whitespace-nowrap',
                       resultsPanelTab === tab
-                        ? 'bg-[#D81E1E] text-white shadow-sm'
-                        : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
+                        ? 'bg-[#D81E1E] text-white'
+                        : 'text-[rgba(26,26,10,0.50)] hover:text-[rgba(26,26,10,0.75)]',
                     )}
                   >
                     {tab === 'resultados' ? 'Resultados' : 'Fornecedores'}
                   </button>
                 ))}
               </div>
-            </div>
-
-            {resultsPanelTab === 'resultados' ? (
-              <div className="grid grid-cols-2 gap-1.5 p-2.5">
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
-                    <FileText size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Total de Notas</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statTotalNotas}</div>
-                  </div>
-                </div>
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
-                    <TrendingUp size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Markup Geral</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statMarkup !== null ? fmtPct(statMarkup) : '—'}</div>
-                  </div>
-                </div>
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
-                    <Wallet size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Valor Total</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{fmtBRL(statValorTotal)}</div>
-                  </div>
-                </div>
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-2.5 py-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-[8px] bg-violet-500/10 flex items-center justify-center shrink-0 text-violet-600 dark:text-violet-400">
-                    <Building2 size={12} strokeWidth={2.3} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[7.5px] font-black uppercase tracking-[0.11em] text-on-surface/40 whitespace-nowrap">Fornecedores</div>
-                    <div className="text-[13px] font-black tracking-tight leading-tight truncate text-on-surface">{statFornecedores}</div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 flex flex-col gap-2.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="flex-1 flex items-center gap-1.5 bg-surface-container border border-on-surface/[0.07] rounded-[10px] px-2.5 py-1.5 min-w-0">
-                    <Building2 size={12} className="text-violet-600 dark:text-violet-400 shrink-0" />
-                    <span className="text-[8px] font-black uppercase tracking-[0.09em] text-on-surface/40">Fornecedores</span>
-                    <span className="text-[12px] font-black text-on-surface ml-auto">{fornecTotalCount}</span>
-                  </div>
-                  <button
-                    onClick={() => setShowFornecFullscreen(true)}
-                    title="Ver em tela cheia"
-                    className="w-[30px] h-[30px] rounded-[10px] border border-on-surface/10 bg-surface-container text-on-surface/55 hover:bg-on-surface hover:text-[#FFE500] hover:border-on-surface flex items-center justify-center transition-all shrink-0"
-                  >
-                    <Maximize2 size={14} />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[8.5px] font-black uppercase tracking-wider text-on-surface/35">
-                    {fornecChartMode === 'markup' ? 'Markup por fornecedor' : 'Valor por fornecedor'}
-                  </span>
+              {resultsPanelTab === 'fornecedores' && (
+                <div className="ml-auto flex gap-1">
                   <button
                     onClick={() => setFornecChartMode(m => m === 'markup' ? 'valor' : 'markup')}
                     title={fornecChartMode === 'markup' ? 'Ver valor (R$)' : 'Ver markup'}
-                    className={cn(
-                      'w-[22px] h-[22px] rounded-[7px] border border-on-surface/10 bg-surface-container text-violet-600 dark:text-violet-400 flex items-center justify-center transition-all shrink-0 hover:bg-violet-600 hover:text-white hover:border-violet-600',
-                      fornecChartMode === 'valor' && 'rotate-180'
-                    )}
+                    className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.6)] hover:bg-[rgba(26,26,10,0.15)] flex items-center justify-center transition-colors"
                   >
-                    <ChevronDown size={12} strokeWidth={2.5} />
+                    <ArrowUpDown size={11} strokeWidth={2.6} />
                   </button>
+                  <button
+                    onClick={() => setShowFornecFullscreen(true)}
+                    title="Ver em tela cheia"
+                    className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.6)] hover:bg-[rgba(26,26,10,0.15)] flex items-center justify-center transition-colors"
+                  >
+                    <Maximize2 size={11} strokeWidth={2.6} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {resultsPanelTab === 'resultados' ? (
+              <div className="grid grid-cols-2 flex-1 gap-px bg-[#EFE8D2] dark:bg-white/[0.06] [&>*]:bg-white dark:[&>*]:bg-[#1E1E18]">
+                <div className="flex flex-col justify-center gap-1.5 px-3 py-2.5">
+                  <div className="h-6 flex items-center gap-1.5 pl-[3px] pr-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                    <span className="w-[18px] h-[18px] bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
+                      <FileText size={10} strokeWidth={2.6} />
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45 whitespace-nowrap truncate">Total de Notas</span>
+                  </div>
+                  <div className="h-[38px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[19px] font-black tracking-[-0.02em] text-on-surface truncate">{statTotalNotas}</div>
+                </div>
+                <div className="flex flex-col justify-center gap-1.5 px-3 py-2.5">
+                  <div className="h-6 flex items-center gap-1.5 pl-[3px] pr-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                    <span className="w-[18px] h-[18px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                      <TrendingUp size={10} strokeWidth={2.6} />
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45 whitespace-nowrap truncate">Markup Geral</span>
+                  </div>
+                  <div className="h-[38px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[19px] font-black tracking-[-0.02em] text-on-surface truncate">{statMarkup !== null ? fmtPct(statMarkup) : '—'}</div>
+                </div>
+                <div className="flex flex-col justify-center gap-1.5 px-3 py-2.5">
+                  <div className="h-6 flex items-center gap-1.5 pl-[3px] pr-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                    <span className="w-[18px] h-[18px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                      <Wallet size={10} strokeWidth={2.6} />
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45 whitespace-nowrap truncate">Valor Total</span>
+                  </div>
+                  <div className="h-[38px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[19px] font-black tracking-[-0.02em] text-on-surface truncate">{fmtBRL(statValorTotal)}</div>
+                </div>
+                <div className="flex flex-col justify-center gap-1.5 px-3 py-2.5">
+                  <div className="h-6 flex items-center gap-1.5 pl-[3px] pr-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15]">
+                    <span className="w-[18px] h-[18px] bg-violet-500/10 flex items-center justify-center shrink-0 text-violet-600 dark:text-violet-400">
+                      <Building2 size={10} strokeWidth={2.6} />
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45 whitespace-nowrap truncate">Fornecedores</span>
+                  </div>
+                  <div className="h-[38px] flex items-center px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[19px] font-black tracking-[-0.02em] text-on-surface truncate">{statFornecedores}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="px-3 pt-2 pb-2 flex flex-col gap-2 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[8.5px] font-black uppercase tracking-[0.1em] text-on-surface/45">
+                    {fornecChartMode === 'markup' ? 'Markup por fornecedor' : 'Valor por fornecedor'}
+                  </span>
+                  <span className="text-[10.5px] font-bold text-on-surface/45"><b className="font-black text-on-surface">{fornecTotalCount}</b> fornecedores</span>
                 </div>
 
                 {fornecChartData.length === 0 ? (
@@ -1493,16 +1480,14 @@ export function LogisticsCenter({
                     <p className="text-xs font-bold">Nenhuma nota aprovada no período</p>
                   </div>
                 ) : (
-                  <div className="flex items-end gap-1.5 h-[118px] px-0.5 pb-2 border-b-[1.5px] border-on-surface/10">
+                  <div className="flex items-end gap-1.5 h-[118px] px-0.5 pb-1">
                     {fornecChartData.map(f => (
                       <div key={f.name} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1 h-full" title={`${f.name}: ${fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}`}>
                           <span className="text-[8px] font-black text-violet-600/85 dark:text-violet-400/85 whitespace-nowrap">{fornecChartMode === 'markup' ? fmtPct(f.value) : fmtBRL(f.value)}</span>
                           <div
                             className={cn(
-                              'w-full max-w-[22px] rounded-t-[6px]',
-                              fornecChartMode === 'markup'
-                                ? 'bg-gradient-to-b from-violet-400 to-violet-600'
-                                : 'bg-gradient-to-b from-red-300 to-primary'
+                              'w-full max-w-[22px]',
+                              fornecChartMode === 'markup' ? 'bg-violet-500' : 'bg-primary'
                             )}
                             style={{ height: `${Math.max(6, (f.value / fornecMaxValue) * 96)}px` }}
                           />
@@ -1705,24 +1690,22 @@ export function LogisticsCenter({
       </AnimatePresence>
 
       {activeSection === 'notas' && (
-        <div className="hidden md:block space-y-6">
+        <div className="hidden md:block space-y-3">
 
           {/* Search + filtro + menu "+" */}
-          <div className="flex flex-wrap items-center gap-3">
-            {visibleNotes.length > 0 && (
-              <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-primary/10 text-primary">
-                {visibleNotes.length}
-              </span>
-            )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="h-7 flex items-center gap-1.5 px-2.5 border border-[#E0D8BF] dark:border-white/[0.10] text-[11px] font-bold text-on-surface/45 whitespace-nowrap">
+              <b className="font-black text-on-surface">{visibleNotes.length}</b> {visibleNotes.length === 1 ? 'nota' : 'notas'}
+            </span>
 
             <div className="relative group">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/30 group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 value={noteSearch}
                 onChange={e => setNoteSearch(e.target.value)}
                 placeholder="Pesquisar nos itens..."
-                className="bg-surface-container-lowest border border-on-surface/[0.06] rounded-xl pl-8 pr-8 py-2 text-xs font-medium placeholder:text-on-surface/25 focus:outline-none focus:ring-2 focus:ring-primary/20 w-56 transition-all"
+                className="h-7 w-64 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-8 pr-7 text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium caret-[#D81E1E] outline-none hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]"
               />
               {noteSearch && (
                 <button
@@ -1742,14 +1725,14 @@ export function LogisticsCenter({
               }}
               title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all',
+                'h-7 flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] border transition-all active:scale-[0.97]',
                 columnFiltersEnabled
-                  ? 'bg-primary text-white border-primary shadow-md'
-                  : 'bg-surface-container-lowest border-on-surface/[0.06] text-on-surface/60 hover:bg-on-surface/5',
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/[0.05]',
                 Object.values(columnFilters).some(s => s.size > 0) && !columnFiltersEnabled && 'ring-2 ring-primary/40',
               )}
             >
-              <Filter size={14} />
+              <Filter size={12} />
               Filtrar colunas
             </button>
 
@@ -1759,17 +1742,17 @@ export function LogisticsCenter({
                   onClick={onImportClick}
                   disabled={importing}
                   title="Importar Nota (XML da NFe ou Planilha/CSV)"
-                  className="ml-auto flex items-center gap-2 px-3.5 h-9 rounded-xl text-xs font-bold bg-surface-container-lowest border border-on-surface/[0.06] text-on-surface/70 hover:bg-on-surface/5 active:scale-[0.97] transition-all disabled:opacity-50"
+                  className="ml-auto flex items-center gap-1.5 px-2.5 h-7 text-[10.5px] font-extrabold uppercase tracking-[0.05em] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all disabled:opacity-50"
                 >
-                  <FileUp size={14} />
+                  <FileUp size={12} />
                   Importar Nota
                 </button>
                 <button
                   onClick={onManualNoteClick}
                   title="Criar Manifesto"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+                  className="w-7 h-7 flex items-center justify-center bg-primary text-on-primary hover:bg-[#B91818] active:scale-[0.97] transition-all"
                 >
-                  <Plus size={16} />
+                  <Plus size={14} strokeWidth={3} />
                 </button>
               </>
             )}
@@ -1777,8 +1760,8 @@ export function LogisticsCenter({
 
           {/* Notes table */}
           {visibleNotes.length === 0 ? (
-            <div className="bg-surface-container-low/50 backdrop-blur-md rounded-[2.5rem] p-10 border border-on-surface/[0.03] flex items-center gap-8 shadow-sm">
-              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+            <div className="bg-white dark:bg-[#1E1E18] p-10 border border-[#E0D8BF] dark:border-white/[0.10] flex items-center gap-8">
+              <div className="w-16 h-16 bg-on-surface/5 text-on-surface/20 flex items-center justify-center shrink-0">
                 <ClipboardList size={32} />
               </div>
               <div>
@@ -1791,11 +1774,11 @@ export function LogisticsCenter({
               </div>
             </div>
           ) : (
-            <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
-              <div ref={tableScrollRef} className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
-                <table className="w-full text-sm">
+            <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
+              <div ref={tableScrollRef} className="overflow-x-auto [&_tbody_td]:h-9 [&_tbody_td]:px-2.5 [&_tbody_td]:py-0 [&_tbody_td]:border-r [&_tbody_td]:border-b [&_tbody_td]:border-[#A8A290] dark:[&_tbody_td]:border-white/20 [&_tbody_td:last-child]:border-r-0">
+                <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
+                    <tr className="bg-[#FFEC4D]">
                       {tableColumns.map(({ label, key }) => {
                         const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
                         const isOpen = columnFiltersEnabled && filterOpenKey === key;
@@ -1804,16 +1787,14 @@ export function LogisticsCenter({
                         const searchLower = filterSearchQuery.toLowerCase();
                         const displayed = searchLower ? uniqueVals.filter(v => v.toLowerCase().includes(searchLower)) : uniqueVals;
                         return (
-                          <th key={key} className="px-3 py-3 text-left whitespace-nowrap relative">
+                          <th key={key} className="h-8 px-2.5 text-left whitespace-nowrap relative shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]">
                             <div className="inline-flex items-center gap-1">
                               <span
                                 onClick={columnFiltersEnabled ? () => { isOpen ? closeFilter() : openFilter(key); } : undefined}
                                 title={columnFiltersEnabled ? (hasFilter ? 'Filtro ativo' : 'Filtrar') : undefined}
                                 className={cn(
-                                  'inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] transition-colors',
-                                  columnFiltersEnabled
-                                    ? cn('border-[#D81E1E]/45 cursor-pointer', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E]')
-                                    : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]',
+                                  'inline-flex items-center text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap transition-colors',
+                                  columnFiltersEnabled && cn('cursor-pointer px-1.5 py-0.5 border border-dashed border-[#D81E1E]/45 -mx-1.5', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E] border-solid'),
                                 )}
                               >
                                 {label}
@@ -1891,7 +1872,7 @@ export function LogisticsCenter({
                           </th>
                         );
                       })}
-                      <th className="px-3 py-3" />
+                      <th className="h-8 px-2.5 shadow-[inset_0_-1.5px_0_#8F7E10]" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1903,15 +1884,15 @@ export function LogisticsCenter({
                         key={note.id}
                         className={cn(
                           'transition-colors',
-                          idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/40',
-                          'hover:bg-on-surface/[0.03]'
+                          idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
+                          'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]'
                         )}
                       >
                         {/* Situação */}
-                        <td className="px-4 py-3.5">
+                        <td className="">
                           <span
                             title={meta.label}
-                            className={cn('inline-flex items-center gap-1 rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] border-[1.5px] whitespace-nowrap', meta.bg, meta.fg, meta.border)}
+                            className={cn('inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[9px] font-black uppercase tracking-[0.08em] border whitespace-nowrap', meta.bg, meta.fg, meta.border)}
                           >
                             <StatusIcon status={status} size={11} />
                             {STATUS_SHORT_LABEL[status]}
@@ -1919,14 +1900,14 @@ export function LogisticsCenter({
                         </td>
 
                         {/* Destino */}
-                        <td className="px-4 py-3.5 max-w-[140px]">
+                        <td className=" max-w-[140px]">
                           <p className="text-xs text-on-surface/60 truncate">{companyName(note.companyId ?? null)}</p>
                         </td>
 
                         {/* Código */}
-                        <td className="px-4 py-3.5">
+                        <td className="">
                           {note.noteNumber ? (
-                            <span className="font-mono text-xs font-bold text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                            <span className="font-mono text-xs text-on-surface/60">
                               {note.noteNumber}
                             </span>
                           ) : (
@@ -1935,43 +1916,43 @@ export function LogisticsCenter({
                         </td>
 
                         {/* Fornecedor */}
-                        <td className="px-4 py-3.5 max-w-[180px]">
-                          <p className="text-sm font-semibold text-on-surface truncate">{note.supplierName || '—'}</p>
+                        <td className=" max-w-[180px]">
+                          <p className="text-xs font-extrabold text-on-surface truncate">{note.supplierName || '—'}</p>
                         </td>
 
                         {/* Data (recebimento) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-xs text-on-surface/50">
+                        <td className=" whitespace-nowrap font-mono text-xs text-on-surface/50">
                           {note.receivedDate ? fmtDateBR(note.receivedDate) : note.timestamp}
                         </td>
 
                         {/* Itens */}
-                        <td className="px-4 py-3.5">
-                          <span className="text-xs font-black text-on-surface bg-on-surface/5 px-2 py-1 rounded-lg">
+                        <td className="text-center">
+                          <span className="text-xs font-black text-on-surface">
                             {note.itemCount}
                           </span>
                         </td>
 
                         {/* Verificados */}
-                        <td className="px-4 py-3.5">
+                        <td className="text-center">
                           <span className={cn(
-                            'text-[10px] font-black px-2 py-1 rounded-lg',
+                            'text-[10.5px] font-black',
                             note.verifiedCount === note.itemCount && note.itemCount > 0
-                              ? 'bg-emerald-500/10 text-emerald-700'
-                              : 'bg-amber-500/10 text-amber-700'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-amber-700 dark:text-amber-400'
                           )}>
                             {note.verifiedCount}/{note.itemCount}
                           </span>
                         </td>
 
                         {/* Total */}
-                        <td className="px-4 py-3.5 whitespace-nowrap">
-                          <span className="text-xs font-bold text-on-surface/70">
+                        <td className=" whitespace-nowrap text-right">
+                          <span className="font-mono text-xs text-on-surface">
                             {fmtBRL(noteTotal(note))}
                           </span>
                         </td>
 
                         {/* Financeiro */}
-                        <td className="px-4 py-3.5">
+                        <td className="">
                           <div className="flex items-center gap-2">
                             {note.finance_transaction_id ? (
                               <div className="flex flex-col min-w-0">
@@ -1991,35 +1972,35 @@ export function LogisticsCenter({
                               onClick={() => setLinkingNote(note)}
                               title={note.finance_transaction_id ? 'Movimentação vinculada — clique para alterar' : 'Vincular a uma movimentação financeira'}
                               className={cn(
-                                'w-7 h-7 rounded-xl flex items-center justify-center transition-all shrink-0',
+                                'w-[26px] h-[26px] border flex items-center justify-center transition-all shrink-0',
                                 note.finance_transaction_id
-                                  ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                                  : 'bg-on-surface/5 text-on-surface/30 hover:bg-primary/10 hover:text-primary'
+                                  ? 'border-emerald-500/35 bg-emerald-500/[0.09] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white'
+                                  : 'border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/40 hover:bg-primary/10 hover:text-primary'
                               )}
                             >
-                              <Link2 size={13} />
+                              <Link2 size={12} />
                             </button>
                           </div>
                         </td>
 
                         {/* Ações */}
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2">
+                        <td className="">
+                          <div className="flex items-center gap-1">
                             <button
                               onClick={() => onViewReviewNote(note)}
                               title="Ver / editar nota"
-                              className="w-8 h-8 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center"
+                              className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-primary hover:bg-primary hover:text-white hover:border-primary transition-all flex items-center justify-center"
                             >
-                              <Pencil size={14} />
+                              <Pencil size={12} />
                             </button>
 
                             {status !== 'aprovada' && (
                               <button
                                 onClick={() => setConfirmApproveId(note.id)}
                                 title="Aprovar nota"
-                                className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"
+                                className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all flex items-center justify-center"
                               >
-                                <CheckCircle2 size={14} />
+                                <CheckCircle2 size={13} />
                               </button>
                             )}
                           </div>

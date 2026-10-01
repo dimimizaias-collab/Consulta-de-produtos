@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrada de Mercadoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFCEC; --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --hdr: #FFE500; --hdr-border: #D4C000; --hdr-text: #1A1A0E; --chip: rgba(26,26,10,0.09); --hover: rgba(26,26,10,0.07);
+    --card: #FFFFFF; --card-border: #E0D8BF; --field-hover: #CFC4A2; --btn: rgba(26,26,10,0.06); --btn-hover: rgba(26,26,10,0.11);
+    --line: #EFE8D2; --soft: #FAF7EE;
+    --menu: #FFFFFF; --menu-border: #E0D8BF; --menu-hover: #FFF8D0;
+    --grid: #A8A290; --row-odd: #FAF7EE; --row-hover: #FFF8D0; --th: #FFEC4D; --th-line: #B8A31F; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    --emerald: #0A7A55; --amber: #B45309;
+    --rail: 64px; --hh: 44px;
+  }
+  html.dark {
+    --bg: #161612; --text: #F2F0E3; --muted: rgba(242,240,227,0.42); --faint: rgba(242,240,227,0.25);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3; --chip: rgba(216,30,30,0.13); --hover: rgba(242,240,227,0.06);
+    --card: #1E1E18; --card-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20); --btn: rgba(242,240,227,0.06); --btn-hover: rgba(242,240,227,0.11);
+    --line: rgba(242,240,227,0.06); --soft: #1A1A15;
+    --menu: #2E2E28; --menu-border: rgba(242,240,227,0.10); --menu-hover: rgba(255,229,0,0.08);
+    --grid: rgba(242,240,227,0.20); --row-odd: #1E1E18; --row-hover: rgba(242,240,227,0.04); --th-text: rgba(26,26,10,0.58);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+    --emerald: #34D399; --amber: #FBBF24;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+  button { font-family: inherit; }
+
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+
+  /* Shell (já implementado) */
+  .hdr { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: var(--hh); display: flex; align-items: stretch; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .logo { width: var(--rail); display: grid; place-items: center; border-right: 1px solid var(--hdr-border); }
+  .logo span { width: 32px; height: 32px; display: grid; place-items: center; background: #fff; color: #D81E1E; font-size: 8.5px; font-weight: 900; border: 1px solid rgba(26,26,10,0.12); }
+  .ttl { display: flex; align-items: center; gap: 9px; padding: 0 16px; }
+  .ico { width: 28px; height: 28px; display: grid; place-items: center; background: var(--chip); color: var(--hdr-text); }
+  html.dark .ico { color: #D81E1E; }
+  .ttl h1 { margin: 0; font-size: 15px; font-weight: 900; color: var(--hdr-text); }
+  .pbtn { margin: auto 10px auto auto; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.16); background: rgba(26,26,10,0.06); color: var(--hdr-text); font-size: 11.5px; font-weight: 900; }
+  html.dark .pbtn { border-color: rgba(242,240,227,0.14); background: rgba(216,30,30,0.13); }
+  .rail { position: fixed; left: 0; top: var(--hh); bottom: 0; width: var(--rail); z-index: 45; background: var(--hdr); border-right: 1px solid var(--hdr-border); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; }
+  .nav { width: 48px; height: 44px; display: grid; place-items: center; color: var(--hdr-text); opacity: .6; }
+  .nav.on { opacity: 1; background: #D81E1E; color: #fff; }
+  .rail .sp { flex: 1; }
+  main { margin-left: var(--rail); padding-top: var(--hh); }
+
+  /* ── NOVO: abas penduradas na barra + ferramentas na mesma linha ── */
+  .tabrow { position: sticky; top: var(--hh); z-index: 20; display: flex; align-items: flex-start; gap: 12px; background: var(--bg); padding-right: 16px; }
+  .tabs { display: flex; flex-shrink: 0; }
+  .tab { height: 32px; min-width: 112px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--hdr-text); box-shadow: var(--tabshadow); font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab .l { opacity: .55; transition: opacity 130ms; }
+  .tab:hover .l { opacity: .85; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; }
+  .tab.on .l { opacity: 1; }
+  .tab .n { font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,0.12); }
+  html.dark .tab .n { background: rgba(242,240,227,0.10); }
+  .tools { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .cnt { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid var(--card-border); font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .cnt b { color: var(--text); font-weight: 900; }
+  .search { width: 260px; height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--card-border); background: var(--card); color: var(--faint); font-size: 12px; font-weight: 600; transition: border-color 130ms; }
+  .search:hover { border-color: var(--field-hover); }
+  .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: 600 12px 'DM Sans'; caret-color: #D81E1E; }
+  .search input::placeholder { color: var(--faint); font-weight: 500; }
+  .tb { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: background 130ms, transform 130ms; }
+  .tb:hover { background: var(--btn); }
+  .tb:active { transform: scale(0.97); }
+  .tb.on { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tb.pri:hover { background: #B91818; }
+  .tb.ic { width: 28px; padding: 0; justify-content: center; }
+  .grow { flex: 1; }
+
+  .content { padding: 12px 16px 90px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── Painéis quadrados: Calendário + Resultados + Fornecedores ── */
+  .panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+  .pn { border: 1px solid var(--card-border); background: var(--card); display: flex; flex-direction: column; }
+  .ph { height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); color: #1A1A0E; }
+  .ph .t { font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--th-text); }
+  .ph .m { font-size: 12.5px; font-weight: 900; text-transform: capitalize; }
+  .ph .sp { flex: 1; }
+  .pb { width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: rgba(26,26,10,0.08); color: rgba(26,26,10,0.6); cursor: pointer; }
+  .pb:hover { background: rgba(26,26,10,0.15); }
+  .pb.on { background: #D81E1E; color: #fff; }
+  .cal { padding: 8px; }
+  .wk, .days { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .wk div { text-align: center; font-size: 8.5px; font-weight: 900; color: var(--faint); padding: 3px 0; }
+  .days button { position: relative; height: 24px; border: 0; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  .days button:hover { background: var(--btn); }
+  .days button.out { color: var(--faint); opacity: .5; cursor: default; }
+  .days button.today { background: rgba(216,30,30,0.10); color: #D81E1E; font-weight: 900; }
+  .days button.sel { background: #D81E1E; color: #fff; font-weight: 900; }
+  .days button i { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 9px; background: #D81E1E; }
+  .days button.sel i { background: #fff; }
+  .period { margin-top: 6px; height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; border: 1px solid var(--card-border); background: var(--soft); font-size: 9.5px; font-weight: 800; color: var(--muted); }
+  .period.f { border-color: rgba(216,30,30,0.25); background: rgba(216,30,30,0.06); color: #D81E1E; }
+  .sw { width: 50%; min-width: 210px; display: flex; gap: 2px; padding: 2px; background: rgba(26,26,10,0.10); }
+  .sw button { flex: 1; height: 22px; border: 0; background: transparent; color: rgba(26,26,10,0.5); font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background 130ms, color 130ms; }
+  .sw button:hover { color: rgba(26,26,10,0.75); }
+  .sw button.on { background: #D81E1E; color: #fff; }
+  .fornOnly { display: none; gap: 4px; }
+  .fornOnly.show { display: flex; }
+  .ph .sw + .sp { min-width: 8px; }
+  .fsub { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 0; font-size: 8.5px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .fcount { letter-spacing: 0.04em; text-transform: none; font-size: 10.5px; font-weight: 700; }
+  .fcount b { color: var(--text); font-weight: 900; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; flex: 1; }
+  .stat { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stat:nth-child(2n) { border-right: 0; }
+  .stat:nth-child(n+3) { border-bottom: 0; }
+  .stat .k { align-self: flex-start; height: 24px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 3px; border: 1px solid var(--card-border); background: var(--soft); font-size: 8.5px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .stat .k span { width: 18px; height: 18px; display: grid; place-items: center; flex-shrink: 0; }
+  .stat .v { height: 38px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--card-border); background: var(--card); font-size: 19px; font-weight: 900; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .k { align-self: stretch; }
+  .chart { flex: 1; display: flex; align-items: flex-end; gap: 6px; padding: 8px 12px 8px; margin: 0 0 4px; min-height: 140px; }
+  .bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
+  .bar b { font-size: 8.5px; font-weight: 900; color: #7C3AED; white-space: nowrap; }
+  html.dark .bar b { color: #A78BFA; }
+  .bar i { width: 100%; max-width: 22px; background: #8B5CF6; }
+  .bar small { font-size: 7.5px; font-weight: 800; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Tabela de notas em grade ── */
+  .tblw { border: 1px solid var(--card-border); background: var(--card); overflow: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 1100px; }
+  th { background: var(--th); color: var(--th-text); box-shadow: inset -1px 0 0 var(--th-line), inset 0 -1.5px 0 var(--th-bottom); height: 32px; padding: 0 10px; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+  th:last-child { box-shadow: inset 0 -1.5px 0 var(--th-bottom); }
+  td { height: 36px; padding: 0 10px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  td:last-child { border-right: 0; }
+  tbody tr:nth-child(even) td { background: var(--row-odd); }
+  tbody tr:hover td { background: var(--row-hover); }
+  .mono { font-family: 'DM Mono'; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .r { text-align: right; } .c { text-align: center; }
+  .stt { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 999px; border: 1px solid; }
+  .s-rev { color: #1D4ED8; background: rgba(37,99,235,.08); border-color: rgba(37,99,235,.25); } html.dark .s-rev { color: #60A5FA; }
+  .s-reg { color: #57534E; background: rgba(26,26,10,.06); border-color: rgba(26,26,10,.15); } html.dark .s-reg { color: #D8D3C0; background: rgba(242,240,227,.08); border-color: rgba(242,240,227,.2); }
+  .s-agu { color: #B45309; background: rgba(217,119,6,.10); border-color: rgba(217,119,6,.3); } html.dark .s-agu { color: #FCD34D; }
+  .s-apr { color: #0A7A55; background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.25); } html.dark .s-apr { color: #34D399; }
+  .ver { font-size: 10.5px; font-weight: 900; }
+  .ver.ok { color: var(--emerald); } .ver.pend { color: var(--amber); }
+  .fin { display: flex; align-items: center; gap: 6px; }
+  .fin span { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-weight: 800; color: var(--emerald); }
+  .fin span.no { color: var(--faint); font-weight: 600; }
+  .ab { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--card-border); background: var(--card); color: var(--muted); cursor: pointer; flex-shrink: 0; transition: background 130ms, color 130ms; }
+  .ab:hover { background: var(--btn); color: var(--text); }
+  .ab.link.on { border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.09); color: var(--emerald); }
+  .ab.ed { color: #D81E1E; } .ab.ed:hover { background: #D81E1E; color: #fff; border-color: #D81E1E; }
+  .ab.ap { color: var(--emerald); } .ab.ap:hover { background: #0A7A55; color: #fff; border-color: #0A7A55; }
+  .acts { display: flex; gap: 4px; }
+  .ph-place { padding: 60px 20px; text-align: center; color: var(--muted); font-weight: 600; font-size: 13px; border: 1px dashed var(--card-border); }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo"><span>R$1,99</span></div>
+  <div class="ttl"><div class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></div><h1>Entrada de Mercadoria</h1></div>
+  <div class="pbtn">DM</div>
+</header>
+<aside class="rail">
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/></svg></div>
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+  <div class="nav on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></div>
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></div>
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+  <div class="sp"></div>
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg></div>
+  <div class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3"/></svg></div>
+</aside>
+
+<main>
+  <div class="tabrow">
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div class="content" id="c-notas">
+    <div class="panels">
+      <!-- Calendário -->
+      <div class="pn">
+        <div class="ph"><span class="m">Outubro 2026</span><span class="sp"></span>
+          <button class="pb" title="Legenda"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+          <button class="pb" id="rng" title="Filtrar por período"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></svg></button>
+          <button class="pb"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <button class="pb"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+        <div class="cal">
+          <div class="wk"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+          <div class="days" id="days"></div>
+          <div class="period" id="period">Mostrando: outubro 2026 (mês atual)</div>
+        </div>
+      </div>
+      <!-- Resultados / Fornecedores (interruptor) -->
+      <div class="pn">
+        <div class="ph">
+          <div class="sw" id="sw"><button class="on" data-v="res">Resultados</button><button data-v="forn">Fornecedores</button></div>
+          <span class="sp"></span>
+          <span class="fornOnly" id="fornBtns">
+            <button class="pb" id="chartMode" title="Alternar markup / valor"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 16V4M3 8l4-4 4 4M17 8v12M21 16l-4 4-4-4"/></svg></button>
+            <button class="pb" title="Ver em tela cheia"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+          </span>
+        </div>
+        <div class="stats" id="vRes">
+          <div class="stat"><div class="k"><span style="color:#2563EB;background:rgba(37,99,235,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></span>Total de notas</div><div class="v">48</div></div>
+          <div class="stat"><div class="k"><span style="color:#D97706;background:rgba(217,119,6,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m22 7-8.5 8.5-5-5L2 17"/></svg></span>Markup geral</div><div class="v">74,2%</div></div>
+          <div class="stat"><div class="k"><span style="color:#059669;background:rgba(16,185,129,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15v4"/></svg></span>Valor total</div><div class="v">R$ 86.412</div></div>
+          <div class="stat"><div class="k"><span style="color:#7C3AED;background:rgba(139,92,246,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/></svg></span>Fornecedores</div><div class="v">17</div></div>
+        </div>
+        <div id="vForn" style="display:none;flex:1;flex-direction:column">
+          <div class="fsub"><span id="chartTitle">Markup por fornecedor</span><span class="fcount"><b>17</b> fornecedores</span></div>
+          <div class="chart" id="chart"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tools" id="tools">
+      <span class="cnt"><b>48</b> notas</span>
+      <label class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Pesquisar nos itens…"></label>
+      <button class="tb" id="fbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></svg>Filtrar colunas</button>
+      <span class="grow"></span>
+      <button class="tb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg>Importar nota</button>
+      <button class="tb pri ic" title="Criar manifesto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+
+    <div class="tblw"><table>
+      <thead><tr><th>Situação</th><th>Destino</th><th>Código</th><th>Fornecedor</th><th>Data</th><th class="c">Itens</th><th class="c">Verificados</th><th class="r">Total</th><th>Financeiro</th><th style="width:70px"></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+
+  <div class="content" id="c-outra" style="display:none"><div class="ph-place">Conteúdo da aba <b id="otherName"></b> — fica como está nesta etapa (só as abas e a faixa mudam).</div></div>
+</main>
+
+<div class="anno">
+  <span><b>Mockup</b> — Entrada de Mercadoria</span>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const TABS = [['Notas', 48], ['Distribuição', 3], ['Dicionário'], ['Fornecedores'], ['Fabricantes'], ['Rascunhos', 2]];
+let tab = 0;
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = TABS.map((t, i) => `<button class="tab ${i === tab ? 'on' : ''}" data-i="${i}"><span class="l">${t[0]}</span>${t[1] ? `<span class="n">${t[1]}</span>` : ''}</button>`).join('');
+  document.getElementById('c-notas').style.display = tab === 0 ? '' : 'none';
+  document.getElementById('c-outra').style.display = tab === 0 ? 'none' : '';
+  document.getElementById('otherName').textContent = TABS[tab][0];
+}
+document.getElementById('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) { tab = +b.dataset.i; renderTabs(); } });
+renderTabs();
+
+// Calendário
+let sel = null;
+const notesDays = new Set([1, 2, 3, 6, 8, 9, 13, 14, 15, 20, 22, 23, 27, 29]);
+function renderCal() {
+  const first = 4, total = 31; let h = '';
+  for (let i = 0; i < first; i++) h += `<button class="out">${27 + i}</button>`;
+  for (let d = 1; d <= total; d++) h += `<button data-d="${d}" class="${d === 1 ? 'today' : ''} ${d === sel ? 'sel' : ''}">${d}${notesDays.has(d) ? '<i></i>' : ''}</button>`;
+  const rest = (7 - (first + total) % 7) % 7; for (let i = 1; i <= rest; i++) h += `<button class="out">${i}</button>`;
+  document.getElementById('days').innerHTML = h;
+  const p = document.getElementById('period');
+  p.className = 'period' + (sel ? ' f' : '');
+  p.innerHTML = sel ? `Data: ${String(sel).padStart(2, '0')}/10/2026 <span style="cursor:pointer" id="clr">✕</span>` : 'Mostrando: outubro 2026 (mês atual)';
+  const c = document.getElementById('clr'); if (c) c.onclick = () => { sel = null; renderCal(); };
+}
+document.getElementById('days').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) { sel = sel === +b.dataset.d ? null : +b.dataset.d; renderCal(); } });
+document.getElementById('rng').addEventListener('click', e => e.currentTarget.classList.toggle('on'));
+renderCal();
+
+// Gráfico
+const sups = [['DISPEL', 82, 18400], ['CHOCOMAR', 71, 9200], ['ARCOM', 65, 7600], ['ALVORADA', 88, 12100], ['ROMA', 59, 5400], ['CASA FORTE', 77, 8900], ['ÍRIS', 69, 4300], ['ATACADÃO', 91, 14200]];
+let mode = 'markup';
+function renderChart() {
+  const vals = sups.map(s => mode === 'markup' ? s[1] : s[2]); const max = Math.max(...vals);
+  document.getElementById('chartTitle').textContent = mode === 'markup' ? 'Markup por fornecedor' : 'Valor por fornecedor';
+  document.getElementById('chart').innerHTML = sups.map((s, i) => `<div class="bar"><b>${mode === 'markup' ? s[1] + '%' : 'R$ ' + (s[2] / 1000).toFixed(1) + 'k'}</b><i style="height:${Math.max(6, vals[i] / max * 100)}px;${mode === 'valor' ? 'background:#D81E1E' : ''}"></i><small>${s[0]}</small></div>`).join('');
+}
+document.getElementById('sw').addEventListener('click', e => {
+  const b = e.target.closest('[data-v]'); if (!b) return;
+  document.querySelectorAll('#sw button').forEach(x => x.classList.toggle('on', x === b));
+  const f = b.dataset.v === 'forn';
+  document.getElementById('vRes').style.display = f ? 'none' : '';
+  document.getElementById('vForn').style.display = f ? 'flex' : 'none';
+  document.getElementById('fornBtns').classList.toggle('show', f);
+});
+document.getElementById('chartMode').addEventListener('click', () => { mode = mode === 'markup' ? 'valor' : 'markup'; renderChart(); });
+renderChart();
+
+document.getElementById('fbtn').addEventListener('click', e => e.currentTarget.classList.toggle('on'));
+
+// Tabela
+const ST = [['s-rev', 'Revis.'], ['s-reg', 'Regis.'], ['s-agu', 'Aguard.'], ['s-apr', 'Aprov.']];
+const names = ['DISPEL MAXX', 'CHOCOMAR 01', 'ARCOM', 'DISTRIBUIDORA ALVORADA', 'PLASTICOS ROMA', 'CASA FORTE UTILIDADES', 'METALÚRGICA ÍRIS', 'ATACADÃO DO LAR', 'BRINQUEDOS ESTRELA'];
+const link = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>';
+const pen = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+const ok = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
+document.getElementById('rows').innerHTML = Array.from({ length: 16 }, (_, i) => {
+  const st = ST[i % 4], items = 8 + (i * 7) % 55, ver = st[0] === 's-apr' ? items : Math.floor(items * ((i % 3) / 3)), hasFin = i % 3 !== 1;
+  return `<tr><td><span class="stt ${st[0]}">${st[1]}</span></td><td style="color:var(--muted)">${i % 2 ? 'Universo 199' : 'Castelo Real'}</td><td class="mono">${39407 - i * 11}</td><td style="font-weight:800">${names[i % names.length]}</td><td class="mono">${String(29 - i).padStart(2, '0')}/09/2026</td><td class="c" style="font-weight:900">${items}</td><td class="c"><span class="ver ${ver === items ? 'ok' : 'pend'}">${ver}/${items}</span></td><td class="r mono" style="color:var(--text);font-weight:600">R$ ${(1769.44 + i * 341.7).toFixed(2).replace('.', ',')}</td><td><div class="fin"><span class="${hasFin ? '' : 'no'}">${hasFin ? names[i % names.length] : '—'}</span><button class="ab link ${hasFin ? 'on' : ''}" title="Vincular movimentação">${link}</button></div></td><td><div class="acts"><button class="ab ed" title="Ver / editar nota">${pen}</button>${st[0] !== 's-apr' ? `<button class="ab ap" title="Aprovar nota">${ok}</button>` : ''}</div></td></tr>`;
+}).join('');
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+</script>
+</body>
+</html>
