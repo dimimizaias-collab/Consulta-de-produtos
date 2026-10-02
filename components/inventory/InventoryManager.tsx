@@ -210,7 +210,7 @@ export function InventoryManager({
                 onClick={() => setActiveInventoryTab(tab)}
                 className={cn(
                   'min-w-[120px] h-8 px-3.5 flex items-center justify-center shrink-0',
-                  'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.08]',
+                  'bg-[#FBF35E] dark:bg-[#252520] border border-t-0 border-[#D9CF45] dark:border-white/[0.08]',
                   i === 0 ? 'border-l-0' : '-ml-px',
                   'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
                   active

@@ -90,11 +90,11 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
   if (!isMobileView) {
     const PageIcon = title ? getNavIcon(title) : null;
     return (
-      <header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.08]">
+      <header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08]">
         <button
           onClick={onToggleSidebar}
           title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-          className="w-16 shrink-0 flex items-center justify-center border-r border-[#D4C000] dark:border-white/[0.08] hover:bg-black/[0.07] dark:hover:bg-white/[0.06] transition-colors duration-[130ms] outline-none"
+          className="w-16 shrink-0 flex items-center justify-center border-r border-[#D9CF45] dark:border-white/[0.08] hover:bg-black/[0.07] dark:hover:bg-white/[0.06] transition-colors duration-[130ms] outline-none"
         >
           <span className="relative w-8 h-8 bg-white border border-black/[0.12] flex items-center justify-center">
             <Image src="/brand/logo.png" alt="Universo do R$1,99" fill className="object-contain p-[3px]" unoptimized priority />

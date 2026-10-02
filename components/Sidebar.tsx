@@ -69,7 +69,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, unreadNo
         <item.icon size={18} strokeWidth={isActive ? 2.5 : 2.1} />
 
         {badge > 0 && (
-          <span className="absolute top-2 right-2.5 w-[7px] h-[7px] rounded-full bg-[#D81E1E] shadow-[0_0_0_2px_#FFE500] dark:shadow-[0_0_0_2px_#252520]" />
+          <span className="absolute top-2 right-2.5 w-[7px] h-[7px] rounded-full bg-[#D81E1E] shadow-[0_0_0_2px_#FBF35E] dark:shadow-[0_0_0_2px_#252520]" />
         )}
 
         <span className={cn(
@@ -86,7 +86,7 @@ export function Sidebar({ activeTab, setActiveTab, isCollapsed = false, unreadNo
   };
 
   return (
-    <aside className="fixed left-0 top-11 bottom-0 z-40 w-16 flex flex-col items-center gap-1 py-2 bg-[#FFE500] dark:bg-[#252520] border-r border-[#D4C000] dark:border-white/[0.08]">
+    <aside className="fixed left-0 top-11 bottom-0 z-40 w-16 flex flex-col items-center gap-1 py-2 bg-[#FBF35E] dark:bg-[#252520] border-r border-[#D9CF45] dark:border-white/[0.08]">
       {NAV_ITEMS.filter(i => !BOTTOM_ITEMS.has(i.label)).map(renderItem)}
       <div className="flex-1" />
       {NAV_ITEMS.filter(i => BOTTOM_ITEMS.has(i.label)).map(renderItem)}
