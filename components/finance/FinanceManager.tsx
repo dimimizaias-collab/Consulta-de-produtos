@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode, type Key } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, X, Check, Edit2, Trash2, TrendingDown,
+  Plus, X, Check, Edit2, Trash2, TrendingDown, TrendingUp,
   Wallet, Search, ChevronLeft, ChevronRight, Building2, CreditCard, Upload,
   ImageIcon, Loader2, Users, FileUp, CheckSquare, BookOpen, Filter, Clock, CheckCircle2,
   AlertTriangle, Info, Lock, Unlock, Link2Off, Landmark,
@@ -1702,205 +1702,175 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
   // Editor de Vencimento / Parcelas — caminho único para dar vencimento a uma movimentação.
   // 1 linha = pagamento único com vencimento; 2+ linhas = parcelamento.
-  const renderParcelasSection = () => (
-    <div className="flex flex-col gap-2 md:col-span-2">
-      <div className="flex items-center justify-between">
-        <span className={labelCls}>Vencimento / Parcelas</span>
-        <button
-          onClick={() => {
-            const next = !parcelasEnabled;
-            setParcelasEnabled(next);
-            if (next && parcelas.length === 0)
-              setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: txForm.codigo_barras ?? '' }]);
-            else if (!next) {
-              setParcelas([]);
-              setEditingGroupIds(null);
-              setEditingParcelamentoId(null);
-            }
-          }}
-          className={cn(
-            'px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition-all',
-            parcelasEnabled
-              ? 'bg-primary text-on-primary'
-              : 'bg-on-surface/10 text-on-surface/60 hover:bg-on-surface/15'
-          )}
-        >
-          {parcelasEnabled ? 'Ativado' : 'Ativar'}
-        </button>
+  // ── Vencimento / Parcelas (modal de movimentação) ──
+  // Visual enxuto: até 3 parcelas por linha numa grade com linhas de tabela (Nº + data + valor;
+  // o ✕ aparece ao passar o mouse). O total aparece só no campo Valor e no rodapé do modal.
+  const parcInputCls = 'h-[30px] px-2 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] font-mono text-[12.5px] text-on-surface outline-none caret-[#D81E1E] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]';
+  const parcLabelCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55';
+  const nextParcelaDate = (prev: typeof parcelas) => {
+    const last = prev[prev.length - 1]?.data;
+    if (!last) return txForm.data;
+    const d = new Date(last + 'T00:00:00');
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const renderParcelasGrid = (cells: ReactNode[]) => {
+    const fill = (3 - (cells.length % 3)) % 3;
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-[#A8A290] dark:bg-white/20 border-b border-[#A8A290] dark:border-white/20">
+        {cells}
+        {Array.from({ length: fill }).map((_, i) => <span key={`fill-${i}`} className="hidden sm:block bg-white dark:bg-[#1E1E18]" />)}
       </div>
+    );
+  };
+  const renderParcelaCell = (key: Key, seq: number, dateEl: ReactNode, valueEl: ReactNode, onRemove?: () => void) => (
+    <div key={key} className="group/parc flex items-center gap-1.5 px-1.5 py-[5px] bg-white dark:bg-[#1E1E18] min-w-0">
+      <span className="w-[22px] shrink-0 text-center text-[10px] font-black text-on-surface/40">{seq}</span>
+      {dateEl}
+      {valueEl}
+      {onRemove ? (
+        <button
+          onClick={onRemove}
+          title="Remover parcela"
+          className="w-6 h-6 shrink-0 invisible group-hover/parc:visible border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center text-on-surface/40 hover:bg-[#D81E1E] hover:text-white hover:border-[#D81E1E] transition-colors"
+        >
+          <X size={11} strokeWidth={2.8} />
+        </button>
+      ) : null}
+    </div>
+  );
+  const removeParcela = (idx: number) => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })));
+  const addParcelaBtn = (onClick: () => void) => (
+    <div className="px-2.5 py-2">
+      <button
+        onClick={onClick}
+        className="h-[26px] flex items-center gap-1.5 px-2.5 border border-dashed border-[#D81E1E]/45 text-[10px] font-black uppercase tracking-[0.06em] text-[#D81E1E] hover:bg-[#D81E1E]/[0.06] transition-colors"
+      >
+        <Plus size={12} strokeWidth={2.8} />Adicionar parcela
+      </button>
+    </div>
+  );
 
-      {parcelasEnabled && (
-        <div className="flex flex-col gap-3">
+  const renderParcelasSection = () => {
+    const summary = !parcelasEnabled || parcelas.length === 0
+      ? 'Sem vencimento'
+      : parcelas.length === 1
+        ? <>Vencimento <b className="font-black text-on-surface">{fmtDate(parcelas[0].data)}</b></>
+        : <b className="font-black text-on-surface">{parcelas.length} parcelas</b>;
+    // Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou depois de
+    // "Editar todas as parcelas" — nunca a partir de uma única parcela de um grupo já
+    // existente, senão o "novo grupo" fica dessincronizado das irmãs.
+    const canAdd = !editingTx || !!editingGroupIds || (editingTx.total_parcelas ?? 1) <= 1;
+    return (
+      <div className="col-span-full order-last border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+        <div className={cn('h-8 flex items-center gap-2 pl-2.5 pr-1.5', parcelasEnabled && 'border-b border-[#E0D8BF] dark:border-white/[0.10]')}>
+          <span className={parcLabelCls}>Vencimento / Parcelas</span>
+          <span className="text-[11px] font-bold text-on-surface/45">{summary}</span>
+          <button
+            onClick={() => {
+              const next = !parcelasEnabled;
+              setParcelasEnabled(next);
+              if (next && parcelas.length === 0)
+                setParcelas([{ seq: 1, data: txForm.vencimento || txForm.data, valor: txForm.valor_final ? String(txForm.valor_final) : '', codigo_barras: txForm.codigo_barras ?? '' }]);
+              else if (!next) {
+                setParcelas([]);
+                setEditingGroupIds(null);
+                setEditingParcelamentoId(null);
+              }
+            }}
+            className={cn(
+              'ml-auto h-6 flex items-center gap-1.5 px-2.5 border text-[10px] font-black uppercase tracking-[0.08em] transition-colors',
+              parcelasEnabled
+                ? 'bg-[#D81E1E] border-[#D81E1E] text-white'
+                : 'bg-on-surface/[0.06] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/[0.1]'
+            )}
+          >
+            <span className={cn('relative w-[22px] h-3 rounded-full transition-colors', parcelasEnabled ? 'bg-white/35' : 'bg-on-surface/20')}>
+              <span className={cn('absolute top-0.5 left-0.5 w-2 h-2 rounded-full bg-white transition-transform', parcelasEnabled && 'translate-x-2.5')} />
+            </span>
+            {parcelasEnabled ? 'Ativado' : 'Ativar'}
+          </button>
+        </div>
+
+        {parcelasEnabled && (<>
           {editingTx && getParcelaGroupTotal(editingTx) !== null && !editingGroupIds && (
-            <div className="flex items-center justify-between gap-2 bg-primary/[0.06] border border-primary/15 rounded-xl px-3.5 py-2.5">
-              <span className="text-[11px] font-bold text-on-surface/60">
-                Parcela {editingTx.numero_parcela ?? 1} de {editingTx.total_parcelas ?? 1} · Total {fmt(getParcelaGroupTotal(editingTx)!)}
+            <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#E0D8BF] dark:border-white/[0.10] bg-[#D81E1E]/[0.05]">
+              <span className="text-[11px] font-bold text-on-surface/55">
+                Parcela <b className="text-on-surface">{editingTx.numero_parcela ?? 1} de {editingTx.total_parcelas ?? 1}</b> · Total <b className="text-on-surface">{fmt(getParcelaGroupTotal(editingTx)!)}</b>
               </span>
               <button
                 onClick={() => loadGroupIntoEditor(editingTx)}
-                className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold bg-primary text-on-primary hover:opacity-90 active:scale-[0.97] transition-all"
+                className="ml-auto h-6 px-2.5 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[10px] font-black uppercase tracking-[0.06em] active:scale-[0.97] transition-all"
               >
                 Editar todas as parcelas
               </button>
             </div>
           )}
           {editingGroupIds && (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3.5 py-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
-              Editando o parcelamento inteiro — parcelas removidas aqui são excluídas ao salvar; as demais mantêm o status de pagamento
+            <div className="px-2.5 py-1.5 border-b border-amber-500/30 bg-amber-500/[0.08] text-[10.5px] font-bold text-amber-700 dark:text-amber-400">
+              Editando o parcelamento inteiro — parcelas removidas aqui são excluídas ao salvar; as demais mantêm o status de pagamento.
             </div>
           )}
+          {renderParcelasGrid(parcelas.map((p, idx) => renderParcelaCell(
+            idx,
+            p.seq,
+            <input
+              type="date"
+              value={p.data}
+              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
+              className={cn(parcInputCls, 'w-[122px] shrink-0')}
+            />,
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={p.valor}
+              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+              onWheel={blockWheelChange}
+              placeholder="0,00"
+              className={cn(parcInputCls, noSpinnerCls, 'flex-1 min-w-0 text-right')}
+            />,
+            parcelas.length > 1 ? () => removeParcela(idx) : undefined,
+          )))}
+          {canAdd && addParcelaBtn(() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: nextParcelaDate(prev), valor: '', codigo_barras: '' }]))}
+        </>)}
+      </div>
+    );
+  };
 
-          <div className="rounded-xl border border-black/[0.10] dark:border-white/[0.10] overflow-hidden">
-            <div className="grid grid-cols-[52px_1fr_1fr_36px] bg-[#FFF7B0] dark:bg-[#FFE500] border-b border-[#DDD000] dark:border-[#C8B800]">
-              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Nº</span>
-              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Vencimento</span>
-              <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Valor</span>
-              <span />
-            </div>
-            {parcelas.map((p, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  'border-t border-black/[0.06] dark:border-white/[0.06] first:border-t-0',
-                  idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'
-                )}
-              >
-                <div className="grid grid-cols-[52px_1fr_1fr_36px] gap-2 items-center p-2">
-                  <span className="text-center text-[13px] font-extrabold text-on-surface/35">{p.seq}</span>
-                  <input
-                    type="date"
-                    value={p.data}
-                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, data: e.target.value } : x))}
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={p.valor}
-                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                    onWheel={blockWheelChange}
-                    placeholder="0,00"
-                    className={cn(inputCls, noSpinnerCls)}
-                  />
-                  {parcelas.length > 1 ? (
-                    <button
-                      onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
-                      title="Remover parcela"
-                      className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                    >
-                      <X size={13} />
-                    </button>
-                  ) : <span />}
-                </div>
-                {txForm.tipo_pagamento === 'Boleto' && (
-                  <div className="px-2 pb-2">
-                    <input
-                      type="text"
-                      value={p.codigo_barras}
-                      onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, codigo_barras: e.target.value } : x))}
-                      placeholder="Código de barras do boleto"
-                      className={inputCls}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
-            {/* Só permite adicionar parcela na criação, numa linha avulsa (sem grupo), ou
-                depois de "Editar todas as parcelas" — nunca a partir de uma única parcela de
-                um grupo já existente, senão o "novo grupo" fica dessincronizado das irmãs. */}
-            {(!editingTx || editingGroupIds || (editingTx.total_parcelas ?? 1) <= 1) && (
-              <button
-                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: txForm.data, valor: '', codigo_barras: '' }])}
-                className="flex items-center gap-1.5 text-xs font-extrabold text-primary hover:opacity-70 transition-opacity"
-              >
-                <Plus size={13} />Adicionar parcela
-              </button>
-            )}
-            {parcelas.length > 1 && totalParcelas > 0 && (
-              <span className="text-[11px] font-extrabold text-on-surface/50">
-                {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // Versão simplificada de renderParcelasSection para Crédito: sem toggle (sempre ativo
-  // enquanto Crédito estiver selecionado) e sem input de data — o usuário só digita o
-  // valor de cada parcela, o vencimento é sempre calculado a partir do cartão selecionado.
+  // Versão para Crédito: sem toggle (sempre ativo enquanto Crédito estiver selecionado) e sem
+  // input de data — o usuário só digita o valor de cada parcela; o vencimento é calculado pelo cartão.
   const renderCreditoParcelasSection = () => {
     const card = cards.find(c => c.id === txForm.card_id);
     return (
-      <div className="flex flex-col gap-2 md:col-span-2">
-        <span className={labelCls}>Parcelas{card ? ` — vencimento calculado pelo cartão ${card.nome}` : ''}</span>
-        {!card ? (
-          <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/40 select-none')}>
-            Selecione um cartão para calcular o vencimento
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="rounded-xl border border-black/[0.10] dark:border-white/[0.10] overflow-hidden">
-              <div className="grid grid-cols-[52px_1fr_1fr_36px] bg-[#FFF7B0] dark:bg-[#FFE500] border-b border-[#DDD000] dark:border-[#C8B800]">
-                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Nº</span>
-                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Valor</span>
-                <span className="py-2.5 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#1A1A0E]/60">Vencimento</span>
-                <span />
-              </div>
-              {parcelas.map((p, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    'border-t border-black/[0.06] dark:border-white/[0.06] first:border-t-0 grid grid-cols-[52px_1fr_1fr_36px] gap-2 items-center p-2',
-                    idx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]'
-                  )}
-                >
-                  <span className="text-center text-[13px] font-extrabold text-on-surface/35">{p.seq}/{Math.max(parcelas.length, p.seq)}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={p.valor}
-                    onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                    onWheel={blockWheelChange}
-                    placeholder="0,00"
-                    className={cn(inputCls, noSpinnerCls)}
-                  />
-                  <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none text-center')}>
-                    {p.data ? fmtDate(p.data) : '—'}
-                  </div>
-                  {parcelas.length > 1 ? (
-                    <button
-                      onClick={() => setParcelas(prev => prev.filter((_, i) => i !== idx).map((x, i) => ({ ...x, seq: i + 1 })))}
-                      title="Remover parcela"
-                      className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center text-on-surface/30 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                    >
-                      <X size={13} />
-                    </button>
-                  ) : <span />}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between pt-1">
-              <button
-                onClick={() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: '', valor: '', codigo_barras: '' }])}
-                className="flex items-center gap-1.5 text-xs font-extrabold text-primary hover:opacity-70 transition-opacity"
-              >
-                <Plus size={13} />Adicionar parcela
-              </button>
-              {parcelas.length > 1 && totalParcelas > 0 && (
-                <span className="text-[11px] font-extrabold text-on-surface/50">
-                  {parcelas.length} parcelas · Total <span className="text-primary">{fmt(totalParcelas)}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+      <div className="col-span-full order-last border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18]">
+        <div className={cn('h-8 flex items-center gap-2 pl-2.5 pr-1.5', card && 'border-b border-[#E0D8BF] dark:border-white/[0.10]')}>
+          <span className={parcLabelCls}>Parcelas</span>
+          <span className="text-[11px] font-bold text-on-surface/45">
+            {card ? <>vencimento pelo cartão <b className="font-black text-on-surface">{card.nome}</b></> : 'Selecione um cartão para calcular o vencimento'}
+          </span>
+        </div>
+        {card && (<>
+          {renderParcelasGrid(parcelas.map((p, idx) => renderParcelaCell(
+            idx,
+            p.seq,
+            <div className={cn(parcInputCls, 'w-[122px] shrink-0 flex items-center bg-black/[0.035] dark:bg-white/[0.03] text-on-surface/55 select-none')}>
+              {p.data ? fmtDate(p.data) : '—'}
+            </div>,
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={p.valor}
+              onChange={e => setParcelas(prev => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+              onWheel={blockWheelChange}
+              placeholder="0,00"
+              className={cn(parcInputCls, noSpinnerCls, 'flex-1 min-w-0 text-right')}
+            />,
+            parcelas.length > 1 ? () => removeParcela(idx) : undefined,
+          )))}
+          {addParcelaBtn(() => setParcelas(prev => [...prev, { seq: prev.length + 1, data: '', valor: '', codigo_barras: '' }]))}
+        </>)}
       </div>
     );
   };
@@ -3729,10 +3699,18 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             : parcelas.length === 1
               ? `Vencimento: ${fmtDate(parcelas[0].data)}`
               : `${parcelas.length} parcelas · Total ${fmt(totalParcelas)}`;
-          const sectionCls = 'md:col-span-2 bg-white dark:bg-[#252520] border border-black/[0.07] dark:border-white/[0.08] shadow-sm rounded-2xl p-5 space-y-4';
-          const sectionHeadCls = 'flex items-center gap-2';
-          const sectionTitleCls = 'text-[11px] font-extrabold uppercase tracking-wide text-[#1A1A0E] dark:text-[#F2F0E3]';
-          const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+          // Padrão quadrado (mesmo da janela da nota): seções com cabeçalho amarelo e fundo mais
+          // escuro, campos quadrados de 34px com rótulo em cima.
+          const sectionCls = 'md:col-span-2 bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10] [&>*:not(:first-child)]:m-2.5';
+          const sectionHeadCls = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] [&>svg]:!text-[#D81E1E]';
+          const sectionTitleCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+          const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-2.5';
+          const inputCls = 'h-[34px] px-2.5 bg-white dark:bg-[#1E1E18] text-[13px] font-semibold text-on-surface border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium w-full transition-[border-color,box-shadow]';
+          const labelCls = 'text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55 pl-px';
+          const viewBlockCls = 'min-h-[34px] px-2.5 py-1.5 bg-black/[0.035] dark:bg-white/[0.03] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface/70 select-none flex items-center';
+          const footerTotal = isFaturaRow
+            ? (txForm.usar_valor_real ? (txForm.valor_real ?? faturaValorConsolidado) : faturaValorConsolidado)
+            : (parcelasEnabled ? totalParcelas : (txForm.valor_final || 0));
           return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -3741,26 +3719,21 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-black/10 dark:border-white/[0.08] flex flex-col"
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-black/[0.12] dark:border-white/[0.08] flex flex-col"
             >
-              {/* Header */}
-              <div className="px-7 py-5 flex items-center gap-3.5 bg-[#FFE500] dark:bg-[#252520] border-b border-[#D4C000] dark:border-white/[0.07] shrink-0">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                  <Wallet size={20} />
+              {/* Barra de título — mesma cor do cabeçalho do site */}
+              <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Wallet size={15} strokeWidth={2.3} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">
-                    {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
-                  </h2>
-                  <p className="text-xs font-bold text-[#1A1A0E]/55 dark:text-white/35 mt-0.5">
-                    {editingId ? 'Ajuste os dados abaixo' : 'Preencha os dados abaixo'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <h2 className="flex-1 min-w-0 truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] leading-tight">
+                  {editingId ? 'Editar Movimentação' : 'Nova Movimentação'}
+                </h2>
+                <div className="flex items-center gap-1.5 shrink-0">
                   {isHrSalario && (
                     <span
                       title="Gerada pelo RH — apenas Conta, Tipo de Pagamento, Identificação e Observações podem ser editados."
-                      className="flex items-center gap-1.5 px-2.5 h-9 rounded-xl bg-black/[0.08] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/40 text-[10px] font-bold uppercase tracking-wide"
+                      className="flex items-center gap-1.5 px-2.5 h-[30px] border border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E]/50 dark:text-white/40 text-[9.5px] font-black uppercase tracking-[0.08em]"
                     >
                       <Lock size={12} /> RH
                     </span>
@@ -3771,24 +3744,26 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       onClick={handleToggleTxLock}
                       title={txLocked ? 'Habilitar edição' : 'Sair do modo de edição'}
                       className={cn(
-                        'w-9 h-9 rounded-xl flex items-center justify-center transition-colors',
-                        !txLocked ? 'bg-[#D81E1E]/10 text-[#D81E1E]' : 'bg-black/[0.08] dark:bg-white/[0.06] text-[#1A1A0E]/50 dark:text-white/35 hover:bg-black/[0.14] dark:hover:bg-white/[0.10]'
+                        'w-[30px] h-[30px] border flex items-center justify-center transition-colors',
+                        !txLocked ? 'bg-[#D81E1E]/10 text-[#D81E1E] border-[#D81E1E]/30' : 'border-black/[0.14] dark:border-white/[0.10] text-[#1A1A0E]/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E]'
                       )}
                     >
-                      <Edit2 size={15} />
+                      <Edit2 size={13} />
                     </button>
                   )}
                   <button
                     onClick={() => setShowTxModal(false)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.08] text-black/50 dark:text-white/35 hover:bg-black/[0.14] dark:hover:bg-white/[0.10] transition-colors"
+                    title="Fechar"
+                    className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                   >
-                    <X size={18} />
+                    <X size={15} strokeWidth={2.6} />
                   </button>
                 </div>
               </div>
 
               {/* Tabs: Receita / Despesa */}
-              <div className="px-7 pt-5 flex gap-3 shrink-0">
+              <div className="px-3.5 py-2.5 flex items-center gap-3 shrink-0 bg-[#EFE7CD] dark:bg-[#181814] border-b border-[#DDD2B0] dark:border-white/[0.08]">
+                <div className={cn('w-[320px] flex gap-0.5 p-0.5 bg-on-surface/[0.06] border border-[#E0D8BF] dark:border-white/[0.10]', (isLockedView || isHrSalario) && 'opacity-60')}>
                 {(['Receita', 'Despesa'] as TransactionType[]).map(tab => (
                   <button
                     key={tab}
@@ -3801,28 +3776,31 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       setEditingParcelamentoId(null);
                     }}
                     className={cn(
-                      'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all',
-                      (isLockedView || isHrSalario) && 'opacity-60 cursor-not-allowed',
+                      'flex-1 h-[30px] flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.08em] transition-colors',
+                      (isLockedView || isHrSalario) && 'cursor-not-allowed',
                       txForm.tipo === tab
-                        ? tab === 'Receita'
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                          : 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
-                        : 'bg-on-surface/5 text-on-surface/50 hover:bg-on-surface/10'
+                        ? tab === 'Receita' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                        : 'text-on-surface/45 hover:text-on-surface'
                     )}
                   >
+                    {tab === 'Receita' ? <TrendingUp size={12} strokeWidth={2.6} /> : <TrendingDown size={12} strokeWidth={2.6} />}
                     {tab}
                   </button>
                 ))}
+                </div>
+                <span className="text-[10.5px] font-bold text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55">
+                  {isLockedView || isHrSalario ? 'Somente leitura' : 'Escolha o tipo da movimentação'}
+                </span>
               </div>
 
-              <div className="px-7 py-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto">
+              <div className="px-3.5 py-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 overflow-y-auto">
 
               <div className={sectionCls}>
                 <div className={sectionHeadCls}>
                   <Users size={15} className="text-primary shrink-0" />
                   <span className={sectionTitleCls}>Identificação</span>
                 </div>
-                <div className={fieldGridCls}>
+                <div className={cn(fieldGridCls, 'md:grid-cols-[180px_minmax(0,1fr)]')}>
 
                 {/* Data */}
                 <div className="flex flex-col gap-1.5">
@@ -3860,7 +3838,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -4, scale: 0.98 }}
                               transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-[rgba(26,26,10,0.10)] dark:border-white/10 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-[rgba(26,26,10,0.10)] dark:border-white/10 shadow-xl overflow-hidden max-h-48 overflow-y-auto"
                             >
                               {favorecidos
                                 .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
@@ -3886,7 +3864,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         onClick={() => { setFavFreeMode(v => !v); setFavOpen(false); }}
                         title={favFreeMode ? 'Voltar ao modo com sugestões' : 'Digitar descrição livre (sem vincular a um favorecido cadastrado)'}
                         className={cn(
-                          'shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl border active:scale-[0.93] transition-all',
+                          'shrink-0 w-[34px] h-[34px] self-center flex items-center justify-center border active:scale-[0.93] transition-all',
                           favFreeMode
                             ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
                             : 'bg-on-surface/8 border-on-surface/10 text-on-surface/60 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400 hover:border-amber-500/30'
@@ -3899,7 +3877,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         type="button"
                         onClick={openNewFavorecido}
                         title="Cadastrar favorecido"
-                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        className="shrink-0 w-[34px] h-[34px] self-center flex items-center justify-center bg-white dark:bg-[#1E1E18] border border-dashed border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
                         style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
                       >
                         <Plus size={15} />
@@ -3907,7 +3885,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     </div>
                   )}
                   {favFreeMode && (
-                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/25 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                       <Unlock size={11} className="shrink-0" />
                       Modo livre: não será validado contra cadastros — vincule depois em Dados › Favorecidos
                     </div>
@@ -3921,7 +3899,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   <CreditCard size={15} className="text-primary shrink-0" />
                   <span className={sectionTitleCls}>Pagamento</span>
                 </div>
-                <div className={fieldGridCls}>
+                <div className={cn(fieldGridCls, 'md:grid-cols-4')}>
 
                 {/* Conta */}
                 <div className="flex flex-col gap-1.5">
@@ -3967,7 +3945,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         type="button"
                         onClick={openAddAccount}
                         title="Cadastrar conta"
-                        className="shrink-0 w-9 h-9 self-center flex items-center justify-center rounded-xl bg-on-surface/8 border border-on-surface/10 text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
+                        className="shrink-0 w-[34px] h-[34px] self-center flex items-center justify-center bg-white dark:bg-[#1E1E18] border border-dashed border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-[0.93] transition-all"
                         style={{ transition: 'all 160ms cubic-bezier(0.23,1,0.32,1)' }}
                       >
                         <Plus size={15} />
@@ -4096,7 +4074,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     </div>
 
                     <div className="flex flex-col gap-1.5 md:col-span-2">
-                      <div className="flex items-center justify-between bg-on-surface/[0.03] border border-dashed border-on-surface/[0.14] rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center justify-between bg-on-surface/[0.03] border border-dashed border-on-surface/[0.14] px-3.5 py-2.5">
                         <span className="text-[11px] font-bold text-on-surface/55">
                           Valor Consolidado <span className="opacity-70 font-medium">(soma automática dos lançamentos)</span>
                         </span>
@@ -4104,7 +4082,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       </div>
 
                       <div className={cn(
-                        'flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 border',
+                        'flex items-center justify-between gap-3 px-3.5 py-2.5 border',
                         txForm.usar_valor_real ? 'border-primary/25 bg-primary/[0.04]' : 'border-dashed border-on-surface/[0.14]'
                       )}>
                         <div className="flex-1 min-w-0">
@@ -4152,7 +4130,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     {isLockedView || isHrSalario ? (
                       <div className={viewBlockCls}>{fmt(parcelasEnabled ? totalParcelas : txForm.valor_final)}</div>
                     ) : parcelasEnabled ? (
-                      <div className={cn(inputCls, 'bg-on-surface/5 text-on-surface/60 select-none')}>
+                      <div className={cn(inputCls, 'flex items-center justify-end font-mono bg-black/[0.035] dark:bg-white/[0.03] text-on-surface/70 select-none')}>
                         {totalParcelas > 0 ? fmt(totalParcelas) : 'Soma das parcelas'}
                       </div>
                     ) : (
@@ -4249,7 +4227,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       onChange={e => setTxForm(f => ({ ...f, observacoes: e.target.value || null }))}
                       rows={3}
                       placeholder="Comentários sobre esta movimentação... (opcional)"
-                      className={cn(inputCls, 'resize-none')}
+                      className={cn(inputCls, 'resize-none h-16 py-2 leading-[1.45]')}
                     />
                   )}
                 </div>
@@ -4257,18 +4235,22 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
               </div>
 
-              <div className="px-7 py-5 border-t border-black/10 dark:border-white/[0.08] flex gap-3 shrink-0">
+              <div className="px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08] flex items-center gap-2 shrink-0">
+                <span className="h-9 inline-flex items-center gap-2 px-3 border border-[#E3CF2A] dark:border-[#FFE500]/30 bg-[#FFF4A8] dark:bg-[#FFE500]/[0.08] text-[#1A1A0E] dark:text-[#FFE500]">
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-65">Valor total</span>
+                  <span className="font-mono text-[14px]">{fmt(footerTotal)}</span>
+                </span>
                 {isLockedView ? (
-                  <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                  <button onClick={() => setShowTxModal(false)} className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all">
                     Fechar
                   </button>
                 ) : (<>
-                  <button onClick={() => setShowTxModal(false)} className="flex-1 py-2.5 rounded-xl border border-on-surface/10 text-sm font-bold text-on-surface/60 hover:bg-on-surface/5 transition-colors">
+                  <button onClick={() => setShowTxModal(false)} className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all">
                     Cancelar
                   </button>
-                  <button onClick={isFaturaRow ? handleSaveFaturaConsolidada : isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button onClick={isFaturaRow ? handleSaveFaturaConsolidada : isHrSalario ? handleSaveSalarioTx : handleTxSubmit} disabled={submitting} className="h-9 px-[18px] flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-60">
                     {submitting && <Loader2 size={14} className="animate-spin" />}
-                    {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                    {editingId ? 'Salvar alterações' : 'Adicionar'}
                   </button>
                 </>)}
               </div>

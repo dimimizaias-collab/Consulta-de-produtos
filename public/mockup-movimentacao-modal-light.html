@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movimentação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: rgba(26,26,10,0.12);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E;
+    --head: #EFE7CD; --head-border: #DDD2B0; --area: #F1EAD3; --label: rgba(26,26,10,0.58);
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --field: #FFFFFF; --field-border: #E0D8BF; --field-hover: #CFC4A2; --locked: rgba(26,26,10,0.035);
+    --card: #FFFFFF; --btn: rgba(26,26,10,0.06); --btn-hover: rgba(26,26,10,0.11);
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --menu: #FFFFFF; --menu-hover: #FFF8D0;
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3;
+    --head: #181814; --head-border: rgba(242,240,227,0.08); --area: #181814; --label: rgba(242,240,227,0.55);
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --field: #1E1E18; --field-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20); --locked: rgba(242,240,227,0.03);
+    --card: #252520; --btn: rgba(242,240,227,0.06); --btn-hover: rgba(242,240,227,0.11);
+    --th-text: rgba(26,26,10,0.58);
+    --menu: #2E2E28; --menu-hover: rgba(255,229,0,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text); font-family: 'DM Sans', sans-serif; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px 90px; }
+  button, input, select, textarea { font-family: inherit; }
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .anno b { color: #FFE500; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+
+  .modal { width: 100%; max-width: 900px; background: var(--modal); border: 1px solid var(--modal-border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+
+  /* Barra de título (mesma do cabeçalho do site) */
+  .tbar { height: 48px; display: flex; align-items: center; gap: 11px; padding: 0 12px 0 14px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .tico { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(26,26,10,0.09); color: var(--hdr-text); }
+  html.dark .tico { background: rgba(216,30,30,0.16); color: #D81E1E; }
+  .ttl b { display: block; font-size: 15px; font-weight: 900; line-height: 1.15; color: var(--hdr-text); }
+  .ttl small { font-size: 10.5px; font-weight: 700; color: rgba(26,26,10,0.5); }
+  html.dark .ttl small { color: var(--muted); }
+  .tr { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .rh { height: 30px; display: flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid rgba(26,26,10,0.14); color: rgba(26,26,10,0.5); font-size: 9.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+  html.dark .rh { border-color: var(--field-border); color: var(--muted); }
+  .sqb { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.14); background: transparent; color: rgba(26,26,10,0.5); cursor: pointer; transition: background 130ms, color 130ms, transform 130ms; }
+  html.dark .sqb { border-color: var(--field-border); color: var(--muted); }
+  .sqb:hover { background: rgba(216,30,30,0.09); color: #D81E1E; border-color: rgba(216,30,30,0.25); }
+  .sqb:active { transform: scale(0.93); }
+  .sqb.on { background: rgba(216,30,30,0.10); color: #D81E1E; border-color: rgba(216,30,30,0.3); }
+
+  /* Tipo: Receita / Despesa */
+  .typebar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--head); border-bottom: 1px solid var(--head-border); }
+  .seg { display: flex; width: 320px; padding: 2px; gap: 2px; background: var(--btn); border: 1px solid var(--field-border); }
+  .seg button { flex: 1; height: 30px; border: 0; background: transparent; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 130ms, color 130ms; }
+  .seg button:hover { color: var(--text); }
+  .seg button.rec.on { background: #059669; color: #fff; }
+  .seg button.des.on { background: #DC2626; color: #fff; }
+  .seg.dis { opacity: .6; pointer-events: none; }
+  .typebar .hint { font-size: 10.5px; font-weight: 700; color: var(--label); }
+
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 64vh; overflow-y: auto; }
+  .sec { border: 1px solid var(--field-border); background: var(--area); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); color: #1A1A0E; }
+  .sh span { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--th-text); }
+  .sh svg { color: #D81E1E; }
+  .sh .n { margin-left: auto; font-size: 10px; font-weight: 800; color: var(--th-text); letter-spacing: 0; text-transform: none; }
+  .grid { display: grid; gap: 10px; padding: 10px; }
+  .g2 { grid-template-columns: 160px minmax(0, 1fr); }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .g21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .fl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .lb { height: 12px; display: flex; align-items: center; gap: 5px; padding-left: 1px; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--label); white-space: nowrap; }
+  .f { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; transition: border-color 130ms, box-shadow 130ms; }
+  .f:hover { border-color: var(--field-hover); }
+  .f.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .f.mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; }
+  .f .ph { color: var(--faint); font-weight: 500; }
+  .f .ic { color: var(--muted); flex-shrink: 0; }
+  .f .chev { margin-left: auto; color: var(--muted); }
+  .f.val { font-family: 'DM Mono'; font-size: 15px; font-weight: 500; justify-content: flex-end; }
+  .f.val .pre { margin-right: auto; font: 900 10px 'DM Sans'; color: var(--muted); }
+  .f.lock { background: var(--locked); color: rgba(26,26,10,0.7); }
+  html.dark .f.lock { color: rgba(242,240,227,0.7); }
+  .f.lock:hover { border-color: var(--field-border); }
+  .rowf { display: flex; gap: 6px; }
+  .rowf .f { flex: 1; }
+  .addb { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px dashed var(--field-border); background: var(--field); color: var(--muted); cursor: pointer; }
+  .addb:hover { color: #D81E1E; border-color: rgba(216,30,30,0.45); }
+  .chip { height: 22px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; font-size: 9.5px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; border: 1px solid; }
+  .t1 { color: #7C3AED; border-color: rgba(124,58,237,.3); background: rgba(124,58,237,.07); }
+  .t2 { color: #0369A1; border-color: rgba(3,105,161,.3); background: rgba(3,105,161,.07); }
+  .notes { display: flex; gap: 6px; padding: 10px; flex-wrap: wrap; }
+  .note { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 9px; border: 1px solid var(--field-border); background: var(--field); font-size: 11.5px; font-weight: 700; }
+  .note small { font-family: 'DM Mono'; font-size: 10.5px; color: var(--muted); font-weight: 500; }
+  .note button { width: 20px; height: 20px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+  .note button:hover { color: #D81E1E; }
+  .link { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px dashed var(--field-border); background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+  .link:hover { color: #D81E1E; border-color: rgba(216,30,30,0.45); }
+  textarea { width: 100%; height: 60px; resize: none; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 8px 10px; font: 600 12.5px/1.45 'DM Sans'; outline: 0; caret-color: #D81E1E; }
+  textarea:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  textarea::placeholder { color: var(--faint); font-weight: 500; }
+  .tx-lock { height: 60px; padding: 8px 10px; border: 1px solid var(--field-border); background: var(--locked); font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+  /* Vencimento / Parcelas */
+  .parc { margin: 0 10px 10px; border: 1px solid var(--field-border); background: var(--field); }
+  .ph2 { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; }
+  .parc.open .ph2 { border-bottom: 1px solid var(--field-border); }
+  .ph2 .lb { height: auto; }
+  .ph2 .sum { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .ph2 .sum b { color: var(--text); font-weight: 900; }
+  .tg { margin-left: auto; height: 24px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--btn); color: var(--text); font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .tg i { width: 22px; height: 12px; border-radius: 999px; background: rgba(26,26,10,.2); position: relative; transition: background 130ms; }
+  html.dark .tg i { background: rgba(242,240,227,.2); }
+  .tg i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; border-radius: 999px; background: #fff; transition: transform 130ms; }
+  .tg.on { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .tg.on i { background: rgba(255,255,255,.35); }
+  .tg.on i::after { transform: translateX(10px); }
+  .ptbl { width: 100%; border-collapse: collapse; }
+  .ptbl th { height: 28px; padding: 0 8px; background: var(--th); color: var(--th-text); box-shadow: inset -1px 0 0 #B8A31F, inset 0 -1.5px 0 var(--th-bottom); font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; text-align: left; }
+  .ptbl th:last-child { box-shadow: inset 0 -1.5px 0 var(--th-bottom); }
+  .ptbl td { height: 38px; padding: 0 6px; border-bottom: 1px solid #A8A290; border-right: 1px solid #A8A290; }
+  html.dark .ptbl td { border-color: rgba(242,240,227,.2); }
+  .ptbl td:last-child { border-right: 0; }
+  .ptbl tr:nth-child(even) td { background: #FAF7EE; } html.dark .ptbl tr:nth-child(even) td { background: #1A1A15; }
+  .ptbl td.n { width: 44px; text-align: center; font-size: 11px; font-weight: 900; color: var(--muted); }
+  .ptbl td.x { width: 38px; text-align: center; }
+  .ptbl td.bar { padding: 0 6px; }
+  .ci { width: 100%; height: 28px; border: 1px solid var(--field-border); background: var(--field); padding: 0 8px; color: var(--text); font: 500 12.5px 'DM Mono'; outline: 0; caret-color: #D81E1E; }
+  .ci:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .ci.r { text-align: right; }
+  .ci.ro { background: var(--locked); color: var(--muted); }
+  .rm { width: 24px; height: 24px; border: 1px solid var(--field-border); background: var(--field); color: var(--muted); cursor: pointer; display: inline-grid; place-items: center; }
+  .rm:hover { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .pgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #A8A290; border-bottom: 1px solid #A8A290; }
+  html.dark .pgrid { background: rgba(242,240,227,.2); border-bottom-color: rgba(242,240,227,.2); }
+  .pi { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 6px; background: var(--field); }
+  .pgrid .fill { background: var(--field); }
+  .pi .no { width: 22px; flex-shrink: 0; text-align: center; font-size: 10px; font-weight: 900; color: var(--muted); }
+  .pi .ci { height: 30px; }
+  .pi .dt { width: 122px; flex-shrink: 0; }
+  .pi .vl { flex: 1; min-width: 0; }
+  .pi .rm { visibility: hidden; }
+  .pi:hover .rm { visibility: visible; }
+  .pf { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .addp { height: 26px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border: 1px dashed rgba(216,30,30,0.45); background: transparent; color: #D81E1E; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+  .addp:hover { background: rgba(216,30,30,0.06); }
+  .ptot { margin-left: auto; height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E3CF2A; background: #FFF4A8; color: #1A1A0E; font-size: 10.5px; font-weight: 700; }
+  html.dark .ptot { border-color: rgba(255,229,0,.32); background: rgba(255,229,0,.08); color: #FFE500; }
+  .ptot b { font: 500 12.5px 'DM Mono'; }
+  .gbanner { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--field-border); background: rgba(216,30,30,0.05); font-size: 11px; font-weight: 700; color: var(--muted); }
+  .gbanner b { color: var(--text); }
+  .gbanner button { margin-left: auto; height: 24px; padding: 0 10px; border: 0; background: #D81E1E; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+  .gwarn { padding: 7px 10px; border-bottom: 1px solid rgba(217,119,6,.3); background: rgba(217,119,6,.08); font-size: 10.5px; font-weight: 700; color: #B45309; }
+  html.dark .gwarn { color: #FCD34D; }
+  .cinfo { padding: 9px 10px; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .selreal { appearance: none; width: 100%; height: 34px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 0 26px 0 10px; font: 600 13px 'DM Sans'; outline: 0; cursor: pointer; }
+  .selw { position: relative; } .selw svg { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+  /* Rodapé */
+  .ftr { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--head); border-top: 1px solid var(--head-border); }
+  .tot { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #E3CF2A; background: #FFF4A8; color: #1A1A0E; }
+  html.dark .tot { border-color: rgba(255,229,0,.32); background: rgba(255,229,0,.08); color: #FFE500; }
+  .tot small { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
+  .tot b { font: 500 14px 'DM Mono'; }
+  .fb { height: 36px; padding: 0 18px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; transition: background 130ms, transform 130ms; }
+  .fb:hover { background: var(--btn); }
+  .fb:active { transform: scale(0.97); }
+  .fb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .fb.pri:hover { background: #B91818; }
+  .ml { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="modal">
+  <div class="tbar">
+    <div class="tico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></div>
+    <div class="ttl"><b id="title">Nova Movimentação</b></div>
+    <div class="tr">
+      <span class="rh" id="rh" style="display:none"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>RH</span>
+      <button class="sqb" id="editb" title="Habilitar edição" style="display:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+      <button class="sqb" title="Fechar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+  </div>
+
+  <div class="typebar">
+    <div class="seg" id="seg">
+      <button class="rec" data-t="rec"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>Receita</button>
+      <button class="des on" data-t="des"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg>Despesa</button>
+    </div>
+    <span class="hint" id="hint">Escolha o tipo da movimentação</span>
+  </div>
+
+  <div class="body" id="body"></div>
+
+  <div class="ftr" id="ftr"></div>
+</div>
+
+<div class="anno">
+  <span><b>Mockup</b> — Movimentação</span>
+  <button data-m="nova" class="on">Nova</button>
+  <button data-m="edit">Editar (travado)</button>
+  <button data-m="editing">Editar (editando)</button>
+  <button id="grp">Editar todas as parcelas</button>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const I = {
+  users: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
+  card: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+  tag: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.6-8.6a1 1 0 0 0 0-1.41z"/></svg>',
+  doc: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+  info: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  cal: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  chev: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>',
+  plus: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  link: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>',
+};
+let mode = 'nova';
+let tipoPag = 'Boleto', parcOn = false, groupEdit = false;
+const valorTotal = () => { const t = parcelas.reduce((a, p) => a + (+p.v || 0), 0); return t > 0 ? t : (mode === 'nova' ? 0 : 1769.44); };
+const moneyBR = v => v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+let parcelas = [];
+const brl = v => 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+function seedParcelas() {
+  parcelas = mode === 'nova' ? [] : [{ d: '2026-10-10', v: 589.81, b: '' }, { d: '2026-11-10', v: 589.81, b: '' }, { d: '2026-12-10', v: 589.82, b: '' }];
+  parcOn = mode !== 'nova';
+  groupEdit = false;
+}
+const fmtD = iso => iso.split('-').reverse().join('/');
+function parcBlock() {
+  const lock = mode === 'edit';
+  const money = v => (+v || 0).toFixed(2).replace('.', ',');
+  const total = parcelas.reduce((a, p) => a + (+p.v || 0), 0);
+  // item compacto: Nº + data + valor (+ remover ao passar o mouse) — 2 por linha
+  const item = (p, i, n, dateRO) => `<div class="pi"><span class="no">${i + 1}</span>` +
+    `<input class="ci dt ${dateRO ? 'ro' : ''}" ${dateRO ? 'readonly value="' + (p.d ? fmtD(p.d) : '—') + '"' : `type="date" value="${p.d}" data-d="${i}"`}>` +
+    `<input class="ci r vl" value="${money(p.v)}" data-v="${i}">` +
+    (n > 1 ? `<button class="rm" data-rm="${i}" title="Remover parcela">${I.x}</button>` : '') + '</div>';
+  const foot = (canAdd) => canAdd ? `<div class="pf"><button class="addp" data-add>${I.plus}Adicionar parcela</button></div>` : '';
+  const grid = items => { const fill = (3 - items.length % 3) % 3; return `<div class="pgrid">${items.join('')}${'<span class="fill"></span>'.repeat(fill)}</div>`; };
+
+  if (tipoPag === 'Crédito') {
+    const list = parcelas.length ? parcelas : [{ d: '', v: 1769.44 }];
+    const dts = ['2026-11-10', '2026-12-10', '2027-01-10', '2027-02-10'];
+    return `<div class="parc open"><div class="ph2"><span class="lb">Parcelas</span><span class="sum">vencimento pelo cartão <b>Nubank Empresas</b></span></div>
+      ${grid(list.map((p, i) => item({ ...p, d: dts[i] || '' }, i, list.length, true)))}${lock ? '' : foot(true)}</div>`;
+  }
+  const sum = !parcOn || !parcelas.length ? 'Sem vencimento' : parcelas.length === 1 ? `Vencimento <b>${fmtD(parcelas[0].d)}</b>` : `<b>${parcelas.length} parcelas</b>`;
+  let h = `<div class="parc ${parcOn && !lock ? 'open' : ''}"><div class="ph2"><span class="lb">Vencimento / Parcelas</span><span class="sum">${sum}</span>${lock ? '' : `<button class="tg ${parcOn ? 'on' : ''}" data-tg><i></i>${parcOn ? 'Ativado' : 'Ativar'}</button>`}</div>`;
+  if (parcOn && !lock) {
+    if (mode === 'editing' && !groupEdit) h += `<div class="gbanner">Parcela <b>1 de 3</b> · Total <b>${brl(1769.44)}</b><button data-grp>Editar todas as parcelas</button></div>`;
+    if (groupEdit) h += `<div class="gwarn">Editando o parcelamento inteiro — parcelas removidas aqui são excluídas ao salvar.</div>`;
+    const shown = mode === 'editing' && !groupEdit ? parcelas.slice(0, 1) : parcelas;
+    h += grid(shown.map((p, i) => item(p, i, shown.length, false)));
+    h += foot(mode === 'nova' || groupEdit);
+  }
+  return h + '</div>';
+}
+function F(v, opts = {}) {
+  const lock = mode === 'edit';
+  const cls = ['f', opts.mono ? 'mono' : '', opts.val ? 'val' : '', lock ? 'lock' : '', opts.focus && !lock ? 'focus' : ''].join(' ');
+  const inner = (opts.icon ? `<span class="ic">${opts.icon}</span>` : '') + (opts.pre ? `<span class="pre">${opts.pre}</span>` : '') + (v ? v : `<span class="ph">${opts.ph || ''}</span>`) + (opts.sel && !lock ? `<span class="chev">${I.chev}</span>` : '');
+  return `<div class="${cls}">${inner}</div>`;
+}
+const fl = (lb, field) => `<div class="fl"><span class="lb">${lb}</span>${field}</div>`;
+function render() {
+  const edit = mode !== 'nova', lock = mode === 'edit';
+  document.getElementById('title').textContent = edit ? 'Editar Movimentação' : 'Nova Movimentação';
+  document.getElementById('editb').style.display = edit ? '' : 'none';
+  document.getElementById('editb').classList.toggle('on', mode === 'editing');
+  document.getElementById('seg').classList.toggle('dis', lock);
+  document.getElementById('hint').textContent = lock ? 'Somente leitura' : 'Escolha o tipo da movimentação';
+  const fav = edit ? 'DISPEL MAXX' : '';
+  document.getElementById('body').innerHTML = `
+    <div class="sec"><div class="sh">${I.users}<span>Identificação</span></div>
+      <div class="grid g2">
+        ${fl('Data', F('02/10/2026', { mono: true, icon: I.cal }))}
+        ${fl('Favorecido', `<div class="rowf">${F(fav, { ph: 'Selecionar favorecido…', sel: true, focus: !edit })}${lock ? '' : `<button class="addb" title="Novo favorecido">${I.plus}</button>`}</div>`)}
+      </div></div>
+    <div class="sec"><div class="sh">${I.card}<span>Pagamento</span></div>
+      <div class="grid g4">
+        ${fl('Conta', F(edit ? 'Conta Movimento' : '', { ph: 'Selecionar…', sel: true }))}
+        ${fl('Tipo de pagamento', lock ? F(tipoPag) : `<div class="selw"><select class="selreal" id="tipoPag">${['Boleto', 'PIX', 'Crédito', 'Débito', 'Dinheiro'].map(t => `<option ${t === tipoPag ? 'selected' : ''}>${t}</option>`).join('')}</select>${I.chev}</div>`)}
+        ${tipoPag === 'Crédito' ? fl('Cartão', F('Nubank Empresas', { sel: true, icon: I.card })) : fl('Identificação', F(edit ? 'NF 39407' : '', { ph: 'Opcional' }))}
+        ${fl('Valor (R$)', F(valorTotal() > 0 ? moneyBR(valorTotal()) : '', { val: true, pre: 'R$', ph: '0,00' }))}
+      </div>${parcBlock()}</div>
+    <div class="sec"><div class="sh">${I.tag}<span>Classificação</span></div>
+      <div class="grid g21">
+        ${fl('Tags', `<div class="f ${lock ? 'lock' : ''}">${edit ? '<span class="chip t1">Mercadoria</span><span class="chip t2">Fixa</span>' : '<span class="ph">Adicionar tags…</span>'}${lock ? '' : `<span class="chev">${I.chev}</span>`}</div>`)}
+        ${fl('Estabelecimento', F(edit ? 'Castelo Real' : '', { ph: 'Selecionar…', sel: true }))}
+      </div></div>
+    <div class="sec"><div class="sh">${I.doc}<span>Notas fiscais vinculadas</span><span class="n">${edit ? '1 nota' : 'nenhuma'}</span></div>
+      <div class="notes">${edit ? `<span class="note">NF 39407 · DISPEL MAXX <small>R$ 1.769,44</small>${lock ? '' : `<button title="Desvincular">${I.x}</button>`}</span>` : ''}${lock ? '' : `<button class="link">${I.link}Vincular nota</button>`}</div></div>
+    <div class="sec"><div class="sh">${I.info}<span>Observações</span></div>
+      <div class="grid" style="grid-template-columns:1fr">${lock ? `<div class="tx-lock">Pagamento referente à nota 39407, em 3 boletos.</div>` : `<textarea placeholder="Comentários sobre esta movimentação… (opcional)">${edit ? 'Pagamento referente à nota 39407, em 3 boletos.' : ''}</textarea>`}</div></div>`;
+  document.getElementById('ftr').innerHTML = `<span class="tot"><small>Valor total</small><b>R$ ${moneyBR(valorTotal())}</b></span>` +
+    (lock ? `<button class="fb ml">Fechar</button>` : `<button class="fb ml">Cancelar</button><button class="fb pri">${edit ? 'Salvar alterações' : 'Adicionar'}</button>`);
+}
+document.getElementById('body').addEventListener('click', e => {
+  if (e.target.closest('[data-tg]')) { parcOn = !parcOn; if (parcOn && !parcelas.length) parcelas = [{ d: '2026-10-10', v: 0, b: '' }]; if (!parcOn) parcelas = []; render(); return; }
+  if (e.target.closest('[data-add]')) { const last = parcelas[parcelas.length - 1]; const d = last ? new Date(last.d + 'T00:00:00') : new Date('2026-10-10T00:00:00'); d.setMonth(d.getMonth() + (last ? 1 : 0)); parcelas.push({ d: d.toISOString().slice(0, 10), v: 0, b: '' }); render(); return; }
+  const rm = e.target.closest('[data-rm]'); if (rm) { parcelas.splice(+rm.dataset.rm, 1); render(); return; }
+  if (e.target.closest('[data-grp]')) { groupEdit = true; render(); }
+});
+document.getElementById('body').addEventListener('change', e => {
+  if (e.target.id === 'tipoPag') { tipoPag = e.target.value; if (tipoPag === 'Crédito' && !parcelas.length) parcelas = [{ d: '', v: 1769.44, b: '' }]; render(); return; }
+  if (e.target.dataset.v !== undefined) { parcelas[+e.target.dataset.v].v = parseFloat(e.target.value.replace(/\./g, '').replace(',', '.')) || 0; render(); }
+  if (e.target.dataset.d !== undefined) { parcelas[+e.target.dataset.d].d = e.target.value; render(); }
+});
+document.getElementById('grp').addEventListener('click', () => { mode = 'editing'; seedParcelas(); groupEdit = true; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x.dataset.m === 'editing')); render(); });
+document.getElementById('seg').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; document.querySelectorAll('#seg button').forEach(x => x.classList.toggle('on', x === b)); });
+document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; tipoPag = 'Boleto'; seedParcelas(); document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); render(); }));
+document.getElementById('editb').addEventListener('click', () => { mode = mode === 'edit' ? 'editing' : 'edit'; groupEdit = false; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x.dataset.m === mode)); render(); });
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+seedParcelas();
+render();
+</script>
+</body>
+</html>
