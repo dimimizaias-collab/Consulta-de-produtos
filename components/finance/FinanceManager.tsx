@@ -2049,26 +2049,16 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // na aba "Cartões", que tem um retorno cedo próprio (ver abaixo) para não mexer no
   // ternário grande main/dados já existente.
   const renderFinanceHeader = () => (
-    <div className="relative mb-14">
-      <div className="bg-[#FFE500] dark:bg-[#252520] border border-[#D4C000] dark:border-white/[0.07] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] px-6 py-5 flex items-center gap-3.5">
-        <div className="w-[52px] h-[52px] rounded-[14px] bg-[rgba(26,26,10,0.09)] dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center text-[#1A1A0E] dark:text-primary shrink-0">
-          <Wallet size={24} strokeWidth={2} />
-        </div>
-        <div>
-          <h1 className="text-[26px] font-black text-[#1A1A0E] dark:text-[#F2F0E3] tracking-tight leading-tight">Controle Financeiro</h1>
-        </div>
-      </div>
-
-      <div className="absolute left-0 top-full flex">
+    // Abas penduradas direto no cabeçalho do site (o título já fica nele). -ml-7/-mt-5 desfazem
+    // o padding do conteúdo pra colar na barra e no menu lateral.
+    <div className="sticky top-11 z-20 -ml-7 -mt-5 w-max">
+      <div className="flex">
         {([
           { key: 'main', label: 'Controle Financeiro' },
           { key: 'favorecidos', label: 'Favorecidos' },
           { key: 'contas', label: 'Contas' },
         ] as const).map((tab, i, arr) => {
-          const HEADER_TAB_LABEL_MAX = 12;
-          const label = tab.label.length > HEADER_TAB_LABEL_MAX
-            ? tab.label.slice(0, HEADER_TAB_LABEL_MAX - 1) + '…'
-            : tab.label;
+          const label = tab.label;
           const active = financeView === tab.key;
           return (
             <button
@@ -2081,18 +2071,17 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                 setFinanceView(tab.key);
               }}
               className={cn(
-                'w-[136px] h-[34px] flex items-center justify-center shrink-0',
-                'bg-[#FFE500] dark:bg-[#252520] border border-t-0 border-[#D4C000] dark:border-white/[0.07]',
-                i === arr.length - 1 && 'rounded-br-[12px]',
-                'text-[12px] font-extrabold uppercase tracking-wide truncate',
-                'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-                'transition-[opacity,transform] duration-150 active:scale-[0.97]',
+                'min-w-[120px] h-8 px-3.5 flex items-center justify-center shrink-0 whitespace-nowrap',
+                'bg-[#FBF35E] dark:bg-[#252520] border border-t-0 border-[#D9CF45] dark:border-white/[0.08]',
+                i === 0 ? 'border-l-0' : '-ml-px',
+                'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
                 active
-                  ? 'text-[#1A1A0E] dark:text-[#F2F0E3] opacity-100'
-                  : 'text-[#1A1A0E] dark:text-white/75 opacity-55 hover:opacity-85'
+                  ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
+                  : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+                'transition-transform duration-150 active:scale-[0.97]'
               )}
             >
-              {label}
+              <span className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{label}</span>
             </button>
           );
         })}
@@ -2514,7 +2503,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   if (financeView === 'favorecidos') {
     const favList = favorecidos.filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()));
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         {renderFinanceHeader()}
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -2614,7 +2603,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   if (financeView === 'contas') {
     const accList = accounts.filter(acc => !dadosAccSearch || acc.nome.toLowerCase().includes(dadosAccSearch.toLowerCase()));
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         {renderFinanceHeader()}
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -2698,24 +2687,24 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       {renderFinanceHeader()}
 
       {/* Calendar + ADM/Cartões/Contas */}
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'stretch', flexShrink: 0 }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', alignItems: 'stretch', flexShrink: 0 }}>
 
         {/* Mini Calendar */}
-        <div ref={calendarBoxRef} className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col">
-          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center justify-between gap-2.5">
-            <span className="text-[13px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
+        <div ref={calendarBoxRef} className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex flex-col">
+          <div className="h-8 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] pl-2.5 pr-1.5 flex items-center justify-between gap-2.5">
+            <span className="text-[12.5px] font-black text-[#1A1A0E] capitalize whitespace-nowrap">{calMonthLabel}</span>
 
             <div className="flex gap-1 flex-shrink-0">
               <div className="relative" ref={calLegendRef}>
                 <button
                   onClick={() => setCalLegendOpen(v => !v)}
                   className={cn(
-                    'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                    'w-[22px] h-[22px] flex items-center justify-center transition-colors',
                     calLegendOpen
                       ? 'bg-[#1A1A0E]/14 text-[#1A1A0E]'
                       : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
@@ -2731,7 +2720,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                       transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                      className="absolute left-0 top-[30px] z-20 w-[188px] bg-surface border border-on-surface/10 rounded-xl shadow-lg p-2.5 flex flex-col gap-1.5"
+                      className="absolute left-0 top-[26px] z-20 w-[188px] bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/10 shadow-lg p-2.5 flex flex-col gap-1.5"
                     >
                       <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 shrink-0" />
@@ -2769,7 +2758,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                   }
                 }}
                 className={cn(
-                  'w-[26px] h-[26px] rounded-[8px] flex items-center justify-center transition-colors',
+                  'w-[22px] h-[22px] flex items-center justify-center transition-colors',
                   calRangeMode
                     ? 'bg-[#D81E1E] text-white hover:opacity-90'
                     : 'bg-[rgba(26,26,10,0.08)] text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)]',
@@ -2779,20 +2768,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               </button>
               <button
                 onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
               >
                 <ChevronLeft size={12} strokeWidth={2.5} />
               </button>
               <button
                 onClick={() => setCalViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="w-[26px] h-[26px] rounded-[8px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
+                className="w-[22px] h-[22px] bg-[rgba(26,26,10,0.08)] flex items-center justify-center text-[rgba(26,26,10,0.55)] hover:bg-[rgba(26,26,10,0.14)] transition-colors"
               >
                 <ChevronRight size={12} strokeWidth={2.5} />
               </button>
             </div>
           </div>
 
-          <div className="p-3">
+          <div className="p-2">
             <div className="grid grid-cols-7 mb-1">
               {['D','S','T','Q','Q','S','S'].map((d, i) => (
                 <div key={i} className="text-center text-[8.5px] font-black uppercase tracking-wide text-on-surface/25 py-1">{d}</div>
@@ -2841,12 +2830,12 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       setCalSelectedDate(isSelected ? null : cellDate);
                     }}
                     className={cn(
-                      'h-[26px] flex items-center justify-center text-[10.5px] font-bold rounded-[8px] relative transition-all duration-[120ms]',
+                      'h-6 flex items-center justify-center text-[10.5px] font-bold relative transition-all duration-[120ms]',
                       cell.type !== 'curr' && 'text-on-surface/20 cursor-default',
                       cell.type === 'curr' && !isToday && !isSelected && !isRangeEndpoint && !isInRange && 'text-on-surface/55 hover:bg-on-surface/5 cursor-pointer',
                       isToday && !isSelected && !isRangeEndpoint && !isInRange && 'bg-primary/10 text-primary font-black',
-                      isSelected && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
-                      isRangeEndpoint && 'bg-primary text-white font-black shadow-[0_2px_6px_rgba(216,30,30,0.30)]',
+                      isSelected && 'bg-primary text-white font-black',
+                      isRangeEndpoint && 'bg-primary text-white font-black',
                       isInRange && 'bg-primary/15 text-primary font-bold',
                       cell.overdue && !isSelected && !isRangeEndpoint && 'ring-[1.5px] ring-amber-500',
                     )}
@@ -2864,7 +2853,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     )}
                     {(cell.overdue || cell.allPaid) && (
                       <span className={cn(
-                        'absolute -top-[5px] -right-[5px] w-[13px] h-[13px] rounded-full flex items-center justify-center border-[1.5px] border-surface-container-low',
+                        'absolute -top-[5px] -right-[5px] w-[13px] h-[13px] rounded-full flex items-center justify-center border-[1.5px] border-white dark:border-[#1E1E18]',
                         cell.overdue ? 'bg-amber-500' : 'bg-emerald-600',
                       )}>
                         {cell.overdue
@@ -2879,7 +2868,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
             {/* Range selection hint */}
             {calRangeMode && !(calRangeStart && calRangeEnd) && (
-              <div className="mt-2.5 flex items-center gap-1 bg-on-surface/[0.05] border border-on-surface/10 rounded-[10px] px-2.5 py-1.5">
+              <div className="mt-1.5 h-6 flex items-center gap-1 bg-[#FAF7EE] dark:bg-[#1A1A15] border border-[#E0D8BF] dark:border-white/[0.10] px-2">
                 <span className="text-[9.5px] font-bold text-on-surface/50 leading-none">
                   {!calRangeStart ? 'Selecione o dia inicial do período' : 'Selecione o dia final do período'}
                 </span>
@@ -2888,7 +2877,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
 
             {/* Active filter badge */}
             {(calSelectedDate || (calRangeStart && calRangeEnd)) && (
-              <div className="mt-2.5 flex items-center justify-between gap-1 bg-primary/[0.07] dark:bg-primary/[0.12] border border-primary/20 rounded-[10px] px-2.5 py-1.5">
+              <div className="mt-1.5 h-6 flex items-center justify-between gap-1 bg-primary/[0.06] dark:bg-primary/[0.12] border border-primary/25 px-2">
                 <span className="text-[9.5px] font-bold text-primary leading-none">
                   {calRangeStart && calRangeEnd
                     ? `Período: ${calRangeStart.toLocaleDateString('pt-BR')} – ${calRangeEnd.toLocaleDateString('pt-BR')}`
@@ -2913,20 +2902,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
         {/* Painel ADM / Cartões / Contas — limitado à altura do calendário ao lado (medida
             via ResizeObserver) e rola por dentro quando o conteúdo não cabe. */}
         <div
-          className="bg-surface-container-low border border-on-surface/[0.07] rounded-[18px] overflow-hidden flex flex-col"
+          className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-hidden flex flex-col"
           style={calendarBoxHeight ? { maxHeight: calendarBoxHeight } : undefined}
         >
-          <div className="bg-[#FFE500] dark:bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] px-4 py-2.5 flex items-center shrink-0">
-            <div className="flex-1 flex gap-0.5 bg-[rgba(26,26,10,0.10)] rounded-full p-[2px]">
+          <div className="h-8 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] px-1.5 flex items-center shrink-0">
+            <div className="w-3/5 min-w-[260px] flex gap-0.5 bg-[rgba(26,26,10,0.10)] p-[2px]">
               {(['adm', 'cartoes', 'contas'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setFinancePanelTab(tab)}
                   className={cn(
-                    'flex-1 px-2 py-[6px] rounded-full text-[9.5px] font-black uppercase tracking-[0.08em] transition-all duration-150 whitespace-nowrap',
+                    'flex-1 h-[22px] text-[9px] font-black uppercase tracking-[0.08em] transition-colors duration-150 whitespace-nowrap',
                     financePanelTab === tab
-                      ? 'bg-[#D81E1E] text-white shadow-sm'
-                      : 'text-[rgba(26,26,10,0.45)] hover:text-[rgba(26,26,10,0.70)]',
+                      ? 'bg-[#D81E1E] text-white'
+                      : 'text-[rgba(26,26,10,0.50)] hover:text-[rgba(26,26,10,0.75)]',
                   )}
                 >
                   {tab === 'adm' ? 'ADM' : tab === 'cartoes' ? 'Cartões' : 'Contas'}
@@ -2935,10 +2924,10 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             </div>
           </div>
 
-          <div className="p-2.5 flex-1 overflow-y-auto min-h-0 flex flex-col gap-1.5">
+          <div className="p-2 flex-1 overflow-y-auto min-h-0 flex flex-col gap-1.5">
             {financePanelTab === 'adm' ? (<>
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-[9px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-2 pr-2 py-2 flex items-center gap-2.5">
+                  <div className="w-[26px] h-[26px] bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
                     <Clock size={13} strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -2947,11 +2936,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       {vencimentoStats.count} {vencimentoStats.count === 1 ? 'movimentação' : 'movimentações'}
                     </p>
                   </div>
-                  <p className="text-[12px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</p>
+                  <p className="h-7 flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] text-[12.5px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.valor)}</p>
                 </div>
 
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-[9px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-2 pr-2 py-2 flex items-center gap-2.5">
+                  <div className="w-[26px] h-[26px] bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
                     <CheckCircle2 size={13} strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -2960,29 +2949,29 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       {vencimentoStats.pagoCount} {vencimentoStats.pagoCount === 1 ? 'movimentação quitada' : 'movimentações quitadas'}
                     </p>
                   </div>
-                  <p className="text-[12px] font-black shrink-0 tracking-tight text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</p>
+                  <p className="h-7 flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] text-[12.5px] font-black shrink-0 tracking-tight text-emerald-600 dark:text-emerald-400">{fmt(vencimentoStats.totalPago)}</p>
                 </div>
 
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-[9px] bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center shrink-0 text-rose-600 dark:text-[#D81E1E]">
+                <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-2 pr-2 py-2 flex items-center gap-2.5">
+                  <div className="w-[26px] h-[26px] bg-rose-500/10 dark:bg-[rgba(216,30,30,0.13)] flex items-center justify-center shrink-0 text-rose-600 dark:text-[#D81E1E]">
                     <TrendingDown size={13} strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] font-extrabold text-on-surface truncate">Saídas sem vencimento</p>
                     <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">Pagamentos à vista</p>
                   </div>
-                  <p className="text-[12px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.saidasValor)}</p>
+                  <p className="h-7 flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] text-[12.5px] font-black shrink-0 tracking-tight text-rose-600 dark:text-[#D81E1E]">{fmt(vencimentoStats.saidasValor)}</p>
                 </div>
             </>) : financePanelTab === 'cartoes' ? (
               cardFaturaStats.length === 0 ? (
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
+                <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex items-center justify-center py-6">
                   <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhum cartão cadastrado</p>
                 </div>
               ) : (
                 cardFaturaStats.map(({ card, valor, vencimento, fechamento, pago, temFatura }) => (
-                  <div key={card.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
+                  <div key={card.id} className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-2 pr-2 py-2 flex items-center gap-2.5">
                     <div className={cn(
-                      'w-7 h-7 rounded-[9px] flex items-center justify-center shrink-0',
+                      'w-[26px] h-[26px] flex items-center justify-center shrink-0',
                       temFatura ? 'bg-primary/[0.08] dark:bg-primary/[0.12] text-primary' : 'bg-on-surface/[0.06] dark:bg-white/[0.06] text-on-surface/40'
                     )}>
                       <CreditCard size={13} strokeWidth={2} />
@@ -2994,7 +2983,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       </p>
                     </div>
                     <p className={cn(
-                      'text-[12px] font-black shrink-0 tracking-tight',
+                      'h-7 flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] text-[12.5px] font-black shrink-0 tracking-tight',
                       !temFatura ? 'text-on-surface/25' : pago ? 'text-emerald-500' : 'text-rose-500'
                     )}>
                       {fmt(valor)}
@@ -3004,20 +2993,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               )
             ) : (
               accountBalances.length === 0 ? (
-                <div className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] flex items-center justify-center py-6">
+                <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] flex items-center justify-center py-6">
                   <p className="text-[11px] font-bold text-on-surface/25 text-center px-4">Nenhuma conta cadastrada</p>
                 </div>
               ) : (
                 accountBalances.map(a => (
-                  <div key={a.id} className="bg-surface-container border border-on-surface/[0.07] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-[9px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
+                  <div key={a.id} className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] pl-2 pr-2 py-2 flex items-center gap-2.5">
+                    <div className="w-[26px] h-[26px] bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center shrink-0 text-primary">
                       <CreditCard size={13} strokeWidth={2} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[10.5px] font-extrabold text-on-surface truncate">{a.nome}</p>
                       <p className="text-[9px] font-semibold text-on-surface/40 truncate mt-0.5">{a.banco}</p>
                     </div>
-                    <p className={cn('text-[12px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                    <p className={cn('h-7 flex items-center px-2 border border-[#E0D8BF] dark:border-white/[0.10] bg-[#FAF7EE] dark:bg-[#1A1A15] text-[12.5px] font-black shrink-0 tracking-tight', a.saldo >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
                       {fmt(a.saldo)}
                     </p>
                   </div>
@@ -3029,14 +3018,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-1.5">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface/40" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface/35" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar favorecido..."
-            className="pl-8 pr-4 py-2 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-on-surface/30 border border-on-surface/5 focus:outline-none focus:border-primary/50 w-48"
+            className="h-7 w-64 pl-8 pr-3 bg-white dark:bg-[#1E1E18] text-xs font-semibold text-on-surface placeholder:text-on-surface/25 placeholder:font-medium border border-[#E0D8BF] dark:border-white/[0.10] outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] transition-[border-color,box-shadow]"
           />
         </div>
 
@@ -3048,23 +3037,23 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           }}
           title={columnFiltersEnabled ? 'Desativar filtros' : 'Filtrar por coluna'}
           className={cn(
-            'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-all',
+            'h-7 flex items-center gap-1.5 px-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] border transition-all active:scale-[0.97]',
             columnFiltersEnabled
-              ? 'bg-primary text-white border-primary shadow-md'
-              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5',
+              ? 'bg-primary text-white border-primary'
+              : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/[0.05]',
             Object.values(columnFilters).some(s => s.size > 0) && !columnFiltersEnabled && 'ring-2 ring-primary/40',
           )}
         >
-          <Filter size={14} />
+          <Filter size={12} />
           Filtrar colunas
         </button>
 
         <button
           onClick={openAddTx}
           title="Nova Movimentação"
-          className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary text-on-primary shadow-md shadow-primary/20 hover:opacity-90 active:scale-[0.97] transition-all"
+          className="w-7 h-7 flex items-center justify-center bg-primary text-on-primary hover:bg-[#B91818] active:scale-[0.97] transition-all"
         >
-          <Plus size={16} />
+          <Plus size={14} strokeWidth={3} />
         </button>
 
         {mainTableView === 'comum' && (
@@ -3072,13 +3061,13 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             onClick={toggleSelectionMode}
             title={selectionMode ? 'Cancelar seleção' : 'Selecionar'}
             className={cn(
-              'w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
+              'w-7 h-7 flex items-center justify-center border transition-colors',
               selectionMode
-                ? 'bg-on-surface/10 text-on-surface border-on-surface/20 hover:bg-on-surface/15'
-                : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
+                ? 'bg-primary/[0.08] text-primary border-primary/30'
+                : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05]'
             )}
           >
-            <CheckSquare size={16} />
+            <CheckSquare size={13} />
           </button>
         )}
 
@@ -3086,9 +3075,9 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           <button
             onClick={() => setShowTagGuide(true)}
             title="Guia de tags"
-            className="w-9 h-9 rounded-xl flex items-center justify-center border border-on-surface/5 bg-surface-container-low text-on-surface/60 hover:bg-on-surface/5 transition-colors"
+            className="w-7 h-7 flex items-center justify-center border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05] transition-colors"
           >
-            <BookOpen size={16} />
+            <BookOpen size={13} />
           </button>
         )}
 
@@ -3116,13 +3105,13 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
           }}
           title={mainTableView === 'comum' ? 'Ver tabela de Cartões de Crédito' : 'Ver tabela de Movimentações'}
           className={cn(
-            'ml-auto w-9 h-9 rounded-xl flex items-center justify-center border transition-colors',
+            'ml-auto w-7 h-7 flex items-center justify-center border transition-colors',
             mainTableView === 'cartoes'
-              ? 'bg-primary text-on-primary border-primary shadow-md shadow-primary/20 hover:opacity-90'
-              : 'bg-surface-container-low border-on-surface/5 text-on-surface/60 hover:bg-on-surface/5'
+              ? 'bg-primary text-on-primary border-primary hover:bg-[#B91818]'
+              : 'bg-white dark:bg-[#1E1E18] border-[#E0D8BF] dark:border-white/[0.10] text-on-surface/50 hover:text-on-surface hover:bg-on-surface/[0.05]'
           )}
         >
-          <CreditCard size={16} />
+          <CreditCard size={13} />
         </button>
       </div>
 
@@ -3133,7 +3122,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl px-4 py-3"
+            className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 px-3 py-2"
           >
             <span className="text-sm text-rose-600 flex-1">{deleteError}</span>
             <button onClick={() => setDeleteError('')} className="text-rose-400 hover:text-rose-600">
@@ -3147,14 +3136,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3"
+            className="flex items-center gap-3 bg-primary/10 border border-primary/20 px-3 py-2"
           >
             <span className="text-sm font-bold text-primary flex-1">
               {selectedIds.size} {selectedIds.size === 1 ? 'movimentação selecionada' : 'movimentações selecionadas'}
             </span>
             <button
               onClick={selectAll}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-surface-container border border-on-surface/10 text-on-surface hover:bg-on-surface/5 transition-colors"
+              className="flex items-center gap-2 px-3 h-7 text-[10.5px] font-extrabold uppercase tracking-[0.05em] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-on-surface hover:bg-on-surface/5 transition-colors"
             >
               <CheckSquare size={13} />
               Selecionar Tudo
@@ -3162,7 +3151,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
             <button
               onClick={handleDeleteSelected}
               disabled={deletingSelected}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wide bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 h-7 text-[10.5px] font-extrabold uppercase tracking-[0.05em] bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {deletingSelected
                 ? <Loader2 size={13} className="animate-spin" />
@@ -3178,19 +3167,19 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       const activeColumns = mainTableView === 'cartoes' ? CARD_TABLE_COLUMNS : TABLE_COLUMNS;
       const showSelectCol = selectionMode && mainTableView === 'comum';
       return (
-      <div className="bg-surface-container-low/80 rounded-2xl border border-on-surface/5 overflow-hidden">
+      <div className="bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10]">
         {loadingData ? (
           <div className="flex items-center justify-center py-20 gap-3 text-on-surface/30">
             <Loader2 size={24} className="animate-spin" />
             <span className="text-sm font-semibold">Carregando...</span>
           </div>
         ) : (
-          <div ref={tableScrollRef} className="overflow-x-auto [&_tbody_td]:border-r [&_tbody_td]:border-on-surface/[0.04] dark:[&_tbody_td]:border-white/[0.03] [&_tbody_td:last-child]:border-r-0">
-            <table className="w-full text-sm">
+          <div ref={tableScrollRef} className="overflow-x-auto [&_tbody_td]:h-9 [&_tbody_td]:px-2.5 [&_tbody_td]:py-0 [&_tbody_td]:text-[12px] [&_tbody_td]:border-r [&_tbody_td]:border-b [&_tbody_td]:border-[#A8A290] dark:[&_tbody_td]:border-white/20 [&_tbody_td:last-child]:border-r-0">
+            <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-[#FFEC4D] dark:bg-[#FFEC4D] border-b border-[#E6CE33] dark:border-[#DCC63D]">
+                <tr className="bg-[#FFEC4D]">
                   {showSelectCol && (
-                    <th className="px-3 py-3 w-10" />
+                    <th className="h-8 px-2.5 w-10 shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10]" />
                   )}
                   {activeColumns.map(({ label, key }) => {
                     const hasFilter = (columnFilters[key]?.size ?? 0) > 0;
@@ -3223,7 +3212,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       closeFilter();
                     };
                     return (
-                      <th key={label || 'actions'} className="px-3 py-3 text-left whitespace-nowrap relative">
+                      <th key={label || 'actions'} className="h-8 px-2.5 text-left whitespace-nowrap relative shadow-[inset_-1px_0_0_#B8A31F,inset_0_-1.5px_0_#8F7E10] last:shadow-[inset_0_-1.5px_0_#8F7E10]">
                         {label ? (
                           <div className="inline-flex items-center gap-1">
                             <span
@@ -3232,10 +3221,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                               className={cn(
                                 // Cabeçalho da tabela é sempre amarelo (âncora de marca), em light e dark —
                                 // por isso o chip usa tokens escuros nos dois modos, sem variante dark: clara.
-                                'inline-flex items-center bg-[rgba(26,26,10,0.05)] rounded-full px-[13px] py-[5px] text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap border-[1.5px] transition-colors',
-                                columnFiltersEnabled
-                                  ? cn('border-[#D81E1E]/45', key && 'cursor-pointer', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E]')
-                                  : 'border-[rgba(26,26,10,0.10)] dark:border-[rgba(26,26,10,0.12)]',
+                                'inline-flex items-center text-[9px] font-black uppercase tracking-[0.10em] text-[rgba(26,26,10,0.55)] dark:text-[rgba(26,26,10,0.58)] whitespace-nowrap transition-colors',
+                                columnFiltersEnabled && key && cn('cursor-pointer px-1.5 py-0.5 -mx-1.5 border border-dashed border-[#D81E1E]/45', hasFilter && 'text-[#D81E1E] dark:text-[#D81E1E] border-solid'),
                               )}
                             >
                               {label}
@@ -3346,7 +3333,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     </td>
                   </tr>
                 ) : (
-                  filteredCartoes.map(t => {
+                  filteredCartoes.map((t, rowIdx) => {
                     const groupTotal = getParcelaGroupTotal(t);
                     const groupPago = getParcelaGroupPago(t);
                     const restante = groupTotal !== null && groupPago !== null ? groupTotal - groupPago : t.valor_final - t.total_pago;
@@ -3354,7 +3341,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       <tr
                         key={t.id}
                         className={cn(
-                          'border-b border-on-surface/15 dark:border-on-surface/5 transition-colors hover:bg-on-surface/[0.05] dark:hover:bg-on-surface/[0.02] bg-on-surface/[0.035] dark:bg-transparent',
+                          'transition-colors hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
+                          rowIdx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
                           t.pago && 'opacity-60'
                         )}
                       >
@@ -3438,7 +3426,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             <span className="text-red-600 dark:text-red-400 font-black ml-0.5" title="Vence em até 7 dias">*</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">
+                        <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-on-surface">
                           {fmt(t.valor_final)}
                           {groupTotal !== null && (
                             <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
@@ -3446,7 +3434,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             </span>
                           )}
                         </td>
-                        <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
+                        <td className={cn('px-4 py-3 whitespace-nowrap text-right font-mono', restante > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
                           {fmt(restante)}
                           {groupTotal !== null && (
                             <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
@@ -3457,20 +3445,20 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         <td className="px-4 py-3">
                           <div
                             title={t.pago ? 'Pago (definido pela fatura)' : 'Em aberto'}
-                            className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center',
+                            className={cn('w-4 h-4 border-[1.5px] flex items-center justify-center',
                               t.pago ? 'bg-primary/70 border-primary/70' : 'border-on-surface/20'
                             )}
                           >
-                            {t.pago && <Check size={12} className="text-on-primary" />}
+                            {t.pago && <Check size={10} strokeWidth={4} className="text-on-primary" />}
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
-                              <Edit2 size={14} />
+                            <button onClick={() => openEditTx(t)} className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center text-primary hover:bg-primary hover:text-white hover:border-primary transition-colors">
+                              <Edit2 size={12} />
                             </button>
-                            <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
-                              <Trash2 size={14} />
+                            <button onClick={() => handleDeleteTx(t.id)} className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center text-on-surface/45 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-colors">
+                              <Trash2 size={12} />
                             </button>
                           </div>
                         </td>
@@ -3493,7 +3481,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(t => {
+                  filtered.map((t, rowIdx) => {
                     const groupTotal = getParcelaGroupTotal(t);
                     const groupPago = getParcelaGroupPago(t);
                     const totalPagoDisplay = groupPago ?? t.total_pago;
@@ -3504,23 +3492,21 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         key={t.id}
                         onClick={selectionMode ? () => toggleSelectRow(t.id) : undefined}
                         className={cn(
-                          'border-b border-on-surface/15 dark:border-on-surface/5 transition-colors',
-                          selectionMode ? 'cursor-pointer' : 'hover:bg-on-surface/[0.05] dark:hover:bg-on-surface/[0.02]',
+                          'transition-colors',
+                          selectionMode ? 'cursor-pointer' : 'hover:bg-[#FFF8D0] dark:hover:bg-white/[0.04]',
                           isSelected
                             ? 'bg-primary/10 hover:bg-primary/15'
-                            : selectionMode
-                              ? 'hover:bg-on-surface/[0.03]'
-                              : 'bg-on-surface/[0.035] dark:bg-transparent',
+                            : rowIdx % 2 === 0 ? 'bg-white dark:bg-[#252520]' : 'bg-[#FAF7EE] dark:bg-[#1E1E18]',
                           t.pago && !isSelected && 'opacity-60'
                         )}
                       >
                         {selectionMode && (
                           <td className="px-4 py-3 w-10">
                             <div className={cn(
-                              'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                              'w-4 h-4 border-[1.5px] flex items-center justify-center transition-all',
                               isSelected ? 'bg-primary border-primary' : 'border-on-surface/20'
                             )}>
-                              {isSelected && <Check size={12} className="text-on-primary" />}
+                              {isSelected && <Check size={10} strokeWidth={4} className="text-on-primary" />}
                             </div>
                           </td>
                         )}
@@ -3646,7 +3632,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             <span className="text-red-600 dark:text-red-400 font-black ml-0.5" title="Vence em até 7 dias">*</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-on-surface">
+                        <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-on-surface">
                           {fmt(t.valor_final)}
                           {getParcelaGroupTotal(t) !== null && (
                             <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
@@ -3654,7 +3640,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-emerald-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-emerald-600 dark:text-emerald-400">
                           {fmt(totalPagoDisplay)}
                           {groupTotal !== null && (
                             <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
@@ -3662,7 +3648,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             </span>
                           )}
                         </td>
-                        <td className={cn('px-4 py-3 whitespace-nowrap font-semibold', restante > 0 ? 'text-rose-500' : 'text-emerald-500')}>
+                        <td className={cn('px-4 py-3 whitespace-nowrap text-right font-mono', restante > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>
                           {fmt(restante)}
                           {groupTotal !== null && (
                             <span className="block text-[9.5px] font-medium text-on-surface/35 mt-0.5">
@@ -3673,21 +3659,21 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => togglePago(t.id)}
-                            className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all',
+                            className={cn('w-4 h-4 border-[1.5px] flex items-center justify-center transition-all',
                               t.pago ? 'bg-primary border-primary' : 'border-on-surface/20 hover:border-primary/50'
                             )}
                           >
-                            {t.pago && <Check size={12} className="text-on-primary" />}
+                            {t.pago && <Check size={10} strokeWidth={4} className="text-on-primary" />}
                           </button>
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openEditTx(t)} className="w-7 h-7 rounded-lg hover:bg-on-surface/5 flex items-center justify-center text-on-surface/40 hover:text-primary transition-colors">
-                              <Edit2 size={14} />
+                            <button onClick={() => openEditTx(t)} className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center text-primary hover:bg-primary hover:text-white hover:border-primary transition-colors">
+                              <Edit2 size={12} />
                             </button>
                             {t.origem !== 'hr_salario' && (
-                              <button onClick={() => handleDeleteTx(t.id)} className="w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center text-on-surface/40 hover:text-rose-500 transition-colors">
-                                <Trash2 size={14} />
+                              <button onClick={() => handleDeleteTx(t.id)} className="w-[26px] h-[26px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] flex items-center justify-center text-on-surface/45 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-colors">
+                                <Trash2 size={12} />
                               </button>
                             )}
                           </div>
