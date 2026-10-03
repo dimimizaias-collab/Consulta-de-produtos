@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novo Fabricante</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: rgba(26,26,10,0.12);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E;
+    --head: #EFE7CD; --head-border: #DDD2B0; --area: #F1EAD3; --label: rgba(26,26,10,0.58);
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --field: #FFFFFF; --field-border: #E0D8BF; --field-hover: #CFC4A2; --locked: rgba(26,26,10,0.035);
+    --btn: rgba(26,26,10,0.06);
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --menu: #FFFFFF; --menu-hover: #FFF8D0;
+    --ok: #0A7A55; --warn: #B45309; --warn-bg: rgba(217,119,6,0.08); --warn-border: rgba(217,119,6,0.45);
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3;
+    --head: #181814; --head-border: rgba(242,240,227,0.08); --area: #181814; --label: rgba(242,240,227,0.55);
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --field: #1E1E18; --field-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20); --locked: rgba(242,240,227,0.03);
+    --btn: rgba(242,240,227,0.06);
+    --th-text: rgba(26,26,10,0.58);
+    --menu: #2E2E28; --menu-hover: rgba(255,229,0,0.08);
+    --ok: #34D399; --warn: #FCD34D; --warn-bg: rgba(252,211,77,0.07); --warn-border: rgba(252,211,77,0.40);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text); font-family: 'DM Sans', sans-serif; display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; justify-content: center; padding: 28px 16px 100px; }
+  button, input { font-family: inherit; }
+  .cap { width: 100%; max-width: 460px; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .col { width: 100%; max-width: 460px; }
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+  .anno b { color: #FFE500; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+
+  .modal { width: 100%; background: var(--modal); border: 1px solid var(--modal-border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+  .tbar { height: 48px; display: flex; align-items: center; gap: 11px; padding: 0 12px 0 14px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .tico { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(26,26,10,0.09); color: var(--hdr-text); flex-shrink: 0; }
+  html.dark .tico { background: rgba(216,30,30,0.16); color: #D81E1E; }
+  .ttl { flex: 1; min-width: 0; }
+  .ttl b { display: block; font-size: 15px; font-weight: 900; line-height: 1.15; color: var(--hdr-text); }
+  .ttl small { font-size: 10.5px; font-weight: 700; color: rgba(26,26,10,0.5); }
+  html.dark .ttl small { color: var(--muted); }
+  .sqb { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.14); background: transparent; color: rgba(26,26,10,0.5); cursor: pointer; transition: background 130ms, color 130ms, transform 130ms; }
+  html.dark .sqb { border-color: var(--field-border); color: var(--muted); }
+  .sqb:hover { background: rgba(216,30,30,0.09); color: #D81E1E; border-color: rgba(216,30,30,0.25); }
+  .sqb:active { transform: scale(0.93); }
+
+  .body { padding: 12px 14px; }
+  .sec { border: 1px solid var(--field-border); background: var(--area); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); }
+  .sh span { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--th-text); }
+  .sh svg { color: #D81E1E; }
+  .grid { display: grid; gap: 10px; padding: 10px; }
+  .fl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .lb { height: 12px; display: flex; align-items: center; gap: 4px; padding-left: 1px; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--label); }
+  .lb i { color: #D81E1E; font-style: normal; }
+  .in { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 13px; font-weight: 600; outline: 0; caret-color: #D81E1E; transition: border-color 130ms, box-shadow 130ms; }
+  .in:hover { border-color: var(--field-hover); }
+  .in:focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .in::placeholder { color: var(--faint); font-weight: 500; }
+  .in.mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; letter-spacing: .04em; }
+  .in.warn { border-color: var(--warn-border); }
+  .in.lock { background: var(--locked); color: var(--muted); cursor: not-allowed; }
+  .rowf { display: flex; gap: 6px; }
+  .rowf .in { flex: 1; min-width: 0; }
+  .gen { height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 11px; border: 1px dashed rgba(216,30,30,0.45); background: var(--field); color: #D81E1E; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: background 130ms, transform 130ms; }
+  .gen:hover { background: rgba(216,30,30,0.06); }
+  .gen:active { transform: scale(0.97); }
+  .gen:disabled { opacity: .4; cursor: not-allowed; }
+  .hint { font-size: 10.5px; font-weight: 600; line-height: 1.4; color: var(--muted); padding-left: 1px; }
+  .hint code { font-family: 'DM Mono'; font-size: 10.5px; color: var(--text); }
+  .st { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 10.5px; font-weight: 700; line-height: 1.35; animation: pop 160ms cubic-bezier(0.23,1,0.32,1); }
+  .st svg { flex-shrink: 0; margin-top: 1px; }
+  .st.ok { color: var(--ok); padding: 0 1px; }
+  .st.warn { color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-border); }
+  .st.warn b { color: var(--text); }
+  .st.err { color: #D81E1E; background: rgba(216,30,30,0.06); border: 1px solid rgba(216,30,30,0.35); }
+  .st.err b { color: var(--text); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  .tgl { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); cursor: pointer; }
+  .tgl i { width: 26px; height: 14px; border-radius: 999px; background: #059669; position: relative; flex-shrink: 0; }
+  .tgl i::after { content: ''; position: absolute; top: 2px; left: 14px; width: 10px; height: 10px; border-radius: 999px; background: #fff; }
+  .tgl b { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--ok); }
+  .tgl small { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+
+  .ftr { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--head); border-top: 1px solid var(--head-border); }
+  .fb { height: 36px; padding: 0 18px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background 130ms, transform 130ms; }
+  .fb:hover { background: var(--btn); }
+  .fb:active { transform: scale(0.97); }
+  .fb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .fb.pri:hover { background: #B91818; }
+  .fb.pri:disabled { opacity: .45; cursor: not-allowed; }
+  .ml { margin-left: auto; }
+
+  /* Select de fabricante (Editar/Novo Produto) */
+  .ms { position: relative; }
+  .menu { margin-top: 2px; border: 1px solid var(--field-border); background: var(--menu); box-shadow: 0 12px 30px -8px rgba(0,0,0,.25); max-height: 300px; overflow-y: auto; }
+  .opt { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+  .opt:hover { background: var(--menu-hover); }
+  .opt.none { font-size: 12.5px; font-style: italic; color: var(--muted); }
+  .opt .nm { flex: 1; min-width: 0; }
+  .opt .nm b { display: block; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .opt .nm small { display: block; font-family: 'DM Mono'; font-size: 10.5px; color: var(--muted); }
+  .pfx { height: 20px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid var(--field-border); font-family: 'DM Mono'; font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
+  mark { background: #FFE500; color: #1A1A0E; padding: 0 1px; }
+  html.dark mark { background: rgba(255,229,0,0.25); color: #FFE500; }
+  .mhint { padding: 6px 10px; font-size: 10px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--field-border); background: var(--locked); }
+  .sel-chev { position: absolute; right: 10px; top: 9px; color: var(--muted); pointer-events: none; }
+  .addb { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px dashed var(--field-border); background: var(--field); color: var(--muted); cursor: pointer; }
+  .addb:hover { color: #D81E1E; border-color: rgba(216,30,30,0.45); }
+</style>
+</head>
+<body>
+
+<div class="col">
+  <div class="cap">1 · Modal Novo / Editar Fabricante</div>
+  <div class="modal">
+    <div class="tbar">
+      <div class="tico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1M12 18h1M7 18h1"/></svg></div>
+      <div class="ttl"><b id="title">Novo Fabricante</b><small id="sub">Cadastrar fabricante/marca</small></div>
+      <button class="sqb" title="Fechar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="body">
+      <div class="sec">
+        <div class="sh"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>Dados do fabricante</span></div>
+        <div class="grid" id="fields"></div>
+      </div>
+    </div>
+    <div class="ftr"><button class="fb ml">Cancelar</button><button class="fb pri" id="save"></button></div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="cap">2 · Campo Fabricante / Marca (Editar e Novo Produto)</div>
+  <div class="sec" style="background:var(--area)">
+    <div class="sh"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.6-8.6a1 1 0 0 0 0-1.41z"/></svg><span>Organização</span></div>
+    <div class="grid">
+      <div class="fl"><span class="lb">Fabricante / Marca</span>
+        <div class="rowf">
+          <div class="ms" style="flex:1">
+            <input class="in" id="q" value="" placeholder="Nome, CNPJ ou prefixo..." style="padding-right:28px">
+            <svg class="sel-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            <div class="menu" id="menu"></div>
+          </div>
+          <button class="addb" title="Cadastrar novo fabricante"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+      </div>
+      <div class="hint">Experimente digitar <code>nestle</code>, <code>60409075</code> (CNPJ) ou <code>7</code> (prefixo).</div>
+    </div>
+  </div>
+</div>
+
+<div class="anno">
+  <span><b>Mockup</b> — Fabricante</span>
+  <button data-s="vazio" class="on">Novo (vazio)</button>
+  <button data-s="dup">CNPJ já cadastrado</button>
+  <button data-s="ok">CNPJ livre + prefixo gerado</button>
+  <button data-s="pfx">Prefixo em uso</button>
+  <button data-s="edit">Editar (prefixo travado)</button>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const MF = [
+  { name: 'Nestlé Brasil', cnpj: '60409075000152', prefix: '007' },
+  { name: 'Garoto', cnpj: '28053619000183', prefix: '012' },
+  { name: 'Ypê', cnpj: '59105999000186', prefix: '003' },
+  { name: 'Bauducco', cnpj: '62137618000108', prefix: '021' },
+  { name: 'Dispel Maxx', cnpj: null, prefix: '001' },
+  { name: 'Marca Própria', cnpj: null, prefix: '002' },
+];
+const fmtCnpj = d => d ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '';
+const W = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg>';
+const OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const WAND = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9"/></svg>';
+const LOCK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+const S = {
+  vazio: { name: '', cnpj: '', prefix: '', cnpjSt: '', pfxSt: 'hint' },
+  dup:   { name: 'Nestlé Purina', cnpj: '60.409.075/0001-52', prefix: '', cnpjSt: 'dup', pfxSt: 'hint' },
+  ok:    { name: 'Pilão', cnpj: '33.009.911/0001-39', prefix: '004', cnpjSt: 'ok', pfxSt: 'gen' },
+  pfx:   { name: 'Pilão', cnpj: '', prefix: '012', cnpjSt: '', pfxSt: 'used' },
+  edit:  { name: 'Garoto', cnpj: '28.053.619/0001-83', prefix: '012', cnpjSt: '', pfxSt: 'lock', edit: true },
+};
+function render(k) {
+  const s = S[k];
+  document.getElementById('title').textContent = s.edit ? 'Editar Fabricante' : 'Novo Fabricante';
+  document.getElementById('sub').textContent = s.edit ? 'Atualizar dados cadastrais' : 'Cadastrar fabricante/marca';
+  const cnpjSt = {
+    dup: `<div class="st warn">${W}<span>CNPJ já cadastrado em <b>Nestlé Brasil</b> (prefixo 007). Se for outra marca do mesmo fabricante, pode seguir.</span></div>`,
+    ok: `<div class="st ok">${OK}<span>CNPJ não cadastrado</span></div>`,
+  }[s.cnpjSt] || '';
+  const pfxSt = {
+    hint: `<div class="hint">Só números. Vira código no formato <code>7816-XXX-00001</code> (XXX = prefixo com 3 dígitos).</div>`,
+    gen: `<div class="st ok">${OK}<span>Prefixo livre — códigos sairão como 7816-004-00001</span></div>`,
+    used: `<div class="st err">${W}<span>Prefixo 012 já é usado por <b>Garoto</b>. Use “Gerar” para pegar um livre.</span></div>`,
+    lock: `<div class="hint">Prefixo travado — já existem códigos gerados para este fabricante.</div>`,
+  }[s.pfxSt];
+  document.getElementById('fields').innerHTML = `
+    <div class="fl"><span class="lb">Nome <i>*</i></span><input class="in" value="${s.name}" placeholder="ex: Nestlé"></div>
+    <div class="fl"><span class="lb">CNPJ</span><input class="in mono ${s.cnpjSt === 'dup' ? 'warn' : ''}" value="${s.cnpj}" placeholder="00.000.000/0000-00">${cnpjSt}</div>
+    <div class="fl"><span class="lb">Prefixo (código interno) <i>*</i></span>
+      <div class="rowf"><input class="in mono ${s.pfxSt === 'lock' ? 'lock' : ''} ${s.pfxSt === 'used' ? 'warn' : ''}" style="${s.pfxSt === 'used' ? 'border-color:rgba(216,30,30,.55)' : ''}" value="${s.prefix}" placeholder="ex: 7" ${s.pfxSt === 'lock' ? 'disabled' : ''}>
+      ${s.pfxSt === 'lock' ? '' : `<button class="gen" title="Gerar o próximo prefixo livre">${WAND}Gerar</button>`}</div>${pfxSt}</div>
+    ${s.edit ? `<div class="tgl"><i></i><b>Ativo</b><small>Inativo some das opções em produtos novos</small></div>` : ''}`;
+  const save = document.getElementById('save');
+  save.innerHTML = s.edit ? 'Salvar' : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Cadastrar';
+  save.disabled = !s.name || !s.prefix || s.pfxSt === 'used';
+}
+document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); render(b.dataset.s); }));
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+document.getElementById('fields').addEventListener('click', e => {
+  if (e.target.closest('.gen')) { const used = new Set(MF.map(m => +m.prefix)); let n = 1; while (used.has(n)) n++; const inp = e.target.closest('.rowf').querySelector('input'); inp.value = String(n).padStart(3, '0'); inp.style.borderColor = ''; e.target.closest('.fl').querySelector('.st, .hint').outerHTML = `<div class="st ok">${OK}<span>Prefixo livre — códigos sairão como 7816-${inp.value}-00001</span></div>`; }
+});
+
+// ── Busca do select ──
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const hl = (txt, q) => q ? txt.replace(new RegExp(esc(q), 'ig'), m => `<mark>${m}</mark>`) : txt;
+function hlDigits(fmt, qd) {
+  // destaca os dígitos do CNPJ formatado que batem com a busca só-dígitos
+  if (!qd) return fmt; const raw = fmt.replace(/\D/g, ''); const at = raw.indexOf(qd); if (at < 0) return fmt;
+  let out = '', di = 0; for (const ch of fmt) { const isD = /\d/.test(ch); const inR = isD && di >= at && di < at + qd.length; out += inR ? `<mark>${ch}</mark>` : ch; if (isD) di++; } return out.replace(/<\/mark>([.\/-])<mark>/g, '$1');
+}
+function renderMenu() {
+  const q = document.getElementById('q').value.trim(); const ql = q.toLowerCase(); const qd = q.replace(/\D/g, '');
+  const list = MF.filter(m => !q || m.name.toLowerCase().includes(ql) || (qd && m.cnpj && m.cnpj.includes(qd)) || (qd && (m.prefix.includes(qd) || +m.prefix === +qd)));
+  const rows = list.map(m => {
+    const pfxHit = qd && (m.prefix.includes(qd) || +m.prefix === +qd);
+    return `<button class="opt"><span class="nm"><b>${hl(m.name, q)}</b><small>${m.cnpj ? hlDigits(fmtCnpj(m.cnpj), qd.length >= 3 ? qd : '') : 'sem CNPJ'}</small></span><span class="pfx">${pfxHit ? `<mark>${m.prefix}</mark>` : m.prefix}</span></button>`;
+  }).join('');
+  document.getElementById('menu').innerHTML = `<div class="mhint">Busca por nome, CNPJ ou prefixo</div><button class="opt none">Sem fabricante</button>` + (rows || `<div class="opt none" style="cursor:default">Nenhum fabricante encontrado</div>`);
+}
+document.getElementById('q').addEventListener('input', renderMenu);
+render('vazio'); renderMenu();
+</script>
+</body>
+</html>

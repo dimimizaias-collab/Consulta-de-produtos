@@ -34,6 +34,7 @@ import { EanCodesEditor, type EanCodeEntry } from '@/components/shared/EanCodesE
 import { MotherProductsTab } from '@/components/inventory/MotherProductsTab';
 import { MotherProductModal, saveMotherPackage, type MotherPackageDraft } from '@/components/inventory/MotherProductModal';
 import { AddManufacturerModal } from '@/components/manufacturers/AddManufacturerModal';
+import { maskCnpj } from '@/lib/masks';
 import { Filter, Plus, Minus, X, Edit2, CheckCircle2, Download, FileUp, Search, Image as ImageIcon, RefreshCw, ChevronDown, ChevronRight,
   ChevronLeft,
   ChevronsLeft,
@@ -286,7 +287,7 @@ function ManufacturerSelect({
 }: {
   value: string | null;
   onChange: (id: string | null) => void;
-  manufacturers: { id: string; name: string; prefix: string; active: boolean }[];
+  manufacturers: { id: string; name: string; prefix: string; active: boolean; cnpj?: string | null }[];
   canCreate: boolean;
   onRequestCreate: () => void;
   placeholder?: string;
@@ -307,10 +308,20 @@ function ManufacturerSelect({
   // fica mostrando um select vazio sem explicação nenhuma.
   const selectable = useMemo(() => manufacturers.filter(m => m.active || m.id === value), [manufacturers, value]);
   const selected = selectable.find(m => m.id === value) || null;
-  const filtered = useMemo(
-    () => selectable.filter(m => m.name.toLowerCase().includes(search.toLowerCase())),
-    [selectable, search]
-  );
+  // Busca por nome, CNPJ (com ou sem pontuação) ou prefixo — "7" acha o prefixo "007".
+  const searchDigits = search.replace(/\D/g, '');
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return selectable;
+    return selectable.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      (!!searchDigits && (
+        (m.cnpj || '').replace(/\D/g, '').includes(searchDigits) ||
+        m.prefix.includes(searchDigits) ||
+        parseInt(m.prefix, 10) === parseInt(searchDigits, 10)
+      ))
+    );
+  }, [selectable, search, searchDigits]);
 
   return (
     <div className="flex gap-1.5 flex-1" ref={containerRef}>
@@ -354,12 +365,17 @@ function ManufacturerSelect({
                     type="button"
                     onClick={() => { onChange(m.id); setIsOpen(false); setSearch(''); }}
                     className={cn(
-                      "w-full text-left px-4 py-2 text-sm hover:bg-on-surface/5 transition-colors flex items-center justify-between gap-2",
+                      "w-full text-left px-4 py-1.5 text-sm hover:bg-[#FFF8D0] dark:hover:bg-[#FFE500]/[0.08] transition-colors flex items-center justify-between gap-2",
                       value === m.id ? "text-primary font-bold bg-primary/5" : "text-on-surface"
                     )}
                   >
-                    <span className="truncate">{m.name}</span>
-                    <span className="text-[10px] font-mono text-on-surface/30 shrink-0">{m.prefix}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate">{m.name}</span>
+                      <span className="block text-[10.5px] font-mono font-normal text-on-surface/40">
+                        {m.cnpj ? maskCnpj(m.cnpj) : 'sem CNPJ'}
+                      </span>
+                    </span>
+                    <span className="h-5 px-1.5 inline-flex items-center border border-[#E0D8BF] dark:border-white/[0.10] text-[10.5px] font-mono font-normal text-on-surface/45 shrink-0">{m.prefix}</span>
                   </button>
                 ))
               ) : (
