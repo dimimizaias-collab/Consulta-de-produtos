@@ -40,7 +40,7 @@ export function EanCodesEditor({ entries, onChange, className }: EanCodesEditorP
         type="button"
         onClick={() => setOpen(v => !v)}
         title="Adicionar outro código EAN"
-        className="w-10 shrink-0 bg-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary/20 transition-all relative"
+        className="w-[34px] h-[34px] shrink-0 border border-[#D81E1E]/30 bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-all relative"
       >
         <Plus size={18} />
         {filledCount > 0 && (

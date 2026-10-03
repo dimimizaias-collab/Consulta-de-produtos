@@ -187,19 +187,19 @@ function SearchableSelect({
 
   if (isAddingNew) {
     return (
-      <div className="flex gap-2 flex-1">
+      <div className="flex gap-1.5 flex-1">
         <input 
           type="text" 
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          className="flex-1 min-w-0 h-[34px] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] px-2.5 text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25"
           placeholder={addNewPlaceholder}
           autoFocus
         />
         <button 
           type="button"
           onClick={onToggleAddingNew}
-          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-slate-100 border-slate-200 text-slate-500"
+          className="w-[34px] h-[34px] flex items-center justify-center transition-colors shrink-0 border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 hover:text-[#D81E1E]"
         >
           <X size={18} />
         </button>
@@ -208,7 +208,7 @@ function SearchableSelect({
   }
 
   return (
-    <div className="flex gap-2 flex-1" ref={containerRef}>
+    <div className="flex gap-1.5 flex-1" ref={containerRef}>
       <div className="relative flex-1">
         <div className="relative">
           <input
@@ -220,7 +220,7 @@ function SearchableSelect({
             }}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+            className="w-full h-[34px] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] px-2.5 text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow] pr-8"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
             <ChevronDown size={16} />
@@ -233,7 +233,7 @@ function SearchableSelect({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-[60] left-0 right-0 mt-1 bg-surface-container-lowest border border-on-surface/10 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              className="absolute z-[60] -left-px -right-px mt-0.5 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-xl max-h-60 overflow-y-auto"
             >
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((opt) => (
@@ -263,7 +263,7 @@ function SearchableSelect({
       <button 
         type="button"
         onClick={onToggleAddingNew}
-        className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-red-500 border-red-600 text-white hover:bg-red-600"
+        className="w-[34px] h-[34px] flex items-center justify-center transition-colors shrink-0 border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 hover:text-[#D81E1E] hover:border-[#D81E1E]/45"
       >
         <Plus size={18} />
       </button>
@@ -313,7 +313,7 @@ function ManufacturerSelect({
   );
 
   return (
-    <div className="flex gap-2 flex-1" ref={containerRef}>
+    <div className="flex gap-1.5 flex-1" ref={containerRef}>
       <div className="relative flex-1">
         <div className="relative">
           <input
@@ -322,7 +322,7 @@ function ManufacturerSelect({
             onFocus={() => { setIsOpen(true); setSearch(''); }}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+            className="w-full h-[34px] bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] px-2.5 text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow] pr-8"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
             <ChevronDown size={16} />
@@ -335,7 +335,7 @@ function ManufacturerSelect({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-[60] left-0 right-0 mt-1 bg-surface-container-lowest border border-on-surface/10 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              className="absolute z-[60] -left-px -right-px mt-0.5 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-xl max-h-60 overflow-y-auto"
             >
               <button
                 type="button"
@@ -376,7 +376,7 @@ function ManufacturerSelect({
           type="button"
           onClick={onRequestCreate}
           title="Cadastrar novo fabricante"
-          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-red-500 border-red-600 text-white hover:bg-red-600"
+          className="w-[34px] h-[34px] flex items-center justify-center transition-colors shrink-0 border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 hover:text-[#D81E1E] hover:border-[#D81E1E]/45"
         >
           <Plus size={18} />
         </button>
@@ -473,6 +473,31 @@ async function fetchNoteManifestPricing(noteId: string, companyIds: string[]): P
   });
   return result;
 }
+
+// ── Modais de produto (Editar / Novo) — padrão quadrado da janela da nota ──
+const PM_FIELD = 'h-[34px] w-full px-2.5 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] text-[13px] font-semibold text-on-surface outline-none caret-[#D81E1E] hover:border-[#CFC4A2] dark:hover:border-white/[0.20] focus:!border-[#D81E1E] focus:shadow-[0_0_0_2px_rgba(216,30,30,0.12)] placeholder:text-on-surface/25 placeholder:font-medium transition-[border-color,box-shadow]';
+const PM_LABEL = 'block text-[9px] font-black uppercase tracking-[0.1em] text-[#1A1A0E]/[0.58] dark:text-[#F2F0E3]/55 pl-px mb-1 whitespace-nowrap';
+const PM_SEC = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:border-white/[0.10]';
+const PM_SEC_HEAD = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] [&>svg]:text-[#D81E1E]';
+const PM_SEC_TITLE = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
+const PM_SQ_BTN = 'w-[34px] h-[34px] shrink-0 flex items-center justify-center border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 hover:text-[#D81E1E] hover:border-[#D81E1E]/45 transition-colors disabled:opacity-30 disabled:cursor-not-allowed';
+const PM_TAB = (active: boolean, first: boolean) => cn(
+  'min-w-[120px] h-8 px-3.5 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap',
+  'bg-[#FBF35E] dark:bg-[#252520] border border-t-0 border-[#D9CF45] dark:border-white/[0.08]',
+  first ? 'border-l-0' : '-ml-px',
+  'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
+  active
+    ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
+    : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
+  'transition-transform duration-150 active:scale-[0.97]'
+);
+const PM_STATUS_OPTIONS = ['Estoque Baixo', 'Em Estoque', 'Estoque em Alta', 'Fora de Estoque'];
+const pmMoneyInput = (raw: string) => {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return { display: '', value: 0 };
+  const cents = parseInt(digits, 10);
+  return { display: (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), value: cents / 100 };
+};
 
 export default function Page() {
   const { isMobileView } = useViewMode();
@@ -7311,72 +7336,28 @@ export default function Page() {
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-[1180px] h-[min(860px,calc(100vh-32px))] flex flex-col overflow-hidden border border-black/10 dark:border-white/[0.08]"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] shadow-2xl w-full max-w-[1180px] h-[min(860px,calc(100vh-32px))] flex flex-col overflow-hidden border border-black/[0.12] dark:border-white/[0.08]"
             >
-              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800] shrink-0">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                  <Package size={20} />
+              {/* Barra de título — mesma cor do cabeçalho do site */}
+              <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={15} strokeWidth={2.3} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Editar Produto</h2>
-                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">{editingProduct.name || 'Produto sem nome'}</p>
-                </div>
+                <h2 className="flex-1 min-w-0 truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Editar Produto</h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                  title="Fechar"
+                  className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                 >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08] shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setEditProductTab('dados')}
-                  className={cn(
-                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
-                    editProductTab === 'dados'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-secondary hover:text-on-surface'
-                  )}
-                >
-                  Dados
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditProductTab('mae')}
-                  className={cn(
-                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
-                    editProductTab === 'mae'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-secondary hover:text-on-surface'
-                  )}
-                >
-                  Produto Mãe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditProductTab('historico')}
-                  className={cn(
-                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1.5',
-                    editProductTab === 'historico'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-secondary hover:text-on-surface'
-                  )}
-                >
-                  Histórico em Notas
-                  <span className={cn(
-                    'px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none',
-                    editProductTab === 'historico' ? 'bg-primary/10 text-primary' : 'bg-black/[0.06] dark:bg-white/[0.08] text-secondary/70'
-                  )}>
-                    {editProductEanHistory.length}
-                  </span>
+                  <X size={15} strokeWidth={2.6} />
                 </button>
               </div>
 
@@ -7385,268 +7366,153 @@ export default function Page() {
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
                 className="flex-1 min-h-0 flex flex-col"
               >
-                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                {/* Identificação — fixa acima das abas: não sai do lugar ao trocar de aba */}
+                <div className="shrink-0 bg-[#EFE7CD] dark:bg-[#181814] border-b border-[#D9CF45] dark:border-white/[0.08]">
+                  <div className={PM_SEC_HEAD}>
+                    <Package size={12} strokeWidth={2.4} />
+                    <span className={PM_SEC_TITLE}>Identificação</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_170px_230px_130px] gap-2.5 px-3.5 pt-2.5 pb-3">
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Nome do produto</label>
+                      <input
+                        required
+                        type="text"
+                        value={editingProduct.name}
+                        onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                        className={PM_FIELD}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>SKU</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={editingProduct.sku}
+                          onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
+                          className={cn(PM_FIELD, 'font-mono font-medium')}
+                        />
+                        <button
+                          type="button"
+                          disabled={!editingProduct.manufacturerId || suggestingCode}
+                          onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
+                          title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                          className={PM_SQ_BTN}
+                        >
+                          <Hash size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Código EAN</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={editingProduct.ean || ''}
+                          onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
+                          className={cn(PM_FIELD, 'flex-1 min-w-0 font-mono font-medium')}
+                          placeholder="789…"
+                        />
+                        <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>NCM</label>
+                      <input
+                        type="text"
+                        value={editingProduct.ncm || ''}
+                        onChange={(e) => setEditingProduct({...editingProduct, ncm: e.target.value.replace(/\D/g, '').slice(0, 8)})}
+                        className={cn(PM_FIELD, 'font-mono font-medium')}
+                        placeholder="00000000"
+                        title="Código fiscal do produto (8 dígitos) — necessário para gerar XML de NFe válido"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Abas — abaixo da Identificação */}
+                <div className="shrink-0 flex bg-[#EFE7CD] dark:bg-[#181814]">
+                  {([
+                    { key: 'dados', label: 'Dados' },
+                    { key: 'mae', label: 'Produto Mãe' },
+                    { key: 'historico', label: 'Histórico em Notas', count: editProductEanHistory.length },
+                  ] as const).map((t, i) => (
+                    <button key={t.key} type="button" onClick={() => setEditProductTab(t.key)} className={PM_TAB(editProductTab === t.key, i === 0)}>
+                      <span className={cn('transition-opacity', editProductTab === t.key ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{t.label}</span>
+                      {'count' in t && (
+                        <span className="text-[9px] font-black px-1.5 py-px rounded-full bg-black/[0.12] dark:bg-white/10">{t.count}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 space-y-2.5">
                 {editProductTab === 'dados' && editStatus === 'success' && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                    className="flex items-center gap-2 px-2.5 py-2 border border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-400 text-[12px] font-extrabold"
                   >
-                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                    <Check size={13} strokeWidth={2.8} />
                     Produto atualizado com sucesso!
                   </motion.div>
                 )}
 
                 {editProductTab === 'dados' && editStatus === 'error' && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
+                    className="px-2.5 py-2 border border-red-500/35 bg-red-500/[0.07] text-red-700 dark:text-red-400 text-[12px] font-bold"
                   >
                     {editError}
                   </motion.div>
                 )}
 
                 {editProductTab === 'dados' && (() => {
-                  const sectionCls = 'bg-surface border border-black/[0.07] dark:border-white/[0.06] shadow-sm rounded-2xl p-5 space-y-4';
-                  const sectionHeadCls = 'flex items-center gap-2';
-                  const sectionTitleCls = 'text-xs font-extrabold uppercase tracking-wide text-on-surface';
-                  const fieldGridCls = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
                   const costNum = Number(editingProduct.costPrice) || 0;
                   const priceNum = Number(editingProduct.price) || 0;
                   const editMarkup = costNum > 0 && priceNum > 0 ? ((priceNum - costNum) / costNum) * 100 : null;
-                  const labelCls = 'text-[10px] font-extrabold uppercase tracking-wide text-secondary/80';
-                  const inputCls = 'w-full bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] rounded-xl px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
-                  const statusOptions: { value: string; label: string }[] = [
-                    { value: 'Estoque Baixo', label: 'Estoque Baixo' },
-                    { value: 'Em Estoque', label: 'Em Estoque' },
-                    { value: 'Estoque em Alta', label: 'Estoque em Alta' },
-                    { value: 'Fora de Estoque', label: 'Fora de Estoque' },
-                  ];
                   return (
                 <>
-                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 items-start">
-                  {/* Coluna principal: Identificação + Estoque & Preço */}
-                  <div className="space-y-4 min-w-0">
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <Package size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Identificação</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3.5">
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Nome do Produto</label>
-                        <input
-                          required
-                          type="text"
-                          value={editingProduct.name}
-                          onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>SKU (Código Interno)</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={editingProduct.sku}
-                            onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})}
-                            className={inputCls}
-                          />
-                          <button
-                            type="button"
-                            disabled={!editingProduct.manufacturerId || suggestingCode}
-                            onClick={() => suggestManufacturerCode(editingProduct.manufacturerId, code => setEditingProduct((p: any) => ({...p, sku: code})))}
-                            title={editingProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
-                            className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
-                          >
-                            <Hash size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Código EAN</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={editingProduct.ean || ''}
-                            onChange={(e) => setEditingProduct({...editingProduct, ean: e.target.value})}
-                            className={cn(inputCls, 'flex-1 min-w-0')}
-                            placeholder="Código de barras..."
-                          />
-                          <EanCodesEditor entries={editingProductExtraEans} onChange={setEditingProductExtraEans} />
-                        </div>
-                      </div>
-                    </div>
+                {/* Organização, imagem e detalhes — área única no meio do módulo */}
+                <div className={PM_SEC}>
+                  <div className={PM_SEC_HEAD}>
+                    <BookText size={12} strokeWidth={2.4} />
+                    <span className={PM_SEC_TITLE}>Organização, imagem e detalhes</span>
                   </div>
-
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <BarChart3 size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
-                      {editMarkup !== null && (
-                        <span className={cn(
-                          'ml-auto px-2.5 py-0.5 rounded-full text-[10.5px] font-black',
-                          editMarkup >= 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
-                        )}>
-                          {editMarkup >= 0 ? '+' : ''}{editMarkup.toFixed(1).replace('.', ',')}% markup
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-                      <div className="col-span-2 md:col-span-4 space-y-1.5">
-                        <label className={labelCls}>Empresa</label>
-                        <select
-                          value={editProductCompanyId}
-                          onChange={(e) => handleEditProductCompanyChange(e.target.value)}
-                          className={cn(inputCls, 'cursor-pointer')}
+                  <div className="grid grid-cols-1 md:grid-cols-[112px_minmax(0,1fr)_minmax(0,0.9fr)] gap-3 p-2.5 items-start">
+                    <div className="flex flex-col gap-1.5">
+                      <span className={cn(PM_LABEL, 'mb-0')}>Imagem</span>
+                      <div className="w-28 h-28 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-hidden flex items-center justify-center text-on-surface/25">
+                        {editingProduct.image ? <ProductImage src={editingProduct.image} alt={editingProduct.name} /> : <ImageIcon size={22} />}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = window.prompt('Link da imagem do produto', editingProduct.image || '');
+                            if (url !== null) setEditingProduct({...editingProduct, image: url.trim()});
+                          }}
+                          title={editingProduct.image ? 'Alterar link da imagem' : 'Colar link da imagem'}
+                          className={cn(PM_SQ_BTN, 'flex-1 w-auto h-7')}
                         >
-                          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
-                          {companies.map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Qtd. em Estoque</label>
-                        <input
-                          type="number"
-                          value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
-                          onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
-                          onWheel={blockWheelChange}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Estoque Mínimo</label>
-                        <input
-                          type="number"
-                          value={editingProduct.minStock ?? ''}
-                          onChange={(e) => setEditingProduct({...editingProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
-                          onWheel={blockWheelChange}
-                          placeholder="Não definido"
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Preço de Custo (R$)</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={editProductCostPriceDisplay}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '');
-                            if (!digits) {
-                              setEditProductCostPriceDisplay('');
-                              setEditingProduct({...editingProduct, costPrice: 0});
-                              return;
-                            }
-                            const cents = parseInt(digits, 10);
-                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                            setEditProductCostPriceDisplay(display);
-                            setEditingProduct({...editingProduct, costPrice: cents / 100});
-                          }}
-                          placeholder="0,00"
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Preço de Venda (R$)</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={editProductPriceDisplay}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '');
-                            if (!digits) {
-                              setEditProductPriceDisplay('');
-                              setEditingProduct({...editingProduct, price: 0});
-                              return;
-                            }
-                            const cents = parseInt(digits, 10);
-                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                            setEditProductPriceDisplay(display);
-                            setEditingProduct({...editingProduct, price: cents / 100});
-                          }}
-                          placeholder="0,00"
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="col-span-2 md:col-span-4 space-y-1.5">
-                        <label className={labelCls}>Status</label>
-                        <div className="flex flex-wrap gap-2">
-                          {statusOptions.map(opt => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setEditingProduct({...editingProduct, status: opt.value})}
-                              className={cn(
-                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
-                                editingProduct.status === opt.value
-                                  ? 'bg-primary/10 border-primary text-primary'
-                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
-                              )}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  </div>
-
-                  {/* Coluna lateral: Imagem + Organização + Detalhes */}
-                  <div className="space-y-4 min-w-0">
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <ImageIcon size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Imagem</span>
-                    </div>
-                    <div className="flex gap-3 items-center">
-                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
-                        {editingProduct.image ? (
-                          <ProductImage src={editingProduct.image} alt={editingProduct.name} />
-                        ) : (
-                          <ImageIcon size={20} />
-                        )}
-                      </div>
-                      <div className="flex-1 flex gap-2 min-w-0">
-                        <input
-                          type="text"
-                          value={editingProduct.image}
-                          onChange={(e) => setEditingProduct({...editingProduct, image: e.target.value})}
-                          className={cn(inputCls, 'flex-1 min-w-0')}
-                          placeholder="https://..."
-                        />
-                        <input
-                          type="file"
-                          ref={editImageInputRef}
-                          onChange={(e) => handleImageUpload(e, true)}
-                          className="hidden"
-                          accept="image/*"
-                        />
+                          <LinkIcon size={13} />
+                        </button>
+                        <input type="file" ref={editImageInputRef} onChange={(e) => handleImageUpload(e, true)} className="hidden" accept="image/*" />
                         <button
                           type="button"
                           onClick={() => editImageInputRef.current?.click()}
                           disabled={uploading}
-                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
-                          title="Upload do computador"
+                          title="Enviar arquivo do computador"
+                          className={cn(PM_SQ_BTN, 'flex-1 w-auto h-7')}
                         >
-                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
+                          {uploading ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Upload size={13} />}
                         </button>
                       </div>
                     </div>
-                  </div>
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <BookText size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Organização</span>
-                    </div>
-                    <div className={fieldGridCls}>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Localização</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 min-w-0">
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Localização</label>
                         <SearchableSelect
                           value={editingProduct.location}
                           onChange={(val) => setEditingProduct({...editingProduct, location: val})}
@@ -7658,8 +7524,18 @@ export default function Page() {
                           defaultValue="Não atribuído"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Categoria</label>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Fabricante / marca</label>
+                        <ManufacturerSelect
+                          value={editingProduct.manufacturerId}
+                          onChange={(id) => setEditingProduct({...editingProduct, manufacturerId: id})}
+                          manufacturers={manufacturers}
+                          canCreate={canManageManufacturers}
+                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Categoria</label>
                         <SearchableSelect
                           value={editingProduct.category}
                           onChange={(val) => setEditingProduct({...editingProduct, category: val})}
@@ -7671,8 +7547,8 @@ export default function Page() {
                           defaultValue="Geral"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Subcategoria</label>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Subcategoria</label>
                         <SearchableSelect
                           value={editingProduct.subcategory}
                           onChange={(val) => setEditingProduct({...editingProduct, subcategory: val})}
@@ -7684,45 +7560,103 @@ export default function Page() {
                           defaultValue="Geral"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Fabricante/Marca</label>
-                        <ManufacturerSelect
-                          value={editingProduct.manufacturerId}
-                          onChange={(id) => setEditingProduct({...editingProduct, manufacturerId: id})}
-                          manufacturers={manufacturers}
-                          canCreate={canManageManufacturers}
-                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
-                        />
-                      </div>
                     </div>
-                  </div>
-
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <FileText size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Detalhes</span>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Composição</label>
+                      <textarea
+                        value={editingProduct.composicao || ''}
+                        onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
+                        placeholder="Ingredientes / composição do produto..."
+                        className={cn(PM_FIELD, 'h-28 py-2 resize-none leading-[1.45]')}
+                      />
                     </div>
-                    <div className={fieldGridCls}>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Composição</label>
-                        <textarea
-                          value={editingProduct.composicao || ''}
-                          onChange={(e) => setEditingProduct({...editingProduct, composicao: e.target.value})}
-                          placeholder="Ingredientes / composição do produto..."
-                          rows={2}
-                          className={cn(inputCls, 'resize-none')}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
                   </div>
                 </div>
 
+                {/* Estoque & Preço — uma linha só, na parte inferior */}
+                <div className={PM_SEC}>
+                  <div className={PM_SEC_HEAD}>
+                    <BarChart3 size={12} strokeWidth={2.4} />
+                    <span className={PM_SEC_TITLE}>Estoque &amp; Preço</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-[minmax(0,1.2fr)_92px_92px_112px_112px_92px_minmax(0,1fr)] gap-2.5 p-2.5 items-end">
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Empresa</label>
+                      <select value={editProductCompanyId} onChange={(e) => handleEditProductCompanyChange(e.target.value)} className={cn(PM_FIELD, 'cursor-pointer font-bold')}>
+                        {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+                        {companies.map((c: any) => <option key={c.id} value={c.id}>{c.nome_fantasia}</option>)}
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Qtd. estoque</label>
+                      <input
+                        type="number"
+                        value={isNaN(editingProduct.count) ? 0 : editingProduct.count}
+                        onChange={(e) => setEditingProduct({...editingProduct, count: parseInt(e.target.value || '0') || 0})}
+                        onWheel={blockWheelChange}
+                        className={cn(PM_FIELD, 'text-right font-mono font-medium')}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Est. mínimo</label>
+                      <input
+                        type="number"
+                        value={editingProduct.minStock ?? ''}
+                        onChange={(e) => setEditingProduct({...editingProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
+                        onWheel={blockWheelChange}
+                        placeholder="—"
+                        className={cn(PM_FIELD, 'text-right font-mono font-medium')}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Preço custo</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editProductCostPriceDisplay}
+                        onChange={(e) => { const m = pmMoneyInput(e.target.value); setEditProductCostPriceDisplay(m.display); setEditingProduct({...editingProduct, costPrice: m.value}); }}
+                        placeholder="0,00"
+                        className={cn(PM_FIELD, 'text-right font-mono font-medium')}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Preço venda</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editProductPriceDisplay}
+                        onChange={(e) => { const m = pmMoneyInput(e.target.value); setEditProductPriceDisplay(m.display); setEditingProduct({...editingProduct, price: m.value}); }}
+                        placeholder="0,00"
+                        className={cn(PM_FIELD, 'text-right font-mono font-medium')}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Markup</label>
+                      <div className={cn(
+                        'h-[34px] flex items-center justify-end px-2.5 border font-mono text-[13px]',
+                        editMarkup === null ? 'border-[#E0D8BF] dark:border-white/[0.10] bg-black/[0.035] dark:bg-white/[0.03] text-on-surface/35'
+                          : editMarkup >= 0 ? 'border-emerald-500/35 bg-emerald-500/[0.09] text-emerald-700 dark:text-emerald-400'
+                          : 'border-red-500/35 bg-red-500/[0.07] text-red-700 dark:text-red-400'
+                      )}>
+                        {editMarkup === null ? '—' : `${editMarkup.toFixed(1).replace('.', ',')} %`}
+                      </div>
+                    </div>
+                    <div className="min-w-0 col-span-2 md:col-span-1">
+                      <label className={PM_LABEL}>Status</label>
+                      <select
+                        value={editingProduct.status || ''}
+                        onChange={(e) => setEditingProduct({...editingProduct, status: e.target.value})}
+                        className={cn(PM_FIELD, 'cursor-pointer font-bold text-emerald-700 dark:text-emerald-400')}
+                      >
+                        {!PM_STATUS_OPTIONS.includes(editingProduct.status) && <option value={editingProduct.status || ''}>{editingProduct.status || 'Selecionar…'}</option>}
+                        {PM_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
                 </>
                   );
                 })()}
-
                 {editProductTab === 'mae' && (
                   <MotherProductsTab childProductId={editingProduct.id || null} childProductName={editingProduct.name || 'Produto sem nome'} />
                 )}
@@ -7818,15 +7752,15 @@ export default function Page() {
                 )}
                 </div>
 
-                {/* Rodapé fixo — Excluir / Cancelar / Salvar (Salvar e Excluir só valem para a aba Dados) */}
-                <div className="shrink-0 flex items-center gap-2.5 px-6 py-3 bg-[#FFF7B0] dark:bg-[#252520] border-t border-[#DDD000] dark:border-white/[0.06]">
+                {/* Rodapé — Excluir / Cancelar / Salvar (Salvar e Excluir só valem para a aba Dados) */}
+                <div className="shrink-0 flex items-center gap-2 px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08]">
                   {editProductTab === 'dados' && (
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="h-11 px-5 rounded-[13px] inline-flex items-center gap-2 text-[13px] font-extrabold text-primary bg-primary/[0.07] dark:bg-primary/10 border-[1.5px] border-primary/[0.28] dark:border-primary/35 hover:bg-primary/[0.14] active:scale-[0.97] transition-all"
+                      className="h-9 px-[18px] inline-flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.04em] text-[#D81E1E] bg-[#D81E1E]/[0.06] border border-[#D81E1E]/35 hover:bg-[#D81E1E] hover:text-white active:scale-[0.97] transition-all"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={13} />
                       Excluir
                     </button>
                   )}
@@ -7836,7 +7770,7 @@ export default function Page() {
                       setShowEditModal(false);
                       setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                     }}
-                    className="ml-auto h-11 px-5 rounded-[13px] text-[13px] font-extrabold bg-black/[0.08] dark:bg-white/[0.07] text-[#1A1A0E]/60 dark:text-[#F2F0E3]/60 hover:bg-black/[0.13] dark:hover:bg-white/[0.11] active:scale-[0.97] transition-all"
+                    className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all"
                   >
                     {editProductTab === 'dados' ? 'Cancelar' : 'Fechar'}
                   </button>
@@ -7845,14 +7779,14 @@ export default function Page() {
                       type="submit"
                       disabled={editStatus === 'loading' || editStatus === 'success'}
                       className={cn(
-                        'h-11 px-5 min-w-[190px] rounded-[13px] inline-flex items-center justify-center gap-2 text-[13px] font-extrabold text-white active:scale-[0.97] transition-all disabled:cursor-default',
-                        editStatus === 'success' ? 'bg-emerald-700' : 'bg-primary hover:bg-[#BF1A1A] shadow-lg shadow-primary/30 disabled:opacity-60'
+                        'h-9 px-[18px] min-w-[180px] inline-flex items-center justify-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.04em] text-white active:scale-[0.97] transition-all disabled:cursor-default',
+                        editStatus === 'success' ? 'bg-emerald-700' : 'bg-[#D81E1E] hover:bg-[#B91818] disabled:opacity-60'
                       )}
                     >
                       {editStatus === 'loading'
                         ? <><span className="w-3.5 h-3.5 border-2 border-white/35 border-t-white rounded-full animate-spin" />Salvando…</>
-                        : editStatus === 'success' ? <><Check size={15} />Salvo!</>
-                        : <><Save size={15} />Salvar Alterações</>}
+                        : editStatus === 'success' ? <><Check size={14} />Salvo!</>
+                        : <><Save size={14} />Salvar alterações</>}
                     </button>
                   )}
                 </div>
@@ -8772,361 +8706,308 @@ export default function Page() {
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-[#F0E7CC] dark:bg-[#1E1E18] rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-black/10 dark:border-white/[0.08]"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="relative bg-[#FDFAF0] dark:bg-[#1E1E18] shadow-2xl w-full max-w-[1180px] h-[min(760px,calc(100vh-32px))] flex flex-col overflow-hidden border border-black/[0.12] dark:border-white/[0.08]"
             >
-              <div className="px-6 py-5 flex items-center gap-3.5 bg-[#FFE500] border-b border-[#D4C000] dark:border-[#C8B800]">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
-                  <Package size={20} />
+              {/* Barra de título — mesma cor do cabeçalho do site */}
+              <div className="h-12 pl-3.5 pr-3 flex items-center gap-[11px] bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08] shrink-0">
+                <div className="w-[30px] h-[30px] flex items-center justify-center shrink-0 bg-black/[0.09] dark:bg-[#D81E1E]/[0.16] text-[#1A1A0E] dark:text-[#D81E1E]">
+                  <Package size={15} strokeWidth={2.3} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-manrope font-extrabold text-[#1A1A0E] leading-tight">Adicionar Novo Produto</h2>
-                  <p className="text-xs font-bold text-[#1A1A0E]/55 mt-0.5 truncate">Preencha os dados para cadastrar no inventário</p>
-                </div>
+                <h2 className="flex-1 min-w-0 truncate text-[15px] font-black text-[#1A1A0E] dark:text-[#F2F0E3]">Novo Produto</h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setIsAddingNew({ location: false, category: false, subcategory: false, brand: false });
                   }}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-black/[0.08] border border-black/10 text-black/50 hover:bg-black/[0.14] transition-colors"
+                  title="Fechar"
+                  className="w-[30px] h-[30px] flex items-center justify-center shrink-0 border border-black/[0.14] dark:border-white/[0.10] text-black/50 dark:text-white/40 hover:bg-[#D81E1E]/[0.09] hover:text-[#D81E1E] hover:border-[#D81E1E]/25 active:scale-[0.93] transition-all duration-[130ms]"
                 >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="px-6 pt-3 flex items-center gap-1 bg-[#F0E7CC] dark:bg-[#1E1E18] border-b border-black/10 dark:border-white/[0.08]">
-                <button
-                  type="button"
-                  onClick={() => setNewProductTab('dados')}
-                  className={cn(
-                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
-                    newProductTab === 'dados'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-secondary hover:text-on-surface'
-                  )}
-                >
-                  Dados
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewProductTab('mae')}
-                  className={cn(
-                    'px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wide transition-colors border-b-2 -mb-px',
-                    newProductTab === 'mae'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-secondary hover:text-on-surface'
-                  )}
-                >
-                  Produto Mãe
+                  <X size={15} strokeWidth={2.6} />
                 </button>
               </div>
 
               <form
                 onSubmit={handleAddProduct}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}
-                className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
+                className="flex-1 min-h-0 flex flex-col"
               >
+                {/* Identificação — fixa acima das abas */}
+                <div className="shrink-0 bg-[#EFE7CD] dark:bg-[#181814] border-b border-[#D9CF45] dark:border-white/[0.08]">
+                  <div className={PM_SEC_HEAD}>
+                    <Package size={12} strokeWidth={2.4} />
+                    <span className={PM_SEC_TITLE}>Identificação</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_190px_250px] gap-2.5 px-3.5 pt-2.5 pb-3">
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Nome do produto</label>
+                      <input
+                        required
+                        type="text"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                        className={PM_FIELD}
+                        placeholder="ex: Batedeira Prática Master"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>SKU (opcional)</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={newProduct.sku}
+                          onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                          className={cn(PM_FIELD, 'font-mono font-medium')}
+                          placeholder="ex: BM-500-A4"
+                        />
+                        <button
+                          type="button"
+                          disabled={!newProduct.manufacturerId || suggestingCode}
+                          onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
+                          title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
+                          className={PM_SQ_BTN}
+                        >
+                          <Hash size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={PM_LABEL}>Código EAN</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={newProduct.ean || ''}
+                          onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                          className={cn(PM_FIELD, 'flex-1 min-w-0 font-mono font-medium')}
+                          placeholder="789…"
+                        />
+                        <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Abas — abaixo da Identificação */}
+                <div className="shrink-0 flex bg-[#EFE7CD] dark:bg-[#181814]">
+                  {([
+                    { key: 'dados', label: 'Dados' },
+                    { key: 'mae', label: 'Produto Mãe' },
+                  ] as const).map((t, i) => (
+                    <button key={t.key} type="button" onClick={() => setNewProductTab(t.key)} className={PM_TAB(newProductTab === t.key, i === 0)}>
+                      <span className={cn('transition-opacity', newProductTab === t.key ? 'opacity-100' : 'opacity-55 hover:opacity-85')}>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 space-y-2.5">
                 {newProductTab === 'mae' && (
                   <MotherProductsTab childProductId={null} childProductName={newProduct.name || 'Produto sem nome'} />
                 )}
 
                 {newProductTab === 'dados' && addStatus === 'success' && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2"
+                    className="flex items-center gap-2 px-2.5 py-2 border border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-400 text-[12px] font-extrabold"
                   >
-                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                    <Check size={13} strokeWidth={2.8} />
                     Produto adicionado com sucesso! Fechando...
                   </motion.div>
                 )}
 
                 {newProductTab === 'dados' && addStatus === 'error' && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium"
+                    className="px-2.5 py-2 border border-red-500/35 bg-red-500/[0.07] text-red-700 dark:text-red-400 text-[12px] font-bold"
                   >
                     {addError}
                   </motion.div>
                 )}
 
-                <div className={cn('space-y-4', newProductTab !== 'dados' && 'hidden')}>
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <Package size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Identificação</span>
+                <div className={cn('space-y-2.5', newProductTab !== 'dados' && 'hidden')}>
+                  {/* Organização, imagem e detalhes — área única no meio do módulo */}
+                  <div className={PM_SEC}>
+                    <div className={PM_SEC_HEAD}>
+                      <BookText size={12} strokeWidth={2.4} />
+                      <span className={PM_SEC_TITLE}>Organização, imagem e detalhes</span>
                     </div>
-                    <div className={fieldGridCls}>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>SKU (Opcional)</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newProduct.sku}
-                            onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                            className={inputCls}
-                            placeholder="ex: BM-500-A4"
-                          />
+                    <div className="grid grid-cols-1 md:grid-cols-[112px_minmax(0,1fr)_minmax(0,0.9fr)] gap-3 p-2.5 items-start">
+                      <div className="flex flex-col gap-1.5">
+                        <span className={cn(PM_LABEL, 'mb-0')}>Imagem</span>
+                        <div className="w-28 h-28 bg-white dark:bg-[#1E1E18] border border-[#E0D8BF] dark:border-white/[0.10] overflow-hidden flex items-center justify-center text-on-surface/25">
+                          {newProduct.image ? <ProductImage src={newProduct.image} alt={newProduct.name} /> : <ImageIcon size={22} />}
+                        </div>
+                        <div className="flex gap-1">
                           <button
                             type="button"
-                            disabled={!newProduct.manufacturerId || suggestingCode}
-                            onClick={() => suggestManufacturerCode(newProduct.manufacturerId, code => setNewProduct(p => ({...p, sku: code})))}
-                            title={newProduct.manufacturerId ? 'Sugerir código a partir do fabricante' : 'Selecione um fabricante primeiro'}
-                            className="w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 border bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              const url = window.prompt('Link da imagem do produto', newProduct.image || '');
+                              if (url !== null) setNewProduct({...newProduct, image: url.trim()});
+                            }}
+                            title={newProduct.image ? 'Alterar link da imagem' : 'Colar link da imagem'}
+                            className={cn(PM_SQ_BTN, 'flex-1 w-auto h-7')}
                           >
-                            <Hash size={16} />
+                            <LinkIcon size={13} />
+                          </button>
+                          <input type="file" ref={imageInputRef} onChange={(e) => handleImageUpload(e, false)} className="hidden" accept="image/*" />
+                          <button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={uploading}
+                            title="Enviar arquivo do computador"
+                            className={cn(PM_SQ_BTN, 'flex-1 w-auto h-7')}
+                          >
+                            {uploading ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Upload size={13} />}
                           </button>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Nome do Produto</label>
-                        <input
-                          required
-                          type="text"
-                          value={newProduct.name}
-                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                          className={inputCls}
-                          placeholder="ex: Batedeira Prática Master"
-                        />
-                      </div>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Código EAN</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newProduct.ean || ''}
-                            onChange={(e) => setNewProduct({...newProduct, ean: e.target.value})}
-                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                            className={cn(inputCls, 'flex-1 min-w-0')}
-                            placeholder="789..."
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 min-w-0">
+                        <div className="min-w-0">
+                          <label className={PM_LABEL}>Localização</label>
+                          <SearchableSelect
+                            value={newProduct.location}
+                            onChange={(val) => setNewProduct({...newProduct, location: val})}
+                            options={uniqueLocations}
+                            placeholder="Pesquisar localização..."
+                            isAddingNew={isAddingNew.location}
+                            onToggleAddingNew={() => toggleAddingNew('location')}
+                            addNewPlaceholder="Nova localização..."
+                            defaultValue="Não atribuído"
                           />
-                          <EanCodesEditor entries={newProductExtraEans} onChange={setNewProductExtraEans} />
                         </div>
+                        <div className="min-w-0">
+                          <label className={PM_LABEL}>Fabricante / marca</label>
+                          <ManufacturerSelect
+                            value={newProduct.manufacturerId}
+                            onChange={(id) => setNewProduct({...newProduct, manufacturerId: id})}
+                            manufacturers={manufacturers}
+                            canCreate={canManageManufacturers}
+                            onRequestCreate={() => setShowQuickAddManufacturer(true)}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className={PM_LABEL}>Categoria</label>
+                          <SearchableSelect
+                            value={newProduct.category}
+                            onChange={(val) => setNewProduct({...newProduct, category: val})}
+                            options={uniqueCategories}
+                            placeholder="Pesquisar categoria..."
+                            isAddingNew={isAddingNew.category}
+                            onToggleAddingNew={() => toggleAddingNew('category')}
+                            addNewPlaceholder="Nova categoria..."
+                            defaultValue="Geral"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className={PM_LABEL}>Subcategoria</label>
+                          <SearchableSelect
+                            value={newProduct.subcategory}
+                            onChange={(val) => setNewProduct({...newProduct, subcategory: val})}
+                            options={uniqueSubcategories}
+                            placeholder="Pesquisar subcategoria..."
+                            isAddingNew={isAddingNew.subcategory}
+                            onToggleAddingNew={() => toggleAddingNew('subcategory')}
+                            addNewPlaceholder="Nova subcategoria..."
+                            defaultValue="Geral"
+                          />
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Composição</label>
+                        <textarea
+                          value={newProduct.composicao || ''}
+                          onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
+                          placeholder="Ingredientes / composição do produto..."
+                          className={cn(PM_FIELD, 'h-28 py-2 resize-none leading-[1.45]')}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <BarChart3 size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Estoque &amp; Preço</span>
+                  {/* Estoque & Preço — uma linha só, na parte inferior */}
+                  <div className={PM_SEC}>
+                    <div className={PM_SEC_HEAD}>
+                      <BarChart3 size={12} strokeWidth={2.4} />
+                      <span className={PM_SEC_TITLE}>Estoque &amp; Preço</span>
                     </div>
-                    <div className={fieldGridCls}>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Empresa</label>
-                        <select
-                          value={newProductCompanyId}
-                          onChange={(e) => handleNewProductCompanyChange(e.target.value)}
-                          className={cn(inputCls, 'cursor-pointer')}
-                        >
+                    <div className="grid grid-cols-2 md:grid-cols-[minmax(0,1.2fr)_110px_110px_130px_minmax(0,1fr)] gap-2.5 p-2.5 items-end">
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Empresa</label>
+                        <select value={newProductCompanyId} onChange={(e) => handleNewProductCompanyChange(e.target.value)} className={cn(PM_FIELD, 'cursor-pointer font-bold')}>
                           {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
-                          {companies.map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.nome_fantasia}</option>
-                          ))}
+                          {companies.map((c: any) => <option key={c.id} value={c.id}>{c.nome_fantasia}</option>)}
                         </select>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Quantidade Inicial</label>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Qtd. inicial</label>
                         <input
                           type="number"
                           value={isNaN(newProduct.count) ? 0 : newProduct.count}
                           onChange={(e) => setNewProduct({...newProduct, count: parseInt(e.target.value || '0') || 0})}
                           onWheel={blockWheelChange}
-                          className={inputCls}
+                          className={cn(PM_FIELD, 'text-right font-mono font-medium')}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Estoque Mínimo</label>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Est. mínimo</label>
                         <input
                           type="number"
                           value={newProduct.minStock ?? ''}
                           onChange={(e) => setNewProduct({...newProduct, minStock: e.target.value === '' ? null : (parseInt(e.target.value) || 0)})}
                           onWheel={blockWheelChange}
-                          placeholder="Não definido"
-                          className={inputCls}
+                          placeholder="—"
+                          className={cn(PM_FIELD, 'text-right font-mono font-medium')}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Preço (R$)</label>
+                      <div className="min-w-0">
+                        <label className={PM_LABEL}>Preço venda</label>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={newProductPriceDisplay}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '');
-                            if (!digits) {
-                              setNewProductPriceDisplay('');
-                              setNewProduct({...newProduct, price: 0});
-                              return;
-                            }
-                            const cents = parseInt(digits, 10);
-                            const display = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                            setNewProductPriceDisplay(display);
-                            setNewProduct({...newProduct, price: cents / 100});
-                          }}
+                          onChange={(e) => { const m = pmMoneyInput(e.target.value); setNewProductPriceDisplay(m.display); setNewProduct({...newProduct, price: m.value}); }}
                           placeholder="0,00"
-                          className={inputCls}
+                          className={cn(PM_FIELD, 'text-right font-mono font-medium')}
                         />
                       </div>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Status</label>
-                        <div className="flex flex-wrap gap-2">
-                          {statusOptions.map(opt => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setNewProduct({...newProduct, status: opt.value})}
-                              className={cn(
-                                'px-3.5 py-2 rounded-full text-[11px] font-extrabold border-[1.5px] transition-all',
-                                newProduct.status === opt.value
-                                  ? 'bg-primary/10 border-primary text-primary'
-                                  : 'bg-black/[0.035] dark:bg-white/[0.05] border-black/[0.10] dark:border-white/[0.10] text-secondary/70 hover:border-black/20 dark:hover:border-white/20'
-                              )}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <BookText size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Organização</span>
-                    </div>
-                    <div className={fieldGridCls}>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Localização</label>
-                        <SearchableSelect
-                          value={newProduct.location}
-                          onChange={(val) => setNewProduct({...newProduct, location: val})}
-                          options={uniqueLocations}
-                          placeholder="Pesquisar localização..."
-                          isAddingNew={isAddingNew.location}
-                          onToggleAddingNew={() => toggleAddingNew('location')}
-                          addNewPlaceholder="Nova localização..."
-                          defaultValue="Não atribuído"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Categoria</label>
-                        <SearchableSelect
-                          value={newProduct.category}
-                          onChange={(val) => setNewProduct({...newProduct, category: val})}
-                          options={uniqueCategories}
-                          placeholder="Pesquisar categoria..."
-                          isAddingNew={isAddingNew.category}
-                          onToggleAddingNew={() => toggleAddingNew('category')}
-                          addNewPlaceholder="Nova categoria..."
-                          defaultValue="Geral"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Subcategoria</label>
-                        <SearchableSelect
-                          value={newProduct.subcategory}
-                          onChange={(val) => setNewProduct({...newProduct, subcategory: val})}
-                          options={uniqueSubcategories}
-                          placeholder="Pesquisar subcategoria..."
-                          isAddingNew={isAddingNew.subcategory}
-                          onToggleAddingNew={() => toggleAddingNew('subcategory')}
-                          addNewPlaceholder="Nova subcategoria..."
-                          defaultValue="Geral"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={labelCls}>Fabricante/Marca</label>
-                        <ManufacturerSelect
-                          value={newProduct.manufacturerId}
-                          onChange={(id) => setNewProduct({...newProduct, manufacturerId: id})}
-                          manufacturers={manufacturers}
-                          canCreate={canManageManufacturers}
-                          onRequestCreate={() => setShowQuickAddManufacturer(true)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <FileText size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Detalhes</span>
-                    </div>
-                    <div className={fieldGridCls}>
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className={labelCls}>Composição</label>
-                        <textarea
-                          value={newProduct.composicao || ''}
-                          onChange={(e) => setNewProduct({...newProduct, composicao: e.target.value})}
-                          placeholder="Ingredientes / composição do produto..."
-                          rows={2}
-                          className={cn(inputCls, 'resize-none')}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={sectionCls}>
-                    <div className={sectionHeadCls}>
-                      <ImageIcon size={15} className="text-primary shrink-0" />
-                      <span className={sectionTitleCls}>Imagem</span>
-                    </div>
-                    <div className="flex gap-3 items-center">
-                      <div className="w-14 h-14 rounded-xl bg-surface-container border border-black/[0.10] dark:border-white/[0.10] shrink-0 overflow-hidden flex items-center justify-center text-secondary/40">
-                        {newProduct.image ? (
-                          <ProductImage src={newProduct.image} alt={newProduct.name} />
-                        ) : (
-                          <ImageIcon size={20} />
-                        )}
-                      </div>
-                      <div className="flex-1 flex gap-2 min-w-0">
-                        <input
-                          type="text"
-                          value={newProduct.image}
-                          onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
-                          className={cn(inputCls, 'flex-1 min-w-0')}
-                          placeholder="https://..."
-                        />
-                        <input
-                          type="file"
-                          ref={imageInputRef}
-                          onChange={(e) => handleImageUpload(e, false)}
-                          className="hidden"
-                          accept="image/*"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => imageInputRef.current?.click()}
-                          disabled={uploading}
-                          className="px-4 rounded-xl text-secondary shrink-0 flex items-center justify-center transition-all bg-black/[0.035] dark:bg-white/[0.05] border border-black/[0.10] dark:border-white/[0.10] hover:border-black/20 dark:hover:border-white/20"
-                          title="Upload do computador"
+                      <div className="min-w-0 col-span-2 md:col-span-1">
+                        <label className={PM_LABEL}>Status</label>
+                        <select
+                          value={newProduct.status || ''}
+                          onChange={(e) => setNewProduct({...newProduct, status: e.target.value})}
+                          className={cn(PM_FIELD, 'cursor-pointer font-bold text-emerald-700 dark:text-emerald-400')}
                         >
-                          {uploading ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={18} />}
-                        </button>
+                          {!PM_STATUS_OPTIONS.includes(newProduct.status) && <option value={newProduct.status || ''}>{newProduct.status || 'Selecionar…'}</option>}
+                          {PM_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
                       </div>
                     </div>
                   </div>
                 </div>
+                </div>
 
-                <div className="pt-2 flex gap-3">
+                {/* Rodapé */}
+                <div className="shrink-0 flex items-center gap-2 px-3.5 py-2.5 bg-[#EFE7CD] dark:bg-[#181814] border-t border-[#DDD2B0] dark:border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 bg-black/[0.06] dark:bg-white/[0.07] text-secondary font-bold py-3 rounded-xl hover:bg-black/[0.10] dark:hover:bg-white/[0.11] transition-colors"
+                    className="ml-auto h-9 px-[18px] border border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-[12px] font-extrabold uppercase tracking-[0.04em] text-on-surface hover:bg-on-surface/[0.05] active:scale-[0.97] transition-all"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={adding || addStatus === 'success'}
-                    className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150 shadow-lg shadow-primary/30 disabled:opacity-50"
+                    className="h-9 px-[18px] min-w-[180px] inline-flex items-center justify-center gap-2 bg-[#D81E1E] hover:bg-[#B91818] text-white text-[12px] font-extrabold uppercase tracking-[0.04em] active:scale-[0.97] transition-all disabled:opacity-50"
                   >
-                    {adding ? 'Adicionando...' : addStatus === 'success' ? 'Sucesso!' : 'Adicionar Produto'}
+                    <Save size={14} />
+                    {adding ? 'Adicionando...' : addStatus === 'success' ? 'Sucesso!' : 'Adicionar produto'}
                   </button>
                 </div>
               </form>

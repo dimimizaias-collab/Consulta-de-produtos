@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #D9D4C2; --modal: #FDFAF0; --modal-border: rgba(26,26,10,0.12);
+    --hdr: #FBF35E; --hdr-border: #D9CF45; --hdr-text: #1A1A0E;
+    --head: #EFE7CD; --head-border: #DDD2B0; --area: #F1EAD3; --label: rgba(26,26,10,0.58);
+    --text: #1A1A0E; --muted: rgba(26,26,10,0.45); --faint: rgba(26,26,10,0.28);
+    --field: #FFFFFF; --field-border: #E0D8BF; --field-hover: #CFC4A2; --locked: rgba(26,26,10,0.035);
+    --btn: rgba(26,26,10,0.06); --btn-hover: rgba(26,26,10,0.11);
+    --th: #FFEC4D; --th-bottom: #8F7E10; --th-text: rgba(26,26,10,0.55);
+    --tabshadow: inset 0 6px 8px -5px rgba(26,26,10,0.35);
+    --grid: #A8A290; --row-odd: #FAF7EE;
+  }
+  html.dark {
+    --page: #0E0E0B; --modal: #1E1E18; --modal-border: rgba(242,240,227,0.08);
+    --hdr: #252520; --hdr-border: rgba(242,240,227,0.08); --hdr-text: #F2F0E3;
+    --head: #181814; --head-border: rgba(242,240,227,0.08); --area: #181814; --label: rgba(242,240,227,0.55);
+    --text: #F2F0E3; --muted: rgba(242,240,227,0.40); --faint: rgba(242,240,227,0.24);
+    --field: #1E1E18; --field-border: rgba(242,240,227,0.10); --field-hover: rgba(242,240,227,0.20); --locked: rgba(242,240,227,0.03);
+    --btn: rgba(242,240,227,0.06); --btn-hover: rgba(242,240,227,0.11);
+    --th-text: rgba(26,26,10,0.58);
+    --tabshadow: inset 0 6px 8px -5px rgba(0,0,0,0.55);
+    --grid: rgba(242,240,227,0.2); --row-odd: #1A1A15;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text); font-family: 'DM Sans', sans-serif; display: flex; justify-content: center; padding: 24px 16px 90px; }
+  button, input, select, textarea { font-family: inherit; }
+  .anno { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 10px; border-radius: 14px; background: #1A1A0E; color: #F2F0E3; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .anno b { color: #FFE500; }
+  .anno button { border: 1px solid rgba(242,240,227,.18); background: transparent; color: #F2F0E3; padding: 5px 11px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 11.5px; }
+  .anno button.on { background: #FFE500; color: #1A1A0E; border-color: #FFE500; }
+
+  .modal { width: 100%; max-width: 1180px; background: var(--modal); border: 1px solid var(--modal-border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+  .tbar { height: 48px; display: flex; align-items: center; gap: 11px; padding: 0 12px 0 14px; background: var(--hdr); border-bottom: 1px solid var(--hdr-border); }
+  .tico { width: 30px; height: 30px; display: grid; place-items: center; background: rgba(26,26,10,0.09); color: var(--hdr-text); }
+  html.dark .tico { background: rgba(216,30,30,0.16); color: #D81E1E; }
+  .tbar h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 900; color: var(--hdr-text); }
+  .sqb { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(26,26,10,0.14); background: transparent; color: rgba(26,26,10,0.5); cursor: pointer; }
+  html.dark .sqb { border-color: var(--field-border); color: var(--muted); }
+  .sqb:hover { background: rgba(216,30,30,0.09); color: #D81E1E; border-color: rgba(216,30,30,0.25); }
+
+  /* Abas penduradas (mesmo padrão das páginas) */
+  .tabs { display: flex; background: var(--modal); }
+  .tab { height: 32px; min-width: 120px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--hdr-border); border-top: 0; margin-left: -1px; background: var(--hdr); color: var(--hdr-text); box-shadow: var(--tabshadow); font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab .l { opacity: .55; } .tab:hover .l { opacity: .85; }
+  .tab.on { box-shadow: var(--tabshadow), inset 0 -3px 0 #D81E1E; } .tab.on .l { opacity: 1; }
+  .tab .n { font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,0.12); letter-spacing: 0; }
+  html.dark .tab .n { background: rgba(242,240,227,0.10); }
+
+  /* Identificação fixa — fica no mesmo lugar em todas as abas */
+  .ident { padding: 10px 14px 12px; background: var(--head); border-bottom: 1px solid var(--hdr-border); }
+  .ident .sh { margin: -10px -14px 10px; border-bottom-color: var(--th-bottom); }
+  .igrid { display: grid; grid-template-columns: minmax(0, 1fr) 130px 170px 120px; gap: 10px; }
+  .tabs { background: var(--head); }
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 360px; max-height: 58vh; overflow-y: auto; }
+  /* Área mesclada: imagem + organização + composição */
+  .mid { display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 0.9fr); gap: 12px; padding: 10px; align-items: start; }
+  .mid .imgcol { display: flex; flex-direction: column; gap: 6px; }
+  .mid .img { width: 112px; height: 112px; }
+  .mid .imgbtns { display: flex; gap: 4px; }
+  .mid .imgbtns .ab { flex: 1; width: auto; height: 28px; }
+  .mid textarea { height: 112px; }
+  /* Estoque & Preço numa linha só */
+  .stock { display: grid; grid-template-columns: minmax(0, 1.2fr) 92px 92px 112px 112px 92px minmax(0, 1fr); gap: 10px; padding: 10px; align-items: end; }
+  .self { appearance: none; width: 100%; height: 34px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 0 26px 0 10px; font: 700 12.5px 'DM Sans'; outline: 0; cursor: pointer; }
+  .selw2 { position: relative; } .selw2 svg { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .selw2.st .self { color: #0A7A55; border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.07); }
+  html.dark .selw2.st .self { color: #34D399; }
+  .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .sec { border: 1px solid var(--field-border); background: var(--area); }
+  .sh { height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 10px; background: var(--th); border-bottom: 1.5px solid var(--th-bottom); }
+  .sh span { font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--th-text); }
+  .sh svg { color: #D81E1E; }
+  .grid { display: grid; gap: 10px; padding: 10px; }
+  .c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .full { grid-column: 1 / -1; }
+  .fl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .lb { height: 12px; display: flex; align-items: center; gap: 5px; padding-left: 1px; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--label); white-space: nowrap; }
+  .f { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .f:hover { border-color: var(--field-hover); }
+  .f.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,0.12); }
+  .f.mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; }
+  .f .ph { color: var(--faint); font-weight: 500; }
+  .f .chev { margin-left: auto; color: var(--muted); }
+  .f.val { font-family: 'DM Mono'; font-size: 14px; font-weight: 500; justify-content: flex-end; }
+  .f.val .pre { margin-right: auto; font: 900 10px 'DM Sans'; color: var(--muted); }
+  .rowf { display: flex; gap: 6px; } .rowf .f { flex: 1; }
+  .ab { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px dashed var(--field-border); background: var(--field); color: var(--muted); cursor: pointer; }
+  .ab:hover { color: #D81E1E; border-color: rgba(216,30,30,0.45); }
+  .ab.gen { border-style: solid; border-color: rgba(216,30,30,0.3); background: rgba(216,30,30,0.07); color: #D81E1E; }
+  .mk { height: 34px; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; border: 1px solid rgba(16,185,129,.35); background: rgba(16,185,129,.09); color: #0A7A55; font: 500 14px 'DM Mono'; }
+  html.dark .mk { color: #34D399; }
+  .seg { display: flex; flex-wrap: wrap; gap: 0; }
+  .seg button { height: 30px; padding: 0 11px; margin-left: -1px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 11px; font-weight: 800; cursor: pointer; }
+  .seg button:first-child { margin-left: 0; }
+  .seg button:hover { background: var(--btn); }
+  .seg button.on { position: relative; z-index: 1; background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .imgw { display: flex; gap: 10px; padding: 10px; }
+  .img { width: 96px; height: 96px; flex-shrink: 0; border: 1px solid var(--field-border); background: var(--field); display: grid; place-items: center; color: var(--faint); }
+  .img i { width: 46px; height: 62px; border-radius: 4px; background: #E9D5FF; display: block; }
+  .imgw .fl { flex: 1; }
+  textarea { width: 100%; height: 68px; resize: none; border: 1px solid var(--field-border); background: var(--field); color: var(--text); padding: 8px 10px; font: 600 12.5px/1.45 'DM Sans'; outline: 0; }
+  textarea::placeholder { color: var(--faint); font-weight: 500; }
+
+  .alert { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(16,185,129,.35); background: rgba(16,185,129,.08); color: #0A7A55; font-size: 12px; font-weight: 800; }
+  html.dark .alert { color: #34D399; }
+
+  .ph-place { grid-column: 1 / -1; padding: 60px 20px; text-align: center; color: var(--muted); font-weight: 600; font-size: 13px; border: 1px dashed var(--field-border); }
+
+  .ftr { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--head); border-top: 1px solid var(--head-border); }
+  .fb { height: 36px; padding: 0 18px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .fb:hover { background: var(--btn); }
+  .fb.del { color: #D81E1E; border-color: rgba(216,30,30,.35); background: rgba(216,30,30,.06); }
+  .fb.del:hover { background: #D81E1E; color: #fff; }
+  .fb.pri { background: #D81E1E; border-color: #D81E1E; color: #fff; min-width: 170px; justify-content: center; }
+  .fb.pri:hover { background: #B91818; }
+  .ml { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="modal">
+  <div class="tbar">
+    <div class="tico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg></div>
+    <h2 id="title">Editar Produto</h2>
+    <button class="sqb" title="Fechar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="ident" id="ident"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="body" id="body"></div>
+  <div class="ftr" id="ftr"></div>
+</div>
+
+<div class="anno">
+  <span><b>Mockup</b> — Produto</span>
+  <button data-m="edit" class="on">Editar Produto</button>
+  <button data-m="new">Novo Produto</button>
+  <button id="theme">Claro/escuro</button>
+</div>
+
+<script>
+const I = {
+  box: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/></svg>',
+  money: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+  img: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg>',
+  grid: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+  info: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  chev: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>',
+  plus: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  wand: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/></svg>',
+  up: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
+  trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  save: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
+};
+let mode = 'edit', tab = 0, status = 'Em Estoque';
+const F = (v, o = {}) => `<div class="f ${o.mono ? 'mono' : ''} ${o.val ? 'val' : ''} ${o.focus ? 'focus' : ''}">${o.pre ? `<span class="pre">${o.pre}</span>` : ''}${v || `<span class="ph">${o.ph || ''}</span>`}${o.sel ? `<span class="chev">${I.chev}</span>` : ''}</div>`;
+const fl = (lb, f, cls = '') => `<div class="fl ${cls}"><span class="lb">${lb}</span>${f}</div>`;
+const sec = (icon, title, inner) => `<div class="sec"><div class="sh">${icon}<span>${title}</span></div>${inner}</div>`;
+function render() {
+  const ed = mode === 'edit';
+  document.getElementById('title').textContent = ed ? 'Editar Produto' : 'Novo Produto';
+  // Identificação — fixa acima das abas
+  document.getElementById('ident').innerHTML = `<div class="sh">${I.box}<span>Identificação</span></div><div class="igrid">
+    ${fl('Nome do produto', F(ed ? 'COLHER PLASTICA REFEICAO REFORCADA C/10' : '', { ph: 'Ex: Colher plástica reforçada c/10', focus: !ed }))}
+    ${fl(ed ? 'SKU' : 'SKU (opcional)', ed ? F('4054', { mono: true }) : `<div class="rowf">${F('', { mono: true, ph: 'Automático' })}<button class="ab gen" title="Gerar SKU">${I.wand}</button></div>`)}
+    ${fl('Código EAN', F(ed ? '7898411040547' : '', { mono: true, ph: '789…' }))}
+    ${fl('NCM', F(ed ? '39241000' : '', { mono: true, ph: '0000.00.00' }))}
+  </div>`;
+  const tabs = ed ? [['Dados'], ['Produto Mãe'], ['Histórico em Notas', 7]] : [['Dados'], ['Produto Mãe']];
+  document.getElementById('tabs').innerHTML = tabs.map((t, i) => `<button class="tab ${i === tab ? 'on' : ''}" data-i="${i}"><span class="l">${t[0]}</span>${t[1] ? `<span class="n">${t[1]}</span>` : ''}</button>`).join('');
+  const b = document.getElementById('body');
+  if (tab !== 0) { b.innerHTML = `<div class="ph-place" style="flex:1">Conteúdo da aba <b>${tabs[tab][0]}</b> — fica como está nesta etapa. Repare que a Identificação continua no mesmo lugar.</div>`; }
+  else {
+    const sel = (v, opts, cls = '') => `<div class="selw2 ${cls}"><select class="self">${opts.map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>${I.chev}</div>`;
+    const withPlus = (v, t) => `<div class="rowf">${F(v, { sel: true, ph: 'Selecionar…' })}<button class="ab" title="${t}">${I.plus}</button></div>`;
+    b.innerHTML = `
+    ${ed ? `<div class="alert"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Produto atualizado com sucesso!</div>` : ''}
+    ${sec(I.grid, 'Organização, imagem e detalhes', `<div class="mid">
+      <div class="imgcol"><span class="lb">Imagem</span><div class="img">${ed ? '<i></i>' : I.img}</div>
+        <div class="imgbtns"><button class="ab" title="Colar link da imagem"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg></button><button class="ab" title="Enviar arquivo">${I.up}</button></div></div>
+      <div class="grid c2" style="padding:0">
+        ${fl('Localização', withPlus(ed ? 'C3-A' : '', 'Nova localização'))}
+        ${fl('Fabricante / marca', withPlus(ed ? 'PLASTICOS ROMA' : '', 'Nova marca'))}
+        ${fl('Categoria', withPlus(ed ? 'UTILIDADES' : '', 'Nova categoria'))}
+        ${fl('Subcategoria', withPlus(ed ? 'DESCARTÁVEIS' : '', 'Nova subcategoria'))}
+      </div>
+      ${fl('Composição', `<textarea placeholder="Material, medidas, observações…">${ed ? 'Polipropileno reforçado, pacote com 10 unidades.' : ''}</textarea>`)}
+    </div>`)}
+    ${sec(I.money, 'Estoque & Preço', `<div class="stock">
+      ${fl('Empresa', sel('Castelo Real', ['Castelo Real', 'Universo 199']))}
+      ${fl(ed ? 'Qtd. estoque' : 'Qtd. inicial', F(ed ? '124' : '', { val: true, ph: '0' }))}
+      ${fl('Est. mínimo', F(ed ? '20' : '', { val: true, ph: '0' }))}
+      ${fl('Preço custo', F(ed ? '2,69' : '', { val: true, pre: 'R$', ph: '0,00' }))}
+      ${fl('Preço venda', F(ed ? '4,80' : '', { val: true, pre: 'R$', ph: '0,00' }))}
+      ${fl('Markup', `<div class="mk">${ed ? '78,4 %' : '—'}</div>`)}
+      ${fl('Status', sel(status, ['Estoque Baixo', 'Em Estoque', 'Estoque em Alta', 'Fora de Estoque'], 'st'))}
+    </div>`)}`;
+  }
+  document.getElementById('ftr').innerHTML = (ed ? `<button class="fb del">${I.trash}Excluir</button>` : '') +
+    `<button class="fb ml">Cancelar</button><button class="fb pri">${I.save}${ed ? 'Salvar alterações' : 'Adicionar produto'}</button>`;
+}
+document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) { tab = +t.dataset.i; render(); } });
+document.getElementById('body').addEventListener('click', e => { const s = e.target.closest('[data-s]'); if (s) { status = s.dataset.s; render(); } });
+document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; tab = 0; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); render(); }));
+document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+render();
+</script>
+</body>
+</html>
