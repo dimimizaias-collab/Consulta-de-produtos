@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Smartphone, Monitor, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getNavIcon } from './Sidebar';
+import { getAppVersion } from './VersionBadge';
 import { useViewMode } from '@/lib/view-mode';
 import { supabase } from '@/lib/supabase';
 import type { AppNotification } from './NotificationsPage';
@@ -90,7 +91,7 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
   if (!isMobileView) {
     const PageIcon = title ? getNavIcon(title) : null;
     return (
-      <header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08]">
+      <header data-app-header className="fixed top-0 inset-x-0 z-50 h-11 flex items-stretch bg-[#FBF35E] dark:bg-[#252520] border-b border-[#D9CF45] dark:border-white/[0.08]">
         <button
           onClick={onToggleSidebar}
           title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
@@ -110,7 +111,13 @@ export function TopNav({ hideViewToggle, title, sidebarCollapsed, onToggleSideba
           <h1 className="text-[15px] font-black tracking-[-0.01em] text-[#1A1A0E] dark:text-[#F2F0E3] whitespace-nowrap truncate">{title}</h1>
         </div>
 
-        <div ref={wrapRef} className="relative ml-auto flex items-center px-2.5 shrink-0">
+        <div ref={wrapRef} className="relative ml-auto flex items-center gap-1.5 px-2.5 shrink-0">
+          <span
+            title="Versão do site — confira com o hash do último commit"
+            className="h-[30px] flex items-center px-2 border border-black/[0.16] dark:border-white/[0.14] font-mono text-[10.5px] font-semibold text-[#1A1A0E]/60 dark:text-[#F2F0E3]/50 select-none"
+          >
+            v{getAppVersion()}
+          </span>
           <button
             onClick={() => setOpen(o => !o)}
             title="Menu do usuário"
