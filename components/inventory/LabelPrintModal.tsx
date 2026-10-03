@@ -26,14 +26,16 @@ export interface CellLayout { nome: ElPos; ref: ElPos; barcode: ElPos; rs: ElPos
 // pelo usuário (retângulos coloridos delimitando cada elemento — legenda:
 // #ff66c4 nome, #ff5757 ref, #5e17eb código de barras, #ffbd59 R$, #7ed957
 // preço), medidas em % da largura/altura do rótulo e convertidas pra mm.
+// Tudo 1mm mais pra baixo que a extração original — a descrição estava sendo
+// cortada pelo gap entre etiquetas.
 export const FULL_LAYOUT: CellLayout = {
-  nome:    { x: 3,    y: 2.9,  w: 99,   h: 4.1  },
-  ref:     { x: 3,    y: 8.2,  w: 34,   h: 2.5  },
-  barcode: { x: 3,    y: 12.7, w: 49,   h: 12.4 },
+  nome:    { x: 3,    y: 3.9,  w: 99,   h: 4.1  },
+  ref:     { x: 3,    y: 9.2,  w: 34,   h: 2.5  },
+  barcode: { x: 3,    y: 13.7, w: 49,   h: 12.4 },
   // R$/preço mais acima e à esquerda pra abrir espaço à linha "Data de Impressão".
-  rs:      { x: 60.3, y: 7.8,  w: 5,    h: 4.5  },
-  preco:   { x: 63.6, y: 7.8,  w: 35.3, h: 13.4 },
-  data:    { x: 60.3, y: 23.6, w: 41,   h: 2.6  },
+  rs:      { x: 60.3, y: 8.8,  w: 5,    h: 4.5  },
+  preco:   { x: 63.6, y: 8.8,  w: 35.3, h: 13.4 },
+  data:    { x: 60.3, y: 24.6, w: 41,   h: 2.6  },
 };
 // Conteúdo 2mm mais para cima que a extração original (3mm pra cima, depois
 // 1mm de volta pra baixo) e a distância entre o REF e o bloco de baixo
