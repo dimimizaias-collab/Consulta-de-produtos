@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Busca de Favorecido + Apelidos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --page: #EDE6CF;
+    --modal: #FDFAF0;
+    --title-bg: #FBF35E;
+    --title-border: #D9CF45;
+    --chip-bg: rgba(0,0,0,0.09);
+    --chip-fg: #1A1A0E;
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.45);
+    --faint: rgba(26,26,10,0.28);
+    --section: #F1EAD3;
+    --section-border: #E0D8BF;
+    --field: #FFFFFF;
+    --field-border: #E0D8BF;
+    --lock: rgba(0,0,0,0.035);
+    --label: rgba(26,26,10,0.58);
+    --dropdown: #FFFFFF;
+    --row-hover: #FFF8D0;
+    --mark-bg: #FFE500;
+    --mark-fg: #1A1A0E;
+    --footer: #EFE7CD;
+    --footer-border: #DDD2B0;
+    --close-border: rgba(0,0,0,0.14);
+    --close-fg: rgba(0,0,0,0.5);
+    --apelido-bg: #1A1A0E;
+    --apelido-fg: #FFE500;
+    --tag-apelido-bg: rgba(216,30,30,0.09);
+    --tag-apelido-fg: #B91818;
+    --tag-extrato-bg: rgba(26,26,10,0.07);
+    --tag-extrato-fg: rgba(26,26,10,0.62);
+    --tag-forn-bg: rgba(10,122,85,0.09);
+    --tag-forn-fg: #0A7A55;
+    --tag-doc-bg: rgba(146,64,14,0.09);
+    --tag-doc-fg: #92400E;
+    --note: rgba(26,26,10,0.55);
+  }
+  [data-theme="dark"] {
+    --page: #121210;
+    --modal: #1E1E18;
+    --title-bg: #252520;
+    --title-border: rgba(255,255,255,0.08);
+    --chip-bg: rgba(216,30,30,0.16);
+    --chip-fg: #D81E1E;
+    --text: #F2F0E3;
+    --muted: rgba(242,240,227,0.42);
+    --faint: rgba(242,240,227,0.25);
+    --section: #181814;
+    --section-border: rgba(255,255,255,0.10);
+    --field: #1E1E18;
+    --field-border: rgba(255,255,255,0.10);
+    --lock: rgba(255,255,255,0.03);
+    --label: rgba(242,240,227,0.55);
+    --dropdown: #2E2E28;
+    --row-hover: rgba(255,229,0,0.08);
+    --mark-bg: rgba(255,229,0,0.85);
+    --mark-fg: #1A1A0E;
+    --footer: #181814;
+    --footer-border: rgba(255,255,255,0.08);
+    --close-border: rgba(255,255,255,0.10);
+    --close-fg: rgba(255,255,255,0.4);
+    --apelido-bg: #FFE500;
+    --apelido-fg: #1A1A0E;
+    --tag-apelido-bg: rgba(216,30,30,0.16);
+    --tag-apelido-fg: #FF6B6B;
+    --tag-extrato-bg: rgba(242,240,227,0.08);
+    --tag-extrato-fg: rgba(242,240,227,0.62);
+    --tag-forn-bg: rgba(52,211,153,0.10);
+    --tag-forn-fg: #34D399;
+    --tag-doc-bg: rgba(252,211,77,0.10);
+    --tag-doc-fg: #FCD34D;
+    --note: rgba(242,240,227,0.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--page); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; padding: 28px 16px 60px; }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 34px; }
+  .scene-title { font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+  .scene-title b { background: #D81E1E; color: #fff; padding: 2px 7px; letter-spacing: .06em; }
+  .scene-note { font-size: 12.5px; color: var(--note); margin: -4px 0 12px; max-width: 760px; line-height: 1.5; }
+  .row { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+
+  /* modal */
+  .modal { background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); width: 100%; max-width: 720px; display: flex; flex-direction: column; }
+  [data-theme="dark"] .modal { border-color: rgba(255,255,255,.08); }
+  .modal.narrow { max-width: 420px; }
+  .titlebar { height: 48px; padding: 0 12px 0 14px; display: flex; align-items: center; gap: 11px; background: var(--title-bg); border-bottom: 1px solid var(--title-border); }
+  .tchip { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: var(--chip-bg); color: var(--chip-fg); flex-shrink: 0; }
+  .titlebar h2 { font-size: 15px; font-weight: 900; line-height: 1.15; }
+  .titlebar p { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .tclose { margin-left: auto; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--close-border); color: var(--close-fg); }
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .section { background: var(--section); border: 1px solid var(--section-border); }
+  .shead { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #FFEC4D; border-bottom: 1.5px solid #8F7E10; }
+  .shead svg { color: #D81E1E; width: 12px; height: 12px; }
+  .stitle { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: rgba(26,26,10,.55); }
+  .scount { margin-left: auto; font-size: 10px; font-weight: 800; color: rgba(26,26,10,.55); }
+  .grid { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid.tx { grid-template-columns: 180px minmax(0,1fr); }
+  .span2 { grid-column: span 2; }
+  label.l { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--label); margin-bottom: 4px; padding-left: 1px; }
+  .req { color: #D81E1E; }
+  .field { height: 34px; padding: 0 10px; background: var(--field); border: 1px solid var(--field-border); font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; width: 100%; font-family: inherit; }
+  .field.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .field .ph { color: var(--faint); font-weight: 500; }
+  .caret { display: inline-block; width: 1.5px; height: 15px; background: #D81E1E; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; letter-spacing: .03em; }
+  .lock { background: var(--lock); color: var(--muted); }
+  .icon-btn { width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--field-border); background: rgba(26,26,10,.06); color: var(--muted); }
+
+  /* dropdown */
+  .combo { position: relative; }
+  .dd { margin-top: 2px; background: var(--dropdown); border: 1px solid var(--field-border); box-shadow: 0 20px 25px -5px rgba(0,0,0,.12), 0 8px 10px -6px rgba(0,0,0,.1); }
+  .dd-head { height: 24px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); border-bottom: 1px solid var(--field-border); }
+  .dd-head .kbd { margin-left: auto; font-family: 'DM Mono', monospace; letter-spacing: 0; text-transform: none; font-weight: 500; }
+  .opt { padding: 7px 10px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; border-left: 2px solid transparent; }
+  .opt.active { background: var(--row-hover); border-left-color: #D81E1E; }
+  .opt-top { display: flex; align-items: baseline; gap: 8px; }
+  .opt-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .opt-banco { font-size: 11px; color: var(--faint); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: auto; }
+  .why { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+  .tag { font-size: 8.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 1.5px 5px; flex-shrink: 0; }
+  .tag.apelido { background: var(--tag-apelido-bg); color: var(--tag-apelido-fg); }
+  .tag.extrato { background: var(--tag-extrato-bg); color: var(--tag-extrato-fg); }
+  .tag.forn { background: var(--tag-forn-bg); color: var(--tag-forn-fg); }
+  .tag.doc { background: var(--tag-doc-bg); color: var(--tag-doc-fg); }
+  mark { background: var(--mark-bg); color: var(--mark-fg); padding: 0 1px; }
+  .empty { padding: 9px 10px; font-size: 12px; font-style: italic; color: var(--muted); }
+  .dd-foot { padding: 6px 10px; border-top: 1px solid var(--field-border); display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .dd-foot svg { width: 12px; height: 12px; color: #D81E1E; }
+
+  /* apelidos chip input */
+  .chips { min-height: 34px; padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--field); border: 1px solid var(--field-border); }
+  .chips.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .ap { height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 3px 0 8px; background: var(--apelido-bg); color: var(--apelido-fg); font-size: 11.5px; font-weight: 800; }
+  .ap button { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; }
+  .ap button:hover { opacity: 1; background: #D81E1E; color: #fff; }
+  .ap button svg { width: 11px; height: 11px; }
+  .chips .typing { font-size: 13px; font-weight: 600; padding: 0 4px; display: flex; align-items: center; }
+  .chips .hint { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--faint); padding-right: 4px; }
+  .help { margin-top: 5px; font-size: 10.5px; font-weight: 600; color: var(--muted); display: flex; gap: 5px; align-items: flex-start; line-height: 1.4; }
+  .help svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
+  .warn { margin-top: 5px; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 10.5px; font-weight: 700; line-height: 1.4; color: #92400E; background: rgba(217,119,6,.08); border: 1px solid rgba(217,119,6,.40); }
+  [data-theme="dark"] .warn { color: #FCD34D; background: rgba(252,211,77,.07); border-color: rgba(252,211,77,.35); }
+  .warn svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
+
+  .footer { padding: 10px 14px; background: var(--footer); border-top: 1px solid var(--footer-border); display: flex; gap: 8px; justify-content: flex-end; }
+  .btn { height: 36px; padding: 0 18px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-family: inherit; }
+  .btn.primary { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .btn svg { width: 14px; height: 14px; }
+
+  /* list (Dados > Favorecidos) */
+  .list { display: flex; flex-direction: column; }
+  .li { padding: 9px 12px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--field-border); }
+  .li:nth-child(odd) { background: var(--field); }
+  .li-name { font-size: 13px; font-weight: 800; }
+  .li-sub { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); font-weight: 600; }
+  .mini { height: 18px; display: inline-flex; align-items: center; padding: 0 6px; font-size: 10px; font-weight: 800; background: var(--apelido-bg); color: var(--apelido-fg); }
+
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .lg { background: var(--modal); border: 1px solid var(--section-border); padding: 10px 12px; font-size: 12px; line-height: 1.5; color: var(--note); }
+  .lg strong { color: var(--text); display: block; margin-bottom: 2px; font-size: 12.5px; }
+
+  @media (max-width: 640px) {
+    .grid, .grid.tx { grid-template-columns: 1fr; }
+    .span2 { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ═══════════ CENA 1 ═══════════ -->
+  <section>
+    <div class="scene-title"><b>1</b> Lançamento › campo Favorecido — busca por apelido</div>
+    <p class="scene-note">Digitando <b>"luz"</b>: nenhum nome fiscal contém "luz", mas a CEMIG tem o apelido <b>luz</b>. A linha mostra <b>por que</b> apareceu (selo vermelho APELIDO). Ao escolher, o campo recebe o <b>nome fiscal</b> — o apelido só serve pra achar. Setas ↑↓ + Enter navegam.</p>
+    <div class="modal">
+      <div class="titlebar">
+        <div class="tchip"><i data-lucide="trending-down" width="15" height="15"></i></div>
+        <div><h2>Nova Movimentação</h2><p>Despesa</p></div>
+        <div class="tclose"><i data-lucide="x" width="15" height="15"></i></div>
+      </div>
+      <div class="body">
+        <div class="section">
+          <div class="shead"><i data-lucide="users"></i><span class="stitle">Identificação</span></div>
+          <div class="grid tx">
+            <div>
+              <label class="l">Data</label>
+              <div class="field mono">05/10/2026</div>
+            </div>
+            <div>
+              <label class="l">Favorecido</label>
+              <div style="display:flex; gap:8px">
+                <div class="combo" style="flex:1; min-width:0">
+                  <div class="field focus">luz<span class="caret"></span></div>
+                  <div class="dd">
+                    <div class="dd-head">2 resultados <span class="kbd">↑↓ Enter</span></div>
+                    <div class="opt">
+                      <div class="opt-top"><span class="opt-name"><mark>Luz</mark>ia Alves — Limpeza</span><span class="opt-banco">PIX LUZIA ALVES</span></div>
+                    </div>
+                    <div class="opt active">
+                      <div class="opt-top"><span class="opt-name">CEMIG Distribuição S.A.</span><span class="opt-banco">PAG*CEMIG DIST</span></div>
+                      <div class="why"><span class="tag apelido">Apelido</span><span><mark>luz</mark> · energia</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="icon-btn" title="Descrição livre"><i data-lucide="pencil-line" width="14" height="14"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CENA 2 ═══════════ -->
+  <section>
+    <div class="scene-title"><b>2</b> Outras formas de achar o mesmo favorecido</div>
+    <p class="scene-note">Mesmo combobox, outras buscas. Nome fiscal sempre em destaque; a segunda linha só aparece quando o acerto veio de outro campo. Acentos e pontuação são ignorados ("atacadao" acha "Atacadão"; "12345678" acha "12.345.678/0001-90").</p>
+    <div class="row">
+
+      <div style="flex:1; min-width:300px; max-width:370px">
+        <label class="l">Fornecedor — nome fantasia</label>
+        <div class="field focus">atacadao<span class="caret"></span></div>
+        <div class="dd">
+          <div class="dd-head">1 resultado</div>
+          <div class="opt active">
+            <div class="opt-top"><span class="opt-name">WMS Supermercados do Brasil Ltda</span></div>
+            <div class="why"><span class="tag forn">Fantasia</span><span><mark>Atacadão</mark></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:300px; max-width:370px">
+        <label class="l">CNPJ / CPF (com ou sem pontuação)</label>
+        <div class="field focus mono">12345678<span class="caret"></span></div>
+        <div class="dd">
+          <div class="dd-head">2 resultados</div>
+          <div class="opt active">
+            <div class="opt-top"><span class="opt-name">Distribuidora Real Ltda</span></div>
+            <div class="why"><span class="tag doc">CNPJ</span><span class="mono" style="font-size:11px"><mark>12.345.678</mark>/0001-90</span></div>
+          </div>
+          <div class="opt">
+            <div class="opt-top"><span class="opt-name">Distribuidora Real — Filial BH</span></div>
+            <div class="why"><span class="tag doc">CNPJ</span><span class="mono" style="font-size:11px"><mark>12.345.678</mark>/0002-71</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:300px; max-width:370px">
+        <label class="l">Nome no extrato</label>
+        <div class="field focus">pag*cem<span class="caret"></span></div>
+        <div class="dd">
+          <div class="dd-head">1 resultado</div>
+          <div class="opt active">
+            <div class="opt-top"><span class="opt-name">CEMIG Distribuição S.A.</span></div>
+            <div class="why"><span class="tag extrato">Extrato</span><span><mark>PAG*CEM</mark>IG DIST</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:300px; max-width:370px">
+        <label class="l">Nada encontrado</label>
+        <div class="field focus">conserto portao<span class="caret"></span></div>
+        <div class="dd">
+          <div class="empty">Nenhum favorecido encontrado</div>
+          <div class="dd-foot"><i data-lucide="pencil-line"></i> Usar "conserto portao" como descrição livre</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════ CENA 3 ═══════════ -->
+  <section>
+    <div class="scene-title"><b>3</b> Editar Favorecido — adicionando apelidos</div>
+    <p class="scene-note">Novo campo <b>Apelidos</b> na seção Favorecido. Digita e aperta <b>Enter</b> (ou vírgula) para virar etiqueta; <b>×</b> remove; Backspace no campo vazio apaga a última. Se o apelido já pertence a outro favorecido, aparece um aviso — salva mesmo assim (os dois aparecem na busca).</p>
+    <div class="modal">
+      <div class="titlebar">
+        <div class="tchip"><i data-lucide="building-2" width="15" height="15"></i></div>
+        <div><h2>Editar Favorecido</h2><p>Nome no extrato → nome fiscal</p></div>
+        <div class="tclose"><i data-lucide="x" width="15" height="15"></i></div>
+      </div>
+      <div class="body">
+        <div class="section">
+          <div class="shead"><i data-lucide="users"></i><span class="stitle">Favorecido</span></div>
+          <div class="grid">
+            <div>
+              <label class="l">Nome no extrato</label>
+              <div class="field">PAG*CEMIG DIST</div>
+            </div>
+            <div>
+              <label class="l">Nome fiscal <span class="req">*</span></label>
+              <div class="field">CEMIG Distribuição S.A.</div>
+            </div>
+            <div class="span2">
+              <label class="l">Apelidos <span style="margin-left:auto; letter-spacing:0; text-transform:none; font-weight:700">3</span></label>
+              <div class="chips focus">
+                <span class="ap">luz <button title="Remover"><i data-lucide="x"></i></button></span>
+                <span class="ap">energia <button title="Remover"><i data-lucide="x"></i></button></span>
+                <span class="ap">conta de luz <button title="Remover"><i data-lucide="x"></i></button></span>
+                <span class="typing">força<span class="caret"></span></span>
+                <span class="hint">Enter ↵</span>
+              </div>
+              <div class="warn"><i data-lucide="info"></i><span>"força" também é apelido de <b>Força Total Geradores ME</b> — os dois vão aparecer quando você buscar por ele.</span></div>
+              <div class="help"><i data-lucide="search"></i><span>Só usados na busca do favorecido. Os lançamentos continuam gravando o nome fiscal.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="shead"><i data-lucide="building-2"></i><span class="stitle">Identificação do fornecedor</span><span class="scount">vinculado</span></div>
+          <div class="grid">
+            <div class="span2">
+              <label class="l">Fornecedor vinculado</label>
+              <div class="field" style="border-color:rgba(216,30,30,.35); background:rgba(216,30,30,.06); color:#D81E1E; font-weight:800; gap:8px">
+                <i data-lucide="building-2" width="13" height="13"></i> CEMIG <span class="mono" style="margin-left:auto; font-size:11px; color:var(--muted)">06.981.180/0001-16</span>
+              </div>
+            </div>
+            <div><label class="l">Razão social</label><div class="field lock">CEMIG Distribuição S.A.</div></div>
+            <div><label class="l">Nome fantasia</label><div class="field lock">CEMIG</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="btn">Cancelar</button>
+        <button class="btn primary"><i data-lucide="check"></i> Salvar favorecido</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CENA 4 ═══════════ -->
+  <section>
+    <div class="scene-title"><b>4</b> Dados › Favorecidos — lista e busca</div>
+    <p class="scene-note">A busca da lista usa as mesmas regras do combobox. Apelidos aparecem como etiquetas pequenas embaixo do nome.</p>
+    <div class="modal narrow">
+      <div class="body">
+        <div class="field focus" style="gap:8px"><i data-lucide="search" width="13" height="13" style="color:var(--faint)"></i>energia<span class="caret"></span></div>
+        <div class="list" style="border:1px solid var(--field-border)">
+          <div class="li">
+            <div style="flex:1; min-width:0">
+              <div class="li-name">CEMIG Distribuição S.A.</div>
+              <div class="li-sub"><span class="mini">luz</span><span class="mini"><mark style="background:transparent;color:inherit;text-decoration:underline">energia</mark></span><span class="mini">conta de luz</span></div>
+            </div>
+            <i data-lucide="pencil" width="14" height="14" style="color:var(--muted)"></i>
+          </div>
+          <div class="li">
+            <div style="flex:1; min-width:0">
+              <div class="li-name">Solar Minas <mark>Energia</mark> Ltda</div>
+              <div class="li-sub">PIX SOLAR MINAS</div>
+            </div>
+            <i data-lucide="pencil" width="14" height="14" style="color:var(--muted)"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ REGRAS ═══════════ -->
+  <section>
+    <div class="scene-title"><b>i</b> Regras da busca</div>
+    <div class="legend">
+      <div class="lg"><strong>Onde procura</strong>Nome fiscal, nome no extrato, apelidos e — se houver fornecedor vinculado — nome, fantasia, razão social e CNPJ/CPF.</div>
+      <div class="lg"><strong>Ordem dos resultados</strong>1º nome fiscal começando com o texto · 2º nome fiscal contendo · 3º apelido · 4º extrato · 5º fornecedor · 6º CNPJ.</div>
+      <div class="lg"><strong>Normalização</strong>Ignora maiúsculas, acentos e pontuação. CNPJ/CPF só entra na busca a partir de 3 dígitos.</div>
+      <div class="lg"><strong>O que é gravado</strong>Sempre o nome fiscal. Apelidos ficam em <span class="mono" style="font-size:11px">finance_favorecidos.apelidos</span> (lista de textos).</div>
+    </div>
+  </section>
+
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -18,6 +18,8 @@ import { useViewMode } from '@/lib/view-mode';
 import { useFinanceTags, FinanceTag, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
+import { Highlight, FavMatchWhy } from './FavorecidoMatch';
+import { searchFavorecidos } from '@/lib/favorecidoSearch';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import type { PaymentType, TransactionType as TxType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
@@ -1842,7 +1844,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
     const [accRes, favRes, supRes, cardRes] = await Promise.all([
       supabase.from('finance_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('finance_favorecidos').select('*').order('nome_fiscal', { ascending: true }),
-      supabase.from('suppliers').select('id, name').order('name'),
+      supabase.from('suppliers').select('id, name, nome_fantasia, razao_social, documento').order('name'),
       supabase.from('finance_cards').select('*').order('created_at', { ascending: true }),
     ]);
     if (accRes.data) setAccounts(accRes.data as BankAccount[]);
@@ -3335,7 +3337,7 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                     <input
                       value={dadosFavSearch}
                       onChange={e => setDadosFavSearch(e.target.value)}
-                      placeholder="Buscar favorecido..."
+                      placeholder="Nome, apelido, extrato ou CNPJ..."
                       className="flex-1 bg-transparent outline-none text-[11.5px] text-[#1A1A0E] dark:text-[#F2F0E3] placeholder:text-[rgba(26,18,8,0.30)] dark:placeholder:text-white/25"
                     />
                   </div>
@@ -3349,12 +3351,12 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                       <p className="text-[11px] font-bold">Nenhum favorecido cadastrado</p>
                     </div>
                   ) : (
-                    favorecidos
-                      .filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()))
-                      .map(f => (
+                    searchFavorecidos(favorecidos, suppliers, dadosFavSearch)
+                      .map(({ fav: f, ...m }) => (
                         <div key={f.id} className="bg-white dark:bg-[#252520] border-[1.5px] border-[#E0D8BF] dark:border-white/[0.08] rounded-[14px] px-3 py-2.25 flex items-center gap-2.5">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] truncate">{f.nome_fiscal}</p>
+                            <Highlight text={f.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="block text-[12.5px] font-bold text-[#1A1A0E] dark:text-[#F2F0E3] truncate" />
+                            {m.field !== 'nome' && m.field !== 'apelido' && <FavMatchWhy match={{ fav: f, ...m }} className="mt-0.5" />}
                             {f.nome_banco ? (
                               <p className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-[7.5px] font-black uppercase tracking-[0.10em] text-[rgba(26,18,8,0.28)] dark:text-white/22">Extrato</span>
@@ -3369,6 +3371,16 @@ export function MobileFinancePage({ initialFocusTxId, onInitialFocusHandled }: M
                                 <span className="text-[9.5px] font-semibold text-[#D81E1E]/80 truncate">
                                   {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
                                 </span>
+                              </p>
+                            )}
+                            {(f.apelidos ?? []).length > 0 && (
+                              <p className="flex flex-wrap gap-1 mt-1">
+                                {(f.apelidos ?? []).map(ap => (
+                                  <span key={ap} className={cn(
+                                    'h-[17px] inline-flex items-center px-1.5 text-[9.5px] font-extrabold bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]',
+                                    m.field === 'apelido' && m.value === ap && 'outline outline-2 outline-[#D81E1E] outline-offset-1',
+                                  )}>{ap}</span>
+                                ))}
                               </p>
                             )}
                           </div>

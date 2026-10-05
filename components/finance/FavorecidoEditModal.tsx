@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Building2, CreditCard, Plus, Trash2, Check, Loader2, ChevronDown, Users, Lock, Info } from 'lucide-react';
+import { X, Building2, CreditCard, Plus, Trash2, Check, Loader2, ChevronDown, Users, Lock, Info, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { maskDocumento, type DocumentoTipo } from '@/lib/masks';
+import { cleanApelidos, normalizeSearch } from '@/lib/favorecidoSearch';
 
 export interface FavorecidoLite {
   id: string;
   nome_fiscal: string;
   nome_banco: string;
   supplier_id: string | null;
+  apelidos?: string[] | null;
 }
 
 export interface SupplierLite {
@@ -57,6 +59,12 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
   const [nomeBanco, setNomeBanco] = useState('');
   const [nomeFiscal, setNomeFiscal] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [apelidos, setApelidos] = useState<string[]>([]);
+  const [apelidoDraft, setApelidoDraft] = useState('');
+  const [apelidoFocus, setApelidoFocus] = useState(false);
+  const apelidoInputRef = useRef<HTMLInputElement>(null);
+  // Apelidos dos outros favorecidos — só pra avisar quando um apelido é compartilhado.
+  const [otherApelidos, setOtherApelidos] = useState<{ nome: string; apelidos: string[] }[]>([]);
 
   const [documentoTipo, setDocumentoTipo] = useState<DocumentoTipo>('CNPJ');
   const [documento, setDocumento] = useState('');
@@ -104,6 +112,8 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
     setNomeBanco(favorecido?.nome_banco ?? '');
     setNomeFiscal(favorecido?.nome_fiscal ?? initialNomeFiscal ?? '');
     setSelectedSupplierId(favorecido?.supplier_id ?? null);
+    setApelidos(favorecido?.apelidos ?? []);
+    setApelidoDraft('');
     setDocumentoTipo('CNPJ');
     setDocumento('');
     setRazaoSocial('');
@@ -119,6 +129,12 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
       const map: Record<string, string> = {};
       (data ?? []).forEach((r: any) => { if (r.documento) map[r.id] = r.documento; });
       setSupplierDocs(map);
+    });
+    supabase.from('finance_favorecidos').select('id, nome_fiscal, apelidos').then(({ data }) => {
+      if (!alive) return;
+      setOtherApelidos(((data ?? []) as any[])
+        .filter(r => r.id !== favorecido?.id && (r.apelidos ?? []).length > 0)
+        .map(r => ({ nome: r.nome_fiscal as string, apelidos: r.apelidos as string[] })));
     });
     return () => { alive = false; };
   }, [open, favorecido, initialNomeFiscal]);
@@ -174,6 +190,20 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
     loadSupplierData(id);
   }
 
+  // Enter/vírgula transforma o texto em etiqueta; Backspace no campo vazio apaga a última.
+  function commitApelido(raw = apelidoDraft) {
+    const parts = raw.split(',');
+    const next = cleanApelidos([...apelidos, ...parts]);
+    setApelidos(next);
+    setApelidoDraft('');
+  }
+  const removeApelido = (ap: string) => setApelidos(prev => prev.filter(a => a !== ap));
+  const apelidoConflicts = apelidos.flatMap(ap => {
+    const key = normalizeSearch(ap);
+    const owners = otherApelidos.filter(o => o.apelidos.some(x => normalizeSearch(x) === key)).map(o => o.nome);
+    return owners.length ? [{ ap, owners }] : [];
+  });
+
   const addConta = () => setContas(prev => [...prev, emptyConta()]);
   const updateConta = (localId: string, patch: Partial<ContaDraft>) =>
     setContas(prev => prev.map(c => c.localId === localId ? { ...c, ...patch } : c));
@@ -213,7 +243,12 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
         }
       }
 
-      const payload = { nome_fiscal: nomeFiscal.trim(), nome_banco: nomeBanco.trim(), supplier_id: finalSupplierId };
+      // Texto ainda não confirmado com Enter também entra.
+      const finalApelidos = cleanApelidos([...apelidos, ...apelidoDraft.split(',')]);
+      const payload: Record<string, unknown> = { nome_fiscal: nomeFiscal.trim(), nome_banco: nomeBanco.trim(), supplier_id: finalSupplierId };
+      // Só manda a coluna quando há o que gravar/limpar — assim o salvamento comum
+      // continua funcionando mesmo antes da migration add_favorecido_apelidos.sql.
+      if (finalApelidos.length > 0 || (favorecido?.apelidos ?? []).length > 0) payload.apelidos = finalApelidos;
 
       if (favorecido) {
         const { error: updErr } = await supabase.from('finance_favorecidos').update(payload).eq('id', favorecido.id);
@@ -336,6 +371,62 @@ export function FavorecidoEditModal({ open, favorecido, initialNomeFiscal, suppl
             <div className="min-w-0">
               <label className={labelCls}>Nome fiscal {req}</label>
               <input className={fieldCls} value={nomeFiscal} onChange={e => setNomeFiscal(e.target.value)} placeholder="Nome fiscal do favorecido..." />
+            </div>
+            <div className="sm:col-span-2 min-w-0">
+              <label className={labelCls}>
+                Apelidos
+                {apelidos.length > 0 && <span className="ml-auto normal-case tracking-normal font-bold">{apelidos.length}</span>}
+              </label>
+              <div
+                onClick={() => apelidoInputRef.current?.focus()}
+                className={cn(
+                  'min-h-[34px] px-1.5 py-1 flex flex-wrap items-center gap-1 bg-white dark:bg-[#1E1E18] border cursor-text transition-[border-color,box-shadow]',
+                  apelidoFocus
+                    ? 'border-[#D81E1E] shadow-[0_0_0_2px_rgba(216,30,30,0.12)]'
+                    : 'border-[#E0D8BF] dark:border-white/[0.10] hover:border-[#CFC4A2] dark:hover:border-white/[0.20]',
+                )}
+              >
+                {apelidos.map(ap => (
+                  <span key={ap} className="h-6 inline-flex items-center gap-1 pl-2 pr-[3px] bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E] text-[11.5px] font-extrabold">
+                    {ap}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); removeApelido(ap); }}
+                      title="Remover apelido"
+                      className="w-[18px] h-[18px] flex items-center justify-center opacity-60 hover:opacity-100 hover:bg-[#D81E1E] hover:text-white transition-[opacity,background-color,color] duration-[130ms]"
+                    >
+                      <X size={11} strokeWidth={2.8} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  ref={apelidoInputRef}
+                  value={apelidoDraft}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v.includes(',')) commitApelido(v); else setApelidoDraft(v);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); if (apelidoDraft.trim()) commitApelido(); }
+                    else if (e.key === 'Backspace' && !apelidoDraft && apelidos.length) setApelidos(prev => prev.slice(0, -1));
+                  }}
+                  onFocus={() => setApelidoFocus(true)}
+                  onBlur={() => { setApelidoFocus(false); if (apelidoDraft.trim()) commitApelido(); }}
+                  placeholder={apelidos.length ? '' : 'Ex: luz, energia...'}
+                  className="flex-1 min-w-[90px] h-6 px-1 bg-transparent outline-none text-[13px] font-semibold text-on-surface caret-[#D81E1E] placeholder:text-on-surface/25 placeholder:font-medium"
+                />
+                {apelidoDraft.trim() && <span className="font-mono text-[10px] text-on-surface/30 pr-1">Enter ↵</span>}
+              </div>
+              {apelidoConflicts.map(c => (
+                <div key={c.ap} className="mt-1.5 flex items-start gap-1.5 px-2 py-1.5 text-[10.5px] font-bold leading-snug text-[#92400E] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.08)] dark:bg-[rgba(252,211,77,0.07)] border border-[rgba(217,119,6,0.40)] dark:border-[rgba(252,211,77,0.35)]">
+                  <Info size={12} strokeWidth={2.6} className="shrink-0 mt-px" />
+                  <span>"{c.ap}" também é apelido de <b className="text-on-surface">{c.owners.join(', ')}</b> — os dois vão aparecer quando você buscar por ele.</span>
+                </div>
+              ))}
+              <p className="mt-1.5 flex items-start gap-1.5 text-[10.5px] font-semibold leading-snug text-on-surface/45">
+                <Search size={12} className="shrink-0 mt-px" />
+                Só usados na busca do favorecido. Os lançamentos continuam gravando o nome fiscal.
+              </p>
             </div>
           </div>
         </div>

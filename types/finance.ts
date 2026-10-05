@@ -68,9 +68,14 @@ export interface Favorecido {
   nome_fiscal: string;
   nome_banco: string;
   supplier_id: string | null;
+  /** Nomes alternativos usados só na busca (ex.: "luz" → CEMIG). */
+  apelidos?: string[] | null;
 }
 
 export interface Supplier {
   id: string;
   name: string;
+  nome_fantasia?: string;
+  razao_social?: string;
+  documento?: string;
 }

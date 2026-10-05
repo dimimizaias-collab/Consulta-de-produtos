@@ -18,6 +18,8 @@ import { TagGuide } from './TagGuide';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
+import { Highlight, FavMatchWhy } from './FavorecidoMatch';
+import { searchFavorecidos } from '@/lib/favorecidoSearch';
 import type { PaymentType, TransactionType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
 
@@ -310,6 +312,11 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   // favorecido combobox
   const [favOpen, setFavOpen] = useState(false);
   const [favFreeMode, setFavFreeMode] = useState(false);
+  const [favActiveIdx, setFavActiveIdx] = useState(0);
+  const favMatches = useMemo(
+    () => searchFavorecidos(favorecidos, suppliers, txForm.favorecido),
+    [favorecidos, suppliers, txForm.favorecido],
+  );
   const favRef = useRef<HTMLDivElement>(null);
 
   // pendências de favorecido (aba Dados)
@@ -382,7 +389,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
     setLoadingData(false);
   };
 
-  useEffect(() => { fetchAll(); fetchFavorecidos(); }, []);
+  // Fornecedores entram na busca de favorecido (fantasia, razão social, CNPJ).
+  useEffect(() => { fetchAll(); fetchFavorecidos(); fetchSuppliers(); }, []);
 
   const fetchFavorecidos = async () => {
     setLoadingFavorecidos(true);
@@ -395,7 +403,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   };
 
   const fetchSuppliers = async () => {
-    const { data } = await supabase.from('suppliers').select('id, name').order('name');
+    const { data } = await supabase.from('suppliers').select('id, name, nome_fantasia, razao_social, documento').order('name');
     if (data) setSuppliers(data as Supplier[]);
   };
 
@@ -2415,9 +2423,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                             />
                           </div>
                           <div className="max-h-32 overflow-y-auto flex flex-col gap-1">
-                            {favorecidos
-                              .filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase()))
-                              .map(fv => (
+                            {searchFavorecidos(favorecidos, suppliers, favLinkPickerSearch)
+                              .map(m => { const fv = m.fav; return (
                                 <button
                                   key={fv.id}
                                   onClick={async () => {
@@ -2425,12 +2432,13 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                                     setFavLinkPickerKey(null);
                                     setFavLinkPickerSearch('');
                                   }}
-                                  className="text-left px-2.5 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
+                                  className="text-left px-2.5 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex flex-col gap-0.5"
                                 >
-                                  {fv.nome_fiscal}
+                                  <Highlight text={fv.nome_fiscal} range={m.field === 'nome' ? m.range : null} />
+                                  <FavMatchWhy match={m} />
                                 </button>
-                              ))}
-                            {favorecidos.filter(fv => !favLinkPickerSearch || fv.nome_fiscal.toLowerCase().includes(favLinkPickerSearch.toLowerCase())).length === 0 && (
+                              ); })}
+                            {searchFavorecidos(favorecidos, suppliers, favLinkPickerSearch).length === 0 && (
                               <p className="px-2.5 py-2 text-xs italic text-on-surface/35">Nenhum resultado</p>
                             )}
                           </div>
@@ -2471,7 +2479,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   );
 
   if (financeView === 'favorecidos') {
-    const favList = favorecidos.filter(f => !dadosFavSearch || f.nome_fiscal.toLowerCase().includes(dadosFavSearch.toLowerCase()));
+    const dadosFavMatches = searchFavorecidos(favorecidos, suppliers, dadosFavSearch);
     return (
       <div className="space-y-3">
         {renderFinanceHeader()}
@@ -2489,7 +2497,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               <input
                 value={dadosFavSearch}
                 onChange={e => setDadosFavSearch(e.target.value)}
-                placeholder="Buscar favorecido..."
+                placeholder="Nome, apelido, extrato ou CNPJ..."
                 className="w-full pl-10 pr-4 py-3 bg-surface rounded-[14px] text-sm text-on-surface placeholder:text-on-surface/30 border-[1.5px] border-on-surface/[0.10] focus:outline-none focus:border-primary/50"
               />
             </div>
@@ -2519,14 +2527,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
               <Users size={32} className="mb-2" />
               <p className="text-sm font-bold">Nenhum favorecido cadastrado</p>
             </div>
-          ) : favList.length === 0 ? (
+          ) : dadosFavMatches.length === 0 ? (
             <div className="flex flex-col items-center py-10 text-on-surface/25">
               <Search size={28} className="mb-2" />
               <p className="text-sm font-bold">Nenhum favorecido encontrado</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {favList.map(f => (
+              {dadosFavMatches.map(({ fav: f, ...m }) => (
                 <div
                   key={f.id}
                   className="bg-surface border border-on-surface/[0.09] rounded-2xl px-4 py-3.5 shadow-[0_2px_10px_rgba(26,26,10,0.05)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.25)] flex items-center gap-3.5 transition-[box-shadow,border-color] hover:shadow-[0_4px_16px_rgba(26,26,10,0.09)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:border-primary/20"
@@ -2535,7 +2543,8 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                     <Landmark size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14.5px] font-extrabold text-on-surface truncate">{f.nome_fiscal}</p>
+                    <Highlight text={f.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="block text-[14.5px] font-extrabold text-on-surface truncate" />
+                    {m.field !== 'nome' && m.field !== 'apelido' && <FavMatchWhy match={{ fav: f, ...m }} className="mt-1" />}
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {f.nome_banco ? (
                         <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-[3px] rounded-full bg-on-surface/[0.045] dark:bg-white/[0.06] text-on-surface/50 font-['DM_Mono',monospace]">
@@ -2550,6 +2559,14 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                           {suppliers.find(s => s.id === f.supplier_id)?.name ?? 'Fornecedor vinculado'}
                         </span>
                       )}
+                      {(f.apelidos ?? []).map(ap => (
+                        <span key={ap} className={cn(
+                          'inline-flex items-center text-[10.5px] font-extrabold px-2.5 py-[3px] rounded-full bg-[#1A1A0E] text-[#FFE500] dark:bg-[#FFE500] dark:text-[#1A1A0E]',
+                          m.field === 'apelido' && m.value === ap && 'ring-2 ring-[#D81E1E] ring-offset-1 ring-offset-surface',
+                        )}>
+                          {ap}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -3822,9 +3839,25 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                       <div className="relative flex-1" ref={favRef}>
                         <input
                           value={txForm.favorecido}
-                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); if (!favFreeMode) setFavOpen(true); }}
+                          onChange={e => { setTxForm(f => ({ ...f, favorecido: e.target.value })); setFavActiveIdx(0); if (!favFreeMode) setFavOpen(true); }}
                           onFocus={() => { if (!favFreeMode) setFavOpen(true); }}
-                          placeholder={favFreeMode ? 'Descrição livre — vincule depois em Dados › Favorecidos' : 'Digite para buscar...'}
+                          onKeyDown={e => {
+                            if (favFreeMode) return;
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setFavOpen(true);
+                              const n = favMatches.length;
+                              if (n) setFavActiveIdx(i => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+                            } else if (e.key === 'Enter' && favOpen && favMatches[favActiveIdx]) {
+                              e.preventDefault();
+                              setTxForm(f => ({ ...f, favorecido: favMatches[favActiveIdx].fav.nome_fiscal }));
+                              setFavOpen(false);
+                            } else if (e.key === 'Escape' && favOpen) {
+                              e.stopPropagation();
+                              setFavOpen(false);
+                            }
+                          }}
+                          placeholder={favFreeMode ? 'Descrição livre — vincule depois em Dados › Favorecidos' : 'Nome, apelido, extrato ou CNPJ...'}
                           className={cn(
                             inputCls,
                             favFreeMode && 'border-amber-500/40 bg-amber-500/[0.06] placeholder:text-amber-700 dark:placeholder:text-amber-300 placeholder:italic'
@@ -3838,22 +3871,44 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -4, scale: 0.98 }}
                               transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                              className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-[#2a2a24] border border-[rgba(26,26,10,0.10)] dark:border-white/10 shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+                              className="absolute left-0 right-0 top-full mt-0.5 z-50 bg-white dark:bg-[#2E2E28] border border-[#E0D8BF] dark:border-white/[0.10] shadow-xl overflow-hidden max-h-60 overflow-y-auto origin-top"
                             >
-                              {favorecidos
-                                .filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase()))
-                                .map(fv => (
+                              {txForm.favorecido.trim() && favMatches.length > 0 && (
+                                <li className="h-6 px-2.5 flex items-center text-[9px] font-black uppercase tracking-[0.1em] text-on-surface/30 border-b border-[#E0D8BF] dark:border-white/[0.10]">
+                                  {favMatches.length === 1 ? '1 resultado' : `${favMatches.length} resultados`}
+                                  <span className="ml-auto font-['DM_Mono',monospace] font-medium normal-case tracking-normal">↑↓ Enter</span>
+                                </li>
+                              )}
+                              {favMatches.map((m, idx) => (
+                                <li
+                                  key={m.fav.id}
+                                  onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: m.fav.nome_fiscal })); setFavOpen(false); }}
+                                  onMouseEnter={() => setFavActiveIdx(idx)}
+                                  className={cn(
+                                    'px-2.5 py-[7px] flex flex-col gap-[3px] cursor-pointer border-l-2 transition-colors',
+                                    idx === favActiveIdx ? 'bg-[#FFF8D0] dark:bg-[#FFE500]/[0.08] border-[#D81E1E]' : 'border-transparent',
+                                  )}
+                                >
+                                  <span className="flex items-baseline gap-2 min-w-0">
+                                    <Highlight text={m.fav.nome_fiscal} range={m.field === 'nome' ? m.range : null} className="text-[13px] font-bold text-on-surface truncate" />
+                                    {m.fav.nome_banco && m.field !== 'extrato' && (
+                                      <span className="ml-auto text-[11px] font-semibold text-on-surface/30 truncate shrink-0 max-w-[45%]">{m.fav.nome_banco}</span>
+                                    )}
+                                  </span>
+                                  <FavMatchWhy match={m} />
+                                </li>
+                              ))}
+                              {favMatches.length === 0 && txForm.favorecido.trim() && (
+                                <>
+                                  <li className="px-2.5 py-2 text-[12px] italic text-on-surface/45">Nenhum favorecido encontrado</li>
                                   <li
-                                    key={fv.id}
-                                    onMouseDown={() => { setTxForm(f => ({ ...f, favorecido: fv.nome_fiscal })); setFavOpen(false); }}
-                                    className="px-3 py-2.5 text-sm text-[#1A1A0E] dark:text-[#F2F0E3] hover:bg-[rgba(26,26,10,0.05)] dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
+                                    onMouseDown={e => { e.preventDefault(); setFavFreeMode(true); setFavOpen(false); }}
+                                    className="px-2.5 py-1.5 flex items-center gap-1.5 border-t border-[#E0D8BF] dark:border-white/[0.10] text-[10.5px] font-bold text-on-surface/45 hover:text-on-surface cursor-pointer transition-colors"
                                   >
-                                    <span className="font-semibold">{fv.nome_fiscal}</span>
-                                    {fv.nome_banco && <span className="ml-2 text-xs text-[rgba(26,26,10,0.40)] dark:text-white/28">{fv.nome_banco}</span>}
+                                    <Unlock size={12} className="text-[#D81E1E] shrink-0" />
+                                    <span className="truncate">Usar "{txForm.favorecido.trim()}" como descrição livre</span>
                                   </li>
-                                ))}
-                              {favorecidos.filter(fv => !txForm.favorecido || fv.nome_fiscal.toLowerCase().includes(txForm.favorecido.toLowerCase())).length === 0 && (
-                                <li className="px-3 py-2.5 text-sm text-[rgba(26,26,10,0.35)] dark:text-white/25 italic">Nenhum resultado</li>
+                                </>
                               )}
                             </motion.ul>
                           )}
