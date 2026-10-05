@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { TAG_COLOR_MAP, type FinanceTag, type GrupoDre } from '@/hooks/useFinanceTags';
 import type { Transaction } from '@/types/finance';
 import { TagGroupsBoard } from './TagGroupsBoard';
+import { ESTABLISHMENTS, PERSONAL_ESTABLISHMENT } from '@/lib/financeEstablishments';
 
 // Aba "Fluxo de Caixa" do Controle Financeiro — visão mensal no formato de DRE.
 //
@@ -46,10 +47,11 @@ const MODOS: { key: Modo; label: string; hint: string }[] = [
   { key: 'aberto', label: 'Em aberto', hint: 'Só o que ainda falta receber ou pagar' },
 ];
 
-// Ordem preferida dos estabelecimentos no seletor; outros valores que aparecerem nas
-// movimentações (ex.: nomes antigos) entram depois, em ordem alfabética.
-const ESTABELECIMENTOS_ORDEM = ['Castelo Real', 'Universo do R$1,99'];
-const TODAS = '__todas__';
+// Seletor de empresa: "Lojas" soma todas as lojas (sem a conta Pessoal), cada
+// estabelecimento sozinho, e "Tudo" junta lojas + Pessoal. Valores que aparecerem nas
+// movimentações fora da lista (ex.: nomes antigos) entram como lojas, em ordem alfabética.
+const LOJAS = '__lojas__';
+const TUDO = '__tudo__';
 
 const SEM_TAG = '__sem_tag__';
 const AJUSTE_FATURA = '__ajuste_fatura__';
@@ -102,15 +104,16 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
   const [expandidos, setExpandidos] = useState<Set<Grupo>>(new Set());
   const [vista, setVista] = useState<Vista>('dre');
   const [buscaTag, setBuscaTag] = useState('');
-  const [estab, setEstab] = useState<string>(TODAS);
+  const [estab, setEstab] = useState<string>(LOJAS);
 
   const estabelecimentos = useMemo(() => {
-    const s = new Set(ESTABELECIMENTOS_ORDEM);
+    const s = new Set(ESTABLISHMENTS);
     const extras = new Set<string>();
     for (const t of transactions) if (t.estabelecimento && !s.has(t.estabelecimento)) extras.add(t.estabelecimento);
-    return [...ESTABELECIMENTOS_ORDEM, ...[...extras].sort((a, b) => a.localeCompare(b))];
+    const lojas = ESTABLISHMENTS.filter(e => e !== PERSONAL_ESTABLISHMENT);
+    return [...lojas, ...[...extras].sort((a, b) => a.localeCompare(b)), PERSONAL_ESTABLISHMENT];
   }, [transactions]);
-  const estabLabel = estab === TODAS ? 'Todas as empresas' : estab;
+  const estabLabel = estab === LOJAS ? 'Todas as lojas' : estab === TUDO ? 'Lojas + Pessoal' : estab;
 
   const tagById = useMemo(() => new Map(tags.map(t => [t.id, t])), [tags]);
 
@@ -118,7 +121,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
   const lancamentos = useMemo<Lancamento[]>(() => {
     const out: Lancamento[] = [];
     for (const t of transactions) {
-      if (estab !== TODAS && t.estabelecimento !== estab) continue;
+      if (estab === LOJAS ? t.estabelecimento === PERSONAL_ESTABLISHMENT : estab !== TUDO && t.estabelecimento !== estab) continue;
       const valor = Math.abs(t.valor_final || 0);
       const pagoVal = t.pago ? (Math.abs(t.total_pago || 0) || valor) : Math.abs(t.total_pago || 0);
       const abertoVal = t.pago ? 0 : Math.max(valor - pagoVal, 0);
@@ -401,15 +404,17 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
             <span className="h-[26px] w-7 flex items-center justify-center text-on-surface/35" title="Empresa">
               <Store size={13} />
             </span>
-            {[TODAS, ...estabelecimentos].map(e => (
+            {[LOJAS, ...estabelecimentos, TUDO].map(e => (
               <button
                 key={e}
                 onClick={() => setEstab(e)}
+                title={e === LOJAS ? 'Todas as lojas juntas, sem a conta Pessoal' : e === TUDO ? 'Lojas + conta Pessoal' : undefined}
                 className={cn(
                   'h-[26px] px-2.5 border-l border-[#E0D8BF] dark:border-white/[0.10] text-[10.5px] font-extrabold uppercase tracking-[0.05em] whitespace-nowrap transition-colors active:scale-[0.97]',
+                  e === PERSONAL_ESTABLISHMENT && 'border-l-2 border-l-[#CFC4A2] dark:border-l-white/[0.20]',
                   estab === e ? 'bg-primary text-white' : 'text-on-surface/45 hover:text-on-surface',
                 )}
-              >{e === TODAS ? 'Todas' : e}</button>
+              >{e === LOJAS ? 'Lojas' : e === TUDO ? 'Tudo' : e}</button>
             ))}
           </div>
 
@@ -465,7 +470,7 @@ export function CashFlowPage({ transactions, tags, loading, onUpdateTag }: CashF
         >
           <AlertTriangle size={14} className="shrink-0" />
           <span>
-            <b>{fmtBRL(naoClassTotal)}</b> em despesas de {ano}{estab !== TODAS ? ` (${estab})` : ''} sem grupo da DRE
+            <b>{fmtBRL(naoClassTotal)}</b> em despesas de {ano}{estab !== TUDO ? ` (${estabLabel})` : ''} sem grupo da DRE
             {tagsSemGrupo > 0 ? ` (${tagsSemGrupo} ${tagsSemGrupo === 1 ? 'tag sem grupo' : 'tags sem grupo'} e movimentações sem tag).` : ' (movimentações sem tag classificada).'}
           </span>
           <span className="ml-auto shrink-0 text-[10.5px] font-extrabold uppercase tracking-[0.05em]">Classificar tags →</span>

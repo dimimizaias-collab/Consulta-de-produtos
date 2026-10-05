@@ -23,6 +23,7 @@ import { Highlight, FavMatchWhy } from './FavorecidoMatch';
 import { searchFavorecidos } from '@/lib/favorecidoSearch';
 import type { PaymentType, TransactionType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
+import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,6 @@ interface CardForm {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'Débito', 'PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'];
-const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
 
 const TABLE_COLUMNS: { label: string; key: string }[] = [

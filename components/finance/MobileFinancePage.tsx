@@ -23,6 +23,7 @@ import { searchFavorecidos } from '@/lib/favorecidoSearch';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import type { PaymentType, TransactionType as TxType, Transaction, BankAccount, FinanceCard, Favorecido, Supplier } from '@/types/finance';
 import { calcularFatura } from '@/lib/creditoFatura';
+import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,6 @@ const emptyAccountForm = (): AccountForm => ({
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['PIX', 'Transferência', 'Boleto', 'Crédito', 'Débito', 'Dinheiro', 'Cheque', 'Outro'];
-const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
 const PERIOD_OPTIONS: { key: DashPeriod; label: string; days: number }[] = [
   { key: '7d',  label: '7 dias',  days: 7   },
@@ -506,7 +506,7 @@ function TxSheet({
                 key={e}
                 onClick={() => setForm({ ...form, estabelecimento: e })}
                 className={cn(
-                  'flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                  'flex-1 py-2 px-1 leading-tight rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
                   form.estabelecimento === e
                     ? 'bg-[#FFE500] border-[#D4C000] text-[rgba(26,26,10,0.75)]'
                     : 'bg-transparent border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'
@@ -1380,7 +1380,7 @@ function TxDetailSheet({
                   key={e}
                   onClick={() => setForm({ ...form, estabelecimento: e })}
                   className={cn(
-                    'flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
+                    'flex-1 py-2 px-1 leading-tight rounded-xl text-[10px] font-black uppercase tracking-wider border-[1.5px] transition-colors',
                     form.estabelecimento === e
                       ? 'bg-[#FFE500] border-[#D4C000] text-[rgba(26,26,10,0.75)]'
                       : 'bg-transparent border-[rgba(26,26,10,0.09)] dark:border-white/[0.08] text-[rgba(26,26,10,0.38)] dark:text-white/28'

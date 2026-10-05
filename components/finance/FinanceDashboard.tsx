@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { ESTABLISHMENTS } from '@/lib/financeEstablishments';
 
-const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

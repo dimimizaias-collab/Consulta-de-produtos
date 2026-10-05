@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { ReviewNote } from './LogisticsCenter';
+import { STORE_ESTABLISHMENTS as ESTABLISHMENTS } from '@/lib/financeEstablishments';
 
 const blockWheelChange = (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur();
 
@@ -71,7 +72,6 @@ interface AccountForm {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PAYMENT_TYPES: PaymentType[] = ['Boleto', 'Crédito', 'Débito', 'PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'];
-const ESTABLISHMENTS = ['Castelo Real', 'Universo do R$1,99'];
 const BUCKET = 'finance-images';
 
 const FILTERABLE_COLUMNS: { key: FilterColumnKey; label: string }[] = [
