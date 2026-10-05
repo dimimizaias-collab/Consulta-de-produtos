@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fornecedor CNPJ e Favorecidos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --page: #EDE6CF;
+    --modal: #FDFAF0;
+    --title-bg: #FBF35E;
+    --title-border: #D9CF45;
+    --chip-bg: rgba(0,0,0,0.09);
+    --chip-fg: #1A1A0E;
+    --text: #1A1A0E;
+    --muted: rgba(26,26,10,0.45);
+    --faint: rgba(26,26,10,0.28);
+    --section: #F1EAD3;
+    --section-border: #E0D8BF;
+    --field: #FFFFFF;
+    --field-border: #E0D8BF;
+    --lock: rgba(0,0,0,0.035);
+    --label: rgba(26,26,10,0.58);
+    --dropdown: #FFFFFF;
+    --row-hover: #FFF8D0;
+    --mark-bg: #FFE500;
+    --mark-fg: #1A1A0E;
+    --footer: #EFE7CD;
+    --footer-border: #DDD2B0;
+    --close-border: rgba(0,0,0,0.14);
+    --close-fg: rgba(0,0,0,0.5);
+    --apelido-bg: #1A1A0E;
+    --apelido-fg: #FFE500;
+    --tag-apelido-bg: rgba(216,30,30,0.09);
+    --tag-apelido-fg: #B91818;
+    --tag-extrato-bg: rgba(26,26,10,0.07);
+    --tag-extrato-fg: rgba(26,26,10,0.62);
+    --tag-forn-bg: rgba(10,122,85,0.09);
+    --tag-forn-fg: #0A7A55;
+    --tag-doc-bg: rgba(146,64,14,0.09);
+    --tag-doc-fg: #92400E;
+    --note: rgba(26,26,10,0.55);
+  }
+  [data-theme="dark"] {
+    --page: #121210;
+    --modal: #1E1E18;
+    --title-bg: #252520;
+    --title-border: rgba(255,255,255,0.08);
+    --chip-bg: rgba(216,30,30,0.16);
+    --chip-fg: #D81E1E;
+    --text: #F2F0E3;
+    --muted: rgba(242,240,227,0.42);
+    --faint: rgba(242,240,227,0.25);
+    --section: #181814;
+    --section-border: rgba(255,255,255,0.10);
+    --field: #1E1E18;
+    --field-border: rgba(255,255,255,0.10);
+    --lock: rgba(255,255,255,0.03);
+    --label: rgba(242,240,227,0.55);
+    --dropdown: #2E2E28;
+    --row-hover: rgba(255,229,0,0.08);
+    --mark-bg: rgba(255,229,0,0.85);
+    --mark-fg: #1A1A0E;
+    --footer: #181814;
+    --footer-border: rgba(255,255,255,0.08);
+    --close-border: rgba(255,255,255,0.10);
+    --close-fg: rgba(255,255,255,0.4);
+    --apelido-bg: #FFE500;
+    --apelido-fg: #1A1A0E;
+    --tag-apelido-bg: rgba(216,30,30,0.16);
+    --tag-apelido-fg: #FF6B6B;
+    --tag-extrato-bg: rgba(242,240,227,0.08);
+    --tag-extrato-fg: rgba(242,240,227,0.62);
+    --tag-forn-bg: rgba(52,211,153,0.10);
+    --tag-forn-fg: #34D399;
+    --tag-doc-bg: rgba(252,211,77,0.10);
+    --tag-doc-fg: #FCD34D;
+    --note: rgba(242,240,227,0.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--page); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; padding: 28px 16px 60px; }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 34px; }
+  .scene-title { font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+  .scene-title b { background: #D81E1E; color: #fff; padding: 2px 7px; letter-spacing: .06em; }
+  .scene-note { font-size: 12.5px; color: var(--note); margin: -4px 0 12px; max-width: 760px; line-height: 1.5; }
+  .row { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+
+  /* modal */
+  .modal { background: var(--modal); border: 1px solid rgba(0,0,0,.12); box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); width: 100%; max-width: 720px; display: flex; flex-direction: column; }
+  [data-theme="dark"] .modal { border-color: rgba(255,255,255,.08); }
+  .modal.narrow { max-width: 420px; }
+  .titlebar { height: 48px; padding: 0 12px 0 14px; display: flex; align-items: center; gap: 11px; background: var(--title-bg); border-bottom: 1px solid var(--title-border); }
+  .tchip { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: var(--chip-bg); color: var(--chip-fg); flex-shrink: 0; }
+  .titlebar h2 { font-size: 15px; font-weight: 900; line-height: 1.15; }
+  .titlebar p { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .tclose { margin-left: auto; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--close-border); color: var(--close-fg); }
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .section { background: var(--section); border: 1px solid var(--section-border); }
+  .shead { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #FFEC4D; border-bottom: 1.5px solid #8F7E10; }
+  .shead svg { color: #D81E1E; width: 12px; height: 12px; }
+  .stitle { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: rgba(26,26,10,.55); }
+  .scount { margin-left: auto; font-size: 10px; font-weight: 800; color: rgba(26,26,10,.55); }
+  .grid { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid.tx { grid-template-columns: 180px minmax(0,1fr); }
+  .span2 { grid-column: span 2; }
+  label.l { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--label); margin-bottom: 4px; padding-left: 1px; }
+  .req { color: #D81E1E; }
+  .field { height: 34px; padding: 0 10px; background: var(--field); border: 1px solid var(--field-border); font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; width: 100%; font-family: inherit; }
+  .field.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .field .ph { color: var(--faint); font-weight: 500; }
+  .caret { display: inline-block; width: 1.5px; height: 15px; background: #D81E1E; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .mono { font-family: 'DM Mono', monospace; font-size: 12.5px; font-weight: 500; letter-spacing: .03em; }
+  .lock { background: var(--lock); color: var(--muted); }
+  .icon-btn { width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--field-border); background: rgba(26,26,10,.06); color: var(--muted); }
+
+  /* dropdown */
+  .combo { position: relative; }
+  .dd { margin-top: 2px; background: var(--dropdown); border: 1px solid var(--field-border); box-shadow: 0 20px 25px -5px rgba(0,0,0,.12), 0 8px 10px -6px rgba(0,0,0,.1); }
+  .dd-head { height: 24px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); border-bottom: 1px solid var(--field-border); }
+  .dd-head .kbd { margin-left: auto; font-family: 'DM Mono', monospace; letter-spacing: 0; text-transform: none; font-weight: 500; }
+  .opt { padding: 7px 10px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; border-left: 2px solid transparent; }
+  .opt.active { background: var(--row-hover); border-left-color: #D81E1E; }
+  .opt-top { display: flex; align-items: baseline; gap: 8px; }
+  .opt-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .opt-banco { font-size: 11px; color: var(--faint); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: auto; }
+  .why { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+  .tag { font-size: 8.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; padding: 1.5px 5px; flex-shrink: 0; }
+  .tag.apelido { background: var(--tag-apelido-bg); color: var(--tag-apelido-fg); }
+  .tag.extrato { background: var(--tag-extrato-bg); color: var(--tag-extrato-fg); }
+  .tag.forn { background: var(--tag-forn-bg); color: var(--tag-forn-fg); }
+  .tag.doc { background: var(--tag-doc-bg); color: var(--tag-doc-fg); }
+  mark { background: var(--mark-bg); color: var(--mark-fg); padding: 0 1px; }
+  .empty { padding: 9px 10px; font-size: 12px; font-style: italic; color: var(--muted); }
+  .dd-foot { padding: 6px 10px; border-top: 1px solid var(--field-border); display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .dd-foot svg { width: 12px; height: 12px; color: #D81E1E; }
+
+  /* apelidos chip input */
+  .chips { min-height: 34px; padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: var(--field); border: 1px solid var(--field-border); }
+  .chips.focus { border-color: #D81E1E; box-shadow: 0 0 0 2px rgba(216,30,30,.12); }
+  .ap { height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 3px 0 8px; background: var(--apelido-bg); color: var(--apelido-fg); font-size: 11.5px; font-weight: 800; }
+  .ap button { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; }
+  .ap button:hover { opacity: 1; background: #D81E1E; color: #fff; }
+  .ap button svg { width: 11px; height: 11px; }
+  .chips .typing { font-size: 13px; font-weight: 600; padding: 0 4px; display: flex; align-items: center; }
+  .chips .hint { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--faint); padding-right: 4px; }
+  .help { margin-top: 5px; font-size: 10.5px; font-weight: 600; color: var(--muted); display: flex; gap: 5px; align-items: flex-start; line-height: 1.4; }
+  .help svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
+  .warn { margin-top: 5px; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 10.5px; font-weight: 700; line-height: 1.4; color: #92400E; background: rgba(217,119,6,.08); border: 1px solid rgba(217,119,6,.40); }
+  [data-theme="dark"] .warn { color: #FCD34D; background: rgba(252,211,77,.07); border-color: rgba(252,211,77,.35); }
+  .warn svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
+
+  .footer { padding: 10px 14px; background: var(--footer); border-top: 1px solid var(--footer-border); display: flex; gap: 8px; justify-content: flex-end; }
+  .btn { height: 36px; padding: 0 18px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; border: 1px solid var(--field-border); background: var(--field); color: var(--text); font-family: inherit; }
+  .btn.primary { background: #D81E1E; border-color: #D81E1E; color: #fff; }
+  .btn svg { width: 14px; height: 14px; }
+
+  /* list (Dados > Favorecidos) */
+  .list { display: flex; flex-direction: column; }
+  .li { padding: 9px 12px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--field-border); }
+  .li:nth-child(odd) { background: var(--field); }
+  .li-name { font-size: 13px; font-weight: 800; }
+  .li-sub { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); font-weight: 600; }
+  .mini { height: 18px; display: inline-flex; align-items: center; padding: 0 6px; font-size: 10px; font-weight: 800; background: var(--apelido-bg); color: var(--apelido-fg); }
+
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .lg { background: var(--modal); border: 1px solid var(--section-border); padding: 10px 12px; font-size: 12px; line-height: 1.5; color: var(--note); }
+  .lg strong { color: var(--text); display: block; margin-bottom: 2px; font-size: 12.5px; }
+
+  @media (max-width: 640px) {
+    .grid, .grid.tx { grid-template-columns: 1fr; }
+    .span2 { grid-column: auto; }
+  }
+</style>
+<style>
+  .modal.md { max-width: 448px; }
+  .modal.lg { max-width: 640px; }
+  /* Abas penduradas — mesmo padrão do Editar Produto */
+  .tabs { display: flex; background: #EFE7CD; }
+  [data-theme="dark"] .tabs { background: #181814; }
+  .tab { min-width: 120px; height: 32px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
+         background: var(--title-bg); border: 1px solid var(--title-border); border-top: 0; margin-left: -1px;
+         color: var(--text); font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+         box-shadow: inset 0 6px 8px -5px rgba(26,26,10,0.35); }
+  [data-theme="dark"] .tab { box-shadow: inset 0 6px 8px -5px rgba(0,0,0,0.55); }
+  .tab:first-child { margin-left: 0; border-left: 0; }
+  .tab .lb { opacity: .55; } .tab:hover .lb { opacity: .85; }
+  .tab.on { box-shadow: inset 0 6px 8px -5px rgba(26,26,10,0.35), inset 0 -3px 0 #D81E1E; }
+  [data-theme="dark"] .tab.on { box-shadow: inset 0 6px 8px -5px rgba(0,0,0,0.55), inset 0 -3px 0 #D81E1E; }
+  .tab.on .lb { opacity: 1; }
+  .tab.off { cursor: not-allowed; } .tab.off .lb, .tab.off:hover .lb { opacity: .28; }
+  .tab .n { font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: rgba(26,26,10,0.12); letter-spacing: 0; }
+  [data-theme="dark"] .tab .n { background: rgba(242,240,227,0.10); }
+  .body.tall { min-height: 330px; }
+  .emptybox span { display: block; }
+  .err { margin-top: 5px; display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; font-size: 10.5px; font-weight: 700; line-height: 1.4; color: #D81E1E; background: rgba(216,30,30,.06); border: 1px solid rgba(216,30,30,.35); }
+  .err svg, .ok svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
+  .err .act { margin-top: 5px; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; background: #D81E1E; color: #fff; font-size: 9.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+  .err .act svg { margin: 0; width: 11px; height: 11px; }
+  .ok { margin-top: 5px; display: flex; gap: 6px; font-size: 10.5px; font-weight: 700; color: #0A7A55; }
+  [data-theme="dark"] .ok { color: #34D399; }
+  .seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--field-border); border-right: 0; background: rgba(26,26,10,.06); }
+  [data-theme="dark"] .seg { background: rgba(242,240,227,.06); }
+  .seg span { width: 42px; display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 900; letter-spacing: .06em; color: var(--muted); }
+  .seg span.on { background: #D81E1E; color: #fff; }
+  .field.bad { border-color: rgba(216,30,30,.55); }
+  .btn.primary.dis { opacity: .45; }
+  .fav { background: var(--field); border: 1px solid var(--field-border); padding: 8px 10px; display: flex; gap: 10px; align-items: flex-start; }
+  .fav + .fav { border-top: 0; }
+  .fav-ic { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; background: rgba(216,30,30,.08); color: #D81E1E; flex-shrink: 0; }
+  .fav-name { font-size: 12.5px; font-weight: 800; }
+  .fav-sub { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+  .fav-sub .mono { font-size: 10px; }
+  .k { font-size: 7.5px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .emptybox { margin: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 16px; border: 1px dashed var(--field-border); color: var(--muted); text-align: center; font-size: 11.5px; font-weight: 700; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 10px; }
+  .card { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(26,26,10,.06); background: var(--modal); }
+  [data-theme="dark"] .card { border-color: rgba(255,255,255,.06); background: #252520; }
+  .card-ic { width: 36px; height: 36px; border-radius: 12px; background: rgba(245,158,11,.10); color: #D97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card-name { font-size: 14px; font-weight: 700; }
+  .card-sub { font-size: 10px; color: var(--muted); }
+  .badges { margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .b { height: 18px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 999px; font-size: 9.5px; font-weight: 800; }
+  .b svg { width: 10px; height: 10px; }
+  .b.fav-b { background: rgba(216,30,30,.08); color: #D81E1E; }
+  .b.dup { background: rgba(217,119,6,.10); color: #B45309; border: 1px solid rgba(217,119,6,.35); }
+  [data-theme="dark"] .b.dup { color: #FCD34D; background: rgba(252,211,77,.08); border-color: rgba(252,211,77,.30); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section>
+    <div class="scene-title"><b>1</b> Novo Fornecedor — CNPJ já cadastrado (bloqueia)</div>
+    <p class="scene-note">Modal maior (640px) no <b>padrão quadrado</b>, com abas <b>penduradas</b> abaixo do título (mesmo padrão do Editar Produto). Num fornecedor novo a aba <b>Favorecidos</b> fica desabilitada (ainda não há vínculo). Ao completar o CNPJ/CPF, confere na hora: se já existe, o campo fica vermelho, <b>Cadastrar</b> trava e aparece o atalho para abrir o cadastro existente.</p>
+    <div class="modal lg">
+      <div class="titlebar">
+        <div class="tchip"><i data-lucide="building-2" width="15" height="15"></i></div>
+        <div><h2>Novo Fornecedor</h2><p>Cadastrar parceiro comercial</p></div>
+        <div class="tclose"><i data-lucide="x" width="15" height="15"></i></div>
+      </div>
+      <div class="tabs">
+        <span class="tab on"><span class="lb">Dados</span></span>
+        <span class="tab off"><span class="lb">Favorecidos</span></span>
+      </div>
+      <div class="body tall">
+        <div class="section">
+          <div class="shead"><i data-lucide="building-2"></i><span class="stitle">Identificação</span></div>
+          <div class="grid">
+            <div class="span2"><label class="l">Razão social <span class="req">*</span></label><div class="field">WMS SUPERMERCADOS DO BRASIL</div></div>
+            <div>
+              <label class="l">CNPJ / CPF</label>
+              <div style="display:flex">
+                <div class="seg"><span class="on">CNPJ</span><span>CPF</span></div>
+                <div class="field mono bad focus" style="flex:1">12.345.678/0001-90<span class="caret"></span></div>
+              </div>
+            </div>
+            <div><label class="l">Nome fantasia <span style="text-transform:none;letter-spacing:0;font-weight:600;opacity:.6">(usado em todos os campos)</span></label><div class="field"><span class="ph">ex: Mondelez</span></div></div>
+            <div class="span2" style="margin-top:-5px">
+              <div class="err"><i data-lucide="alert-triangle"></i><span>Este CNPJ já pertence a <b style="color:var(--text)">Atacadão</b> (WMS Supermercados do Brasil Ltda).<br><span class="act"><i data-lucide="external-link"></i> Abrir cadastro existente</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="btn">Cancelar</button>
+        <button class="btn primary dis"><i data-lucide="plus"></i> Cadastrar</button>
+      </div>
+    </div>
+    <p class="scene-note" style="margin-top:14px">Com CNPJ livre, no lugar da caixa vermelha aparece:</p>
+    <div class="ok" style="margin-top:-6px"><i data-lucide="check"></i><span>CNPJ livre — nenhum fornecedor cadastrado com ele.</span></div>
+  </section>
+
+  <section>
+    <div class="scene-title"><b>2</b> Editar Fornecedor — as duas abas</div>
+    <p class="scene-note">Na edição, as duas abas ficam ativas e a de Favorecidos mostra a contagem. A altura do modal é fixa para não "pular" ao trocar de aba. A aba Favorecidos é <b>só leitura</b> — vínculo e apelidos continuam no financeiro. O botão <b>Salvar</b> fica visível nas duas abas.</p>
+    <div class="row">
+      <div class="modal lg">
+        <div class="titlebar">
+          <div class="tchip"><i data-lucide="building-2" width="15" height="15"></i></div>
+          <div><h2>Editar Fornecedor</h2><p>CEMIG · 06.981.180/0001-16</p></div>
+          <div class="tclose"><i data-lucide="x" width="15" height="15"></i></div>
+        </div>
+        <div class="tabs">
+          <span class="tab on"><span class="lb">Dados</span></span>
+          <span class="tab"><span class="lb">Favorecidos</span><span class="n">2</span></span>
+        </div>
+        <div class="body tall">
+          <div class="section">
+            <div class="shead"><i data-lucide="building-2"></i><span class="stitle">Identificação</span></div>
+            <div class="grid">
+              <div class="span2"><label class="l">Razão social <span class="req">*</span></label><div class="field">CEMIG DISTRIBUIÇÃO S.A.</div></div>
+              <div>
+                <label class="l">CNPJ / CPF</label>
+                <div style="display:flex">
+                  <div class="seg"><span class="on">CNPJ</span><span>CPF</span></div>
+                  <div class="field mono" style="flex:1">06.981.180/0001-16</div>
+                </div>
+              </div>
+              <div><label class="l">Nome fantasia <span style="text-transform:none;letter-spacing:0;font-weight:600;opacity:.6">(usado em todos os campos)</span></label><div class="field">CEMIG</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn">Cancelar</button>
+          <button class="btn primary"><i data-lucide="save"></i> Salvar</button>
+        </div>
+      </div>
+
+      <div class="modal lg">
+        <div class="titlebar">
+          <div class="tchip"><i data-lucide="building-2" width="15" height="15"></i></div>
+          <div><h2>Editar Fornecedor</h2><p>CEMIG · 06.981.180/0001-16</p></div>
+          <div class="tclose"><i data-lucide="x" width="15" height="15"></i></div>
+        </div>
+        <div class="tabs">
+          <span class="tab"><span class="lb">Dados</span></span>
+          <span class="tab on"><span class="lb">Favorecidos</span><span class="n">2</span></span>
+        </div>
+        <div class="body tall">
+          <div class="section">
+            <div class="shead"><i data-lucide="wallet"></i><span class="stitle">Favorecidos vinculados</span><span class="scount">2</span></div>
+            <div style="padding:10px">
+              <div class="fav">
+                <div class="fav-ic"><i data-lucide="landmark" width="13" height="13"></i></div>
+                <div style="flex:1;min-width:0">
+                  <div class="fav-name">CEMIG Distribuição S.A.</div>
+                  <div class="fav-sub"><span class="k">Extrato</span><span class="mono">PAG*CEMIG DIST</span></div>
+                  <div class="fav-sub"><span class="mini">luz</span><span class="mini">energia</span><span class="mini">conta de luz</span></div>
+                </div>
+              </div>
+              <div class="fav">
+                <div class="fav-ic"><i data-lucide="landmark" width="13" height="13"></i></div>
+                <div style="flex:1;min-width:0">
+                  <div class="fav-name">CEMIG — Débito automático</div>
+                  <div class="fav-sub"><span class="k">Extrato</span><span class="mono">DEB AUT CEMIG</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="help"><i data-lucide="info"></i><span>Vínculos e apelidos são editados em <b style="color:var(--text)">Controle Financeiro › Dados › Favorecidos</b>.</span></div>
+        </div>
+        <div class="footer">
+          <button class="btn">Cancelar</button>
+          <button class="btn primary"><i data-lucide="save"></i> Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="scene-note" style="margin-top:14px">Aba Favorecidos sem nenhum vínculo:</p>
+    <div class="modal lg">
+      <div class="tabs">
+        <span class="tab"><span class="lb">Dados</span></span>
+        <span class="tab on"><span class="lb">Favorecidos</span><span class="n">0</span></span>
+      </div>
+      <div class="body">
+        <div class="section">
+          <div class="shead"><i data-lucide="wallet"></i><span class="stitle">Favorecidos vinculados</span><span class="scount">nenhum</span></div>
+          <div class="emptybox"><i data-lucide="link-2-off" width="16" height="16"></i>Nenhum favorecido do Controle Financeiro está vinculado a este fornecedor.<span style="font-weight:600">Vincule em Controle Financeiro › Dados › Favorecidos.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="scene-title"><b>3</b> Lista de Fornecedores — sinais nos cards</div>
+    <p class="scene-note">Cada card ganha um selo com quantos favorecidos estão vinculados. Fornecedores que <b>já</b> estão com CNPJ repetido (cadastrados antes do bloqueio) ganham um selo âmbar para você limpar. A busca da lista também passa a achar por CNPJ.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="card-ic"><i data-lucide="building-2" width="16" height="16"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="card-name">CEMIG</div>
+          <div class="card-sub">CEMIG DISTRIBUIÇÃO S.A.</div>
+          <div class="card-sub mono" style="font-size:10px">06.981.180/0001-16</div>
+          <div class="badges"><span class="b fav-b"><i data-lucide="wallet"></i>2 favorecidos</span></div>
+        </div>
+        <i data-lucide="pencil" width="14" height="14" style="color:var(--faint)"></i>
+      </div>
+      <div class="card">
+        <div class="card-ic"><i data-lucide="building-2" width="16" height="16"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="card-name">Atacadão</div>
+          <div class="card-sub">WMS SUPERMERCADOS DO BRASIL LTDA</div>
+          <div class="card-sub mono" style="font-size:10px">12.345.678/0001-90</div>
+          <div class="badges"><span class="b fav-b"><i data-lucide="wallet"></i>1 favorecido</span><span class="b dup"><i data-lucide="copy"></i>CNPJ repetido</span></div>
+        </div>
+        <i data-lucide="pencil" width="14" height="14" style="color:var(--faint)"></i>
+      </div>
+      <div class="card">
+        <div class="card-ic"><i data-lucide="building-2" width="16" height="16"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="card-name">WMS</div>
+          <div class="card-sub mono" style="font-size:10px">12.345.678/0001-90</div>
+          <div class="badges"><span class="b dup"><i data-lucide="copy"></i>CNPJ repetido</span></div>
+        </div>
+        <i data-lucide="pencil" width="14" height="14" style="color:var(--faint)"></i>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

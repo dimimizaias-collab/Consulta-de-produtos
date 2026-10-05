@@ -43,6 +43,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { squareTabCls } from '@/components/shared/squareTabs';
 import { cn, getDirectImageUrl } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
@@ -497,16 +498,7 @@ const PM_SEC = 'bg-[#F1EAD3] dark:bg-[#181814] border border-[#E0D8BF] dark:bord
 const PM_SEC_HEAD = 'h-7 flex items-center gap-2 px-2.5 bg-[#FFEC4D] border-b-[1.5px] border-[#8F7E10] [&>svg]:text-[#D81E1E]';
 const PM_SEC_TITLE = 'text-[9px] font-black uppercase tracking-[0.1em] text-[rgba(26,26,10,0.55)]';
 const PM_SQ_BTN = 'w-[34px] h-[34px] shrink-0 flex items-center justify-center border border-dashed border-[#E0D8BF] dark:border-white/[0.10] bg-white dark:bg-[#1E1E18] text-on-surface/45 hover:text-[#D81E1E] hover:border-[#D81E1E]/45 transition-colors disabled:opacity-30 disabled:cursor-not-allowed';
-const PM_TAB = (active: boolean, first: boolean) => cn(
-  'min-w-[120px] h-8 px-3.5 flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap',
-  'bg-[#FBF35E] dark:bg-[#252520] border border-t-0 border-[#D9CF45] dark:border-white/[0.08]',
-  first ? 'border-l-0' : '-ml-px',
-  'text-[11px] font-extrabold uppercase tracking-[0.05em] text-[#1A1A0E] dark:text-[#F2F0E3]',
-  active
-    ? 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35),inset_0_-3px_0_#D81E1E] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55),inset_0_-3px_0_#D81E1E]'
-    : 'shadow-[inset_0_6px_8px_-5px_rgba(26,26,10,0.35)] dark:shadow-[inset_0_6px_8px_-5px_rgba(0,0,0,0.55)]',
-  'transition-transform duration-150 active:scale-[0.97]'
-);
+const PM_TAB = squareTabCls;
 const PM_STATUS_OPTIONS = ['Estoque Baixo', 'Em Estoque', 'Estoque em Alta', 'Fora de Estoque'];
 const pmMoneyInput = (raw: string) => {
   const digits = raw.replace(/\D/g, '');

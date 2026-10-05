@@ -32,6 +32,7 @@ import {
   Truck,
   MoreVertical,
   ArrowUpDown,
+  Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -290,6 +291,7 @@ export function LogisticsCenter({
   const [showAddSupplier, setShowAddSupplier]       = useState(false);
   const [pickerSuppliers, setPickerSuppliers]       = useState<EditingSupplier[]>([]);
   const [supplierSearch, setSupplierSearch]         = useState('');
+  const [supplierFavCounts, setSupplierFavCounts]   = useState<Record<string, number>>({});
   const [loadingPicker, setLoadingPicker]           = useState(false);
   const [editingSupplier, setEditingSupplier]       = useState<EditingSupplier | null>(null);
   const [showAddManufacturer, setShowAddManufacturer] = useState(false);
@@ -459,10 +461,26 @@ export function LogisticsCenter({
 
   const fetchPickerSuppliers = async () => {
     setLoadingPicker(true);
-    const { data } = await supabase.from('suppliers').select('*').order('nome_fantasia,name');
+    const [{ data }, { data: favs }] = await Promise.all([
+      supabase.from('suppliers').select('*').order('nome_fantasia,name'),
+      supabase.from('finance_favorecidos').select('supplier_id').not('supplier_id', 'is', null),
+    ]);
     setPickerSuppliers((data || []) as EditingSupplier[]);
+    const counts: Record<string, number> = {};
+    (favs ?? []).forEach((f: any) => { counts[f.supplier_id] = (counts[f.supplier_id] ?? 0) + 1; });
+    setSupplierFavCounts(counts);
     setLoadingPicker(false);
   };
+
+  // CNPJ/CPF repetido entre fornecedores (cadastros anteriores ao bloqueio no modal).
+  const dupSupplierIds = useMemo(() => {
+    const byDoc = new Map<string, string[]>();
+    pickerSuppliers.forEach(s => {
+      const d = (s.documento || '').replace(/\D/g, '');
+      if (d.length >= 11) byDoc.set(d, [...(byDoc.get(d) ?? []), s.id]);
+    });
+    return new Set([...byDoc.values()].filter(ids => ids.length > 1).flat());
+  }, [pickerSuppliers]);
 
   useEffect(() => {
     if (activeSection === 'fornecedores' && pickerSuppliers.length === 0 && !loadingPicker) {
@@ -473,8 +491,10 @@ export function LogisticsCenter({
   const filteredSuppliers = pickerSuppliers.filter(s => {
     if (!supplierSearch.trim()) return true;
     const q = supplierSearch.toLowerCase();
+    const qDigits = supplierSearch.replace(/\D/g, '');
     return (s.nome_fantasia || s.name).toLowerCase().includes(q) ||
-      (s.razao_social || '').toLowerCase().includes(q);
+      (s.razao_social || '').toLowerCase().includes(q) ||
+      (!/[a-z]/i.test(supplierSearch) && qDigits.length >= 3 && (s.documento || '').replace(/\D/g, '').includes(qDigits));
   });
 
   const fetchPickerManufacturers = async () => {
@@ -1059,7 +1079,7 @@ export function LogisticsCenter({
                   type="text"
                   value={supplierSearch}
                   onChange={e => setSupplierSearch(e.target.value)}
-                  placeholder="Buscar fornecedor..."
+                  placeholder="Buscar por nome ou CNPJ..."
                   className="w-full bg-[#FDFAF0] dark:bg-[#252520] border border-[#E0D8BF] dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface/30 focus:outline-none"
                 />
               </div>
@@ -1089,6 +1109,20 @@ export function LogisticsCenter({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-on-surface truncate">{displayName}</p>
                     {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
+                    {(supplierFavCounts[s.id] || dupSupplierIds.has(s.id)) ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {supplierFavCounts[s.id] > 0 && (
+                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold bg-[#D81E1E]/[0.08] text-[#D81E1E]">
+                            <Wallet size={10} /> {supplierFavCounts[s.id]} favorecido{supplierFavCounts[s.id] !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {dupSupplierIds.has(s.id) && (
+                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
+                            <Copy size={10} /> CNPJ repetido
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
@@ -2241,7 +2275,7 @@ export function LogisticsCenter({
                 type="text"
                 value={supplierSearch}
                 onChange={e => setSupplierSearch(e.target.value)}
-                placeholder="Buscar fornecedor..."
+                placeholder="Buscar por nome ou CNPJ..."
                 className="w-full bg-surface-container border border-on-surface/[0.06] rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface/30"
               />
             </div>
@@ -2276,6 +2310,20 @@ export function LogisticsCenter({
                     <p className="text-sm font-bold text-on-surface truncate group-hover:text-amber-700 transition-colors">{displayName}</p>
                     {subtitle && <p className="text-[10px] text-on-surface/40 truncate">{subtitle}</p>}
                     {s.documento && <p className="text-[10px] text-on-surface/30 font-mono">{s.documento}</p>}
+                    {(supplierFavCounts[s.id] || dupSupplierIds.has(s.id)) ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {supplierFavCounts[s.id] > 0 && (
+                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold bg-[#D81E1E]/[0.08] text-[#D81E1E]">
+                            <Wallet size={10} /> {supplierFavCounts[s.id]} favorecido{supplierFavCounts[s.id] !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {dupSupplierIds.has(s.id) && (
+                          <span className="h-[18px] inline-flex items-center gap-1 px-[7px] rounded-full text-[9.5px] font-extrabold text-[#B45309] dark:text-[#FCD34D] bg-[rgba(217,119,6,0.10)] dark:bg-[rgba(252,211,77,0.08)] border border-[rgba(217,119,6,0.35)] dark:border-[rgba(252,211,77,0.30)]">
+                            <Copy size={10} /> CNPJ repetido
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     onClick={() => { setEditingSupplier(s); setShowAddSupplier(true); }}
