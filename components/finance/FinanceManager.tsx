@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useFinanceTags, TAG_COLOR_MAP } from '@/hooks/useFinanceTags';
 import { TagSelector } from './TagSelector';
 import { TagGuide } from './TagGuide';
+import { CashFlowPage } from './CashFlowPage';
 import { LinkedNotesSection, LinkedNoteLite, linkNotesToTransactions, cleanupNoteLinksForDeletedTxs } from './LinkedNotesSection';
 import { FavorecidoEditModal } from './FavorecidoEditModal';
 import { FavorecidoDetailsModal } from './FavorecidoDetailsModal';
@@ -227,7 +228,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
   const [submitting, setSubmitting] = useState(false);
 
   // Abas "Favorecidos" e "Contas" (antes agrupadas numa única aba "Dados")
-  const [financeView, setFinanceView] = useState<'main' | 'favorecidos' | 'contas'>('main');
+  const [financeView, setFinanceView] = useState<'main' | 'fluxo' | 'favorecidos' | 'contas'>('main');
   // Tabela exibida na aba principal — "comum" (movimentações) ou "cartoes" (compras de
   // cartão de crédito individuais), alternadas pelo botão de cartão ao lado de "Guia de tags".
   const [mainTableView, setMainTableView] = useState<'comum' | 'cartoes'>('comum');
@@ -2033,6 +2034,7 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       <div className="flex">
         {([
           { key: 'main', label: 'Controle Financeiro' },
+          { key: 'fluxo', label: 'Fluxo de Caixa' },
           { key: 'favorecidos', label: 'Favorecidos' },
           { key: 'contas', label: 'Contas' },
         ] as const).map((tab, i, arr) => {
@@ -2477,6 +2479,15 @@ export function FinanceManager({ initialFocusTxId, onInitialFocusHandled }: Fina
       </AnimatePresence>
     </>
   );
+
+  if (financeView === 'fluxo') {
+    return (
+      <div className="space-y-3">
+        {renderFinanceHeader()}
+        <CashFlowPage transactions={transactions} tags={tags} loading={loadingData} onUpdateTag={updateTag} />
+      </div>
+    );
+  }
 
   if (financeView === 'favorecidos') {
     const dadosFavMatches = searchFavorecidos(favorecidos, suppliers, dadosFavSearch);

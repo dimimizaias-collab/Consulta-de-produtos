@@ -9,8 +9,12 @@ export interface FinanceTag {
   cor: string;
   descricao: string | null;
   exclusivo: boolean;
+  /** Grupo da DRE usado na aba "Fluxo de Caixa" (null = não classificada). */
+  grupo_dre?: GrupoDre | null;
   created_at: string;
 }
+
+export type GrupoDre = 'receita' | 'custo_variavel' | 'custo_fixo' | 'despesa_variavel' | 'despesa_fixa' | 'investimento' | 'ignorar';
 
 export const TAG_COLOR_MAP: Record<string, { bg: string; text: string; border: string; bgDark: string; textDark: string; borderDark: string; dot: string }> = {
   blue:   { bg: 'bg-blue-100',   text: 'text-blue-800',   border: 'border-blue-200',   bgDark: 'dark:bg-blue-950',   textDark: 'dark:text-blue-300',   borderDark: 'dark:border-blue-800',   dot: '#3b82f6' },
@@ -50,7 +54,7 @@ export function useFinanceTags() {
     return data as FinanceTag;
   }, []);
 
-  const updateTag = useCallback(async (id: string, fields: Partial<Pick<FinanceTag, 'nome' | 'cor' | 'descricao'>>) => {
+  const updateTag = useCallback(async (id: string, fields: Partial<Pick<FinanceTag, 'nome' | 'cor' | 'descricao' | 'grupo_dre'>>) => {
     const { error } = await supabase
       .from('finance_tags')
       .update(fields)
